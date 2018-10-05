@@ -15,7 +15,7 @@ def tconf(tconf):
     yield tconf
     tconf.MIN_LATENCY_COUNT = old_min_cnt
 
-
+@pytest.mark.skip(reason="Not used now")
 def testAvgReqLatency(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     """
     Checking if average latency is being set

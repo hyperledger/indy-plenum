@@ -37,7 +37,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     # Check that correct garbage collection happens
     non_gced_batch_count = (sent_batches - CHK_FREQ) if sent_batches >= CHK_FREQ else sent_batches
     looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * non_gced_batch_count,
-                          non_gced_batch_count, non_gced_batch_count, retryWait=1))
+                          non_gced_batch_count, retryWait=1))
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -45,7 +45,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
 
     # Check that after view change, proper clean up is done
     for node in txnPoolNodeSet:
-        for r in node.replicas:
+        for r in node.replicas.values():
             assert not r.checkpoints
             # No stashed checkpoint for previous view
             assert not [view_no for view_no in r.stashedRecvdCheckpoints if view_no < r.viewNo]
@@ -54,14 +54,14 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
             assert r.h == 0
             assert r.H == r._h + chkFreqPatched.LOG_SIZE
 
-    checkRequestCounts(txnPoolNodeSet, 0, 0, 0)
+    checkRequestCounts(txnPoolNodeSet, 0, 0)
 
     # Even after view change, chekpointing works
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                          batch_size * sent_batches, sent_batches)
 
     looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * non_gced_batch_count,
-                          non_gced_batch_count, non_gced_batch_count, retryWait=1))
+                          non_gced_batch_count, retryWait=1))
 
     # Send more batches so one more checkpoint happens. This is done so that
     # when this test finishes, all requests are garbage collected and the
@@ -69,4 +69,4 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     more = CHK_FREQ - non_gced_batch_count
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                          batch_size * more, more)
-    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, 0, 0, 0, retryWait=1))
+    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, 0, 0, retryWait=1))

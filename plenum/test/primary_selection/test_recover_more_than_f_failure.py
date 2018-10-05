@@ -32,7 +32,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     logger.info("Make sure view changed")
     expected_view_no = initial_view_no + 1
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
-    ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2)
+    ensureElectionsDone(looper=looper, nodes=active_nodes, instances_list=range(2))
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("send at least one checkpoint")
@@ -53,7 +53,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
 
     logger.info("Check that primary selected")
     ensureElectionsDone(looper=looper, nodes=active_nodes,
-                        numInstances=2, customTimeout=30)
+                        instances_list=range(2), customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
@@ -77,7 +77,7 @@ def stop_primary(looper, active_nodes):
 
 def primary_replicas_iter(*nodes):
     for node in nodes:
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             if replica.isPrimary:
                 yield replica
 

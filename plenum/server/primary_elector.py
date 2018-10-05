@@ -145,7 +145,7 @@ class PrimaryElector(PrimaryDecider):
         Start the election process by nominating self as primary.
         """
         logger.debug("{} starting election".format(self))
-        for r in self.replicas:
+        for r in self.replicas.values():
             self.prepareReplicaForElection(r)
 
         self.nominateItself()
@@ -211,7 +211,7 @@ class PrimaryElector(PrimaryDecider):
                 "{} already nominated, so hanging back".format(replica))
 
     def _get_undecided_inst_id(self):
-        undecideds = [i for i, r in enumerate(self.replicas)
+        undecideds = [i for i, r in self.replicas
                       if r.isPrimary is None]
         if 0 in undecideds and self.was_master_primary_in_prev_view:
             logger.info('{} was primary for master in previous view, '
@@ -705,7 +705,7 @@ class PrimaryElector(PrimaryDecider):
         if super().view_change_started(viewNo):
             # Reset to defaults values for different data structures as new
             # elections would begin
-            for r in self.replicas:
+            for r in self.replicas.values():
                 self.setDefaults(r.instId)
             self.replicaNominatedForItself = None
 
@@ -761,6 +761,6 @@ class PrimaryElector(PrimaryDecider):
         started node, a node that has crashed and recovered etc.)
         """
         msgs = []
-        for instId in range(len(self.replicas)):
+        for instId in self.replicas.keys():
             msgs.extend(self.getElectionMsgsForInstance(instId))
         return msgs

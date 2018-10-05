@@ -39,7 +39,7 @@ class FakeNode:
         self.basedirpath = tmpdir
         self.name = 'Node1'
         self.f = 1
-        self.replicas = []
+        self.replicas = dict()
         self.requests = []
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
@@ -49,11 +49,11 @@ class FakeNode:
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
-        self.replicas = [
-            Replica(node=self, instId=0, isMaster=True, config=self.config),
-            Replica(node=self, instId=1, isMaster=False, config=self.config),
-            Replica(node=self, instId=2, isMaster=False, config=self.config),
-        ]
+        self.replicas = {
+            0: Replica(node=self, instId=0, isMaster=True, config=self.config),
+            1: Replica(node=self, instId=1, isMaster=False, config=self.config),
+            2: Replica(node=self, instId=2, isMaster=False, config=self.config),
+        }
         self._found = False
         self.ledgerManager = LedgerManager(self, ownedByNode=True)
         ledger0 = FakeLedger(0, 10)

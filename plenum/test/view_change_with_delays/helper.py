@@ -64,7 +64,7 @@ def wait_for_elections_done_on_given_nodes(looper: Looper,
 
     def verify_each_replica_knows_its_primary():
         for node in nodes:
-            for replica in node.replicas:
+            for inst_id, replica in node.replicas:
                 assert replica.hasPrimary
 
     looper.run(eventuallyAll(check_num_of_replicas,

@@ -1,31 +1,15 @@
 import base58
-import os
 import pytest
 import re
 
 import time
 
-from plenum.common.constants import TXN_TYPE, GET_TXN, DATA, NODE, \
-    CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
-from plenum.common.request import Request
-from plenum.common.txn_util import get_type
-from plenum.common.types import f
-from plenum.common.util import getTimeBasedId
+from plenum.common.constants import GET_TXN
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.test import waits
-from plenum.test.helper import check_sufficient_replies_received, \
-    sdk_send_random_and_check
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.test_client import genTestClient
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
-from stp_core.loop.eventually import eventually
-from plenum.server.validator_info_tool import NUMBER_TXNS_FOR_DISPLAY
-from plenum.server.node import Node
 
-TEST_NODE_NAME = 'Alpha'
-INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
-PERIOD_SEC = 1
 nodeCount = 5
 MAX_TIME_FOR_INFO_BUILDING = 3
 
@@ -248,55 +232,6 @@ def test_protocol_info_section(info):
     assert 'Protocol' in info
 
 
-def test_dump_additional_info(node):
-    Node.dump_additional_info(node)
-    file_name = node._info_tool.ADDITIONAL_FILE_NAME_TEMPLATE.format(node_name=node.name.lower())
-    file_path = os.path.join(node.node_info_dir, file_name)
-    assert os.path.exists(file_path)
-
-
-
-@pytest.fixture(scope='function')
-def info(node):
-    return node._info_tool.info
-
-
-@pytest.fixture(scope='module')
-def node(txnPoolNodeSet):
-    for n in txnPoolNodeSet:
-        if n.name == TEST_NODE_NAME:
-            return n
-    assert False, 'Pool does not have "{}" node'.format(TEST_NODE_NAME)
-
-
-@pytest.fixture
-def read_txn_and_get_latest_info(txnPoolNodesLooper,
-                                 client_and_wallet, node):
-    client, wallet = client_and_wallet
-
-    def read_wrapped(txn_type):
-        op = {
-            TXN_TYPE: txn_type,
-            f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
-            DATA: 1
-        }
-        req = Request(identifier=wallet.defaultId,
-                      operation=op, reqId=getTimeBasedId(),
-                      protocolVersion=CURRENT_PROTOCOL_VERSION)
-        client.submitReqs(req)
-
-        timeout = waits.expectedTransactionExecutionTime(
-            len(client.inBox))
-
-        txnPoolNodesLooper.run(
-            eventually(check_sufficient_replies_received,
-                       client, req.identifier, req.reqId,
-                       retryWait=1, timeout=timeout))
-        return node._info_tool.info
-
-    return read_wrapped
-
-
 @pytest.fixture
 def write_txn_and_get_latest_info(txnPoolNodesLooper,
                                   sdk_pool_handle,
@@ -310,21 +245,3 @@ def write_txn_and_get_latest_info(txnPoolNodesLooper,
         return node._info_tool.info
 
     return write_wrapped
-
-
-@pytest.fixture(scope="function")
-def load_latest_info(node):
-    def wrapped():
-        return node._info_tool.info
-
-    return wrapped
-
-
-@pytest.fixture
-def client_and_wallet(txnPoolNodesLooper, tdirWithClientPoolTxns, txnPoolNodeSet):
-    client, wallet = genTestClient(tmpdir=tdirWithClientPoolTxns, nodes=txnPoolNodeSet,
-                                   name='reader', usePoolLedger=True)
-    txnPoolNodesLooper.add(client)
-    ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
-                                                  *txnPoolNodeSet)
-    return client, wallet

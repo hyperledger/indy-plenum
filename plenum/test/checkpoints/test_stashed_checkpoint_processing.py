@@ -35,7 +35,7 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
 
-    for replica in epsilon.replicas:
+    for inst_id, replica in epsilon.replicas:
         assert len(replica.checkpoints) == 1
         assert (1, 5) in replica.checkpoints
         assert replica.checkpoints[(1, 5)].seqNo == 4
@@ -51,7 +51,7 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
     epsilon.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
     def check():
-        for replica in epsilon.replicas:
+        for inst_id, replica in epsilon.replicas:
             assert len(replica.checkpoints) == 1
             assert (1, 5) in replica.checkpoints
             assert replica.checkpoints[(1, 5)].seqNo == 5
@@ -69,7 +69,7 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
 
-    for replica in epsilon.replicas:
+    for inst_id, replica in epsilon.replicas:
         assert len(replica.checkpoints) == 1
         assert (1, 5) in replica.checkpoints
         assert replica.checkpoints[(1, 5)].seqNo == 5

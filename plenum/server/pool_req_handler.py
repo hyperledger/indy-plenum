@@ -97,9 +97,10 @@ class PoolRequestHandler(LedgerRequestHandler):
                 origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
-        if self.isNodeDataConflicting(data):
+        error = self.isNodeDataConflicting(data)
+        if error:
             return "existing data has conflicts with " \
-                   "request data {}".format(operation.get(DATA))
+                   "request data {}. Error: {}".format(operation.get(DATA), error)
 
     def authErrorWhileUpdatingNode(self, request):
         # Check if steward of the node is updating it and its data does not
@@ -180,44 +181,34 @@ class PoolRequestHandler(LedgerRequestHandler):
         nodeInfo.pop(f.IDENTIFIER.nm, None)
         return nodeInfo == newData
 
-    def isNodeDataConflicting(self, data, updatingNym=None):
+    def isNodeDataConflicting(self, new_data, updating_nym=None):
         # Check if node's ALIAS or IPs or ports conflicts with other nodes,
         # also, the node is not allowed to change its alias.
 
         # Check ALIAS change
-        nodeData = {}
-        if updatingNym:
-            nodeData = self.getNodeData(updatingNym, isCommitted=False)
-            if nodeData.get(ALIAS) != data.get(ALIAS):
-                return True
-            else:
-                # Preparing node data for check coming next
-                nodeData.pop(f.IDENTIFIER.nm, None)
-                nodeData.pop(SERVICES, None)
-                nodeData.update(data)
+        if updating_nym:
+            old_alias = self.getNodeData(updating_nym, isCommitted=False).get(ALIAS)
+            new_alias = new_data.get(ALIAS)
+            if old_alias != new_alias:
+                return "Node's alias cannot be changed"
 
-        for otherNode, otherNodeData in self.state.as_dict.items():
-            otherNode = otherNode.decode()
-            otherNodeData = self.stateSerializer.deserialize(otherNodeData)
-            otherNodeData.pop(f.IDENTIFIER.nm, None)
-            otherNodeData.pop(SERVICES, None)
-            if not updatingNym or otherNode != updatingNym:
-                # The node's ip, port and alias shuuld be unique
-                bag = set()
-                for d in (nodeData, otherNodeData):
-                    bag.add(d.get(ALIAS))
-                    bag.add((d.get(NODE_IP), d.get(NODE_PORT)))
-                    bag.add((d.get(CLIENT_IP), d.get(CLIENT_PORT)))
-
-                list(map(lambda x: bag.remove(x) if x in bag else None,
-                         (None, (None, None))))
-
-                if (not nodeData and len(bag) != 3) or (
-                        nodeData and len(bag) != 6):
-                    return True
-            if data.get(ALIAS) == otherNodeData.get(
-                    ALIAS) and not updatingNym:
-                return True
+        nodes = self.state.as_dict.items()
+        for other_node_nym, other_node_data in nodes:
+            other_node_nym = other_node_nym.decode()
+            other_node_data = self.stateSerializer.deserialize(other_node_data)
+            if not updating_nym or other_node_nym != updating_nym:
+                # The node's ip, port and alias should be unique
+                same_alias = new_data.get(ALIAS) == other_node_data.get(ALIAS)
+                if same_alias:
+                    return "Node's alias must be unique"
+                same_node_ha = (new_data.get(NODE_IP), new_data.get(NODE_PORT)) == \
+                               (other_node_data.get(NODE_IP), other_node_data.get(NODE_PORT))
+                if same_node_ha:
+                    return "Node's nodestack addresses must be unique"
+                same_cli_ha = (new_data.get(CLIENT_IP), new_data.get(CLIENT_PORT)) == \
+                              (other_node_data.get(CLIENT_IP), other_node_data.get(CLIENT_PORT))
+                if same_cli_ha:
+                    return "Node's clientstack addresses must be unique"
 
     def dataErrorWhileValidatingUpdate(self, data, nodeNym):
         error = self.dataErrorWhileValidating(data, skipKeys=True)
@@ -227,9 +218,10 @@ class PoolRequestHandler(LedgerRequestHandler):
         if self.isNodeDataSame(nodeNym, data, isCommitted=False):
             return "node already has the same data as requested"
 
-        if self.isNodeDataConflicting(data, nodeNym):
+        error = self.isNodeDataConflicting(data, nodeNym)
+        if error:
             return "existing data has conflicts with " \
-                   "request data {}".format(data)
+                   "request data {}. Error: {}".format(data, error)
 
     def _verify_bls_key_proof_of_possession(self, key_proof, pk):
         return True if self.bls_crypto_verifier is None else \

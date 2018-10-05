@@ -55,7 +55,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_
     looper.run(checkNodesConnected(nodes[:3]))
 
     # wait for the election to complete with the first three nodes
-    ensureElectionsDone(looper, nodes[:3], numInstances=2)
+    ensureElectionsDone(looper, nodes[:3], instances_list=range(2))
 
     # start the fourth and see that it learns who the primaries are
     # from the other nodes

@@ -9,7 +9,6 @@ import psutil
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import MONITORING_PREFIX
-from plenum.common.measurements import LatencyMeasurement
 from plenum.common.monitor_strategies import AccumulatingMonitorStrategy
 from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
@@ -34,20 +33,22 @@ class RequestTimeTracker:
     """
 
     class Request:
-        def __init__(self, timestamp, instance_count):
+        def __init__(self, timestamp, instances_ids):
+            self.ordered = dict()
             self.timestamp = timestamp
-            self.ordered = [False] * instance_count
+            for ins_id in instances_ids:
+                self.ordered[ins_id] = False
 
             # True if request was unordered for too long and
             # was handled by handlers on master replica
             self.handled = False
 
         def order(self, instId):
-            if 0 <= instId < len(self.ordered):
+            if instId in self.ordered:
                 self.ordered[instId] = True
 
         def remove_instance(self, instId):
-            del self.ordered[instId]
+            self.ordered.pop(instId, None)
 
         @property
         def is_ordered(self):
@@ -59,12 +60,16 @@ class RequestTimeTracker:
 
         @property
         def is_ordered_by_all(self):
-            return all(self.ordered)
+            return all(self.ordered.values())
 
-    def __init__(self, instance_count):
-        self.instance_count = instance_count
+    def __init__(self, instances_ids):
+        self.instances_ids = instances_ids
         self._requests = {}
+        self._unordered = set()
         self._handled_unordered = set()
+
+    def __len__(self):
+        return len(self._requests)
 
     def __contains__(self, item):
         return item in self._requests
@@ -74,7 +79,8 @@ class RequestTimeTracker:
         return req.timestamp if req is not None else None
 
     def start(self, key, timestamp):
-        self._requests[key] = RequestTimeTracker.Request(timestamp, self.instance_count)
+        self._requests[key] = RequestTimeTracker.Request(timestamp, self.instances_ids)
+        self._unordered.add(key)
 
     def order(self, instId, key, timestamp):
         req = self._requests[key]
@@ -82,6 +88,7 @@ class RequestTimeTracker:
         req.order(instId)
         if instId == 0:
             self._handled_unordered.discard(key)
+            self._unordered.discard(key)
         if req.is_ordered_by_all:
             del self._requests[key]
         return tto
@@ -92,6 +99,11 @@ class RequestTimeTracker:
 
     def reset(self):
         self._requests.clear()
+        self._unordered.clear()
+        self._handled_unordered.clear()
+
+    def unordered(self):
+        return self._unordered
 
     def handled_unordered(self):
         return self._handled_unordered
@@ -100,8 +112,8 @@ class RequestTimeTracker:
         return ((key, req.timestamp) for key, req in self._requests.items()
                 if not req.is_ordered and not req.is_handled)
 
-    def add_instance(self):
-        self.instance_count += 1
+    def add_instance(self, inst_id):
+        self.instances_ids.add(inst_id)
 
     def remove_instance(self, instId):
         for req in self._requests.values():
@@ -109,7 +121,9 @@ class RequestTimeTracker:
         reqs_to_del = [key for key, req in self._requests.items() if req.is_ordered_by_all]
         for req in reqs_to_del:
             del self._requests[req]
-        self.instance_count -= 1
+            self._unordered.discard(req)
+            self._handled_unordered.discard(req)
+        self.instances_ids.remove(instId)
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -143,19 +157,19 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         self.config = getConfig()
 
-        # Number of ordered requests by each replica. The value at index `i` in
-        # the list is a tuple of the number of ordered requests by replica and
+        # Number of ordered requests by each replica. The value at key `i` in
+        # the dict is a tuple of the number of ordered requests by replica and
         # the time taken to order those requests by the replica of the `i`th
         # protocol instance
-        self.numOrderedRequests = []  # type: List[Tuple[int, int]]
+        self.numOrderedRequests = dict()  # type: Dict[int, Tuple[int, int]]
 
-        # List of throughputs for replicas. Index is a instId and value is a instance of
+        # Dict(instance_id, throughput) of throughputs for replicas. Key is a instId and value is a instance of
         # ThroughputMeasurement class and provide throughputs evaluating mechanism
-        self.throughputs = []   # type: List[ThroughputMeasurement]
+        self.throughputs = dict()   # type: Dict[int, ThroughputMeasurement]
 
         # Utility object for tracking requests order start and end
         # TODO: Has very similar cleanup logic to propagator.Requests
-        self.requestTracker = RequestTimeTracker(instances.count)
+        self.requestTracker = RequestTimeTracker(instances.ids)
 
         # Request latencies for the master protocol instances. Key of the
         # dictionary is a tuple of client id and request id and the value is
@@ -167,9 +181,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencyTooHigh = False
 
         # Request latency(time taken to be ordered) for the client. The value
-        # at index `i` in the list is the LatencyMeasurement object which accumulate
+        # at key `i` in the dict is the LatencyMeasurement object which accumulate
         # average latency and total request for each client.
-        self.clientAvgReqLatencies = []  # type: List[LatencyMeasurement]
+        self.clientAvgReqLatencies = dict()  # type: Dict[int, LatencyMeasurement]
 
         # TODO: Set this if this monitor belongs to a node which has primary
         # of master. Will be used to set `totalRequests`
@@ -180,21 +194,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         self.started = datetime.utcnow().isoformat()
 
-        # Times of requests ordered by master in last
-        # `ThroughputWindowSize` seconds. `ThroughputWindowSize` is
-        # defined in config
         self.orderedRequestsInLast = []
-
-        # Times and latencies (as a tuple) of requests ordered by master in last
-        # `LatencyWindowSize` seconds. `LatencyWindowSize` is
-        # defined in config
-        self.latenciesByMasterInLast = []
-
-        # Times and latencies (as a tuple) of requests ordered by backups in last
-        # `LatencyWindowSize` seconds. `LatencyWindowSize` is
-        # defined in config. Dictionary where key corresponds to instance id and
-        #  value is a tuple of ordering time and latency of a request
-        self.latenciesByBackupsInLast = {}
 
         # attention: handlers will work over unordered request only once
         self.unordered_requests_handlers = []  # type: List[Callable]
@@ -230,7 +230,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.sendPeriodicStats = lambda: None
             self.checkPerformance = lambda: None
 
-        self.latency_avg_strategy_cls = self.config.latency_averaging_strategy_class
+        self.latency_avg_for_backup_cls = self.config.LatencyAveragingStrategyClass
+        self.latency_measurement_cls = self.config.LatencyMeasurementCls
         self.throughput_avg_strategy_cls = self.config.throughput_averaging_strategy_class
 
         self.acc_monitor = None
@@ -238,7 +239,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if self.config.ACC_MONITOR_ENABLED:
             self.acc_monitor = AccumulatingMonitorStrategy(
                 start_time=time.perf_counter(),
-                instances=instances.count,
+                instances=instances.ids,
                 txn_delta_k=self.config.ACC_MONITOR_TXN_DELTA_K,
                 timeout=self.config.ACC_MONITOR_TIMEOUT,
                 input_rate_reaction_half_time=self.config.ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
@@ -259,11 +260,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             ("Omega", self.Omega),
             ("instances started", self.instances.started),
             ("ordered request counts",
-             {i: r[0] for i, r in enumerate(self.numOrderedRequests)}),
+             {i: r[0] for i, r in self.numOrderedRequests.items()}),
             ("ordered request durations",
-             {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
+             {i: r[1] for i, r in self.numOrderedRequests.items()}),
             ("master request latencies", self.masterReqLatencies),
-            ("client avg request latencies", {i: self.getLatencies(i)
+            ("client avg request latencies", {i: self.getLatency(i)
                                               for i in self.instances.ids}),
             ("throughput", {i: self.getThroughput(i)
                             for i in self.instances.ids}),
@@ -299,8 +300,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Reset the monitor. Sets all monitored values to defaults.
         """
         logger.debug("{}'s Monitor being reset".format(self))
-        num_instances = len(self.instances.started)
-        self.numOrderedRequests = [(0, 0)] * num_instances
+        instances_ids = self.instances.started.keys()
+        self.numOrderedRequests = {inst_id: (0, 0) for inst_id in instances_ids}
         self.requestTracker.reset()
         self.masterReqLatencies = {}
         self.masterReqLatencyTooHigh = False
@@ -308,41 +309,36 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.lastKnownTraffic = self.calculateTraffic()
         if self.acc_monitor:
             self.acc_monitor.reset()
-        for i in range(num_instances):
+        for i in instances_ids:
             rm = self.create_throughput_measurement(self.config)
             self.throughputs[i] = rm
-            lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
+            lm = self.latency_measurement_cls(self.config)
             self.clientAvgReqLatencies[i] = lm
 
-    def addInstance(self):
+    def addInstance(self, inst_id):
         """
         Add one protocol instance for monitoring.
         """
-        self.instances.add()
-        self.requestTracker.add_instance()
-        self.numOrderedRequests.append((0, 0))
+        self.instances.add(inst_id)
+        self.requestTracker.add_instance(inst_id)
+        self.numOrderedRequests[inst_id] = (0, 0)
         rm = self.create_throughput_measurement(self.config)
 
-        self.throughputs.append(rm)
-        lm = LatencyMeasurement(min_latency_count=self.config.MIN_LATENCY_COUNT)
-        self.clientAvgReqLatencies.append(lm)
+        self.throughputs[inst_id] = rm
+        lm = self.latency_measurement_cls(self.config)
+        self.clientAvgReqLatencies[inst_id] = lm
         if self.acc_monitor:
-            self.acc_monitor.add_instance()
+            self.acc_monitor.add_instance(inst_id)
 
-    def removeInstance(self, index=None):
-        # TODO: This doesn't take into account index, but this function is never called with defined index,
-        # probably we can simplify this thing?
+    def removeInstance(self, inst_id):
         if self.acc_monitor:
-            self.acc_monitor.remove_instance()
-
+            self.acc_monitor.remove_instance(inst_id)
         if self.instances.count > 0:
-            if index is None:
-                index = self.instances.count - 1
-            self.instances.remove(index)
-            self.requestTracker.remove_instance(index)
-            del self.numOrderedRequests[index]
-            del self.clientAvgReqLatencies[index]
-            del self.throughputs[index]
+            self.instances.remove(inst_id)
+            self.requestTracker.remove_instance(inst_id)
+            self.numOrderedRequests.pop(inst_id, None)
+            self.clientAvgReqLatencies.pop(inst_id, None)
+            self.throughputs.pop(inst_id, None)
 
     def requestOrdered(self, reqIdrs: List[str], instId: int,
                        requests, byMaster: bool = False) -> Dict:
@@ -366,7 +362,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 started = self.requestTracker.started(key)
                 logger.info('Consensus for ReqId: {} was achieved by {}:{} in {} seconds.'
                             .format(key, self.name, instId, now - started))
-                continue
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
             if byMaster:
@@ -375,9 +370,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 # Therefore, view_change triggering by max latency is not indicative now.
                 # self.masterReqLatencies[key] = duration
                 self.orderedRequestsInLast.append(now)
-                self.latenciesByMasterInLast.append((now, duration))
-            else:
-                self.latenciesByBackupsInLast.setdefault(instId, []).append((now, duration))
 
             if key in requests:
                 identifier = requests[key].request.identifier
@@ -392,7 +384,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         # TODO: Inefficient, as on every request a minimum of a large list is
         # calculated
-        if min(r[0] for r in self.numOrderedRequests) == (reqs + orderedNow):
+        if min(r[0] for r in self.numOrderedRequests.values()) == (reqs + orderedNow):
             # If these requests is ordered by the last instance then increment
             # total requests, but why is this important, why cant is ordering
             # by master not enough?
@@ -499,39 +491,21 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the average request latency of the master instance is
         greater than the acceptable threshold
         """
-        avgLatM = self.getLatencies(self.instances.masterId)
-        avgLatB = {}
-        for lat_item in [self.getLatencies(instId) for instId in self.instances.backupIds]:
-            for cid, lat in lat_item.items():
-                avgLatB.setdefault(cid, []).append(lat)
+        avg_lat_master, avg_lat_backup = self.getLatencies()
+        if not avg_lat_master or not avg_lat_backup:
+            return False
 
-        # If latency of the master for any client is greater than that of
-        # backups by more than the threshold `Omega`, then a view change
-        # needs to happen
-        for cid, latencies in avgLatB.items():
-            if cid not in avgLatM:
-                logger.trace("{} found master had no record yet for {}".
-                             format(self, cid))
-                return False
-            if not latencies:
-                continue
+        d = avg_lat_master - avg_lat_backup
+        if d < self.Omega:
+            return False
 
-            high_avg_lat = self.latency_avg_strategy_cls.get_avg(latencies)
-            avg_master_lat = avgLatM[cid]
-            if avg_master_lat - high_avg_lat < self.Omega:
-                continue
-
-            d = avg_master_lat - high_avg_lat
-            logger.info("{}{} found difference between master's and "
-                        "backups's avg latency {} to be higher than the "
-                        "threshold".format(MONITORING_PREFIX, self, d))
-            logger.trace(
-                "{}'s master's avg request latency is {} and backup's "
-                "avg request latency is {}".format(self, avgLatM, avgLatB))
-            return True
-        logger.trace("{} found difference between master and backups "
-                     "avg latencies to be acceptable".format(self))
-        return False
+        logger.info("{}{} found difference between master's and "
+                    "backups's avg latency {} to be higher than the "
+                    "threshold".format(MONITORING_PREFIX, self, d))
+        logger.trace(
+            "{}'s master's avg request latency is {} and backup's "
+            "avg request latency is {}".format(self, avg_lat_master, avg_lat_backup))
+        return True
 
     def getThroughputs(self, masterInstId: int):
         """
@@ -546,7 +520,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # Average backup replica's throughput
         if len(self.throughputs) > 1:
             thrs = []
-            for instId, thr_obj in enumerate(self.throughputs):
+            for instId, thr_obj in self.throughputs.items():
                 if instId != masterInstId:
                     thr = self.getThroughput(instId)
                     if thr is not None:
@@ -574,7 +548,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # We are using the instanceStarted time in the denominator instead of
         # a time interval. This is alright for now as all the instances on a
         # node are started at almost the same time.
-        if instId >= self.instances.count:
+        if instId not in self.instances.ids:
             return None
         perf_time = time.perf_counter()
         throughput = self.throughputs[instId].get_throughput(perf_time)
@@ -587,7 +561,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         the one specified as `forAllExcept`.
         """
         m = [(reqs, tm) for i, (reqs, tm)
-             in enumerate(self.numOrderedRequests)
+             in self.numOrderedRequests.items()
              if i != forAllExcept]
         if m:
             reqs, tm = zip(*m)
@@ -595,33 +569,24 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             return None, None
 
-    def getAvgLatencyForClient(self, identifier: str, *instId: int) -> float:
-        """
-        Calculate and return the average latency of the requests of the
-        client(specified by identifier) for the specified protocol instances.
-        """
-        if len(self.clientAvgReqLatencies) == 0:
-            return 0
-        means = []
-        for i in instId:
-            avg_lat = self.clientAvgReqLatencies[i].get_avg_latency(identifier)
-            if avg_lat:
-                means.append(avg_lat)
-        return self.mean(means)
+    def getLatencies(self):
+        avg_lat_master = self.getLatency(self.instances.masterId)
+        avg_lat_backup_by_inst = []
+        for instId in self.instances.backupIds:
+            lat = self.getLatency(instId)
+            if lat:
+                avg_lat_backup_by_inst.append(lat)
+        avg_lat_backup_ = self.latency_avg_for_backup_cls.get_avg(avg_lat_backup_by_inst)\
+            if avg_lat_backup_by_inst else None
+        return avg_lat_master, avg_lat_backup_
 
-    def getLatencies(self, instId: int) -> Dict[str, float]:
+    def getLatency(self, instId: int) -> float:
         """
         Return a dict with client identifier as a key and calculated latency as a value
         """
         if len(self.clientAvgReqLatencies) == 0:
-            return 0
-        latencies = {}
-        for cid in self.clientAvgReqLatencies[instId].avg_latencies.keys():
-            avg_lat = self.clientAvgReqLatencies[instId].get_avg_latency(cid)
-            if avg_lat:
-                latencies[cid] = avg_lat
-
-        return latencies
+            return 0.0
+        return self.clientAvgReqLatencies[instId].get_avg_latency()
 
     def sendPeriodicStats(self):
         thoughputData = self.sendThroughput()
@@ -657,13 +622,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     @property
     def highResThroughput(self):
         # TODO:KS Move these computations as well to plenum-stats project
-        now = time.perf_counter()
-        while self.orderedRequestsInLast and \
-                (now - self.orderedRequestsInLast[0]) > \
-                self.config.ThroughputWindowSize:
-            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
-
-        return len(self.orderedRequestsInLast) / self.config.ThroughputWindowSize
+        return self.getThroughput(self.instances.masterId)
 
     def sendThroughput(self):
         logger.debug("{} sending throughput".format(self))
@@ -683,30 +642,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     @property
     def masterLatency(self):
-        now = time.perf_counter()
-        while self.latenciesByMasterInLast and \
-                (now - self.latenciesByMasterInLast[0][0]) > \
-                self.config.LatencyWindowSize:
-            self.latenciesByMasterInLast = self.latenciesByMasterInLast[1:]
-        return (sum(l[1] for l in self.latenciesByMasterInLast) /
-                len(self.latenciesByMasterInLast)) if \
-            len(self.latenciesByMasterInLast) > 0 else 0
+        master_latency, _ = self.getLatencies()
+        return master_latency
 
     @property
     def avgBackupLatency(self):
-        now = time.perf_counter()
-        backupLatencies = []
-        for instId, latencies in self.latenciesByBackupsInLast.items():
-            while latencies and \
-                    (now - latencies[0][0]) > \
-                    self.config.LatencyWindowSize:
-                latencies = latencies[1:]
-            backupLatencies.append(
-                (sum(l[1] for l in latencies) / len(latencies)) if
-                len(latencies) > 0 else 0)
-            self.latenciesByBackupsInLast[instId] = latencies
-
-        return self.mean(backupLatencies)
+        _, lat_backup = self.getLatencies()
+        return lat_backup
 
     def sendLatencies(self):
         logger.debug("{} sending latencies".format(self))
@@ -801,7 +743,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def postOnNodeStarted(self, startedAt):
         throughputData = {
-            "throughputWindowSize": self.config.ThroughputWindowSize,
             "updateFrequency": self.config.DashboardUpdateFreq,
             "graphDuration": self.config.ThroughputGraphDuration
         }
