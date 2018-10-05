@@ -57,7 +57,7 @@ def testCorrectNumOfReplicas(pool):
         # num of replicas running on a single node must be f + 1
         assert len(node.replicas) == fValue + 1
         # num of primary nodes is <= 1
-        numberOfPrimary = len([r for r in node.replicas if r.isPrimary])
+        numberOfPrimary = len([r for r in node.replicas.values() if r.isPrimary])
         assert numberOfPrimary <= 1
         for instId in getProtocolInstanceNums(node):
             # num of replicas for a instance on a node must be 1

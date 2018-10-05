@@ -5,10 +5,12 @@ from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
-from typing import Dict, Callable
+from typing import Dict, Callable, Optional
 from stp_core.types import HA
 import time
 from stp_core.common.log import getlogger
+from stp_zmq.zstack import Quota
+
 logger = getlogger()
 
 
@@ -121,6 +123,6 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
                                format(CONNECTION_PREFIX, self, name, ex))
         return missing
 
-    async def service(self, limit=None):
-        c = await super().service(limit)
+    async def service(self, limit=None, quota: Optional[Quota] = None):
+        c = await super().service(limit, quota)
         return c

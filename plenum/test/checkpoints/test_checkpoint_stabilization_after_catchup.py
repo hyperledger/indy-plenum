@@ -35,7 +35,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 1
 
         assert len(replica.stashedRecvdCheckpoints) == 0
@@ -49,7 +49,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 2
         keys_iter = iter(replica.checkpoints)
 
@@ -76,7 +76,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
                               sdk_pool_handle, sdk_wallet_client, 1)
     looper.runFor(stabilization_timeout)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 1
         keys_iter = iter(replica.checkpoints)
 

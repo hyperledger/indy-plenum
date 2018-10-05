@@ -1,7 +1,7 @@
 import pytest
 import time
 
-from plenum.common.measurements import SafeStartEMAThroughputMeasurement
+from plenum.common.throughput_measurements import SafeStartEMAThroughputMeasurement
 
 ACCURACY = .1e-3
 

@@ -23,3 +23,10 @@ def sdk_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
 
 def get_node_by_name(txnPoolNodeSet, name):
     return next(node for node in txnPoolNodeSet if node.name == name)
+
+
+def nodes_last_ordered_equal(*nodes):
+    if len(nodes) < 2:
+        raise BaseException('nodes_last_ordered_equal can compare less than 2 nodes')
+    seq_no = next(iter(nodes)).master_last_ordered_3PC[1]
+    assert all(seq_no == n.master_last_ordered_3PC[1] for n in nodes)

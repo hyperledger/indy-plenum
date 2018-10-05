@@ -9,7 +9,7 @@ START_TIME = 100.0
 
 def createMonitor():
     return AccumulatingMonitorStrategy(start_time=START_TIME,
-                                       instances=2,
+                                       instances=set(range(2)),
                                        txn_delta_k=ACC_MONITOR_TXN_DELTA_K,
                                        timeout=ACC_MONITOR_TIMEOUT,
                                        input_rate_reaction_half_time=ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME)
@@ -65,7 +65,7 @@ def test_acc_monitor_behaves_as_expected():
 
 def test_acc_monitor_works_even_with_one_instance():
     mon = createMonitor()
-    mon.remove_instance()
+    mon.remove_instance(1)
 
     start_time = 100.0
     mon.update_time(start_time)

@@ -4,30 +4,26 @@ from typing import Optional, Sequence
 
 class Instances:
     def __init__(self):
-        self.count = 0
 
         # Started time for each replica on the node. The value at index `i` in
         # the start time of the `i`th protocol instance
-        self.started = []
+        self.started = dict()
 
-    def add(self):
+    def add(self, inst_id):
         """
         Add one protocol instance.
         """
-        self.count += 1
-        self.started.append(time.perf_counter())
+        self.started[inst_id] = time.perf_counter()
 
-    def remove(self, index):
-        if 0 <= index < len(self.started):
-            self.count -= 1
-            del self.started[index]
+    def remove(self, inst_id):
+        self.started.pop(inst_id, None)
 
     @property
-    def ids(self) -> Sequence[int]:
+    def ids(self) -> set:
         """
         Return the list of ids of all the protocol instances
         """
-        return range(self.count)
+        return set(self.started.keys())
 
     @property
     def masterId(self) -> Optional[int]:
@@ -35,7 +31,7 @@ class Instances:
         Return the index of the replica that belongs to the master protocol
         instance
         """
-        return 0 if self.count > 0 else None
+        return 0 if 0 in self.started.keys() else None
 
     @property
     def backupIds(self) -> Sequence[int]:
@@ -43,4 +39,8 @@ class Instances:
         Return the list of replicas that don't belong to the master protocol
         instance
         """
-        return range(1, self.count)
+        return [id for id in self.started.keys() if id != 0]
+
+    @property
+    def count(self) -> int:
+        return len(self.started)

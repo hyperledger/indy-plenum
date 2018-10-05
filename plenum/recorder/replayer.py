@@ -79,7 +79,7 @@ def patch_sent_prepreapres(replaying_node, node_recorder):
             except json.JSONDecodeError:
                 continue
 
-    for r in replaying_node.replicas:
+    for r in replaying_node.replicas.values():
         r.sent_pps = sent_pps.pop(r.instId, {})
 
     replaying_node.sent_pps = sent_pps

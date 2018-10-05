@@ -593,6 +593,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             ledger_summary = self._accepted_view_change_done_message[1]
             pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
             nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
+        if self.view_change_in_progress:
+            self.node.restore_replicas()
 
         self.node.select_primaries(nodeReg)
 
@@ -704,5 +706,5 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     def is_primary_disconnected(self):
         return \
-            self.node.lost_primary_at and self.node.master_primary_name and \
+            self.node.primaries_disconnection_times[self.node.master_replica.instId] and self.node.master_primary_name and \
             self.node.master_primary_name not in self.node.nodestack.conns

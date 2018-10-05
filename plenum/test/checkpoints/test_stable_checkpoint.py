@@ -1,37 +1,48 @@
+import pytest
+
+from plenum.common.exceptions import RequestRejectedException
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints, checkRequestCounts
+from plenum.test.pool_transactions.helper import sdk_add_new_nym
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_random_and_check
 
 
+CHK_FREQ = 5
+
+
 def test_request_older_than_stable_checkpoint_removed(chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_handle,
-                                                      sdk_wallet_client, reqs_for_checkpoint):
+                                                      sdk_wallet_steward, reqs_for_checkpoint):
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     max_batch_size = chkFreqPatched.Max3PCBatchSize
 
     # Send some requests (insufficient for checkpoint),
     # wait replies and check that current checkpoint is not stable
-    reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
-                                     reqs_for_checkpoint - max_batch_size)
-    total_checkpoints = 1
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, total_checkpoints, retryWait=1, timeout=timeout))
-    chk_freq = chkFreqPatched.CHK_FREQ
-    checkRequestCounts(txnPoolNodeSet, len(reqs), chk_freq - 1, 1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 2 * max_batch_size)
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, retryWait=1, timeout=timeout))
+    checkRequestCounts(txnPoolNodeSet, 2 * max_batch_size, 2)
 
-    # Send some more requests to cause checkpoint stabilization
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, max_batch_size)
+    # From the steward send a request creating a user with None role
+    sdk_wallet_user = sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward)
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, retryWait=1, timeout=timeout))
+    checkRequestCounts(txnPoolNodeSet, 2 * max_batch_size + 1, 3)
 
+    # From the created user send a request creating another user.
+    # Dynamic validation of this request must fail since a user with None role cannot create users.
+    # However, the 3PC-batch with the sent request must be ordered.
+    with pytest.raises(RequestRejectedException):
+        sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_user)
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, retryWait=1, timeout=timeout))
+    checkRequestCounts(txnPoolNodeSet, 2 * max_batch_size + 2, 4)
+
+    # Send more requests to cause checkpoint stabilization
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, max_batch_size)
     # Check that checkpoint is stable now
     # and verify that requests for it were removed
-    stable_checkpoint_id = 0
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, total_checkpoints, stable_checkpoint_id,
-                          retryWait=1, timeout=timeout))
-    checkRequestCounts(txnPoolNodeSet, 0, 0, 0)
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1, timeout=timeout))
+    checkRequestCounts(txnPoolNodeSet, 0, 0)
 
-    # Send some more requests to cause new checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_for_checkpoint + 1)
-    total_checkpoints = 2
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, total_checkpoints, stable_checkpoint_id,
-                          retryWait=1, timeout=timeout))
-
-    checkRequestCounts(txnPoolNodeSet, 1, 1, 1)
+    # Send more requests to cause new checkpoint
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, reqs_for_checkpoint + 1)
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 2, 0, retryWait=1, timeout=timeout))
+    checkRequestCounts(txnPoolNodeSet, 1, 1)
