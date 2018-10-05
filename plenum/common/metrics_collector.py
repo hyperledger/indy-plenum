@@ -12,8 +12,8 @@ from typing import Callable, NamedTuple, Union, Optional
 from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
 
-
 TMP_METRIC = 30000
+
 
 @unique
 class MetricsName(IntEnum):
@@ -177,8 +177,6 @@ class MetricsName(IntEnum):
     PRIMARY_DECIDER_INBOX = TMP_METRIC + 20
     PRIMARY_DECIDER_OUTBOX = TMP_METRIC + 21
 
-    MONITOR_NUM_ORDERED_REQUESTS = TMP_METRIC + 22
-    MONITOR_THROUGHPUTS = TMP_METRIC + 23
     MONITOR_ORDERED_REQUESTS_IN_LAST = TMP_METRIC + 24
 
     MSGS_FOR_FUTURE_REPLICAS = TMP_METRIC + 25
@@ -191,8 +189,6 @@ class MetricsName(IntEnum):
     MSGS_FOR_FUTURE_VIEWS = TMP_METRIC + 29
 
     TXN_SEQ_RANGE_TO_3PHASE_KEY = TMP_METRIC + 30
-
-    LAST_PERFORMANCE_CHECK_DATA = TMP_METRIC + 31
 
     LEDGERMANAGER_POOL_UNCOMMITEDS = TMP_METRIC + 32
     LEDGERMANAGER_DOMAIN_UNCOMMITEDS = TMP_METRIC + 33
