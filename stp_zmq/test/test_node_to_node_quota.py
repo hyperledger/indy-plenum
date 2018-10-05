@@ -10,6 +10,7 @@ from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, prepStacks, checkStacksConnected
 from stp_zmq.kit_zstack import KITZStack
 from stp_zmq.test.helper import genKeys
+from stp_zmq.zstack import Quota
 
 
 @pytest.fixture()
@@ -87,7 +88,7 @@ def test_limit_by_msg_count(looper, tdir, tconf, connected_nodestacks):
     msg = 'some test messages'
     for i in range(tconf.NODE_TO_NODE_STACK_QUOTA + 10):
         stackA.send(msg, 'Beta')
-    received_msgs = stackB._receiveFromListener(stackA.listenerQuota, stackA.listenerSize)
+    received_msgs = stackB._receiveFromListener(Quota(count=stackA.listenerQuota, size=stackA.listenerSize))
     assert received_msgs <= tconf.NODE_TO_NODE_STACK_QUOTA
 
 
@@ -100,5 +101,5 @@ def test_limit_by_msg_size(looper, tdir, tconf, connected_nodestacks):
     stackB.listenerSize = limit_size
     for i in range(tconf.NODE_TO_NODE_STACK_QUOTA + 10):
         stackA.send(msg, 'Beta')
-    received_msgs = stackB._receiveFromListener(stackA.listenerQuota, stackA.listenerSize)
+    received_msgs = stackB._receiveFromListener(Quota(count=stackA.listenerQuota, size=stackA.listenerSize))
     assert received_msgs < tconf.NODE_TO_NODE_STACK_QUOTA

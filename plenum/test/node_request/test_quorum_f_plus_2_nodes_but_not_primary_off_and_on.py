@@ -83,7 +83,7 @@ def test_quorum_after_f_plus_2_nodes_but_not_primary_turned_off_and_later_on(
 
     nodes[3] = start_stopped_node(nodes[3], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes[:2] + nodes[3:],
-                        numInstances=getRequiredInstances(nodeCount))
+                        instances_list=range(getRequiredInstances(nodeCount)))
     checkViewNoForNodes(nodes[:2] + nodes[3:], expectedViewNo=0)
 
     sdk_reqs6 = sdk_send_random_requests(looper,
@@ -94,7 +94,7 @@ def test_quorum_after_f_plus_2_nodes_but_not_primary_turned_off_and_later_on(
 
     nodes[2] = start_stopped_node(nodes[2], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes,
-                        numInstances=getRequiredInstances(nodeCount))
+                        instances_list=range(getRequiredInstances(nodeCount)))
     checkViewNoForNodes(nodes, expectedViewNo=0)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,

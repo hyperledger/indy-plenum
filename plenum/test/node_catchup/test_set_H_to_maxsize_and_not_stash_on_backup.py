@@ -40,7 +40,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     # check, that all of node set up watermark greater, then default and
     # ppSeqNo with number LOG_SIZE + 1 will be out from default watermark
     for n in txnPoolNodeSet:
-        for r in n.replicas._replicas:
+        for r in n.replicas._replicas.values():
             assert r.h >= LOG_SIZE
             assert r.H >= LOG_SIZE + LOG_SIZE
     """Adding new node, for scheduling propagate primary procedure"""
@@ -49,7 +49,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     """Check, that backup replicas set watermark as (0, maxInt)"""
     # Check, replica.h is set from last_ordered_3PC and replica.H is set to maxsize
-    for r in new_node.replicas:
+    for r in new_node.replicas.values():
         assert r.h == r.last_ordered_3pc[1]
         if r.isMaster:
             assert r.H == r.last_ordered_3pc[1] + LOG_SIZE
@@ -58,7 +58,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     """Send requests and check. that backup replicas does not stashing it by outside watermarks reason"""
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
     # check, that there is no any stashed "outside watermark" messages.
-    for r in new_node.replicas:
+    for r in new_node.replicas.values():
         assert len(r.stashingWhileOutsideWaterMarks) == 0
 
     """Force view change and check, that all backup replicas setup H as a default
@@ -67,7 +67,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
-    for r in new_node.replicas:
+    for r in new_node.replicas.values():
         if not r.isMaster:
             assert r.h == 0
             assert r.H == LOG_SIZE

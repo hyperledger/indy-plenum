@@ -119,7 +119,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
                            .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
             return False
         self.previous_master_primary = self.node.master_primary_name
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.primaryName = None
         return True
 

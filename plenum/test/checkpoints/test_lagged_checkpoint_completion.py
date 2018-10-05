@@ -33,7 +33,7 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     # to others. The slow node receives and stashes these messages because it
     # has not completed the checkpoint.
     def check():
-        for replica in slow_node.replicas:
+        for replica in slow_node.replicas.values():
             assert len(replica.checkpoints) == 1
             assert (1, 5) in replica.checkpoints
             assert replica.checkpoints[(1, 5)].seqNo == 4
@@ -58,7 +58,7 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
 
     looper.runFor(waits.expectedOrderingTime(len(txnPoolNodeSet)))
 
-    for replica in slow_node.replicas:
+    for replica in slow_node.replicas.values():
         assert len(replica.checkpoints) == 1
         assert (1, 5) in replica.checkpoints
         assert replica.checkpoints[(1, 5)].seqNo == 5

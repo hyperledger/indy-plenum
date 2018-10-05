@@ -57,6 +57,7 @@ from plenum.common.messages.node_messages import Reply
 logger = getlogger()
 
 
+@spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
     write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
     query_types = CoreAuthNr.query_types.union({'get_buy', })
@@ -144,8 +145,8 @@ class TestNodeCore(StackedTester):
             nodeInfo=self.nodeInfo,
             notifierEventTriggeringConfig=notifierEventTriggeringConfig,
             pluginPaths=pluginPaths)
-        for i in range(len(self.replicas)):
-            self.monitor.addInstance()
+        for i in self.replicas.keys():
+            self.monitor.addInstance(i)
         self.replicas._monitor = self.monitor
         self.replicas.register_monitor_handler()
 
@@ -197,7 +198,7 @@ class TestNodeCore(StackedTester):
         logger.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays(*names)
-        for r in self.replicas:
+        for r in self.replicas.values():
             r.outBoxTestStasher.resetDelays()
 
     def resetDelaysClient(self):
@@ -209,7 +210,7 @@ class TestNodeCore(StackedTester):
     def force_process_delayeds(self, *names):
         c = self.nodestack.force_process_delayeds(*names)
         c += self.nodeIbStasher.force_unstash(*names)
-        for r in self.replicas:
+        for r in self.replicas.values():
             c += r.outBoxTestStasher.force_unstash(*names)
         logger.debug("{} forced processing of delayed messages, "
                      "{} processed in total".format(self, c))
@@ -274,7 +275,7 @@ class TestNodeCore(StackedTester):
                      format(self.nodestack.name, msg, frm))
 
     def service_replicas_outbox(self, *args, **kwargs) -> int:
-        for r in self.replicas:  # type: TestReplica
+        for r in self.replicas.values():  # type: TestReplica
             r.outBoxTestStasher.process()
         return super().service_replicas_outbox(*args, **kwargs)
 
@@ -478,6 +479,7 @@ replica_spyables = [
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
+    replica.Replica.markCheckPointStable,
 ]
 
 
@@ -814,8 +816,8 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
                                                 nodes: Sequence[TestNode],
                                                 retryWait: float = None,
                                                 timeout: float = None,
-                                                numInstances: int = None):
-    coro = eventually(instances, nodes, numInstances,
+                                                instances_list: Sequence[int] = None):
+    coro = eventually(instances, nodes, instances_list,
                       retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
     newTimeout = timeout - timeConsumed if timeout is not None else None
@@ -832,7 +834,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                                       retryWait: float = None,
                                       customTimeout: float = None):
     def checkAtMostOnePrim(node):
-        prims = [r for r in node.replicas if r.isPrimary]
+        prims = [r for r in node.replicas.values() if r.isPrimary]
         assert len(prims) <= 1
 
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
@@ -847,14 +849,14 @@ def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None,
-                               numInstances: int = None):
+                               instances: Sequence[int] = None):
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
                                                 nodes=nodes,
                                                 retryWait=retryWait,
                                                 timeout=timeout,
-                                                numInstances=numInstances)
+                                                instances_list=instances)
 
     checkEveryNodeHasAtMostOnePrimary(looper=looper,
                                       nodes=nodes,
@@ -863,7 +865,7 @@ def checkProtocolInstanceSetup(looper: Looper,
 
     primaryReplicas = {replica.instId: replica
                        for node in nodes
-                       for replica in node.replicas if replica.isPrimary}
+                       for replica in node.replicas.values() if replica.isPrimary}
     return [r[1] for r in
             sorted(primaryReplicas.items(), key=operator.itemgetter(0))]
 
@@ -872,7 +874,7 @@ def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
                         customTimeout: float = None,
-                        numInstances: int = None) -> Sequence[TestNode]:
+                        instances_list: Sequence[int] = None) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`
     # since there might not always be an election, there might be a round
     # robin selection
@@ -881,7 +883,7 @@ def ensureElectionsDone(looper: Looper,
 
     :param retryWait:
     :param customTimeout: specific timeout
-    :param numInstances: expected number of protocol instances
+    :param instances_list: expected number of protocol instances
     :return: primary replica for each protocol instance
     """
 
@@ -896,7 +898,7 @@ def ensureElectionsDone(looper: Looper,
         nodes=nodes,
         retryWait=retryWait,
         customTimeout=customTimeout,
-        numInstances=numInstances)
+        instances=instances_list)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -953,12 +955,12 @@ def timeThis(func, *args, **kwargs):
 
 
 def instances(nodes: Sequence[Node],
-              numInstances: int = None) -> Dict[int, List[replica.Replica]]:
-    numInstances = (getRequiredInstances(len(nodes))
-    if numInstances is None else numInstances)
+              instances: Sequence[int] = None) -> Dict[int, List[replica.Replica]]:
+    instances = (range(getRequiredInstances(len(nodes)))
+                 if instances is None else instances)
     for n in nodes:
-        assert len(n.replicas) == numInstances
-    return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
+        assert len(n.replicas) == len(instances)
+    return {i: [n.replicas[i] for n in nodes] for i in instances}
 
 
 def getRequiredInstances(nodeCount: int) -> int:

@@ -231,6 +231,10 @@ def test_master_not_degraded_on_2_spikes_divided_by_normal_load_delayed_on_maste
                                    .build()
                         for inst_id in range(1, 9)]
 
+    throughput_ratio = get_throughput_ratio(inst_req_streams, tconf)
+
+    assert_master_not_degraded(throughput_ratio, tconf)
+
 
 def test_master_degraded_on_stop_ordering_on_master(tconf):
     inst_req_streams = [ReqStream().period(s=0, i=1, q=11)

@@ -164,7 +164,7 @@ def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
 
     alive_nodes = stop_next_primary(txnPoolNodeSet)
 
-    ensureElectionsDone(looper=looper, nodes=alive_nodes, numInstances=3)
+    ensureElectionsDone(looper=looper, nodes=alive_nodes, instances_list=range(3))
 
     # There were 2 view changes
     for node in alive_nodes:
