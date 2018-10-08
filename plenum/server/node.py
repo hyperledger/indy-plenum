@@ -1424,6 +1424,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while replica_num > new_required_number_of_instances:
             replica_num -= 1
             self.replicas.remove_replica(replica_num)
+            self.send_instance_change_if_too_many_replicas_removed()
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
 
@@ -2854,6 +2855,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
             self.replicas.remove_replica(inst_id)
+            self.send_instance_change_if_too_many_replicas_removed()
+
+    def send_instance_change_if_too_many_replicas_removed(self):
+        if self.requiredNumberOfInstances - self.replicas.num_replicas > self.quorums.f/2:
+            self.view_changer.on_suspicious_primary(Suspicions.REPLICAS_REMOVED)
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
