@@ -26,9 +26,9 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
             ledger_id, ledger, ledger_info, txn)
     # generate CatchupReps
     replies = []
-    for i in range(reply_count, 0, -1):
-        start = ledger.seqNo + 1 - i * num_txns_in_reply
-        end = ledger.seqNo - (i - 1) * num_txns_in_reply
+    for i in range(ledger.seqNo - txn_count + 1, ledger.seqNo + 1, num_txns_in_reply):
+        start = i
+        end = i + num_txns_in_reply - 1
         cons_proof = ledger_manager._make_consistency_proof(ledger, end, ledger.size)
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
