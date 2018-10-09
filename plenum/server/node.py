@@ -2858,7 +2858,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.send_instance_change_if_too_many_replicas_removed()
 
     def send_instance_change_if_too_many_replicas_removed(self):
-        if self.requiredNumberOfInstances - self.replicas.num_replicas > self.quorums.f/2:
+        if self.requiredNumberOfInstances - self.replicas.num_replicas > self.quorums.f / 2:
             self.view_changer.on_suspicious_primary(Suspicions.REPLICAS_REMOVED)
 
     def _schedule_view_change(self):
