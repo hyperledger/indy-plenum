@@ -3,6 +3,8 @@ from functools import partial
 
 import pytest
 
+from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
+    Checkpoint
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
@@ -206,3 +208,15 @@ def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
 def repair_node_catchup_less(other_nodes):
     for node in other_nodes:
         node.catchup_twice = False
+
+
+def repair_broken_node(node):
+    node.nodeMsgRouter.extend(
+        (
+            (PrePrepare, node.sendToReplica),
+            (Prepare, node.sendToReplica),
+            (Commit, node.sendToReplica),
+            (Checkpoint, node.sendToReplica),
+        )
+    )
+    return node
