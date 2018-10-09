@@ -55,8 +55,8 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
 
     cons_proof, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1], txns_count, looper, sdk_wallet_client)
     ledger_info.catchUpTill = cons_proof
+    ledger_info.state = LedgerState.syncing
     for reply in catchup_reps:
-        ledger_info.state = LedgerState.syncing
         ledger_manager.processCatchupRep(reply, sdk_wallet_client[1])
         received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
         assert catchup_reps[txns_count - 1] == reply or \
