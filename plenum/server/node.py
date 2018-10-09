@@ -2042,6 +2042,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
+        self.mode = Mode.synced
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic
@@ -2153,7 +2154,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
-        self.mode = Mode.synced
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
@@ -2962,13 +2962,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
-    def start_catchup(self, just_started=False):
+    def _do_start_catchup(self, just_started):
         # Process any already Ordered requests by the replica
-
-        if self.mode == Mode.starting:
-            logger.info('{} does not start the catchup procedure '
-                        'because it is already in this state'.format(self))
-            return
         self.force_process_ordered()
 
         # # revert uncommitted txns and state for unordered requests
@@ -2979,6 +2974,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager.prepare_ledgers_for_sync()
         self.ledgerManager.catchup_ledger(self.ledgerManager.ledger_sync_order[0],
                                           request_ledger_statuses=not just_started)
+
+    def start_catchup(self, just_started=False):
+        if not self.is_synced and not just_started:
+            logger.info('{} does not start the catchup procedure '
+                        'because another catchup is in progress'.format(self))
+            return
+        self._do_start_catchup(just_started)
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
         logger.debug('{} ordered previous view batch {} by instance {}'.
