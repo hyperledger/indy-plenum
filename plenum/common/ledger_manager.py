@@ -536,12 +536,12 @@ class LedgerManager(HasActionQueue):
         # If `catchUpReplies` has any transaction that has not been applied
         # to the ledger
         catchUpReplies = catchUpReplies[numProcessed:]
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
         while catchUpReplies and catchUpReplies[0][0] - ledger.seqNo == 1:
             seqNo = catchUpReplies[0][0]
             result, nodeName, toBeProcessed = self.hasValidCatchupReplies(
                 ledgerId, ledger, seqNo, catchUpReplies)
             if result:
-                ledgerInfo = self.getLedgerInfoByType(ledgerId)
                 for _, txn in catchUpReplies[:toBeProcessed]:
                     self._add_txn(ledgerId, ledger,
                                   ledgerInfo, txn)
