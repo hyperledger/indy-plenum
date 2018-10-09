@@ -530,15 +530,14 @@ class LedgerManager(HasActionQueue):
         # TODO: Inefficient, should check list in reverse and stop at first
         # match since list is already sorted
         numProcessed = sum(1 for s, _ in catchUpReplies if s <= ledger.size)
-        num_replies = 0
+        if numProcessed:
+            logger.info("{} found {} already processed transactions in the catchup replies".
+                        format(self, numProcessed))
         # If `catchUpReplies` has any transaction that has not been applied
         # to the ledger
         catchUpReplies = catchUpReplies[numProcessed:]
         while catchUpReplies and catchUpReplies[0][0] - ledger.seqNo == 1:
             seqNo = catchUpReplies[0][0]
-            if numProcessed:
-                logger.info("{} found {} already processed transactions in the catchup replies".
-                            format(self, numProcessed))
             result, nodeName, toBeProcessed = self.hasValidCatchupReplies(
                 ledgerId, ledger, seqNo, catchUpReplies)
             if result:
@@ -547,9 +546,8 @@ class LedgerManager(HasActionQueue):
                     self._add_txn(ledgerId, ledger,
                                   ledgerInfo, txn)
                 self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
-                num_replies += numProcessed + toBeProcessed
-                numProcessed = sum(1 for s, _ in catchUpReplies if s <= ledger.size)
-                catchUpReplies = catchUpReplies[numProcessed:]
+                numProcessed += toBeProcessed
+                catchUpReplies = catchUpReplies[toBeProcessed:]
             else:
                 if self.ownedByNode:
                     self.owner.blacklistNode(nodeName,
@@ -561,7 +559,7 @@ class LedgerManager(HasActionQueue):
                     # Invalid transactions have to be discarded so letting
                     # the caller know how many txns have to removed from
                     # `self.receivedCatchUpReplies`
-                    return numProcessed + toBeProcessed + num_replies
+                    return numProcessed + toBeProcessed
         return numProcessed
 
     def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
