@@ -256,6 +256,12 @@ class MetricsName(IntEnum):
     REPLICA_REPEATING_ACTIONS_BACKUP = TMP_METRIC + 2027
     REPLICA_SCHEDULED_BACKUP = TMP_METRIC + 2028
 
+    # Memory collectors
+    MEMORY_REQUESTS = TMP_METRIC + 3001
+    MEMORY_REQUESTS_ITEMS = TMP_METRIC + 3002
+    MEMORY_DOMAIN_LEDGER_UNCOMMITTED = TMP_METRIC + 3003
+    MEMORY_DOMAIN_LEDGER_UNCOMMITTED_ITEMS = TMP_METRIC + 3004
+
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
                                            ('value', Union[float, ValueAccumulator])])

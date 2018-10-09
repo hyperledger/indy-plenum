@@ -9,6 +9,7 @@ from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
 import psutil
+import sys
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
@@ -2741,6 +2742,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_BACKUP, sum_for_backups('aqStash'))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
+
+        # Most 'heavy' collections
+        requests_memory = sys.getsizeof(self.requests)
+        requests_memory_items = sum(sys.getsizeof(req.request.signature) + sys.getsizeof(req.request.operation)
+                                    for req in self.requests.values())
+        requests_memory_items += sum(sum(sys.getsizeof(p.signature) + sys.getsizeof(p.operation)
+                                         for p in req.propagates.values()) for req in self.requests.values())
+        self.metrics.add_event(MetricsName.MEMORY_REQUESTS, requests_memory)
+        self.metrics.add_event(MetricsName.MEMORY_REQUESTS_ITEMS, requests_memory_items)
+
+        uncommitted_memory = sys.getsizeof(self.requests)
+        uncommitted_memory_items = sum(
+            sys.getsizeof(txn['txn']['metadata']['digest']) + sys.getsizeof(txn['reqSignature']) +
+            sys.getsizeof(txn['txn']) + sys.getsizeof(txn['txn']['data']) +
+            sys.getsizeof(txn['txn']['metadata']) + sys.getsizeof(txn['txnMetadata'])
+            for txn in self.get_req_handler(DOMAIN_LEDGER_ID).ledger.uncommittedTxns)
+        uncommitted_memory_items += sum(sum(sys.getsizeof(v['value']) for v in txn['reqSignature']['values']) for txn in
+                                        self.get_req_handler(1).ledger.uncommittedTxns)
+
+        self.metrics.add_event(MetricsName.MEMORY_DOMAIN_LEDGER_UNCOMMITTED, uncommitted_memory)
+        self.metrics.add_event(MetricsName.MEMORY_DOMAIN_LEDGER_UNCOMMITTED_ITEMS, uncommitted_memory_items)
 
         self.metrics.flush_accumulated()
 
