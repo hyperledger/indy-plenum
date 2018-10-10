@@ -325,7 +325,7 @@ STACK_COMPANION = 0
 ENABLE_INCONSISTENCY_WATCHER_NETWORK = True
 
 METRICS_COLLECTOR_TYPE = None  # None or 'kv'
-METRICS_FLUSH_INTERVAL = 1.0  # seconds
+METRICS_FLUSH_INTERVAL = 10.0  # seconds
 METRICS_KV_STORAGE = KeyValueStorageType.Rocksdb
 METRICS_KV_DB_NAME = 'metrics_db'
 METRICS_KV_CONFIG = rocksdb_default_config.copy()

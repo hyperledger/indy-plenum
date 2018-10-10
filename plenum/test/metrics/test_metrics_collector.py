@@ -16,7 +16,7 @@ from storage.kv_store import KeyValueStorage
 def test_metrics_collector_dont_add_events_when_accumulating():
     mc = MockMetricsCollector()
 
-    mc.acc_event(gen_metrics_name(), 3.0)
+    mc.add_event(gen_metrics_name(), 3.0)
 
     assert mc.events == []
 
@@ -31,7 +31,7 @@ def test_metrics_collector_dont_add_events_when_flushing_empty():
 
 def test_metrics_collector_adds_events_when_flushing_accumulated():
     mc = MockMetricsCollector()
-    mc.acc_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
     mc.flush_accumulated()
 
     assert len(mc.events) == 1
@@ -40,8 +40,8 @@ def test_metrics_collector_adds_events_when_flushing_accumulated():
 
 def test_metrics_collector_accumulate_same_events_into_one():
     mc = MockMetricsCollector()
-    mc.acc_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
-    mc.acc_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
+    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
     mc.flush_accumulated()
 
     assert len(mc.events) == 1
@@ -50,8 +50,8 @@ def test_metrics_collector_accumulate_same_events_into_one():
 
 def test_metrics_collector_separates_different_events():
     mc = MockMetricsCollector()
-    mc.acc_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
-    mc.acc_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, 2.0)
+    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, 2.0)
     mc.flush_accumulated()
 
     assert len(mc.events) == 2
@@ -61,9 +61,9 @@ def test_metrics_collector_separates_different_events():
 
 def test_metrics_collector_resets_accumulated_after_flush():
     mc = MockMetricsCollector()
-    mc.acc_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
     mc.flush_accumulated()
-    mc.acc_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
+    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
     mc.flush_accumulated()
 
     assert len(mc.events) == 2
@@ -159,7 +159,7 @@ def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyVal
     event = MetricsEvent(ts.value, id, value)
     encoded_key, encoded_value = KvStoreMetricsFormat.encode(event)
 
-    metrics.add_event(id, value)
+    metrics.store_event(id, value)
     stored_events = [(k, v) for k, v in storage.iterator()]
 
     assert len(stored_events) == 1
@@ -174,7 +174,7 @@ def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueSto
 
     for e in events:
         ts.value = e.timestamp
-        metrics.add_event(e.name, e.value)
+        metrics.store_event(e.name, e.value)
     stored_events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
 
     # Check that all events are stored
@@ -195,7 +195,7 @@ def test_kv_store_metrics_collector_store_all_events_with_same_timestamp(storage
     values = [10, 2, 54, 2]
 
     for v in values:
-        metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, v)
+        metrics.store_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, v)
     events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
 
     # Check that all events are stored
