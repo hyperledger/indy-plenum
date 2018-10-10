@@ -127,7 +127,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
     old_ledger_size = ledger.size
     num_txns_in_reply = 3
-    reply_count = 1
+    reply_count = 2
 
     cons_proof, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
                                                    looper,
@@ -138,16 +138,36 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     ledger_info.state = LedgerState.syncing
 
     # make invalid catchup reply by dint of adding new transaction in it
-    reply = catchup_reps[0]
-    txns = getattr(reply, f.TXNS.nm)
+    reply2 = catchup_reps[1]
+    txns = getattr(reply2, f.TXNS.nm)
     req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)[0]
     txns[str(old_ledger_size + 4)] = append_txn_metadata(reqToTxn(req), txn_time=12345678)
+    # process 2nd interval with invalid catchup reply
     ledger_manager.processCatchupRep(CatchupRep(ledger_id,
                                                 txns,
-                                                getattr(reply, f.CONS_PROOF.nm)),
+                                                getattr(reply2, f.CONS_PROOF.nm)),
                                      sdk_wallet_client[1])
-    # check that transactions was not ordered
-    assert ledger.size == old_ledger_size
-    assert ledger.seqNo == old_ledger_size
+    # check that invalid transaction was not ordered, but add to ledger_info.receivedCatchUpReplies
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply2)
+
+    # process valid reply from 1st interval
+    reply1 = catchup_reps[0]
+    ledger_manager.processCatchupRep(reply1, sdk_wallet_client[1])
+    # check that ordered only valid reply
+    check_replies_applied(old_ledger_size,
+                          ledger,
+                          ledger_info,
+                          [reply1])
+
+    # check that invalid request was removed from ledger_info.receivedCatchUpReplies
     received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
-    assert not set(getattr(reply, f.TXNS.nm).keys()).issubset(received_replies)
+    assert not set(getattr(reply2, f.TXNS.nm).keys()).issubset(received_replies)
+
+    # check that valid reply for 2nd interval was ordered
+    reply2 = catchup_reps[1]
+    ledger_manager.processCatchupRep(reply2, sdk_wallet_client[1])
+    check_replies_applied(old_ledger_size,
+                          ledger,
+                          ledger_info,
+                          [reply2])
+    assert not ledger_info.receivedCatchUpReplies
