@@ -147,13 +147,13 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
                                                 txns,
                                                 getattr(reply2, f.CONS_PROOF.nm)),
                                      sdk_wallet_client[1])
-    # check that invalid transaction was not ordered, but add to ledger_info.receivedCatchUpReplies
+    # check that invalid transaction was not added to ledger, but add to ledger_info.receivedCatchUpReplies
     check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply2)
 
     # process valid reply from 1st interval
     reply1 = catchup_reps[0]
     ledger_manager.processCatchupRep(reply1, sdk_wallet_client[1])
-    # check that ordered only valid reply
+    # check that only valid reply added to ledger
     check_replies_applied(old_ledger_size,
                           ledger,
                           ledger_info,
@@ -163,7 +163,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
     assert not set(getattr(reply2, f.TXNS.nm).keys()).issubset(received_replies)
 
-    # check that valid reply for 2nd interval was ordered
+    # check that valid reply for 2nd interval was added to ledger
     reply2 = catchup_reps[1]
     ledger_manager.processCatchupRep(reply2, sdk_wallet_client[1])
     check_replies_applied(old_ledger_size,
