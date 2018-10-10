@@ -120,7 +120,7 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     ledger_manager.processCatchupRep(reply5, sdk_wallet_client[1])
     ledger_size = check_replies_applied(ledger_size, ledger, ledger_info, sdk_wallet_client[1], [reply5,
                                                                                        reply6])
-    assert sdk_wallet_client[1] not in ledger_info.recvdCatchupRepliesFrm
+    assert not ledger_info.recvdCatchupRepliesFrm
     assert not ledger_info.receivedCatchUpReplies
 
 
@@ -181,4 +181,4 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
                           sdk_wallet_client[1],
                           [reply2])
     assert not ledger_info.receivedCatchUpReplies
-    assert sdk_wallet_client[1] not in ledger_info.recvdCatchupRepliesFrm
+    assert not ledger_info.recvdCatchupRepliesFrm
