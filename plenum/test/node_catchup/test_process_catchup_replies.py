@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.txn_util import append_txn_metadata, reqToTxn
@@ -58,7 +60,7 @@ def check_replies_applied(old_ledger_size, ledger, ledger_info, frm, replies):
     assert all(not set(getattr(reply, f.TXNS.nm).keys()).issubset(received_replies)
                for reply in replies)
     assert frm not in ledger_info.recvdCatchupRepliesFrm or \
-           any(reply not in ledger_info.recvdCatchupRepliesFrm[frm]
+           all(reply not in ledger_info.recvdCatchupRepliesFrm[frm]
                for reply in replies)
 
 
@@ -145,16 +147,17 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
 
     # make invalid catchup reply by dint of adding new transaction in it
     reply2 = catchup_reps[1]
-    txns = getattr(reply2, f.TXNS.nm)
+    txns = OrderedDict(getattr(reply2, f.TXNS.nm))
     req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)[0]
     txns[str(old_ledger_size + 4)] = append_txn_metadata(reqToTxn(req), txn_time=12345678)
+    invalid_reply2 = CatchupRep(ledger_id,
+                                txns,
+                                getattr(reply2, f.CONS_PROOF.nm))
     # process 2nd interval with invalid catchup reply
-    ledger_manager.processCatchupRep(CatchupRep(ledger_id,
-                                                txns,
-                                                getattr(reply2, f.CONS_PROOF.nm)),
+    ledger_manager.processCatchupRep(invalid_reply2,
                                      sdk_wallet_client[1])
     # check that invalid transaction was not added to ledger, but add to ledger_info.receivedCatchUpReplies
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply2)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], invalid_reply2)
 
     # process valid reply from 1st interval
     reply1 = catchup_reps[0]
@@ -165,7 +168,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
                           ledger_info,
                           sdk_wallet_client[1],
                           [reply1])
-
+    old_ledger_size = ledger.size
     # check that invalid reply was removed from ledger_info.receivedCatchUpReplies
     received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
     assert not set(getattr(reply2, f.TXNS.nm).keys()).issubset(received_replies)
@@ -180,4 +183,4 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
                           sdk_wallet_client[1],
                           [reply2])
     assert not ledger_info.receivedCatchUpReplies
-    assert not ledger_info.recvdCatchupRepliesFrm[sdk_wallet_client[1]]
+    assert sdk_wallet_client[1] not in ledger_info.recvdCatchupRepliesFrm
