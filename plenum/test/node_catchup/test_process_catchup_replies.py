@@ -63,9 +63,6 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     Test correct work of method processCatchupRep and that sending replies
     in reverse order will call a few iterations of cycle in _processCatchupRep
     '''
-    # count of transactions and replies (one txn in one reply)
-    # and iterations in _processCatchupRep
-    txns_count = 3
     ledger_manager = txnPoolNodeSet[0].ledgerManager
     ledger_info = ledger_manager.getLedgerInfoByType(ledger_id)
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
@@ -90,6 +87,7 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     reply3 = catchup_reps[2]
     ledger_manager.processCatchupRep(reply3, sdk_wallet_client[1])
     check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply2)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply3)
 
     reply1 = catchup_reps[0]
     ledger_manager.processCatchupRep(reply1, sdk_wallet_client[1])
@@ -110,6 +108,7 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     ledger_manager.processCatchupRep(reply4, sdk_wallet_client[1])
     check_replies_applied(old_ledger_size, ledger, ledger_info, [reply4])
     old_ledger_size = ledger.size
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply6)
 
     reply5 = catchup_reps[4]
     ledger_manager.processCatchupRep(reply5, sdk_wallet_client[1])
@@ -123,8 +122,6 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     Test correct work of method processCatchupRep and that sending replies
     in reverse order will call a few iterations of cycle in _processCatchupRep
     '''
-    # count of transactions and replies (one txn in one reply)
-    # and iterations in _processCatchupRep
     ledger_manager = txnPoolNodeSet[0].ledgerManager
     ledger_info = ledger_manager.getLedgerInfoByType(ledger_id)
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
