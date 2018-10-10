@@ -41,20 +41,24 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
                                                  ledger.seqNo), replies
 
 
-def check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply):
+def check_reply_not_applied(old_ledger_size, ledger, ledger_info, frm, reply):
     assert ledger.size == old_ledger_size
     assert ledger.seqNo == old_ledger_size
     received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
     assert set(getattr(reply, f.TXNS.nm).keys()).issubset(received_replies)
+    assert reply in ledger_info.recvdCatchupRepliesFrm[frm]
 
 
-def check_replies_applied(old_ledger_size, ledger, ledger_info, replies):
+def check_replies_applied(old_ledger_size, ledger, ledger_info, frm, replies):
     new_txn_count = sum([len(getattr(reply, f.TXNS.nm).keys())
                          for reply in replies])
     assert ledger.size == old_ledger_size + new_txn_count
     assert ledger.seqNo == old_ledger_size + new_txn_count
     received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
     assert all(not set(getattr(reply, f.TXNS.nm).keys()).issubset(received_replies)
+               for reply in replies)
+    assert frm not in ledger_info.recvdCatchupRepliesFrm or \
+           any(reply not in ledger_info.recvdCatchupRepliesFrm[frm]
                for reply in replies)
 
 
@@ -82,18 +86,19 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     # and check that after sending reply 1, replies 2 and 3 will be applied.
     reply2 = catchup_reps[1]
     ledger_manager.processCatchupRep(reply2, sdk_wallet_client[1])
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply2)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply2)
 
     reply3 = catchup_reps[2]
     ledger_manager.processCatchupRep(reply3, sdk_wallet_client[1])
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply2)
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply3)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply2)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply3)
 
     reply1 = catchup_reps[0]
     ledger_manager.processCatchupRep(reply1, sdk_wallet_client[1])
     check_replies_applied(old_ledger_size,
                           ledger,
                           ledger_info,
+                          sdk_wallet_client[1],
                           [reply1, reply2, reply3])
     old_ledger_size = ledger.size
 
@@ -102,18 +107,19 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     # Check that after sending reply 5, replies 5 and 6 will be applied.
     reply6 = catchup_reps[5]
     ledger_manager.processCatchupRep(reply6, sdk_wallet_client[1])
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply6)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply6)
 
     reply4 = catchup_reps[3]
     ledger_manager.processCatchupRep(reply4, sdk_wallet_client[1])
-    check_replies_applied(old_ledger_size, ledger, ledger_info, [reply4])
+    check_replies_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], [reply4])
     old_ledger_size = ledger.size
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply6)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply6)
 
     reply5 = catchup_reps[4]
     ledger_manager.processCatchupRep(reply5, sdk_wallet_client[1])
-    check_replies_applied(old_ledger_size, ledger, ledger_info, [reply5, reply6])
-
+    check_replies_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], [reply5,
+                                                                                       reply6])
+    assert sdk_wallet_client[1] not in ledger_info.recvdCatchupRepliesFrm
     assert not ledger_info.receivedCatchUpReplies
 
 
@@ -148,7 +154,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
                                                 getattr(reply2, f.CONS_PROOF.nm)),
                                      sdk_wallet_client[1])
     # check that invalid transaction was not added to ledger, but add to ledger_info.receivedCatchUpReplies
-    check_reply_not_applied(old_ledger_size, ledger, ledger_info, reply2)
+    check_reply_not_applied(old_ledger_size, ledger, ledger_info, sdk_wallet_client[1], reply2)
 
     # process valid reply from 1st interval
     reply1 = catchup_reps[0]
@@ -157,11 +163,13 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     check_replies_applied(old_ledger_size,
                           ledger,
                           ledger_info,
+                          sdk_wallet_client[1],
                           [reply1])
 
-    # check that invalid request was removed from ledger_info.receivedCatchUpReplies
+    # check that invalid reply was removed from ledger_info.receivedCatchUpReplies
     received_replies = {str(seq_no) for seq_no, _ in ledger_info.receivedCatchUpReplies}
     assert not set(getattr(reply2, f.TXNS.nm).keys()).issubset(received_replies)
+    assert not ledger_info.recvdCatchupRepliesFrm[sdk_wallet_client[1]]
 
     # check that valid reply for 2nd interval was added to ledger
     reply2 = catchup_reps[1]
@@ -169,5 +177,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     check_replies_applied(old_ledger_size,
                           ledger,
                           ledger_info,
+                          sdk_wallet_client[1],
                           [reply2])
     assert not ledger_info.receivedCatchUpReplies
+    assert not ledger_info.recvdCatchupRepliesFrm[sdk_wallet_client[1]]
