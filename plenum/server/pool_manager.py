@@ -227,15 +227,16 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self._set_node_order(nodeNym, nodeName)
 
         def _updateNode(txn_data):
-            if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
-                    intersection(set(txn_data[DATA].keys())):
-                self.nodeHaChanged(txn_data)
-            if VERKEY in txn_data:
-                self.nodeKeysChanged(txn_data)
             if SERVICES in txn_data[DATA]:
                 self.nodeServicesChanged(txn_data)
-            if BLS_KEY in txn_data[DATA]:
-                self.node_blskey_changed(txn_data)
+            if txn_data[DATA][ALIAS] in self.node.nodeReg:
+                if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
+                        intersection(set(txn_data[DATA].keys())):
+                    self.nodeHaChanged(txn_data)
+                if VERKEY in txn_data:
+                    self.nodeKeysChanged(txn_data)
+                if BLS_KEY in txn_data[DATA]:
+                    self.node_blskey_changed(txn_data)
 
         seqNos, info = self.getNodeInfoFromLedger(nodeNym)
 
