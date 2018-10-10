@@ -159,7 +159,7 @@ def test_load_metrics_from_kv_store_can_load_all_values(storage):
 
     for ev in events:
         ts.value = ev.timestamp
-        metrics.add_event(ev.name, ev.value)
+        metrics.store_event(ev.name, ev.value)
         expected_stats.add(ev.timestamp, ev.name, ev.value)
 
     stats = load_metrics_from_kv_store(storage, step=step)
@@ -179,7 +179,7 @@ def test_load_metrics_from_kv_store_can_filter_values(storage):
 
     for ev in events:
         ts.value = ev.timestamp
-        metrics.add_event(ev.name, ev.value)
+        metrics.store_event(ev.name, ev.value)
         if min_ts <= ev.timestamp <= max_ts:
             expected_stats.add(ev.timestamp, ev.name, ev.value)
 

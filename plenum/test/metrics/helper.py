@@ -48,7 +48,7 @@ class MockMetricsCollector(MetricsCollector):
         super().__init__()
         self.events = []
 
-    def add_event(self, name: MetricsName, value: float):
+    def store_event(self, name: MetricsName, value: float):
         if isinstance(value, ValueAccumulator):
             value = value.sum
         self.events.append((name, value))

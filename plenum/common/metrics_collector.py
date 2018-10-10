@@ -269,25 +269,25 @@ MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', Met
 
 class MetricsCollector(ABC):
     @abstractmethod
-    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
+    def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
     def __init__(self):
         self._accumulators = defaultdict(ValueAccumulator)
 
-    def acc_event(self, name: MetricsName, value: float):
+    def add_event(self, name: MetricsName, value: float):
         self._accumulators[name].add(value)
 
     def flush_accumulated(self):
         for name, value in self._accumulators.items():
-            self.add_event(name, value)
+            self.store_event(name, value)
         self._accumulators.clear()
 
     @contextmanager
     def measure_time(self, name: MetricsName):
         start = time.perf_counter()
         yield
-        self.acc_event(name, time.perf_counter() - start)
+        self.add_event(name, time.perf_counter() - start)
 
 
 def measure_time(name: MetricsName, attr='metrics'):
@@ -320,7 +320,7 @@ class NullMetricsCollector(MetricsCollector):
     def __init__(self):
         super().__init__()
 
-    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
+    def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
 
@@ -374,7 +374,7 @@ class KvStoreMetricsCollector(MetricsCollector):
     def close(self):
         self._storage.close()
 
-    def add_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
+    def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         if self._storage.closed:
             return
 
