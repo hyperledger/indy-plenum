@@ -25,7 +25,7 @@ def node(_patched_node):
     return _patched_node
 
 
-@pytest.mark.parametrize('mode, must_started', [
+@pytest.mark.parametrize('mode, catchup_must_start', [
     (Mode.starting, False),
     (Mode.discovering, False),
     (Mode.discovered, False),
@@ -33,10 +33,10 @@ def node(_patched_node):
     (Mode.synced, True),
     (Mode.participating, True),
 ])
-def test_catchup_ability_in_given_mode(node, mode, must_started):
+def test_catchup_ability_in_given_mode(node, mode, catchup_must_start):
     node.mode = mode
     node.start_catchup()
-    assert catchup_started is must_started
+    assert catchup_started is catchup_must_start
 
 
 def test_catchup_can_be_started_with_just_started_flag_when_mode_not_set(node):
