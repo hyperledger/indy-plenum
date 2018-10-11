@@ -11,9 +11,6 @@ from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeData
 
 logger = getLogger()
 
-TestRunningTimeLimitSec = 200
-
-
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
 

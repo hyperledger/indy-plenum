@@ -17,9 +17,6 @@ from stp_core.loop.eventually import eventually
 
 logger = getLogger()
 
-TestRunningTimeLimitSec = 200
-
-
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
 
@@ -81,15 +78,23 @@ def test_catchup_not_triggered_if_another_in_progress(
             "enough to start a new catchup but the node does not start it because "
             "the former is in progress")
 
+        process_checkpoint_times_before = repaired_node.master_replica.spylog.count(Replica.processCheckpoint)
+
         send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                                sdk_pool_handle,
                                                sdk_wallet_client,
                                                (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                                                reqs_for_checkpoint)
+
+        # Wait until the node receives the new checkpoints from all the other nodes
+        looper.run(
+            eventually(lambda: assertExp(repaired_node.master_replica.spylog.count(Replica.processCheckpoint) -
+                                         process_checkpoint_times_before ==
+                                         (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
+                                         (len(txnPoolNodeSet) - 1)),
+                       timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet))))
     
-        looper.runFor(waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)))
-    
-        # New catchup is not triggered when another one is in progress
+        # New catchup is not started when another one is in progress
         assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
         assert repaired_node.mode == Mode.syncing
 
@@ -98,5 +103,6 @@ def test_catchup_not_triggered_if_another_in_progress(
 
     looper.run(eventually(lambda: assertExp(repaired_node.mode == Mode.participating),
                           timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))))
+    assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
     assert repaired_node.spylog.count(Node.allLedgersCaughtUp) - initial_all_ledgers_caught_up == 1
     assert repaired_node.domainLedger.size == target_ledger_size
