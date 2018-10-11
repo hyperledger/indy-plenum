@@ -21,7 +21,22 @@ def _patched_node(txnPoolNodeSet):
 def node(_patched_node):
     global catchup_started
     catchup_started = False
+    node.mode = Mode.participating
     return _patched_node
+
+
+@pytest.mark.parametrize('mode, must_started', [
+    (Mode.starting, False),
+    (Mode.discovering, False),
+    (Mode.discovered, False),
+    (Mode.syncing, False),
+    (Mode.synced, True),
+    (Mode.participating, True),
+])
+def test_catchup_ability_in_given_mode(node, mode, must_started):
+    node.mode = mode
+    node.start_catchup()
+    assert catchup_started is must_started
 
 
 def test_catchup_can_be_started_with_just_started_flag_when_mode_not_set(node):
@@ -35,39 +50,3 @@ def test_catchup_cannot_be_started_without_just_started_flag_when_mode_not_set(
     node.mode = None
     node.start_catchup()
     assert not catchup_started
-
-
-def test_catchup_cannot_be_started_in_starting_mode(node):
-    node.mode = Mode.starting
-    node.start_catchup()
-    assert not catchup_started
-
-
-def test_catchup_cannot_be_started_in_discovering_mode(node):
-    node.mode = Mode.discovering
-    node.start_catchup()
-    assert not catchup_started
-
-
-def test_catchup_cannot_be_started_in_discovered_mode(node):
-    node.mode = Mode.discovered
-    node.start_catchup()
-    assert not catchup_started
-
-
-def test_catchup_cannot_be_started_in_syncing_mode(node):
-    node.mode = Mode.syncing
-    node.start_catchup()
-    assert not catchup_started
-
-
-def test_catchup_can_be_started_in_synced_mode(node):
-    node.mode = Mode.synced
-    node.start_catchup()
-    assert catchup_started
-
-
-def test_catchup_can_be_started_in_participating_mode(node):
-    node.mode = Mode.participating
-    node.start_catchup()
-    assert catchup_started
