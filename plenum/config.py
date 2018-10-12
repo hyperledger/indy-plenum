@@ -177,7 +177,7 @@ STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 # Node status configuration
 DUMP_VALIDATOR_INFO_INIT_SEC = 3
-DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
+DUMP_VALIDATOR_INFO_PERIOD_SEC = 600
 
 # Controls sending of view change messages, a node will only send view change
 # messages if it did not send any sent instance change messages in last

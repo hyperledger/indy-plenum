@@ -16,7 +16,7 @@ from plenum.common.config_util import getConfig
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
-from pympler import muppy, summary
+from pympler import muppy, summary, asizeof
 
 
 def decode_err_handler(error):
@@ -80,6 +80,7 @@ class ValidatorNodeInfoTool:
         pool_info = self.__pool_info
         protocol_info = self.__protocol_info
         node_info = self.__node_info
+        memory_info = self.__memory_info
 
         if hardware_info:
             general_info.update(hardware_info)
@@ -89,6 +90,8 @@ class ValidatorNodeInfoTool:
             general_info.update(protocol_info)
         if node_info:
             general_info.update(node_info)
+        if memory_info:
+            general_info.update(memory_info)
 
         return general_info
 
@@ -433,6 +436,38 @@ class ValidatorNodeInfoTool:
     def __get_start_vc_ts(self):
         ts = self._node.view_changer.start_view_change_ts
         return str(datetime.datetime.utcfromtimestamp(ts))
+
+    @property
+    @none_on_fail
+    def __memory_info(self):
+        # Get all memory info and get details with 20 depth
+        size_obj = asizeof.asized(self._node, detail=20)
+        whole_size = size_obj.size
+        size_obj = next(r for r in size_obj.refs if r.name == '__dict__')
+        size_dict = dict()
+        # Sort in descending order to select most 'heavy' collections
+        for num, sub_obj in enumerate(sorted(size_obj.refs, key=lambda v: v.size, reverse=True)):
+            if num > 5:
+                break
+            size_dict[sub_obj.name] = dict()
+            size_dict[sub_obj.name]['size'] = sub_obj.size
+
+            # Check if this object (which include __dict__ and __class__) or iterable (dict, list, etc ..)
+            if len(sub_obj.refs) <= 2 and any(r.name == '__dict__' for r in sub_obj.refs):
+                sub_obj_ref = next(r for r in sub_obj.refs if r.name == '__dict__')
+            else:
+                sub_obj_ref = sub_obj
+
+            for num, sub_sub_obj in enumerate(sorted(sub_obj_ref.refs, key=lambda v: v.size, reverse=True)):
+                if num > 5:
+                    break
+                size_dict[sub_obj.name][sub_sub_obj.name] = sub_sub_obj.size
+
+        result_dict = {"whole_node_size": whole_size}
+        result_dict.update(size_dict)
+        return {
+            'Memory': result_dict
+        }
 
     @property
     @none_on_fail
