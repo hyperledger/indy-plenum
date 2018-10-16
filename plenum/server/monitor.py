@@ -476,9 +476,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         logging = self.instances.masterId == inst_id
         r = self.instance_throughput_ratio(inst_id)
-        if logging and r is None:
-            logger.debug("{} instance {} throughput is not measurable.".
-                         format(self, inst_id))
+        if r is None:
+            if logging:
+                logger.debug("{} instance {} throughput is not "
+                             "measurable.".format(self, inst_id))
             return None
 
         if logging and r:

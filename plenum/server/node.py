@@ -362,7 +362,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             MessageReq,
             MessageRep,
             CurrentState,
-            ObservedData
+            ObservedData,
+            BackupInstanceFaulty
         )
 
         # Map of request identifier, request id to client name. Used for
@@ -386,7 +387,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
             (CurrentState, self.process_current_state_message),
-            (ObservedData, self.send_to_observer)
+            (ObservedData, self.send_to_observer),
+            (BackupInstanceFaulty, self.process_backup_instance_faulty_msg)
         )
 
         self.clientMsgRouter = Router(
@@ -2890,7 +2892,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and self.primaries_disconnection_times[inst_id] is not None \
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
-            self.replicas.remove_replica(inst_id)
+            self.send_backup_instance_faulty([inst_id])
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
@@ -3593,6 +3595,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.backup_instances_faulty[inst_id] = set()
                 self.backup_instances_faulty[inst_id].add(frm)
                 if inst_id in self.replicas.keys() and \
-                        len(self.backup_instances_faulty[inst_id]) >= self.quorums.backup_instance_faulty and \
+                        self.quorums.backup_instance_faulty.is_reached(
+                            len(self.backup_instances_faulty[inst_id])) and \
                         self.name in self.backup_instances_faulty[inst_id]:  # TODO: remove it then quorum will not equal 1
                     self.replicas.remove_replica(inst_id)
+
+    def send_backup_instance_faulty(self, instances: List[int]):
+        if not self.view_change_in_progress and instances:
+            logger.info(
+                "{}{} sending an backup instance faulty with view_no {}".format(
+                    VIEW_CHANGE_PREFIX,
+                    self,
+                    self.viewNo))
+            self.postToNodeInBox(BackupInstanceFaulty(self.viewNo, instances),
+                                 self.name)

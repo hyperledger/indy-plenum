@@ -214,7 +214,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def on_backup_degradation(self, degraded_backups):
         logger.display("{} sending backup instance faulty msg for "
                        "instances: ".format(self, degraded_backups))
-        self.send_backup_instance_faulty(degraded_backups)
+        self.node.send_backup_instance_faulty(degraded_backups)
 
     def on_master_degradation(self):
         """
@@ -453,16 +453,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self._on_verified_instance_change_msg(msg, self.name)
         else:
             logger.info("{} cannot send instance change sooner then {} seconds".format(self, cooldown))
-
-    def send_backup_instance_faulty(self, instances: List[int]):
-        if not self.view_change_in_progress and instances:
-            logger.info(
-                "{}{} sending an backup instance faulty with view_no {}".format(
-                    VIEW_CHANGE_PREFIX,
-                    self,
-                    self.view_no))
-            self.node.postToNodeInBox(BackupInstanceFaulty(self.view_no, instances),
-                                      self.node.name)
 
     # noinspection PyAttributeOutsideInit
     def initInsChngThrottling(self):
