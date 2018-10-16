@@ -6,7 +6,8 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
+    BACKUP_INSTANCE_FAULTY
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
@@ -230,6 +231,14 @@ class InstanceChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.REASON.nm, NonNegativeNumberField())
+    )
+
+
+class BackupInstanceFaulty(MessageBase):
+    typename = BACKUP_INSTANCE_FAULTY
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.INSTANCES.nm, IterableField(NonNegativeNumberField()))
     )
 
 

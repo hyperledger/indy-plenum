@@ -32,7 +32,7 @@ def fake_monitor(tconf):
     monitor.getThroughputs = functools.partial(Monitor.getThroughputs, monitor)
     monitor.getThroughput = functools.partial(getThroughput, monitor)
     monitor.getInstanceMetrics = functools.partial(Monitor.getInstanceMetrics, monitor)
-    monitor.masterThroughputRatio = functools.partial(Monitor.masterThroughputRatio, monitor)
+    monitor.is_instance_throughput_too_low = functools.partial(Monitor.is_instance_throughput_too_low, monitor)
     return monitor
 
 
@@ -44,7 +44,7 @@ def test_low_median(fake_monitor, tconf):
     monitor.throughputs[NUM_OF_REPLICAS - 1].throughput = 10000
     for i in range(1, NUM_OF_REPLICAS - 1):
         monitor.throughputs[i].throughput = 120
-    assert monitor.masterThroughputRatio() > tconf.DELTA
+    assert monitor.is_instance_throughput_too_low(0) > tconf.DELTA
 
 
 def test_medium_median(fake_monitor, tconf):
@@ -57,7 +57,7 @@ def test_medium_median(fake_monitor, tconf):
     monitor.throughputs[NUM_OF_REPLICAS - 1].throughput = 10000
     for i in range(2, NUM_OF_REPLICAS - 1):
         monitor.throughputs[i].throughput = 120
-    assert monitor.masterThroughputRatio() > tconf.DELTA
+    assert monitor.is_instance_throughput_too_low(0) > tconf.DELTA
 
 
 def test_high_median(fake_monitor, tconf):
@@ -70,7 +70,7 @@ def test_high_median(fake_monitor, tconf):
     monitor.throughputs[NUM_OF_REPLICAS - 1].throughput = 1
     for i in range(2, NUM_OF_REPLICAS - 1):
         monitor.throughputs[i].throughput = 120
-    assert monitor.masterThroughputRatio() > tconf.DELTA
+    assert monitor.is_instance_throughput_too_low(0) > tconf.DELTA
 
 
 def test_triggering_view_change(fake_monitor, tconf):
@@ -79,4 +79,4 @@ def test_triggering_view_change(fake_monitor, tconf):
     monitor.throughputs[0].throughput = 100
     for i in range(1, NUM_OF_REPLICAS):
         monitor.throughputs[i].throughput = 1001
-    assert monitor.masterThroughputRatio() < tconf.DELTA
+    assert monitor.is_instance_throughput_too_low(0) < tconf.DELTA

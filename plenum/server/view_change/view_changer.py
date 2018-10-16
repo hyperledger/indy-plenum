@@ -10,7 +10,8 @@ from common.exceptions import PlenumValueError
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
+from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone, \
+    BackupInstanceFaulty
 from plenum.common.util import mostCommonElement, SortedDict
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
@@ -209,6 +210,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     # __ PROPERTIES __
 
     # EXTERNAL EVENTS
+
+    def on_backup_degradation(self, degraded_backups):
+        logger.display("{} sending backup instance faulty msg for "
+                       "instances: ".format(self, degraded_backups))
+        self.send_backup_instance_faulty(degraded_backups)
 
     def on_master_degradation(self):
         """
@@ -448,6 +454,16 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         else:
             logger.info("{} cannot send instance change sooner then {} seconds".format(self, cooldown))
 
+    def send_backup_instance_faulty(self, instances: List[int]):
+        if not self.view_change_in_progress and instances:
+            logger.info(
+                "{}{} sending an backup instance faulty with view_no {}".format(
+                    VIEW_CHANGE_PREFIX,
+                    self,
+                    self.view_no))
+            self.node.postToNodeInBox(BackupInstanceFaulty(self.view_no, instances),
+                                      self.node.name)
+
     # noinspection PyAttributeOutsideInit
     def initInsChngThrottling(self):
         windowSize = self.node.config.ViewChangeWindowSize
@@ -595,6 +611,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
         if self.view_change_in_progress:
             self.node.restore_replicas()
+            self.node.backup_instances_faulty.clear()
 
         self.node.select_primaries(nodeReg)
 

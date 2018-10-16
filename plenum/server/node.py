@@ -60,7 +60,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone
+    ObservedData, FutureViewChangeDone, BackupInstanceFaulty
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -456,6 +456,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
+
+        self.backup_instances_faulty = {}
 
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
@@ -2803,6 +2805,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
+            degraded_backups = self.monitor.areBackupsDegraded()
+            if degraded_backups:
+                logger.display('{} backup instances performance degraded'.format(degraded_backups))
+                self.view_changer.on_backup_degradation(degraded_backups)
+
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
                 self.view_changer.on_master_degradation()
@@ -3578,3 +3585,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         authenticator = self.authNr(request.as_dict)
         if isinstance(authenticator, ReqAuthenticator):
             authenticator.clean_from_verified(request.key)
+
+    def process_backup_instance_faulty_msg(self, backup_faulty: BackupInstanceFaulty, frm: str) -> None:
+        if getattr(backup_faulty, f.VIEW_NO.nm) == self.viewNo:
+            for inst_id in getattr(backup_faulty, f.INSTANCES.nm):
+                if inst_id not in self.backup_instances_faulty:
+                    self.backup_instances_faulty[inst_id] = set()
+                self.backup_instances_faulty[inst_id].add(frm)
+                if inst_id in self.replicas.keys() and \
+                        len(self.backup_instances_faulty[inst_id]) >= self.quorums.backup_instance_faulty and \
+                        self.name in self.backup_instances_faulty[inst_id]:  # TODO: remove it then quorum will not equal 1
+                    self.replicas.remove_replica(inst_id)
