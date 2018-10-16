@@ -295,7 +295,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
-        self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int],
+        self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int]]
         # Tuple[int, float, bytes]]
 
         # TODO: Need to have a timer for each ledger

@@ -238,7 +238,8 @@ class BackupInstanceFaulty(MessageBase):
     typename = BACKUP_INSTANCE_FAULTY
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.INSTANCES.nm, IterableField(NonNegativeNumberField()))
+        (f.INSTANCES.nm, IterableField(NonNegativeNumberField())),
+        (f.REASON.nm, NonNegativeNumberField())
     )
 
 
