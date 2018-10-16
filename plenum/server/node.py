@@ -2743,26 +2743,85 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
 
-        # Most 'heavy' collections
-        requests_memory = sys.getsizeof(self.requests)
-        requests_memory_items = sum(sys.getsizeof(req.request.signature) + sys.getsizeof(req.request.operation)
-                                    for req in self.requests.values())
-        requests_memory_items += sum(sum(sys.getsizeof(p.signature) + sys.getsizeof(p.operation)
-                                         for p in req.propagates.values()) for req in self.requests.values())
-        self.metrics.add_event(MetricsName.MEMORY_REQUESTS, requests_memory)
-        self.metrics.add_event(MetricsName.MEMORY_REQUESTS_ITEMS, requests_memory_items)
+        if self.config.METRICS_COLLECTOR_TYPE == 'kv':
+            if hasattr(self, 'idrCache'):
+                self.metrics.add_event(MetricsName.STORAGE_IDR_CACHE_READERS,
+                                       int(self.idrCache._keyValueStorage._db.get_property(
+                                           b"rocksdb.estimate-table-readers-mem")))
+                self.metrics.add_event(MetricsName.STORAGE_IDR_CACHE_TABLES_NUM,
+                                       int(self.idrCache._keyValueStorage._db.get_property(
+                                           b"rocksdb.num-immutable-mem-table")))
+                self.metrics.add_event(MetricsName.STORAGE_IDR_CACHE_TABLES_SIZE,
+                                       int(self.idrCache._keyValueStorage._db.get_property(
+                                           b"rocksdb.cur-size-all-mem-tables")))
+            if hasattr(self, 'attributeStore'):
+                self.metrics.add_event(MetricsName.STORAGE_ATTRIBUTE_STORE_READERS,
+                                       int(self.attributeStore._keyValueStorage._db.get_property(
+                                           b"rocksdb.cur-size-all-mem-tables")))
+                self.metrics.add_event(MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_NUM,
+                                       int(self.attributeStore._keyValueStorage._db.get_property(
+                                           b"rocksdb.cur-size-all-mem-tables")))
+                self.metrics.add_event(MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE,
+                                       int(self.attributeStore._keyValueStorage._db.get_property(
+                                           b"rocksdb.cur-size-all-mem-tables")))
 
-        uncommitted_memory = sys.getsizeof(self.requests)
-        uncommitted_memory_items = sum(
-            sys.getsizeof(txn['txn']['metadata']['digest']) + sys.getsizeof(txn['reqSignature']) +
-            sys.getsizeof(txn['txn']) + sys.getsizeof(txn['txn']['data']) +
-            sys.getsizeof(txn['txn']['metadata']) + sys.getsizeof(txn['txnMetadata'])
-            for txn in self.get_req_handler(DOMAIN_LEDGER_ID).ledger.uncommittedTxns)
-        uncommitted_memory_items += sum(sum(sys.getsizeof(v['value']) for v in txn['reqSignature']['values']) for txn in
-                                        self.get_req_handler(1).ledger.uncommittedTxns)
+            self.metrics.add_event(MetricsName.STORAGE_POOL_STATE_READERS,
+                                   int(self.states.get(0)._kv._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_POOL_STATE_TABLES_NUM,
+                                   int(self.states.get(0)._kv._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_POOL_STATE_TABLES_SIZE,
+                                   int(self.states.get(0)._kv._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
 
-        self.metrics.add_event(MetricsName.MEMORY_DOMAIN_LEDGER_UNCOMMITTED, uncommitted_memory)
-        self.metrics.add_event(MetricsName.MEMORY_DOMAIN_LEDGER_UNCOMMITTED_ITEMS, uncommitted_memory_items)
+            self.metrics.add_event(MetricsName.STORAGE_DOMAIN_STATE_READERS,
+                                   int(self.states.get(1)._kv._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_DOMAIN_STATE_TABLES_NUM,
+                                   int(self.states.get(1)._kv._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_DOMAIN_STATE_TABLES_SIZE,
+                                   int(self.states.get(1)._kv._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
+
+            self.metrics.add_event(MetricsName.STORAGE_CONFIG_STATE_READERS,
+                                   int(self.states.get(2)._kv._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_CONFIG_STATE_TABLES_NUM,
+                                   int(self.states.get(2)._kv._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_CONFIG_STATE_TABLES_SIZE,
+                                   int(self.states.get(2)._kv._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
+
+            self.metrics.add_event(MetricsName.STORAGE_POOL_MANAGER_READERS,
+                                   int(self.poolManager.state._kv._db.get_property(
+                                       b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_POOL_MANAGER_TABLES_NUM,
+                                   int(self.poolManager.state._kv._db.get_property(
+                                       b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_POOL_MANAGER_TABLES_SIZE,
+                                   int(self.poolManager.state._kv._db.get_property(
+                                       b"rocksdb.cur-size-all-mem-tables")))
+
+            self.metrics.add_event(MetricsName.STORAGE_BLS_BFT_READERS,
+                                   int(self.bls_bft.bls_store._kvs._db.get_property(
+                                       b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_BLS_BFT_TABLES_NUM,
+                                   int(self.bls_bft.bls_store._kvs._db.get_property(
+                                       b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_BLS_BFT_TABLES_SIZE,
+                                   int(self.bls_bft.bls_store._kvs._db.get_property(
+                                       b"rocksdb.cur-size-all-mem-tables")))
+
+            self.metrics.add_event(MetricsName.STORAGE_SEQ_NO_READERS,
+                                   int(self.seqNoDB._keyValueStorage._db.get_property(
+                                       b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_SEQ_NO_TABLES_NUM,
+                                   int(self.seqNoDB._keyValueStorage._db.get_property(
+                                       b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_SEQ_NO_TABLES_SIZE,
+                                   int(self.seqNoDB._keyValueStorage._db.get_property(
+                                       b"rocksdb.cur-size-all-mem-tables")))
+
+            self.metrics.add_event(MetricsName.STORAGE_METRICS_READERS,
+                                   int(self.metrics._storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(MetricsName.STORAGE_METRICS_TABLES_NUM,
+                                   int(self.metrics._storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(MetricsName.STORAGE_METRICS_TABLES_SIZE,
+                                   int(self.metrics._storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
 
         self.metrics.flush_accumulated()
 
