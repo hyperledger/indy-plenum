@@ -252,7 +252,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Calculate and return the metrics.
         """
         masterThrp, backupThrp = self.getThroughputs(self.instances.masterId)
-        r = self.is_instance_throughput_too_low(self.instances.masterId)
+        r = self.instance_throughput_ratio(self.instances.masterId)
         m = [
             ("{} Monitor metrics:".format(self), None),
             ("Delta", self.Delta),
@@ -481,14 +481,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.debug("{} instance {} throughput is not "
                              "measurable.".format(self, inst_id))
             return None
-
-        if logging and r:
+        too_low = r < self.Delta
+        if logging and too_low:
             logger.display("{}{} instance {} throughput ratio {} is lower than Delta {}.".
                            format(MONITORING_PREFIX, self, inst_id, r, self.Delta))
         elif logging:
             logger.trace("{} instance {} throughput ratio {} is acceptable.".
                          format(self, inst_id, r))
-        return r < self.Delta
+        return too_low
 
     def isMasterReqLatencyTooHigh(self):
         """
@@ -607,7 +607,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         avg_lat = self.getLatency(desired_inst_id)
         avg_lat_others_by_inst = []
         for inst_id in self.instances.ids:
-            if self.instances.masterId == inst_id:
+            if desired_inst_id == inst_id:
                 continue
             lat = self.getLatency(inst_id)
             if lat:

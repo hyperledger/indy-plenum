@@ -3589,16 +3589,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             authenticator.clean_from_verified(request.key)
 
     def process_backup_instance_faulty_msg(self, backup_faulty: BackupInstanceFaulty, frm: str) -> None:
-        if getattr(backup_faulty, f.VIEW_NO.nm) == self.viewNo:
-            for inst_id in getattr(backup_faulty, f.INSTANCES.nm):
-                if inst_id not in self.backup_instances_faulty:
-                    self.backup_instances_faulty[inst_id] = set()
-                self.backup_instances_faulty[inst_id].add(frm)
-                if inst_id in self.replicas.keys() and \
-                        self.quorums.backup_instance_faulty.is_reached(
-                            len(self.backup_instances_faulty[inst_id])) and \
-                        self.name in self.backup_instances_faulty[inst_id]:  # TODO: remove it then quorum will not equal 1
-                    self.replicas.remove_replica(inst_id)
+        if getattr(backup_faulty, f.VIEW_NO.nm) != self.viewNo:
+            return
+        for inst_id in getattr(backup_faulty, f.INSTANCES.nm):
+            self.backup_instances_faulty.setdefault(inst_id, set()).add(frm)
+            if inst_id not in self.replicas.keys():
+                continue
+            if not self.quorums.backup_instance_faulty.is_reached(
+                    len(self.backup_instances_faulty[inst_id])):
+                continue
+            if self.name not in self.backup_instances_faulty[inst_id]:  # TODO: remove it then quorum will not equal 1
+                continue
+            self.replicas.remove_replica(inst_id)
 
     def send_backup_instance_faulty(self, instances: List[int],
                                     reason: Suspicion):
