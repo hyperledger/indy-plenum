@@ -2,7 +2,8 @@ import sys
 from plenum.test.delayers import cDelay
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check, \
+    waitForViewChange
 from plenum.test.checkpoints.conftest import chkFreqPatched
 
 CHK_FREQ = 2
@@ -33,11 +34,8 @@ def test_replica_clear_collections_after_view_change(looper,
         for node in txnPoolNodeSet:
             node.view_changer.on_master_degradation()
 
-        def check_view_change_finished():
-            for node in txnPoolNodeSet:
-                assert not node.view_change_in_progress
-                assert node.viewNo == 1
-        looper.run(eventually(check_view_change_finished))
+        waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
+                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
 
     sdk_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
