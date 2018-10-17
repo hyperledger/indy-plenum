@@ -112,7 +112,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions
+from plenum.server.suspicion_codes import Suspicions, Suspicion
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 
@@ -2807,10 +2807,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
-            degraded_backups = self.monitor.areBackupsDegraded()
-            if degraded_backups:
-                logger.display('{} backup instances performance degraded'.format(degraded_backups))
-                self.view_changer.on_backup_degradation(degraded_backups)
+            # degraded_backups = self.monitor.areBackupsDegraded()
+            # if degraded_backups:
+            #     logger.display('{} backup instances performance degraded'.format(degraded_backups))
+            #     self.view_changer.on_backup_degradation(degraded_backups)
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
@@ -2892,7 +2892,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and self.primaries_disconnection_times[inst_id] is not None \
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
-            self.send_backup_instance_faulty([inst_id])
+            self.send_backup_instance_faulty([inst_id], Suspicions.BACKUP_PRIMARY_DISCONNECTED)
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
@@ -3600,12 +3600,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         self.name in self.backup_instances_faulty[inst_id]:  # TODO: remove it then quorum will not equal 1
                     self.replicas.remove_replica(inst_id)
 
-    def send_backup_instance_faulty(self, instances: List[int]):
+    def send_backup_instance_faulty(self, instances: List[int],
+                                    reason: Suspicion):
         if not self.view_change_in_progress and instances:
             logger.info(
                 "{}{} sending an backup instance faulty with view_no {}".format(
                     VIEW_CHANGE_PREFIX,
                     self,
                     self.viewNo))
-            self.postToNodeInBox(BackupInstanceFaulty(self.viewNo, instances),
-                                 self.name)
+            self.postToNodeInBox(BackupInstanceFaulty(self.viewNo,
+                                                      instances,
+                                                      reason.code), self.name)

@@ -31,8 +31,7 @@ def test_replica_removing_with_backup_degraded(looper,
                                   start_replicas_count,
                                   instance_to_remove)
 
-    looper.run(eventually(check_replica_removed_on_all_nodes,
-                          timeout=tconf.TolerateBackupPrimaryDisconnection * 4))
+    looper.run(eventually(check_replica_removed_on_all_nodes))
     for node in txnPoolNodeSet:
         assert not node.monitor.isMasterDegraded()
         assert len(node.requests) == 0
