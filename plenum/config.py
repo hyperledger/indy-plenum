@@ -2,7 +2,7 @@ import logging
 import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
-    KeyValueStorageType
+    KeyValueStorageType, HS_FILE
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
@@ -46,19 +46,19 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_ROCKSDB
+    "type": HS_FILE
 }
 
 primaryStorage = None
 
-domainStateStorage = KeyValueStorageType.Rocksdb
-poolStateStorage = KeyValueStorageType.Rocksdb
-configStateStorage = KeyValueStorageType.Rocksdb
+domainStateStorage = KeyValueStorageType.BinaryFile
+poolStateStorage = KeyValueStorageType.BinaryFile
+configStateStorage = KeyValueStorageType.BinaryFile
 reqIdToTxnStorage = KeyValueStorageType.Rocksdb
 
 stateSignatureStorage = KeyValueStorageType.Rocksdb
 
-transactionLogDefaultStorage = KeyValueStorageType.Rocksdb
+transactionLogDefaultStorage = KeyValueStorageType.ChunkedBinaryFile
 
 rocksdb_default_config = {
     'max_open_files': None,

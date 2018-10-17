@@ -26,7 +26,8 @@ class Ledger(ImmutableStore):
         config = config or getConfig()
         return initKeyValueStorageIntKeys(config.transactionLogDefaultStorage,
                                           dataDir, logName, open, read_only=read_only,
-                                          db_config=config.db_transactions_config)
+                                          db_config=config.db_transactions_config,
+                                          txn_serializer=ledger_txn_serializer)
 
     def __init__(self,
                  tree: MerkleTree,

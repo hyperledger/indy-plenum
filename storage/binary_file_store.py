@@ -11,14 +11,15 @@ class BinaryFileStore(SingleFileStore):
                  isLineNoKey: bool=False,
                  storeContentHash: bool=True,
                  ensureDurability: bool=True,
-                 open=True):
+                 open=True,
+                 delimiter=b"\t"):
         # This is the separator between key and value
         # TODO: This line separator might conflict with some data format.
         # So prefix the value data in the file with size and only read those
         # number of bytes.
         super().__init__(dbDir,
                          dbName,
-                         delimiter=b"\t",
+                         delimiter=delimiter,
                          lineSep=b'\n\x07\n\x01',
                          isLineNoKey=isLineNoKey,
                          storeContentHash=storeContentHash,
