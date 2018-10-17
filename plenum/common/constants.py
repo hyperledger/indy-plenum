@@ -172,7 +172,6 @@ class KeyValueStorageType(IntEnum):
     BinaryFile = 5
 
 
-
 @unique
 class LedgerState(IntEnum):
     not_synced = 1  # Still gathering consistency proofs

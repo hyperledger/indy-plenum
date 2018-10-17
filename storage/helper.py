@@ -39,12 +39,12 @@ def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
                                                   storeContentHash=False,
                                                   ensureDurability=False)
         return ChunkedFileStore(dataLocation,
-                                 keyValueStorageName,
-                                 isLineNoKey=True,
-                                 chunkSize=5,
-                                 chunk_creator=chunk_creator,
-                                 storeContentHash=False,
-                                 ensureDurability=False)
+                                keyValueStorageName,
+                                isLineNoKey=True,
+                                chunkSize=5,
+                                chunk_creator=chunk_creator,
+                                storeContentHash=False,
+                                ensureDurability=False)
     if keyValueType == KeyValueStorageType.BinaryFile:
         return BinaryFileStore(dataLocation, keyValueStorageName, delimiter=b"\1\2\3\4\5\6", storeContentHash=False)
     else:
