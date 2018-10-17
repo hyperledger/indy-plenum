@@ -19,17 +19,20 @@ nodeCount = 7
 def tconf(tconf):
     old_throughput_measurement_class = tconf.throughput_measurement_class
     old_throughput_measurement_params = tconf.throughput_measurement_params
+    old_timeout = tconf.ACC_MONITOR_TIMEOUT
 
     tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
     tconf.throughput_measurement_params = {
         'window_size': 2,
         'min_cnt': 3
     }
+    tconf.ACC_MONITOR_TIMEOUT = 5
 
     yield tconf
 
     tconf.throughput_measurement_class = old_throughput_measurement_class
     tconf.throughput_measurement_params = old_throughput_measurement_params
+    tconf.ACC_MONITOR_TIMEOUT = old_timeout
 
 
 # noinspection PyIncorrectDocstring
@@ -86,7 +89,6 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 4)
-
     # Check that view change happened for all nodes
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo + 1)
 

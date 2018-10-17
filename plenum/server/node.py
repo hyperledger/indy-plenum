@@ -2807,10 +2807,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
-            # degraded_backups = self.monitor.areBackupsDegraded()
-            # if degraded_backups:
-            #     logger.display('{} backup instances performance degraded'.format(degraded_backups))
-            #     self.view_changer.on_backup_degradation(degraded_backups)
+            degraded_backups = self.monitor.areBackupsDegraded()
+            if degraded_backups:
+                logger.display('{} backup instances performance degraded'.format(degraded_backups))
+                self.view_changer.on_backup_degradation(degraded_backups)
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
