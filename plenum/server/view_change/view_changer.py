@@ -211,12 +211,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     # EXTERNAL EVENTS
 
-    def on_backup_degradation(self, degraded_backups):
-        logger.display("{} sending backup instance faulty msg for "
-                       "instances: ".format(self, degraded_backups))
-        self.node.send_backup_instance_faulty(degraded_backups,
-                                              Suspicions.BACKUP_PRIMARY_DEGRADED)
-
     def on_master_degradation(self):
         """
         """
@@ -601,8 +595,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
             nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
         if self.view_change_in_progress:
-            self.node.restore_replicas()
-            self.node.backup_instances_faulty.clear()
+            self.node.backup_instance_faulty_processor.restore_replicas()
 
         self.node.select_primaries(nodeReg)
 

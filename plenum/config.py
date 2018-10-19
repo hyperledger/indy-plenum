@@ -347,3 +347,10 @@ ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
 VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True
 
 VALIDATOR_INFO_USE_DB = False
+
+# Strategies for removing replicas. Available values:
+# - None - don't remove replicas
+# - "local" - remove replicas without quorum, if current node needs this
+# - "quorum" - remove replicas only with quorum of BackupInstanceFaulty
+REPLICAS_REMOVING_WITH_DEGRADATION = "local"
+REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"

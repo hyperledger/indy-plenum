@@ -17,6 +17,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
+from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
 from plenum.server.replica import Replica
@@ -369,6 +370,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}  # Dict[Tuple[str, int], str]
+        self.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(self)
 
         # CurrentState
         self.nodeMsgRouter = Router(
@@ -388,7 +390,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupRep, self.ledgerManager.processCatchupRep),
             (CurrentState, self.process_current_state_message),
             (ObservedData, self.send_to_observer),
-            (BackupInstanceFaulty, self.process_backup_instance_faulty_msg)
+            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
         )
 
         self.clientMsgRouter = Router(
@@ -458,8 +460,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
-
-        self.backup_instances_faulty = {}
 
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
@@ -1437,11 +1437,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 [None] * (new_required_number_of_instances - len(self.primaries_disconnection_times)))
         elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
             self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
-
-    def restore_replicas(self):
-        for inst_id in range(self.requiredNumberOfInstances):
-            if inst_id not in self.replicas.keys():
-                self.replicas.add_replica(inst_id)
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -2810,7 +2805,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             degraded_backups = self.monitor.areBackupsDegraded()
             if degraded_backups:
                 logger.display('{} backup instances performance degraded'.format(degraded_backups))
-                self.view_changer.on_backup_degradation(degraded_backups)
+                self.backup_instance_faulty_processor.on_backup_degradation(degraded_backups)
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
@@ -2892,7 +2887,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and self.primaries_disconnection_times[inst_id] is not None \
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
-            self.send_backup_instance_faulty([inst_id], Suspicions.BACKUP_PRIMARY_DISCONNECTED)
+            self.backup_instance_faulty_processor.on_backup_primary_disconnected([inst_id])
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
@@ -3587,29 +3582,3 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         authenticator = self.authNr(request.as_dict)
         if isinstance(authenticator, ReqAuthenticator):
             authenticator.clean_from_verified(request.key)
-
-    def process_backup_instance_faulty_msg(self, backup_faulty: BackupInstanceFaulty, frm: str) -> None:
-        if getattr(backup_faulty, f.VIEW_NO.nm) != self.viewNo:
-            return
-        for inst_id in getattr(backup_faulty, f.INSTANCES.nm):
-            self.backup_instances_faulty.setdefault(inst_id, set()).add(frm)
-            if inst_id not in self.replicas.keys():
-                continue
-            if not self.quorums.backup_instance_faulty.is_reached(
-                    len(self.backup_instances_faulty[inst_id])):
-                continue
-            if self.name not in self.backup_instances_faulty[inst_id]:  # TODO: remove it then quorum will not equal 1
-                continue
-            self.replicas.remove_replica(inst_id)
-
-    def send_backup_instance_faulty(self, instances: List[int],
-                                    reason: Suspicion):
-        if not self.view_change_in_progress and instances:
-            logger.info(
-                "{}{} sending an backup instance faulty with view_no {}".format(
-                    VIEW_CHANGE_PREFIX,
-                    self,
-                    self.viewNo))
-            self.postToNodeInBox(BackupInstanceFaulty(self.viewNo,
-                                                      instances,
-                                                      reason.code), self.name)

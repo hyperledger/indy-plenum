@@ -87,5 +87,5 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         if len(self._instances) < 2:
             return False
         instance_ordered = self._ordered[inst_id]
-        max_ordered = max(self._ordered[i] for i in self._instances if i != 0)
+        max_ordered = max(self._ordered[i] for i in self._instances)
         return (max_ordered - instance_ordered) > self._txn_delta_k * self._input_txn_rate.value
