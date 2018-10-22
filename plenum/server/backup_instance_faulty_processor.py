@@ -117,4 +117,3 @@ class BackupInstanceFaultyProcessor:
 
     def __is_local_remove_strategy(self, removing_strategy):
         return removing_strategy == "local"
-
