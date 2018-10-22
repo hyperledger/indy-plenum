@@ -12,7 +12,8 @@ class BinaryFileStore(SingleFileStore):
                  storeContentHash: bool=True,
                  ensureDurability: bool=True,
                  open=True,
-                 delimiter=b"\t"):
+                 delimiter=b'\t',
+                 lineSep=b'\n\x07\n\x01'):
         # This is the separator between key and value
         # TODO: This line separator might conflict with some data format.
         # So prefix the value data in the file with size and only read those
@@ -20,7 +21,7 @@ class BinaryFileStore(SingleFileStore):
         super().__init__(dbDir,
                          dbName,
                          delimiter=delimiter,
-                         lineSep=b'\n\x07\n\x01',
+                         lineSep=lineSep,
                          isLineNoKey=isLineNoKey,
                          storeContentHash=storeContentHash,
                          ensureDurability=ensureDurability,
@@ -57,11 +58,29 @@ class BinaryFileStore(SingleFileStore):
         return super().iterator(start, end, includeKey, includeValue, prefix)
 
     def _lines(self):
-        # Move to the beginning of file
         self.db_file.seek(0)
-        return (line.strip(self.lineSep) for line in
-                self.db_file.read().split(self.lineSep)
-                if len(line.strip(self.lineSep)) != 0)
+        return (line
+                for line in self.db_file.read().split(self.lineSep)
+                if len(line) > 0)
+        # result = b''
+        # tmp = b''
+        # while True:
+        #     b = self.db_file.read(1)
+        #     if len(b) == 0:
+        #         result += tmp
+        #         if len(result) > 0:
+        #             yield result
+        #         return
+        #     tmp += b
+        #     if tmp == self.lineSep:
+        #         if len(result) > 0:
+        #             yield result
+        #         tmp = result = b''
+        #         continue
+        #     if self.lineSep.startswith(tmp):
+        #         continue
+        #     result += tmp
+        #     tmp = b''
 
     def _append_new_line_if_req(self):
         pass

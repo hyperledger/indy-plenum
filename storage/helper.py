@@ -25,11 +25,14 @@ def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
     if keyValueType == KeyValueStorageType.Leveldb:
         return KeyValueStorageLeveldb(dataLocation, keyValueStorageName, open,
                                       read_only)
+
     if keyValueType == KeyValueStorageType.Rocksdb:
         return KeyValueStorageRocksdb(dataLocation, keyValueStorageName, open,
                                       read_only, db_config)
+
     if keyValueType == KeyValueStorageType.Memory:
         return KeyValueStorageInMemory()
+
     if keyValueType == KeyValueStorageType.ChunkedBinaryFile:
         def chunk_creator(name):
             return BinarySerializerBasedFileStore(txn_serializer,
@@ -45,10 +48,14 @@ def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
                                 chunk_creator=chunk_creator,
                                 storeContentHash=False,
                                 ensureDurability=False)
+
     if keyValueType == KeyValueStorageType.BinaryFile:
-        return BinaryFileStore(dataLocation, keyValueStorageName, delimiter=b"\1\2\3\4\5\6", storeContentHash=False)
-    else:
-        raise KeyValueStorageConfigNotFound
+        return BinaryFileStore(dataLocation, keyValueStorageName,
+                               delimiter=b'\01\02\03\04\05\06',
+                               lineSep=b'\06\05\04\03\02\01',
+                               storeContentHash=False)
+
+    raise KeyValueStorageConfigNotFound
 
 
 def initKeyValueStorageIntKeys(keyValueType, dataLocation, keyValueStorageName,

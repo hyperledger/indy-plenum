@@ -64,9 +64,12 @@ class KeyValueStorageFile(KeyValueStorage):
         self._append_new_line_if_req()
 
     def get(self, key):
+        result = None
         for k, v in self.iterator():
             if k == key:
-                return v
+                result = v
+        if result is not None:
+            return result
         raise KeyError("'{}' doesn't contain {} key".format(
             self.db_file, str(key)))
 
