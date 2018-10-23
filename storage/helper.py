@@ -15,6 +15,7 @@ from storage.chunked_file_store import ChunkedFileStore
 
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
+from storage.text_file_store import TextFileStore
 
 
 def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
@@ -51,8 +52,8 @@ def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
 
     if keyValueType == KeyValueStorageType.BinaryFile:
         return BinaryFileStore(dataLocation, keyValueStorageName,
-                               delimiter=b'\01\02\03\04\05\06',
-                               lineSep=b'\06\05\04\03\02\01',
+                               delimiter=b'\0x8b\0xad\0xf0\0x0d\0x8b\0xad\0xf0\0x0d',
+                               lineSep=b'\0xde\0xad\0xbe\0xef\0xde\0xad\0xbe\0xef',
                                storeContentHash=False)
 
     raise KeyValueStorageConfigNotFound

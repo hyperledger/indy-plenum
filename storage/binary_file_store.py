@@ -1,5 +1,6 @@
 import logging
 import os
+from itertools import chain
 
 from storage.kv_store_single_file import SingleFileStore
 
@@ -42,11 +43,14 @@ class BinaryFileStore(SingleFileStore):
         return open(self.db_path, mode="a+b", buffering=0)
 
     def put(self, key, value):
+        key = self.to_byte_repr(key)
+        value = self.to_byte_repr(value)
         if not ((self.isLineNoKey or not key or self._isBytes(key)) and self._isBytes(value)):
             raise ValueError("key and value need to be bytes-like object")
         super().put(key=key, value=value)
 
     def get(self, key):
+        key = self.to_byte_repr(key)
         if not self.isLineNoKey and not self._isBytes(key):
             raise TypeError("key needs to be a bytes-like object")
         return super().get(key)
@@ -57,30 +61,33 @@ class BinaryFileStore(SingleFileStore):
 
         return super().iterator(start, end, includeKey, includeValue, prefix)
 
+    def _file_chunks(self):
+        self.db_file.seek(0)
+        while True:
+            result = self.db_file.read(4096)
+            yield result
+            if len(result) < 4096:
+                break
+
+    def _read_until_delimiter(self, source):
+        result = bytearray()
+        for b in source:
+            result.append(b)
+            if result.endswith(self.lineSep):
+                return bytes(result[:-len(self.lineSep)])
+        return bytes(result)
+
     def _lines(self):
         self.db_file.seek(0)
-        return (line
-                for line in self.db_file.read().split(self.lineSep)
-                if len(line) > 0)
-        # result = b''
-        # tmp = b''
-        # while True:
-        #     b = self.db_file.read(1)
-        #     if len(b) == 0:
-        #         result += tmp
-        #         if len(result) > 0:
-        #             yield result
-        #         return
-        #     tmp += b
-        #     if tmp == self.lineSep:
-        #         if len(result) > 0:
-        #             yield result
-        #         tmp = result = b''
-        #         continue
-        #     if self.lineSep.startswith(tmp):
-        #         continue
-        #     result += tmp
-        #     tmp = b''
+        data = chain.from_iterable(self._file_chunks())
+        while True:
+            result = self._read_until_delimiter(data)
+            if len(result) == 0:
+                break
+            yield result
+        # return (line
+        #         for line in self.db_file.read().split(self.lineSep)
+        #         if len(line) > 0)
 
     def _append_new_line_if_req(self):
         pass

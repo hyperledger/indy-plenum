@@ -54,9 +54,9 @@ primaryStorage = None
 domainStateStorage = KeyValueStorageType.BinaryFile
 poolStateStorage = KeyValueStorageType.BinaryFile
 configStateStorage = KeyValueStorageType.BinaryFile
-reqIdToTxnStorage = KeyValueStorageType.Rocksdb
+reqIdToTxnStorage = KeyValueStorageType.BinaryFile
 
-stateSignatureStorage = KeyValueStorageType.Rocksdb
+stateSignatureStorage = KeyValueStorageType.BinaryFile
 
 transactionLogDefaultStorage = KeyValueStorageType.ChunkedBinaryFile
 

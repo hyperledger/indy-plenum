@@ -2749,8 +2749,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not hasattr(storage._db, 'get_property'):
                 return
             self.metrics.add_event(name, int(storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(name+1, int(storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(name+2, int(storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
+            self.metrics.add_event(name + 1, int(storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(name + 2, int(storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
 
         if hasattr(self, 'idrCache'):
             store_rocksdb_metrics(MetricsName.STORAGE_IDR_CACHE_READERS, self.idrCache._keyValueStorage)
