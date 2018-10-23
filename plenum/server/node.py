@@ -70,7 +70,7 @@ from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
-    get_txn_time, get_digest
+    get_txn_time, get_digest, TxnUtilConfig
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -1842,7 +1842,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted client {}".format(frm), logger.display)
+            self.discard(str(msg)[:256], "received from blacklisted client {}".format(frm), logger.display)
             return None
 
         needStaticValidation = False
@@ -2384,9 +2384,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
-        # ToDo: During verifySignature procedure was already created request object.
-        # Need to avoid request object recreating
-        request = self.client_request_class(**msg.request)
+        request = TxnUtilConfig.client_request_class(**msg.request)
 
         clientName = msg.senderClient
 
@@ -3057,7 +3055,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         if isinstance(msg, Propagate):
             typ = 'propagate'
-            req = self.client_request_class(**msg.request)
+            req = TxnUtilConfig.client_request_class(**msg.request)
         else:
             typ = ''
             req = msg
