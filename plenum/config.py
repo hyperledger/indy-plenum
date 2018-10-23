@@ -51,14 +51,14 @@ hashStore = {
 
 primaryStorage = None
 
-domainStateStorage = KeyValueStorageType.BinaryFile
-poolStateStorage = KeyValueStorageType.BinaryFile
-configStateStorage = KeyValueStorageType.BinaryFile
-reqIdToTxnStorage = KeyValueStorageType.BinaryFile
+domainStateStorage = KeyValueStorageType.Rocksdb
+poolStateStorage = KeyValueStorageType.Rocksdb
+configStateStorage = KeyValueStorageType.Rocksdb
+reqIdToTxnStorage = KeyValueStorageType.Rocksdb
 
-stateSignatureStorage = KeyValueStorageType.BinaryFile
+stateSignatureStorage = KeyValueStorageType.Rocksdb
 
-transactionLogDefaultStorage = KeyValueStorageType.ChunkedBinaryFile
+transactionLogDefaultStorage = KeyValueStorageType.Rocksdb
 
 rocksdb_default_config = {
     'max_open_files': None,
