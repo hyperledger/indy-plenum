@@ -62,32 +62,25 @@ class BinaryFileStore(SingleFileStore):
         return super().iterator(start, end, includeKey, includeValue, prefix)
 
     def _file_chunks(self):
+        buf_size = 4096
         self.db_file.seek(0)
         while True:
-            result = self.db_file.read(4096)
-            yield result
-            if len(result) < 4096:
+            chunk = self.db_file.read(buf_size)
+            yield chunk
+            if len(chunk) < buf_size:
                 break
-
-    def _read_until_delimiter(self, source):
-        result = bytearray()
-        for b in source:
-            result.append(b)
-            if result.endswith(self.lineSep):
-                return bytes(result[:-len(self.lineSep)])
-        return bytes(result)
 
     def _lines(self):
-        self.db_file.seek(0)
-        data = chain.from_iterable(self._file_chunks())
-        while True:
-            result = self._read_until_delimiter(data)
-            if len(result) == 0:
-                break
-            yield result
-        # return (line
-        #         for line in self.db_file.read().split(self.lineSep)
-        #         if len(line) > 0)
+        buffer = bytearray()
+        lines = []
+        for chunk in self._file_chunks():
+            buffer.extend(chunk)
+            lines = buffer.split(self.lineSep)
+            for line in lines[:-1]:
+                yield line
+            buffer = buffer[-len(lines[-1]):]
+        if len(lines[-1]) > 0:
+            yield lines[-1]
 
     def _append_new_line_if_req(self):
         pass

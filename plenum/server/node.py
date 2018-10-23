@@ -2765,7 +2765,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
-            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage._db)
+            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
 
         self.metrics.flush_accumulated()
 
