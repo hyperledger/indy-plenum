@@ -10,7 +10,8 @@ from common.exceptions import PlenumValueError
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
+from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone, \
+    BackupInstanceFaulty
 from plenum.common.util import mostCommonElement, SortedDict
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
@@ -594,7 +595,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
             nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
         if self.view_change_in_progress:
-            self.node.restore_replicas()
+            self.node.backup_instance_faulty_processor.restore_replicas()
 
         self.node.select_primaries(nodeReg)
 

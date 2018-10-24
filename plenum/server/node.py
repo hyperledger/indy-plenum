@@ -17,6 +17,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
+from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
 from plenum.server.replica import Replica
@@ -60,7 +61,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone
+    ObservedData, FutureViewChangeDone, BackupInstanceFaulty
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -112,7 +113,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions
+from plenum.server.suspicion_codes import Suspicions, Suspicion
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 
@@ -362,12 +363,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             MessageReq,
             MessageRep,
             CurrentState,
-            ObservedData
+            ObservedData,
+            BackupInstanceFaulty
         )
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}  # Dict[Tuple[str, int], str]
+        self.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(self)
 
         # CurrentState
         self.nodeMsgRouter = Router(
@@ -386,7 +389,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
             (CurrentState, self.process_current_state_message),
-            (ObservedData, self.send_to_observer)
+            (ObservedData, self.send_to_observer),
+            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
         )
 
         self.clientMsgRouter = Router(
@@ -1433,11 +1437,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 [None] * (new_required_number_of_instances - len(self.primaries_disconnection_times)))
         elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
             self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
-
-    def restore_replicas(self):
-        for inst_id in range(self.requiredNumberOfInstances):
-            if inst_id not in self.replicas.keys():
-                self.replicas.add_replica(inst_id)
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -2860,6 +2859,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
+            degraded_backups = self.monitor.areBackupsDegraded()
+            if degraded_backups:
+                logger.display('{} backup instances performance degraded'.format(degraded_backups))
+                self.backup_instance_faulty_processor.on_backup_degradation(degraded_backups)
+
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
                 self.view_changer.on_master_degradation()
@@ -2940,7 +2944,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and self.primaries_disconnection_times[inst_id] is not None \
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
-            self.replicas.remove_replica(inst_id)
+            self.backup_instance_faulty_processor.on_backup_primary_disconnected([inst_id])
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
