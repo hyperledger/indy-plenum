@@ -68,10 +68,10 @@ class BackupInstanceFaultyProcessor:
         reason = Suspicions.get_by_code(getattr(backup_faulty, f.REASON.nm))
         if (
                 reason == Suspicions.BACKUP_PRIMARY_DISCONNECTED and
-                not self.__is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED)
+                not self._is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED)
         ) or (
                 reason == Suspicions.BACKUP_PRIMARY_DEGRADED and
-                not self.__is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_DEGRADATION)
+                not self._is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_DEGRADATION)
         ):
             return
 
@@ -86,34 +86,30 @@ class BackupInstanceFaultyProcessor:
 
     def __send_backup_instance_faulty(self, instances: List[int],
                                       reason: Suspicion):
-        if not self.node.view_change_in_progress and instances and \
-                not any(inst_id in self.backup_instances_faulty and
-                        self.node.name in self.backup_instances_faulty[inst_id]
-                        for inst_id in instances):
+        if not self.node.view_change_in_progress and not instances:
             return
         logger.info("{} sending an backup instance faulty with view_no {} "
                     "and reason {} for instances: ".format(self.node.name,
                                                            self.node.viewNo,
                                                            reason.reason,
                                                            instances))
-        for inst_id in instances:
-            self.backup_instances_faulty.setdefault(inst_id, set()) \
-                .add(self.node.name)
-        self.node.send(BackupInstanceFaulty(self.node.viewNo,
-                                            instances,
-                                            reason.code))
+        msg = BackupInstanceFaulty(self.node.viewNo,
+                                   instances,
+                                   reason.code)
+        self.process_backup_instance_faulty_msg(msg, self.node.name)
+        self.node.send(msg)
 
     def __remove_replicas(self, degraded_backups, reason: Suspicion, removing_strategy):
 
-        if self.__is_quorum_strategy(removing_strategy):
+        if self._is_quorum_strategy(removing_strategy):
             self.__send_backup_instance_faulty(degraded_backups,
                                                reason)
-        elif self.__is_local_remove_strategy(removing_strategy):
+        elif self._is_local_remove_strategy(removing_strategy):
             for inst_id in degraded_backups:
                 self.node.replicas.remove_replica(inst_id)
 
-    def __is_quorum_strategy(self, removing_strategy):
+    def _is_quorum_strategy(self, removing_strategy):
         return removing_strategy == "quorum"
 
-    def __is_local_remove_strategy(self, removing_strategy):
+    def _is_local_remove_strategy(self, removing_strategy):
         return removing_strategy == "local"
