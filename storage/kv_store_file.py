@@ -121,6 +121,8 @@ class KeyValueStorageFile(KeyValueStorage):
         i = 1
         for line in lines:
             k = str(i)
+            if self.is_byte:
+                k = k.encode()
             if (start is None or i >= start) and (end is None or i <= end):
                 yield self._parse_line(line, prefix, returnKey, returnValue, k)
             if end is not None and i > end:
