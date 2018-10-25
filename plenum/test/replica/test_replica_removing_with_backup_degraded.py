@@ -53,7 +53,7 @@ def update_conf(tconf, tmp):
         'min_cnt': 3
     }
     tconf.ACC_MONITOR_TIMEOUT = 3
-    tconf.ACC_MONITOR_TXN_DELTA_K = -10
+    tconf.ACC_MONITOR_TXN_DELTA_K = 0
     tconf.REPLICAS_REMOVING_WITH_DEGRADATION = tmp["replica_remove"]
     tconf.ACC_MONITOR_ENABLED = tmp["monitor_strategy"]
     tconf.PerfCheckFreq = 5
