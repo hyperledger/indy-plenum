@@ -46,7 +46,7 @@ seqNoDbName = 'seq_no_db'
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
-    "type": HS_FILE
+    "type": HS_ROCKSDB
 }
 
 primaryStorage = None
