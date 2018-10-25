@@ -4,7 +4,7 @@ import shutil
 from abc import abstractmethod
 from hashlib import sha256
 
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Optional
 
 from storage.kv_store import KeyValueStorage
 
@@ -124,17 +124,27 @@ class KeyValueStorageFile(KeyValueStorage):
 
     def _baseIterator(self, lines, start=None, end=None, prefix=None, returnKey: bool=True, returnValue: bool=True):
         self._is_valid_range(start, end)
-        i = 1
-        for line in lines:
-            k = str(i)
-            if self.is_byte:
-                k = k.encode()
-            if (start is None or i >= start) and (end is None or i <= end):
-                yield self._parse_line(line, prefix, returnKey, returnValue, k)
-            if end is not None and i > end:
-                break
-            if self.isLineNoKey:
+        if self.isLineNoKey:
+            i = 1
+            for line in lines:
+                if end is not None and i > end:
+                    break
+                if start is None or i >= start:
+                    k = str(i).encode() if self.is_byte else str(i)
+                    yield self._parse_line(line, prefix, returnKey, returnValue, k)
                 i += 1
+        else:
+            for line in lines:
+                k, v = self._parse_line(line, prefix, True, True)
+                if end is not None and k > end:
+                    break
+                if start is None or k >= start:
+                    if returnKey and returnValue:
+                        yield k, v
+                    elif returnKey:
+                        yield k
+                    elif returnValue:
+                        yield v
 
     @abstractmethod
     def _lines(self):
@@ -142,7 +152,7 @@ class KeyValueStorageFile(KeyValueStorage):
 
     @abstractmethod
     def _parse_line(self, line, prefix=None, returnKey: bool=True,
-                    returnValue: bool=True, key=None):
+                    returnValue: bool=True, key=None) -> Tuple[Optional, Optional]:
         pass
 
     @abstractmethod

@@ -15,7 +15,6 @@ from storage.chunked_file_store import ChunkedFileStore
 
 from storage.kv_in_memory import KeyValueStorageInMemory
 from storage.kv_store import KeyValueStorage
-from storage.text_file_store import TextFileStore
 
 
 def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName,
