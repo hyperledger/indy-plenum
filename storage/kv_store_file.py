@@ -73,6 +73,12 @@ class KeyValueStorageFile(KeyValueStorage):
         raise KeyError("'{}' doesn't contain {} key".format(
             self.db_file, str(key)))
 
+    def get_last_key(self):
+        result = None
+        for result, _ in self.iterator():
+            pass
+        return result
+
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if not (include_key or include_value):
             raise ValueError("At least one of includeKey or includeValue "
