@@ -80,7 +80,6 @@ class ValidatorNodeInfoTool:
         pool_info = self.__pool_info
         protocol_info = self.__protocol_info
         node_info = self.__node_info
-        memory_info = self.__memory_info
 
         if hardware_info:
             general_info.update(hardware_info)
@@ -90,8 +89,6 @@ class ValidatorNodeInfoTool:
             general_info.update(protocol_info)
         if node_info:
             general_info.update(node_info)
-        if memory_info:
-            general_info.update(memory_info)
 
         return general_info
 

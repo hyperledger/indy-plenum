@@ -2084,6 +2084,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         for request_key in reqKeys:
             self.requests.free(request_key)
+            for ledger_id, keys in self.requestQueues.items():
+                if request_key in keys:
+                    self.discard_req_key(ledger_id, request_key)
             self.logger.trace('{} freed request {} from previous checkpoints'
                               .format(self, request_key))
 

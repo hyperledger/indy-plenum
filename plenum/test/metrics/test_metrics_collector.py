@@ -1,5 +1,4 @@
 import asyncio
-from random import gauss
 
 import time
 
@@ -81,7 +80,7 @@ def test_metrics_collector_measures_time():
 
     assert len(mc.events) == 1
     assert mc.events[0][0] == MetricsName.LOOPER_RUN_TIME_SPENT
-    assert abs(mc.events[0][1] - 0.1) < 0.001  # we want at least 1 ms precision
+    assert abs(mc.events[0][1] - 0.1) < 0.003  # we want at least 3 ms precision
 
 
 def test_measure_time_decorator():
@@ -104,7 +103,7 @@ def test_measure_time_decorator():
     mc.flush_accumulated()
     assert len(mc.events) == 1
     assert mc.events[0][0] == MetricsName.LOOPER_RUN_TIME_SPENT
-    assert abs(mc.events[0][1] - 0.1) < 0.001  # we want at least 1 ms precision
+    assert abs(mc.events[0][1] - 0.1) < 0.003  # we want at least 3 ms precision
 
 
 def test_async_measure_time_decorator(looper):

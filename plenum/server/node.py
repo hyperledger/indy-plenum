@@ -71,7 +71,7 @@ from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
-    get_txn_time, get_digest
+    get_txn_time, get_digest, TxnUtilConfig
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -1841,7 +1841,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted client {}".format(frm), logger.display)
+            self.discard(str(msg)[:256], "received from blacklisted client {}".format(frm), logger.display)
             return None
 
         needStaticValidation = False
@@ -2383,9 +2383,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
-        # ToDo: During verifySignature procedure was already created request object.
-        # Need to avoid request object recreating
-        request = self.client_request_class(**msg.request)
+        request = TxnUtilConfig.client_request_class(**msg.request)
 
         clientName = msg.senderClient
 
@@ -2595,6 +2593,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
+        self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
         self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
@@ -2742,26 +2741,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
 
-        # Most 'heavy' collections
-        requests_memory = sys.getsizeof(self.requests)
-        requests_memory_items = sum(sys.getsizeof(req.request.signature) + sys.getsizeof(req.request.operation)
-                                    for req in self.requests.values())
-        requests_memory_items += sum(sum(sys.getsizeof(p.signature) + sys.getsizeof(p.operation)
-                                         for p in req.propagates.values()) for req in self.requests.values())
-        self.metrics.add_event(MetricsName.MEMORY_REQUESTS, requests_memory)
-        self.metrics.add_event(MetricsName.MEMORY_REQUESTS_ITEMS, requests_memory_items)
+        def store_rocksdb_metrics(name, storage):
+            if not hasattr(storage, '_db'):
+                return
+            if not hasattr(storage._db, 'get_property'):
+                return
+            self.metrics.add_event(name, int(storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(name + 1, int(storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(name + 2, int(storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
 
-        uncommitted_memory = sys.getsizeof(self.requests)
-        uncommitted_memory_items = sum(
-            sys.getsizeof(txn['txn']['metadata']['digest']) + sys.getsizeof(txn['reqSignature']) +
-            sys.getsizeof(txn['txn']) + sys.getsizeof(txn['txn']['data']) +
-            sys.getsizeof(txn['txn']['metadata']) + sys.getsizeof(txn['txnMetadata'])
-            for txn in self.get_req_handler(DOMAIN_LEDGER_ID).ledger.uncommittedTxns)
-        uncommitted_memory_items += sum(sum(sys.getsizeof(v['value']) for v in txn['reqSignature']['values']) for txn in
-                                        self.get_req_handler(1).ledger.uncommittedTxns)
+        if hasattr(self, 'idrCache'):
+            store_rocksdb_metrics(MetricsName.STORAGE_IDR_CACHE_READERS, self.idrCache._keyValueStorage)
 
-        self.metrics.add_event(MetricsName.MEMORY_DOMAIN_LEDGER_UNCOMMITTED, uncommitted_memory)
-        self.metrics.add_event(MetricsName.MEMORY_DOMAIN_LEDGER_UNCOMMITTED_ITEMS, uncommitted_memory_items)
+        if hasattr(self, 'attributeStore'):
+            store_rocksdb_metrics(MetricsName.STORAGE_ATTRIBUTE_STORE_READERS, self.attributeStore._keyValueStorage)
+
+        store_rocksdb_metrics(MetricsName.STORAGE_POOL_STATE_READERS, self.states.get(0)._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_DOMAIN_STATE_READERS, self.states.get(1)._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_CONFIG_STATE_READERS, self.states.get(2)._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_POOL_MANAGER_READERS, self.poolManager.state._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
+        store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
+        if self.config.METRICS_COLLECTOR_TYPE == 'kv':
+            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
 
         self.metrics.flush_accumulated()
 
@@ -3002,7 +3004,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         if isinstance(msg, Propagate):
             typ = 'propagate'
-            req = self.client_request_class(**msg.request)
+            req = TxnUtilConfig.client_request_class(**msg.request)
         else:
             typ = ''
             req = msg

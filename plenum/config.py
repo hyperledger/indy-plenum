@@ -2,7 +2,7 @@ import logging
 import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
-    KeyValueStorageType
+    KeyValueStorageType, HS_FILE
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
@@ -177,7 +177,7 @@ STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 # Node status configuration
 DUMP_VALIDATOR_INFO_INIT_SEC = 3
-DUMP_VALIDATOR_INFO_PERIOD_SEC = 600
+DUMP_VALIDATOR_INFO_PERIOD_SEC = 60
 
 # Controls sending of view change messages, a node will only send view change
 # messages if it did not send any sent instance change messages in last

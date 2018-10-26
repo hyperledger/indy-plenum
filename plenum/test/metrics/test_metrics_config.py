@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName
+from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName, TMP_METRIC
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from storage.helper import initKeyValueStorage
 
@@ -84,9 +84,17 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             unexpected_events.add(MetricsName.PRIMARY_DECIDER_INBOX)
             unexpected_events.add(MetricsName.PRIMARY_DECIDER_OUTBOX)
 
+        unexpected_events.add(MetricsName.STORAGE_IDR_CACHE_READERS)
+        unexpected_events.add(MetricsName.STORAGE_IDR_CACHE_TABLES_NUM)
+        unexpected_events.add(MetricsName.STORAGE_IDR_CACHE_TABLES_SIZE)
+
+        unexpected_events.add(MetricsName.STORAGE_ATTRIBUTE_STORE_READERS)
+        unexpected_events.add(MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_NUM)
+        unexpected_events.add(MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE)
+
         # Check that all event types happened during test
         metric_names = {ev.name for ev in events}
         for t in MetricsName:
-            if t in unexpected_events:
+            if t in unexpected_events or t > TMP_METRIC:
                 continue
             assert t in metric_names
