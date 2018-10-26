@@ -1,5 +1,4 @@
 import asyncio
-from random import gauss
 
 import time
 

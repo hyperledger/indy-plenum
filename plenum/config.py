@@ -2,7 +2,7 @@ import logging
 import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
-    KeyValueStorageType
+    KeyValueStorageType, HS_FILE
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy

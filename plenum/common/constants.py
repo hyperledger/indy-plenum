@@ -169,6 +169,8 @@ class KeyValueStorageType(IntEnum):
     Leveldb = 1
     Memory = 2
     Rocksdb = 3
+    ChunkedBinaryFile = 4
+    BinaryFile = 5
 
 
 @unique
