@@ -71,7 +71,7 @@ def test_replica_removing_after_node_started(looper,
                           new_node,
                           start_replicas_count,
                           instance_to_remove,
-                          timeout=100))
+                          timeout=tconf.TolerateBackupPrimaryDisconnection * 2))
 
     # recover the removed node
     removed_primary_node = start_stopped_node(removed_primary_node, looper, tconf,
