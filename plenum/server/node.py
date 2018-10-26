@@ -2593,6 +2593,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
+        self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
         self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)

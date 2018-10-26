@@ -67,6 +67,7 @@ class MetricsName(IntEnum):
     AVAILABLE_RAM_SIZE = 50
     NODE_RSS_SIZE = 51
     NODE_VMS_SIZE = 52
+    CONNECTED_CLIENTS_NUM = 53
 
     # Node service statistics
     NODE_PROD_TIME = 100
