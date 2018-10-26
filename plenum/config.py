@@ -2,7 +2,7 @@ import logging
 import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
-    KeyValueStorageType
+    KeyValueStorageType, PreVCStrategies
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
@@ -347,3 +347,4 @@ ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
 VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True
 
 VALIDATOR_INFO_USE_DB = False
+PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
