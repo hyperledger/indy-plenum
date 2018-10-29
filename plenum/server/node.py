@@ -17,6 +17,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
+from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
 from plenum.server.replica import Replica
@@ -60,7 +61,7 @@ from plenum.common.messages.node_messages import Nomination, Batch, Reelection, 
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone
+    ObservedData, FutureViewChangeDone, BackupInstanceFaulty
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -70,7 +71,7 @@ from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
-    get_txn_time, get_digest
+    get_txn_time, get_digest, TxnUtilConfig
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -112,7 +113,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions
+from plenum.server.suspicion_codes import Suspicions, Suspicion
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 
@@ -362,12 +363,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             MessageReq,
             MessageRep,
             CurrentState,
-            ObservedData
+            ObservedData,
+            BackupInstanceFaulty
         )
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}  # Dict[Tuple[str, int], str]
+        self.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(self)
 
         # CurrentState
         self.nodeMsgRouter = Router(
@@ -386,7 +389,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep),
             (CurrentState, self.process_current_state_message),
-            (ObservedData, self.send_to_observer)
+            (ObservedData, self.send_to_observer),
+            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
         )
 
         self.clientMsgRouter = Router(
@@ -1434,11 +1438,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
             self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
 
-    def restore_replicas(self):
-        for inst_id in range(self.requiredNumberOfInstances):
-            if inst_id not in self.replicas.keys():
-                self.replicas.add_replica(inst_id)
-
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
@@ -1842,7 +1841,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         msg, frm = wrappedMsg
         if self.isClientBlacklisted(frm):
-            self.discard(msg[:256], "received from blacklisted client {}".format(frm), logger.display)
+            self.discard(str(msg)[:256], "received from blacklisted client {}".format(frm), logger.display)
             return None
 
         needStaticValidation = False
@@ -2384,9 +2383,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
 
-        # ToDo: During verifySignature procedure was already created request object.
-        # Need to avoid request object recreating
-        request = self.client_request_class(**msg.request)
+        request = TxnUtilConfig.client_request_class(**msg.request)
 
         clientName = msg.senderClient
 
@@ -2596,6 +2593,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
+        self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
         self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
@@ -2743,85 +2741,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
 
+        def store_rocksdb_metrics(name, storage):
+            if not hasattr(storage, '_db'):
+                return
+            if not hasattr(storage._db, 'get_property'):
+                return
+            self.metrics.add_event(name, int(storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(name + 1, int(storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(name + 2, int(storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
+
+        if hasattr(self, 'idrCache'):
+            store_rocksdb_metrics(MetricsName.STORAGE_IDR_CACHE_READERS, self.idrCache._keyValueStorage)
+
+        if hasattr(self, 'attributeStore'):
+            store_rocksdb_metrics(MetricsName.STORAGE_ATTRIBUTE_STORE_READERS, self.attributeStore._keyValueStorage)
+
+        store_rocksdb_metrics(MetricsName.STORAGE_POOL_STATE_READERS, self.states.get(0)._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_DOMAIN_STATE_READERS, self.states.get(1)._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_CONFIG_STATE_READERS, self.states.get(2)._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_POOL_MANAGER_READERS, self.poolManager.state._kv)
+        store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
+        store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
-            if hasattr(self, 'idrCache'):
-                self.metrics.add_event(MetricsName.STORAGE_IDR_CACHE_READERS,
-                                       int(self.idrCache._keyValueStorage._db.get_property(
-                                           b"rocksdb.estimate-table-readers-mem")))
-                self.metrics.add_event(MetricsName.STORAGE_IDR_CACHE_TABLES_NUM,
-                                       int(self.idrCache._keyValueStorage._db.get_property(
-                                           b"rocksdb.num-immutable-mem-table")))
-                self.metrics.add_event(MetricsName.STORAGE_IDR_CACHE_TABLES_SIZE,
-                                       int(self.idrCache._keyValueStorage._db.get_property(
-                                           b"rocksdb.cur-size-all-mem-tables")))
-            if hasattr(self, 'attributeStore'):
-                self.metrics.add_event(MetricsName.STORAGE_ATTRIBUTE_STORE_READERS,
-                                       int(self.attributeStore._keyValueStorage._db.get_property(
-                                           b"rocksdb.cur-size-all-mem-tables")))
-                self.metrics.add_event(MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_NUM,
-                                       int(self.attributeStore._keyValueStorage._db.get_property(
-                                           b"rocksdb.cur-size-all-mem-tables")))
-                self.metrics.add_event(MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE,
-                                       int(self.attributeStore._keyValueStorage._db.get_property(
-                                           b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_POOL_STATE_READERS,
-                                   int(self.states.get(0)._kv._db.get_property(b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_POOL_STATE_TABLES_NUM,
-                                   int(self.states.get(0)._kv._db.get_property(b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_POOL_STATE_TABLES_SIZE,
-                                   int(self.states.get(0)._kv._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_DOMAIN_STATE_READERS,
-                                   int(self.states.get(1)._kv._db.get_property(b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_DOMAIN_STATE_TABLES_NUM,
-                                   int(self.states.get(1)._kv._db.get_property(b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_DOMAIN_STATE_TABLES_SIZE,
-                                   int(self.states.get(1)._kv._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_CONFIG_STATE_READERS,
-                                   int(self.states.get(2)._kv._db.get_property(b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_CONFIG_STATE_TABLES_NUM,
-                                   int(self.states.get(2)._kv._db.get_property(b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_CONFIG_STATE_TABLES_SIZE,
-                                   int(self.states.get(2)._kv._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_POOL_MANAGER_READERS,
-                                   int(self.poolManager.state._kv._db.get_property(
-                                       b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_POOL_MANAGER_TABLES_NUM,
-                                   int(self.poolManager.state._kv._db.get_property(
-                                       b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_POOL_MANAGER_TABLES_SIZE,
-                                   int(self.poolManager.state._kv._db.get_property(
-                                       b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_BLS_BFT_READERS,
-                                   int(self.bls_bft.bls_store._kvs._db.get_property(
-                                       b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_BLS_BFT_TABLES_NUM,
-                                   int(self.bls_bft.bls_store._kvs._db.get_property(
-                                       b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_BLS_BFT_TABLES_SIZE,
-                                   int(self.bls_bft.bls_store._kvs._db.get_property(
-                                       b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_SEQ_NO_READERS,
-                                   int(self.seqNoDB._keyValueStorage._db.get_property(
-                                       b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_SEQ_NO_TABLES_NUM,
-                                   int(self.seqNoDB._keyValueStorage._db.get_property(
-                                       b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_SEQ_NO_TABLES_SIZE,
-                                   int(self.seqNoDB._keyValueStorage._db.get_property(
-                                       b"rocksdb.cur-size-all-mem-tables")))
-
-            self.metrics.add_event(MetricsName.STORAGE_METRICS_READERS,
-                                   int(self.metrics._storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(MetricsName.STORAGE_METRICS_TABLES_NUM,
-                                   int(self.metrics._storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(MetricsName.STORAGE_METRICS_TABLES_SIZE,
-                                   int(self.metrics._storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
+            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
 
         self.metrics.flush_accumulated()
 
@@ -2861,6 +2803,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
+
+            degraded_backups = self.monitor.areBackupsDegraded()
+            if degraded_backups:
+                logger.display('{} backup instances performance degraded'.format(degraded_backups))
+                self.backup_instance_faulty_processor.on_backup_degradation(degraded_backups)
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
@@ -2942,7 +2889,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and self.primaries_disconnection_times[inst_id] is not None \
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
-            self.replicas.remove_replica(inst_id)
+            self.backup_instance_faulty_processor.on_backup_primary_disconnected([inst_id])
 
     def _schedule_view_change(self):
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
@@ -3057,7 +3004,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         if isinstance(msg, Propagate):
             typ = 'propagate'
-            req = self.client_request_class(**msg.request)
+            req = TxnUtilConfig.client_request_class(**msg.request)
         else:
             typ = ''
             req = msg

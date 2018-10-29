@@ -35,6 +35,7 @@ ORDERED = "ORDERED"
 REQKEY = "REQKEY"
 
 INSTANCE_CHANGE = "INSTANCE_CHANGE"
+BACKUP_INSTANCE_FAULTY = "BACKUP_INSTANCE_FAULTY"
 VIEW_CHANGE_DONE = "VIEW_CHANGE_DONE"
 CURRENT_STATE = "CURRENT_STATE"
 
@@ -171,6 +172,8 @@ class KeyValueStorageType(IntEnum):
     Leveldb = 1
     Memory = 2
     Rocksdb = 3
+    ChunkedBinaryFile = 4
+    BinaryFile = 5
 
 
 class PreVCStrategies(IntEnum):

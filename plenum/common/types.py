@@ -31,6 +31,7 @@ class f:  # provides a namespace for reusable field constants
     ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
     # Last ordered seq no of each protocol instance, sent during view change
     ORD_SEQ_NOS = Field('ordSeqNos', List[int])
+    INSTANCES = Field('instancesIdr', List[int])
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)

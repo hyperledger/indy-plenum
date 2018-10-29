@@ -40,5 +40,4 @@ def check_replica_removed(node, start_replicas_count, instance_id):
                       node.monitor.instances.ids]
     assert all(instance_id not in replicas for replicas in replicas_lists)
     if node.monitor.acc_monitor is not None:
-        assert node.monitor.acc_monitor == replicas_count
-        assert instance_id not in node.replicas.keys()
+        assert instance_id not in node.monitor.acc_monitor._instances
