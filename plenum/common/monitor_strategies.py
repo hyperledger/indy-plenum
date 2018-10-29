@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Sequence
 
 from plenum.common.moving_average import EMAEventFrequencyEstimator
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 class MonitorStrategy(ABC):
@@ -45,7 +47,7 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         self._instances = instances
         self._txn_delta_k = txn_delta_k
         self._timeout = timeout
-        self._ordered = defaultdict(lambda: 0)
+        self._ordered = defaultdict(int)
         self._timestamp = start_time
         self._alert_timestamp = {inst: None for inst in self._instances}
         self._input_txn_rate = EMAEventFrequencyEstimator(start_time, input_rate_reaction_half_time)
@@ -57,6 +59,8 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         self._instances.remove(inst_id)
 
     def reset(self):
+        logger.info("Resetting accumulating monitor")
+        self._input_txn_rate.reset(self._timestamp)
         self._alert_timestamp = {inst: None for inst in self._instances}
         self._ordered.clear()
 
@@ -64,9 +68,15 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         self._timestamp = timestamp
         self._input_txn_rate.update_time(timestamp)
         for inst_id in self._instances:
-            if not self._is_degraded(inst_id):
+            is_alerted = self._alert_timestamp[inst_id] is not None
+            is_degraded = self._is_degraded(inst_id)
+            if is_alerted and not is_degraded:
+                logger.info("Accumulating monitor is no longer alerted on instance {}, {}".
+                            format(inst_id, self._statistics()))
                 self._alert_timestamp[inst_id] = None
-            elif not self._alert_timestamp.get(inst_id, None):
+            elif not is_alerted and is_degraded:
+                logger.info("Accumulating monitor became alerted on instance {}, {}".
+                            format(inst_id, self._statistics()))
                 self._alert_timestamp[inst_id] = self._timestamp
 
     def request_received(self, id: str):
@@ -83,9 +93,20 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
             return False
         return self._timestamp - self._alert_timestamp[inst_id] > self._timeout
 
+    @property
+    def _threshold(self):
+        return self._txn_delta_k * self._input_txn_rate.value
+
     def _is_degraded(self, inst_id):
         if len(self._instances) < 2:
             return False
         instance_ordered = self._ordered[inst_id]
         max_ordered = max(self._ordered[i] for i in self._instances)
-        return (max_ordered - instance_ordered) > self._txn_delta_k * self._input_txn_rate.value
+        return (max_ordered - instance_ordered) > self._threshold
+
+    def _statistics(self):
+        return "txn rate {}, threshold {}, ordered: {}".\
+               format(self._input_txn_rate.value,
+                      self._threshold,
+                      ", ".join([str(n) for n in self._ordered.values()]))
+
