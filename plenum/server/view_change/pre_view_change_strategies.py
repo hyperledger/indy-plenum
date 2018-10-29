@@ -1,16 +1,8 @@
 from abc import abstractmethod, ABCMeta
 from functools import partial
 
-from plenum.common.messages.fields import IntegerField
-from plenum.common.messages.message_base import MessageBase
-from plenum.common.constants import VIEW_CHANGE_START, PROPOSED_VIEW_NO, PreVCStrategies
-
-
-class ViewChangeStartMessage(MessageBase):
-    typename = VIEW_CHANGE_START
-    schema = (
-        (PROPOSED_VIEW_NO, IntegerField()),
-    )
+from plenum.common.constants import VIEW_CHANGE_START, PreVCStrategies
+from plenum.common.messages.node_messages import ViewChangeStartMessage
 
 
 class PreViewChangeStrategy(metaclass=ABCMeta):
