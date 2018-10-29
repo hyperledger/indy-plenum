@@ -109,4 +109,3 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
                format(self._input_txn_rate.value,
                       self._threshold,
                       ", ".join([str(n) for n in self._ordered.values()]))
-
