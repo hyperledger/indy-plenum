@@ -49,7 +49,7 @@ class AccumulatingMonitorStrategy(MonitorStrategy):
         self._timeout = timeout
         self._ordered = defaultdict(int)
         self._timestamp = start_time
-        self._alert_timestamp = {inst: None for inst in self._instances}
+        self._alert_timestamp = defaultdict(lambda: None)
         self._input_txn_rate = EMAEventFrequencyEstimator(start_time, input_rate_reaction_half_time)
 
     def add_instance(self, inst_id):
