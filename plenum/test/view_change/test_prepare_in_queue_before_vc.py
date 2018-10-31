@@ -1,4 +1,5 @@
 import functools
+import json
 from collections import deque
 
 import pytest
@@ -30,26 +31,30 @@ def tconf(tconf):
     tconf.Max3PCBatchWait = old_batch_wait
 
 
+stashed_msgs = deque()
+
+
 def not_processing_prepare(node):
     async def processNodeInBoxWithoutPrepare(self):
         """
         Process the messages in the node inbox asynchronously.
         """
+        def get_ident(nodestack, node_name):
+            ha = nodestack.remotes.get(node_name)
+            for k, v in nodestack.remotesByKeys.items():
+                if v == ha:
+                    return k
         self.nodeIbStasher.process()
-        pprs = deque()
         for i in range(len(self.nodeInBox)):
             m = self.nodeInBox.popleft()
             if isinstance(m, tuple) and len(
                 m) == 2 and not hasattr(m, '_field_types') and \
                     (isinstance(m[0], Prepare) or isinstance(m[0], Commit)):
-                pprs.append(m)
+                stashed_msgs.append((json.dumps(m[0]._asdict()),
+                                     get_ident(self.nodestack, m[1])))
                 continue
-            try:
-                await self.nodeMsgRouter.handle(m)
-            except SuspiciousNode as ex:
-                self.reportSuspiciousNodeEx(ex)
-                self.discard(m, ex, logger.debug)
-        self.nodeInBox.extend(pprs)
+            await self.process_one_node_message(m)
+
     node.processNodeInBox = functools.partial(processNodeInBoxWithoutPrepare, node)
 
 
@@ -74,6 +79,8 @@ def test_prepare_in_queue_before_vc(looper,
     def patched_startViewChange(self, *args, **kwargs):
         self.node.processNodeInBox = functools.partial(TestNode.processNodeInBox, self.node)
         ViewChanger.startViewChange(self, *args, **kwargs)
+        while stashed_msgs:
+            self.node.nodestack.rxMsgs.append(stashed_msgs.popleft())
 
     """Send REQ_COUNT txns"""
     slow_node = txnPoolNodeSet[-1]
@@ -86,17 +93,6 @@ def test_prepare_in_queue_before_vc(looper,
     """Send 1 txn"""
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, REQ_COUNT_AFTER_SLOW)
 
-    """Get all Prepares from nodeInBox queue for finding quorumed Prepares"""
-    waited_pprs = Prepares()
-    for m in slow_node.nodeInBox:
-        if isinstance(m, tuple) and \
-            len(m) == 2 and \
-                not hasattr(m, '_field_types') and \
-                    isinstance(m[0], Prepare):
-            waited_pprs.addVote(m[0], m[1])
-    assert len(waited_pprs) > 0
-
-    chk_quorumed_prepares_count(waited_pprs, REQ_COUNT_AFTER_SLOW)
     chk_quorumed_prepares_count(slow_node.master_replica.prepares, REQ_COUNT)
 
     """Get last ordered 3pc key (should be (0, REQ_COUNT))"""
@@ -111,4 +107,3 @@ def test_prepare_in_queue_before_vc(looper,
     expected_lpc = slow_node.master_replica.last_prepared_before_view_change
     """Last ordered key should be greater than last_prepared_before_view_change"""
     assert compare_3PC_keys(ordered_lpc, expected_lpc) > 0
-    assert compare_3PC_keys(expected_lpc, max_3PC_key([k for k, v in waited_pprs.items()])) == 0

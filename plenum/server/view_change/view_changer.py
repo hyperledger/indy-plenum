@@ -525,8 +525,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: view change is a special case, which can have different
         # implementations - we need to make this logic pluggable
 
-        if self.pre_vc_strategy and not continue_vc:
-            self.pre_vc_strategy.vc_preparation(proposed_view_no)
+        if self.pre_vc_strategy and (not self.propagate_primary) and (not continue_vc):
+            self.pre_vc_strategy.prepare_view_change(proposed_view_no)
             return
         self.view_no = proposed_view_no
         self.view_change_in_progress = True

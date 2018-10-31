@@ -1,8 +1,13 @@
 from abc import abstractmethod, ABCMeta
+from collections import deque
 from functools import partial
 
-from plenum.common.constants import VIEW_CHANGE_START, PreVCStrategies
-from plenum.common.messages.node_messages import ViewChangeStartMessage
+from plenum.common.constants import VIEW_CHANGE_START, PreVCStrategies, VIEW_CHANGE_CONTINUE
+from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, PrePrepare, Prepare, \
+    Commit, Ordered
+from stp_zmq.zstack import Quota
+
+EXTENDED_QUOTA_MULTIPLIER = 10
 
 
 class PreViewChangeStrategy(metaclass=ABCMeta):
@@ -12,7 +17,7 @@ class PreViewChangeStrategy(metaclass=ABCMeta):
         self.view_changer = view_changer
 
     @abstractmethod
-    def vc_preparation(self, proposed_view_no: int):
+    def prepare_view_change(self, proposed_view_no: int):
         raise NotImplementedError()
 
 
@@ -23,40 +28,74 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
     - when this message will be processed by replica's inBoxRouter then startViewChange method will be called
       and view_change procedure will be continued
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stashedNodeInBox = deque()
+        self.node = self.view_changer.node
+        self.replica = self.node.master_replica
+        self.is_preparing = False
 
-    def vc_preparation(self, proposed_view_no: int):
-        self.set_req_handler()
-        vcs_msg = ViewChangeStartMessage(proposed_view_no)
-        nodeInBox = self.view_changer.node.nodeInBox
-        nodeInBox.append((vcs_msg, self.view_changer.node.name))
+    def prepare_view_change(self, proposed_view_no: int):
+        if not self.is_preparing:
+            self.set_req_handlers()
+            vcs_msg = ViewChangeStartMessage(proposed_view_no)
+            nodeInBox = self.view_changer.node.nodeInBox
+            nodeInBox.append((vcs_msg, self.view_changer.node.name))
+            self.is_preparing = True
 
-    def set_req_handler(self):
+    @staticmethod
+    async def processNodeInbox3PC(node):
+        current_view_no = node.viewNo
+        stashed_not_3PC = deque()
+        types_3PC = (PrePrepare, Prepare, Commit, Ordered)
+        while node.nodeInBox:
+            m = node.nodeInBox.popleft()
+            if len(m) == 2 and isinstance(m[0], types_3PC) and \
+                m[0].viewNo == current_view_no and \
+                    m[0].instId == node.instances.masterId:
+                await node.process_one_node_message(m)
+            else:
+                stashed_not_3PC.append(m)
+        return stashed_not_3PC
+
+    def set_req_handlers(self):
         """Handler for processing ViewChangeStart message on node's nodeInBoxRouter"""
-        def process_start_vc_msg_on_node(self, msg: ViewChangeStartMessage, frm):
+        async def process_start_vc_msg_on_node(node, msg: ViewChangeStartMessage, frm):
             proposed_view_no = msg.proposed_view_no
-            if proposed_view_no > self.view_changer.view_no:
-                vcs_msg = ViewChangeStartMessage(proposed_view_no)
-                self.view_changer.node.master_replica.inBox.append(vcs_msg)
+            if proposed_view_no > node.view_changer.view_no:
+                vcc_msg = ViewChangeContinueMessage(proposed_view_no)
+                quota = Quota(count=EXTENDED_QUOTA_MULTIPLIER * node.quota_control.node_quota.count,
+                              size=EXTENDED_QUOTA_MULTIPLIER * node.quota_control.node_quota.size)
+                await node.nodestack.service(limit=None,
+                                             quota=quota)
+                self.stashedNodeInBox = await VCStartMsgStrategy.processNodeInbox3PC(node)
+                node.master_replica.inBox.append(vcc_msg)
 
         """Handler for processing ViewChangeStart message on replica's inBoxRouter"""
-        def process_start_vc_msg_on_replica(self, msg: ViewChangeStartMessage):
+        def process_continue_vc_msg_on_replica(replica, msg: ViewChangeContinueMessage):
             proposed_view_no = msg.proposed_view_no
-            if proposed_view_no > self.node.viewNo:
-                self.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
+            if proposed_view_no > replica.node.viewNo:
+                """
+                Return stashed not 3PC msgs to nodeInBox queue and start ViewChange
+                Critical assumption: All 3PC msgs passed from node already processed
+                """
+                while self.stashedNodeInBox:
+                    replica.node.nodeInBox.appendleft(self.stashedNodeInBox.popleft())
+                replica.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
+                self.is_preparing = False
 
-        if VIEW_CHANGE_START not in self.view_changer.node.nodeMsgRouter.routes:
+        node_msg_router = self.node.nodeMsgRouter
+        replica_msg_router = self.replica.inBoxRouter
+
+        if VIEW_CHANGE_START not in node_msg_router.routes:
             processor = partial(process_start_vc_msg_on_node,
-                                self.view_changer.node)
-            msg_router = self.view_changer.node.nodeMsgRouter
-            msg_router.add((ViewChangeStartMessage,
-                            processor))
+                                self.node)
+            node_msg_router.add((ViewChangeStartMessage, processor))
 
-        if VIEW_CHANGE_START not in self.view_changer.node.master_replica.inBoxRouter.routes:
-            processor = partial(process_start_vc_msg_on_replica,
-                                self.view_changer.node.master_replica)
-            msg_router = self.view_changer.node.master_replica.inBoxRouter
-            msg_router.add((ViewChangeStartMessage,
-                            processor))
+        if VIEW_CHANGE_CONTINUE not in replica_msg_router.routes:
+            processor = partial(process_continue_vc_msg_on_replica,
+                                self.replica)
+            replica_msg_router.add((ViewChangeContinueMessage, processor))
 
 
 preVCStrategies = {

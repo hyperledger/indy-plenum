@@ -1770,11 +1770,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         while self.nodeInBox:
             m = self.nodeInBox.popleft()
-            try:
-                await self.nodeMsgRouter.handle(m)
-            except SuspiciousNode as ex:
-                self.reportSuspiciousNodeEx(ex)
-                self.discard(m, ex, logger.debug)
+            await self.process_one_node_message(m)
+
+    async def process_one_node_message(self, m):
+        try:
+            await self.nodeMsgRouter.handle(m)
+        except SuspiciousNode as ex:
+            self.reportSuspiciousNodeEx(ex)
+            self.discard(m, ex, logger.debug)
 
     def handleOneClientMsg(self, wrappedMsg):
         """
