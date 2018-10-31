@@ -31,8 +31,6 @@ def decreasedMonitoringTimeouts(tconf, request):
     return tconf
 
 
-NUM_OF_REPLICAS = 3
-
 @pytest.fixture(scope='function')
 def fake_monitor(tconf):
     def getThroughput(self, instId):
