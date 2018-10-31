@@ -434,7 +434,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                      # self.isMasterReqLatencyTooHigh() or
                      self.isMasterAvgReqLatencyTooHigh()))
 
-    def areBackupsDegraded(self):
+    def areBackupsDegraded(self, replicas_requests_count):
         """
         Return slow instance.
         """
@@ -445,17 +445,18 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                     slow_instances.append(instance)
         else:
             for instance in self.instances.backupIds:
-                if self.is_instance_throughput_too_low(instance) or \
+                if self.is_instance_throughput_too_low(instance,
+                                                       replicas_requests_count[instance]) or \
                         self.is_instance_avg_req_latency_too_high(instance):
                     slow_instances.append(instance)
         return slow_instances
 
-    def instance_throughput_ratio(self, inst_id):
+    def instance_throughput_ratio(self, inst_id, received_requests_count=None):
         """
         The relative throughput of an instance compared to the backup
         instances.
         """
-        inst_thrp, otherThrp = self.getThroughputs(inst_id)
+        inst_thrp, otherThrp = self.getThroughputs(inst_id, received_requests_count)
 
         # Backup throughput may be 0 so moving ahead only if it is not 0
         r = inst_thrp / otherThrp if otherThrp and inst_thrp is not None \
@@ -469,13 +470,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         return self.is_instance_throughput_too_low(self.instances.masterId)
 
-    def is_instance_throughput_too_low(self, inst_id):
+    def is_instance_throughput_too_low(self, inst_id, received_requests_count=None):
         """
         Return whether the throughput of the master instance is greater than the
         acceptable threshold
         """
         logging = self.instances.masterId == inst_id
-        r = self.instance_throughput_ratio(inst_id)
+        r = self.instance_throughput_ratio(inst_id, received_requests_count)
         if r is None:
             if logging:
                 logger.debug("{} instance {} throughput is not "
@@ -539,7 +540,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 "avg request latency is {}".format(self, avg_lat, avg_lat_others))
         return True
 
-    def getThroughputs(self, desired_inst_id: int):
+    def getThroughputs(self, desired_inst_id: int, received_requests_count=None):
         """
         Return a tuple of  the throughput of the given instance and the average
         throughput of the remaining instances.
@@ -566,7 +567,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if instance_thrp == 0:
             if self.numOrderedRequests[desired_inst_id] == (0, 0):
                 avgReqsPerInst = (totalReqs or 0) / self.instances.count
-                if avgReqsPerInst <= 1:
+                if avgReqsPerInst <= 1 or received_requests_count == 0:
                     # too early to tell if we need an instance change
                     instance_thrp = None
         return instance_thrp, other_thrp
