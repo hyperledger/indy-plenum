@@ -2804,11 +2804,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if avg_lat_backup:
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
-            received_requests_count = {inst_id: 0 for inst_id in self.replicas.keys()}
-            for inst_id, r in self.replicas.items():
-                for requests in r.requestQueues.values():
-                    received_requests_count[inst_id] = len(requests)
-            degraded_backups = self.monitor.areBackupsDegraded(received_requests_count)
+            degraded_backups = self.monitor.areBackupsDegraded()
             if degraded_backups:
                 logger.display('{} backup instances performance degraded'.format(degraded_backups))
                 self.backup_instance_faulty_processor.on_backup_degradation(degraded_backups)
