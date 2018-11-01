@@ -1,6 +1,9 @@
 import functools
 from collections import deque
 
+import pytest
+
+from plenum.common.constants import PreVCStrategies
 from plenum.common.messages.node_messages import ViewChangeDone, InstanceChange
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -12,6 +15,12 @@ REQ_COUNT = 10
 stashed_vc_done_msgs = deque()
 stashed_ic_msgs = deque()
 got_start_vc_msg = False
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    tconf.PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
+    yield tconf
 
 
 def not_processing_view_change_done(node):

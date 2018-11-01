@@ -7,8 +7,6 @@ from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewCha
     Commit, Ordered
 from stp_zmq.zstack import Quota
 
-EXTENDED_QUOTA_MULTIPLIER = 10
-
 
 class PreViewChangeStrategy(metaclass=ABCMeta):
     """Abstract class for routines before starting viewChange procedure"""
@@ -64,8 +62,8 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             proposed_view_no = msg.proposed_view_no
             if proposed_view_no > node.view_changer.view_no:
                 vcc_msg = ViewChangeContinueMessage(proposed_view_no)
-                quota = Quota(count=EXTENDED_QUOTA_MULTIPLIER * node.quota_control.node_quota.count,
-                              size=EXTENDED_QUOTA_MULTIPLIER * node.quota_control.node_quota.size)
+                quota = Quota(count=self.node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.count,
+                              size=self.node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.size)
                 await node.nodestack.service(limit=None,
                                              quota=quota)
                 self.stashedNodeInBox = await VCStartMsgStrategy.processNodeInbox3PC(node)

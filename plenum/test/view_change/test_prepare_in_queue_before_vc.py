@@ -5,6 +5,7 @@ from collections import deque
 import pytest
 
 from indy_node.server.node import logger
+from plenum.common.constants import PreVCStrategies
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import Prepare, Commit
 from plenum.common.util import compare_3PC_keys, max_3PC_key
@@ -25,6 +26,8 @@ def tconf(tconf):
     old_batch_wait = tconf.Max3PCBatchWait
     tconf.Max3PCBatchSize = 1
     tconf.Max3PCBatchWait = 1000
+    tconf.PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
+
     yield tconf
 
     tconf.Max3PCBatchSize = old_max_3pc
