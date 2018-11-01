@@ -1903,9 +1903,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
                 'shift watermarks and clean collections'.
                 format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
-            # The following call will adjust last_ordered_3pc,
-            # shift watermarks and clean collections
+            # Adjust last_ordered_3pc, shift watermarks, clean operational
+            # collections and process stashed messages which now fit between
+            # watermarks
             self.caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
+            self.processStashedMsgsForNewWaterMarks()
 
     def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():

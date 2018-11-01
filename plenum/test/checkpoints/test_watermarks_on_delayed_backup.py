@@ -43,17 +43,17 @@ def test_watermarks_restored_after_stable(
 
     # 3. send requests to reach Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
     # quorumed checkpoints.
-    # The broken replica should correct watermarks.
+    # The broken replica should adjust last_ordered_3pc and shift watermarks.
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                          num_reqs=1, num_batches=1)
-    assert broken_replica.last_ordered_3pc == (0, 0)
+    assert broken_replica.last_ordered_3pc == (0, 10)
     assert broken_replica.h == 10
     assert broken_replica.H == 30
     assert non_broken_replica.last_ordered_3pc == (0, 10)
     assert non_broken_replica.h == 10
     assert non_broken_replica.H == 30
 
-    # 4. Repair broken replica amd make sure that it participates in consensus
+    # 4. Repair broken replica and make sure that it participates in consensus
     # (after watermarks were corrected).
     repair_broken_replica(broken_replica)
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
