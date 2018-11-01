@@ -1287,7 +1287,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             """
             self._schedule_view_change()
 
-        for inst_id, replica in self.replicas:
+        for inst_id, replica in self.replicas.items():
             if not replica.isMaster and replica.primaryName is not None:
                 primary_node_name = replica.primaryName.split(':')[0]
                 if primary_node_name in joined:
@@ -2805,7 +2805,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
             received_requests_count = {inst_id: 0 for inst_id in self.replicas.keys()}
-            for inst_id, r in self.replicas:
+            for inst_id, r in self.replicas.items():
                 for requests in r.requestQueues.values():
                     received_requests_count[inst_id] = len(requests)
             degraded_backups = self.monitor.areBackupsDegraded(received_requests_count)
@@ -2916,7 +2916,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
-        for instance_id, replica in self.replicas:
+        for instance_id, replica in self.replicas.items():
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
                 primaries.add(name)
@@ -2927,7 +2927,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if instance_id == 0:
                     primary_rank = self.get_rank_by_name(name, nodeReg)
 
-        for instance_id, replica in self.replicas:
+        for instance_id, replica in self.replicas.items():
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue

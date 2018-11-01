@@ -44,7 +44,7 @@ def fake_view_changer(request, tconf):
     )
     monitor = FakeSomething(
         isMasterDegraded=lambda: False,
-        areBackupsDegraded=lambda: [],
+        areBackupsDegraded=lambda a: [],
         prettymetrics=''
     )
     node = FakeSomething(

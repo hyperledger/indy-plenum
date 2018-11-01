@@ -227,6 +227,9 @@ class Replicas:
     def values(self):
         return self._replicas.values()
 
+    def items(self):
+        return self._replicas.items()
+
     def __getitem__(self, item):
         if not isinstance(item, int):
             raise PlenumTypeError('item', item, int)
@@ -236,4 +239,4 @@ class Replicas:
         return self.num_replicas
 
     def __iter__(self):
-        return self._replicas.items().__iter__()
+        return self._replicas.__iter__()
