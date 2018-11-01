@@ -553,10 +553,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if len(self.throughputs) > 1:
             thrs = []
             for inst_id, thr_obj in self.throughputs.items():
-                if inst_id != desired_inst_id:
-                    thr = self.getThroughput(inst_id)
-                    if thr is not None:
-                        thrs.append(thr)
+                if inst_id == desired_inst_id:
+                    continue
+                thr = self.getThroughput(inst_id)
+                if thr is not None:
+                    thrs.append(thr)
             if thrs:
                 other_thrp = self.throughput_avg_strategy_cls.get_avg(thrs)
             else:
