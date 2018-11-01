@@ -1,9 +1,16 @@
+import functools
 from collections import namedtuple
 from itertools import chain
 
 import pytest
 
 from plenum.server.monitor import Monitor
+
+
+@pytest.fixture(scope='function')
+def fake_monitor(tconf, fake_monitor):
+    fake_monitor.getThroughput = functools.partial(Monitor.getThroughput, fake_monitor)
+    return fake_monitor
 
 
 class ReqStream:
@@ -286,7 +293,7 @@ def test_master_not_degraded_on_new_instance(fake_monitor, tconf):
 
     new_id = max(fake_monitor.instances.ids) + 1
     fake_monitor.numOrderedRequests[new_id] = (0, 0)
-    fake_monitor.throughputs[new_id] = Monitor.create_throughput_measurement(tconf, start_ts=0)
+    fake_monitor.throughputs[new_id] = Monitor.create_throughput_measurement(tconf)
     fake_monitor.instances.add(new_id)
 
     assert not fake_monitor.is_instance_throughput_too_low(new_id)
