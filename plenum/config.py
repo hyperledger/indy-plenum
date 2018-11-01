@@ -339,7 +339,7 @@ METRICS_KV_CONFIG = rocksdb_default_config.copy()
 # Input request rate is averaged using moving average with reaction
 # half time of ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME
 
-ACC_MONITOR_ENABLED = True
+ACC_MONITOR_ENABLED = False
 ACC_MONITOR_TXN_DELTA_K = 100
 ACC_MONITOR_TIMEOUT = 300
 ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
