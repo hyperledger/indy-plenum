@@ -2806,7 +2806,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             received_requests_count = {inst_id: 0 for inst_id in self.replicas.keys()}
             for inst_id, r in self.replicas:
-                for requests in r.requestQueues.values:
+                for requests in r.requestQueues.values():
                     received_requests_count[inst_id] = len(requests)
             degraded_backups = self.monitor.areBackupsDegraded(received_requests_count)
             if degraded_backups:
