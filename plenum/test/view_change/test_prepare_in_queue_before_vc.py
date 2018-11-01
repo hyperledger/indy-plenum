@@ -4,12 +4,9 @@ from collections import deque
 
 import pytest
 
-from indy_node.server.node import logger
 from plenum.common.constants import PreVCStrategies
-from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import Prepare, Commit
-from plenum.common.util import compare_3PC_keys, max_3PC_key
-from plenum.server.models import Prepares
+from plenum.common.util import compare_3PC_keys
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import vcd_delay
 from plenum.test.helper import sdk_send_random_and_check
