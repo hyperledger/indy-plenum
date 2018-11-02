@@ -151,7 +151,7 @@ def test_rsr_ema_tm_after_start_stays_in_faded_while_windows_are_empty(tm_after_
 
     assert tm.throughput_before_idle == 0
     assert tm.idle_start_ts == 0
-    assert tm.empty_windows_count == 0
+    assert tm.empty_windows_count == 0  # it should be 0 because any requests weren't added
 
 
 def test_rsr_ema_tm_after_start_switches_to_revival_on_not_empty_window(tm_after_start):
@@ -163,8 +163,8 @@ def test_rsr_ema_tm_after_start_switches_to_revival_on_not_empty_window(tm_after
     tm.add_request(50)
 
     # [60, 75)
-    throughput = tm.get_throughput(62)
     tm.add_request(62)
+    throughput = tm.get_throughput(62)
 
     assert tm.state == State.REVIVAL
     assert throughput is None
@@ -211,7 +211,6 @@ def tm_in_normal(tm_after_start):
 
     # [15, 30) - [225, 240) -- up to 16 not empty windows
     tm.add_request(15)
-    assert tm.get_throughput(15) is None
     assert tm.state == State.REVIVAL
 
     for ts in range(15, 240, 5):
@@ -485,6 +484,19 @@ def test_rsr_ema_tm_in_revival_switches_to_idle_on_empty_window(tm_in_revival):
 
 
 # TESTS OF THROUGHPUT CALCULATION
+
+
+def test_rsr_ema_tm_throughput_in_safe_start(tm):
+    # [0, 15)
+    assert tm.get_throughput(2) is None
+
+    # [15, 30)
+    tm.add_request(15)
+    assert tm.get_throughput(15) is None
+    assert tm.throughput is not None
+
+    # [240, 255) - after safe start
+    assert tm.get_throughput(240) is not None
 
 
 def test_rsr_ema_tm_throughput_in_normal_state(tm):
