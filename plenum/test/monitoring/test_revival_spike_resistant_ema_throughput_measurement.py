@@ -213,7 +213,7 @@ def tm_in_normal(tm_after_start):
     tm.add_request(15)
     assert tm.state == State.REVIVAL
 
-    for ts in range(15, 240, 5):
+    for ts in range(20, 240, 5):
         tm.add_request(ts)
 
     # [240, 255)
