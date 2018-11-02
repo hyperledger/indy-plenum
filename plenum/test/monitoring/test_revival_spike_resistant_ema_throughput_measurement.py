@@ -74,7 +74,7 @@ def test_rsr_ema_tm_past_windows_processed_on_add_request(tm):
     assert tm.reqs_in_window == 1
 
 
-def test_rsr_ema_tm_past_windows_processed_on_get_throughput_after_start(tm):
+def test_rsr_ema_tm_past_windows_not_processed_on_get_throughput_during_safe_start(tm):
     # [0, 15)
     tm.add_request(1)
     tm.add_request(5)
