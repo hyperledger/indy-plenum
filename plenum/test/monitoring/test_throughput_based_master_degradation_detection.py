@@ -10,6 +10,7 @@ from plenum.server.monitor import Monitor
 @pytest.fixture(scope='function')
 def fake_monitor(tconf, fake_monitor):
     fake_monitor.getThroughput = functools.partial(Monitor.getThroughput, fake_monitor)
+    fake_monitor.isMasterThroughputTooLow = functools.partial(Monitor.isMasterThroughputTooLow, fake_monitor)
     return fake_monitor
 
 
@@ -287,7 +288,7 @@ def test_master_not_degraded_on_revival_spike_on_one_backup_while_load_stopped(t
     assert_master_not_degraded(throughput_ratio, tconf)
 
 
-def test_master_not_degraded_on_new_instance(fake_monitor, tconf):
+def test_instances_not_degraded_on_new_instance(fake_monitor, tconf):
     for inst_id in fake_monitor.instances.ids:
         fake_monitor.throughputs[inst_id].throughput = 0.03
 
@@ -297,3 +298,4 @@ def test_master_not_degraded_on_new_instance(fake_monitor, tconf):
     fake_monitor.instances.add(new_id)
 
     assert not fake_monitor.is_instance_throughput_too_low(new_id)
+    assert not fake_monitor.isMasterThroughputTooLow()
