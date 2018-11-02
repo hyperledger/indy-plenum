@@ -34,6 +34,7 @@ from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
+from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
@@ -61,7 +62,8 @@ from plenum.test.node_request.node_request_helper import checkPrePrepared, \
 from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
-    checkNodesConnected, ensureElectionsDone, genNodeReg
+    checkNodesConnected, ensureElectionsDone, genNodeReg, getPrimaryReplica, \
+    getNonPrimaryReplicas
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.INFO)
@@ -1173,3 +1175,27 @@ def create_node_and_not_start(testNodeClass,
                                 allPluginsPath))
         yield node
         node.stop()
+
+
+@pytest.fixture(scope='function')
+def view_change_done(looper, txnPoolNodeSet):
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+
+
+@pytest.fixture(scope='function',
+                params=['primary', 'non-primary'])
+def one_replica_and_others_in_backup_instance(
+        request, txnPoolNodeSet, view_change_done):
+
+    # NOTICE: This parametrized fixture triggers view change as pre-condition
+
+    backup_inst_id = 1
+
+    primary = getPrimaryReplica(txnPoolNodeSet, backup_inst_id)
+    non_primaries = getNonPrimaryReplicas(txnPoolNodeSet, backup_inst_id)
+
+    if request.param == 'primary':
+        return primary, non_primaries
+    else:
+        return non_primaries[0], [primary] + non_primaries[1:]
