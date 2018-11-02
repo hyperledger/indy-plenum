@@ -14,31 +14,28 @@ from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
 
 @pytest.fixture(scope="function")
-def backup_instance_faulty_processor(tdir, tconf, request):
+def backup_instance_faulty_processor(tdir, tconf):
     node = FakeNode(tdir, config=tconf)
     node.view_change_in_progress = False
+    node.requiredNumberOfInstances = len(node.replicas)
     replicas = node.replicas
     node.replicas = FakeSomething(
-        remove_replica=lambda a: None,
-        items=lambda: replicas,
-        keys=lambda: replicas.keys
+        remove_replica=lambda a: replicas.pop(a),
+        add_replica=lambda a: None,
+        items=lambda: replicas.items(),
+        keys=lambda: replicas.keys()
     )
     node.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(node)
     return node.backup_instance_faulty_processor
 
 
-def update_conf(tconf, tmp):
-    tconf.REPLICAS_REMOVING_WITH_DEGRADATION = tmp["instance_degraded"]
-    tconf.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = tmp["instance_primary_disconnected"]
-    return tconf
-
-
 def test_on_backup_degradation_local(looper,
                                      backup_instance_faulty_processor):
-    """
-    1. Start backup degraded for all nodes.
-    2. Check that degraded replicas were removed.
-    """
+    '''
+    1. Call on_backup_degradation() with local strategy for backup performance degradation
+    2. Check that set of degraded instances which was send in on_backup_degradation
+    equals with set in remove_replica call.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_DEGRADATION = "local"
     degraded_backups = {1, 2}
@@ -56,10 +53,11 @@ def test_on_backup_degradation_local(looper,
 
 def test_on_backup_degradation_quorum(looper,
                                       backup_instance_faulty_processor):
-    """
-    1. Start backup degraded for all nodes.
-    2. Check that degraded replicas were removed.
-    """
+    '''
+    1. Call on_backup_degradation() with quorum strategy for backup performance degradation
+    2. Check that correct message BackupInstanceFaulty was sending.
+    2. Check that own message BackupInstanceFaulty has been added backup_instances_faulty.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
 
@@ -79,10 +77,11 @@ def test_on_backup_degradation_quorum(looper,
 
 def test_on_backup_primary_disconnected_local(looper,
                                      backup_instance_faulty_processor):
-    """
-    1. Start backup degraded for all nodes.
-    2. Check that degraded replicas were removed.
-    """
+    '''
+    1. Call on_backup_primary_disconnected() with local strategy for backup primary disconnected.
+    2. Check that set of degraded instances which was send in on_backup_degradation.
+    equals with set in remove_replica call.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
     degraded_backups = {1, 2}
@@ -100,10 +99,11 @@ def test_on_backup_primary_disconnected_local(looper,
 
 def test_on_backup_primary_disconnected_quorum(looper,
                                       backup_instance_faulty_processor):
-    """
-    1. Start backup degraded for all nodes.
-    2. Check that degraded replicas were removed.
-    """
+    '''
+    1. Call on_backup_primary_disconnected() with quorum strategy for backup primary disconnected.
+    2. Check that correct message BackupInstanceFaulty was sending.
+    2. Check that own message BackupInstanceFaulty has been added backup_instances_faulty.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "quorum"
 
@@ -121,17 +121,55 @@ def test_on_backup_primary_disconnected_quorum(looper,
                for inst_id in degraded_backups)
 
 
-def test_restore_replicas(looper,
-                          txnPoolNodeSet,
-                          do_view_change):
-    instance_to_remove = 1
-    for node in txnPoolNodeSet:
-        node.replicas.remove_replica(instance_to_remove)
-    for node in txnPoolNodeSet:
-        node.backup_instance_faulty_processor.restore_replicas()
-    # check that all replicas were restored
-    assert all(node.requiredNumberOfInstances == node.replicas.num_replicas
-               for node in txnPoolNodeSet)
+def test_restore_replicas(backup_instance_faulty_processor):
+    '''
+    1. Remove 1, 2 backup instances
+    2. Call restore_replicas()
+    3. Check that add_replica() call for all removed replicas
+    '''
+    node = backup_instance_faulty_processor.node
+    restored_replicas = set()
+    removed_replicas = {1, 2}
+    for r in removed_replicas:
+        node.replicas.remove_replica(r)
+
+    def add_replica(inst_ids):
+        restored_replicas.add(inst_ids)
+    node.replicas.add_replica = add_replica
+
+    backup_instance_faulty_processor.restore_replicas()
+    # check that all replicas were restored and backup_instances_faulty has been cleaned
+    assert not backup_instance_faulty_processor.backup_instances_faulty
+    assert not (removed_replicas - restored_replicas)
+
+
+def test_restore_replicas_when_nothing_is_removed(backup_instance_faulty_processor):
+    '''
+    1. Call restore_replicas()
+    3. Check that method didn't add new replicas.
+    '''
+    node = backup_instance_faulty_processor.node
+    restored_replicas = set()
+
+    def add_replica(inst_ids):
+        restored_replicas.add(inst_ids)
+    node.replicas.add_replica = add_replica
+
+    backup_instance_faulty_processor.restore_replicas()
+
+    assert not backup_instance_faulty_processor.backup_instances_faulty
+    assert not restored_replicas
+
+
+def test_process_backup_instance_empty_msg(backup_instance_faulty_processor):
+    node = backup_instance_faulty_processor.node
+    msg = BackupInstanceFaulty(0,
+                               [],
+                               Suspicions.BACKUP_PRIMARY_DEGRADED.code)
+
+    backup_instance_faulty_processor.process_backup_instance_faulty_msg(msg, node.name)
+
+    assert not backup_instance_faulty_processor.backup_instances_faulty
 
 
 def test_process_backup_instance_faulty_msg(looper,
@@ -147,20 +185,6 @@ def test_process_backup_instance_faulty_msg(looper,
                                                                   tconf.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED,
                                                                   Suspicions.BACKUP_PRIMARY_DISCONNECTED.code)
 
-
-def test_process_backup_instance_empty_msg(looper,
-                                           txnPoolNodeSet,
-                                           tconf,
-                                           do_view_change):
-    node = txnPoolNodeSet[0]
-    for n in txnPoolNodeSet:
-        msg = BackupInstanceFaulty(n.viewNo,
-                                   [],
-                                   Suspicions.BACKUP_PRIMARY_DEGRADED.code)
-        node.backup_instance_faulty_processor.process_backup_instance_faulty_msg(msg,
-                                                                                 n.name)
-    assert all(node.requiredNumberOfInstances == node.replicas.num_replicas
-               for node in txnPoolNodeSet)
 
 
 def test_process_backup_instance_with_incorrect_view_no(looper,
