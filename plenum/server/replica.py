@@ -1263,8 +1263,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          ' ledger {}'
                          .format(self, reqCount, state.headHash,
                                  self._state_root_serializer.serialize(bytes(stateRootHash))
-                                 if stateRootHash else stateRootHash
-                                 , ledgerId))
+                                 if stateRootHash else stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
