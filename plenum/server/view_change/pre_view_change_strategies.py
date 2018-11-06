@@ -18,6 +18,16 @@ class PreViewChangeStrategy(metaclass=ABCMeta):
     def prepare_view_change(self, proposed_view_no: int):
         raise NotImplementedError()
 
+    @staticmethod
+    @abstractmethod
+    def on_view_change_started(obj, msg, frm):
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def on_view_change_continued(obj, msg):
+        raise NotImplementedError()
+
 
 class VCStartMsgStrategy(PreViewChangeStrategy):
     """Strategy logic:
@@ -35,14 +45,14 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
 
     def prepare_view_change(self, proposed_view_no: int):
         if not self.is_preparing:
-            self.set_req_handlers()
+            self._set_req_handlers()
             vcs_msg = ViewChangeStartMessage(proposed_view_no)
             nodeInBox = self.view_changer.node.nodeInBox
             nodeInBox.append((vcs_msg, self.view_changer.node.name))
             self.is_preparing = True
 
     @staticmethod
-    async def processNodeInbox3PC(node):
+    async def _process_node_inbox_3PC(node):
         current_view_no = node.viewNo
         stashed_not_3PC = deque()
         types_3PC = (PrePrepare, Prepare, Commit, Ordered)
@@ -56,42 +66,47 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
                 stashed_not_3PC.append(m)
         return stashed_not_3PC
 
-    def set_req_handlers(self):
-        """Handler for processing ViewChangeStart message on node's nodeInBoxRouter"""
-        async def process_start_vc_msg_on_node(node, msg: ViewChangeStartMessage, frm):
-            proposed_view_no = msg.proposed_view_no
-            if proposed_view_no > node.view_changer.view_no:
-                vcc_msg = ViewChangeContinueMessage(proposed_view_no)
-                quota = Quota(count=self.node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.count,
-                              size=self.node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.size)
-                await node.nodestack.service(limit=None,
-                                             quota=quota)
-                self.stashedNodeInBox = await VCStartMsgStrategy.processNodeInbox3PC(node)
-                node.master_replica.inBox.append(vcc_msg)
+    """Handler for processing ViewChangeStart message on node's nodeInBoxRouter"""
+    @staticmethod
+    async def on_view_change_started(node, msg: ViewChangeStartMessage, frm):
+        strategy = node.view_changer.pre_vc_strategy
+        proposed_view_no = msg.proposed_view_no
+        if proposed_view_no > node.view_changer.view_no:
+            vcc_msg = ViewChangeContinueMessage(proposed_view_no)
+            quota = Quota(
+                count=node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.count,
+                size=node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.size)
+            await node.nodestack.service(limit=None,
+                                         quota=quota)
+            strategy.stashedNodeInBox = await VCStartMsgStrategy._process_node_inbox_3PC(node)
+            node.master_replica.inBox.append(vcc_msg)
 
-        """Handler for processing ViewChangeStart message on replica's inBoxRouter"""
-        def process_continue_vc_msg_on_replica(replica, msg: ViewChangeContinueMessage):
-            proposed_view_no = msg.proposed_view_no
-            if proposed_view_no > replica.node.viewNo:
-                """
-                Return stashed not 3PC msgs to nodeInBox queue and start ViewChange
-                Critical assumption: All 3PC msgs passed from node already processed
-                """
-                while self.stashedNodeInBox:
-                    replica.node.nodeInBox.appendleft(self.stashedNodeInBox.popleft())
-                replica.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
-                self.is_preparing = False
+    """Handler for processing ViewChangeStart message on replica's inBoxRouter"""
+    @staticmethod
+    def on_view_change_continued(replica, msg: ViewChangeContinueMessage):
+        strategy = replica.node.view_changer.pre_vc_strategy
+        proposed_view_no = msg.proposed_view_no
+        if proposed_view_no > replica.node.viewNo:
+            """
+            Return stashed not 3PC msgs to nodeInBox queue and start ViewChange
+            Critical assumption: All 3PC msgs passed from node already processed
+            """
+            while strategy.stashedNodeInBox:
+                replica.node.nodeInBox.appendleft(strategy.stashedNodeInBox.pop())
+            replica.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
+            strategy.is_preparing = False
 
+    def _set_req_handlers(self):
         node_msg_router = self.node.nodeMsgRouter
         replica_msg_router = self.replica.inBoxRouter
 
         if VIEW_CHANGE_START not in node_msg_router.routes:
-            processor = partial(process_start_vc_msg_on_node,
+            processor = partial(VCStartMsgStrategy.on_view_change_started,
                                 self.node)
             node_msg_router.add((ViewChangeStartMessage, processor))
 
         if VIEW_CHANGE_CONTINUE not in replica_msg_router.routes:
-            processor = partial(process_continue_vc_msg_on_replica,
+            processor = partial(VCStartMsgStrategy.on_view_change_continued,
                                 self.replica)
             replica_msg_router.add((ViewChangeContinueMessage, processor))
 
