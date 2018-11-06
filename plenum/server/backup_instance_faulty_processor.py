@@ -60,8 +60,9 @@ class BackupInstanceFaultyProcessor:
         '''
         logger.debug("{} receive BackupInstanceFaulty "
                      "from {}: {}".format(self.node, frm, backup_faulty))
-
-        if getattr(backup_faulty, f.VIEW_NO.nm) != self.node.viewNo:
+        instances = getattr(backup_faulty, f.INSTANCES.nm)
+        if getattr(backup_faulty, f.VIEW_NO.nm) != self.node.viewNo or \
+                self.node.master_replica.instId in instances:
             return
 
         # Don't process BackupInstanceFaulty if strategy for this reason is not need quorum
@@ -76,13 +77,18 @@ class BackupInstanceFaultyProcessor:
             return
 
         for inst_id in getattr(backup_faulty, f.INSTANCES.nm):
-            self.backup_instances_faulty.setdefault(inst_id, set()).add(frm)
             if inst_id not in self.node.replicas.keys():
                 continue
+            self.backup_instances_faulty.setdefault(inst_id, dict()).setdefault(frm, 0)
+            self.backup_instances_faulty[inst_id].setdefault(self.node.name, 0)
+            self.backup_instances_faulty[inst_id][frm] += 1
             if not self.node.quorums.backup_instance_faulty.is_reached(
-                    len(self.backup_instances_faulty[inst_id])):
+                    len(self.backup_instances_faulty[inst_id].keys())) \
+                    and not self.node.quorums.backup_instance_faulty.is_reached(
+                    self.backup_instances_faulty[inst_id][self.node.name]):
                 continue
             self.node.replicas.remove_replica(inst_id)
+            self.backup_instances_faulty.pop(inst_id)
 
     def __send_backup_instance_faulty(self, instances: List[int],
                                       reason: Suspicion):
