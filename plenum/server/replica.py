@@ -724,7 +724,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         #  starts hence the count of accepted requests, prevStateRoot is
         # tracked to revert this PRE-PREPARE
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
-            self, pp, prevStateRootHash))
+            self, pp, self._state_root_serializer.serialize(bytes(prevStateRootHash))
+            if prevStateRootHash else prevStateRootHash))
         if self.isMaster:
             self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
         else:
@@ -776,7 +777,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
             self, pp_seq_no, ledger_id,
-            self.stateRootHash(ledger_id, to_str=False)))
+            self.stateRootHash(ledger_id)))
 
         if self.last_accepted_pre_prepare_time is None:
             last_ordered_ts = self._get_last_timestamp_from_state(ledger_id)
@@ -975,7 +976,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # BLS multi-sig:
             self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
             self.logger.trace("{} saved shared multi signature for "
-                              "root".format(self, pre_state_root))
+                              "root"
+                              .format(self,
+                                      self._state_root_serializer.serialize(bytes(pre_state_root))
+                                      if pre_state_root else pre_state_root))
 
         self.trackBatches(pre_prepare, pre_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
@@ -1256,7 +1260,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
         self.logger.info('{} reverting {} txns and state root from {} to {} for'
-                         ' ledger {}'.format(self, reqCount, state.headHash, stateRootHash, ledgerId))
+                         ' ledger {}'
+                         .format(self, reqCount, state.headHash,
+                                 self._state_root_serializer.serialize(bytes(stateRootHash))
+                                 if stateRootHash else stateRootHash
+                                 , ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
@@ -1279,7 +1287,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.debug('{} state root before processing {} is {}, {}'.format(
                 self,
                 pre_prepare,
-                old_state_root,
+                self._state_root_serializer.serialize(bytes(old_state_root)),
                 old_txn_root))
 
         for req_key in pre_prepare.reqIdr:

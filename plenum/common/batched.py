@@ -1,6 +1,8 @@
 from collections import deque
 from typing import Any, Iterable, Dict
 
+import base58
+
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsName, measure_time
 from plenum.common.prepare_batch import split_messages_on_batches
@@ -139,7 +141,7 @@ class Batched(MessageProcessor):
             if msgs:
                 self.discard(msgs,
                              "{}rid {} no longer available"
-                             .format(CONNECTION_PREFIX, rid),
+                             .format(CONNECTION_PREFIX, base58.b58encode(rid).decode("utf-8")),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
 
