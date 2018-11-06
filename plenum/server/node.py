@@ -2879,6 +2879,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_primary_loss()
 
     def _schedule_replica_removal(self, inst_id):
+        disconnection_strategy = self.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED
+        if not (self.backup_instance_faulty_processor.is_local_remove_strategy(disconnection_strategy) or
+                self.backup_instance_faulty_processor.is_quorum_strategy(disconnection_strategy)):
+            return
         logger.info('{} scheduling replica removal for instance {} in {} sec'
                     .format(self, inst_id, self.config.TolerateBackupPrimaryDisconnection))
         self._schedule(partial(self._remove_replica_if_primary_lost, inst_id),

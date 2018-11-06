@@ -1,35 +1,31 @@
-from contextlib import ExitStack
 import pytest
 
 from plenum.common.messages.node_messages import BackupInstanceFaulty
 from plenum.common.types import f
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
-from plenum.server.monitor import Monitor
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
-from plenum.server.replicas import Replicas
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.primary_selection.test_primary_selector import FakeNode
-from plenum.test.replica.helper import check_replica_removed
-from plenum.test.testable import spyable
-from plenum.test.testing_utils import FakeSomething
-from stp_core.loop.eventually import eventually
-from plenum.test.helper import waitForViewChange, create_new_test_node
-from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
 
 class FakeReplicas:
     def __init__(self, node, replicas):
         self._replicas = replicas
-        self.add_replica = lambda inst_id: self._replicas.update(a=Replica(node=node,
-                                                                           instId=inst_id))
+        self._node = node
+        self.remove_replica_calls = []
+        self.add_replica_calls = []
+
         self.items = lambda: replicas.items()
         self.keys = lambda: replicas.keys()
-        self.remove_replica_calls = []
 
     def remove_replica(self, inst_id):
         self.remove_replica_calls.append(inst_id)
         self._replicas.pop(inst_id)
+
+    def add_replica(self, inst_id):
+        self.add_replica_calls.append(inst_id)
+        self._replicas.update(inst_id=Replica(node=self._node, instId=inst_id))
 
     def __getitem__(self, item):
         return self._replicas[item]
@@ -50,7 +46,8 @@ def backup_instance_faulty_processor(tdir, tconf):
     return node.backup_instance_faulty_processor
 
 
-# tests for on_backup_degradation
+# TESTS FOR ON_BACKUP_DEGRADATION
+
 
 def test_on_backup_degradation_local(looper,
                                      backup_instance_faulty_processor):
@@ -61,17 +58,11 @@ def test_on_backup_degradation_local(looper,
     '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_DEGRADATION = "local"
-    degraded_backups = {1, 2}
-    removed_backups = set()
+    degraded_backups = [1, 2]
 
-    def remove_replica(inst_ids):
-        removed_backups.add(inst_ids)
+    backup_instance_faulty_processor.on_backup_degradation(degraded_backups)
 
-    node.replicas.remove_replica = remove_replica
-
-    backup_instance_faulty_processor.on_backup_degradation(list(degraded_backups))
-
-    assert not (removed_backups - degraded_backups)
+    assert not (set(node.replicas.remove_replica_calls) - set(degraded_backups))
     assert not backup_instance_faulty_processor.backup_instances_faulty
 
 
@@ -100,7 +91,7 @@ def test_on_backup_degradation_quorum(looper,
                for inst_id in degraded_backups)
 
 
-# tests for on_backup_primary_disconnected
+# TESTS FOR ON_BACKUP_PRIMARY_DISCONNECTED
 
 
 def test_on_backup_primary_disconnected_local(looper,
@@ -112,17 +103,11 @@ def test_on_backup_primary_disconnected_local(looper,
     '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
-    degraded_backups = {1, 2}
-    removed_backups = set()
+    degraded_backups = [1, 2]
 
-    def remove_replica(inst_ids):
-        removed_backups.add(inst_ids)
+    backup_instance_faulty_processor.on_backup_primary_disconnected(degraded_backups)
 
-    node.replicas.remove_replica = remove_replica
-
-    backup_instance_faulty_processor.on_backup_primary_disconnected(list(degraded_backups))
-
-    assert not (removed_backups - degraded_backups)
+    assert not (set(node.replicas.remove_replica_calls) - set(degraded_backups))
     assert not backup_instance_faulty_processor.backup_instances_faulty
 
 
@@ -151,7 +136,7 @@ def test_on_backup_primary_disconnected_quorum(looper,
                for inst_id in degraded_backups)
 
 
-# tests for restore_replicas
+# TESTS FOR RESTORE_REPLICAS
 
 
 def test_restore_replicas(backup_instance_faulty_processor):
@@ -161,20 +146,14 @@ def test_restore_replicas(backup_instance_faulty_processor):
     3. Check that add_replica() call for all removed replicas
     '''
     node = backup_instance_faulty_processor.node
-    restored_replicas = set()
     removed_replicas = {1, 2}
     for r in removed_replicas:
         node.replicas.remove_replica(r)
 
-    def add_replica(inst_ids):
-        restored_replicas.add(inst_ids)
-
-    node.replicas.add_replica = add_replica
-
     backup_instance_faulty_processor.restore_replicas()
     # check that all replicas were restored and backup_instances_faulty has been cleaned
     assert not backup_instance_faulty_processor.backup_instances_faulty
-    assert not (removed_replicas - restored_replicas)
+    assert not (removed_replicas - set(node.replicas.add_replica_calls))
 
 
 def test_restore_replicas_when_nothing_is_removed(backup_instance_faulty_processor):
@@ -183,20 +162,13 @@ def test_restore_replicas_when_nothing_is_removed(backup_instance_faulty_process
     3. Check that method didn't add new replicas.
     '''
     node = backup_instance_faulty_processor.node
-    restored_replicas = set()
-
-    def add_replica(inst_ids):
-        restored_replicas.add(inst_ids)
-
-    node.replicas.add_replica = add_replica
-
     backup_instance_faulty_processor.restore_replicas()
 
     assert not backup_instance_faulty_processor.backup_instances_faulty
-    assert not restored_replicas
+    assert not node.replicas.add_replica_calls
 
 
-# tests for process_backup_instance_faulty_msg
+# TESTS FOR PROCESS_BACKUP_INSTANCE_FAULTY_MSG
 
 
 def test_process_backup_instance_empty_msg(backup_instance_faulty_processor):
@@ -248,6 +220,10 @@ def test_process_backup_instance_faulty_msg_contains_master_instance(backup_inst
 
 
 def test_process_backup_instance_faulty_msg_local_degradation(backup_instance_faulty_processor):
+    '''
+    Check that BackupInstanceFaulty message with REPLICAS_REMOVING_WITH_DEGRADATION
+    will not be processed.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_DEGRADATION = "local"
     msg = BackupInstanceFaulty(node.viewNo,
@@ -261,6 +237,11 @@ def test_process_backup_instance_faulty_msg_local_degradation(backup_instance_fa
 
 
 def test_process_backup_instance_faulty_msg_quorum_degradation(backup_instance_faulty_processor):
+    '''
+    Send (quorum - 1) of messages with BACKUP_PRIMARY_DEGRADED from different nodes and
+    check that it is not lead to a replica removing. But after sending one more message,
+    the replica will be removed.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
     instance_to_remove = 1
@@ -286,6 +267,10 @@ def test_process_backup_instance_faulty_msg_quorum_degradation(backup_instance_f
 
 
 def test_process_backup_instance_faulty_msg_local_disconnection(backup_instance_faulty_processor):
+    '''
+    Check that BackupInstanceFaulty message with REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED
+    will not be processed.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
     msg = BackupInstanceFaulty(node.viewNo,
@@ -299,41 +284,51 @@ def test_process_backup_instance_faulty_msg_local_disconnection(backup_instance_
 
 
 def test_process_backup_instance_faulty_msg_quorum_disconnection(backup_instance_faulty_processor):
+    '''
+    Send quorum of messages with BACKUP_PRIMARY_DISCONNECTED from different nodes.
+    Replica should be removed.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "quorum"
     instance_to_remove = 1
     msg = BackupInstanceFaulty(node.viewNo,
                                [instance_to_remove],
                                Suspicions.BACKUP_PRIMARY_DISCONNECTED.code)
-    # check that messages from all nodes lead to replica removing
     for node_name in node.allNodeNames:
         backup_instance_faulty_processor.process_backup_instance_faulty_msg(msg, node_name)
 
+    # check that messages from all nodes lead to replica removing
     assert not backup_instance_faulty_processor.backup_instances_faulty
     assert len(node.replicas.remove_replica_calls) == 1
     assert node.replicas.remove_replica_calls[0] == instance_to_remove
 
 
 def test_process_backup_instance_faulty_msg_quorum_from_others(backup_instance_faulty_processor):
+    '''
+    Send quorum of messages from different nodes exception current node.
+    Replica should be removed.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "quorum"
     instance_to_remove = 1
     msg = BackupInstanceFaulty(node.viewNo,
                                [instance_to_remove],
                                Suspicions.BACKUP_PRIMARY_DISCONNECTED.code)
-    # check that messages from all nodes with the exception
-    # of current node lead to replica removing
-    for node_name in node.allNodeNames:
-        if node == node_name:
-            continue
+    # send messages from all nodes with exception of current node
+    for node_name in node.allNodeNames[1:]:
         backup_instance_faulty_processor.process_backup_instance_faulty_msg(msg, node_name)
 
+    # check that remove_replica was called
     assert not backup_instance_faulty_processor.backup_instances_faulty
     assert len(node.replicas.remove_replica_calls) == 1
     assert node.replicas.remove_replica_calls[0] == instance_to_remove
 
 
 def test_process_backup_instance_faulty_msg_quorum_from_itself(backup_instance_faulty_processor):
+    '''
+    Send quorum of messages from current node.
+    Replica should be removed.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "quorum"
     instance_to_remove = 1
@@ -351,7 +346,8 @@ def test_process_backup_instance_faulty_msg_quorum_from_itself(backup_instance_f
 
 def test_process_backup_instance_faulty_without_quorum(backup_instance_faulty_processor):
     '''
-    Check that BackupInstanceFaulty message with master instance will not be processed.
+    Send (quorum - 1) messages from different nodes and (quorum - 1) from current node.
+    Replica shouldn't be removed in both cases.
     '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
@@ -379,6 +375,11 @@ def test_process_backup_instance_faulty_without_quorum(backup_instance_faulty_pr
 
 
 def test_process_backup_instance_faulty_msg_quorum_for_different_replicas(backup_instance_faulty_processor):
+    '''
+    Test for case when process_backup_instance_faulty_msg received messages for different instances.
+    Firstly f messages for [1,2], secondly 1 message for [2]. As a result, replica 2 should be removed
+    and replica 1 are not.
+    '''
     node = backup_instance_faulty_processor.node
     node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "quorum"
     instance_to_remove = 2
@@ -397,7 +398,7 @@ def test_process_backup_instance_faulty_msg_quorum_for_different_replicas(backup
     msg = BackupInstanceFaulty(node.viewNo,
                                [instance_to_remove],
                                Suspicions.BACKUP_PRIMARY_DISCONNECTED.code)
-    # send node.quorums.backup_instance_faulty - 1 BackupInstanceFaulty messages for 2 replica
+    # send BackupInstanceFaulty message for 2 replica
     node_name = node.allNodeNames[node.quorums.backup_instance_faulty.value - 1]
     backup_instance_faulty_processor.process_backup_instance_faulty_msg(msg, node_name)
 

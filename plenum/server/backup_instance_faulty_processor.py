@@ -69,10 +69,10 @@ class BackupInstanceFaultyProcessor:
         reason = Suspicions.get_by_code(getattr(backup_faulty, f.REASON.nm))
         if (
                 reason == Suspicions.BACKUP_PRIMARY_DISCONNECTED and
-                not self._is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED)
+                not self.is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED)
         ) or (
                 reason == Suspicions.BACKUP_PRIMARY_DEGRADED and
-                not self._is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_DEGRADATION)
+                not self.is_quorum_strategy(self.node.config.REPLICAS_REMOVING_WITH_DEGRADATION)
         ):
             return
 
@@ -107,15 +107,15 @@ class BackupInstanceFaultyProcessor:
 
     def __remove_replicas(self, degraded_backups, reason: Suspicion, removing_strategy):
 
-        if self._is_quorum_strategy(removing_strategy):
+        if self.is_quorum_strategy(removing_strategy):
             self.__send_backup_instance_faulty(degraded_backups,
                                                reason)
-        elif self._is_local_remove_strategy(removing_strategy):
+        elif self.is_local_remove_strategy(removing_strategy):
             for inst_id in degraded_backups:
                 self.node.replicas.remove_replica(inst_id)
 
-    def _is_quorum_strategy(self, removing_strategy):
+    def is_quorum_strategy(self, removing_strategy):
         return removing_strategy == "quorum"
 
-    def _is_local_remove_strategy(self, removing_strategy):
+    def is_local_remove_strategy(self, removing_strategy):
         return removing_strategy == "local"
