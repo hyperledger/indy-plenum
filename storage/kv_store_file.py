@@ -152,7 +152,7 @@ class KeyValueStorageFile(KeyValueStorage):
 
     @abstractmethod
     def _parse_line(self, line, prefix=None, returnKey: bool=True,
-                    returnValue: bool=True, key=None) -> Tuple[Optional, Optional]:
+                    returnValue: bool=True, key=None):
         pass
 
     @abstractmethod
