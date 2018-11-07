@@ -5,7 +5,6 @@ from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node
 from plenum.test.replica.helper import check_replica_removed
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import waitForViewChange
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
 nodeCount = 7
@@ -14,19 +13,26 @@ nodeCount = 7
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_time = tconf.TolerateBackupPrimaryDisconnection
+    old_strategy = tconf.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED
+
     tconf.TolerateBackupPrimaryDisconnection = 5
+    # It should be local because in a quorum logic a new node
+    # will not be able to have a quorum of messages after start.
+    tconf.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
     yield tconf
+
     tconf.TolerateBackupPrimaryDisconnection = old_time
+    tconf.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = old_strategy
 
 
 def test_replica_removing_after_node_started(looper,
-                                      txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client,
-                                      tconf,
-                                      tdir,
-                                      allPluginsPath,
-                                      sdk_wallet_steward):
+                                             txnPoolNodeSet,
+                                             sdk_pool_handle,
+                                             sdk_wallet_client,
+                                             tconf,
+                                             tdir,
+                                             allPluginsPath,
+                                             sdk_wallet_steward):
     """
     1. Remove backup primary node.
     2. Check that replicas with the disconnected primary were removed.
