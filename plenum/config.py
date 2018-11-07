@@ -2,7 +2,7 @@ import logging
 import sys
 
 from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
-    KeyValueStorageType, HS_FILE
+    KeyValueStorageType, PreVCStrategies
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
@@ -354,3 +354,5 @@ VALIDATOR_INFO_USE_DB = False
 # - "quorum" - remove replicas only with quorum of BackupInstanceFaulty
 REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
 REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
+
+EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC = 10

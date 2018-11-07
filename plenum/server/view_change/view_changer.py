@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 from functools import partial
 
 from plenum.common.startable import Mode
+from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
@@ -34,6 +35,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self._view_no = 0  # type: int
 
         HasActionQueue.__init__(self)
+        self.pre_vc_strategy = None
+        if hasattr(self.config, 'PRE_VC_STRATEGY'):
+            self.pre_vc_strategy = preVCStrategies.get(self.config.PRE_VC_STRATEGY)(self)
 
         self.inBox = deque()
         self.outBox = deque()
@@ -511,7 +515,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         return not bool(msg), msg
 
-    def startViewChange(self, proposed_view_no: int):
+    def startViewChange(self, proposed_view_no: int, continue_vc=False):
         """
         Trigger the view change process.
 
@@ -521,6 +525,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: view change is a special case, which can have different
         # implementations - we need to make this logic pluggable
 
+        if self.pre_vc_strategy and (not self.propagate_primary) and (not continue_vc):
+            self.pre_vc_strategy.prepare_view_change(proposed_view_no)
+            return
         self.view_no = proposed_view_no
         self.view_change_in_progress = True
         self.previous_master_primary = self.node.master_primary_name
