@@ -1,12 +1,15 @@
+import functools
 import sys
 from contextlib import ExitStack
 
 import pytest
 
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
+from plenum.server.monitor import Monitor
 from plenum.test.delayers import cDelay
 from plenum.test.replica.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
+from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import waitForViewChange, create_new_test_node, sdk_send_batches_of_random_and_check
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
@@ -104,3 +107,14 @@ def test_replica_removing_with_backup_degraded(looper,
     # check that all replicas were restored
     assert all(start_replicas_count == node.replicas.num_replicas
                for node in txnPoolNodeSet)
+
+
+def test_replica_not_degraded_with_too_high_latency():
+    monitor = FakeSomething(
+        is_instance_avg_req_latency_too_high=lambda a: True,
+        is_instance_throughput_too_low=lambda a: False,
+        acc_monitor=None,
+        instances=FakeSomething(backupIds=[1, 2, 3]))
+    monitor.areBackupsDegraded = functools.partial(Monitor.areBackupsDegraded, monitor)
+
+    assert not monitor.areBackupsDegraded()
