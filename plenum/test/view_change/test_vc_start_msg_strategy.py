@@ -157,6 +157,7 @@ def test_is_preparing_to_False_after_vc_continue(pre_vc_strategy):
 def tconf(tconf):
     tconf.PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
     yield tconf
+    del tconf.PRE_VC_STRATEGY
 
 
 def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):

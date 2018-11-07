@@ -29,6 +29,7 @@ def tconf(tconf):
 
     tconf.Max3PCBatchSize = old_max_3pc
     tconf.Max3PCBatchWait = old_batch_wait
+    del tconf.PRE_VC_STRATEGY
 
 
 stashed_msgs = deque()

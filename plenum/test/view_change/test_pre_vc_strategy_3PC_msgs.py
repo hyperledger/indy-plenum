@@ -68,4 +68,4 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     m = node.master_replica.inBox.popleft()
     assert isinstance(m[0], Commit)
     m = node.master_replica.inBox.popleft()
-    assert isinstance(m[0], ViewChangeContinueMessage)
+    assert isinstance(m, ViewChangeContinueMessage)

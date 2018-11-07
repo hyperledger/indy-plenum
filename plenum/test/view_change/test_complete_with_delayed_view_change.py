@@ -21,6 +21,7 @@ got_start_vc_msg = False
 def tconf(tconf):
     tconf.PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
     yield tconf
+    del tconf.PRE_VC_STRATEGY
 
 
 def not_processing_view_change_done(node):

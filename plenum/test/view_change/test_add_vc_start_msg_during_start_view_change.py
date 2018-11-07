@@ -12,6 +12,7 @@ from plenum.test.view_change.helper import ensure_view_change
 def tconf(tconf):
     tconf.PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
     yield tconf
+    del tconf.PRE_VC_STRATEGY
 
 
 def test_add_vc_start_msg_during_start_view_change(txnPoolNodeSet,
