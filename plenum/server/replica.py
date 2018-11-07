@@ -375,7 +375,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         state = self.node.getState(ledger_id)
         root = state.committedHeadHash if committed else state.headHash
         if to_str:
-            root = self._state_root_serializer.serialize(bytes(root))
+            root = self._state_root_serializer.serialize(bytes(root, 'utf-8'))
         return root
 
     @property
@@ -724,7 +724,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         #  starts hence the count of accepted requests, prevStateRoot is
         # tracked to revert this PRE-PREPARE
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
-            self, pp, self._state_root_serializer.serialize(bytes(prevStateRootHash))
+            self, pp, self._state_root_serializer.serialize(bytes(prevStateRootHash, 'utf-8'))
             if prevStateRootHash else prevStateRootHash))
         if self.isMaster:
             self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
@@ -978,7 +978,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} saved shared multi signature for "
                               "root"
                               .format(self,
-                                      self._state_root_serializer.serialize(bytes(pre_state_root))
+                                      self._state_root_serializer.serialize(bytes(pre_state_root, 'utf-8'))
                                       if pre_state_root else pre_state_root))
 
         self.trackBatches(pre_prepare, pre_state_root)
@@ -1262,7 +1262,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.info('{} reverting {} txns and state root from {} to {} for'
                          ' ledger {}'
                          .format(self, reqCount, state.headHash,
-                                 self._state_root_serializer.serialize(bytes(stateRootHash))
+                                 self._state_root_serializer.serialize(bytes(stateRootHash, 'utf-8'))
                                  if stateRootHash else stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
@@ -1286,7 +1286,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.debug('{} state root before processing {} is {}, {}'.format(
                 self,
                 pre_prepare,
-                self._state_root_serializer.serialize(bytes(old_state_root)),
+                self._state_root_serializer.serialize(bytes(old_state_root, 'utf-8'))
+                if old_state_root else old_state_root,
                 old_txn_root))
 
         for req_key in pre_prepare.reqIdr:
