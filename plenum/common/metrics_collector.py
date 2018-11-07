@@ -68,6 +68,10 @@ class MetricsName(IntEnum):
     NODE_RSS_SIZE = 51
     NODE_VMS_SIZE = 52
     CONNECTED_CLIENTS_NUM = 53
+    GC_TRACKED_OBJECTS = 54
+    GC_GEN0_TIME = 55
+    GC_GEN1_TIME = 56
+    GC_GEN2_TIME = 57
 
     # Node service statistics
     NODE_PROD_TIME = 100
