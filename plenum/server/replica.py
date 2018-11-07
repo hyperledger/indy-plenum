@@ -777,7 +777,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
             self, pp_seq_no, ledger_id,
-            self.stateRootHash(ledger_id)))
+            self.stateRootHash(ledger_id, to_str=True)))
 
         if self.last_accepted_pre_prepare_time is None:
             last_ordered_ts = self._get_last_timestamp_from_state(ledger_id)
