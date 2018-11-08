@@ -96,9 +96,9 @@ class BackupInstanceFaultyProcessor:
             return
         logger.info("{} sending a backup instance faulty message with view_no {} "
                     "and reason '{}' for instances: {}".format(self.node.name,
-                                                           self.node.viewNo,
-                                                           reason.reason,
-                                                           instances))
+                                                               self.node.viewNo,
+                                                               reason.reason,
+                                                               instances))
         msg = BackupInstanceFaulty(self.node.viewNo,
                                    instances,
                                    reason.code)
