@@ -94,11 +94,11 @@ class BackupInstanceFaultyProcessor:
                                       reason: Suspicion):
         if not self.node.view_change_in_progress and not instances:
             return
-        logger.info("{} sending an backup instance faulty with view_no {} "
-                    "and reason {} for instances: ".format(self.node.name,
-                                                           self.node.viewNo,
-                                                           reason.reason,
-                                                           instances))
+        logger.info("{} sending a backup instance faulty message with view_no {} "
+                    "and reason '{}' for instances: {}".format(self.node.name,
+                                                               self.node.viewNo,
+                                                               reason.reason,
+                                                               instances))
         msg = BackupInstanceFaulty(self.node.viewNo,
                                    instances,
                                    reason.code)
