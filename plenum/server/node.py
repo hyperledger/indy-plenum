@@ -211,7 +211,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter = {}   # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
-        self.gc_time_tracker = GcTimeTracker(self.metrics)
+        if self.config.METRICS_COLLECTOR_TYPE is not None:
+            self._gc_time_tracker = GcTimeTracker(self.metrics)
 
         Motor.__init__(self)
 
@@ -2608,6 +2609,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
     def flush_metrics(self):
+        # Flush accumulated should always be done to avoid numeric overflow in accumulators
+        self.metrics.flush_accumulated()
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return
+
         ram_by_process = psutil.Process().memory_info()
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
@@ -2784,8 +2790,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
             store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
-
-        self.metrics.flush_accumulated()
 
     @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:
