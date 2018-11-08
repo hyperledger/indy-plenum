@@ -7,12 +7,13 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
     MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
-    BACKUP_INSTANCE_FAULTY
+    BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, NonEmptyStringField, BooleanField
+    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
+    IntegerField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -430,3 +431,17 @@ class FutureViewChangeDone:
     def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
         self.vcd_msg = vcd_msg
         self.from_current_state = from_current_state
+
+
+class ViewChangeStartMessage(MessageBase):
+    typename = VIEW_CHANGE_START
+    schema = (
+        (PROPOSED_VIEW_NO, IntegerField()),
+    )
+
+
+class ViewChangeContinueMessage(MessageBase):
+    typename = VIEW_CHANGE_CONTINUE
+    schema = (
+        (PROPOSED_VIEW_NO, IntegerField()),
+    )

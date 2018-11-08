@@ -47,6 +47,8 @@ MESSAGE_REQUEST = 'MESSAGE_REQUEST'
 MESSAGE_RESPONSE = 'MESSAGE_RESPONSE'
 OBSERVED_DATA = 'OBSERVED_DATA'
 BATCH_COMMITTED = 'BATCH_COMMITTED'
+VIEW_CHANGE_START = 'ViewChangeStart'
+VIEW_CHANGE_CONTINUE = 'ViewChangeContinue'
 
 BLACKLIST = "BLACKLIST"
 
@@ -58,6 +60,8 @@ PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
 BLS_PREFIX = "BLS: "
 OBSERVER_PREFIX = "OBSERVER: "
 
+
+PROPOSED_VIEW_NO = "proposed_view_no"
 NAME = "name"
 VERSION = "version"
 IP = "ip"
@@ -171,6 +175,10 @@ class KeyValueStorageType(IntEnum):
     Rocksdb = 3
     ChunkedBinaryFile = 4
     BinaryFile = 5
+
+
+class PreVCStrategies(IntEnum):
+    VC_START_MSG_STRATEGY = 1
 
 
 @unique

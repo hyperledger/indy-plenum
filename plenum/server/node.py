@@ -5,11 +5,10 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
-from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
+import gc
 import psutil
-import sys
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
@@ -17,7 +16,7 @@ from common.serializers.serialization import state_roots_serializer, \
     node_status_db_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
-    async_measure_time, measure_time
+    async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
@@ -123,6 +122,25 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
+class GcTimeTracker:
+    def __init__(self, metrics: MetricsCollector):
+        self._metrics = metrics
+        self._timestamps = {}
+        gc.callbacks.append(self._gc_callback)
+
+    def _gc_callback(self, action, info):
+        gen = info['generation']
+        if action == 'start':
+            self._timestamps[gen] = time.perf_counter()
+        else:
+            start = self._timestamps.get(gen)
+            if start is None:
+                return
+            elapsed = time.perf_counter() - start
+            self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
+            self._timestamps[gen] = None
+
+
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
@@ -195,6 +213,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter = {}   # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
+        if self.config.METRICS_COLLECTOR_TYPE is not None:
+            self._gc_time_tracker = GcTimeTracker(self.metrics)
 
         Motor.__init__(self)
 
@@ -1367,7 +1387,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             """
             self._schedule_view_change()
 
-        for inst_id, replica in self.replicas:
+        for inst_id, replica in self.replicas.items():
             if not replica.isMaster and replica.primaryName is not None:
                 primary_node_name = replica.primaryName.split(':')[0]
                 if primary_node_name in joined:
@@ -1850,11 +1870,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         while self.nodeInBox:
             m = self.nodeInBox.popleft()
-            try:
-                await self.nodeMsgRouter.handle(m)
-            except SuspiciousNode as ex:
-                self.reportSuspiciousNodeEx(ex)
-                self.discard(m, ex, logger.debug)
+            await self.process_one_node_message(m)
+
+    async def process_one_node_message(self, m):
+        try:
+            await self.nodeMsgRouter.handle(m)
+        except SuspiciousNode as ex:
+            self.reportSuspiciousNodeEx(ex)
+            self.discard(m, ex, logger.debug)
 
     def handleOneClientMsg(self, wrappedMsg):
         """
@@ -2671,11 +2694,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
     def flush_metrics(self):
+        # Flush accumulated should always be done to avoid numeric overflow in accumulators
+        self.metrics.flush_accumulated()
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return
+
         ram_by_process = psutil.Process().memory_info()
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
         self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
+        self.metrics.add_event(MetricsName.GC_TRACKED_OBJECTS, len(gc.get_objects()))
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
         self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
@@ -2847,8 +2876,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
             store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
 
-        self.metrics.flush_accumulated()
-
     @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:
         """
@@ -2961,6 +2988,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_primary_loss()
 
     def _schedule_replica_removal(self, inst_id):
+        disconnection_strategy = self.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED
+        if not (self.backup_instance_faulty_processor.is_local_remove_strategy(disconnection_strategy) or
+                self.backup_instance_faulty_processor.is_quorum_strategy(disconnection_strategy)):
+            return
         logger.info('{} scheduling replica removal for instance {} in {} sec'
                     .format(self, inst_id, self.config.TolerateBackupPrimaryDisconnection))
         self._schedule(partial(self._remove_replica_if_primary_lost, inst_id),
@@ -2994,7 +3025,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
-        for instance_id, replica in self.replicas:
+        for instance_id, replica in self.replicas.items():
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
                 primaries.add(name)
@@ -3005,7 +3036,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if instance_id == 0:
                     primary_rank = self.get_rank_by_name(name, nodeReg)
 
-        for instance_id, replica in self.replicas:
+        for instance_id, replica in self.replicas.items():
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue
