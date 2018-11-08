@@ -745,6 +745,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 if ppReq is None:
                     continue
                 self.sendPrePrepare(ppReq)
+                self.node.store_last_sent_pre_prepare_seq_no(self.instId, ppReq.ppSeqNo)
                 self.trackBatches(ppReq, oldStateRootHash)
                 r += 1
 

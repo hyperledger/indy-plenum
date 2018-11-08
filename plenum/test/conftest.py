@@ -402,6 +402,7 @@ def _tconf(general_config):
     config.db_state_config = config.rocksdb_default_config.copy()
     config.db_transactions_config = config.rocksdb_default_config.copy()
     config.db_seq_no_db_config = config.rocksdb_default_config.copy()
+    config.db_node_status_db_config = config.rocksdb_default_config.copy()
     config.db_state_signature_config = config.rocksdb_default_config.copy()
     config.db_state_ts_db_config = config.rocksdb_default_config.copy()
 
