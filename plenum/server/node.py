@@ -5,18 +5,17 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
-from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
+import gc
 import psutil
-import sys
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
-    async_measure_time, measure_time
+    async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
@@ -121,6 +120,25 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
+class GcTimeTracker:
+    def __init__(self, metrics: MetricsCollector):
+        self._metrics = metrics
+        self._timestamps = {}
+        gc.callbacks.append(self._gc_callback)
+
+    def _gc_callback(self, action, info):
+        gen = info['generation']
+        if action == 'start':
+            self._timestamps[gen] = time.perf_counter()
+        else:
+            start = self._timestamps.get(gen)
+            if start is None:
+                return
+            elapsed = time.perf_counter() - start
+            self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
+            self._timestamps[gen] = None
+
+
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
@@ -193,6 +211,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter = {}   # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
+        if self.config.METRICS_COLLECTOR_TYPE is not None:
+            self._gc_time_tracker = GcTimeTracker(self.metrics)
 
         Motor.__init__(self)
 
@@ -2592,11 +2612,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
     def flush_metrics(self):
+        # Flush accumulated should always be done to avoid numeric overflow in accumulators
+        self.metrics.flush_accumulated()
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return
+
         ram_by_process = psutil.Process().memory_info()
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
         self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
+        self.metrics.add_event(MetricsName.GC_TRACKED_OBJECTS, len(gc.get_objects()))
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
         self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
@@ -2767,8 +2793,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
             store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
-
-        self.metrics.flush_accumulated()
 
     @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:
