@@ -1,3 +1,5 @@
+import time
+
 from collections import OrderedDict, defaultdict
 
 from typing import Union
@@ -28,6 +30,8 @@ class ReqState:
         self.propagates = {}
         self.finalised = None
         self.executed = False
+        self.added_ts = time.perf_counter()
+        self.finalised_ts = None
 
     def req_with_acceptable_quorum(self, quorum: Quorum):
         digests = defaultdict(set)
@@ -45,6 +49,8 @@ class ReqState:
         # here we construct the parent from child it is rather implicit that
         # `finalised` contains not the same type than `propagates` has
         self.finalised = Request.fromState(req.__getstate__())
+        self.added_ts = None
+        self.finalised_ts = time.perf_counter()
 
 
 class Requests(OrderedDict):
