@@ -1,6 +1,6 @@
-import codecs
 import os
-import base58
+
+from plenum.common.util import hexToFriendly
 
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import CLIENT_STACK_SUFFIX
@@ -11,16 +11,11 @@ from stp_core.crypto.util import randomSeed
 def initLocalKeys(name, keys_dir, sigseed, *, use_bls, override=False):
     # * forces usage of names for args on the right hand side
     pubkey, verkey = nodeStackClass.initLocalKeys(name, keys_dir, sigseed, override=override)
-
-    print("Public key is", hex_to_base58_str(pubkey))
-    print("Verification key is", hex_to_base58_str(verkey))
+    print("Public key is", hexToFriendly(pubkey))
+    print("Verification key is", hexToFriendly(verkey))
     blspk, key_proof = init_bls_keys(keys_dir, name, sigseed) if use_bls \
         else (None, None)
     return pubkey, verkey, blspk, key_proof
-
-
-def hex_to_base58_str(hex_str: str):
-    return base58.b58encode(codecs.decode(hex_str, 'hex')).decode('utf-8')
 
 
 def initRemoteKeys(name, remote_name, keys_dir, verkey, override=False):
