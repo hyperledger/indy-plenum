@@ -191,7 +191,7 @@ ToleratePrimaryDisconnection = 2
 # A node if finds itself disconnected from primary of some backup instance will
 # wait for `TolerateBackupPrimaryDisconnection` before remove its replica
 # in this backup instance
-TolerateBackupPrimaryDisconnection = 60
+TolerateBackupPrimaryDisconnection = 180
 
 # Timeout factor after which a node starts requesting consistency proofs if has
 # not found enough matching
@@ -352,7 +352,7 @@ VALIDATOR_INFO_USE_DB = False
 # - None - don't remove replicas
 # - "local" - remove replicas without quorum, if current node needs this
 # - "quorum" - remove replicas only with quorum of BackupInstanceFaulty
-REPLICAS_REMOVING_WITH_DEGRADATION = "local"
+REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
 REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
 
 EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC = 10

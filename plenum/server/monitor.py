@@ -445,8 +445,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                     slow_instances.append(instance)
         else:
             for instance in self.instances.backupIds:
-                if self.is_instance_throughput_too_low(instance) or \
-                        self.is_instance_avg_req_latency_too_high(instance):
+                if self.is_instance_throughput_too_low(instance):
                     slow_instances.append(instance)
         return slow_instances
 
@@ -474,18 +473,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the throughput of the master instance is greater than the
         acceptable threshold
         """
-        logging = self.instances.masterId == inst_id
         r = self.instance_throughput_ratio(inst_id)
         if r is None:
-            if logging:
-                logger.debug("{} instance {} throughput is not "
-                             "measurable.".format(self, inst_id))
+            logger.debug("{} instance {} throughput is not "
+                         "measurable.".format(self, inst_id))
             return None
         too_low = r < self.Delta
-        if logging and too_low:
+        if too_low:
             logger.display("{}{} instance {} throughput ratio {} is lower than Delta {}.".
                            format(MONITORING_PREFIX, self, inst_id, r, self.Delta))
-        elif logging:
+        else:
             logger.trace("{} instance {} throughput ratio {} is acceptable.".
                          format(self, inst_id, r))
         return too_low
@@ -553,10 +550,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if len(self.throughputs) > 1:
             thrs = []
             for inst_id, thr_obj in self.throughputs.items():
-                if inst_id != desired_inst_id:
-                    thr = self.getThroughput(inst_id)
-                    if thr is not None:
-                        thrs.append(thr)
+                if inst_id == desired_inst_id:
+                    continue
+                thr = self.getThroughput(inst_id)
+                if thr is not None:
+                    thrs.append(thr)
             if thrs:
                 other_thrp = self.throughput_avg_strategy_cls.get_avg(thrs)
             else:

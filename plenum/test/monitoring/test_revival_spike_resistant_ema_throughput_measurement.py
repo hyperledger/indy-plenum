@@ -74,7 +74,7 @@ def test_rsr_ema_tm_past_windows_processed_on_add_request(tm):
     assert tm.reqs_in_window == 1
 
 
-def test_rsr_ema_tm_past_windows_processed_on_get_throughput(tm):
+def test_rsr_ema_tm_past_windows_not_processed_on_get_throughput_during_safe_start(tm):
     # [0, 15)
     tm.add_request(1)
     tm.add_request(5)
@@ -88,8 +88,8 @@ def test_rsr_ema_tm_past_windows_processed_on_get_throughput(tm):
 
     # [15, 30)
     tm.get_throughput(15)
-    assert tm.window_start_ts == 15
-    assert tm.reqs_in_window == 0
+    assert tm.window_start_ts == 0
+    assert tm.reqs_in_window == 3
 
     tm.add_request(16)
     tm.get_throughput(16)
@@ -98,7 +98,35 @@ def test_rsr_ema_tm_past_windows_processed_on_get_throughput(tm):
 
     # [30, 45)
     tm.get_throughput(42)
-    assert tm.window_start_ts == 30
+    assert tm.window_start_ts == 15
+    assert tm.reqs_in_window == 1
+
+
+def test_rsr_ema_tm_past_windows_processed_on_get_throughput_after_safe_start(tm):
+    # [300, 315)
+    tm.add_request(301)
+    tm.add_request(305)
+    tm.add_request(308)
+    assert tm.window_start_ts == 300
+    assert tm.reqs_in_window == 3
+
+    tm.get_throughput(314)
+    assert tm.window_start_ts == 300
+    assert tm.reqs_in_window == 3
+
+    # [315, 330)
+    tm.get_throughput(315)
+    assert tm.window_start_ts == 315
+    assert tm.reqs_in_window == 0
+
+    tm.add_request(316)
+    tm.get_throughput(316)
+    assert tm.window_start_ts == 315
+    assert tm.reqs_in_window == 1
+
+    # [330, 345)
+    tm.get_throughput(342)
+    assert tm.window_start_ts == 330
     assert tm.reqs_in_window == 0
 
 
@@ -117,14 +145,13 @@ def test_rsr_ema_tm_after_start_stays_in_faded_while_windows_are_empty(tm_after_
     # [0, 15) - [45, 60)
 
     # [60, 75)
-    throughput = tm.get_throughput(62)
-
+    assert tm.get_throughput(62) is None
     assert tm.state == State.FADED
-    assert throughput == 0
+    assert tm.throughput == 0
 
     assert tm.throughput_before_idle == 0
     assert tm.idle_start_ts == 0
-    assert tm.empty_windows_count == 4
+    assert tm.empty_windows_count == 0  # it should be 0 because any requests weren't added
 
 
 def test_rsr_ema_tm_after_start_switches_to_revival_on_not_empty_window(tm_after_start):
@@ -136,10 +163,12 @@ def test_rsr_ema_tm_after_start_switches_to_revival_on_not_empty_window(tm_after
     tm.add_request(50)
 
     # [60, 75)
+    tm.add_request(62)
     throughput = tm.get_throughput(62)
 
     assert tm.state == State.REVIVAL
     assert throughput is None
+    assert tm.throughput is None
 
     assert tm.throughput_before_idle == 0
     assert tm.idle_start_ts == 0
@@ -154,13 +183,14 @@ def test_rsr_ema_tm_after_start_switches_to_revival_if_first_window_is_not_empty
     tm = tm_after_start
 
     # [0, 15)
-    tm.add_request(0)
+    tm.add_request(14)
 
     # [15, 30)
-    throughput = tm.get_throughput(15)
+    tm.add_request(15)
 
+    assert tm.get_throughput(15) is None
     assert tm.state == State.REVIVAL
-    assert throughput is None
+    assert tm.throughput is None
 
     assert tm.throughput_before_idle == 0
     assert tm.idle_start_ts == 0
@@ -180,10 +210,10 @@ def tm_in_normal(tm_after_start):
         tm.add_request(ts)
 
     # [15, 30) - [225, 240) -- up to 16 not empty windows
-    tm.get_throughput(15)
+    tm.add_request(15)
     assert tm.state == State.REVIVAL
 
-    for ts in range(15, 240, 5):
+    for ts in range(20, 240, 5):
         tm.add_request(ts)
 
     # [240, 255)
@@ -454,6 +484,19 @@ def test_rsr_ema_tm_in_revival_switches_to_idle_on_empty_window(tm_in_revival):
 
 
 # TESTS OF THROUGHPUT CALCULATION
+
+
+def test_rsr_ema_tm_throughput_in_safe_start(tm):
+    # [0, 15)
+    assert tm.get_throughput(2) is None
+
+    # [15, 30)
+    tm.add_request(15)
+    assert tm.get_throughput(15) is None
+    assert tm.throughput is not None
+
+    # [240, 255) - after safe start
+    assert tm.get_throughput(240) is not None
 
 
 def test_rsr_ema_tm_throughput_in_normal_state(tm):

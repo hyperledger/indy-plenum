@@ -75,12 +75,6 @@ def catchup_complete_count(txnPoolNodeSet):
     return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in txnPoolNodeSet}
 
 
-@pytest.fixture(scope='module')  # noqa
-def view_change_done(looper, txnPoolNodeSet):
-    ensure_view_change(looper, txnPoolNodeSet)
-    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
-
-
 # noinspection PyIncorrectDocstring
 
 
