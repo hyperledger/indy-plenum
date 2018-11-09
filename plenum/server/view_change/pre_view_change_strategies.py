@@ -6,6 +6,10 @@ from plenum.common.constants import VIEW_CHANGE_START, PreVCStrategies, VIEW_CHA
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, PrePrepare, Prepare, \
     Commit, Ordered
 from stp_zmq.zstack import Quota
+from stp_core.common.log import getlogger
+
+
+logger = getlogger()
 
 
 class PreViewChangeStrategy(metaclass=ABCMeta):
@@ -31,10 +35,14 @@ class PreViewChangeStrategy(metaclass=ABCMeta):
 
 class VCStartMsgStrategy(PreViewChangeStrategy):
     """Strategy logic:
-    - when startViewChange method was called, then put 'local' ViewChangeStart message
-    - when this message will be processed by node's nodeInBoxRouter then it will be added to replica's inBox queue
-    - when this message will be processed by replica's inBoxRouter then startViewChange method will be called
-      and view_change procedure will be continued
+    - when startViewChange method was called, then put 'local' ViewChangeStart message and set corresponded handlers
+    - on processing startViewChange message on the nodeInBoxRouter's side the next steps will be performed:
+        - call nodestack.service method with extended quota parameters for getting as much as possible 3PC
+          messages from ZMQ's side
+        - process all messages from nodeInBox queue and stash all not 3PC
+        - append to replica's inBox queue ViewChangeContinueMessage
+    - then replica's inBox queue will be processed and after ViewChangeContinueMessage view_change procedure
+      will be continued in the normal way
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,6 +53,7 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
 
     def prepare_view_change(self, proposed_view_no: int):
         if not self.is_preparing:
+            logger.info("VCStartMsgStrategy: Starting prepare_view_change process")
             self._set_req_handlers()
             vcs_msg = ViewChangeStartMessage(proposed_view_no)
             nodeInBox = self.view_changer.node.nodeInBox
@@ -71,14 +80,17 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
     async def on_view_change_started(node, msg: ViewChangeStartMessage, frm):
         strategy = node.view_changer.pre_vc_strategy
         proposed_view_no = msg.proposed_view_no
+        logger.info("VCStartMsgStrategy: got ViewChangeStartMessage with proposed_view_no: {}".format(proposed_view_no))
         if proposed_view_no > node.view_changer.view_no:
             vcc_msg = ViewChangeContinueMessage(proposed_view_no)
             quota = Quota(
                 count=node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.count,
                 size=node.config.EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC * node.quota_control.node_quota.size)
-            await node.nodestack.service(limit=None,
-                                         quota=quota)
+            msgs_count = await node.nodestack.service(limit=None,
+                                                      quota=quota)
+            logger.info("VCStartMsgStrategy: Got {} messages from nodestack".format(msgs_count))
             strategy.stashedNodeInBox = await VCStartMsgStrategy._process_node_inbox_3PC(node)
+            logger.info("VCStartMsgStrategy: {} not 3PC msgs was stashed".format(len(strategy.stashedNodeInBox)))
             node.master_replica.inBox.append(vcc_msg)
 
     """Handler for processing ViewChangeStart message on replica's inBoxRouter"""
@@ -86,13 +98,16 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
     def on_view_change_continued(replica, msg: ViewChangeContinueMessage):
         strategy = replica.node.view_changer.pre_vc_strategy
         proposed_view_no = msg.proposed_view_no
+        replica.logger.info("VCStartMsgStrategy: got ViewChangeContinueMessage with proposed_view_no: {}".format(proposed_view_no))
         if proposed_view_no > replica.node.viewNo:
             """
             Return stashed not 3PC msgs to nodeInBox queue and start ViewChange
             Critical assumption: All 3PC msgs passed from node already processed
             """
+            replica.logger.info("VCStartMsgStrategy: unstash all not 3PC msgs to nodeInBox queue")
             while strategy.stashedNodeInBox:
                 replica.node.nodeInBox.appendleft(strategy.stashedNodeInBox.pop())
+            replica.logger.info("VCStartMsgStrategy: continue view_change procedure in a normal way")
             replica.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
             strategy.is_preparing = False
 
