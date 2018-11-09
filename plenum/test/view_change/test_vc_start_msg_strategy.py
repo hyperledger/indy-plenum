@@ -22,7 +22,10 @@ from stp_zmq.zstack import Quota
 def view_changer(tconf):
     node = FakeSomething(config=tconf,
                          master_replica=FakeSomething(inBox=deque(),
-                                                      inBoxRouter=Router()),
+                                                      inBoxRouter=Router(),
+                                                      logger=FakeSomething(
+                                                          info=lambda *args, **kwargs: True
+                                                      )),
                          name="Alpha",
                          master_primary_name="Alpha",
                          on_view_change_start=lambda *args, **kwargs: True,
