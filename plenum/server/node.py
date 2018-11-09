@@ -5,18 +5,18 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
-from statistics import mean
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
+import gc
 import psutil
-import sys
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
-from common.serializers.serialization import state_roots_serializer
+from common.serializers.serialization import state_roots_serializer, \
+    node_status_db_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
-    async_measure_time, measure_time
+    async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
@@ -44,7 +44,8 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, \
+    LAST_SENT_PRE_PREPARE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -121,6 +122,25 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
+class GcTimeTracker:
+    def __init__(self, metrics: MetricsCollector):
+        self._metrics = metrics
+        self._timestamps = {}
+        gc.callbacks.append(self._gc_callback)
+
+    def _gc_callback(self, action, info):
+        gen = info['generation']
+        if action == 'start':
+            self._timestamps[gen] = time.perf_counter()
+        else:
+            start = self._timestamps.get(gen)
+            if start is None:
+                return
+            elapsed = time.perf_counter() - start
+            self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
+            self._timestamps[gen] = None
+
+
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
@@ -193,6 +213,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter = {}   # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
+        if self.config.METRICS_COLLECTOR_TYPE is not None:
+            self._gc_time_tracker = GcTimeTracker(self.metrics)
 
         Motor.__init__(self)
 
@@ -432,6 +454,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
+        self.nodeStatusDB = self.loadNodeStatusDB()
 
         # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
         # the key is the ledger id and value is an interval tree with each
@@ -638,9 +661,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self._check_view_change_completed)
 
         self.master_replica.on_view_change_done()
+        backup_primary_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
+            if self.view_changer.previous_view_no == 0:
+                backup_primary_pp_seq_no_restored = \
+                    self._try_restore_last_sent_pre_prepare_seq_no()
+        if not backup_primary_pp_seq_no_restored:
+            self._erase_last_sent_pre_prepare_seq_no()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
         # If view change happen when one half of nodes ordered on master
@@ -653,6 +682,69 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
+
+    def store_last_sent_pre_prepare_seq_no(self, inst_id, pp_seq_no):
+        self.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
+                              node_status_db_serializer.dumps((inst_id, self.viewNo, pp_seq_no)))
+
+    def _erase_last_sent_pre_prepare_seq_no(self):
+        logger.info("{} erasing stored lastSentPrePrepare"
+                    .format(self))
+        if LAST_SENT_PRE_PREPARE in self.nodeStatusDB:
+            self.nodeStatusDB.remove(LAST_SENT_PRE_PREPARE)
+
+    def _try_restore_last_sent_pre_prepare_seq_no(self):
+        if LAST_SENT_PRE_PREPARE not in self.nodeStatusDB:
+            logger.info("{} has not found stored lastSentPrePrepare"
+                        .format(self))
+            return False
+
+        serialized_value = self.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)
+        logger.info("{} has found stored lastSentPrePrepare value {}"
+                    .format(self, serialized_value))
+        try:
+            inst_id, view_no, pp_seq_no = node_status_db_serializer.loads(serialized_value)
+            inst_id = int(inst_id)
+            view_no = int(view_no)
+            pp_seq_no = int(pp_seq_no)
+        except Exception as e:
+            logger.warning("{} cannot unpack inst_id, view_no, pp_seq_no "
+                           "from stored lastSentPrePrepare value '{}': {}"
+                           .format(self, serialized_value, e))
+            return False
+
+        if view_no != self.viewNo:
+            logger.info("{} ignoring stored lastSentPrePrepare value {} "
+                        "because current view no is {}"
+                        .format(self, serialized_value, self.viewNo))
+            return False
+
+        if inst_id not in self.replicas.keys():
+            logger.info("{} ignoring stored lastSentPrePrepare value {} "
+                        "because it does not have replica for instance {}"
+                        .format(self, serialized_value, inst_id))
+            return False
+
+        if self.replicas[inst_id].isPrimary is not True:
+            logger.info("{} ignoring stored lastSentPrePrepare value {} "
+                        "because it is not primary in instance {}"
+                        .format(self, serialized_value, inst_id))
+            return False
+
+        primary_replica = self.replicas[inst_id]
+        if primary_replica.isMaster:
+            logger.info("{} ignoring stored lastSentPrePrepare value {} "
+                        "because master's primary restores lastPrePrepareSeqNo "
+                        "using catch-up"
+                        .format(self, serialized_value))
+            return False
+
+        logger.info("{} restoring lastPrePrepareSeqNo "
+                    "from stored lastSentPrePrepare value {}"
+                    .format(self, serialized_value))
+        primary_replica.lastPrePrepareSeqNo = pp_seq_no
+        primary_replica.last_ordered_3pc = (self.viewNo, pp_seq_no)
+        return True
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -704,6 +796,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def loadNodeStatusDB(self):
+        return initKeyValueStorage(self.config.nodeStatusStorage,
+                                   self.dataLocation,
+                                   self.config.nodeStatusDbName,
+                                   db_config=self.config.db_node_status_db_config)
 
     def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
@@ -1089,6 +1187,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        if self.nodeStatusDB:
+            self.nodeStatusDB.close()
         if self.bls_bft.bls_store:
             self.bls_bft.bls_store.close()
         if self.stateTsDbStorage:
@@ -1612,7 +1712,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def _is_initial_propagate_primary(self):
+    def _is_initial_view_change_now(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
@@ -1632,13 +1732,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
             self.discard(msg, "Proposed viewNo {} less, then current {}"
                          .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or self._is_initial_propagate_primary():
+        elif (view_no > self.viewNo) or self._is_initial_view_change_now():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
@@ -2156,6 +2256,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
+        if self.ledgerManager.last_caught_up_3PC == (0, 0):
+            self._erase_last_sent_pre_prepare_seq_no()
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
@@ -2592,11 +2694,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
     def flush_metrics(self):
+        # Flush accumulated should always be done to avoid numeric overflow in accumulators
+        self.metrics.flush_accumulated()
+        if self.config.METRICS_COLLECTOR_TYPE is None:
+            return
+
         ram_by_process = psutil.Process().memory_info()
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
         self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
         self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
+        self.metrics.add_event(MetricsName.GC_TRACKED_OBJECTS, len(gc.get_objects()))
 
         self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
         self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
@@ -2767,8 +2875,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
             store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
-
-        self.metrics.flush_accumulated()
 
     @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:

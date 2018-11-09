@@ -76,7 +76,7 @@ def test_set_req_handlers_on_first_prepare_view_change_call(pre_vc_strategy):
     assert req_handler.func.__name__ == VCStartMsgStrategy.on_view_change_continued.__name__
 
 
-def test_add_vc_start_and_vc_continue_msgs(pre_vc_strategy):
+def test_add_vc_start_msg(pre_vc_strategy):
     pre_vc_strategy.is_preparing = False
     pre_vc_strategy.prepare_view_change(1)
 
@@ -113,6 +113,8 @@ def test_add_vc_continued_msg_on_view_change_started(pre_vc_strategy, looper):
                                                       ViewChangeStartMessage(2),
                                                       "some_node"))
     assert len(pre_vc_strategy.view_changer.node.master_replica.inBox) == 1
+    m = pre_vc_strategy.view_changer.node.master_replica.inBox.popleft()
+    assert isinstance(m, ViewChangeContinueMessage)
 
 
 def test_stash_not_3PC_msgs(pre_vc_strategy, looper):

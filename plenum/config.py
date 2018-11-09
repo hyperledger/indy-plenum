@@ -43,6 +43,8 @@ stateSignatureDbName = 'state_signature'
 # request id to sequence numbers
 seqNoDbName = 'seq_no_db'
 
+nodeStatusDbName = 'node_status_db'
+
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
@@ -55,6 +57,7 @@ domainStateStorage = KeyValueStorageType.Rocksdb
 poolStateStorage = KeyValueStorageType.Rocksdb
 configStateStorage = KeyValueStorageType.Rocksdb
 reqIdToTxnStorage = KeyValueStorageType.Rocksdb
+nodeStatusStorage = KeyValueStorageType.Rocksdb
 
 stateSignatureStorage = KeyValueStorageType.Rocksdb
 
@@ -91,6 +94,9 @@ rocksdb_transactions_config = rocksdb_default_config.copy()
 rocksdb_seq_no_db_config = rocksdb_default_config.copy()
 # Change seq_no_db config here if you fully understand what's going on
 
+rocksdb_node_status_db_config = rocksdb_default_config.copy()
+# Change node_status_db config here if you fully understand what's going on
+
 rocksdb_state_signature_config = rocksdb_default_config.copy()
 # Change state_signature config here if you fully understand what's going on
 
@@ -106,6 +112,7 @@ db_merkle_nodes_config = rocksdb_merkle_nodes_config
 db_state_config = rocksdb_state_config
 db_transactions_config = rocksdb_transactions_config
 db_seq_no_db_config = rocksdb_seq_no_db_config
+db_node_status_db_config = rocksdb_node_status_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
 
@@ -191,7 +198,7 @@ ToleratePrimaryDisconnection = 2
 # A node if finds itself disconnected from primary of some backup instance will
 # wait for `TolerateBackupPrimaryDisconnection` before remove its replica
 # in this backup instance
-TolerateBackupPrimaryDisconnection = 60
+TolerateBackupPrimaryDisconnection = 180
 
 # Timeout factor after which a node starts requesting consistency proofs if has
 # not found enough matching
