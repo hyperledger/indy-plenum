@@ -5,6 +5,9 @@ from ioflo.aid import getConsole
 
 from plenum.common.keygen_utils import initNodeKeysForBothStacks, tellKeysToOthers
 from plenum.common.util import randomString
+from plenum.test.pool_transactions.helper import \
+    disconnect_node_and_ensure_disconnected
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.types import NodeDetail
@@ -64,6 +67,8 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdir_for_func, tconf_for_
     # ensure election is done for updated pool
     ensureElectionsDone(looper, nodes)
     stopNodes(nodes, looper)
+    for node in nodes:
+        looper.removeProdable(node)
 
 
 def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_for_func,
@@ -85,9 +90,9 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdir_for_func, tconf_
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_func,
-                                      looper,
-                                      txnPoolNodeSetNotStarted):
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tconf, tdir,
+                                      tdir_for_func, tconf_for_func,
+                                      looper, txnPoolNodeSetNotStarted):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
 
@@ -110,27 +115,36 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdir_for_func, tconf_for_f
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
 
-    stopNodes(nodes, looper)
+    current_node_set = set(nodes)
+    for node in nodes:
+        disconnect_node_and_ensure_disconnected(looper,
+                                                current_node_set,
+                                                node,
+                                                timeout=len(nodes),
+                                                stopNode=True)
+        looper.removeProdable(node)
+        current_node_set.remove(node)
 
-    # # Giving some time for sockets to close, use eventually
-    # time.sleep(1)
-
-    for i, n in enumerate(nodes):
-        n.start(looper.loop)
+    for i, node in enumerate(nodes):
+        restarted_node = start_stopped_node(node, looper,
+                                            tconf, tdir, allPluginsPath)
+        current_node_set.add(restarted_node)
         looper.runFor(rwaits[i])
+
     looper.runFor(3)
-    looper.run(checkNodesConnected(nodes))
-    stopNodes(nodes, looper)
+    looper.run(checkNodesConnected(current_node_set))
+
+    stopNodes(current_node_set, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))
     logger.debug("rwaits: {}".format(rwaits))
-    for node in nodes:
+    for node in current_node_set:
         looper.removeProdable(node)
 
 
-def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
-                       looper,
-                       txnPoolNodeSetNotStarted):
+def testNodeConnection(allPluginsPath, tconf, tdir,
+                       tdir_for_func, tconf_for_func,
+                       looper, txnPoolNodeSetNotStarted):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
 
@@ -147,12 +161,19 @@ def testNodeConnection(allPluginsPath, tdir_for_func, tconf_for_func,
     looper.runFor(4)
     looper.run(checkNodesConnected([A, B]))
     looper.stopall()
-    A.start(looper.loop)
+    looper.removeProdable(A)
+    looper.removeProdable(B)
+    A = start_stopped_node(A, looper, tconf, tdir, allPluginsPath)
     looper.runFor(4)
-    B.start(looper.loop)
+    B = start_stopped_node(B, looper, tconf, tdir, allPluginsPath)
     looper.run(checkNodesConnected([A, B]))
-    stopNodes([A, B], looper)
-    for node in [A, B]:
+
+    for node in txnPoolNodeSetNotStarted[2:]:
+        looper.add(node)
+    all_nodes = [A, B] + txnPoolNodeSetNotStarted[2:]
+    looper.run(checkNodesConnected(all_nodes))
+    stopNodes(all_nodes, looper)
+    for node in all_nodes:
         looper.removeProdable(node)
 
 

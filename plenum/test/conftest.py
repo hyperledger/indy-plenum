@@ -875,7 +875,7 @@ def txnPoolNodeSet(node_config_helper_class,
         yield nodes
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def txnPoolNodeSetNotStarted(node_config_helper_class,
                              patchPluginManager,
                              txnPoolNodesLooper,
