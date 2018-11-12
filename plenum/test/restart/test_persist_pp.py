@@ -1,11 +1,11 @@
+from stp_core.loop.eventually import eventually
+
 from common.serializers.serialization import node_status_db_serializer
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 
 from plenum.test.test_node import TestNode, ensureElectionsDone, checkNodesConnected
-
-from plenum.test.helper import sdk_send_batches_of_random_and_check, \
-    checkViewNoForNodes, sdk_send_batches_of_random
+from plenum.test.helper import checkViewNoForNodes, sdk_send_batches_of_random
 from plenum.test.restart.helper import restart_nodes
 
 nodeCount = 7
@@ -26,28 +26,28 @@ def get_primary_replicas(nodes):
     return primary_replicas
 
 
+def all_replicas_ordered(replicas, seq_nos):
+    assert len(replicas) == len(seq_nos)
+    for i in range(len(replicas)):
+        assert seq_nos[i] == \
+               node_status_db_serializer.deserialize(
+                   replicas[i].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
+
+
 def test_persist_last_pp(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
     primary_replicas = get_primary_replicas(txnPoolNodeSet)
 
-    seq_no_before_0 = primary_replicas[0].lastPrePrepareSeqNo
-    seq_no_before_1 = primary_replicas[1].lastPrePrepareSeqNo
-    seq_no_before_2 = primary_replicas[2].lastPrePrepareSeqNo
+    seq_nos = list()
+    for replica in primary_replicas:
+        seq_nos.append(replica.lastPrePrepareSeqNo)
 
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
                                batches_count, batches_count,
                                timeout=tconf.Max3PCBatchWait)
 
-    # Check that we've persisted last send pre-prepare on every primary replica
-    assert seq_no_before_0 + batches_count == \
-           node_status_db_serializer.deserialize(
-               primary_replicas[0].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
-    assert seq_no_before_1 + batches_count == \
-           node_status_db_serializer.deserialize(
-               primary_replicas[1].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
-    assert seq_no_before_2 + batches_count == \
-           node_status_db_serializer.deserialize(
-               primary_replicas[2].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
+    seq_nos = [seq_no + batches_count for seq_no in seq_nos]
+    looper.run(eventually(all_replicas_ordered, primary_replicas, seq_nos))
 
 
 def test_restore_persisted_last_pp_after_restart(looper, txnPoolNodeSet, tconf, tdir,
@@ -55,10 +55,17 @@ def test_restore_persisted_last_pp_after_restart(looper, txnPoolNodeSet, tconf, 
                                                  allPluginsPath):
     primary_replicas = get_primary_replicas(txnPoolNodeSet)
 
+    seq_nos = list()
+    for replica in primary_replicas:
+        seq_nos.append(replica.lastPrePrepareSeqNo)
+
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
                                batches_count, batches_count,
                                timeout=tconf.Max3PCBatchWait)
+
+    seq_nos = [seq_no + batches_count for seq_no in seq_nos]
+    looper.run(eventually(all_replicas_ordered, primary_replicas, seq_nos))
 
     seq_no_before_1 = primary_replicas[1].lastPrePrepareSeqNo
     seq_no_before_2 = primary_replicas[2].lastPrePrepareSeqNo
@@ -71,20 +78,30 @@ def test_restore_persisted_last_pp_after_restart(looper, txnPoolNodeSet, tconf, 
 
     # Check that we've persisted last send pre-prepare on backup primary replicas
     assert seq_no_before_1 == \
+           primary_replicas_new[1].lastPrePrepareSeqNo == \
            node_status_db_serializer.deserialize(
                primary_replicas_new[1].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
     assert seq_no_before_2 == \
+           primary_replicas_new[2].lastPrePrepareSeqNo == \
            node_status_db_serializer.deserialize(
                primary_replicas_new[2].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
 
 
 def test_clear_persisted_last_pp_after_view_change(looper, txnPoolNodeSet, tconf, tdir,
                                                    sdk_pool_handle, sdk_wallet_client, allPluginsPath):
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_client, batches_count, batches_count)
-
     primary_replicas = get_primary_replicas(txnPoolNodeSet)
-    old_3pc = primary_replicas[0].last_ordered_3pc
+    seq_nos = list()
+    for replica in primary_replicas:
+        seq_nos.append(replica.lastPrePrepareSeqNo)
+
+    sdk_send_batches_of_random(looper, txnPoolNodeSet,
+                               sdk_pool_handle, sdk_wallet_client,
+                               batches_count, batches_count,
+                               timeout=tconf.Max3PCBatchWait)
+
+    seq_nos = [seq_no + batches_count for seq_no in seq_nos]
+    looper.run(eventually(all_replicas_ordered, primary_replicas, seq_nos))
+
     # Restart master primary to make a view_change
     restart_nodes(looper, txnPoolNodeSet, [primary_replicas[0].node], tconf, tdir, allPluginsPath,
                   after_restart_timeout=tconf.ToleratePrimaryDisconnection + 1)
@@ -92,20 +109,23 @@ def test_clear_persisted_last_pp_after_view_change(looper, txnPoolNodeSet, tconf
     assert primary_replicas[0] not in primary_replicas_new
 
     # Check that we've cleared last send pre-prepare on every primary replica
-    assert LAST_SENT_PRE_PREPARE not in primary_replicas_new[1].node.nodeStatusDB
-
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_client, batches_count, batches_count)
-    persisted = node_status_db_serializer.deserialize(
-        primary_replicas_new[1].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))
-    assert persisted[2] == batches_count
-    assert persisted[1] == old_3pc[0] + 1
+    assert all(LAST_SENT_PRE_PREPARE not in r.node.nodeStatusDB for r in primary_replicas_new)
 
 
 def test_clear_persisted_last_pp_after_pool_restart(looper, txnPoolNodeSet, tconf, tdir,
                                                     sdk_pool_handle, sdk_wallet_client):
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_client, batches_count, batches_count)
+    primary_replicas = get_primary_replicas(txnPoolNodeSet)
+    seq_nos = list()
+    for replica in primary_replicas:
+        seq_nos.append(replica.lastPrePrepareSeqNo)
+
+    sdk_send_batches_of_random(looper, txnPoolNodeSet,
+                               sdk_pool_handle, sdk_wallet_client,
+                               batches_count, batches_count,
+                               timeout=tconf.Max3PCBatchWait)
+
+    seq_nos = [seq_no + batches_count for seq_no in seq_nos]
+    looper.run(eventually(all_replicas_ordered, primary_replicas, seq_nos))
 
     for node in txnPoolNodeSet:
         node.stop()
@@ -129,6 +149,5 @@ def test_clear_persisted_last_pp_after_pool_restart(looper, txnPoolNodeSet, tcon
 
     # Check that we've cleared last send pre-prepare on every primary replica
     primary_replicas = get_primary_replicas(restartedNodes)
-    assert primary_replicas[0].last_ordered_3pc == (0, 0) and \
-           primary_replicas[0].lastPrePrepare is None
-    assert LAST_SENT_PRE_PREPARE not in primary_replicas[0].node.nodeStatusDB
+    assert primary_replicas[0].lastPrePrepareSeqNo == 0
+    assert all(LAST_SENT_PRE_PREPARE not in r.node.nodeStatusDB for r in primary_replicas)
