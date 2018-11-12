@@ -7,10 +7,10 @@ from plenum.test.view_change.helper import ensure_view_change, \
     start_stopped_node
 from stp_core.loop.eventually import eventually
 
-backup_inst_id = 1
+nodeCount = 7
 
 
-def test_backup_primary_restores_pp_seq_no_after_restart(
+def test_non_primaries_do_not_restore_pp_seq_no(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
         tconf, tdir, allPluginsPath):
 
@@ -18,41 +18,40 @@ def test_backup_primary_restores_pp_seq_no_after_restart(
         ensure_view_change(looper, txnPoolNodeSet)
         ensureElectionsDone(looper, txnPoolNodeSet)
 
-    backup_primary_replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
-    backup_primary_node = backup_primary_replica.node
+    inst_1_primary_node = getPrimaryReplica(txnPoolNodeSet, instId=1).node
 
-    assert backup_primary_replica.viewNo == 2
+    assert inst_1_primary_node.viewNo == 2
 
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
                                num_reqs=5, num_batches=5,
                                timeout=tconf.Max3PCBatchWait)
 
-    looper.run(
-        eventually(lambda: assertExp(backup_primary_replica.last_ordered_3pc == (2, 5)),
-                   retryWait=1,
-                   timeout=waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))))
+    for inst_id in inst_1_primary_node.replicas.keys():
+        looper.run(
+            eventually(lambda: assertExp(inst_1_primary_node.replicas[inst_id].last_ordered_3pc == (2, 5)),
+                       retryWait=1, timeout=waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))))
 
-    assert backup_primary_replica.viewNo == 2
-    assert backup_primary_replica.lastPrePrepareSeqNo == 5
+    assert inst_1_primary_node.viewNo == 2
+    assert inst_1_primary_node.replicas[0].lastPrePrepareSeqNo == 5
+    assert inst_1_primary_node.replicas[2].lastPrePrepareSeqNo == 5
 
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
-                                            backup_primary_node.name,
+                                            inst_1_primary_node.name,
                                             stopNode=True)
-    looper.removeProdable(backup_primary_node)
-    txnPoolNodeSet.remove(backup_primary_node)
+    looper.removeProdable(inst_1_primary_node)
+    txnPoolNodeSet.remove(inst_1_primary_node)
 
-    backup_primary_node = start_stopped_node(backup_primary_node, looper,
+    restarted_node = start_stopped_node(inst_1_primary_node, looper,
                                              tconf, tdir, allPluginsPath)
-    txnPoolNodeSet.append(backup_primary_node)
+    txnPoolNodeSet.append(restarted_node)
 
     ensureElectionsDone(looper, txnPoolNodeSet,
                         customTimeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) +
                                       waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)))
-    backup_primary_replica = backup_primary_node.replicas[backup_inst_id]
 
-    assert backup_primary_replica.isPrimary
-    assert backup_primary_replica.viewNo == 2
-    assert backup_primary_replica.lastPrePrepareSeqNo == 5
-    assert backup_primary_replica.last_ordered_3pc == (2, 5)
+    assert restarted_node.viewNo == 2
+    assert restarted_node.replicas[1].isPrimary
+    assert restarted_node.replicas[0].lastPrePrepareSeqNo == 0
+    assert restarted_node.replicas[2].lastPrePrepareSeqNo == 0
