@@ -340,12 +340,10 @@ def cryptonymToHex(cryptonym: str) -> bytes:
 
 def runWithLoop(loop, callback, *args, **kwargs):
     if loop.is_running():
-
         if hasattr(asyncio, 'ensure_future'):
            ensure_future = asyncio.ensure_future
         else:  # use of async keyword has been Deprecated since Python 3.4.4
            ensure_future =  getattr(asyncio, "async")
-
         loop.call_soon(ensure_future, callback(*args, **kwargs))
     else:
         loop.run_until_complete(callback(*args, **kwargs))
