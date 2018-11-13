@@ -1,5 +1,9 @@
+from binascii import hexlify
 from collections import deque
 from typing import Any, Iterable, Dict
+
+from plenum.common.util import hexToFriendly
+from zmq.utils import z85
 
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsName, measure_time
@@ -132,6 +136,8 @@ class Batched(MessageProcessor):
                                       serialized=True)
 
         for rid in removedRemotes:
+            if not isinstance(rid, str):
+                rid = hexToFriendly(hexlify(z85.decode(rid)).decode())
             logger.warning("{}{} has removed rid {}"
                            .format(CONNECTION_PREFIX, self, rid),
                            extra={"cli": False})
