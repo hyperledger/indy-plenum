@@ -1,0 +1,11 @@
+
+Install Dependencies 
+----------------------- 
+
+https://github.com/facebook/rocksdb.git 
+https://github.com/google/snappy 
+
+brew install snappy 
+brew install lz4 
+
+
