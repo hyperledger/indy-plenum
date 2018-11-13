@@ -1,11 +1,10 @@
 from stp_core.loop.eventually import eventually
 
-from common.serializers.serialization import node_status_db_serializer
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 
 from plenum.test.test_node import TestNode, ensureElectionsDone, checkNodesConnected
-from plenum.test.helper import checkViewNoForNodes, sdk_send_batches_of_random
+from plenum.test.helper import checkViewNoForNodes, sdk_send_batches_of_random, waitForViewChange
 from plenum.test.restart.helper import restart_nodes
 
 nodeCount = 7
@@ -30,8 +29,7 @@ def all_replicas_ordered(replicas, seq_nos):
     assert len(replicas) == len(seq_nos)
     for i in range(len(replicas)):
         assert seq_nos[i] == \
-               node_status_db_serializer.deserialize(
-                   replicas[i].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
+               replicas[i].lastPrePrepareSeqNo
 
 
 def test_persist_last_pp(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
@@ -78,13 +76,9 @@ def test_restore_persisted_last_pp_after_restart(looper, txnPoolNodeSet, tconf, 
 
     # Check that we've persisted last send pre-prepare on backup primary replicas
     assert seq_no_before_1 == \
-           primary_replicas_new[1].lastPrePrepareSeqNo == \
-           node_status_db_serializer.deserialize(
-               primary_replicas_new[1].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
+           primary_replicas_new[1].lastPrePrepareSeqNo
     assert seq_no_before_2 == \
-           primary_replicas_new[2].lastPrePrepareSeqNo == \
-           node_status_db_serializer.deserialize(
-               primary_replicas_new[2].node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))[2]
+           primary_replicas_new[2].lastPrePrepareSeqNo
 
 
 def test_clear_persisted_last_pp_after_view_change(looper, txnPoolNodeSet, tconf, tdir,
@@ -101,15 +95,16 @@ def test_clear_persisted_last_pp_after_view_change(looper, txnPoolNodeSet, tconf
 
     seq_nos = [seq_no + batches_count for seq_no in seq_nos]
     looper.run(eventually(all_replicas_ordered, primary_replicas, seq_nos))
+    old_view_no = primary_replicas[0].viewNo
 
     # Restart master primary to make a view_change
     restart_nodes(looper, txnPoolNodeSet, [primary_replicas[0].node], tconf, tdir, allPluginsPath,
                   after_restart_timeout=tconf.ToleratePrimaryDisconnection + 1)
-    primary_replicas_new = get_primary_replicas(txnPoolNodeSet)
-    assert primary_replicas[0] not in primary_replicas_new
+    waitForViewChange(looper, txnPoolNodeSet, old_view_no + 1)
+    ensureElectionsDone(looper, txnPoolNodeSet)
 
     # Check that we've cleared last send pre-prepare on every primary replica
-    assert all(LAST_SENT_PRE_PREPARE not in r.node.nodeStatusDB for r in primary_replicas_new)
+    assert all(LAST_SENT_PRE_PREPARE not in n.nodeStatusDB for n in txnPoolNodeSet)
 
 
 def test_clear_persisted_last_pp_after_pool_restart(looper, txnPoolNodeSet, tconf, tdir,
