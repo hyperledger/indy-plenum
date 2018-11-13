@@ -29,7 +29,7 @@ def all_replicas_ordered(replicas, seq_nos):
     assert len(replicas) == len(seq_nos)
     for i in range(len(replicas)):
         assert seq_nos[i] == \
-               replicas[i].lastPrePrepareSeqNo
+               replicas[i]._last_ordered_3pc[1]
 
 
 def test_persist_last_pp(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
