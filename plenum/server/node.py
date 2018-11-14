@@ -2,7 +2,7 @@ import json
 import os
 import time
 from binascii import unhexlify
-from collections import deque
+from collections import deque, defaultdict
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
@@ -128,6 +128,16 @@ class GcTimeTracker:
 
     def _gc_callback(self, action, info):
         gen = info['generation']
+
+        collected = info.get('collected', 0)
+        if collected > 0:
+            self._metrics.add_event(MetricsName.GC_TOTAL_COLLECTED_OBJECTS, collected)
+            self._metrics.add_event(MetricsName.GC_GEN0_COLLECTED_OBJECTS + gen, collected)
+
+        uncollectable = info.get('uncollectable', 0)
+        if uncollectable > 0:
+            self._metrics.add_event(MetricsName.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
+
         if action == 'start':
             self._timestamps[gen] = time.perf_counter()
         else:
@@ -137,6 +147,14 @@ class GcTimeTracker:
             elapsed = time.perf_counter() - start
             self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
             self._timestamps[gen] = None
+
+    def report_stats(self):
+        stats = defaultdict(int)
+        for obj in gc.get_objects():
+            stats[type(obj)] += 1
+        logger.info("Top objects tracked by garbage collector:")
+        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:50]:
+            logger.info("    {}: {}".format(k, v))
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -358,6 +376,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                 'nodeRequestSpike']['freq'])
 
         self.startRepeating(self.flush_metrics, config.METRICS_FLUSH_INTERVAL)
+
+        if config.GC_STATS_REPORT_INTERVAL > 0:
+            self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
