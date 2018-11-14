@@ -105,7 +105,7 @@ class Batched(MessageProcessor):
                 if self._should_batch(msgs):
                     logger.trace(
                         "{} batching {} msgs to {} into fewer transmissions".
-                            format(self, len(msgs), dest))
+                        format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
                     batches = split_messages_on_batches(list(msgs),
                                                         self._make_batch,
