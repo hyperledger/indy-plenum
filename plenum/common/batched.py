@@ -105,7 +105,7 @@ class Batched(MessageProcessor):
                 if self._should_batch(msgs):
                     logger.trace(
                         "{} batching {} msgs to {} into fewer transmissions".
-                        format(self, len(msgs), dest))
+                            format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
                     batches = split_messages_on_batches(list(msgs),
                                                         self._make_batch,
@@ -136,10 +136,10 @@ class Batched(MessageProcessor):
                                       serialized=True)
 
         for rid in removedRemotes:
-            if not isinstance(rid, str):
-                rid = hexToFriendly(hexlify(z85.decode(rid)).decode())
             logger.warning("{}{} has removed rid {}"
-                           .format(CONNECTION_PREFIX, self, rid),
+                           .format(CONNECTION_PREFIX, self,
+                                   rid if isinstance(rid, str) else
+                                   hexToFriendly(hexlify(z85.decode(rid)).decode())),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
