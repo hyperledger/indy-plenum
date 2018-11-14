@@ -1,10 +1,7 @@
-from binascii import hexlify
 from collections import deque
 from typing import Any, Iterable, Dict
 
-from plenum.common.util import hexToFriendly
-from zmq.utils import z85
-
+from plenum.common.util import z85_to_utf8
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsName, measure_time
 from plenum.common.prepare_batch import split_messages_on_batches
@@ -139,7 +136,7 @@ class Batched(MessageProcessor):
             logger.warning("{}{} has removed rid {}"
                            .format(CONNECTION_PREFIX, self,
                                    rid if isinstance(rid, str) else
-                                   hexToFriendly(hexlify(z85.decode(rid)).decode())),
+                                   z85_to_utf8(rid)),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
