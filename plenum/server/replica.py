@@ -118,7 +118,7 @@ class IntervalList:
         if self._intervals[0][0] <= item <= self._intervals[0][1]:
             return
 
-        for prev, next in zip(self._intervals,self._intervals[1:]):
+        for prev, next in zip(self._intervals, self._intervals[1:]):
             if item == prev[1] + 1:
                 prev[1] += 1
                 if prev[1] == next[0] - 1:
