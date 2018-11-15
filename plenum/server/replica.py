@@ -96,23 +96,61 @@ class IntervalList:
     def __init__(self):
         self._intervals = []
 
+    def __len__(self):
+        return sum(i[1] - i[0] + 1 for i in self._intervals)
+
     def __contains__(self, item):
         return any(i[0] <= item <= i[1] for i in self._intervals)
 
     def add(self, item):
-        for i, interval in enumerate(self._intervals):
-            if item == interval[0] - 1:
-                self._intervals[i] = (interval[0] - 1, interval[1])
+        if len(self._intervals) == 0:
+            self._intervals.append([item, item])
+            return
+
+        if item < self._intervals[0][0] - 1:
+            self._intervals.insert(0, [item, item])
+            return
+
+        if item == self._intervals[0][0] - 1:
+            self._intervals[0][0] -= 1
+            return
+
+        if self._intervals[0][0] <= item <= self._intervals[0][1]:
+            return
+
+        for prev, next in zip(self._intervals,self._intervals[1:]):
+            if item == prev[1] + 1:
+                prev[1] += 1
+                if prev[1] == next[0] - 1:
+                    prev[1] = next[1]
+                    self._intervals.remove(next)
                 return
-            if item == interval[1] + 1:
-                self._intervals[i] = (interval[0], interval[1] + 1)
+
+            if prev[1] + 1 < item < next[0] - 1:
+                idx = self._intervals.index(next)
+                self._intervals.insert(idx, [item, item])
                 return
-        self._intervals.append((item, item))
+
+            if item == next[0] - 1:
+                next[0] -= 1
+                return
+
+            if next[0] <= item <= next[1]:
+                return
+
+        if item == self._intervals[-1][1] + 1:
+            self._intervals[-1][1] += 1
+            return
+
+        self._intervals.append([item, item])
 
 
 class OrderedTracker:
     def __init__(self):
         self._batches = defaultdict(IntervalList)
+
+    def __len__(self):
+        return sum(len(il) for il in self._batches.values())
 
     def __contains__(self, item):
         view_no, pp_seq_no = item
