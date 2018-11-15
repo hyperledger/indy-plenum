@@ -355,7 +355,10 @@ VALIDATOR_INFO_USE_DB = False
 REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
 REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
 
-EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC = 10
-
 # Number of seconds between GC statistics report in log (0 to turn off)
 GC_STATS_REPORT_INTERVAL = 0
+
+# Enable PreViewChange strategy
+PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
+# Quota multiplier for PreViewChange strategy
+EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC = 10

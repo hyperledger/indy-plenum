@@ -73,4 +73,5 @@ def fake_node(tdir, tconf, request):
     node.msgsToViewChanger = deque()
     node.view_changer.view_no = request.param
     node.view_changer.last_completed_view_no = request.param
+    node.view_changer.pre_vc_strategy = None
     return node
