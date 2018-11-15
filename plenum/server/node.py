@@ -368,6 +368,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
+        self.propagates_phase_req_timeout = self.config.PROPAGATES_PHASE_REQ_TIMEOUT
+        self.ordering_phase_req_timeout = self.config.ORDERING_PHASE_REQ_TIMEOUT
+
+        if self.config.OUTDATED_REQS_CHECK_ENABLED:
+            self.startRepeating(self.check_outdated_reqs, self.config.OUTDATED_REQS_CHECK_INTERVAL)
+
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.startRepeating(self.checkNodeRequestSpike,
@@ -375,7 +381,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.startRepeating(self.flush_metrics, config.METRICS_FLUSH_INTERVAL)
+        self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
         if config.GC_STATS_REPORT_INTERVAL > 0:
             self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
@@ -3631,8 +3637,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
         return self._observable.get_observers(observer_policy_type)
 
-    def mark_request_as_executed(self, request: Request):
-        self.requests.mark_as_executed(request)
+    def _clean_req_from_verified(self, request: Request):
         authenticator = self.authNr(request.as_dict)
         if isinstance(authenticator, ReqAuthenticator):
             authenticator.clean_from_verified(request.key)
+
+    def mark_request_as_executed(self, request: Request):
+        self.requests.mark_as_executed(request)
+        self._clean_req_from_verified(request)
+
+    def check_outdated_reqs(self):
+        cur_ts = time.perf_counter()
+        for req_key in self.requests:
+            outdated = False
+            req_state = self.requests[req_key]
+
+            if req_state.executed and req_state.forwardedTo > 0:
+                # Means that the request has been processed by all replicas and
+                # it just waits for stable checkpoint to be deleted.
+                continue
+
+            if req_state.added_ts is not None and \
+                    cur_ts - req_state.added_ts > self.propagates_phase_req_timeout:
+                outdated = True
+            if req_state.finalised_ts is not None and \
+                    cur_ts - req_state.finalised_ts > self.ordering_phase_req_timeout:
+                outdated = True
+            if outdated:
+                self._clean_req_from_verified(req_state.request)
+                self.requests.pop(req_key)
