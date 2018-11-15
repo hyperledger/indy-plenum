@@ -339,8 +339,8 @@ def cryptonymToHex(cryptonym: str) -> bytes:
     return hexlify(base58.b58decode(cryptonym.encode()))
 
 
-def z85_to_utf8(z):
-    return hexToFriendly(hexlify(z85.decode(z)))
+def z85_to_friendly(z):
+    return z if isinstance(z, str) else hexToFriendly(hexlify(z85.decode(z)))
 
 
 def runWithLoop(loop, callback, *args, **kwargs):

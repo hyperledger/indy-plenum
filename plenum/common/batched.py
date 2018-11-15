@@ -1,7 +1,7 @@
 from collections import deque
 from typing import Any, Iterable, Dict
 
-from plenum.common.util import z85_to_utf8
+from plenum.common.util import z85_to_friendly
 from plenum.common.constants import BATCH, OP_FIELD_NAME
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsName, measure_time
 from plenum.common.prepare_batch import split_messages_on_batches
@@ -135,14 +135,14 @@ class Batched(MessageProcessor):
         for rid in removedRemotes:
             logger.warning("{}{} has removed rid {}"
                            .format(CONNECTION_PREFIX, self,
-                                   rid if isinstance(rid, str) else
-                                   z85_to_utf8(rid)),
+                                   z85_to_friendly(rid)),
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
                 self.discard(msgs,
                              "{}rid {} no longer available"
-                             .format(CONNECTION_PREFIX, rid),
+                             .format(CONNECTION_PREFIX,
+                                     z85_to_friendly(rid)),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
 

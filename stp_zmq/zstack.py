@@ -1,6 +1,7 @@
 import inspect
 
 from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -702,13 +703,13 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.trace('{} got ping from {}'.format(self, frm))
+                logger.trace('{} got ping from {}'.format(self, z85_to_friendly(frm)))
                 self.sendPingPong(frm, is_ping=False)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
                     self._resend_to_disconnected(frm, ident)
-                logger.trace('{} got pong from {}'.format(self, frm))
+                logger.trace('{} got pong from {}'.format(self, z85_to_friendly(frm)))
             return True
         return False
 
