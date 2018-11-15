@@ -26,7 +26,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName, measure_time
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -745,7 +745,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 if ppReq is None:
                     continue
                 self.sendPrePrepare(ppReq)
-                self.node.store_last_sent_pre_prepare_seq_no(self.instId, ppReq.ppSeqNo)
+                if not self.isMaster:
+                    self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                        self.instId, ppReq.ppSeqNo)
                 self.trackBatches(ppReq, oldStateRootHash)
                 r += 1
 

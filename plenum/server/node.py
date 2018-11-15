@@ -12,15 +12,14 @@ import psutil
 from intervaltree import IntervalTree
 
 from common.exceptions import LogicError
-from common.serializers.serialization import state_roots_serializer, \
-    node_status_db_serializer
+from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
-from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica import Replica
+from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
+from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -44,8 +43,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, \
-    LAST_SENT_PRE_PREPARE
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -456,6 +454,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.seqNoDB = self.loadSeqNoDB()
         self.nodeStatusDB = self.loadNodeStatusDB()
 
+        self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
+
         # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
         # the key is the ledger id and value is an interval tree with each
         # interval being the range of txns and value being the 3 phase key of
@@ -661,15 +661,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self._check_view_change_completed)
 
         self.master_replica.on_view_change_done()
-        backup_primary_pp_seq_no_restored = False
+        last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
             if self.view_changer.previous_view_no == 0:
-                backup_primary_pp_seq_no_restored = \
-                    self._try_restore_last_sent_pre_prepare_seq_no()
-        if not backup_primary_pp_seq_no_restored:
-            self._erase_last_sent_pre_prepare_seq_no()
+                last_sent_pp_seq_no_restored = \
+                    self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
         # If view change happen when one half of nodes ordered on master
@@ -682,69 +682,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
-
-    def store_last_sent_pre_prepare_seq_no(self, inst_id, pp_seq_no):
-        self.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                              node_status_db_serializer.dumps((inst_id, self.viewNo, pp_seq_no)))
-
-    def _erase_last_sent_pre_prepare_seq_no(self):
-        logger.info("{} erasing stored lastSentPrePrepare"
-                    .format(self))
-        if LAST_SENT_PRE_PREPARE in self.nodeStatusDB:
-            self.nodeStatusDB.remove(LAST_SENT_PRE_PREPARE)
-
-    def _try_restore_last_sent_pre_prepare_seq_no(self):
-        if LAST_SENT_PRE_PREPARE not in self.nodeStatusDB:
-            logger.info("{} has not found stored lastSentPrePrepare"
-                        .format(self))
-            return False
-
-        serialized_value = self.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)
-        logger.info("{} has found stored lastSentPrePrepare value {}"
-                    .format(self, serialized_value))
-        try:
-            inst_id, view_no, pp_seq_no = node_status_db_serializer.loads(serialized_value)
-            inst_id = int(inst_id)
-            view_no = int(view_no)
-            pp_seq_no = int(pp_seq_no)
-        except Exception as e:
-            logger.warning("{} cannot unpack inst_id, view_no, pp_seq_no "
-                           "from stored lastSentPrePrepare value '{}': {}"
-                           .format(self, serialized_value, e))
-            return False
-
-        if view_no != self.viewNo:
-            logger.info("{} ignoring stored lastSentPrePrepare value {} "
-                        "because current view no is {}"
-                        .format(self, serialized_value, self.viewNo))
-            return False
-
-        if inst_id not in self.replicas.keys():
-            logger.info("{} ignoring stored lastSentPrePrepare value {} "
-                        "because it does not have replica for instance {}"
-                        .format(self, serialized_value, inst_id))
-            return False
-
-        if self.replicas[inst_id].isPrimary is not True:
-            logger.info("{} ignoring stored lastSentPrePrepare value {} "
-                        "because it is not primary in instance {}"
-                        .format(self, serialized_value, inst_id))
-            return False
-
-        primary_replica = self.replicas[inst_id]
-        if primary_replica.isMaster:
-            logger.info("{} ignoring stored lastSentPrePrepare value {} "
-                        "because master's primary restores lastPrePrepareSeqNo "
-                        "using catch-up"
-                        .format(self, serialized_value))
-            return False
-
-        logger.info("{} restoring lastPrePrepareSeqNo "
-                    "from stored lastSentPrePrepare value {}"
-                    .format(self, serialized_value))
-        primary_replica.lastPrePrepareSeqNo = pp_seq_no
-        primary_replica.last_ordered_3pc = (self.viewNo, pp_seq_no)
-        return True
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -2257,7 +2194,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
         if self.ledgerManager.last_caught_up_3PC == (0, 0):
-            self._erase_last_sent_pre_prepare_seq_no()
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
