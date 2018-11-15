@@ -18,8 +18,7 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
-from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica import Replica
+from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -56,7 +55,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Primary, RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
@@ -112,7 +111,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions, Suspicion
+from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 

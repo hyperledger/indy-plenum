@@ -1,5 +1,5 @@
 import time
-from collections import deque, OrderedDict
+from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
 from hashlib import sha256
 from typing import List, Dict, Optional, Any, Set, Tuple, Callable
@@ -90,6 +90,41 @@ class Replica3PRouter(Router):
             super().handleSync(msg)
         except SuspiciousNode as ex:
             self.replica.node.reportSuspiciousNodeEx(ex)
+
+
+class IntervalList:
+    def __init__(self):
+        self._intervals = []
+
+    def __contains__(self, item):
+        return any(i[0] <= item <= i[1] for i in self._intervals)
+
+    def add(self, item):
+        for i, interval in enumerate(self._intervals):
+            if item == interval[0] - 1:
+                self._intervals[i] = (interval[0] - 1, interval[1])
+                return
+            if item == interval[1] + 1:
+                self._intervals[i] = (interval[0], interval[1] + 1)
+                return
+        self._intervals.append((item, item))
+
+
+class OrderedTracker:
+    def __init__(self):
+        self._batches = defaultdict(IntervalList)
+
+    def __contains__(self, item):
+        view_no, pp_seq_no = item
+        return pp_seq_no in self._batches[view_no]
+
+    def add(self, view_no, pp_seq_no):
+        self._batches[view_no].add(pp_seq_no)
+
+    def clear_below_view(self, view_no):
+        for v in list(self._batches.keys()):
+            if v < view_no:
+                del self._batches[v]
 
 
 PP_CHECK_NOT_FROM_PRIMARY = 0
