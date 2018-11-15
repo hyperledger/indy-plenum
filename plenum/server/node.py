@@ -1795,7 +1795,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} processing a batch {}".format(self, msg))
             with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
                 for m in msg.messages:
-                    m = self.nodestack.deserializeMsg(m)
+                    try:
+                        m = self.nodestack.deserializeMsg(m)
+                    except Exception as ex:
+                        logger.warning("Got error {} while processing {} message".format(ex, m))
+                        continue
                     self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
