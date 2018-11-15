@@ -290,7 +290,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo).
-        self.ordered = OrderedSet()  # type: OrderedSet[Tuple[int, int]]
+        self.ordered = OrderedTracker()
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -2137,7 +2137,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace('{} freed request {} from previous checkpoints'
                               .format(self, request_key))
 
-        self.compact_ordered()
+        self.ordered.clear_below_view(self.viewNo)
 
         # BLS multi-sig:
         self._bls_bft_replica.gc(till3PCKey)
@@ -2224,21 +2224,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, view_no: int, pp_seq_no: int):
-        self.ordered.add((view_no, pp_seq_no))
+        self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
         self.requested_prepares.pop((view_no, pp_seq_no), None)
         self.requested_commits.pop((view_no, pp_seq_no), None)
 
-    def compact_ordered(self):
-        min_allowed_view_no = self.viewNo - 1
-        i = 0
-        for view_no, _ in self.ordered:
-            if view_no >= min_allowed_view_no:
-                break
-            i += 1
-        self.ordered = self.ordered[i:]
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set = None):
