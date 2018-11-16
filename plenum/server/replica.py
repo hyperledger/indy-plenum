@@ -99,6 +99,11 @@ class IntervalList:
     def __len__(self):
         return sum(i[1] - i[0] + 1 for i in self._intervals)
 
+    def __eq__(self, other):
+        if not isinstance(other, IntervalList):
+            return False
+        return self._intervals == other._intervals
+
     def __contains__(self, item):
         return any(i[0] <= item <= i[1] for i in self._intervals)
 
@@ -151,6 +156,11 @@ class OrderedTracker:
 
     def __len__(self):
         return sum(len(il) for il in self._batches.values())
+
+    def __eq__(self, other):
+        if not isinstance(other, OrderedTracker):
+            return False
+        return self._batches == other._batches
 
     def __contains__(self, item):
         view_no, pp_seq_no = item
