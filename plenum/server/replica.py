@@ -2185,7 +2185,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace('{} freed request {} from previous checkpoints'
                               .format(self, request_key))
 
-        self.ordered.clear_below_view(self.viewNo)
+        self.ordered.clear_below_view(self.viewNo - 1)
 
         # BLS multi-sig:
         self._bls_bft_replica.gc(till3PCKey)
