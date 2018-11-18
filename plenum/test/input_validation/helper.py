@@ -1,4 +1,3 @@
-import logging
 from collections import namedtuple
 from copy import deepcopy
 
@@ -326,19 +325,3 @@ class MessageDescriptor(TestFieldBase):
     def _any_positive_case_copy(self):
         return deepcopy(
             {field.name: field.positive_test_cases[0] for field in self.fields})
-
-
-class OutputWarningHandler(logging.Handler):
-    def __init__(self, container):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.container = container
-
-    def handle(self, record):
-        """
-        Captures a warning record.
-        """
-        if record.levelname == logging.getLevelName(logging.WARNING):
-            self.container.append(record)

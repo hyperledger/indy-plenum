@@ -254,6 +254,29 @@ def test_can_restore_last_sent_pp_seq_no_if_relevant(
     assert can is True
 
 
+def test_restore_last_sent_pp_seq_no(
+        tconf, txnPoolNodeSet, view_no_set, setup):
+
+    replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
+    node = replica.node
+    assert node.viewNo == 2
+
+    node.last_sent_pp_store_helper._restore_last_sent_pp_seq_no(
+        PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=5))
+
+    for replica in node.replicas.values():
+        if replica.instId == 1:
+            assert replica.lastPrePrepareSeqNo == 5
+            assert replica.last_ordered_3pc == (2, 5)
+            assert replica.h == 5
+            assert replica.H == 5 + tconf.LOG_SIZE
+        else:
+            assert replica.lastPrePrepareSeqNo == 0
+            assert replica.last_ordered_3pc == (2, 0)
+            assert replica.h == 0
+            assert replica.H == tconf.LOG_SIZE
+
+
 def test_can_load_absent_last_sent_pre_preapre_key(
         txnPoolNodeSet, view_no_set, setup):
 

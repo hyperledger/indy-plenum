@@ -3,11 +3,6 @@ from contextlib import ExitStack
 
 import base58
 import pytest
-from plenum.common.config_helper import PNodeConfigHelper
-
-from plenum.common.has_file_storage import HasFileStorage
-
-from plenum.server.node import Node
 
 from plenum.common.metrics_collector import NullMetricsCollector
 from stp_core.types import HA
@@ -37,7 +32,7 @@ class FakeLedger:
 
 
 # Question: Why doesn't this subclass Node.
-class FakeNode(HasFileStorage):
+class FakeNode:
     ledger_ids = [0]
 
     def __init__(self, tmpdir, config=None):
@@ -54,8 +49,6 @@ class FakeNode(HasFileStorage):
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
-        self.config_helper = PNodeConfigHelper(self.name, config, chroot=tmpdir)
-        self.ledger_dir = self.config_helper.ledger_dir
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
@@ -72,9 +65,6 @@ class FakeNode(HasFileStorage):
         self.elector = PrimarySelector(self)
         self.metrics = NullMetricsCollector()
 
-        HasFileStorage.__init__(self, self.ledger_dir)
-        self.nodeStatusDB = self.loadNodeStatusDB()
-
     @property
     def viewNo(self):
         return None if self.view_changer is None else self.view_changer.view_no
@@ -83,9 +73,6 @@ class FakeNode(HasFileStorage):
     def ledger_summary(self):
         return [li.ledger_summary for li in
                 self.ledgerManager.ledgerRegistry.values()]
-
-    def loadNodeStatusDB(self):
-        return Node.loadNodeStatusDB(self)
 
     def get_name_by_rank(self, name, nodeReg=None):
         # This is used only for getting name of next primary, so
@@ -117,9 +104,6 @@ class FakeNode(HasFileStorage):
 
     def start_catchup(self):
         pass
-
-    def _try_restore_last_sent_pre_prepare_seq_no(self):
-        return Node._try_restore_last_sent_pre_prepare_seq_no(self)
 
 
 def test_has_view_change_quorum_number(tconf, tdir):
