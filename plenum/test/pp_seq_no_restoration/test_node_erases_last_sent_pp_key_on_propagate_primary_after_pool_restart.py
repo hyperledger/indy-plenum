@@ -17,7 +17,7 @@ nodeCount = 4
 backup_inst_id = 1
 
 
-def test_node_erases_stored_last_sent_pp_key_on_pool_restart(
+def test_node_erases_last_sent_pp_key_on_propagate_primary_after_pool_restart(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
         tconf, tdir, allPluginsPath, chkFreqPatched):
 
