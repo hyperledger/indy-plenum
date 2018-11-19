@@ -137,7 +137,6 @@ class Propagate(MessageBase):
 
 
 class PrePrepare(MessageBase):
-    typename = PREPREPARE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
@@ -152,13 +151,14 @@ class PrePrepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.SUB_SEQ_NO.nm, NonNegativeNumberField()),
         (f.FINAL.nm, BooleanField()),
+        (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
+                                                    nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
-        (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
-                                                    nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
+    typename = PREPREPARE
 
 
 class Prepare(MessageBase):

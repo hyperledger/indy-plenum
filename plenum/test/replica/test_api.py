@@ -3,10 +3,14 @@ import types
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
+from plenum.common.constants import POOL_LEDGER_ID, CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
+from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
-from plenum.test.bls.helper import create_prepare
+from plenum.server.suspicion_codes import Suspicions
+from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls
+from plenum.test.helper import sdk_random_request_objects
 from plenum.test.testing_utils import FakeSomething
 
 nodeCount = 4
@@ -134,3 +138,90 @@ def test_create_3pc_batch_with_empty_requests(replica):
     replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
 
     assert replica.create3PCBatch(0) is None
+
+
+def test_create_3pc_batch(replica):
+    root_hash = ["EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ",
+                 "QuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"]
+    requests = sdk_random_request_objects(2, identifier="did",
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
+    ledger_id = POOL_LEDGER_ID
+    replica.consume_req_queue_for_pre_prepare = \
+        lambda ledger, view_no, pp_seq_no: (requests, [], [],
+                                            replica.get_utc_epoch_for_preprepare(replica.instId, view_no, pp_seq_no))
+    replica.stateRootHash = lambda ledger, to_str=False: root_hash[ledger]
+
+    pre_prepare_msg = replica.create3PCBatch(ledger_id)
+
+    assert pre_prepare_msg.poolStateRootHash == root_hash[POOL_LEDGER_ID]
+    assert pre_prepare_msg.stateRootHash == root_hash[ledger_id]
+    assert pre_prepare_msg.ppSeqNo == 1
+    assert pre_prepare_msg.ledgerId == ledger_id
+    assert pre_prepare_msg.viewNo == replica.viewNo
+    assert pre_prepare_msg.instId == replica.instId
+    assert pre_prepare_msg.reqIdr == [req.digest for req in requests]
+    assert f.BLS_MULTI_SIG.nm not in pre_prepare_msg
+
+
+def test_process_pre_prepare_validation(replica):
+    state_root = "EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
+    replica.node.isParticipating = True
+    replica.nonFinalisedReqs = lambda a: []
+    replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
+    replica._bls_bft_replica.update_prepare = lambda a, b: a
+    replica._bls_bft_replica.process_prepare = lambda a, b: None
+    replica.stateRootHash = lambda ledger, to_str=False: state_root
+    replica._apply_pre_prepare = lambda a, b: None
+    replica.primaryNames[replica.viewNo] = replica.primaryName
+
+    def reportSuspiciousNodeEx(ex):
+        assert False, ex
+    replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    pp = create_pre_prepare_no_bls(state_root, replica.viewNo)
+    replica.processPrePrepare(pp, replica.primaryName)
+
+
+def test_process_pre_prepare_with_pool_state_root(replica):
+    state_roots = ["EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ",
+                   "C95JmfG5DYAE8ZcdTTFMiwcZaDN6CRVdSdkhBXnkYPio"]
+    replica.node.isParticipating = True
+    replica.nonFinalisedReqs = lambda a: []
+    replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
+    replica._bls_bft_replica.update_prepare = lambda a, b: a
+    replica._bls_bft_replica.process_prepare = lambda a, b: None
+    replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    replica._apply_pre_prepare = lambda a, b: None
+    replica.primaryNames[replica.viewNo] = replica.primaryName
+
+    def reportSuspiciousNodeEx(ex):
+        assert False, ex
+    replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    pp = create_pre_prepare_no_bls(state_roots[DOMAIN_LEDGER_ID],
+                                   replica.viewNo,
+                                   state_roots[POOL_LEDGER_ID])
+    replica.processPrePrepare(pp, replica.primaryName)
+
+
+def test_process_pre_prepare_with_pool_state_root(replica):
+    state_roots = ["EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ",
+                   "C95JmfG5DYAE8ZcdTTFMiwcZaDN6CRVdSdkhBXnkYPio"]
+    replica.primaryName = "Alpha:0"
+    replica.node.isParticipating = True
+    replica.nonFinalisedReqs = lambda a: []
+    replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
+    replica._bls_bft_replica.update_prepare = lambda a, b: a
+    replica._bls_bft_replica.process_prepare = lambda a, b: None
+    replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    replica._apply_pre_prepare = lambda a, b: None
+    replica.primaryNames[replica.viewNo] = replica.primaryName
+
+    def reportSuspiciousNodeEx(ex):
+        assert Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code == ex.code
+    replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    pp = create_pre_prepare_no_bls(state_roots[DOMAIN_LEDGER_ID],
+                                   replica.viewNo,
+                                   "HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4")
+    replica.processPrePrepare(pp, replica.primaryName)

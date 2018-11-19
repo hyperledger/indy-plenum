@@ -795,6 +795,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         digest = self.batchDigest(reqs)
 
         state_root_hash = self.stateRootHash(ledger_id)
+        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
+
         """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
             self.instId,
@@ -808,15 +810,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             state_root_hash,
             self.txnRootHash(ledger_id),
             0,
-            True
+            True,
+            pool_state_root_hash
         ]
 
         # BLS multi-sig:
         params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
-
-        # add POOL_STATE_ROOT_HASH from uncommitted state
-        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
-        params.append(pool_state_root_hash)
 
         pre_prepare = PrePrepare(*params)
         if self.isMaster:
@@ -1387,7 +1386,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
-        if pre_prepare.poolStateRootHash is not None and \
+        if f.POOL_STATE_ROOT_HASH.nm in pre_prepare and \
                 pre_prepare.poolStateRootHash != self.stateRootHash(POOL_LEDGER_ID):
             return PP_CHECK_INCORRECT_POOL_STATE_ROOT
 
