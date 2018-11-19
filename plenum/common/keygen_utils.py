@@ -1,5 +1,7 @@
 import os
 
+from plenum.common.util import hexToFriendly
+
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.stacks import nodeStackClass
@@ -9,8 +11,8 @@ from stp_core.crypto.util import randomSeed
 def initLocalKeys(name, keys_dir, sigseed, *, use_bls, override=False):
     # * forces usage of names for args on the right hand side
     pubkey, verkey = nodeStackClass.initLocalKeys(name, keys_dir, sigseed, override=override)
-    print("Public key is", pubkey)
-    print("Verification key is", verkey)
+    print("Public key is", hexToFriendly(pubkey))
+    print("Verification key is", hexToFriendly(verkey))
     blspk, key_proof = init_bls_keys(keys_dir, name, sigseed) if use_bls \
         else (None, None)
     return pubkey, verkey, blspk, key_proof

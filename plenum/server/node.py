@@ -2,7 +2,7 @@ import json
 import os
 import time
 from binascii import unhexlify
-from collections import deque
+from collections import deque, defaultdict
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
@@ -56,7 +56,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Primary, RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
@@ -112,7 +112,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions, Suspicion
+from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 
@@ -128,6 +128,16 @@ class GcTimeTracker:
 
     def _gc_callback(self, action, info):
         gen = info['generation']
+
+        collected = info.get('collected', 0)
+        if collected > 0:
+            self._metrics.add_event(MetricsName.GC_TOTAL_COLLECTED_OBJECTS, collected)
+            self._metrics.add_event(MetricsName.GC_GEN0_COLLECTED_OBJECTS + gen, collected)
+
+        uncollectable = info.get('uncollectable', 0)
+        if uncollectable > 0:
+            self._metrics.add_event(MetricsName.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
+
         if action == 'start':
             self._timestamps[gen] = time.perf_counter()
         else:
@@ -137,6 +147,14 @@ class GcTimeTracker:
             elapsed = time.perf_counter() - start
             self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
             self._timestamps[gen] = None
+
+    def report_stats(self):
+        stats = defaultdict(int)
+        for obj in gc.get_objects():
+            stats[type(obj)] += 1
+        logger.info("Top objects tracked by garbage collector:")
+        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:50]:
+            logger.info("    {}: {}".format(k, v))
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -350,6 +368,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
+        self.propagates_phase_req_timeout = self.config.PROPAGATES_PHASE_REQ_TIMEOUT
+        self.ordering_phase_req_timeout = self.config.ORDERING_PHASE_REQ_TIMEOUT
+
+        if self.config.OUTDATED_REQS_CHECK_ENABLED:
+            self.startRepeating(self.check_outdated_reqs, self.config.OUTDATED_REQS_CHECK_INTERVAL)
+
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.startRepeating(self.checkNodeRequestSpike,
@@ -357,7 +381,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.startRepeating(self.flush_metrics, config.METRICS_FLUSH_INTERVAL)
+        self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
+
+        if config.GC_STATS_REPORT_INTERVAL > 0:
+            self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
@@ -1785,7 +1812,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} processing a batch {}".format(self, msg))
             with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
                 for m in msg.messages:
-                    m = self.nodestack.deserializeMsg(m)
+                    try:
+                        m = self.nodestack.deserializeMsg(m)
+                    except Exception as ex:
+                        logger.warning("Got error {} while processing {} message".format(ex, m))
+                        continue
                     self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
@@ -2718,7 +2749,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica.prePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica.prepares))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica.commits))
-        self.metrics.add_event(MetricsName.REPLICA_ORDERED_MASTER, len(self.master_replica.ordered))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
@@ -2766,7 +2796,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP, sum_for_backups('prePrepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP, sum_for_backups('prepares'))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP, sum_for_backups('commits'))
-        self.metrics.add_event(MetricsName.REPLICA_ORDERED_BACKUP, sum_for_backups('ordered'))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
                                sum_for_values_for_backups('stashed_out_of_order_commits'))
@@ -3629,8 +3658,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
         return self._observable.get_observers(observer_policy_type)
 
-    def mark_request_as_executed(self, request: Request):
-        self.requests.mark_as_executed(request)
+    def _clean_req_from_verified(self, request: Request):
         authenticator = self.authNr(request.as_dict)
         if isinstance(authenticator, ReqAuthenticator):
             authenticator.clean_from_verified(request.key)
+
+    def mark_request_as_executed(self, request: Request):
+        self.requests.mark_as_executed(request)
+        self._clean_req_from_verified(request)
+
+    def check_outdated_reqs(self):
+        cur_ts = time.perf_counter()
+        for req_key in self.requests:
+            outdated = False
+            req_state = self.requests[req_key]
+
+            if req_state.executed and req_state.forwardedTo > 0:
+                # Means that the request has been processed by all replicas and
+                # it just waits for stable checkpoint to be deleted.
+                continue
+
+            if req_state.added_ts is not None and \
+                    cur_ts - req_state.added_ts > self.propagates_phase_req_timeout:
+                outdated = True
+            if req_state.finalised_ts is not None and \
+                    cur_ts - req_state.finalised_ts > self.ordering_phase_req_timeout:
+                outdated = True
+            if outdated:
+                self._clean_req_from_verified(req_state.request)
+                self.requests.pop(req_key)
