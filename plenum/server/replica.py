@@ -18,7 +18,7 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -99,6 +99,7 @@ PP_CHECK_OLD = 3
 PP_CHECK_REQUEST_NOT_FINALIZED = 4
 PP_CHECK_NOT_NEXT = 5
 PP_CHECK_WRONG_TIME = 6
+PP_CHECK_INCORRECT_POOL_STATE_ROOT = 14
 
 PP_APPLY_REJECT_WRONG = 7
 PP_APPLY_WRONG_DIGEST = 8
@@ -813,6 +814,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # BLS multi-sig:
         params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
+        # add POOL_STATE_ROOT_HASH from uncommitted state
+        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
+        params.append(pool_state_root_hash)
+
         pre_prepare = PrePrepare(*params)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
@@ -1030,6 +1035,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             report_suspicious(Suspicions.PPR_TO_PRIMARY)
         elif why_not == PP_CHECK_DUPLICATE:
             report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
+        elif why_not == PP_CHECK_INCORRECT_POOL_STATE_ROOT:
+            report_suspicious(Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG)
         elif why_not == PP_CHECK_OLD:
             self.logger.info("PRE-PREPARE {} has ppSeqNo lower "
                              "then the latest one - ignoring it".format(key))
@@ -1379,6 +1386,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.__is_next_pre_prepare(pre_prepare.viewNo,
                                           pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
+
+        if pre_prepare.poolStateRootHash is not None and \
+                pre_prepare.poolStateRootHash != self.stateRootHash(POOL_LEDGER_ID):
+            return PP_CHECK_INCORRECT_POOL_STATE_ROOT
 
         # BLS multi-sig:
         status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
