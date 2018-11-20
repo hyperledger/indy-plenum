@@ -21,6 +21,9 @@ class BlsKeyRegisterPoolLedger(BlsKeyRegister):
     def get_pool_root_hash_committed(self):
         raise NotImplementedError()
 
+    def get_pool_root_hash_uncommitted(self):
+        raise NotImplementedError()
+
     @lazy_field
     def _current_bls_keys(self):
         return self._load_keys_for_root()  # {node_name : BLS key}

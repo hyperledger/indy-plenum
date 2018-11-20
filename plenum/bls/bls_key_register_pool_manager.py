@@ -18,6 +18,9 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
     def get_pool_root_hash_committed(self):
         return self._pool_manager.state.committedHeadHash
 
+    def get_pool_root_hash_uncommitted(self):
+        return self._pool_manager.state.headHash
+
     def get_key_by_name(self, node_name, pool_state_root_hash=None):
         if not pool_state_root_hash:
             pool_state_root_hash = self.get_pool_root_hash_committed()
