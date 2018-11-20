@@ -18,6 +18,7 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
+from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from state.pruning_state import PruningState
 from state.state import State
@@ -478,6 +479,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
+        self.nodeStatusDB = self.loadNodeStatusDB()
+
+        self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
 
         # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
         # the key is the ledger id and value is an interval tree with each
@@ -684,9 +688,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self._check_view_change_completed)
 
         self.master_replica.on_view_change_done()
+        last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
+            if self.view_changer.previous_view_no == 0:
+                last_sent_pp_seq_no_restored = \
+                    self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
         # If view change happen when one half of nodes ordered on master
@@ -750,6 +760,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def loadNodeStatusDB(self):
+        return initKeyValueStorage(self.config.nodeStatusStorage,
+                                   self.dataLocation,
+                                   self.config.nodeStatusDbName,
+                                   db_config=self.config.db_node_status_db_config)
 
     def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
@@ -1135,6 +1151,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        if self.nodeStatusDB:
+            self.nodeStatusDB.close()
         if self.bls_bft.bls_store:
             self.bls_bft.bls_store.close()
         if self.stateTsDbStorage:
@@ -1658,7 +1676,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def _is_initial_propagate_primary(self):
+    def _is_initial_view_change_now(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
@@ -1678,13 +1696,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
             self.discard(msg, "Proposed viewNo {} less, then current {}"
                          .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or self._is_initial_propagate_primary():
+        elif (view_no > self.viewNo) or self._is_initial_view_change_now():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
@@ -2206,6 +2224,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
+        if self.ledgerManager.last_caught_up_3PC == (0, 0):
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,

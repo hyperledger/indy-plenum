@@ -205,6 +205,8 @@ HS_MEMORY = "memory"
 HS_LEVELDB = 'leveldb'
 HS_ROCKSDB = 'rocksdb'
 
+LAST_SENT_PRE_PREPARE = 'lastSentPrePrepare'
+
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1

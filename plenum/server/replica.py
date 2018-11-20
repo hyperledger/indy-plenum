@@ -26,7 +26,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName, measure_time
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -642,7 +642,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.requests.free(key)
             self.requestQueues[int(ledger_id)].discard(key)
         master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
-        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0:
+        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0 \
+                and self.isPrimary is False:
             self.last_ordered_3pc = master_last_ordered_3pc
 
     def on_propagate_primary_done(self):
@@ -828,6 +829,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 if ppReq is None:
                     continue
                 self.sendPrePrepare(ppReq)
+                if not self.isMaster:
+                    self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                        self.instId, ppReq.ppSeqNo)
                 self.trackBatches(ppReq, oldStateRootHash)
                 r += 1
 

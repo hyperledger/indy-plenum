@@ -962,14 +962,17 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     if num_batches == 1:
         return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
 
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
+
     sdk_replies = []
     for _ in range(num_batches - 1):
-        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
-                                                     num_reqs // num_batches, **kwargs))
-    rem = num_reqs % num_batches
-    if rem == 0:
-        rem = num_reqs // num_batches
-    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
+        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                     sdk_pool, sdk_wallet,
+                                                     reqs_in_batch, **kwargs))
+    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                 sdk_pool, sdk_wallet,
+                                                 reqs_in_last_batch, **kwargs))
     return sdk_replies
 
 
@@ -979,15 +982,19 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
         raise BaseException(
             'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
     if num_batches == 1:
-        req = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
+        sdk_reqs = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
         looper.runFor(timeout)
-        return req
+        return sdk_reqs
+
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
 
     sdk_reqs = []
     for _ in range(num_batches - 1):
-        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet,
-                                                 num_reqs // num_batches))
+        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_batch))
         looper.runFor(timeout)
+    sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_last_batch))
+    looper.runFor(timeout)
     return sdk_reqs
 
 
