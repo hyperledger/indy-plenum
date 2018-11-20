@@ -216,9 +216,11 @@ def test_update_commit_without_bls_crypto_signer(bls_bft_replicas, fake_pre_prep
     params = create_commit_params(0, 0)
     params_initial = copy(params)
     for bls_bft_replica in bls_bft_replicas:
+        bls_crypto_signer = bls_bft_replica._bls_bft.bls_crypto_signer
         bls_bft_replica._bls_bft.bls_crypto_signer = None
         params = bls_bft_replica.update_commit(params,
                                                fake_pre_prepare_with_bls_pool_ledger)
+        bls_bft_replica._bls_bft.bls_crypto_signer = bls_crypto_signer
         assert params == params_initial
 
 
@@ -306,18 +308,6 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
     for sender_bls_bft in bls_bft_replicas:
         fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
         commit = create_commit_with_bls_sig(key, fake_sig)
-        for verifier_bls_bft in bls_bft_replicas:
-            status = verifier_bls_bft.validate_commit(commit,
-                                                      sender_bls_bft.node_id,
-                                                      pre_prepare_with_bls)
-            assert status == BlsBftReplica.CM_BLS_SIG_WRONG
-
-
-def test_validate_commit_signed_with_incorrect_pool_state_root(bls_bft_replicas, pre_prepare_with_bls):
-    key = (0, 0)
-    pre_prepare_with_bls.poolStateRootHash = generate_state_root()
-    for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
         for verifier_bls_bft in bls_bft_replicas:
             status = verifier_bls_bft.validate_commit(commit,
                                                       sender_bls_bft.node_id,
