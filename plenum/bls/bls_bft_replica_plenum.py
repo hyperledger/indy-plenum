@@ -220,8 +220,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         sig = self._bls_bft.bls_crypto_verifier.create_multi_sig(bls_signatures)
         pool_root_hash_ser = pre_prepare.poolStateRootHash \
             if f.POOL_STATE_ROOT_HASH.nm in pre_prepare \
-            else self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+            else self.state_root_serializer.serialize(bytes(
+                self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
         multi_sig_value = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
                                                                        pool_root_hash_ser)
         return MultiSignature(signature=sig,
