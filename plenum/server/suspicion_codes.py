@@ -79,7 +79,7 @@ class Suspicions:
     BACKUP_PRIMARY_DISCONNECTED = Suspicion(39, "Primary on backup instance was disconnected.")
     BACKUP_PRIMARY_DEGRADED = Suspicion(40, "Backup instance was performance degraded.")
     PPR_POOL_STATE_ROOT_HASH_WRONG = Suspicion(41, "Pre-Prepare message has "
-                                                   "incorrect pool state root hash.")
+                                                   "incorrect pool state root hash")
 
     @classmethod
     def get_list(cls):

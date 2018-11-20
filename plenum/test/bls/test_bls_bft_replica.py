@@ -212,6 +212,16 @@ def test_update_commit_pool_ledger(bls_bft_replicas, fake_pre_prepare_with_bls_p
         assert params == params_initial
 
 
+def test_update_commit_without_bls_crypto_signer(bls_bft_replicas, fake_pre_prepare_with_bls_pool_ledger):
+    params = create_commit_params(0, 0)
+    params_initial = copy(params)
+    for bls_bft_replica in bls_bft_replicas:
+        bls_bft_replica._bls_bft.bls_crypto_signer = None
+        params = bls_bft_replica.update_commit(params,
+                                               fake_pre_prepare_with_bls_pool_ledger)
+        assert params == params_initial
+
+
 # ------ VALIDATE 3PC MESSAGES ------
 
 def test_validate_pre_prepare_no_sigs(bls_bft_replicas, pre_prepare_no_bls):

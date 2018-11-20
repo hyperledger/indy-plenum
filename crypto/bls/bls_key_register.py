@@ -17,7 +17,3 @@ class BlsKeyRegister(metaclass=ABCMeta):
     @abstractmethod
     def get_pool_root_hash_committed(self):
         pass
-
-    @abstractmethod
-    def get_pool_root_hash_uncommitted(self):
-        pass

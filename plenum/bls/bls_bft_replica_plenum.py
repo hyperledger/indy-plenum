@@ -27,11 +27,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         self.state_root_serializer = state_roots_serializer
         self.metrics = metrics
 
-    @property
-    def uncommitted_pool_state_root_hash_str(self):
-        return self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_uncommitted()))
-
     def _can_process_ledger(self, ledger_id):
         return ledger_id != POOL_LEDGER_ID
 
@@ -166,8 +161,12 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node)
         if not pk:
             return False
+        pool_root_hash_ser = pre_prepare.poolStateRootHash \
+            if f.POOL_STATE_ROOT_HASH.nm in pre_prepare \
+            else self.state_root_serializer.serialize(bytes(
+                self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
-                                                               self.uncommitted_pool_state_root_hash_str).as_single_value()
+                                                               pool_root_hash_ser).as_single_value()
         return self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message, pk)
 
     def _validate_multi_sig(self, multi_sig: MultiSignature):
@@ -188,7 +187,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def _sign_state(self, pre_prepare: PrePrepare):
         pool_root_hash = pre_prepare.poolStateRootHash \
             if f.POOL_STATE_ROOT_HASH.nm in pre_prepare \
-            else self.uncommitted_pool_state_root_hash_str
+            else self.state_root_serializer.serialize(bytes(
+                self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
                                                                pool_root_hash).as_single_value()
         return self._bls_bft.bls_crypto_signer.sign(message)

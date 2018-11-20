@@ -775,6 +775,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
     def create3PCBatch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
+        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
             self, pp_seq_no, ledger_id,
             self.stateRootHash(ledger_id, to_str=False)))
@@ -795,7 +796,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         digest = self.batchDigest(reqs)
 
         state_root_hash = self.stateRootHash(ledger_id)
-        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
 
         """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
@@ -1607,6 +1607,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
+            self.logger.warning("{} discard Commit message from "
+                                "{}:{}".format(self, sender, commit))
             raise SuspiciousNode(sender,
                                  Suspicions.CM_BLS_SIG_WRONG,
                                  commit)
