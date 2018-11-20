@@ -132,7 +132,7 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
 
 
 def test_create_3pc_batch_with_empty_requests(replica):
-    def patched_stateRootHash(self, ledger_id, to_str):
+    def patched_stateRootHash(self, ledger_id, to_str=None):
         return b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
 
     replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
