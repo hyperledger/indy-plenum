@@ -3687,3 +3687,4 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if outdated:
                 self._clean_req_from_verified(req_state.request)
                 self.requests.pop(req_key)
+                self.doneProcessingReq(req_key)
