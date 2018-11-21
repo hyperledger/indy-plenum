@@ -340,7 +340,10 @@ def cryptonymToHex(cryptonym: str) -> bytes:
 
 
 def z85_to_friendly(z):
-    return z if isinstance(z, str) else hexToFriendly(hexlify(z85.decode(z)))
+    try:
+        return z if isinstance(z, str) else hexToFriendly(hexlify(z85.decode(z)))
+    except ValueError:
+        return z
 
 
 def runWithLoop(loop, callback, *args, **kwargs):
