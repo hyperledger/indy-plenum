@@ -810,7 +810,7 @@ class ZStack(NetworkInterface):
             # self.listener.send_multipart([ident, self.signedMsg(msg)],
             #                              flags=zmq.NOBLOCK)
             logger.trace('{} transmitting {} to {} through listener socket'.
-                         format(self, msg, z85_to_friendly(ident)))
+                         format(self, msg, ident))
             self.metrics.add_event(self.mt_outgoing_size, len(msg))
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
         except zmq.Again:
@@ -821,7 +821,7 @@ class ZStack(NetworkInterface):
             return False, err_str
         except Exception as e:
             err_str = '{}{} got error {} while sending through listener to {}' \
-                .format(CONNECTION_PREFIX, self, e, z85_to_friendly(ident))
+                .format(CONNECTION_PREFIX, self, e, ident)
             logger.warning(err_str)
             return False, err_str
         return True, None
