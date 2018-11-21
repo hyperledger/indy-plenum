@@ -60,19 +60,6 @@ def testSendRequestWithoutSignatureFails(looper, txnPoolNodeSet,
         assert "MissingSignature" in reason
 
 
-CLI_REQ = pytest.mark.rbft_spec(section="IV", subsection="B", step=1)
-
-
-@CLI_REQ("A client connects to all the nodes")
-def testClientConnectsToAllNodes(client1):
-    pass
-
-
-@CLI_REQ("A client sends a request to all the nodes")
-def testRequestFullRoundTrip(replied1, client1):
-    pass
-
-
 # noinspection PyIncorrectDocstring
 def testReplyWhenRequestAlreadyExecuted(looper, txnPoolNodeSet, sdk_pool_handle,
                                         sdk_wallet_client, sent1):

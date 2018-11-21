@@ -572,7 +572,7 @@ def nodeByName(nodes, name):
     raise Exception("Node with the name '{}' has not been found.".format(name))
 
 
-def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
+def send_pre_prepare(view_no, pp_seq_no, nodes,
                      state_root=None, txn_root=None):
     pre_prepare = PrePrepare(
         0,
