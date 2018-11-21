@@ -38,7 +38,7 @@ def test_commit_signature_validation_integration(looper,
     Nodes 1, 2 ordered txn1 and nodes 3, 4 did not.
     All nodes  receive PrePrepare2(txn2 for domain_ledger)
     Nodes 3, 4 receive commits from nodes 1, 2
-    Nodes 1, 2 ordered txn1
+    Nodes 3, 4 ordered txn1
     Check that all nodes ordered txn2
     '''
     fast_nodes = txnPoolNodeSet[:2]
@@ -94,6 +94,11 @@ def test_commit_signature_validation_integration(looper,
 
         request2 = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
         looper.run(eventually(check_nodes_receive_pp, first_ordered[0], first_ordered[1] + 2))
+
+        def check_nodes_receive_commits(view_no, seq_no):
+            for node in txnPoolNodeSet:
+                assert len(node.master_replica.commits[view_no, seq_no].voters) >= node.f + 1
+        looper.run(eventually(check_nodes_receive_commits, first_ordered[0], first_ordered[1] + 2))
 
     sdk_get_and_check_replies(looper, [request1])
     sdk_get_and_check_replies(looper, [request2])

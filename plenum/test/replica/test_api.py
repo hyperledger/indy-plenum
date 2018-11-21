@@ -204,7 +204,7 @@ def test_process_pre_prepare_with_pool_state_root(replica):
     replica.processPrePrepare(pp, replica.primaryName)
 
 
-def test_process_pre_prepare_with_pool_state_root(replica):
+def test_process_pre_prepare_with_incorrect_pool_state_root(replica):
     state_roots = ["EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ",
                    "C95JmfG5DYAE8ZcdTTFMiwcZaDN6CRVdSdkhBXnkYPio"]
     replica.primaryName = "Alpha:0"

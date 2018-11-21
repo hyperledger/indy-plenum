@@ -298,9 +298,9 @@ def test_validate_commit_correct_sig_second_time(bls_bft_replicas, pre_prepare_w
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
         for verifier_bls_bft in bls_bft_replicas:
-            assert not verifier_bls_bft.validate_commit(commit,
-                                                        sender_bls_bft.node_id,
-                                                        pre_prepare_with_bls)
+            assert verifier_bls_bft.validate_commit(commit,
+                                                    sender_bls_bft.node_id,
+                                                    pre_prepare_with_bls) is None
 
 
 def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
@@ -315,7 +315,7 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
-def test_validate_commit_incorrect_signed_without_pool_state_root(bls_bft_replicas, multi_signature):
+def test_validate_commit_signature_without_pool_state_root(bls_bft_replicas, multi_signature):
     key = (0, 0)
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash)
     pre_prepare = PrePrepare(*params)
@@ -323,9 +323,9 @@ def test_validate_commit_incorrect_signed_without_pool_state_root(bls_bft_replic
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare)
         for verifier_bls_bft in bls_bft_replicas:
-            assert not verifier_bls_bft.validate_commit(commit,
-                                                        sender_bls_bft.node_id,
-                                                        pre_prepare)
+            assert verifier_bls_bft.validate_commit(commit,
+                                                    sender_bls_bft.node_id,
+                                                    pre_prepare) is None
 
 
 def test_validate_commit_incorrect_sig_pool(bls_bft_replicas, pre_prepare_with_bls_pool_ledger):
