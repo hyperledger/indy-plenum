@@ -1127,6 +1127,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     self.logger.info("Request digest {} already ordered. Discard {} "
                                      "from {}".format(req, pre_prepare, sender))
                     report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
+                    return
             self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is

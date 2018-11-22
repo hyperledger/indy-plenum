@@ -3,13 +3,28 @@ import types
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
-from plenum.common.util import get_utc_epoch
-from plenum.server.quorums import Quorums
-from plenum.server.replica import Replica
-from plenum.test.bls.helper import create_prepare
+from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.server.suspicion_codes import Suspicions
+from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls
+from plenum.test.primary_selection.test_primary_selector import FakeNode
 from plenum.test.testing_utils import FakeSomething
 
 nodeCount = 4
+
+@pytest.fixture()
+def fake_node(tdir, tconf):
+    node = FakeNode(tdir, config=tconf)
+    node.isParticipating = True
+
+    replica = node.replicas[0]
+    state_root = "EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
+    replica.node.isParticipating = True
+    replica.stateRootHash = lambda ledger, to_str=False: state_root
+    replica._apply_pre_prepare = lambda a, b: None
+    replica.primaryNames[replica.viewNo] = replica.primaryName
+    replica._gc = lambda args: None
+    replica.primaryName = "Alpha:0"
+    return node
 
 
 def test_view_change_done(replica):
@@ -134,3 +149,41 @@ def test_create_3pc_batch_with_empty_requests(replica):
     replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
 
     assert replica.create3PCBatch(0) is None
+
+
+def test_process_pre_prepare_with_not_final_request(fake_node):
+    fake_node.seqNoDB = FakeSomething(get=lambda req: (None, None))
+    replica = fake_node.replicas[0]
+
+    pp = create_pre_prepare_no_bls(replica.stateRootHash(DOMAIN_LEDGER_ID))
+    replica.nonFinalisedReqs = lambda a: pp.reqIdr
+
+    def reportSuspiciousNodeEx(ex):
+        assert False, ex
+    replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    def request_propagates(reqs):
+        assert reqs == pp.reqIdr
+    replica.node.request_propagates = request_propagates
+
+    replica.processPrePrepare(pp, replica.primaryName)
+    assert (pp, replica.primaryName, pp.reqIdr) in replica.prePreparesPendingFinReqs
+
+
+def test_process_pre_prepare_with_not_ordered_request(fake_node):
+    fake_node.seqNoDB = FakeSomething(get=lambda req: (1, 1))
+    replica = fake_node.replicas[0]
+
+    pp = create_pre_prepare_no_bls(replica.stateRootHash(DOMAIN_LEDGER_ID))
+    replica.nonFinalisedReqs = lambda a: pp.reqIdr
+
+    def reportSuspiciousNodeEx(ex):
+        assert ex.code == Suspicions.DUPLICATE_PPR_SENT.code
+    replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    def request_propagates(reqs):
+        assert False, "Requested propagates for: {}".format(reqs)
+    replica.node.request_propagates = request_propagates
+
+    replica.processPrePrepare(pp, replica.primaryName)
+    assert (pp, replica.primaryName, set(pp.reqIdr)) not in replica.prePreparesPendingFinReqs
