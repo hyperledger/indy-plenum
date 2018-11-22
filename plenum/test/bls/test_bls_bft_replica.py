@@ -236,8 +236,11 @@ def test_validate_pre_prepare_no_sigs(bls_bft_replicas, pre_prepare_no_bls):
 def test_validate_pre_prepare_correct_multi_sig(bls_bft_replicas, pre_prepare_with_bls):
     for sender_bls_bft_replica in bls_bft_replicas:
         for verifier_bls_bft_replica in bls_bft_replicas:
+            committed_root_hash = verifier_bls_bft_replica._bls_bft.bls_key_register.get_pool_root_hash_committed
+            verifier_bls_bft_replica._bls_bft.bls_key_register.get_pool_root_hash_committed = lambda: None
             assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls,
                                                                      sender_bls_bft_replica.node_id)
+            verifier_bls_bft_replica._bls_bft.bls_key_register.get_pool_root_hash_committed = committed_root_hash
 
 
 def test_validate_pre_prepare_correct_multi_sig_pool(bls_bft_replicas,
@@ -298,9 +301,12 @@ def test_validate_commit_correct_sig_second_time(bls_bft_replicas, pre_prepare_w
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
         for verifier_bls_bft in bls_bft_replicas:
+            committed_root_hash = verifier_bls_bft._bls_bft.bls_key_register.get_pool_root_hash_committed
+            verifier_bls_bft._bls_bft.bls_key_register.get_pool_root_hash_committed = lambda: None
             assert verifier_bls_bft.validate_commit(commit,
                                                     sender_bls_bft.node_id,
                                                     pre_prepare_with_bls) is None
+            verifier_bls_bft._bls_bft.bls_key_register.get_pool_root_hash_committed = committed_root_hash
 
 
 def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
