@@ -157,12 +157,12 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             .verify_key_proof_of_possession(key_proof, pk)
 
     def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
-        pool_root_hash = self._get_pool_root_hash(pre_prepare)
+        pool_root_hash = self._get_pool_root_hash(pre_prepare, serialize=False)
         sender_node = self.get_node_name(sender)
         pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node, pool_root_hash)
         if not pk:
             return False
-        pool_root_hash_ser = self._get_pool_root_hash(pre_prepare, serialize=False)
+        pool_root_hash_ser = self._get_pool_root_hash(pre_prepare)
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
                                                                pool_root_hash_ser).as_single_value()
         return self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message, pk)
