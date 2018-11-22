@@ -16,10 +16,9 @@ import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import unique, IntEnum
 from math import floor
-from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, NamedTuple, Callable
 
@@ -34,7 +33,6 @@ from zmq.utils import z85
 from common.error import error
 from common.exceptions import PlenumTypeError, PlenumValueError
 from ledger.util import F
-from plenum.cli.constants import WALLET_FILE_EXTENSION
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
@@ -580,23 +578,8 @@ def getFormattedErrorMsg(msg):
     return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
 
 
-def normalizedWalletFileName(walletName):
-    return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
-
-
 def getWalletFilePath(basedir, walletFileName):
     return os.path.join(basedir, walletFileName)
-
-
-def getLastSavedWalletFileName(dir):
-    # TODO move that to WalletStorageHelper
-    def getLastModifiedTime(file):
-        return os.stat(file).st_mtime_ns
-
-    filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
-    newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
-                 key=getLastModifiedTime)
-    return basename(newest)
 
 
 def pop_keys(mapping: Dict, cond: Callable):

@@ -59,7 +59,6 @@ from plenum.test.helper import checkLastClientReqForNode, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
-from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg, getPrimaryReplica, \
     getNonPrimaryReplicas
