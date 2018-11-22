@@ -107,7 +107,7 @@ end note
 loop For each protocol instance (2 in this example):<color blue>Master</color> and <color gray>Backup</color>
 
     note over Node1, Node4
-        Actions performed on <color blue><b>Master</b></color> Instance only are marked with   <color blue><b>blue color</b></color>.
+        Items related to <color blue><b>Master</b></color> Instance only are marked with   <color blue><b>blue color</b></color>.
         <b>Each instance primary is located on its own node.</b> In this example:
         Node1 is primary of  <color blue><b>Master</b></color> protocol instance,
         Node2 is primary of  <color gray><b>Backup</b></color> protocol instance <i> (omitted in diagram for simplicity)</i>  .
