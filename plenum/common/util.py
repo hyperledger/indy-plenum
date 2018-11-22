@@ -29,6 +29,7 @@ import psutil
 from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
 from sortedcontainers import SortedDict as _SortedDict
+from zmq.utils import z85
 
 from common.error import error
 from common.exceptions import PlenumTypeError, PlenumValueError
@@ -336,6 +337,13 @@ def friendlyToRaw(f):
 
 def cryptonymToHex(cryptonym: str) -> bytes:
     return hexlify(base58.b58decode(cryptonym.encode()))
+
+
+def z85_to_friendly(z):
+    try:
+        return z if isinstance(z, str) else hexToFriendly(hexlify(z85.decode(z)))
+    except ValueError:
+        return z
 
 
 def runWithLoop(loop, callback, *args, **kwargs):

@@ -65,6 +65,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         self._view_change_in_progress = False
 
+        self.previous_view_no = None
         self.previous_master_primary = None
 
         self.set_defaults()
@@ -294,28 +295,28 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self._start_selection()
 
     def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
-        # do not go to Propagate Primary mode if we already started view change
+        # if we already started a view change then do not decide on a new one
         if self.view_change_in_progress:
             return
 
-        is_initial_propagate_primary = future_vcd_msg.is_initial_propagate_primary
+        from_current_state = future_vcd_msg.from_current_state
         view_no = future_vcd_msg.vcd_msg.viewNo
         # ToDo maybe we should compare with last_completed_view_no instead of viewNo.
         if not ((view_no > self.view_no) or
-                (self.view_no == 0 and is_initial_propagate_primary)):
+                (self.view_no == 0 and from_current_state)):
             # it means we already processed this future View Change Done
             return
 
-        # This is the first Propagate Primary,
-        # so we need to make sure that we connected to the real primary for the proposed view
-        # see test_view_change_after_back_to_quorum_with_disconnected_primary
-        if self.view_no == 0 and is_initial_propagate_primary:
+        if self.view_no == 0 and from_current_state:
+            # This is the first Propagate Primary,
+            # so we need to make sure that we connected to the real primary for the proposed view
+            # see test_view_change_after_back_to_quorum_with_disconnected_primary
             self.node.schedule_initial_propose_view_change()
 
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = {}
         self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
-        self._start_view_change_if_possible(view_no, is_initial_propagate_primary=is_initial_propagate_primary)
+        self._start_view_change_if_possible(view_no, propagate_primary=from_current_state)
 
     # __ EXTERNAL EVENTS __
 
@@ -483,19 +484,18 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.info(whyNot)
         return can
 
-    def _qourum_is_reached(self, count, is_initial_propagate_primary):
-        if is_initial_propagate_primary:
+    def _qourum_is_reached(self, count, propagate_primary):
+        if propagate_primary:
             return self.quorums.propagate_primary.is_reached(count)
         else:
             return self.quorums.view_change_done.is_reached(count)
 
-    def _start_view_change_if_possible(self, view_no, is_initial_propagate_primary=False) -> bool:
+    def _start_view_change_if_possible(self, view_no, propagate_primary=False) -> bool:
         ind_count = len(self._next_view_indications[view_no])
-        if self._qourum_is_reached(ind_count, is_initial_propagate_primary=is_initial_propagate_primary):
+        if self._qourum_is_reached(ind_count, propagate_primary):
             logger.display('{}{} starting view change for {} after {} view change '
                            'indications from other nodes'.format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
-            if is_initial_propagate_primary:
-                self.propagate_primary = True
+            self.propagate_primary = propagate_primary
             self.startViewChange(view_no)
             return True
         return False
@@ -528,6 +528,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if self.pre_vc_strategy and (not self.propagate_primary) and (not continue_vc):
             self.pre_vc_strategy.prepare_view_change(proposed_view_no)
             return
+        self.previous_view_no = self.view_no
         self.view_no = proposed_view_no
         self.view_change_in_progress = True
         self.previous_master_primary = self.node.master_primary_name
@@ -617,6 +618,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             for view_number in list(self.instanceChanges.keys()):
                 if view_number <= self.view_no:
                     self.instanceChanges.pop(view_number, None)
+            self.previous_view_no = None
             self.previous_master_primary = None
             self.propagate_primary = False
 

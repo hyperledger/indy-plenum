@@ -18,8 +18,8 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
-from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica import Replica
+from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
+from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -56,7 +56,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
+    Primary, RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
@@ -112,7 +112,7 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions, Suspicion
+from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 
@@ -368,6 +368,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
+        self.propagates_phase_req_timeout = self.config.PROPAGATES_PHASE_REQ_TIMEOUT
+        self.ordering_phase_req_timeout = self.config.ORDERING_PHASE_REQ_TIMEOUT
+
+        if self.config.OUTDATED_REQS_CHECK_ENABLED:
+            self.startRepeating(self.check_outdated_reqs, self.config.OUTDATED_REQS_CHECK_INTERVAL)
+
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.startRepeating(self.checkNodeRequestSpike,
@@ -375,7 +381,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.startRepeating(self.flush_metrics, config.METRICS_FLUSH_INTERVAL)
+        self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
         if config.GC_STATS_REPORT_INTERVAL > 0:
             self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
@@ -473,6 +479,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
+        self.nodeStatusDB = self.loadNodeStatusDB()
+
+        self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
 
         # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
         # the key is the ledger id and value is an interval tree with each
@@ -679,9 +688,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self._check_view_change_completed)
 
         self.master_replica.on_view_change_done()
+        last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
+            if self.view_changer.previous_view_no == 0:
+                last_sent_pp_seq_no_restored = \
+                    self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
         # If view change happen when one half of nodes ordered on master
@@ -745,6 +760,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def loadNodeStatusDB(self):
+        return initKeyValueStorage(self.config.nodeStatusStorage,
+                                   self.dataLocation,
+                                   self.config.nodeStatusDbName,
+                                   db_config=self.config.db_node_status_db_config)
 
     def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
@@ -1130,6 +1151,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        if self.nodeStatusDB:
+            self.nodeStatusDB.close()
         if self.bls_bft.bls_store:
             self.bls_bft.bls_store.close()
         if self.stateTsDbStorage:
@@ -1653,7 +1676,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def _is_initial_propagate_primary(self):
+    def _is_initial_view_change_now(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
@@ -1673,13 +1696,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
             self.discard(msg, "Proposed viewNo {} less, then current {}"
                          .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or self._is_initial_propagate_primary():
+        elif (view_no > self.viewNo) or self._is_initial_view_change_now():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
@@ -2201,6 +2224,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
+        if self.ledgerManager.last_caught_up_3PC == (0, 0):
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
@@ -2724,7 +2749,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica.prePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica.prepares))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica.commits))
-        self.metrics.add_event(MetricsName.REPLICA_ORDERED_MASTER, len(self.master_replica.ordered))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
@@ -2772,7 +2796,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP, sum_for_backups('prePrepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP, sum_for_backups('prepares'))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP, sum_for_backups('commits'))
-        self.metrics.add_event(MetricsName.REPLICA_ORDERED_BACKUP, sum_for_backups('ordered'))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
                                sum_for_values_for_backups('stashed_out_of_order_commits'))
@@ -3635,8 +3658,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
         return self._observable.get_observers(observer_policy_type)
 
-    def mark_request_as_executed(self, request: Request):
-        self.requests.mark_as_executed(request)
+    def _clean_req_from_verified(self, request: Request):
         authenticator = self.authNr(request.as_dict)
         if isinstance(authenticator, ReqAuthenticator):
             authenticator.clean_from_verified(request.key)
+
+    def mark_request_as_executed(self, request: Request):
+        self.requests.mark_as_executed(request)
+        self._clean_req_from_verified(request)
+
+    def check_outdated_reqs(self):
+        cur_ts = time.perf_counter()
+        for req_key in self.requests:
+            outdated = False
+            req_state = self.requests[req_key]
+
+            if req_state.executed and req_state.forwardedTo > 0:
+                # Means that the request has been processed by all replicas and
+                # it just waits for stable checkpoint to be deleted.
+                continue
+
+            if req_state.added_ts is not None and \
+                    cur_ts - req_state.added_ts > self.propagates_phase_req_timeout:
+                outdated = True
+            if req_state.finalised_ts is not None and \
+                    cur_ts - req_state.finalised_ts > self.ordering_phase_req_timeout:
+                outdated = True
+            if outdated:
+                self._clean_req_from_verified(req_state.request)
+                self.requests.pop(req_key)

@@ -287,6 +287,7 @@ def test_process_view_change_done(tdir, tconf):
     assert node.view_changer._view_change_done
     # Since the FakeNode does not have setting of mode
     # assert node.is_primary_found()
+    node.view_changer.pre_vc_strategy = None
     node.view_changer.startViewChange(1)
     assert not node.view_changer._view_change_done
 

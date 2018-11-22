@@ -3,6 +3,7 @@ from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
 from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
+from stp_core.network.exceptions import PublicKeyNotFoundOnDisk, VerKeyNotFoundOnDisk
 from stp_core.network.keep_in_touch import KITNetworkInterface
 from stp_zmq.simple_zstack import SimpleZStack
 from typing import Dict, Callable, Optional
@@ -118,7 +119,7 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
         for name in missing:
             try:
                 self.connect(name, ha=self.registry[name])
-            except ValueError as ex:
+            except (ValueError, KeyError, PublicKeyNotFoundOnDisk, VerKeyNotFoundOnDisk) as ex:
                 logger.warning('{}{} cannot connect to {} due to {}'.
                                format(CONNECTION_PREFIX, self, name, ex))
         return missing

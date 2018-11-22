@@ -1,5 +1,5 @@
 import time
-from collections import deque, OrderedDict
+from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
 from hashlib import sha256
 from typing import List, Dict, Optional, Any, Set, Tuple, Callable
@@ -26,7 +26,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName, measure_time
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -90,6 +90,89 @@ class Replica3PRouter(Router):
             super().handleSync(msg)
         except SuspiciousNode as ex:
             self.replica.node.reportSuspiciousNodeEx(ex)
+
+
+class IntervalList:
+    def __init__(self):
+        self._intervals = []
+
+    def __len__(self):
+        return sum(i[1] - i[0] + 1 for i in self._intervals)
+
+    def __eq__(self, other):
+        if not isinstance(other, IntervalList):
+            return False
+        return self._intervals == other._intervals
+
+    def __contains__(self, item):
+        return any(i[0] <= item <= i[1] for i in self._intervals)
+
+    def add(self, item):
+        if len(self._intervals) == 0:
+            self._intervals.append([item, item])
+            return
+
+        if item < self._intervals[0][0] - 1:
+            self._intervals.insert(0, [item, item])
+            return
+
+        if item == self._intervals[0][0] - 1:
+            self._intervals[0][0] -= 1
+            return
+
+        if self._intervals[0][0] <= item <= self._intervals[0][1]:
+            return
+
+        for prev, next in zip(self._intervals, self._intervals[1:]):
+            if item == prev[1] + 1:
+                prev[1] += 1
+                if prev[1] == next[0] - 1:
+                    prev[1] = next[1]
+                    self._intervals.remove(next)
+                return
+
+            if prev[1] + 1 < item < next[0] - 1:
+                idx = self._intervals.index(next)
+                self._intervals.insert(idx, [item, item])
+                return
+
+            if item == next[0] - 1:
+                next[0] -= 1
+                return
+
+            if next[0] <= item <= next[1]:
+                return
+
+        if item == self._intervals[-1][1] + 1:
+            self._intervals[-1][1] += 1
+            return
+
+        self._intervals.append([item, item])
+
+
+class OrderedTracker:
+    def __init__(self):
+        self._batches = defaultdict(IntervalList)
+
+    def __len__(self):
+        return sum(len(il) for il in self._batches.values())
+
+    def __eq__(self, other):
+        if not isinstance(other, OrderedTracker):
+            return False
+        return self._batches == other._batches
+
+    def __contains__(self, item):
+        view_no, pp_seq_no = item
+        return pp_seq_no in self._batches[view_no]
+
+    def add(self, view_no, pp_seq_no):
+        self._batches[view_no].add(pp_seq_no)
+
+    def clear_below_view(self, view_no):
+        for v in list(self._batches.keys()):
+            if v < view_no:
+                del self._batches[v]
 
 
 PP_CHECK_NOT_FROM_PRIMARY = 0
@@ -255,7 +338,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo).
-        self.ordered = OrderedSet()  # type: OrderedSet[Tuple[int, int]]
+        self.ordered = OrderedTracker()
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -559,7 +642,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.requests.free(key)
             self.requestQueues[int(ledger_id)].discard(key)
         master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
-        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0:
+        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0 \
+                and self.isPrimary is False:
             self.last_ordered_3pc = master_last_ordered_3pc
 
     def on_propagate_primary_done(self):
@@ -745,6 +829,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 if ppReq is None:
                     continue
                 self.sendPrePrepare(ppReq)
+                if not self.isMaster:
+                    self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                        self.instId, ppReq.ppSeqNo)
                 self.trackBatches(ppReq, oldStateRootHash)
                 r += 1
 
@@ -2102,7 +2189,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace('{} freed request {} from previous checkpoints'
                               .format(self, request_key))
 
-        self.compact_ordered()
+        self.ordered.clear_below_view(self.viewNo - 1)
 
         # BLS multi-sig:
         self._bls_bft_replica.gc(till3PCKey)
@@ -2189,21 +2276,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, view_no: int, pp_seq_no: int):
-        self.ordered.add((view_no, pp_seq_no))
+        self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
         self.requested_prepares.pop((view_no, pp_seq_no), None)
         self.requested_commits.pop((view_no, pp_seq_no), None)
-
-    def compact_ordered(self):
-        min_allowed_view_no = self.viewNo - 1
-        i = 0
-        for view_no, _ in self.ordered:
-            if view_no >= min_allowed_view_no:
-                break
-            i += 1
-        self.ordered = self.ordered[i:]
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set = None):
