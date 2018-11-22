@@ -84,7 +84,7 @@ def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
     """
     bStack.flushOutBoxes()
     """
-    It needs for getting 'pi' message from bStack. It process 'pi' message and put 'po' message to outBoxes queue 
+    It needs for getting 'pi' message from bStack. It process 'pi' message and put 'po' message to outBoxes queue
     """
     looper.run(aStack.service())
     """
@@ -116,7 +116,7 @@ def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
     looper.run(bStack._serviceStack(bStack.age, None))
     assert len(bStack.rxMsgs) == 2
     """
-    rxMsgs queue should contains only one 'pi' message from step 3 and batch 
+    rxMsgs queue should contains only one 'pi' message from step 3 and batch
     which was failed to sending to disconnected stack from step 2
     """
     got_pi = False
