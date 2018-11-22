@@ -3,7 +3,9 @@ from copy import copy
 import pytest
 
 from plenum.common.constants import OP_FIELD_NAME, BATCH
+from plenum.common.messages.node_messages import Batch
 from plenum.common.stacks import nodeStackClass
+from plenum.common.types import f
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, connectStack
@@ -55,8 +57,8 @@ def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
     """
     aStack.flushOutBoxes()
     assert len(aStack._stashed_to_disconnected[bStack.name]) == 1
-    batch = aStack.deserializeMsg(aStack._stashed_to_disconnected[bStack.name][0])
-    assert OP_FIELD_NAME in batch and batch[OP_FIELD_NAME] == BATCH
+    batch_to_disconnected = aStack.deserializeMsg(aStack._stashed_to_disconnected[bStack.name][0])
+    assert OP_FIELD_NAME in batch_to_disconnected and batch_to_disconnected[OP_FIELD_NAME] == BATCH
 
     """
     This method call connect method for bStack and put 'pi' message into outBoxes queue
@@ -101,7 +103,6 @@ def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
     aStack.flushOutBoxes()
 
     looper.run(bStack._serviceStack(bStack.age, None))
-    assert len(bStack.rxMsgs) == 2
     """
     rxMsgs queue should contains only one 'pi' message from step 3 and batch
     which was failed to sending to disconnected stack from step 2
@@ -116,6 +117,16 @@ def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
             got_pi = True
             continue
         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
-            got_batch = True
-            continue
+            if msg == batch_to_disconnected:
+                """
+                Exactly the same batch which should be sent to disconnected node
+                """
+                got_batch = True
+                continue
+            else:
+                """Check that there is no batches with batch as message"""
+                batch = Batch(messages=msg[f.MSGS.nm],
+                              signature=msg[f.SIG.nm])
+                for m in batch.messages:
+                    assert OP_FIELD_NAME not in m and BATCH not in m
     assert got_pi and got_batch
