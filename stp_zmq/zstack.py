@@ -728,7 +728,7 @@ class ZStack(NetworkInterface):
         msgs = self._stashed_to_disconnected[to]
         while msgs:
             msg = msgs.popleft()
-            self.send(msg, to)
+            ZStack.send(self, msg, to)
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all
