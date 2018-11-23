@@ -13,6 +13,7 @@ from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_
 from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls, create_pre_prepare_params, \
     generate_state_root
 from plenum.test.helper import sdk_random_request_objects
+from stp_zmq.zstack import ZStack
 
 nodeCount = 4
 
@@ -213,8 +214,12 @@ def test_process_pre_prepare_validation_old_schema(fake_replica,
                                                    pre_prepare,
                                                    pool_state_root,
                                                    fake_state_root_hash):
+    serialized_pp = ZStack.serializeMsg(pre_prepare)
+    deserialized_pp = ZStack.deserializeMsg(serialized_pp)
     new_schema = copy(PrePrepare.schema)
     PrePrepare.schema = tuple(y for y in PrePrepare.schema if y[0] != f.POOL_STATE_ROOT_HASH.nm)
+    assert f.POOL_STATE_ROOT_HASH.nm not in PrePrepare.schema
+    pp = PrePrepare(**deserialized_pp)
     state_roots = [pool_state_root, fake_state_root_hash]
     fake_replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
 
@@ -223,7 +228,7 @@ def test_process_pre_prepare_validation_old_schema(fake_replica,
 
     fake_replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
-    fake_replica.processPrePrepare(pre_prepare, fake_replica.primaryName)
+    fake_replica.processPrePrepare(pp, fake_replica.primaryName)
     PrePrepare.schema = new_schema
 
 
