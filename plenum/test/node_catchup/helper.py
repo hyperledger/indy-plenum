@@ -9,11 +9,9 @@ from plenum.common.util import check_if_all_equal_in_list
 from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
     check_seqno_db_equality, assertEquality, check_last_ordered_3pc
-from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
-from stp_core.types import HA
 
 logger = getlogger()
 
@@ -103,30 +101,6 @@ def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None,
                          exclude_from_check=exclude_from_check)
 
 
-def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
-    stackParams = node.clientStackParams
-    client.nodeReg[stackParams['name']] = HA('127.0.0.1', stackParams['ha'][1])
-    looper.run(client.ensureConnectedToNodes())
-
-
-def checkClientPoolLedgerSameAsNodes(client: TestClient,
-                                     *nodes: TestNode):
-    for n in nodes:
-        checkLedgerEquality(client.ledger, n.poolLedger)
-
-
-def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
-                                                  client: TestClient,
-                                                  *nodes: TestNode):
-    looper.run(client.ensureConnectedToNodes())
-    timeout = waits.expectedPoolGetReadyTimeout(len(nodes))
-    looper.run(eventually(checkClientPoolLedgerSameAsNodes,
-                          client,
-                          *nodes,
-                          retryWait=.5,
-                          timeout=timeout))
-
-
 def check_ledger_state(node, ledger_id, ledger_state):
     assertEquality(node.ledgerManager.getLedgerInfoByType(ledger_id).state,
                    ledger_state)
@@ -172,6 +146,7 @@ def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
 
         node.ledgerManager._buildConsistencyProof = types.MethodType(
             patched_method, node.ledgerManager)
+
 
 def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
     """
