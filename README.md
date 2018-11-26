@@ -1,7 +1,7 @@
 ![logo](indy-logo.png)
 
 * [Plenum Byzantine Fault Tolerant Protocol](#plenum-byzantine-fault-tolerant-protocol)
-* [Technical Overview of Indy](#technical-overview-of-indy)
+* [Technical Overview of Indy Plenum](#technical-overview-of-indy-plenum)
 * [Other Documentation](#other-documentation)
 * [Indy Plenum Repository Structure](#indy-plenum-repository-structure)
 * [Dependencies](#dependencies)
@@ -17,15 +17,16 @@ Indy. As such, it provides features somewhat similar in scope to those
 found in Fabric. However, it is special-purposed for use in an identity
 system, whereas Fabric is general purpose.
 
-## Technical Overview of Indy
+## Technical Overview of Indy Plenum
 
 Please find the general overview of the system in [Overview of the system](docs/main.md).
+
+Plenum's consensus protocol which is based on [RBFT](https://pakupaku.me/plaublin/rbft/5000a297.pdf) is described in [consensus protocol diagram](docs/diagrams/consensus-protocol.png).
 
 More documentation can be found in [docs](docs).
 
 ## Other Documentation
 
-- Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/hyperledger/indy-plenum/wiki).
 - Please have a look at aggregated documentation at [indy-node-documentation](https://github.com/hyperledger/indy-node/blob/master/README.md) which describes workflows and setup scripts common for both projects. 
 
 
@@ -148,24 +149,3 @@ start_plenum_node Alpha
 ```
 
 
-#### Updating configuration
-To update any configuration parameters, you need to update the `indy_config.py` in `.plenum/YOUR_NETWORK_NAME` directory inside your home directory. 
-eg. To update the node registry to use `127.0.0.1` as host put these in your `indy_config.py`.
-
-```python
-from collections import OrderedDict
-
-nodeReg = OrderedDict([
-    ('Alpha', (('127.0.0.1', 9701), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('Beta', (('127.0.0.1', 9703), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('Gamma', (('127.0.0.1', 9705), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('Delta', (('127.0.0.1', 9707), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
-])
-
-cliNodeReg = OrderedDict([
-    ('AlphaC', (('127.0.0.1', 9702), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('BetaC', (('127.0.0.1', 9704), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('GammaC', (('127.0.0.1', 9706), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('DeltaC', (('127.0.0.1', 9708), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
-])
-```
