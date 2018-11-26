@@ -7,7 +7,7 @@ from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.replica.helper import check_replica_removed
+from plenum.test.replica_removing.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger

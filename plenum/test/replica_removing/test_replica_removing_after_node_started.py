@@ -3,7 +3,7 @@ import pytest
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node
-from plenum.test.replica.helper import check_replica_removed
+from plenum.test.replica_removing.helper import check_replica_removed
 from stp_core.loop.eventually import eventually
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
