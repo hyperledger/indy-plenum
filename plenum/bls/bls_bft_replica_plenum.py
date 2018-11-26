@@ -164,8 +164,14 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             return False
         pool_root_hash_ser = self._get_pool_root_hash(pre_prepare)
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
-                                                               pool_root_hash_ser).as_single_value()
-        return self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message, pk)
+                                                               pool_root_hash_ser)
+        result = self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message.as_single_value(), pk)
+        if not result:
+            logger.info("Incorrect bls signature {} in commit for "
+                        "{} public key: '{}' and message: '{}' from "
+                        "pre-prepare: {}".format(bls_sig, sender, pk,
+                                                 message, pre_prepare))
+        return result
 
     def _validate_multi_sig(self, multi_sig: MultiSignature):
         public_keys = []
