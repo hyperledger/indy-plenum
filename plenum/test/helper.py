@@ -1019,3 +1019,18 @@ def max_3pc_batch_limits(tconf, size, wait=10000):
     yield tconf
     tconf.Max3PCBatchSize = old_size
     tconf.Max3PCBatchWait = old_wait
+
+@contextmanager
+def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
+    old_timeout = tconf.ACC_MONITOR_TIMEOUT
+    old_delta = tconf.ACC_MONITOR_TXN_DELTA_K
+    old_acc_monitor_enabled = tconf.ACC_MONITOR_ENABLED
+
+    tconf.ACC_MONITOR_TIMEOUT = acc_monitor_timeout
+    tconf.ACC_MONITOR_TXN_DELTA_K = acc_monitor_delta
+    tconf.ACC_MONITOR_ENABLED = acc_monitor_enabled
+    yield tconf
+
+    tconf.ACC_MONITOR_TIMEOUT = old_timeout
+    tconf.ACC_MONITOR_TXN_DELTA_K = old_delta
+    tconf.ACC_MONITOR_ENABLED = old_acc_monitor_enabled
