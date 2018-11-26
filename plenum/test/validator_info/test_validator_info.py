@@ -19,15 +19,10 @@ def test_validator_info_file_alias_field_valid(info):
 
 
 def test_validator_info_file_bindings_field_valid(info, node):
-    # don't forget enable this check if ip comes back
-    # assert info['Node_info']['Client_ip'] == node.clientstack.ha.host
-    assert 'Client_ip' not in info['Node_info']
+    assert info['Node_info']['Client_ip'] == node.clientstack.ha.host
     assert info['Node_info']['Client_port'] == node.clientstack.ha.port
     assert info['Node_info']['Client_protocol'] == ZMQ_NETWORK_PROTOCOL
-
-    # don't forget enable this check if ip comes back
-    # assert info['Node_info']['Node_ip'] == node.nodestack.ha.host
-    assert 'Node_ip' not in info['Node_info']
+    assert info['Node_info']['Node_ip'] == node.nodestack.ha.host
     assert info['Node_info']['Node_port'] == node.nodestack.ha.port
     assert info['Node_info']['Node_protocol'] == ZMQ_NETWORK_PROTOCOL
 
@@ -36,13 +31,15 @@ def test_validator_info_file_did_field_valid(info):
     assert info['Node_info']['did'] == 'JpYerf4CssDrH76z7jyQPJLnZ1vwYgvKbvcp16AB5RQ'
 
 
+def test_validator_info_file_bls_field_valid(info, node):
+    assert info['Node_info']['BLS_key'] == node.bls_bft.bls_crypto_signer.pk
+
+
 def test_validator_info_file_response_version_field_valid(info):
     assert info['response-version'] == ValidatorNodeInfoTool.JSON_SCHEMA_VERSION
 
 
-def test_validator_info_file_timestamp_field_valid(node,
-                                                   info,
-                                                   looper):
+def test_validator_info_file_timestamp_field_valid(node, info, looper):
     looper.runFor(2)
     assert re.match('\d{10}', str(info['timestamp']))
     latest_info = node._info_tool.info
@@ -73,13 +70,16 @@ def test_validator_info_file_metrics_count_ledger_field_valid(node, info):
     assert info['Node_info']['Metrics']['transaction-count']['ledger'] == txns_num
 
 
+def test_validator_info_file_metrics_count_config_field_valid(node, info):
+    txns_num = node.configLedger.size
+    assert info['Node_info']['Metrics']['transaction-count']['config'] == txns_num
+
+
 def test_validator_info_file_metrics_count_pool_field_valid(info):
     assert info['Node_info']['Metrics']['transaction-count']['pool'] == nodeCount
 
 
-def test_validator_info_file_metrics_uptime_field_valid(looper,
-                                                        node,
-                                                        info):
+def test_validator_info_file_metrics_uptime_field_valid(looper, node, info):
     assert info['Node_info']['Metrics']['uptime'] > 0
     looper.runFor(2)
     latest_info = node._info_tool.info
@@ -113,7 +113,6 @@ def test_hardware_info_section(info):
     assert info['Hardware']['HDD_used_by_node']
 
 
-@pytest.mark.skip(reason="info will not be included by default")
 def test_software_info_section(info):
     assert info['Software']
     assert info['Software']['OS_version']
@@ -152,12 +151,6 @@ def test_node_info_section(info, node):
     assert 'View_No'        in info['Node_info']['View_change_status']
     assert 'Last_complete_view_no' in info['Node_info']['View_change_status']
     assert 'Last_view_change_started_at' in info['Node_info']['View_change_status']
-    assert "Pool_ledger_size" in info["Node_info"]
-    assert "Domain_ledger_size" in info["Node_info"]
-    assert "Config_ledger_size" in info["Node_info"]
-    assert info["Node_info"]['Pool_ledger_size'] == node.poolLedger.size
-    assert info["Node_info"]['Domain_ledger_size'] == node.domainLedger.size
-    assert info["Node_info"]['Config_ledger_size'] == node.configLedger.size
 
 
 def test_pool_info_section(info):
