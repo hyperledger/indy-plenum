@@ -16,12 +16,3 @@ Welcome to Indy Plenum's documentation!
    request_handling.md
    storage.md
 
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
