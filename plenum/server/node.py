@@ -2317,7 +2317,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
         requests = []
         for req_key in request_ids:
-            req = self.requests[req_key].finalised
+            if req_key in self.requests:
+                req = self.requests[req_key].finalised
+            else:
+                logger.warning("Could not apply stashed requests due to non-existent requests")
+                return
             _, seq_no = self.seqNoDB.get(req.digest)
             if seq_no is None:
                 requests.append(req)
@@ -2557,14 +2561,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            'does not exist'.format(self, ordered.instId))
             return False
 
-        valid_reqs = [self.requests[request_id].finalised
-                      for request_id in ordered.valid_reqIdr
-                      if request_id in self.requests and
-                      self.requests[request_id].finalised]
-        invalid_reqs = [self.requests[request_id].finalised
-                        for request_id in ordered.invalid_reqIdr
-                        if request_id in self.requests and
-                        self.requests[request_id].finalised]
         if ordered.instId != self.instances.masterId:
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
@@ -2579,12 +2575,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
 
-        if len(valid_reqs) != len(ordered.valid_reqIdr):
-            logger.warning('{} did not find {} finalized '
-                           'requests, but still ordered'
-                           .format(self, len(ordered.valid_reqIdr) - len(valid_reqs)))
-            return False
-
         logger.debug("{} executing Ordered batch {} {} of {} requests"
                      .format(self.name,
                              ordered.viewNo,
@@ -2594,8 +2584,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.executeBatch(ordered.viewNo,
                           ordered.ppSeqNo,
                           ordered.ppTime,
-                          valid_reqs,
-                          invalid_reqs,
+                          ordered.valid_reqIdr,
+                          ordered.invalid_reqIdr,
                           ordered.ledgerId,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
@@ -3120,27 +3110,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
-                     valid_reqs: List[Request], invalid_reqs: List[Request],
+                     valid_reqs_keys: List, invalid_reqs_keys: List,
                      ledger_id, state_root, txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param view_no: the view number (See glossary)
         :param pp_time: the time at which PRE-PREPARE was sent
-        :param valid_reqs: list of valid client REQUESTs
-        :param valid_reqs: list of invalid client REQUESTs
+        :param valid_reqs: list of valid client requests keys
+        :param valid_reqs: list of invalid client requests keys
         """
-        for req in valid_reqs:
-            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
+        for req_key in valid_reqs_keys:
+            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
 
         self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=pp_time, reqs=valid_reqs, state_root=state_root,
+                          pp_time=pp_time, reqs_keys=valid_reqs_keys, state_root=state_root,
                           txn_root=txn_root)
 
         try:
-            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs,
+            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs_keys,
                                                          state_root, txn_root)
         except Exception as exc:
             logger.error(
@@ -3148,13 +3138,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
                     self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [req.digest for req in valid_reqs]
+                    txn_root, [req_idr for req_idr in valid_reqs_keys]
                 )
             )
             raise
 
-        for request in valid_reqs + invalid_reqs:
-            self.mark_request_as_executed(request)
+        for req_key in valid_reqs_keys + invalid_reqs_keys:
+            if req_key in self.requests:
+                self.mark_request_as_executed(self.requests[req_key].request)
+            else:
+                # Means that this request is dropped from the main requests queue due to timeout,
+                # but anyway it is ordered and executed normally
+                logger.debug('{} normally executed request {} which object has been dropped '
+                             'from the requests queue'.format(self, req_key))
+                pass
 
         # TODO is it possible to get len(committedTxns) != len(valid_reqs)
         # someday
@@ -3164,7 +3161,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
                      format(self, view_no, pp_seq_no, ledger_id, state_root,
-                            txn_root, [req.digest for req in valid_reqs]))
+                            txn_root, [key for key in valid_reqs_keys]))
 
         for txn in committedTxns:
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
@@ -3178,7 +3175,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              ledger_id,
                                              view_no, pp_seq_no)
 
-        batch_committed_msg = BatchCommitted([req.as_dict for req in valid_reqs],
+        reqs = []
+        for req_key in valid_reqs_keys:
+            if req_key in self.requests:
+                reqs.append(self.requests[req_key].request.as_dict)
+        batch_committed_msg = BatchCommitted(reqs,
                                              ledger_id,
                                              pp_time,
                                              state_root,
@@ -3209,11 +3210,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
                                   for txn in committedTxns)
 
-    def commitAndSendReplies(self, ledger_id, ppTime, reqs: List[Request],
+    def commitAndSendReplies(self, ledger_id, ppTime, reqs_keys,
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
         reqHandler = self.get_req_handler(ledger_id)
-        committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
+        committedTxns = reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
         self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
                           pp_time=ppTime, committed_txns=committedTxns,
                           state_root=stateRoot, txn_root=txnRoot)
@@ -3230,10 +3231,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def hook_post_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
-    def default_executer(self, ledger_id, pp_time, reqs: List[Request],
+    def default_executer(self, ledger_id, pp_time, reqs_keys,
                          state_root, txn_root):
         return self.commitAndSendReplies(ledger_id,
-                                         pp_time, reqs, state_root, txn_root)
+                                         pp_time, reqs_keys, state_root, txn_root)
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:

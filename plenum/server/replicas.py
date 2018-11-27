@@ -68,7 +68,8 @@ class Replicas:
                 req_keys.add(req_key)
 
         for req_key in req_keys:
-            replica.requests.free(req_key)
+            if req_key in replica.requests:
+                replica.requests.free(req_key)
 
         self._messages_to_replicas.pop(inst_id, None)
         self._monitor.removeInstance(inst_id)
