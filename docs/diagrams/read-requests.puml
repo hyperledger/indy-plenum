@@ -3,13 +3,14 @@ start
 partition Node {
     :Read Request<
     note right
-        Client sends a read request to one node only.
+        Client sends a read request to one node only
     end note
 
     if (Parse Request) then (failed)
         #pink:NACK>
     elseif (GET_TXN?) then (yes)
         :Get From Ledger;
+        #lightgreen:ACK>
         #lightgreen:REPLY>
         note right
           As of now, it requires
