@@ -1,17 +1,17 @@
 # Storage components
-As of now, RocksDB is used as a key-value storage for all Storages.
+As of now, RocksDB is used as a key-value database for all Storages.
 
 #### 1. Ledger
 - The ledger is an ordered log of transactions with each transaction assigned a unique monotonically increasing positive integer called sequence number.
-  - Sequence numbers start from 1 and then increase by 1 for each new transaction. There are no gaps in sequence numbers. 
-- RocksDB is used as a key-value storage where the key is the sequence number and value is the transaction.
+- Sequence numbers start from 1 and then increase by 1 for each new transaction. There are no gaps in sequence numbers. 
+- RocksDB is used as a key-value storage where key is the sequence number and value is the transaction.
 - A transaction is serialised (currently as MsgPack) before storing in the ledger, more on this in the Serialisation doc.
-- Exact format of each transaction can be found in [Indy Node Transactions](https://github.com/hyperledger/indy-node/blob/master/docs/transactions.md)
+- Exact format of each transaction can be found in [Indy Node Transactions](https://github.com/hyperledger/indy-node/blob/master/docs/transactions.md).
 - Each node hosts several ledgers each identified by a unique id:
   -   Pool Ledger (id is 0): Contains transactions related to pool membership, like joining of new nodes, suspension of existing nodes, changing the IP/port or keys of existing nodes.
   -   Domain Ledger (id is 1): Contains transactions related to the core application logic. Currently it contains NYM transactions. The `indy-node` codebase extends this ledger with other identity transactions.
   -   Config Ledger (id is 2): Contains transactions related to the configuration parameters for which the pool needs to agree, eg. if each node of the pool needs to use the value `5` for a config variable `x`, then this ledger should contain transaction specifying the value of `x` as `5`. The `indy-node` codebase extends this ledger with source code update transactions.
-  - More ledgers can added by plugins.
+  - More ledgers can be added by plugins.
 - Each correct node should have exactly the same number of transactions for each ledger id.
 - A ledger is associated with a [compact merkle tree](https://github.com/google/certificate-transparency/blob/master/python/ct/crypto/merkle.py). 
   - Each new transaction is added to the ledger (log) and is also hashed (sha256) and this hash becomes a new leaf of the merkle tree which also 
@@ -27,15 +27,15 @@ the transaction is returned with its inclusion proof.
 - States and Caches can be deterministically re-created from the Transaction Log.
 - There 9 storages associated with the Ledgers (3 for each of the ledgers):
   - Pool Ledger:
-    - `pool_transactions` (transaction log)
+    - `pool_transactions` (Transaction Log)
     - `pool_merkleLeaves` (Hash Store for leaves)
     - `pool_merkleNodes` (Hash Store for nodes)
   - Domain Ledger:
-    - `domain_transactions` (transaction log)
+    - `domain_transactions` (Transaction Log)
     - `domain_merkleLeaves` (Hash Store for leaves)
     - `domain_merkleNodes` (Hash Store for nodes)
   - Config Ledger:
-    - `config_transactions` (transaction log)
+    - `config_transactions` (Transaction Log)
     - `config_merkleLeaves` (Hash Store for leaves)
     - `config_merkleNodes` (Hash Store for nodes)
   
@@ -109,15 +109,15 @@ Relevant code:
 - IdrCache: `indy-node/persistence/idr_cache.py`
 
 #### 8. Attribute Database (in Indy Node)
-- Raw attributes from ATTRIB transaction are stored in this database,
-- The ATTRIB transaction in the Domain Ledger contains the hash of the data only
+- Raw attributes from ATTRIB transaction are stored in this database.
+- The ATTRIB transaction in the Domain Ledger contains the hash of the data only.
 - Storage name: `attr_db`
 
 Relevant code:
 - AttributeStore: `indy-node/persistence/attribuite_store.py`
     
-#### Common Storage abstractions
-The data structures used in the code use some abstractions like a `KeyValueStorage` interface which has a LevelDB 
+### Common Storage abstractions
+The data structures in the code use some abstractions like a `KeyValueStorage` interface which has a LevelDB 
 and RocksDB implementations, as well as file implementations (both single and chunked file storages).
 
 Relevant code:
