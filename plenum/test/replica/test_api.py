@@ -1,15 +1,51 @@
 import types
+from copy import copy
 
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
-from plenum.common.util import get_utc_epoch
-from plenum.server.quorums import Quorums
-from plenum.server.replica import Replica
-from plenum.test.bls.helper import create_prepare
-from plenum.test.testing_utils import FakeSomething
+from plenum.common.constants import POOL_LEDGER_ID, CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
+from plenum.common.messages.fields import MerkleRootField
+from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.types import f
+from plenum.server.suspicion_codes import Suspicions
+from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
+from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls, create_pre_prepare_params, \
+    generate_state_root
+from plenum.test.helper import sdk_random_request_objects
+from stp_zmq.zstack import ZStack
 
 nodeCount = 4
+
+
+@pytest.fixture(scope="function")
+def fake_replica(replica):
+    replica.node.isParticipating = True
+    replica.nonFinalisedReqs = lambda a: []
+    replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
+    replica._bls_bft_replica.update_prepare = lambda a, b: a
+    replica._bls_bft_replica.process_prepare = lambda a, b: None
+    replica._apply_pre_prepare = lambda a, b: None
+    replica.primaryName = "Alpha:{}".format(replica.instId)
+    replica.primaryNames[replica.viewNo] = replica.primaryName
+    return replica
+
+
+@pytest.fixture(scope="function", params=[generate_state_root(), None])
+def pool_state_root(request):
+    return request.param
+
+
+@pytest.fixture(scope="function", params=[True, False])
+def pre_prepare(replica, pool_state_root, fake_state_root_hash, fake_multi_sig, request):
+    params = create_pre_prepare_params(state_root=fake_state_root_hash,
+                                       view_no=replica.viewNo,
+                                       pool_state_root=pool_state_root)
+    pp = PrePrepare(*params)
+    if request.param:
+        setattr(pre_prepare, f.BLS_MULTI_SIG.nm, fake_multi_sig)
+
+    return pp
 
 
 def test_view_change_done(replica):
@@ -128,9 +164,84 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
 
 
 def test_create_3pc_batch_with_empty_requests(replica):
-    def patched_stateRootHash(self, ledger_id, to_str):
+    def patched_stateRootHash(self, ledger_id, to_str=None):
         return b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
 
     replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
 
     assert replica.create3PCBatch(0) is None
+
+
+def test_create_3pc_batch(replica):
+    root_hash = ["EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ",
+                 "QuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"]
+    requests = sdk_random_request_objects(2, identifier="did",
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
+    ledger_id = POOL_LEDGER_ID
+    replica.consume_req_queue_for_pre_prepare = \
+        lambda ledger, view_no, pp_seq_no: (requests, [], [],
+                                            replica.get_utc_epoch_for_preprepare(replica.instId, view_no, pp_seq_no))
+    replica.stateRootHash = lambda ledger, to_str=False: root_hash[ledger]
+
+    pre_prepare_msg = replica.create3PCBatch(ledger_id)
+
+    assert pre_prepare_msg.poolStateRootHash == root_hash[POOL_LEDGER_ID]
+    assert pre_prepare_msg.stateRootHash == root_hash[ledger_id]
+    assert pre_prepare_msg.ppSeqNo == 1
+    assert pre_prepare_msg.ledgerId == ledger_id
+    assert pre_prepare_msg.viewNo == replica.viewNo
+    assert pre_prepare_msg.instId == replica.instId
+    assert pre_prepare_msg.reqIdr == [req.digest for req in requests]
+    assert f.BLS_MULTI_SIG.nm not in pre_prepare_msg
+
+
+def test_process_pre_prepare_validation(fake_replica,
+                                        pre_prepare,
+                                        pool_state_root,
+                                        fake_state_root_hash):
+    state_roots = [pool_state_root, fake_state_root_hash]
+    fake_replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+
+    def reportSuspiciousNodeEx(ex):
+        assert False, ex
+
+    fake_replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    fake_replica.processPrePrepare(pre_prepare, fake_replica.primaryName)
+
+
+def test_process_pre_prepare_validation_old_schema(fake_replica,
+                                                   pre_prepare,
+                                                   pool_state_root,
+                                                   fake_state_root_hash):
+    serialized_pp = ZStack.serializeMsg(pre_prepare)
+    deserialized_pp = ZStack.deserializeMsg(serialized_pp)
+    new_schema = copy(PrePrepare.schema)
+    PrePrepare.schema = tuple(y for y in PrePrepare.schema if y[0] != f.POOL_STATE_ROOT_HASH.nm)
+    assert f.POOL_STATE_ROOT_HASH.nm not in PrePrepare.schema
+    pp = PrePrepare(**deserialized_pp)
+    state_roots = [pool_state_root, fake_state_root_hash]
+    fake_replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+
+    def reportSuspiciousNodeEx(ex):
+        assert False, ex
+
+    fake_replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    fake_replica.processPrePrepare(pp, fake_replica.primaryName)
+    PrePrepare.schema = new_schema
+
+
+def test_process_pre_prepare_with_incorrect_pool_state_root(fake_replica):
+    state_roots = ["EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ",
+                   "C95JmfG5DYAE8ZcdTTFMiwcZaDN6CRVdSdkhBXnkYPio"]
+    fake_replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+
+    def reportSuspiciousNodeEx(ex):
+        assert Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code == ex.code
+    fake_replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+    pp = create_pre_prepare_no_bls(state_roots[DOMAIN_LEDGER_ID],
+                                   fake_replica.viewNo,
+                                   "HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4")
+    fake_replica.processPrePrepare(pp, fake_replica.primaryName)

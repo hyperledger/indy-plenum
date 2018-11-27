@@ -113,9 +113,11 @@ def create_pre_prepare_params(state_root,
                               ledger_id=DOMAIN_LEDGER_ID,
                               txn_root=None,
                               timestamp=None,
-                              bls_multi_sig=None):
+                              bls_multi_sig=None,
+                              view_no=0,
+                              pool_state_root=None):
     params = [0,
-              0,
+              view_no,
               0,
               timestamp or get_utc_epoch(),
               ["random request digest"],
@@ -126,13 +128,17 @@ def create_pre_prepare_params(state_root,
               txn_root or '1' * 32,
               0,
               True]
+    if pool_state_root is not None:
+        params.append(pool_state_root)
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params
 
 
-def create_pre_prepare_no_bls(state_root):
-    params = create_pre_prepare_params(state_root=state_root)
+def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None):
+    params = create_pre_prepare_params(state_root=state_root,
+                                       view_no=view_no,
+                                       pool_state_root=pool_state_root)
     return PrePrepare(*params)
 
 
