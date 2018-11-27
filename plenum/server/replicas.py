@@ -154,14 +154,13 @@ class Replicas:
         return all(replica.primaryName is not None
                    for replica in self._replicas.values())
 
-    # TODO unit test
     @property
-    def primaries(self) -> dict:
-        return {r.instId: r.name for r in self._replicas.values()}
+    def primary_name_by_inst_id(self) -> dict:
+        return {r.instId: r.primaryName.split(":", maxsplit=1)[0] for r in self._replicas.values()}
 
     @property
-    def inst_id_by_name(self) -> dict:
-        return {r.name: r.instId for r in self._replicas.values()}
+    def inst_id_by_primary_name(self) -> dict:
+        return {r.primaryName.split(":", maxsplit=1)[0]: r.instId for r in self._replicas.values()}
 
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas.values():
