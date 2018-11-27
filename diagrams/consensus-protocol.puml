@@ -107,6 +107,7 @@ end note
 loop For each protocol instance (2 in this example):<color blue>Master</color> and <color gray>Backup</color>
 
     note over Node1, Node4
+        Three-phase commit is performed in parallel in all protocol instances.
         Items related to <color blue><b>Master</b></color> Instance only are marked with   <color blue><b>blue color</b></color>.
         <b>Each instance primary is located on its own node.</b> In this example:
         Node1 is primary of  <color blue><b>Master</b></color> protocol instance,
@@ -120,9 +121,9 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
             <b>Create 3PC Batch:</b>
             For each ledger:
                 Each Max3PCBatchSize requests OR Max3PCBatchWait seconds
-                  (depending on which is reached first):
-                      - dequeue forwarded requests for the ledger,
-                      - create 3PC Batch with dequeued requests
+                (depending on which is reached first):
+                    - dequeue forwarded requests for the ledger,
+                    - create 3PC Batch with dequeued requests
         end note
 
         Node1 -> Node1: <color blue>Apply 3PC Batch
@@ -130,7 +131,8 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
             <color blue><b>Apply 3PC Batch:
             <color blue>For each request in 3PC Batch:
                 <color blue>- do dynamic validation (against uncommitted state),
-                <color blue>- if passed, apply 3PC Batch to ledger and state.
+                <color blue>- if passed, apply request to ledger and state,
+                <color blue>  else discard request.
             <color blue>Eventually get:
                 <color blue>- ledger_uncommitted,
                 <color blue>- state_uncommitted,
@@ -145,8 +147,7 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                 - (view_no, pre_prepare_seq_no),
                 - pre-prepare time,
                 - all requests keys,
-                - discarded requests keys
-                  <i>(empty set for backup instance),
+                <color blue>- discarded requests keys,
                 - digest of all requests,
                 - ledger ID,
                 <color blue>- ledger_uncommitted,
@@ -168,14 +169,14 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
             & Node4 -> Node4: Verify PRE-PREPARE
             note right Node4
                 <b>Verify PRE-PREPARE:
-                    - pre-prepare time is acceptable
+                    - pre-prepare time is acceptable,
                     - all previous PRE-PREPAREs have already been applied
-                      <i>(since PRE-PREPAREs must be applied sequentially only)
-                    - <color blue>BLS multi-signature of previous 3PC batch is the same
-                    - <color blue>discarded requests keys are the same
+                      <i>(since PRE-PREPAREs must be applied sequentially only),
+                    <color blue>- BLS multi-signature of previous 3PC batch is the same,
+                    <color blue>- discarded requests keys are the same,
                     - digest of all requests is the same,
-                    - <color blue>ledger_uncommitted is the same,
-                    - <color blue>state_uncommitted is the same
+                    <color blue>- ledger_uncommitted is the same,
+                    <color blue>- state_uncommitted is the same
             end note
 
             Node2 ->> Node1: PREPARE
@@ -196,7 +197,7 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                     - pre-prepare time,
                     - digest of all requests,
                     <color blue>- ledger_uncommitted,
-                    <color blue>- state_uncommitted,
+                    <color blue>- state_uncommitted
                 <i>(values are the same as in PRE-PREPARE)
             end note
 
@@ -207,8 +208,8 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
         note right Node4
             <b>Verify PREPAREs:
                 - digest of all requests is the same,
-                - <color blue>ledger_uncommitted is the same
-                - <color blue>state_uncommitted is the same
+                <color blue>- ledger_uncommitted is the same,
+                <color blue>- state_uncommitted is the same
         end note
 
     end
@@ -291,8 +292,8 @@ Node1 -> Node1: Execute 3PC Batch\nfrom <color blue>Master</color>
 note right Node4
     <b>Execute 3PC Batch from <color blue>Master</color>:
     Execute 3PC batch from <color blue>Master</color> protocol instance:
-    - commit ledger_uncommitted,
-    - commit state_uncommitted
+        - commit ledger_uncommitted,
+        - commit state_uncommitted
 end note
 
 Node1 ->> Client: REPLY
