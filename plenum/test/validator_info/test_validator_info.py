@@ -86,11 +86,25 @@ def test_validator_info_file_metrics_uptime_field_valid(looper, node, info):
     assert latest_info['Node_info']['Metrics']['uptime'] > info['Node_info']['Metrics']['uptime']
 
 
+def _get_name_to_replica_reachable(node):
+    inst_by_name = node.replicas.inst_id_by_name
+    tupl_list = [(name, inst_by_name.get(name, None))
+                 for name in list(node.nodestack.conns) + [node.name]]
+    return sorted(tupl_list, key=lambda x: x[0])
+
+
+def _get_name_to_replica_unreachable(node):
+    inst_by_name = node.replicas.inst_id_by_name
+    tupl_list = [(name, inst_by_name.get(name, None)) for name in
+                 list(set(node.nodestack.remotes.keys()) - node.nodestack.conns)]
+    return sorted(tupl_list, key=lambda x: x[0])
+
+
 def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper, txnPoolNodeSet, node):
     assert info['Pool_info']['Reachable_nodes_count'] == nodeCount
-    assert info['Pool_info']['Reachable_nodes'] == sorted(list(node.name for node in txnPoolNodeSet))
+    assert info['Pool_info']['Reachable_nodes'] == _get_name_to_replica_reachable(node)
     assert info['Pool_info']['Unreachable_nodes_count'] == 0
-    assert info['Pool_info']['Unreachable_nodes'] == []
+    assert info['Pool_info']['Unreachable_nodes'] == _get_name_to_replica_unreachable(node)
     assert info['Pool_info']['Total_nodes_count'] == nodeCount
 
     others, disconnected = txnPoolNodeSet[:-1], txnPoolNodeSet[-1]
@@ -98,9 +112,9 @@ def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper,
     latest_info = node._info_tool.info
 
     assert latest_info['Pool_info']['Reachable_nodes_count'] == nodeCount - 1
-    assert latest_info['Pool_info']['Reachable_nodes'] == sorted(list(node.name for node in others))
+    assert latest_info['Pool_info']['Reachable_nodes'] == _get_name_to_replica_reachable(node)
     assert latest_info['Pool_info']['Unreachable_nodes_count'] == 1
-    assert latest_info['Pool_info']['Unreachable_nodes'] == [txnPoolNodeSet[-1].name]
+    assert latest_info['Pool_info']['Unreachable_nodes'] == _get_name_to_replica_unreachable(node)
     assert latest_info['Pool_info']['Total_nodes_count'] == nodeCount
 
 

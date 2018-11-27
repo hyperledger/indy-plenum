@@ -198,7 +198,10 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __reachable_list(self):
-        return sorted(list(self._node.nodestack.conns) + [self._node.name])
+        inst_by_name = self._node.replicas.inst_id_by_name
+        tupl_list = [(name, inst_by_name.get(name, None))
+                     for name in list(self._node.nodestack.conns) + [self._node.name]]
+        return sorted(tupl_list, key=lambda x: x[0])
 
     @property
     @none_on_fail
@@ -208,7 +211,10 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __unreachable_list(self):
-        return list(set(self._node.nodestack.remotes.keys()) - self._node.nodestack.conns)
+        inst_by_name = self._node.replicas.inst_id_by_name
+        tupl_list = [(name, inst_by_name.get(name, None)) for name in
+                     list(set(self._node.nodestack.remotes.keys()) - self._node.nodestack.conns)]
+        return sorted(tupl_list, key=lambda x: x[0])
 
     @property
     @none_on_fail

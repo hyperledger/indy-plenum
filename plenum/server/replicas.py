@@ -159,6 +159,10 @@ class Replicas:
     def primaries(self) -> dict:
         return {r.instId: r.name for r in self._replicas.values()}
 
+    @property
+    def inst_id_by_name(self) -> dict:
+        return {r.name: r.instId for r in self._replicas.values()}
+
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas.values():
             replica.register_ledger(ledger_id)
