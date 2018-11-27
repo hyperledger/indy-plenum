@@ -1,0 +1,124 @@
+@startuml
+rectangle "Ledgers" {
+
+    database "Pool Ledger" as PL {
+      storage "Transaction Log" as P1
+      storage "Merkle Leaves" as P2
+      storage "Merkle Nodes" as P3
+    }
+    note top of PL
+         - Contains transactions defining the nodes in the pool
+         - It's used by other nodes to connect to each other
+         - It's used by clients to connect to the pool
+    end note
+
+
+    database "Domain Ledger" as DL {
+      storage "Transaction Log" as D1
+      storage "Merkle Leaves" as D2
+      storage "Merkle Nodes" as D3
+    }
+    note top of DL
+         - Contains transactions related to the core application logic
+         - Can be extended by applications
+    end note
+
+    database "Config Ledger" as CL {
+      storage "Transaction Log" as C1
+      storage "Merkle Leaves" as C2
+      storage "Merkle Nodes" as C3
+    }
+    note right of CL
+      Contains transactions related to the configuration parameters
+      for which the pool needs to agree
+    end note
+
+}
+note top of Ledgers
+    - Ledger is an ordered log of transactions (<b>Transaction Log</b> storage)
+    - Each transaction has a unique monotonically increasing positive integer called sequence number
+    - Ledger is associated with a compact merkle tree (<b>Merkle Leaves</b> and <b>Merkle Nodes</b> storages)
+    - States and Caches can be deterministically re-created from the <b>Transaction Log</b>
+end note
+
+
+rectangle "States" {
+    database "Pool State"
+    database "Domain State"
+    database "Config State"
+}
+note top of States
+    - Each Ledger has a State
+    - State is an aggregated view of the ledger used by Node and Application business logic,
+as well as for read requests
+    - The underlying data structure of state is the Patricia Merkle Trie
+    - It's possible to get the current value (state) for a key, as well as
+    a value from the past (defined by a state root hash)
+end note
+
+rectangle "Other" {
+    database database1 [
+    <b>Node Status</b>
+
+    Auxiliary storage to persist
+    data needed for consensus algorithm
+    ]
+
+    database database2 [
+    <b>Attribute Storage</b>
+
+    Raw attributes from ATTRIB
+    transaction are stored here,
+    while the ATTRIB transaction
+    in the Domain Ledger contains
+    the hash of the data only
+    ]
+
+    database database3 [
+    <b>BLS Multi-Signature</b>
+
+    Every transaction for the given time
+    (that is every update of the state)
+    is signed (using BLS schema)
+    by all nodes during consensus,
+    and BLS multi-signature is created and
+    stored here for every state root hash.
+
+    It's used together with a State Proof
+    as part of replies to read requests.
+    ]
+}
+
+rectangle "Caches" {
+    database database5 [
+    <b>Request to Transaction</b>
+
+    <i>RequestKey (digest) -> transaction seqNo</i> mapping.
+
+    It's used to check if request is already ordered
+    (written to the ledger) and return the data from
+    the ledger for such write requests.
+    ]
+
+    database database4 [
+    <b>Idr Cache</b>
+
+    <i>DID -> verkey/role</i> mapping.
+
+    It's used for efficient validation and
+    getting verkey for a  DID.
+    ]
+
+    database database6 [
+    <b>Timestamp storage</b>
+
+    <i>timestamp -> State root hash</i> mapping.
+
+    It's used to get the state root hash
+    for the given timestamp to efficiently
+    get data from the past.
+    ]
+}
+
+
+@enduml

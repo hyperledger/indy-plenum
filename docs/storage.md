@@ -23,6 +23,8 @@ and intermediate nodes, each leaf or node of the tree is 32 bytes. Each of these
 The leaf or node hashes are queried by their number. When a client write request completes or it requests a transaction with a particular sequence number from a ledger, 
 the transaction is returned with its inclusion proof. 
 
+States and Caches can be deterministically re-created from the Transaction Log.
+
 Relevant code:
 - Ledger: `plenum/common/ledger.py` and `ledger/ledger.py`
 - Compact Merkle Tree: `ledger/compact_merkle_tree.py`
@@ -30,11 +32,15 @@ Relevant code:
 
 
 #### 2. State
+Each Ledger has a State. State is an aggregated view of the ledger used by Node and Application business logic,
+as well as for read requests.
+
 The state can be considered a collection of key value pairs but this collection has some properties of merkle tree like a root hash and 
 inclusion proof of the keys, eg. If there are 3 key value pairs `k1-v1`, `k2->v2` and `k3->v3`, then state will have a root hash say `R` 
 and a proof can be generated that state with root hash `R` has a key `k1` with value `v1`, similarly for other keys. When a new key is added 
 or value of an old key is changed the root hash changes from `R` to `R'`. Note that the order of insertion of keys does not matter, any order of the 
-keys will result in the same root hash and same inclusion proof. The underlying data structure of state is the [Merkle Patricia Trie](https://blog.ethereum.org/2015/11/15/merkling-in-ethereum/) used by Ethereum.
+keys will result in the same root hash and same inclusion proof. It's possible to get the current value (state) for a key, as well as
+    a value from the past (defined by a state root hash). The underlying data structure of state is the [Merkle Patricia Trie](https://blog.ethereum.org/2015/11/15/merkling-in-ethereum/) used by Ethereum.
 The state is built from a ledger, hence each ledger will usually have a corresponding state. State can be reconstructed from the Ledger.
 
 Relevant code:
