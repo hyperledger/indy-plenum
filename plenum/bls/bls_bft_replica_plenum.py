@@ -157,15 +157,21 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             .verify_key_proof_of_possession(key_proof, pk)
 
     def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
+        pool_root_hash = self._get_pool_root_hash(pre_prepare, serialize=False)
         sender_node = self.get_node_name(sender)
-        pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node)
+        pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node, pool_root_hash)
         if not pk:
             return False
-        pool_state_root_hash_str = self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash_ser = self._get_pool_root_hash(pre_prepare)
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
-                                                               pool_state_root_hash_str).as_single_value()
-        return self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message, pk)
+                                                               pool_root_hash_ser)
+        result = self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message.as_single_value(), pk)
+        if not result:
+            logger.info("Incorrect bls signature {} in commit for "
+                        "{} public key: '{}' and message: '{}' from "
+                        "pre-prepare: {}".format(bls_sig, sender, pk,
+                                                 message, pre_prepare))
+        return result
 
     def _validate_multi_sig(self, multi_sig: MultiSignature):
         public_keys = []
@@ -183,10 +189,9 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                                                                   public_keys)
 
     def _sign_state(self, pre_prepare: PrePrepare):
-        pool_root_hash_ser = self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash = self._get_pool_root_hash(pre_prepare)
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
-                                                               pool_root_hash_ser).as_single_value()
+                                                               pool_root_hash).as_single_value()
         return self._bls_bft.bls_crypto_signer.sign(message)
 
     def _can_calculate_multi_sig(self,
@@ -214,13 +219,21 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         participants = list(sigs_for_request.keys())
 
         sig = self._bls_bft.bls_crypto_verifier.create_multi_sig(bls_signatures)
-        pool_root_hash_ser = self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash_ser = self._get_pool_root_hash(pre_prepare)
         multi_sig_value = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
                                                                        pool_root_hash_ser)
         return MultiSignature(signature=sig,
                               participants=participants,
                               value=multi_sig_value)
+
+    def _get_pool_root_hash(self, pre_prepare, serialize=True):
+        if f.POOL_STATE_ROOT_HASH.nm in pre_prepare:
+            pool_root_hash = self.state_root_serializer.deserialize(pre_prepare.poolStateRootHash)
+            pool_root_hash_ser = pre_prepare.poolStateRootHash
+        else:
+            pool_root_hash = self._bls_bft.bls_key_register.get_pool_root_hash_committed()
+            pool_root_hash_ser = self.state_root_serializer.serialize(bytes(pool_root_hash))
+        return pool_root_hash_ser if serialize else pool_root_hash
 
     def _save_multi_sig_local(self,
                               multi_sig: MultiSignature):

@@ -29,11 +29,10 @@ import pip
 import pytest
 import plenum.config as plenum_config
 import plenum.server.general_config.ubuntu_platform_config as platform_config
-from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
+from plenum.test.pool_transactions.helper import sdk_add_new_nym
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
@@ -60,8 +59,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
-from plenum.test.test_client import genTestClient, TestClient
-from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
+from plenum.test.test_node import TestNode, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg, getPrimaryReplica, \
     getNonPrimaryReplicas
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
@@ -455,41 +453,6 @@ def delayed_perf_chk(txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def stewardWallet(stewardAndWallet1):
-    return stewardAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
-def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithClientPoolTxns, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              client_tdir)
-    yield client, wallet
-    client.stop()
-
-
-@pytest.fixture(scope="module")
-def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
-                      tdirWithClientPoolTxns, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              client_tdir)
-    yield client, wallet
-    client.stop()
-
-
-@pytest.fixture(scope="module")
-def client1(looper, clientAndWallet1):
-    client = clientAndWallet1[0]
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    return client
-
-
-@pytest.fixture(scope="module")
-def wallet1(clientAndWallet1):
-    return clientAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
 def sent1(looper, sdk_pool_handle,
           sdk_wallet_client):
     request_couple_json = sdk_send_random_requests(
@@ -795,37 +758,8 @@ def trustee_data(poolTxnData):
 
 
 @pytest.fixture(scope="module")
-def stewards_and_wallets(looper, txnPoolNodeSet, pool_txn_stewards_data,
-                         tdirWithClientPoolTxns):
-    clients_and_wallets = []
-    for pool_txn_steward_data in pool_txn_stewards_data:
-        steward_client, steward_wallet = buildPoolClientAndWallet(pool_txn_steward_data,
-                                                                  tdirWithClientPoolTxns)
-        looper.add(steward_client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
-                                                      *txnPoolNodeSet)
-        clients_and_wallets.append((steward_client, steward_wallet))
-
-    yield clients_and_wallets
-
-    for (client, wallet) in clients_and_wallets:
-        client.stop()
-
-
-@pytest.fixture(scope="module")
-def poolTxnClient(tdirWithClientPoolTxns, txnPoolNodeSet):
-    return genTestClient(txnPoolNodeSet, tmpdir=tdirWithClientPoolTxns,
-                         usePoolLedger=True)
-
-
-@pytest.fixture(scope="module")
 def testNodeClass(patchPluginManager):
     return TestNode
-
-
-@pytest.fixture(scope="module")
-def testClientClass():
-    return TestClient
 
 
 @pytest.yield_fixture(scope="module")

@@ -26,6 +26,11 @@ note over Node1, Node4
             The signature scheme used is BLS.
 end note
 
+note over Node1, Node4 #FFAAAA
+   Plenum has a couple of important TBD Items described in Three-Phase Commit Section.
+end note
+
+
 == Write Request Propagation ==
 
 Client ->> Node1: Write Request
@@ -102,6 +107,20 @@ note over Node1, Node4
           and trigger View Change in case of degraded master
     Node participates in each protocol by a distinct replica.
     So Node has f+1 Replicas: master replica and f backup replicas.
+end note
+
+note over Node1, Node4 #FFAAAA
+    <b>TBD 1
+    Plenum is a single-process application, while RBFT requires that all Replicas are run in separate processes
+    leveraging multi-core architecture.
+    This may lead to false positive view changes and affects performance of the system.
+end note
+
+note over Node1, Node4 #FFAAAA
+    <b>TBD 2
+    Since consensus is combined with Validation of transactions, Plenum's Master Instance of the protocol performs
+    more work than backup instances (see items in <color blue>blue</color>).
+    This may lead to false positive view changes.
 end note
 
 loop For each protocol instance (2 in this example):<color blue>Master</color> and <color gray>Backup</color>
