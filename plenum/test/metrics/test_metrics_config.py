@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName
+from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName, TMP_METRIC
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from storage.helper import initKeyValueStorage
 
@@ -39,6 +39,9 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
 
         # We don't expect some events in this test
         unexpected_events = {
+            MetricsName.GC_UNCOLLECTABLE_OBJECTS,
+            MetricsName.GC_GEN2_COLLECTED_OBJECTS,
+
             MetricsName.PROCESS_CHECKPOINT_TIME,
             MetricsName.SEND_CHECKPOINT_TIME,
             MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME,
@@ -54,7 +57,15 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
 
             # TODO: reduce monitor window so these events are also captured
             MetricsName.MONITOR_AVG_THROUGHPUT,
-            MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT
+            MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT,
+
+            # Temporary metrics
+            MetricsName.STORAGE_IDR_CACHE_READERS,
+            MetricsName.STORAGE_IDR_CACHE_TABLES_NUM,
+            MetricsName.STORAGE_IDR_CACHE_TABLES_SIZE,
+            MetricsName.STORAGE_ATTRIBUTE_STORE_READERS,
+            MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_NUM,
+            MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE
         }
 
         # Don't expect some metrics from master primary
@@ -87,6 +98,6 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
         # Check that all event types happened during test
         metric_names = {ev.name for ev in events}
         for t in MetricsName:
-            if t in unexpected_events:
+            if t in unexpected_events or t > TMP_METRIC:
                 continue
             assert t in metric_names

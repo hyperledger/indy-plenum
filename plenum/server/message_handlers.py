@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from plenum.common.exceptions import MismatchedMessageReplyException
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
+from plenum.common.txn_util import TxnUtilConfig
 from plenum.common.types import f
 from plenum.server import replica
 from stp_core.common.log import getlogger
@@ -229,7 +230,7 @@ class PropagateHandler(BaseHandler):
 
     def create(self, msg: Dict, **kwargs) -> Propagate:
         ppg = Propagate(**msg)
-        request = self.node.client_request_class(**ppg.request)
+        request = TxnUtilConfig.client_request_class(**ppg.request)
         if request.digest != kwargs['digest']:
             raise MismatchedMessageReplyException
         return ppg

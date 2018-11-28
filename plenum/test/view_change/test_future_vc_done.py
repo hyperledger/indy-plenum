@@ -1,10 +1,10 @@
 from plenum.common.messages.node_messages import ViewChangeDone
 
 
-def test_future_vcdone_with_is_initial_propagate_primary_no_quorum(fake_node):
+def test_future_vcdone_when_propagate_primary_no_quorum(fake_node):
     """
-    Check, that view_change would be not started without quorum of propagate_primary view_change_done messages
-    if is_initial_propagate_primary is True
+    Check, that view_change would not be started without quorum of future_view_change_done messages
+    if propagate_primary is True
     """
     frm = 'Node3'
     current_view = fake_node.view_changer.last_completed_view_no
@@ -14,14 +14,14 @@ def test_future_vcdone_with_is_initial_propagate_primary_no_quorum(fake_node):
     fake_node.view_changer._next_view_indications[proposed_view_no][frm] = msg
     view_changer = fake_node.view_changer
     res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      is_initial_propagate_primary=True)
+                                                      propagate_primary=True)
     assert res is False
 
 
-def test_future_vcdone_with_is_initial_propagate_primary_with_quorum(fake_node):
+def test_future_vcdone_when_propagate_primary_with_quorum(fake_node):
     """
-    Check, that view_change would be started with quorum of propagate_primary view_change_done messages
-    if is_initial_propagate_primary is True
+    Check, that view_change would be started with quorum of future_view_change_done messages
+    if propagate_primary is True
     """
     quorum = fake_node.f + 1
     frms = fake_node.allNodeNames[-quorum:]
@@ -33,14 +33,14 @@ def test_future_vcdone_with_is_initial_propagate_primary_with_quorum(fake_node):
         fake_node.view_changer._next_view_indications[proposed_view_no][frms[i]] = msgs[i]
     view_changer = fake_node.view_changer
     res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      is_initial_propagate_primary=True)
+                                                      propagate_primary=True)
     assert res is True
 
 
-def test_future_vcdone_without_is_initial_propagate_primary_no_quorum(fake_node):
+def test_future_vcdone_now_when_propagate_primary_no_quorum(fake_node):
     """
-    Check, that view_change would be not started without quorum of propagate_primary view_change_done messages
-    if is_initial_propagate_primary is False
+    Check, that view_change would not be started without quorum of future_view_change_done messages
+    if propagate_primary is False
     """
     quorum = fake_node.f + 1
     frms = fake_node.allNodeNames[-quorum:]
@@ -52,14 +52,14 @@ def test_future_vcdone_without_is_initial_propagate_primary_no_quorum(fake_node)
         fake_node.view_changer._next_view_indications[proposed_view_no][frms[i]] = msgs[i]
     view_changer = fake_node.view_changer
     res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      is_initial_propagate_primary=False)
+                                                      propagate_primary=False)
     assert res is False
 
 
-def test_future_vcdone_without_is_initial_propagate_primary_with_quorum(fake_node):
+def test_future_vcdone_now_when_propagate_primary_with_quorum(fake_node):
     """
-    Check, that view_change would be started without quorum of propagate_primary view_change_done messages
-    if is_initial_propagate_primary is False
+    Check, that view_change would be started without quorum of future_view_change_done messages
+    if propagate_primary is False
     """
     quorum = fake_node.totalNodes - fake_node.f
     frms = fake_node.allNodeNames[-quorum:]
@@ -71,5 +71,5 @@ def test_future_vcdone_without_is_initial_propagate_primary_with_quorum(fake_nod
         fake_node.view_changer._next_view_indications[proposed_view_no][frms[i]] = msgs[i]
     view_changer = fake_node.view_changer
     res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      is_initial_propagate_primary=False)
+                                                      propagate_primary=False)
     assert res is True

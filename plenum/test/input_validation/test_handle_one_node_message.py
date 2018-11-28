@@ -1,20 +1,15 @@
-import pytest
+from plenum.common.messages.node_messages import Batch, InstanceChange
 
 
-@pytest.mark.skip('INDY-79. Implement')
-def test_empty_args_fail(testNode):
-    before_msg = len(testNode.nodeInBox)
-    while pytest.raises(AssertionError):
-        testNode.handleOneNodeMsg(())
-    assert before_msg == len(testNode.nodeInBox), \
-        'nodeInBox has not got a message'
-
-
-@pytest.mark.skip('INDY-79. Implement')
-def test_too_many_args_fail(testNode):
-    before_msg = len(testNode.nodeInBox)
-    testNode.handleOneNodeMsg(({}, 'otherNone', 'extra_arg'))
-    while pytest.raises(AssertionError):
-        testNode.handleOneNodeMsg(())
-    assert before_msg == len(testNode.nodeInBox), \
-        'nodeInBox has not got a message'
+def test_unpack_node_msg_with_str_as_msg_in_batch(create_node_and_not_start):
+    node = create_node_and_not_start
+    while node.nodeInBox:
+        node.nodeInBox.pop()
+    batch = Batch(['pi',
+                   '{"op": "INSTANCE_CHANGE",'
+                   ' "viewNo": 1, '
+                   ' "reason": 25}'], None)
+    node.unpackNodeMsg(batch, 'SomeNode')
+    assert len(node.nodeInBox) == 1
+    m, frm = node.nodeInBox.pop()
+    assert isinstance(m, InstanceChange)

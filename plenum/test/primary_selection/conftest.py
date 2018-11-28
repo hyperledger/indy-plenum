@@ -4,7 +4,6 @@ from plenum.test.conftest import getValueFromModule
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.primary_selection.helper import check_newly_added_nodes, \
     getPrimaryNodesIdxs
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 from plenum.test.pool_transactions.conftest import sdk_node_theta_added
 
 

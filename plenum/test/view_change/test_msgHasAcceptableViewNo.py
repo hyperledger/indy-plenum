@@ -25,7 +25,7 @@ def test_future_vcdone_vc(fake_node, view_change_in_progress):
 def test_from_current_state(fake_node):
     """
     If from_current_state is True and is initial propagate primary (current viewNo is 0),
-    then message should be put into msgsToViewChanger queue with is_initial_propagate_primary flag as True
+    then message should be put into msgsToViewChanger queue with from_current_state flag as True
     """
     frm = 'Node3'
     fake_node.view_changer.view_change_in_progress = False
@@ -35,5 +35,5 @@ def test_from_current_state(fake_node):
     res = Node.msgHasAcceptableViewNo(fake_node, msg, frm, from_current_state=True)
     msg, frm = fake_node.msgsToViewChanger[0]
     assert len(fake_node.msgsToViewChanger) == 1
-    assert msg.is_initial_propagate_primary
+    assert msg.from_current_state
     assert res is False

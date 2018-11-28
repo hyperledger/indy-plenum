@@ -252,7 +252,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Calculate and return the metrics.
         """
         masterThrp, backupThrp = self.getThroughputs(self.instances.masterId)
-        r = self.masterThroughputRatio()
+        r = self.instance_throughput_ratio(self.instances.masterId)
         m = [
             ("{} Monitor metrics:".format(self), None),
             ("Delta", self.Delta),
@@ -293,6 +293,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         tm = config.throughput_measurement_class(
             **config.throughput_measurement_params)
         tm.init_time(start_ts)
+        logger.trace("Creating throughput measurement class {} with parameters {}"
+                     .format(str(config.throughput_measurement_class), str(config.throughput_measurement_params)))
         return tm
 
     def reset(self):
@@ -434,15 +436,30 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                      # self.isMasterReqLatencyTooHigh() or
                      self.isMasterAvgReqLatencyTooHigh()))
 
-    def masterThroughputRatio(self):
+    def areBackupsDegraded(self):
         """
-        The relative throughput of the master instance compared to the backup
+        Return slow instance.
+        """
+        slow_instances = []
+        if self.acc_monitor:
+            for instance in self.instances.backupIds:
+                if self.acc_monitor.is_instance_degraded(instance):
+                    slow_instances.append(instance)
+        else:
+            for instance in self.instances.backupIds:
+                if self.is_instance_throughput_too_low(instance):
+                    slow_instances.append(instance)
+        return slow_instances
+
+    def instance_throughput_ratio(self, inst_id):
+        """
+        The relative throughput of an instance compared to the backup
         instances.
         """
-        masterThrp, backupThrp = self.getThroughputs(self.instances.masterId)
+        inst_thrp, otherThrp = self.getThroughputs(inst_id)
 
         # Backup throughput may be 0 so moving ahead only if it is not 0
-        r = masterThrp / backupThrp if backupThrp and masterThrp is not None \
+        r = inst_thrp / otherThrp if otherThrp and inst_thrp is not None \
             else None
         return r
 
@@ -451,20 +468,26 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the throughput of the master instance is greater than the
         acceptable threshold
         """
-        r = self.masterThroughputRatio()
-        if r is None:
-            logger.debug("{} master throughput is not measurable.".
-                         format(self))
-            return None
+        return self.is_instance_throughput_too_low(self.instances.masterId)
 
-        tooLow = r < self.Delta
-        if tooLow:
-            logger.display("{}{} master throughput ratio {} is lower than Delta {}.".
-                           format(MONITORING_PREFIX, self, r, self.Delta))
+    def is_instance_throughput_too_low(self, inst_id):
+        """
+        Return whether the throughput of the master instance is greater than the
+        acceptable threshold
+        """
+        r = self.instance_throughput_ratio(inst_id)
+        if r is None:
+            logger.debug("{} instance {} throughput is not "
+                         "measurable.".format(self, inst_id))
+            return None
+        too_low = r < self.Delta
+        if too_low:
+            logger.display("{}{} instance {} throughput ratio {} is lower than Delta {}.".
+                           format(MONITORING_PREFIX, self, inst_id, r, self.Delta))
         else:
-            logger.trace("{} master throughput ratio {} is acceptable.".
-                         format(self, r))
-        return tooLow
+            logger.trace("{} instance {} throughput ratio {} is acceptable.".
+                         format(self, inst_id, r))
+        return too_low
 
     def isMasterReqLatencyTooHigh(self):
         """
@@ -491,23 +514,31 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the average request latency of the master instance is
         greater than the acceptable threshold
         """
-        avg_lat_master, avg_lat_backup = self.getLatencies()
-        if not avg_lat_master or not avg_lat_backup:
+        return self.is_instance_avg_req_latency_too_high(self.instances.masterId)
+
+    def is_instance_avg_req_latency_too_high(self, inst_id):
+        """
+        Return whether the average request latency of an instance is
+        greater than the acceptable threshold
+        """
+        avg_lat, avg_lat_others = self.getLatencies()
+        if not avg_lat or not avg_lat_others:
             return False
 
-        d = avg_lat_master - avg_lat_backup
+        d = avg_lat - avg_lat_others
         if d < self.Omega:
             return False
 
-        logger.info("{}{} found difference between master's and "
-                    "backups's avg latency {} to be higher than the "
-                    "threshold".format(MONITORING_PREFIX, self, d))
-        logger.trace(
-            "{}'s master's avg request latency is {} and backup's "
-            "avg request latency is {}".format(self, avg_lat_master, avg_lat_backup))
+        if inst_id == self.instances.masterId:
+            logger.info("{}{} found difference between master's and "
+                        "backups's avg latency {} to be higher than the "
+                        "threshold".format(MONITORING_PREFIX, self, d))
+            logger.trace(
+                "{}'s master's avg request latency is {} and backup's "
+                "avg request latency is {}".format(self, avg_lat, avg_lat_others))
         return True
 
-    def getThroughputs(self, masterInstId: int):
+    def getThroughputs(self, desired_inst_id: int):
         """
         Return a tuple of  the throughput of the given instance and the average
         throughput of the remaining instances.
@@ -515,29 +546,30 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         :param instId: the id of the protocol instance
         """
 
-        masterThrp = self.getThroughput(masterInstId)
-        totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
+        instance_thrp = self.getThroughput(desired_inst_id)
+        totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=desired_inst_id)
         # Average backup replica's throughput
         if len(self.throughputs) > 1:
             thrs = []
-            for instId, thr_obj in self.throughputs.items():
-                if instId != masterInstId:
-                    thr = self.getThroughput(instId)
-                    if thr is not None:
-                        thrs.append(thr)
+            for inst_id, thr_obj in self.throughputs.items():
+                if inst_id == desired_inst_id:
+                    continue
+                thr = self.getThroughput(inst_id)
+                if thr is not None:
+                    thrs.append(thr)
             if thrs:
-                backupThrp = self.throughput_avg_strategy_cls.get_avg(thrs)
+                other_thrp = self.throughput_avg_strategy_cls.get_avg(thrs)
             else:
-                backupThrp = None
+                other_thrp = None
         else:
-            backupThrp = None
-        if masterThrp == 0:
-            if self.numOrderedRequests[masterInstId] == (0, 0):
+            other_thrp = None
+        if instance_thrp == 0:
+            if self.numOrderedRequests[desired_inst_id] == (0, 0):
                 avgReqsPerInst = (totalReqs or 0) / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
-                    masterThrp = None
-        return masterThrp, backupThrp
+                    instance_thrp = None
+        return instance_thrp, other_thrp
 
     def getThroughput(self, instId: int) -> float:
         """
@@ -569,16 +601,20 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             return None, None
 
-    def getLatencies(self):
-        avg_lat_master = self.getLatency(self.instances.masterId)
-        avg_lat_backup_by_inst = []
-        for instId in self.instances.backupIds:
-            lat = self.getLatency(instId)
+    def getLatencies(self, desired_inst_id=None):
+        if desired_inst_id is None:
+            desired_inst_id = self.instances.masterId
+        avg_lat = self.getLatency(desired_inst_id)
+        avg_lat_others_by_inst = []
+        for inst_id in self.instances.ids:
+            if desired_inst_id == inst_id:
+                continue
+            lat = self.getLatency(inst_id)
             if lat:
-                avg_lat_backup_by_inst.append(lat)
-        avg_lat_backup_ = self.latency_avg_for_backup_cls.get_avg(avg_lat_backup_by_inst)\
-            if avg_lat_backup_by_inst else None
-        return avg_lat_master, avg_lat_backup_
+                avg_lat_others_by_inst.append(lat)
+        avg_lat_others = self.latency_avg_for_backup_cls.get_avg(avg_lat_others_by_inst)\
+            if avg_lat_others_by_inst else None
+        return avg_lat, avg_lat_others
 
     def getLatency(self, instId: int) -> float:
         """
