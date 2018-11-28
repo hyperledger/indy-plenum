@@ -1,0 +1,79 @@
+@startuml
+start
+partition Node {
+    :Read Request<
+    note right
+        Client sends a read request to one node only
+    end note
+
+    if (Parse Request) then (failed)
+        #pink:NACK>
+    elseif (GET_TXN?) then (yes)
+        :Get From Ledger;
+        #lightgreen:ACK>
+        #lightgreen:REPLY>
+        note right
+          As of now, it requires
+          consensus (f+1 equal replies)
+        end note
+    elseif (Static Validation) then (not passed)
+        #pink:NACK>
+    else
+        #lightgreen:ACK>
+        :Get Reply From State Trie
+          - <color gray>result</color>
+          - <color blue>timestamp</color>
+          - <color brown>state root hash</color>;
+        :Create <color green>State Proof</color>
+         for <color gray>result</color> and <color brown>state root hash</color>;
+        :Get <color purple>BLS multi-signature</color>
+        for the <color brown>state root hash</color>;
+        #lightgreen:REPLY
+         - <color gray>result</color>
+         - <color blue>timestamp</color>
+         - <color brown>state root hash</color>
+         - <color green>State Proof</color>
+         - <color purple>BLS multi-signature</color>
+         >
+        note right
+            Since it has State Proof
+            and BLS multi-signature for the state,
+            it's sufficient to get Reply from
+            one Node only
+        end note
+
+    endif
+
+    stop
+}
+
+
+partition Client {
+    start
+
+    repeat
+
+        repeat
+          if (all nodes asked) then (yes)
+            stop
+          endif
+          :Read Request to one Node>
+        repeat while (got reply in X secs) is (no)
+
+        if (got NACK) then (yes)
+        elseif (got REPLY) then (no)
+        elseif (has <color purple>BLS multi-signature</color>
+         and <color green>State Proof</color>) then (no)
+        elseif (<color purple>BLS multi-signature</color> valid) then (no)
+        elseif (<color green>State Proof</color> valid) then (no)
+        elseif (<color blue>timestamp</color> is fresh enough) then (no)
+        else (yes)
+          :Process <color gray>result</color>;
+          stop
+        endif
+
+    repeat while (f+1 equal REPLY or NACK) is (no)
+    :Process <color gray>result</color> or NACK;
+    stop
+}
+@enduml

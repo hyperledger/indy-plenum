@@ -1,6 +1,6 @@
 import math
 import struct
-from numbers import Real
+from numbers import Real, Number
 from typing import List, Union, Optional
 
 

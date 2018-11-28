@@ -23,7 +23,7 @@ from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 from stp_core.common.util import adict
 
 
-CLIENT_CONNECTIONS_LIMIT = 15360
+CLIENT_CONNECTIONS_LIMIT = 500
 
 
 class TestNetworkSetup:
