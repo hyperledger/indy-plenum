@@ -8,6 +8,7 @@ from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
 from plenum.test.bls.helper import process_commits_for_key, calculate_multi_sig, create_commit_no_bls_sig, \
@@ -48,6 +49,7 @@ def pool_state_root(bls_bft_replicas):
 @pytest.fixture()
 def fake_pre_prepare_with_bls(fake_multi_sig):
     params = create_pre_prepare_params(state_root=fake_multi_sig.value.state_root_hash,
+                                       pool_state_root=fake_multi_sig.value.pool_state_root_hash,
                                        bls_multi_sig=fake_multi_sig)
     return PrePrepare(*params)
 
@@ -55,6 +57,7 @@ def fake_pre_prepare_with_bls(fake_multi_sig):
 @pytest.fixture()
 def fake_pre_prepare_with_bls_pool_ledger(fake_multi_sig):
     params = create_pre_prepare_params(state_root=fake_multi_sig.value.state_root_hash,
+                                       pool_state_root=fake_multi_sig.value.pool_state_root_hash,
                                        bls_multi_sig=fake_multi_sig,
                                        ledger_id=POOL_LEDGER_ID)
     return PrePrepare(*params)
@@ -88,6 +91,7 @@ def multi_signature(bls_bft_replicas, multi_sig_value):
 @pytest.fixture()
 def pre_prepare_with_bls(multi_signature):
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
+                                       pool_state_root=multi_signature.value.pool_state_root_hash,
                                        bls_multi_sig=multi_signature)
     return PrePrepare(*params)
 
@@ -95,6 +99,7 @@ def pre_prepare_with_bls(multi_signature):
 @pytest.fixture()
 def pre_prepare_with_bls_pool_ledger(multi_signature):
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
+                                       pool_state_root=multi_signature.value.pool_state_root_hash,
                                        bls_multi_sig=multi_signature,
                                        ledger_id=POOL_LEDGER_ID)
     return PrePrepare(*params)
@@ -104,6 +109,7 @@ def pre_prepare_with_bls_pool_ledger(multi_signature):
 def pre_prepare_with_incorrect_bls(multi_signature):
     multi_signature.signature = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
+                                       pool_state_root=multi_signature.value.pool_state_root_hash,
                                        bls_multi_sig=multi_signature)
     return PrePrepare(*params)
 
@@ -112,14 +118,16 @@ def pre_prepare_with_incorrect_bls(multi_signature):
 def pre_prepare_with_incorrect_bls_pool_ledger(multi_signature):
     multi_signature.signature = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
+                                       pool_state_root=multi_signature.value.pool_state_root_hash,
                                        bls_multi_sig=multi_signature,
                                        ledger_id=POOL_LEDGER_ID)
     return PrePrepare(*params)
 
 
 @pytest.fixture()
-def pre_prepare_no_bls(state_root):
-    params = create_pre_prepare_params(state_root=state_root)
+def pre_prepare_no_bls(state_root, pool_state_root):
+    params = create_pre_prepare_params(state_root=state_root,
+                                       pool_state_root=pool_state_root)
     return PrePrepare(*params)
 
 
@@ -204,6 +212,18 @@ def test_update_commit_pool_ledger(bls_bft_replicas, fake_pre_prepare_with_bls_p
         assert params == params_initial
 
 
+def test_update_commit_without_bls_crypto_signer(bls_bft_replicas, fake_pre_prepare_with_bls_pool_ledger):
+    params = create_commit_params(0, 0)
+    params_initial = copy(params)
+    for bls_bft_replica in bls_bft_replicas:
+        bls_crypto_signer = bls_bft_replica._bls_bft.bls_crypto_signer
+        bls_bft_replica._bls_bft.bls_crypto_signer = None
+        params = bls_bft_replica.update_commit(params,
+                                               fake_pre_prepare_with_bls_pool_ledger)
+        bls_bft_replica._bls_bft.bls_crypto_signer = bls_crypto_signer
+        assert params == params_initial
+
+
 # ------ VALIDATE 3PC MESSAGES ------
 
 def test_validate_pre_prepare_no_sigs(bls_bft_replicas, pre_prepare_no_bls):
@@ -218,6 +238,19 @@ def test_validate_pre_prepare_correct_multi_sig(bls_bft_replicas, pre_prepare_wi
         for verifier_bls_bft_replica in bls_bft_replicas:
             assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls,
                                                                      sender_bls_bft_replica.node_id)
+
+
+def test_validate_pre_prepare_does_not_use_committed_pool_state(bls_bft_replicas,
+                                                                pre_prepare_with_bls,
+                                                                monkeypatch):
+    for sender_bls_bft_replica in bls_bft_replicas:
+        for verifier_bls_bft_replica in bls_bft_replicas:
+            monkeypatch.setattr(verifier_bls_bft_replica._bls_bft.bls_key_register,
+                                'get_pool_root_hash_committed',
+                                lambda: None)
+            assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls,
+                                                                     sender_bls_bft_replica.node_id)
+            monkeypatch.undo()
 
 
 def test_validate_pre_prepare_correct_multi_sig_pool(bls_bft_replicas,
@@ -278,9 +311,23 @@ def test_validate_commit_correct_sig_second_time(bls_bft_replicas, pre_prepare_w
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
         for verifier_bls_bft in bls_bft_replicas:
-            assert not verifier_bls_bft.validate_commit(commit,
-                                                        sender_bls_bft.node_id,
-                                                        pre_prepare_with_bls)
+            assert verifier_bls_bft.validate_commit(commit,
+                                                    sender_bls_bft.node_id,
+                                                    pre_prepare_with_bls) is None
+
+
+def test_validate_commit_does_not_use_committed_pool_state(bls_bft_replicas, pre_prepare_with_bls, monkeypatch):
+    key = (0, 0)
+    for sender_bls_bft in bls_bft_replicas:
+        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
+        for verifier_bls_bft in bls_bft_replicas:
+            monkeypatch.setattr(verifier_bls_bft._bls_bft.bls_key_register,
+                                'get_pool_root_hash_committed',
+                                lambda: None)
+            assert verifier_bls_bft.validate_commit(commit,
+                                                    sender_bls_bft.node_id,
+                                                    pre_prepare_with_bls) is None
+            monkeypatch.undo()
 
 
 def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
@@ -293,6 +340,19 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
                                                       sender_bls_bft.node_id,
                                                       pre_prepare_with_bls)
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
+
+
+def test_validate_commit_signature_without_pool_state_root(bls_bft_replicas, multi_signature):
+    key = (0, 0)
+    params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash)
+    pre_prepare = PrePrepare(*params)
+    setattr(pre_prepare, f.BLS_MULTI_SIG.nm, multi_signature)
+    for sender_bls_bft in bls_bft_replicas:
+        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare)
+        for verifier_bls_bft in bls_bft_replicas:
+            assert verifier_bls_bft.validate_commit(commit,
+                                                    sender_bls_bft.node_id,
+                                                    pre_prepare) is None
 
 
 def test_validate_commit_incorrect_sig_pool(bls_bft_replicas, pre_prepare_with_bls_pool_ledger):

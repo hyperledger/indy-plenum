@@ -1,0 +1,327 @@
+@startuml
+!pragma teoz true
+hide footbox
+
+participant Client
+participant Node1
+participant Node2
+participant Node3
+participant Node4
+
+note over Node1, Node4
+    Plenum implements RBFT Consensus Protocol with some improvements:
+        1. RBFT describes a distinct 3-phase commit for each request, but in Plenum, a 3-phase commit happens on
+            batch of requests.
+        2. Consensus is combined with validation of transactions.
+            PRE-PREPARE and PREPARE contain merkle tree roots and state trie roots which are used to confirm that
+            each node has the same ledger and state on executing the batch of requests.
+        3. PRE-PREPARE contains a timestamp for the batch.
+            The follower nodes validate the timestamp and if valid, acknowledge with a PREPARE.
+            The timestamp is stored in the ledger for each transaction.
+        4. The 3-phase commit also includes a signature aggregation protocol where all nodes submit their signatures
+            on the state trie root and those signatures are aggregated and stored.
+            Later when a client needs to query the state, the client is given a proof over the state value and
+            the signed (with aggregated signature) root.
+            Thus the client does not have to rely on a response from multiple nodes.
+            The signature scheme used is BLS.
+end note
+
+note over Node1, Node4 #FFAAAA
+   Plenum has a couple of important TBD Items described in Three-Phase Commit Section.
+end note
+
+
+== Write Request Propagation ==
+
+Client ->> Node1: Write Request
+Client ->> Node2: Write Request
+Client ->> Node3: Write Request
+Client ->> Node4: Write Request
+note right Node4
+    <b>Write Request:
+    Client sends Write Request to Nodes
+end note
+
+Node1 -> Node1: Do Static Validation
+& Node2 -> Node2: Do Static Validation
+& Node3 -> Node3: Do Static Validation
+& Node4 -> Node4: Do Static Validation
+note right Node4
+    <b>Do Static Validation:
+    When Request is received by a node for the first time
+    (from Client OR via PROPAGATE) do the following:
+        - validate schema,
+        - do static validation (not taking into account
+          current state and order of requests),
+        - verify signature
+end note
+
+Node1 ->> Node2: PROPAGATE
+Node1 ->> Node3: PROPAGATE
+Node1 ->> Node4: PROPAGATE
+Node1 ->> Client: ACK
+
+Node2 ->> Node1: PROPAGATE
+Node2 ->> Node3: PROPAGATE
+Node2 ->> Node4: PROPAGATE
+Node2 ->> Client: ACK
+
+Node3 ->> Node1: PROPAGATE
+Node3 ->> Node2: PROPAGATE
+Node3 ->> Node4: PROPAGATE
+Node3 ->> Client: ACK
+
+Node4 ->> Node1: PROPAGATE
+Node4 ->> Node2: PROPAGATE
+Node4 ->> Node3: PROPAGATE
+Node4 ->> Client: ACK
+
+note right Node4
+    <b>PROPAGATE contains:
+        - Request,
+        - Sender of Request
+end note
+
+note right Node4
+    <b>ACK:
+    Successfully validated Request is acknowledged
+end note
+
+group On gathering f+1 PROPAGATEs (2 in this example)
+    Node1 -> Node1: Forward Request
+    & Node2 -> Node2: Forward Request
+    & Node3 -> Node3: Forward Request
+    & Node4 -> Node4: Forward Request
+    note right Node4
+        <b>Forward Request:
+        Forward Request to Replicas
+    end note
+end note
+
+== Three-phase Commit ==
+
+note over Node1, Node4
+    RBFT has f+1 protocol instances:
+        - master instance responsible for ordering and applying requests,
+        - f backup (redundant) instances needed to evaluate performance of master instance
+          and trigger View Change in case of degraded master
+    Node participates in each protocol by a distinct replica.
+    So Node has f+1 Replicas: master replica and f backup replicas.
+end note
+
+note over Node1, Node4 #FFAAAA
+    <b>TBD 1
+    Plenum is a single-process application, while RBFT requires that all Replicas are run in separate processes
+    leveraging multi-core architecture.
+    This may lead to false positive view changes and affects performance of the system.
+end note
+
+note over Node1, Node4 #FFAAAA
+    <b>TBD 2
+    Since consensus is combined with Validation of transactions, Plenum's Master Instance of the protocol performs
+    more work than backup instances (see items in <color blue>blue</color>).
+    This may lead to false positive view changes.
+end note
+
+loop For each protocol instance (2 in this example):<color blue>Master</color> and <color gray>Backup</color>
+
+    note over Node1, Node4
+        Three-phase commit is performed in parallel in all protocol instances.
+        Items related to <color blue><b>Master</b></color> Instance only are marked with   <color blue><b>blue color</b></color>.
+        <b>Each instance primary is located on its own node.</b> In this example:
+        Node1 is primary of  <color blue><b>Master</b></color> protocol instance,
+        Node2 is primary of  <color gray><b>Backup</b></color> protocol instance <i> (omitted in diagram for simplicity)</i>  .
+    end note
+
+    group Pre-Prepare phase
+
+        Node1 -> Node1: Create 3PC Batch
+        note right Node4
+            <b>Create 3PC Batch:</b>
+            For each ledger:
+                Each Max3PCBatchSize requests OR Max3PCBatchWait seconds
+                (depending on which is reached first):
+                    - dequeue forwarded requests for the ledger,
+                    - create 3PC Batch with dequeued requests
+        end note
+
+        Node1 -> Node1: <color blue>Apply 3PC Batch
+        note right Node4 
+            <color blue><b>Apply 3PC Batch:
+            <color blue>For each request in 3PC Batch:
+                <color blue>- do dynamic validation (against uncommitted state),
+                <color blue>- if passed, apply request to ledger and state,
+                <color blue>  else discard request.
+            <color blue>Eventually get:
+                <color blue>- ledger_uncommitted,
+                <color blue>- state_uncommitted,
+                <color blue>- set of discared requests.
+        end note
+
+        Node1 ->> Node2: PRE-PREPARE
+        Node1 ->> Node3: PRE-PREPARE
+        Node1 ->> Node4: PRE-PREPARE
+        note right Node4
+            <b>PRE-PREPARE contains:
+                - (view_no, pre_prepare_seq_no),
+                - pre-prepare time,
+                - all requests keys,
+                <color blue>- discarded requests keys,
+                - digest of all requests,
+                - ledger ID,
+                <color blue>- ledger_uncommitted,
+                <color blue>- state_uncommitted,
+                <color blue>- BLS multi-signature of previous 3PC batch
+            <i>Note: request digest serves as its key
+        end note
+
+    end
+
+    group Prepare phase: on receiving PRE-PREPARE
+
+            Node2 -> Node2: <color blue>Apply 3PC Batch
+            & Node3 -> Node3: <color blue>Apply 3PC Batch
+            & Node4 -> Node4: <color blue>Apply 3PC Batch
+
+            Node2 -> Node2: Verify PRE-PREPARE
+            & Node3 -> Node3: Verify PRE-PREPARE
+            & Node4 -> Node4: Verify PRE-PREPARE
+            note right Node4
+                <b>Verify PRE-PREPARE:
+                    - pre-prepare time is acceptable,
+                    - all previous PRE-PREPAREs have already been applied
+                      <i>(since PRE-PREPAREs must be applied sequentially only),
+                    <color blue>- BLS multi-signature of previous 3PC batch is the same,
+                    <color blue>- discarded requests keys are the same,
+                    - digest of all requests is the same,
+                    <color blue>- ledger_uncommitted is the same,
+                    <color blue>- state_uncommitted is the same
+            end note
+
+            Node2 ->> Node1: PREPARE
+            Node2 ->> Node3: PREPARE
+            Node2 ->> Node4: PREPARE
+
+            Node3 ->> Node1: PREPARE
+            Node3 ->> Node2: PREPARE
+            Node3 ->> Node4: PREPARE
+
+            Node4 ->> Node1: PREPARE
+            Node4 ->> Node2: PREPARE
+            Node4 ->> Node3: PREPARE
+
+            note right Node4
+                <b>PREPARE contains:
+                    - (view_no, pre_prepare_seq_no),
+                    - pre-prepare time,
+                    - digest of all requests,
+                    <color blue>- ledger_uncommitted,
+                    <color blue>- state_uncommitted
+                <i>(values are the same as in PRE-PREPARE)
+            end note
+
+        Node1 -> Node1: Verify PREPAREs
+        & Node2 -> Node2: Verify PREPAREs
+        & Node3 -> Node3: Verify PREPAREs
+        & Node4 -> Node4: Verify PREPAREs
+        note right Node4
+            <b>Verify PREPAREs:
+                - digest of all requests is the same,
+                <color blue>- ledger_uncommitted is the same,
+                <color blue>- state_uncommitted is the same
+        end note
+
+    end
+
+    group Commit phase: on gathering n-f-1 PREPAREs (2 in this example)
+
+        Node1 -> Node1: <color blue>Sign with BLS Key
+        & Node2 -> Node2: <color blue>Sign with BLS Key
+        & Node3 -> Node3: <color blue>Sign with BLS Key
+        & Node4 -> Node4: <color blue>Sign with BLS Key
+        note right Node4
+            <color blue><b>Sign with BLS Key:
+            <color blue>Sign 3PC Batch with BLS key
+        end note
+
+        Node1 ->> Node2: COMMIT
+        Node1 ->> Node3: COMMIT
+        Node1 ->> Node4: COMMIT
+
+        Node2 ->> Node1: COMMIT
+        Node2 ->> Node3: COMMIT
+        Node2 ->> Node4: COMMIT
+
+        Node3 ->> Node1: COMMIT
+        Node3 ->> Node2: COMMIT
+        Node3 ->> Node4: COMMIT
+
+        Node4 ->> Node1: COMMIT
+        Node4 ->> Node2: COMMIT
+        Node4 ->> Node3: COMMIT
+
+        note right Node4
+            <b>COMMIT contains:
+                - (view_no, pre_prepare_seq_no),
+                - <color blue>BLS signature
+        end note
+
+        Node1 -> Node1: Verify COMMITs
+        & Node2 -> Node2: Verify COMMITs
+        & Node3 -> Node3: Verify COMMITs
+        & Node4 -> Node4: Verify COMMITs
+        note right Node4
+            <b>Verify COMMITs:
+                <color blue>- Verify BLS signature according to sending node
+        end note
+
+    end
+
+    group Order phase: on gathering n-f COMMITs (3 in this example)
+
+        Node1 -> Node1: <color blue>Calculate\n<color blue>BLS Multi-signature
+        & Node2 -> Node2: <color blue>Calculate\n<color blue>BLS Multi-signature
+        & Node3 -> Node3: <color blue>Calculate\n<color blue>BLS Multi-signature
+        & Node4 -> Node4: <color blue>Calculate\n<color blue>BLS Multi-signature
+        note right Node4
+            <color blue><b>Calculate BLS Multi-signature:
+            <color blue>Calculate BLS multi-signature using
+            <color blue>BLS signatures from nodes in consensus
+        end note
+
+        Node1 -> Node1: Order 3PC Batch
+        & Node2 -> Node2: Order 3PC Batch
+        & Node3 -> Node3: Order 3PC Batch
+        & Node4 -> Node4: Order 3PC Batch
+        note right Node4
+            <b>Order 3PC Batch:
+            Return ordered 3PC Batch to Node
+        end note
+
+    end
+
+end loop
+
+== Writing to Ledger ==
+
+Node1 -> Node1: Execute 3PC Batch\nfrom <color blue>Master</color>
+& Node2 -> Node2: Execute 3PC Batch\nfrom <color blue>Master</color>
+& Node3 -> Node3: Execute 3PC Batch\nfrom <color blue>Master</color>
+& Node4 -> Node4: Execute 3PC Batch\nfrom <color blue>Master</color>
+note right Node4
+    <b>Execute 3PC Batch from <color blue>Master</color>:
+    Execute 3PC batch from <color blue>Master</color> protocol instance:
+        - commit ledger_uncommitted,
+        - commit state_uncommitted
+end note
+
+Node1 ->> Client: REPLY
+Node2 ->> Client: REPLY
+Node3 ->> Client: REPLY
+Node4 ->> Client: REPLY
+note right Node4
+    <b>REPLY:
+    Request written to ledger is replied
+end note
+
+@enduml

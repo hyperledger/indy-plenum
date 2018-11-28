@@ -4,7 +4,7 @@ from plenum.test.test_node import TestNode
 
 
 def checkNomination(node: TestNode, nomineeName: str):
-    matches = [replica.name for instId, replica in node.elector.replicas if
+    matches = [replica.name for instId, replica in node.elector.replicas.items() if
                node.elector.didReplicaNominate(instId) is True and
                replica.name in node.elector.nominations[instId] and
                node.elector.nominations[instId][replica.name][0] ==
@@ -20,7 +20,7 @@ def getSelfNominationByNode(node: TestNode) -> int:
     @param node: the node
     @return: the protocol instance index
     """
-    for instId, replica in node.elector.replicas:
+    for instId, replica in node.elector.replicas.items():
         name = Replica.generateName(node.name, instId)
         if node.elector.nominations.get(instId, {}).get(name, [None, ])[
             0] == name:

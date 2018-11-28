@@ -25,14 +25,14 @@ def view_change_in_progress(view_setup, txnPoolNodeSet):
         node.view_changer.view_change_in_progress = True
         node.view_changer.previous_master_primary = node.master_primary_name
         node.view_changer.set_defaults()
-        for inst_id, replica in node.replicas:
+        for inst_id, replica in node.replicas.items():
             replica.primaryName = None
 
 
 @pytest.fixture(scope="function")
 def clear_checkpoints(txnPoolNodeSet):
     for node in txnPoolNodeSet:
-        for inst_id, replica in node.replicas:
+        for inst_id, replica in node.replicas.items():
             replica.checkpoints.clear()
             replica.stashedRecvdCheckpoints.clear()
 

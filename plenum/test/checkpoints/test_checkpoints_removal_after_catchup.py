@@ -19,7 +19,7 @@ def view_setup(looper, txnPoolNodeSet):
 @pytest.fixture(scope="function")
 def clear_checkpoints(txnPoolNodeSet):
     for node in txnPoolNodeSet:
-        for inst_id, replica in node.replicas:
+        for inst_id, replica in node.replicas.items():
             replica.checkpoints.clear()
             replica.stashedRecvdCheckpoints.clear()
 
