@@ -4,13 +4,9 @@ from copy import copy
 import pytest
 
 from common.exceptions import LogicError, PlenumValueError
-from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.server.suspicion_codes import Suspicions
-from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls
 from plenum.test.primary_selection.test_primary_selector import FakeNode
 from plenum.test.testing_utils import FakeSomething
 from plenum.common.constants import POOL_LEDGER_ID, CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
-from plenum.common.messages.fields import MerkleRootField
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
 from plenum.server.suspicion_codes import Suspicions
@@ -287,7 +283,7 @@ def test_process_pre_prepare_with_not_final_request(fake_node):
     assert (pp, replica.primaryName, pp.reqIdr) in replica.prePreparesPendingFinReqs
 
 
-def test_process_pre_prepare_with_not_ordered_request(fake_node):
+def test_process_pre_prepare_with_ordered_request(fake_node):
     fake_node.seqNoDB = FakeSomething(get=lambda req: (1, 1))
     replica = fake_node.replicas[0]
 
@@ -295,7 +291,7 @@ def test_process_pre_prepare_with_not_ordered_request(fake_node):
     replica.nonFinalisedReqs = lambda a: pp.reqIdr
 
     def reportSuspiciousNodeEx(ex):
-        assert ex.code == Suspicions.DUPLICATE_PPR_SENT.code
+        assert ex.code == Suspicions.PPR_WITH_ORDERED_REQUEST.code
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
     def request_propagates(reqs):
