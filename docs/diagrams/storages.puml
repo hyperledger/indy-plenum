@@ -1,10 +1,22 @@
 @startuml
+
+note "Default storage names are in <b><color blue>blue</color></b>" as N1
+
 rectangle "Ledgers" {
 
     database "Pool Ledger" as PL {
-      storage "Transaction Log" as P1
-      storage "Merkle Leaves" as P2
-      storage "Merkle Nodes" as P3
+      storage P1[
+      Transaction Log
+      <color blue>pool_transactions</color>
+      ]
+      storage P2[
+      Merkle Leaves
+      <color blue>pool_merkleLeaves</color>
+      ]
+      storage P3[
+      Merkle Node
+      <color blue>pool_merkleNodes</color>
+      ]
     }
     note top of PL
          - Contains transactions defining the nodes in the pool
@@ -14,9 +26,18 @@ rectangle "Ledgers" {
 
 
     database "Domain Ledger" as DL {
-      storage "Transaction Log" as D1
-      storage "Merkle Leaves" as D2
-      storage "Merkle Nodes" as D3
+      storage D1[
+      Transaction Log
+      <color blue>domain_transactions</color>
+      ]
+      storage D2[
+      Merkle Leaves
+      <color blue>domain_merkleLeaves</color>
+      ]
+      storage D3[
+      Merkle Node
+      <color blue>domain_merkleNodes</color>
+      ]
     }
     note top of DL
          - Contains transactions related to the core application logic
@@ -24,9 +45,18 @@ rectangle "Ledgers" {
     end note
 
     database "Config Ledger" as CL {
-      storage "Transaction Log" as C1
-      storage "Merkle Leaves" as C2
-      storage "Merkle Nodes" as C3
+      storage C1[
+      Transaction Log
+      <color blue>config_transactions</color>
+      ]
+      storage C2[
+      Merkle Leaves
+      <color blue>config_merkleLeaves</color>
+      ]
+      storage C3[
+      Merkle Node
+      <color blue>config_merkleNodes</color>
+      ]
     }
     note right of CL
       Contains transactions related to the configuration parameters
@@ -41,15 +71,23 @@ note top of Ledgers
     - States and Caches can be deterministically re-created from the <b>Transaction Log</b>
 end note
 
-
 rectangle "States" {
-    database "Pool State"
-    database "Domain State"
-    database "Config State"
+    database S1[
+    Pool State
+    <color blue>pool_state</color>
+    ]
+    database S2[
+    Domain State
+    <color blue>domain_state</color>
+    ]
+    database S3[
+    Config State
+    <color blue>config_state</color>
+    ]
 }
 note top of States
     - Each Ledger has a State
-    - State is an aggregated view of the ledger used by Node and Application business logic,
+    - State is a resulting view (projection) of the ledger used by Node and Application business logic,
 as well as for read requests
     - The underlying data structure of state is the Patricia Merkle Trie
     - It's possible to get the current value (state) for a key, as well as
@@ -58,14 +96,14 @@ end note
 
 rectangle "Other" {
     database database1 [
-    <b>Node Status</b>
+    <b>Node Status: <color blue>node_status_db</color></b>
 
     Auxiliary storage to persist
     data needed for consensus algorithm
     ]
 
     database database2 [
-    <b>Attribute Storage</b>
+    <b>Attribute Storage: <color blue>attr_db</color></b>
 
     Raw attributes from ATTRIB
     transaction are stored here,
@@ -75,7 +113,7 @@ rectangle "Other" {
     ]
 
     database database3 [
-    <b>BLS Multi-Signature</b>
+    <b>BLS Multi-Signature: <color blue>state_signature</color></b>
 
     Every transaction for the given time
     (that is every update of the state)
@@ -91,7 +129,7 @@ rectangle "Other" {
 
 rectangle "Caches" {
     database database5 [
-    <b>Request to Transaction</b>
+    <b>Request to Transaction: <color blue>seq_no_db</color></b>
 
     <i>RequestKey (digest) -> transaction seqNo</i> mapping.
 
@@ -101,7 +139,7 @@ rectangle "Caches" {
     ]
 
     database database4 [
-    <b>Idr Cache</b>
+    <b>Idr Cache: <color blue>idr_cache_db</color></b>
 
     <i>DID -> verkey/role</i> mapping.
 
@@ -110,9 +148,9 @@ rectangle "Caches" {
     ]
 
     database database6 [
-    <b>Timestamp storage</b>
+    <b>Timestamp storage: <color blue>state_ts_db</color></b>
 
-    <i>timestamp -> State root hash</i> mapping.
+    <i>timestamp -> state root hash</i> mapping.
 
     It's used to get the state root hash
     for the given timestamp to efficiently
