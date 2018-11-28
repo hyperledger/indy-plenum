@@ -19,9 +19,17 @@ end note
 
 Node4 -> Node4: mode = starting
 note right Node4
-    While  <b>mode != participating:
-        - Replicas will discard incoming PRE-PREPAREs,
-        - Node will stash ORDEREDs coming from Replicas
+    <b>While mode != participating:
+        <b>- Replicas will not send/process PRE-PREPAREs,
+        <b>- Replicas will not send COMMIT on gathering quorum of PREPAREs
+          <i>(however, replicas will still be able to order 3PC batches which they have
+          <i>PRE-PREPAREs for; replicas will produce ORDERED on quorum of COMMITs
+          <i>from <b>other</b> replicas),
+        <b>- Node will stash ORDEREDs coming from Replicas
+          <i>(node will process stashed ORDEREDs in safe way at some pre-defined steps
+          <i>of catch-up procedure).
+    <i>This restricted mode of 3PC process during catch-up is needed for nodes to be able
+    <i>to order 3PC batches till prepared certificate during view change.
 end note
 
 loop For each ledger
@@ -72,6 +80,7 @@ loop For each ledger
         note right Node4
             Get <b>Master's 3PC key of last transaction</b>
             from <b>even LEDGER_STATUSes</b>
+            (LEDGER_STATUSes with ledger size equal to own)
         end note
 
         Node4 -> Node4: Update txn_seq_range_to_3phase_key
@@ -115,10 +124,10 @@ loop For each ledger
 
         opt Did not gather f+1 same CONSISTENCY_PROOFs
 
-            Node4 -> Node4: Calculate medium other's ledger size
+            Node4 -> Node4: Determine desired ledger size
             note right Node4
-                Calculate  <b>medium other's ledger size</b>
-                over received CONSISTENCY_PROOFs
+                Determine  <b>desired ledger size</b> as other's ledger size
+                occurred in received CONSISTENCY_PROOFs with median rate
             end note
 
             Node4 -> Node4: Discard received CONSISTENCY_PROOFs
@@ -128,7 +137,7 @@ loop For each ledger
             Node4 ->> Node3: MESSAGE_REQUEST(CONSISTENCY_PROOF)
             note right Node4
                 Ask other nodes for  <b>CONSISTENCY_PROOFs from
-                <b>own ledger size to medium other's ledger size
+                <b>own ledger size to desired ledger size
             end note
 
             Node1 ->> Node4: MESSAGE_RESPONSE(CONSISTENCY_PROOF)
@@ -167,15 +176,20 @@ loop For each ledger
         Node4 -> Node4: Generate CATCHUP_REQs
         note right Node4
             Generate <b>CATCHUP_REQs</b>  for different slices of lacking part
-            of ledger in quantity corresponding to count of other nodes
+            of ledger in quantity equal to count of other nodes
+            <i>For example, ledger size on Node4 is 52 and target ledger size is 82.
+            <i>Following 3 requests (since count of other nodes is 3) will be generated:
+                <i>- CATCHUP_REQ for transactions with seq_nos from 53 to 62,
+                <i>- CATCHUP_REQ for transactions with seq_nos from 63 to 72,
+                <i>- CATCHUP_REQ for transactions with seq_nos from 73 to 82
         end note
 
         Node4 ->> Node1: CATCHUP_REQ
         Node4 ->> Node2: CATCHUP_REQ
         Node4 ->> Node3: CATCHUP_REQ
         note right Node4
-            Send generated CATCHUP_REQs to other nodes -
-            each CATCHUP_REQ is sent to one of the nodes only.
+            Send generated CATCHUP_REQs to other nodes:
+            each request is sent to a distinct node (and to it only).
             <b>Each CATCHUP_REQ contains:
                 - <b>seq_no_start</b> <i>(seq_no of first requested transaction),
                 - <b>seq_no_end</b> <i>(seq_no of last requested transaction),
@@ -266,25 +280,46 @@ opt last_caught_up_3PC > Master's last_ordered_3pc
 
         else Replica is backup
 
-            opt Replica is not primary
+            note right Node4
+                <i>If backup replica is primary then it could not miss any 3PC batches
+                <i>since it is source of them and so it does not need any clearance or
+                <i>updates to proceed 3PC process.
+            end note
+
+            opt Replica is non-primary
+
+                note right Node4
+                    <i>Non-primary backup replica is not informed about last_ordered_3pc
+                    <i>value on up-to-date replicas in its instance. Due to this it intends
+                    <i>to resume 3PC process just from currently incoming messages.
+                    <i>In order to do this, it resets last_ordered_3pc, clears its collections
+                    <i>and widens watermarks.
+                end note
 
                 Node4 -> Node4: Replica's last_ordered_3pc = (current view_no, 0)
 
                 Node4 -> Node4: Clear replica's collections completely
-            note right Node4
-                <b>Clear following replica's collections completely:
-                    - batches,
-                    - sentPrePrepares,
-                    - prePrepares,
-                    - prepares,
-                    - commits,
-                    - requestQueues,
-                    - outBox,
-                    - checkpoints,
-                    - stashedRecvdCheckpoints
-            end note
+                note right Node4
+                    <b>Clear following replica's collections completely:
+                        - batches,
+                        - sentPrePrepares,
+                        - prePrepares,
+                        - prepares,
+                        - commits,
+                        - requestQueues,
+                        - outBox,
+                        - checkpoints,
+                        - stashedRecvdCheckpoints
+                end note
 
                 Node4 -> Node4: Update replica's watermarks to (0, sys.maxsize)
+
+                note right Node4
+                    <i>Later replica will wait for gathering prepared certificate of
+                    <i>incoming 3PC messages with any keys. When it gathers such
+                    <i>certificate, it will adjust last_ordered_3pc right under
+                    <i>prepared certificate key and so will join 3PC process.
+                end note
 
             end note
 
