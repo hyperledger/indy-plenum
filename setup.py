@@ -19,7 +19,7 @@ md = {}
 with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
     exec(f.read(), md)
 
-tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.1.dev683']
+tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.8']
 
 setup(
     name='indy-plenum-dev',  # TODO refers to metadata as well
@@ -58,7 +58,7 @@ setup(
         'benchmark': ['pympler']
     },
     tests_require=tests_require,
-    scripts=['scripts/plenum', 'scripts/init_plenum_keys',
+    scripts=['scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',

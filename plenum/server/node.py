@@ -682,7 +682,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
                 "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primaries)
+                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
             )
 
         self._cancel(self._check_view_change_completed)

@@ -52,6 +52,7 @@ class f:  # provides a namespace for reusable field constants
     REQ_IDR = Field("reqIdr", List[str])
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("stateRootHash", str)
+    POOL_STATE_ROOT_HASH = Field("poolStateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     BLS_SIG = Field("blsSig", str)
     BLS_MULTI_SIG = Field("blsMultiSig", str)

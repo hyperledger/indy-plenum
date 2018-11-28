@@ -14,10 +14,3 @@ def testNodesConnectedUsingConvertedKeys(txnPoolNodeSet):
         publicKey = ed25519PkToCurve25519(node.clientstack.verhex)
         assert unhexlify(node.clientstack.prihex) == secretKey
         assert unhexlify(node.clientstack.pubhex) == publicKey
-
-
-def testClientConnectedUsingConvertedKeys(txnPoolNodeSet, client1, replied1):
-    secretKey = ed25519SkToCurve25519(client1.nodestack.keyhex)
-    publicKey = ed25519PkToCurve25519(client1.nodestack.verhex)
-    assert unhexlify(client1.nodestack.prihex) == secretKey
-    assert unhexlify(client1.nodestack.pubhex) == publicKey
