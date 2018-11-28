@@ -12,7 +12,7 @@ As of now, RocksDB is used as a key-value database for all Storages.
   -   Domain Ledger (id is 1): Contains transactions related to the core application logic. Currently it contains NYM transactions. The `indy-node` codebase extends this ledger with other identity transactions.
   -   Config Ledger (id is 2): Contains transactions related to the configuration parameters for which the pool needs to agree, eg. if each node of the pool needs to use the value `5` for a config variable `x`, then this ledger should contain transaction specifying the value of `x` as `5`. The `indy-node` codebase extends this ledger with source code update transactions.
   - More ledgers can be added by plugins.
-- Each correct node should have exactly the same number of transactions for each ledger id.
+- Each correct node should have exactly the same transactions for each ledger id.
 - A ledger is associated with a [compact merkle tree](https://github.com/google/certificate-transparency/blob/master/python/ct/crypto/merkle.py). 
   - Each new transaction is added to the ledger (log) and is also hashed (sha256) and this hash becomes a new leaf of the merkle tree which also 
 results in a new merkle root. Thus for each transaction a merkle proof of presence, called `inclusion proof` or `audit_path` can be created by 
@@ -25,7 +25,7 @@ The leaf or node hashes are queried by their number.
 - When a client write request completes or it requests a transaction with a particular sequence number from a ledger, 
 the transaction is returned with its inclusion proof. 
 - States and Caches can be deterministically re-created from the Transaction Log.
-- There 9 storages associated with the Ledgers (3 for each of the ledgers):
+- There are 9 storages associated with the Ledgers (3 for each of the ledgers):
   - Pool Ledger:
     - `pool_transactions` (Transaction Log)
     - `pool_merkleLeaves` (Hash Store for leaves)
@@ -57,7 +57,7 @@ keys will result in the same root hash and same inclusion proof.
 - It's possible to get the current value (state) for a key, as well as
     a value from the past (defined by a state root hash). 
 - The state is built from a ledger, hence each ledger will usually have a corresponding state. State can be reconstructed from the Ledger.
-- There 3 storages associated with every Ledger:
+- There are 3 storages associated with every Ledger:
   - `pool_state`
   - `domain_state`
   - `config_state`
@@ -81,7 +81,7 @@ Relevant code:
 - BlsStore: `plenum/bls/bls_store.py`
 
 #### 5. Request to Transaction Mapping Database
-- This database stores the mapping `request_digest -> leger_id<delimiter>seq_no` in a key value store.
+- This database stores the mapping `request_digest -> ledger_id<delimiter>seq_no` in a key value store.
 - Each client request is uniquely identified by a `digest`.
 - When this request is ordered (consensus successfully completes), it is stored in the ledger and assigned a sequence number.
 - One use case is that the client can ask any node to give it the transaction corresponding to a request key `digest`, 
@@ -122,4 +122,4 @@ and RocksDB implementations, as well as file implementations (both single and ch
 
 Relevant code:
 - `storage/kv_store.py`
-- `storage` module
+- `storage` package
