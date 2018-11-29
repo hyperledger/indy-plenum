@@ -1,23 +1,15 @@
 from logging import getLogger
 
-import pytest
-import sys
-
-from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Checkpoint
-
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 
 from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
-from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality, \
+    repair_broken_node
 
 logger = getLogger()
-
-TestRunningTimeLimitSec = 200
-
 
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
@@ -79,18 +71,6 @@ def test_node_catchup_after_checkpoints(
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-
-
-def repair_broken_node(node):
-    node.nodeMsgRouter.extend(
-        (
-            (PrePrepare, node.sendToReplica),
-            (Prepare, node.sendToReplica),
-            (Commit, node.sendToReplica),
-            (Checkpoint, node.sendToReplica),
-        )
-    )
-    return node
 
 
 def get_number_of_completed_catchups(node):

@@ -31,6 +31,7 @@ class f:  # provides a namespace for reusable field constants
     ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
     # Last ordered seq no of each protocol instance, sent during view change
     ORD_SEQ_NOS = Field('ordSeqNos', List[int])
+    INSTANCES = Field('instancesIdr', List[int])
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
@@ -51,6 +52,7 @@ class f:  # provides a namespace for reusable field constants
     REQ_IDR = Field("reqIdr", List[str])
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("stateRootHash", str)
+    POOL_STATE_ROOT_HASH = Field("poolStateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     BLS_SIG = Field("blsSig", str)
     BLS_MULTI_SIG = Field("blsMultiSig", str)

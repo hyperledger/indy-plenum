@@ -1,10 +1,10 @@
 import pytest
+from plenum.test.test_node import getPrimaryReplica
 
 from plenum.common.exceptions import RequestRejectedException
 from plenum.test.delayers import ppgDelay
-from plenum.test.helper import send_pre_prepare, send_prepare, send_commit, \
-    sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies
-from plenum.test.test_node import getPrimaryReplica
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies, send_pre_prepare, \
+    send_prepare, send_commit
 from plenum.test.view_change.helper import check_replica_queue_empty, \
     check_all_replica_queue_empty
 
@@ -27,14 +27,14 @@ def test_no_requests_processed_during_view_change(looper, txnPoolNodeSet,
 
 @pytest.mark.skip('The filter is not enabled now')
 def test_no_new_view_3pc_messages_processed_during_view_change(
-        looper, txnPoolNodeSet, client1, wallet1):
+        looper, txnPoolNodeSet):
     for node in txnPoolNodeSet:
         node.view_change_in_progress = True
 
     new_view_no = getPrimaryReplica(txnPoolNodeSet).node.viewNo + 1
     pp_seq_no = 1
 
-    send_pre_prepare(new_view_no, pp_seq_no, wallet1, txnPoolNodeSet)
+    send_pre_prepare(new_view_no, pp_seq_no, txnPoolNodeSet)
     looper.runFor(1)
     check_all_replica_queue_empty(txnPoolNodeSet)
 

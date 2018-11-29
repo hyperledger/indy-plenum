@@ -1,6 +1,7 @@
 import inspect
 
 from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -468,7 +469,7 @@ class ZStack(NetworkInterface):
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
             errstr = 'Message will be discarded due to {}'.format(ex)
             frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
-            logger.error("Got from {} {}".format(frm, errstr))
+            logger.error("Got from {} {}".format(z85_to_friendly(frm), errstr))
             self.msgRejectHandler(errstr, frm)
             return False
         self.rxMsgs.append((decoded, ident))
@@ -562,14 +563,15 @@ class ZStack(NetworkInterface):
                 continue
 
             if not self.onlyListener and ident not in self.remotesByKeys:
-                logger.warning('{} received message from unknown remote {}'.format(self, ident))
+                logger.warning('{} received message from unknown remote {}'
+                               .format(self, z85_to_friendly(ident)))
                 continue
 
             try:
                 msg = self.deserializeMsg(msg)
             except Exception as e:
                 logger.error('Error {} while converting message {} '
-                             'to JSON from {}'.format(e, msg, ident))
+                             'to JSON from {}'.format(e, msg, z85_to_friendly(ident)))
                 continue
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
@@ -620,7 +622,7 @@ class ZStack(NetworkInterface):
         # re-send previously stashed pings/pongs from unknown remotes
         logger.trace("{} stashed pongs: {}".format(self.name, str(self._stashed_pongs)))
         if publicKey in self._stashed_pongs:
-            logger.trace("{} sending stashed pongs to {}".format(self.name, str(publicKey)))
+            logger.trace("{} sending stashed pongs to {}".format(self.name, str(z85_to_friendly(publicKey))))
             self._stashed_pongs.discard(publicKey)
             self.sendPingPong(name, is_ping=False)
 
@@ -684,10 +686,10 @@ class ZStack(NetworkInterface):
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
         if r[0] is True:
-            logger.debug('{} {}ed {}'.format(self.name, action, name))
+            logger.debug('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
             logger.debug('{} failed to {} {} {}'
-                         .format(self.name, action, name, r[1]),
+                         .format(self.name, action, z85_to_friendly(name), r[1]),
                          extra={"cli": False})
             # try to re-send pongs later
             if not is_ping:
@@ -702,13 +704,13 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.trace('{} got ping from {}'.format(self, frm))
+                logger.trace('{} got ping from {}'.format(self, z85_to_friendly(frm)))
                 self.sendPingPong(frm, is_ping=False)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
                     self._resend_to_disconnected(frm, ident)
-                logger.trace('{} got pong from {}'.format(self, frm))
+                logger.trace('{} got pong from {}'.format(self, z85_to_friendly(frm)))
             return True
         return False
 
@@ -724,11 +726,11 @@ class ZStack(NetworkInterface):
     def _resend_to_disconnected(self, to, ident):
         if not self._can_resend_to_disconnected(to, ident):
             return
-        logger.trace('{} resending stashed messages to {}'.format(self, to))
+        logger.trace('{} resending stashed messages to {}'.format(self, z85_to_friendly(to)))
         msgs = self._stashed_to_disconnected[to]
         while msgs:
             msg = msgs.popleft()
-            self.send(msg, to)
+            ZStack.send(self, msg, to)
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all
@@ -766,33 +768,34 @@ class ZStack(NetworkInterface):
         remote = self.remotes.get(uid)
         err_str = None
         if not remote:
-            logger.debug("Remote {} does not exist!".format(uid))
+            logger.debug("Remote {} does not exist!".format(z85_to_friendly(uid)))
             return False, err_str
         socket = remote.socket
         if not socket:
             logger.debug('{} has uninitialised socket '
-                         'for remote {}'.format(self, uid))
+                         'for remote {}'.format(self, z85_to_friendly(uid)))
             return False, err_str
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
 
             logger.trace('{} transmitting message {} to {} by socket {} {}'
-                         .format(self, msg, uid, socket.FD, socket.underlying))
+                         .format(self, msg, z85_to_friendly(uid), socket.FD, socket.underlying))
             socket.send(msg, flags=zmq.NOBLOCK)
 
             if remote.isConnected or msg in self.healthMessages:
                 self.metrics.add_event(self.mt_outgoing_size, len(msg))
             else:
                 logger.warning('Remote {} is not connected - message will not be sent immediately.'
-                               'If this problem does not resolve itself - check your firewall settings'.format(uid))
+                               'If this problem does not resolve itself - check your firewall settings'
+                               .format(z85_to_friendly(uid)))
                 self._stashed_to_disconnected \
                     .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
                     .append(msg)
 
             return True, err_str
         except zmq.Again:
-            logger.warning('{} could not transmit message to {}'.format(self, uid))
+            logger.warning('{} could not transmit message to {}'.format(self, z85_to_friendly(uid)))
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
             logger.warning(err_str)

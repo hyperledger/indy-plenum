@@ -96,7 +96,7 @@ class SafeStartEMAThroughputMeasurement(EMAThroughputMeasurement):
         return super().get_throughput(request_time)
 
 
-class RevivalSpikeResistantEMAThroughputMeasurement(EMAThroughputMeasurement):
+class RevivalSpikeResistantEMAThroughputMeasurement(SafeStartEMAThroughputMeasurement):
     """
     Measures request ordering throughput using exponential moving average but
     is resistant to spikes after long idles (fade-outs). This can be useful for

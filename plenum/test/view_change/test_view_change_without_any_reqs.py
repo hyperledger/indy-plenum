@@ -23,6 +23,7 @@ def tconf(tconf):
     old_throughput_measurement_class = tconf.throughput_measurement_class
     old_throughput_measurement_params = tconf.throughput_measurement_params
     old_max_3pc_batch_size = tconf.Max3PCBatchSize
+    old_timeout = tconf.ACC_MONITOR_TIMEOUT
 
     tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
     tconf.throughput_measurement_params = {
@@ -30,12 +31,14 @@ def tconf(tconf):
         'min_cnt': 3
     }
     tconf.Max3PCBatchSize = Max3PCBatchSize
+    tconf.ACC_MONITOR_TIMEOUT = 5
 
     yield tconf
 
     tconf.throughput_measurement_class = old_throughput_measurement_class
     tconf.throughput_measurement_params = old_throughput_measurement_params
     tconf.Max3PCBatchSize = old_max_3pc_batch_size
+    tconf.ACC_MONITOR_TIMEOUT = old_timeout
 
 
 def test_view_change_on_start(tconf, txnPoolNodeSet, looper,

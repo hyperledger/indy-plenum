@@ -2,40 +2,26 @@ import pytest
 
 from stp_core.common.log import getlogger
 from plenum.common.perf_util import get_size
-from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.node_catchup.helper import \
-    ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
+from plenum.test.helper import sdk_send_random_requests
+from plenum.test.pool_transactions.helper import sdk_add_new_nym
 
 logger = getlogger()
 
 
-@pytest.mark.skip(reason="SOV-537. "
-                         "Temporary disabling it to check if tests run "
-                         "on build pipeline")
-def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
-                     tdirWithPoolTxns, poolTxnData, noRetryReq):
-    """
-    Client should not be using node registry but pool transaction file
-    :return:
-    """
+@pytest.mark.skip('Unskip if needed')
+def testRequestsSize(looper, txnPoolNodeSet, sdk_pool_handle,
+                     sdk_wallet_steward, noRetryReq):
     clients = []
-    for name in poolTxnClientNames:
-        seed = poolTxnData["seeds"][name].encode()
-        client, wallet = buildPoolClientAndWallet((name, seed),
-                                                  tdirWithPoolTxns)
-        txnPoolNodesLooper.add(client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(
-            txnPoolNodesLooper, client, *txnPoolNodeSet)
-        clients.append((client, wallet))
-
+    for i in range(4):
+        clients.append(sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward))
     numRequests = 250
-    fVal = 1
-    for (client, wallet) in clients:
-        logger.debug("{} sending {} requests".format(client, numRequests))
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_steward, numRequests)
-        logger.debug("{} sent {} requests".format(client, numRequests))
+
+    for (_, nym) in clients:
+        logger.debug("{} sending {} requests".format(nym, numRequests))
+        sdk_send_random_requests(looper, sdk_pool_handle,
+                                 sdk_wallet_steward, numRequests)
+        logger.debug("{} sent {} requests".format(nym, numRequests))
+
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".
                      format(node, len(node.requests), get_size(node.requests)))

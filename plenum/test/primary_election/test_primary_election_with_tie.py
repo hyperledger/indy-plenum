@@ -61,7 +61,7 @@ def testPrimaryElectionWithTie(electTieFixture, looper, txnPoolNodeSet):
     checkPoolReady(looper, txnPoolNodeSet)
 
     for node in txnPoolNodeSet:
-        for instId, replica in node.elector.replicas:
+        for instId, replica in node.elector.replicas.items():
             logger.debug("replica {} {} with votes {}".
                          format(replica.name, replica.instId,
                                 node.elector.nominations.get(instId, {})))

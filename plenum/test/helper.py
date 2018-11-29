@@ -22,7 +22,6 @@ from indy.ledger import sign_and_submit_request, sign_request, submit_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
-from plenum.client.client import Client
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
@@ -54,68 +53,6 @@ logger = getlogger()
 def ordinal(n):
     return "%d%s" % (
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
-
-
-def check_sufficient_replies_received(client: Client,
-                                      identifier,
-                                      request_id):
-    reply, _ = client.getReply(identifier, request_id)
-    full_request_id = "({}:{})".format(identifier, request_id)
-    if reply is not None:
-        logger.debug("got confirmed reply for {}: {}"
-                     .format(full_request_id, reply))
-        return reply
-    all_replies = getRepliesFromClientInbox(client.inBox, request_id)
-    logger.debug("there are {} replies for request {}, "
-                 "but expected at-least {}, "
-                 "or one with valid proof: "
-                 .format(len(all_replies),
-                         full_request_id,
-                         client.quorums.reply.value,
-                         all_replies))
-    raise AssertionError("There is no proved reply and no "
-                         "quorum achieved for request {}"
-                         .format(full_request_id))
-
-
-# TODO: delete after removal from node
-def waitForSufficientRepliesForRequests(looper,
-                                        client,
-                                        *,  # To force usage of names
-                                        requests,
-                                        customTimeoutPerReq=None,
-                                        add_delay_to_timeout: float = 0,
-                                        override_timeout_limit=False,
-                                        total_timeout=None):
-    """
-    Checks number of replies for given requests of specific client and
-    raises exception if quorum not reached at least for one
-
-    :requests: list of requests; mutually exclusive with 'requestIds'
-    :requestIds:  list of request ids; mutually exclusive with 'requests'
-    :returns: nothing
-    """
-    node_count = len(client.nodeReg)
-    if not total_timeout:
-        timeout_per_request = customTimeoutPerReq or \
-                              waits.expectedTransactionExecutionTime(node_count)
-        timeout_per_request += add_delay_to_timeout
-        # here we try to take into account what timeout for execution
-        # N request - total_timeout should be in
-        # timeout_per_request < total_timeout < timeout_per_request * N
-        # we cannot just take (timeout_per_request * N) because it is so huge.
-        # (for timeout_per_request=5 and N=10, total_timeout=50sec)
-        # lets start with some simple formula:
-        total_timeout = (1 + len(requests) / 10) * timeout_per_request
-    coros = [partial(check_sufficient_replies_received,
-                     client,
-                     request.identifier,
-                     request.reqId)
-             for request in requests]
-    chk_all_funcs(looper, coros,
-                  retry_wait=1,
-                  timeout=total_timeout,
-                  override_eventually_timeout=override_timeout_limit)
 
 
 def send_reqs_batches_and_get_suff_replies(
@@ -634,7 +571,7 @@ def nodeByName(nodes, name):
     raise Exception("Node with the name '{}' has not been found.".format(name))
 
 
-def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
+def send_pre_prepare(view_no, pp_seq_no, nodes,
                      state_root=None, txn_root=None):
     pre_prepare = PrePrepare(
         0,
@@ -962,14 +899,17 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     if num_batches == 1:
         return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
 
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
+
     sdk_replies = []
     for _ in range(num_batches - 1):
-        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
-                                                     num_reqs // num_batches, **kwargs))
-    rem = num_reqs % num_batches
-    if rem == 0:
-        rem = num_reqs // num_batches
-    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
+        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                     sdk_pool, sdk_wallet,
+                                                     reqs_in_batch, **kwargs))
+    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                 sdk_pool, sdk_wallet,
+                                                 reqs_in_last_batch, **kwargs))
     return sdk_replies
 
 
@@ -979,15 +919,19 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
         raise BaseException(
             'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
     if num_batches == 1:
-        req = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
+        sdk_reqs = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
         looper.runFor(timeout)
-        return req
+        return sdk_reqs
+
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
 
     sdk_reqs = []
     for _ in range(num_batches - 1):
-        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet,
-                                                 num_reqs // num_batches))
+        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_batch))
         looper.runFor(timeout)
+    sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_last_batch))
+    looper.runFor(timeout)
     return sdk_reqs
 
 
@@ -1075,3 +1019,18 @@ def max_3pc_batch_limits(tconf, size, wait=10000):
     yield tconf
     tconf.Max3PCBatchSize = old_size
     tconf.Max3PCBatchWait = old_wait
+
+@contextmanager
+def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
+    old_timeout = tconf.ACC_MONITOR_TIMEOUT
+    old_delta = tconf.ACC_MONITOR_TXN_DELTA_K
+    old_acc_monitor_enabled = tconf.ACC_MONITOR_ENABLED
+
+    tconf.ACC_MONITOR_TIMEOUT = acc_monitor_timeout
+    tconf.ACC_MONITOR_TXN_DELTA_K = acc_monitor_delta
+    tconf.ACC_MONITOR_ENABLED = acc_monitor_enabled
+    yield tconf
+
+    tconf.ACC_MONITOR_TIMEOUT = old_timeout
+    tconf.ACC_MONITOR_TXN_DELTA_K = old_delta
+    tconf.ACC_MONITOR_ENABLED = old_acc_monitor_enabled
