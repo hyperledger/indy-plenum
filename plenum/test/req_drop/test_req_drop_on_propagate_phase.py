@@ -8,9 +8,11 @@ from plenum.test.delayers import delay, msg_rep_delay
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate
 from plenum.test.test_node import TestNode
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 
 howlong = 20
+initial_ledger_size = 0
 
 
 @pytest.fixture(scope="module")
@@ -34,21 +36,24 @@ def tconf(tconf):
 
 @pytest.fixture()
 def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
+    global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
     delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
     # Delay MessageRep by long simulating loss as if Propagate is missing, it
     # is requested
     A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
+    initial_ledger_size = txnPoolNodeSet[0].domainLedger.size
     request_couple_json = sdk_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
 
 
-def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, looper, txnPoolNodeSet):
+def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, looper, txnPoolNodeSet,
+                                                             sdk_wallet_client, sdk_pool_handle):
     A, B, C, D = txnPoolNodeSet  # type: TestNode
     sent1 = sdk_json_to_request_object(setup[0][0])
 
-    def x():
+    def check_propagates_delayed():
         # A should have received a request from the client
         assert len(recvdRequest(A)) == 1
         # A should not have received a PROPAGATE
@@ -58,7 +63,7 @@ def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, loope
         assert len(A.requests) == 1
 
     timeout = howlong - 2
-    looper.run(eventually(x, retryWait=.5, timeout=timeout))
+    looper.run(eventually(check_propagates_delayed, retryWait=.5, timeout=timeout))
 
     def check_drop():
         assert len(A.requests) == 0
@@ -69,7 +74,7 @@ def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, loope
     for n in txnPoolNodeSet:
         n.nodeIbStasher.resetDelays()
 
-    def y():
+    def check_propagates_received():
         # A should have received 3 PROPAGATEs
         assert len(recvdPropagate(A)) == 3
         # A should have total of 4 PROPAGATEs (3 from other nodes and 1 from
@@ -82,4 +87,12 @@ def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, loope
         assert len(sentPropagate(A)) == 2
 
     timeout = howlong + 2
-    looper.run(eventually(y, retryWait=.5, timeout=timeout))
+    looper.run(eventually(check_propagates_received, retryWait=.5, timeout=timeout))
+
+    def check_ledger_size():
+        for node in txnPoolNodeSet:
+            assert node.domainLedger.size - initial_ledger_size == 1
+
+    looper.run(eventually(check_propagates_received, retryWait=.5, timeout=timeout))
+
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
