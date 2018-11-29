@@ -27,7 +27,7 @@ def test_replica_received_preprepare_with_ordered_request(looper,
 
     def discard(offendingMsg, reason, logger, cliOutput=False):
         assert offendingMsg == pp
-        assert Suspicions.DUPLICATE_PPR_SENT.reason == reason
+        assert Suspicions.PPR_WITH_ORDERED_REQUEST.reason == reason
 
     replica.node.discard = discard
 
