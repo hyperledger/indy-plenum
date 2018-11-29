@@ -147,8 +147,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def initPoolState(self):
         self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
         logger.info(
-            "{} initialized pool state: state root {}"
-            .format(self, state_roots_serializer.serialize(
+            "{} initialized pool state: state root {}".format(self, state_roots_serializer.serialize(
                 bytes(self.state.committedHeadHash))))
 
     @property
@@ -228,32 +227,30 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self._set_node_order(nodeNym, nodeName)
 
         def _updateNode(txn_data):
-            if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
-                    intersection(set(txn_data[DATA].keys())):
-                self.nodeHaChanged(txn_data)
-            if VERKEY in txn_data:
-                self.nodeKeysChanged(txn_data)
             if SERVICES in txn_data[DATA]:
                 self.nodeServicesChanged(txn_data)
-            if BLS_KEY in txn_data[DATA]:
-                self.node_blskey_changed(txn_data)
+            if txn_data[DATA][ALIAS] in self.node.nodeReg:
+                if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
+                        intersection(set(txn_data[DATA].keys())):
+                    self.nodeHaChanged(txn_data)
+                if VERKEY in txn_data:
+                    self.nodeKeysChanged(txn_data)
+                if BLS_KEY in txn_data[DATA]:
+                    self.node_blskey_changed(txn_data)
 
-        if nodeName in self.nodeReg:
-            # The node was already part of the pool so update
-            _updateNode(txn_data)
+        seqNos, info = self.getNodeInfoFromLedger(nodeNym)
+
+        # `onPoolMembershipChange` method can be called only after txn added to ledger
+        if len(seqNos) == 0:
+            raise LogicError("There are no txns in ledger for nym {}".format(nodeNym))
+
+        # If there is only one transaction has been made to this nym,
+        # that means, that this is a new node transaction
+        if len(seqNos) == 1:
+            if VALIDATOR in txn_data[DATA].get(SERVICES, []):
+                self.addNewNodeAndConnect(txn_data)
         else:
-            seqNos, info = self.getNodeInfoFromLedger(nodeNym)
-            if len(seqNos) == 1:
-                # Since only one transaction has been made, this is a new
-                # node transaction
-                if VALIDATOR in txn_data[DATA].get(SERVICES, []):
-                    self.addNewNodeAndConnect(txn_data)
-            else:
-                self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
-                                                 info[DATA][NODE_PORT])
-                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
-                    info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
-                _updateNode(txn_data)
+            _updateNode(txn_data)
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
@@ -345,17 +342,25 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             logger.info("Node {} not changing {} since it is same as existing".format(nodeNym, SERVICES))
             return
         else:
-            if self.name != nodeName:
-                if VALIDATOR in newServices.difference(oldServices):
-                    # If validator service is enabled
-                    self.updateNodeTxns(nodeInfo, txn_data)
-                    self.connectNewRemote(nodeInfo, nodeName, self.node)
-                    self.node.nodeJoined(txn_data)
+            if VALIDATOR in newServices.difference(oldServices):
+                # If validator service is enabled
+                self.node.nodeReg[nodeName] = HA(nodeInfo[DATA][NODE_IP],
+                                                 nodeInfo[DATA][NODE_PORT])
+                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
+                    nodeInfo[DATA][CLIENT_IP], nodeInfo[DATA][CLIENT_PORT])
+                self.updateNodeTxns(nodeInfo, txn_data)
+                self.node.nodeJoined(txn_data)
 
-                if VALIDATOR in oldServices.difference(newServices):
-                    # If validator service is disabled
-                    del self.node.nodeReg[nodeName]
-                    del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+                if self.name != nodeName:
+                    self.connectNewRemote(nodeInfo, nodeName, self.node)
+
+            if VALIDATOR in oldServices.difference(newServices):
+                # If validator service is disabled
+                del self.node.nodeReg[nodeName]
+                del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+                self.node.nodeLeft(txn_data)
+
+                if self.name != nodeName:
                     try:
                         rid = TxnStackManager.removeRemote(
                             self.node.nodestack, nodeName)
@@ -363,8 +368,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:
                         logger.info('{} did not find remote {} to remove'.format(self, nodeName))
-
-                    self.node.nodeLeft(txn_data)
                     self.node_about_to_be_disconnected(nodeName)
 
     def node_blskey_changed(self, txn_data):
@@ -431,7 +434,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self.name, nodeName, nodeNym,
                 len(self._ordered_node_ids[nodeNym])))
         elif curName != nodeName:
-            msg = "{} is trying to order already ordered node {} ({}) with other alias {}"\
+            msg = "{} is trying to order already ordered node {} ({}) with other alias {}" \
                 .format(self.name, curName, nodeNym, nodeName)
             logger.error(msg)
             raise LogicError(msg)

@@ -5,25 +5,20 @@ from indy.ledger import build_node_request, build_nym_request, \
     build_get_txn_request
 from indy.pool import refresh_pool_ledger
 
-from crypto.bls.indy_crypto.bls_crypto_indy_crypto import \
-    BlsCryptoSignerIndyCrypto
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
-from plenum.client.wallet import Wallet
 from plenum.common.constants import VERKEY, VALIDATOR, STEWARD_STRING
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
     sdk_get_and_check_replies, sdk_sign_request_strings \
 
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
@@ -441,18 +436,6 @@ def promote_node(looper, steward_wallet, sdk_pool_handle,
                          None, None,
                          None, None,
                          services=[VALIDATOR])
-
-
-def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=None):
-    walletClass = walletClass or Wallet
-    clientClass = clientClass or TestClient
-    name, sigseed = clientData
-    w = walletClass(name)
-    w.addIdentifier(signer=DidSigner(seed=sigseed))
-    client, _ = genTestClient(name=name, identifier=w.defaultId,
-                              tmpdir=tempDir, usePoolLedger=True,
-                              testClientClass=clientClass)
-    return client, w
 
 
 def disconnectPoolNode(poolNodes: Iterable,

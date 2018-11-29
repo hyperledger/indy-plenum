@@ -35,6 +35,7 @@ ORDERED = "ORDERED"
 REQKEY = "REQKEY"
 
 INSTANCE_CHANGE = "INSTANCE_CHANGE"
+BACKUP_INSTANCE_FAULTY = "BACKUP_INSTANCE_FAULTY"
 VIEW_CHANGE_DONE = "VIEW_CHANGE_DONE"
 CURRENT_STATE = "CURRENT_STATE"
 
@@ -46,6 +47,8 @@ MESSAGE_REQUEST = 'MESSAGE_REQUEST'
 MESSAGE_RESPONSE = 'MESSAGE_RESPONSE'
 OBSERVED_DATA = 'OBSERVED_DATA'
 BATCH_COMMITTED = 'BATCH_COMMITTED'
+VIEW_CHANGE_START = 'ViewChangeStart'
+VIEW_CHANGE_CONTINUE = 'ViewChangeContinue'
 
 BLACKLIST = "BLACKLIST"
 
@@ -57,6 +60,8 @@ PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
 BLS_PREFIX = "BLS: "
 OBSERVER_PREFIX = "OBSERVER: "
 
+
+PROPOSED_VIEW_NO = "proposed_view_no"
 NAME = "name"
 VERSION = "version"
 IP = "ip"
@@ -168,6 +173,12 @@ class KeyValueStorageType(IntEnum):
     Leveldb = 1
     Memory = 2
     Rocksdb = 3
+    ChunkedBinaryFile = 4
+    BinaryFile = 5
+
+
+class PreVCStrategies(IntEnum):
+    VC_START_MSG_STRATEGY = 1
 
 
 @unique
@@ -193,6 +204,8 @@ HS_FILE = "file"
 HS_MEMORY = "memory"
 HS_LEVELDB = 'leveldb'
 HS_ROCKSDB = 'rocksdb'
+
+LAST_SENT_PRE_PREPARE = 'lastSentPrePrepare'
 
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0

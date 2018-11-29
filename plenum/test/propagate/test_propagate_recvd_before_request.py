@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
 from plenum.test.delayers import delay
@@ -11,6 +12,7 @@ from plenum.test import waits
 nodeCount = 4
 howlong = 10
 delaySec = 5
+reqCount = 1
 
 
 @pytest.fixture()
@@ -50,3 +52,6 @@ def testPropagateRecvdBeforeRequest(setup, looper, txnPoolNodeSet, sent1):
     timeout = waits.expectedClientRequestPropagationTime(
         len(txnPoolNodeSet)) + delaySec
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
+    auth_obj = A.authNr(0).core_authenticator
+    auth_calling_count = get_count(auth_obj, auth_obj.authenticate)
+    assert auth_calling_count == reqCount

@@ -154,10 +154,15 @@ class Replicas:
         return all(replica.primaryName is not None
                    for replica in self._replicas.values())
 
-    # TODO unit test
     @property
-    def primaries(self) -> dict:
-        return {r.instId: r.name for r in self._replicas.values()}
+    def primary_name_by_inst_id(self) -> dict:
+        return {r.instId: r.primaryName.split(":", maxsplit=1)[0] if r.primaryName else None
+                for r in self._replicas.values()}
+
+    @property
+    def inst_id_by_primary_name(self) -> dict:
+        return {r.primaryName.split(":", maxsplit=1)[0]: r.instId
+                for r in self._replicas.values() if r.primaryName}
 
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas.values():
@@ -227,6 +232,9 @@ class Replicas:
     def values(self):
         return self._replicas.values()
 
+    def items(self):
+        return self._replicas.items()
+
     def __getitem__(self, item):
         if not isinstance(item, int):
             raise PlenumTypeError('item', item, int)
@@ -236,4 +244,4 @@ class Replicas:
         return self.num_replicas
 
     def __iter__(self):
-        return self._replicas.items().__iter__()
+        return self._replicas.__iter__()

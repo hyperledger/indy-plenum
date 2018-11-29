@@ -4,7 +4,7 @@ import shutil
 from abc import abstractmethod
 from hashlib import sha256
 
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Optional
 
 from storage.kv_store import KeyValueStorage
 
@@ -64,11 +64,20 @@ class KeyValueStorageFile(KeyValueStorage):
         self._append_new_line_if_req()
 
     def get(self, key):
+        result = None
         for k, v in self.iterator():
             if k == key:
-                return v
+                result = v
+        if result is not None:
+            return result
         raise KeyError("'{}' doesn't contain {} key".format(
             self.db_file, str(key)))
+
+    def get_last_key(self):
+        result = None
+        for result, _ in self.iterator():
+            pass
+        return result
 
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if not (include_key or include_value):
@@ -115,15 +124,27 @@ class KeyValueStorageFile(KeyValueStorage):
 
     def _baseIterator(self, lines, start=None, end=None, prefix=None, returnKey: bool=True, returnValue: bool=True):
         self._is_valid_range(start, end)
-        i = 1
-        for line in lines:
-            k = str(i)
-            if (start is None or i >= start) and (end is None or i <= end):
-                yield self._parse_line(line, prefix, returnKey, returnValue, k)
-            if end is not None and i > end:
-                break
-            if self.isLineNoKey:
+        if self.isLineNoKey:
+            i = 1
+            for line in lines:
+                if end is not None and i > end:
+                    break
+                if start is None or i >= start:
+                    k = str(i).encode() if self.is_byte else str(i)
+                    yield self._parse_line(line, prefix, returnKey, returnValue, k)
                 i += 1
+        else:
+            for line in lines:
+                k, v = self._parse_line(line, prefix, True, True)
+                if end is not None and k > end:
+                    break
+                if start is None or k >= start:
+                    if returnKey and returnValue:
+                        yield k, v
+                    elif returnKey:
+                        yield k
+                    elif returnValue:
+                        yield v
 
     @abstractmethod
     def _lines(self):

@@ -1,0 +1,58 @@
+@startuml
+partition Node {
+    start
+
+    :Write Request<
+    note right
+        Client sends a write request to all nodes
+    end note
+
+    if (Parse Request) then (failed)
+        #pink:NACK>
+    elseif (Static Validation) then (not passed)
+        #pink:NACK>
+    elseif (Signature Verification) then (not passed)
+        #pink:NACK>
+    elseif (Already in Ledger) then (yes)
+        :Get From Ledger;
+        #lightgreen:REPLY>
+    else (no)
+        :Propagate;
+        #lightgreen:ACK>
+        :Start Ordering;
+        if (Dynamic Validation) then (not passed)
+            #pink:REJECT>
+        else (passed)
+            :Finish Ordering;
+            :Commit to Ledger;
+            #lightgreen:REPLY>
+        endif
+    endif
+
+    stop
+    note right
+        Client waits for f+1 equal answers (either REPLY or NACK/REJECT)
+    end note
+}
+
+partition Client {
+    start
+
+    :Write Request to all Nodes>
+    repeat
+        :Receiving;
+        split
+         :NACK<
+        split again
+         :REJECT<
+        split again
+         :REPLY<
+        split again
+         :timeout}
+         stop
+        end split
+    repeat while (f+1 equal results) is (no)
+    stop
+}
+
+@enduml

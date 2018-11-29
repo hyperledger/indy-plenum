@@ -43,6 +43,7 @@ def test_send_IC_if_master_degraded(fake_node,
     fake_node._update_new_ordered_reqs_count = lambda: True
     fake_node.sendNodeRequestSpike = lambda: True
     fake_monitor.isMasterDegraded = lambda: True
+    fake_monitor.areBackupsDegraded = lambda: []
     fake_monitor.getThroughputs = lambda a: (None, None)
     fake_monitor.getLatencies = lambda: (None, None)
     fake_monitor.getLatency = lambda a: 0.0

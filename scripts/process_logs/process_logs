@@ -291,7 +291,7 @@ def match_timestamp(params):
 
 def match_level(params):
     def _severity(level):
-        levels = ["TRACE", "DEBUG", "INFO", "WARNING", "ERROR"]
+        levels = ["TRACE", "DEBUG", "INFO", "NOTIFICATION", "WARNING", "ERROR", "CRITICAL"]
         try:
             return levels.index(level)
         except ValueError:
