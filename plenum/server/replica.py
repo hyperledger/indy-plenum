@@ -1128,6 +1128,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                              "then the latest one - ignoring it".format(key))
         elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
             non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
+            for req in non_fin_reqs:
+                if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
+                    self.logger.info("Request digest {} already ordered. Discard {} "
+                                     "from {}".format(req, pre_prepare, sender))
+                    report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+                    return
             self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is
