@@ -1,0 +1,277 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Request handling &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Storage components" href="storage.html" />
+    <link rel="prev" title="Plugins" href="plugins.html" /> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Request handling</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#request-handling">Request handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#signature-verification">Signature verification</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">Storage components</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Request handling</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/request_handling.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="request-handling">
+<span id="request-handling"></span><h1>Request handling<a class="headerlink" href="#request-handling" title="Permalink to this headline">¶</a></h1>
+<p>To handle requests sent by client, the nodes require a ledger and/or a state as a data store. Request handling logic is written in <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code>.
+<code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code> is extended by new classes to support new requests. A node provides methods <code class="docutils literal notranslate"><span class="pre">register_new_ledger</span></code> to register new <code class="docutils literal notranslate"><span class="pre">Ledger</span></code> and <code class="docutils literal notranslate"><span class="pre">register_req_handler</span></code> to register new <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code>s.
+There can be a callback registered to execute after a write request has been successfully executed using <code class="docutils literal notranslate"><span class="pre">register_executer</span></code>.</p>
+<p>There are 2 types of requests a client can send:</p>
+<ul class="simple">
+<li>Query:
+Here the client is requesting transactions or some state variables from the node(s). The client can either send a <code class="docutils literal notranslate"><span class="pre">GET_TXN</span></code> to get any transaction with a sequence number from any ledger.
+Or it can send specific <code class="docutils literal notranslate"><span class="pre">GET_*</span></code> transactions for queries</li>
+<li>Write:
+Here the client is asking the nodes to write a new transaction to the ledger and change some state variable. This requires the nodes to run a consensus protocol (currently RBFT).
+If the protocol run is successful, then the client’s proposed changes are written.</li>
+</ul>
+<div class="section" id="request-handling">
+<span id="id1"></span><h2>Request handling<a class="headerlink" href="#request-handling" title="Permalink to this headline">¶</a></h2>
+<p>Below is a description of how a request is processed.
+A node on receiving a client request in  <code class="docutils literal notranslate"><span class="pre">validateClientMsg</span></code>:</p>
+<ul class="simple">
+<li>The node performs static validation checks (validation that does not require any state, like mandatory fields are present, etc), it uses <code class="docutils literal notranslate"><span class="pre">ClientMessageValidator</span></code> and
+<code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code>’s <code class="docutils literal notranslate"><span class="pre">doStaticValidation</span></code> for this.</li>
+<li>If the static validation passes, it checks if the signature check is required (not required for queries) and does that if needed in <code class="docutils literal notranslate"><span class="pre">verifySignature</span></code>. More on this later.</li>
+<li>Checks if it’s a generic transaction query (<code class="docutils literal notranslate"><span class="pre">GET_TXN</span></code>). If it is then query the ledger for that particular sequence number and return the result. A <code class="docutils literal notranslate"><span class="pre">REQNACK</span></code> might be sent if the query is not correctly constructed.</li>
+<li>Checks if it’s a specific query (needs a specific <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code>), if it is then it uses <code class="docutils literal notranslate"><span class="pre">process_query</span></code> that uses the specific <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code> to respond to the query. A <code class="docutils literal notranslate"><span class="pre">REQNACK</span></code> might be sent if the query is not correctly constructed.</li>
+<li>If it is a write, then node checks if it has already processed the request before by checking the uniqueness of <code class="docutils literal notranslate"><span class="pre">identifier</span></code> and <code class="docutils literal notranslate"><span class="pre">reqId</span></code> fields of the Request.<ul>
+<li>If it has already processed the request, then it sends the corresponding <code class="docutils literal notranslate"><span class="pre">Reply</span></code> to the client</li>
+<li>If the <code class="docutils literal notranslate"><span class="pre">Request</span></code> is already in process, then it sends an acknowledgement to the client as a <code class="docutils literal notranslate"><span class="pre">REQACK</span></code></li>
+<li>If the node has not seen the <code class="docutils literal notranslate"><span class="pre">Request</span></code> before it broadcasts the <code class="docutils literal notranslate"><span class="pre">Request</span></code> to all nodes in a <code class="docutils literal notranslate"><span class="pre">PROPAGATE</span></code>.</li>
+<li>Once a node receives sufficient (<code class="docutils literal notranslate"><span class="pre">Quorums.propagate</span></code>) <code class="docutils literal notranslate"><span class="pre">PROPAGATE</span></code>s for a request, it forwards the request to its replicas.</li>
+<li>A primary replica on receiving a forwarded request does dynamic validation (requiring state, like if violating some unique constraint or doing an unauthorised action)
+on the request using <code class="docutils literal notranslate"><span class="pre">doDynamicValidation</span></code> which in turn calls the corresponding <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code>’s <code class="docutils literal notranslate"><span class="pre">validate</span></code> method. If the validation succeeds then
+<code class="docutils literal notranslate"><span class="pre">apply</span></code> method of <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code> is called which optimistically applies the changes to ledger and state.
+If the validation fails, the primary sends a <code class="docutils literal notranslate"><span class="pre">REJECT</span></code> to the client. Then the primary sends a <code class="docutils literal notranslate"><span class="pre">PRE-PREPARE</span></code> to other nodes which contains the merkle roots and some other information for all such requests.</li>
+<li>The non-primary replicas on receiving the <code class="docutils literal notranslate"><span class="pre">PRE-PREPARE</span></code> performs the same dynamic validation that the primary performed on each request. It also checks if the merkle roots match.
+If all checks pass the replicas send a <code class="docutils literal notranslate"><span class="pre">PREPARE</span></code> otherwise they reject the <code class="docutils literal notranslate"><span class="pre">PRE-PREPARE</span></code></li>
+<li>Once the consensus protocol is successfully executed on the request, the replicas send <code class="docutils literal notranslate"><span class="pre">ORDERED</span></code> message to its node and the node updates the monitor.</li>
+<li>If the <code class="docutils literal notranslate"><span class="pre">ORDERED</span></code> message above was sent by the master replica then the node executes the request; meaning they commit any changes made to the ledger and state by that
+request by calling the corresponding <code class="docutils literal notranslate"><span class="pre">RequestHandler</span></code>’s <code class="docutils literal notranslate"><span class="pre">commit</span></code> method and send a <code class="docutils literal notranslate"><span class="pre">Reply</span></code> back to client.</li>
+<li>The node also tracks the request’s <code class="docutils literal notranslate"><span class="pre">identifier</span></code> and <code class="docutils literal notranslate"><span class="pre">reqId</span></code> in a key value database in <code class="docutils literal notranslate"><span class="pre">updateSeqNoMap</span></code>.</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="signature-verification">
+<span id="signature-verification"></span><h2>Signature verification<a class="headerlink" href="#signature-verification" title="Permalink to this headline">¶</a></h2>
+<p>Each node has a <code class="docutils literal notranslate"><span class="pre">ReqAuthenticator</span></code> object which allows to register <code class="docutils literal notranslate"><span class="pre">ClientAuthNr</span></code> objects using <code class="docutils literal notranslate"><span class="pre">register_authenticator</span></code> method. During signature verification,
+a node runs each registered authenticator over the request and if any authenticator results in an exception then signature verification is considered failed.
+A node has atleast 1 authenticator called <code class="docutils literal notranslate"><span class="pre">CoreAuthNr</span></code> whose <code class="docutils literal notranslate"><span class="pre">authenticate</span></code> method is called over the serialised request data to verify signature.</p>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>Node: <code class="docutils literal notranslate"><span class="pre">plenum/server/node.py</span></code></li>
+<li>Replica: <code class="docutils literal notranslate"><span class="pre">plenum/server/replica.py</span></code></li>
+<li>Propagator: <code class="docutils literal notranslate"><span class="pre">plenum/server/propagator.py</span></code></li>
+<li>Request: <code class="docutils literal notranslate"><span class="pre">plenum/common/request.py</span></code></li>
+<li>Request structure validation: <code class="docutils literal notranslate"><span class="pre">plenum/common/messages/client_request.py</span></code></li>
+<li>RequestHandler: <code class="docutils literal notranslate"><span class="pre">plenum/server/req_handler.py</span></code></li>
+<li>Request Authenticator: <code class="docutils literal notranslate"><span class="pre">plenum/server/req_authenticator.py</span></code></li>
+<li>Core Authenticator: <code class="docutils literal notranslate"><span class="pre">plenum/server/client_authn.py</span></code></li>
+<li>Quorums: <code class="docutils literal notranslate"><span class="pre">plenum/server/quorums.py</span></code></li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="storage.html" class="btn btn-neutral float-right" title="Storage components" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="plugins.html" class="btn btn-neutral" title="Plugins" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
