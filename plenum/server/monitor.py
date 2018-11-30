@@ -293,8 +293,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         tm = config.throughput_measurement_class(
             **config.throughput_measurement_params)
         tm.init_time(start_ts)
-        logger.trace("Creating throughput measurement class {} with parameters {}"
-                     .format(str(config.throughput_measurement_class), str(config.throughput_measurement_params)))
+        logger.trace("Creating throughput measurement class {} with parameters {} in start time {}"
+                     .format(str(config.throughput_measurement_class), str(config.throughput_measurement_params), start_ts))
         return tm
 
     def reset(self):
