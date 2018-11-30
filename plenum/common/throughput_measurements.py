@@ -1,7 +1,9 @@
 from abc import ABCMeta, abstractmethod
 from enum import unique, Enum
+from logging import getLogger
 
 from common.exceptions import LogicError
+logger = getLogger()
 
 
 class ThroughputMeasurement(metaclass=ABCMeta):
@@ -93,6 +95,7 @@ class SafeStartEMAThroughputMeasurement(EMAThroughputMeasurement):
     def get_throughput(self, request_time):
         if request_time < self.first_ts + (self.window_size * self.min_cnt):
             return None
+        logger.trace("Request time {}; First ts {}.".format(request_time, self.first_ts))
         return super().get_throughput(request_time)
 
 
