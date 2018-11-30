@@ -462,6 +462,7 @@ class LedgerManager(HasActionQueue):
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
+        self.metrics.add_event(MetricsName.CATCHUP_TXNS_SENT, len(txns))
         sorted_txns = SortedDict(txns)
         rep = CatchupRep(getattr(req, f.LEDGER_ID.nm),
                          sorted_txns,
@@ -486,6 +487,7 @@ class LedgerManager(HasActionQueue):
         txns = self.canProcessCatchupReply(rep)
         txnsNum = len(txns) if txns else 0
         logger.info("{} found {} transactions in the catchup from {}".format(self, txnsNum, frm))
+        self.metrics.add_event(MetricsName.CATCHUP_TXNS_RECEIVED, txnsNum)
         if not txns:
             return
 
