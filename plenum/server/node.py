@@ -2108,6 +2108,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
+        to_pop = []
+        for key, r in self.requests.items():
+            if not r.forwarded and self.seqNoDB.get(key)[1]:
+                to_pop.append(key)
+        for key in to_pop:
+            self.requests.pop(key, None)
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
