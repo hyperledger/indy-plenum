@@ -50,6 +50,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
 
 def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, looper, txnPoolNodeSet,
                                                              sdk_wallet_client, sdk_pool_handle):
+    global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
     sent1 = sdk_json_to_request_object(setup[0][0])
 
@@ -93,6 +94,6 @@ def testReqDropOnPropagatePhaseOnMasterPrimaryAndThenOrdered(tconf, setup, loope
         for node in txnPoolNodeSet:
             assert node.domainLedger.size - initial_ledger_size == 1
 
-    looper.run(eventually(check_propagates_received, retryWait=.5, timeout=timeout))
+    looper.run(eventually(check_ledger_size, retryWait=.5, timeout=timeout))
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

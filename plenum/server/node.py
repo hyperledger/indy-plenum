@@ -3176,17 +3176,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              view_no, pp_seq_no)
 
         reqs = []
+        reqs_list_built = True
         for req_key in valid_reqs_keys:
             if req_key in self.requests:
                 reqs.append(self.requests[req_key].request.as_dict)
-        batch_committed_msg = BatchCommitted(reqs,
-                                             ledger_id,
-                                             pp_time,
-                                             state_root,
-                                             txn_root,
-                                             first_txn_seq_no,
-                                             last_txn_seq_no)
-        self._observable.append_input(batch_committed_msg, self.name)
+            else:
+                logger.warning("Could not build requests list for observers due to non-existent requests")
+                reqs_list_built = False
+                break
+
+        if reqs_list_built:
+            batch_committed_msg = BatchCommitted(reqs,
+                                                 ledger_id,
+                                                 pp_time,
+                                                 state_root,
+                                                 txn_root,
+                                                 first_txn_seq_no,
+                                                 last_txn_seq_no)
+            self._observable.append_input(batch_committed_msg, self.name)
 
     def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,
                                         ledger_id, view_no, pp_seq_no):

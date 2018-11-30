@@ -194,15 +194,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    def executePoolTxnBatch(self, ppTime, reqs, stateRoot, txnRoot) -> List:
+    def executePoolTxnBatch(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
 
         :param ppTime: PrePrepare request time
-        :param reqs: request
+        :param reqs_keys: requests keys to be committed
         """
-        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
+        committedTxns = self.reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
         self.node.updateSeqNoMap(committedTxns, POOL_LEDGER_ID)
         for txn in committedTxns:
             t = deepcopy(txn)
