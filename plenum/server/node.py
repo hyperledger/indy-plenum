@@ -2680,6 +2680,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
                                len(self.monitor.requestTracker.unordered()))
 
+        if self.view_changer is not None:
+            self.metrics.add_event(MetricsName.CURRENT_VIEW, self.viewNo)
+            self.metrics.add_event(MetricsName.VIEW_CHANGE_IN_PROGRESS, int(self.view_changer.view_change_in_progress))
+
+        self.metrics.add_event(MetricsName.NODE_STATUS, int(self.mode) if self.mode is not None else 0)
+        self.metrics.add_event(MetricsName.CONNECTED_NODES_NUM, self.connectedNodeCount)
+        self.metrics.add_event(MetricsName.BLACKLISTED_NODES_NUM, len(self.blacklistedNodes))
+        self.metrics.add_event(MetricsName.REPLICA_COUNT, self.replicas.num_replicas)
+
+        self.metrics.add_event(MetricsName.POOL_LEDGER_SIZE, self.poolLedger.size)
+        self.metrics.add_event(MetricsName.DOMAIN_LEDGER_SIZE, self.domainLedger.size)
+        self.metrics.add_event(MetricsName.CONFIG_LEDGER_SIZE, self.configLedger.size)
+
+        self.metrics.add_event(MetricsName.POOL_LEDGER_UNCOMMITTED_SIZE, len(self.poolLedger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.DOMAIN_LEDGER_UNCOMMITTED_SIZE, len(self.domainLedger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.CONFIG_LEDGER_UNCOMMITTED_SIZE, len(self.configLedger.uncommittedTxns))
+
         # Collections metrics
         def sum_for_values(obj):
             # We don't want to get 0 if we have huge dictionary of empty queues, hence +1

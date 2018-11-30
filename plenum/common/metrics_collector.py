@@ -47,6 +47,10 @@ class MetricsName(IntEnum):
     REQUEST_PROCESSING_TIME = 13
     # Number of invalid request for master
     ORDERED_BATCH_INVALID_COUNT = 14
+    # Number of txns sent through catchup
+    CATCHUP_TXNS_SENT = 15
+    # Number of txns received through catchup
+    CATCHUP_TXNS_RECEIVED = 16
 
     # Average throughput measured by monitor on backup instances
     BACKUP_MONITOR_AVG_THROUGHPUT = 20
@@ -77,6 +81,18 @@ class MetricsName(IntEnum):
     GC_GEN0_COLLECTED_OBJECTS = 60
     GC_GEN1_COLLECTED_OBJECTS = 61
     GC_GEN2_COLLECTED_OBJECTS = 62
+    CURRENT_VIEW = 63
+    VIEW_CHANGE_IN_PROGRESS = 64
+    NODE_STATUS = 65
+    CONNECTED_NODES_NUM = 66
+    BLACKLISTED_NODES_NUM = 67
+    REPLICA_COUNT = 68
+    POOL_LEDGER_SIZE = 69
+    DOMAIN_LEDGER_SIZE = 70
+    CONFIG_LEDGER_SIZE = 71
+    POOL_LEDGER_UNCOMMITTED_SIZE = 72
+    DOMAIN_LEDGER_UNCOMMITTED_SIZE = 73
+    CONFIG_LEDGER_UNCOMMITTED_SIZE = 74
 
     # Node service statistics
     NODE_PROD_TIME = 100

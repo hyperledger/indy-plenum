@@ -39,6 +39,9 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
 
         # We don't expect some events in this test
         unexpected_events = {
+            MetricsName.CATCHUP_TXNS_SENT,
+            MetricsName.CATCHUP_TXNS_RECEIVED,
+
             MetricsName.GC_UNCOLLECTABLE_OBJECTS,
             MetricsName.GC_GEN2_COLLECTED_OBJECTS,
 
