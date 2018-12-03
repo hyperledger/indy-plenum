@@ -379,9 +379,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.node.update_bls_key(bls_key)
 
     def getNodeName(self, nym):
-        # Assuming ALIAS does not change
-        _, nodeTxn = self.getNodeInfoFromLedger(nym)
-        return nodeTxn[DATA][ALIAS]
+        return self._ordered_node_ids[nym]
 
     @property
     def merkleRootHash(self) -> str:
@@ -390,10 +388,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     @property
     def txnSeqNo(self) -> int:
         return self.ledger.seqNo
-
-    def getNodeData(self, nym):
-        _, nodeTxn = self.getNodeInfoFromLedger(nym)
-        return nodeTxn[DATA]
 
     # Question: Why are `_isIpAddressValid` and `_isPortValid` part of
     # pool_manager?
