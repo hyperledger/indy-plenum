@@ -289,7 +289,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         return currNetwork
 
     @staticmethod
-    def create_throughput_measurement(config, start_ts=time.perf_counter()):
+    def create_throughput_measurement(config, start_ts=None):
+        if start_ts is None:
+            start_ts = time.perf_counter()
         tm = config.throughput_measurement_class(
             **config.throughput_measurement_params)
         tm.init_time(start_ts)
