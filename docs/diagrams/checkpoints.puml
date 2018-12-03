@@ -171,7 +171,7 @@ Node4 -> Node4: Stash CHECKPOINTs(1 - 100)
 
 note right of Node4
     <b>Replica processes CHECKPOINT message in following way:
-        - CHECKPOINT message is verified: its digest must be same as digest of
+        - CHECKPOINT message is verified: its digest    <b>must be same</b> as digest of
           corresponding own checkpoint. If verification failed then processing is
           aborted and CHECKPOINT message is discarded.
         - Entry with message sender as key and message digest as value is added
