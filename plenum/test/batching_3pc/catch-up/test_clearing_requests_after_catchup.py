@@ -1,12 +1,54 @@
 from logging import getLogger
 
+from stp_core.loop.eventually import eventually
+
+from plenum.test.malicious_behaviors_node import dont_send_propagate_to, dont_send_prepare_and_commit_to
 from plenum.test.testing_utils import FakeSomething
 
 from plenum.test.primary_selection.test_primary_selector import FakeNode
 
-logger = getLogger()
+from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, MessageRep
+from plenum.server.replica import Replica
+from plenum.test import waits
+
+from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
+    reqs_for_checkpoint
+from plenum.test.helper import send_reqs_batches_and_get_suff_replies, sdk_send_batches_of_random_and_check, \
+    sdk_send_batches_of_random
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    checkNodeDataForInequality
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.test_node import checkNodesConnected
+
+from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
+
+CHK_FREQ = 5
+LOG_SIZE = 3 * CHK_FREQ
 
 ledger_id = 1
+
+
+def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
+        looper, chkFreqPatched, reqs_for_checkpoint, txnPoolNodeSet,
+        sdk_pool_handle, sdk_wallet_steward, sdk_wallet_client,
+        tdir, tconf, allPluginsPath):
+    master_node = txnPoolNodeSet[0]
+    behind_node = txnPoolNodeSet[-1]
+    rest_pool = txnPoolNodeSet[:-1]
+
+    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                         sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
+
+    dont_send_prepare_and_commit_to(rest_pool, behind_node)
+
+    sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
+                               sdk_wallet_steward, CHK_FREQ * 6, CHK_FREQ * 2)
+
+    waitNodeDataEquality(looper, behind_node, *txnPoolNodeSet[:-1])
+
+    # We clear catchuped requests
+    assert len(behind_node.requests) == 0
 
 
 def test_free_finalized_sended_catchuped_requests(
