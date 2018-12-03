@@ -19,6 +19,11 @@ note over Node1, Node4
     3PC messages which fit between new watermarks.
 end note
 
+Node1 -> Node1: Set watermarks to\n(0, 300)
+& Node2 -> Node2: Set watermarks to\n(0, 300)
+& Node3 -> Node3: Set watermarks to\n(0, 300)
+& Node4 -> Node4: Set watermarks to\n(0, 300)
+
 Node1 -> Node1: Order 3PCBatch(pp_seq_no=1)
 & Node2 -> Node2: Order 3PCBatch(pp_seq_no=1)
 & Node3 -> Node3: Order 3PCBatch(pp_seq_no=1)
@@ -188,15 +193,15 @@ Node1 -> Node1: Add digests from other replicas\nto CheckpointState(1 - 100)
 
 group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
     Node1 -> Node1: Stabilize\nCheckpointState(1 - 100)
-    Node1 -> Node1: Shift watermarks to\n(100, 100+LOG_SIZE)
+    Node1 -> Node1: Shift watermarks to\n(100, 400)
 end group
 & group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
     Node2 -> Node2: Stabilize\nCheckpointState(1 - 100)
-    Node2 -> Node2: Shift watermarks to\n(100, 100+LOG_SIZE)
+    Node2 -> Node2: Shift watermarks to\n(100, 400)
 end group
 & group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
     Node3 -> Node3: Stabilize\nCheckpointState(1 - 100)
-    Node3 -> Node3: Shift watermarks to\n(100, 100+LOG_SIZE)
+    Node3 -> Node3: Shift watermarks to\n(100, 400)
 end group
 
 note right of Node4
@@ -257,7 +262,7 @@ group Process stashed CHECKPOINTs(1 - 100)
 
     group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
         Node4 -> Node4: Stabilize\nCheckpointState(1 - 100)
-        Node4 -> Node4: Shift watermarks to\n(100, 100+LOG_SIZE)
+        Node4 -> Node4: Shift watermarks to\n(100, 400)
     end group
 end group
 
