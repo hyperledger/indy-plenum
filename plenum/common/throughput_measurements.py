@@ -1,9 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from enum import unique, Enum
-from logging import getLogger
 
 from common.exceptions import LogicError
-logger = getLogger()
 
 
 class ThroughputMeasurement(metaclass=ABCMeta):
