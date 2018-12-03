@@ -299,3 +299,6 @@ def test_instances_not_degraded_on_new_instance(fake_monitor, tconf):
 
     assert not fake_monitor.is_instance_throughput_too_low(new_id)
     assert not fake_monitor.isMasterThroughputTooLow()
+    assert all(fake_monitor.throughputs[new_id].first_ts != th.first_ts
+               for inst_id, th in fake_monitor.throughputs.items()
+               if inst_id != new_id)
