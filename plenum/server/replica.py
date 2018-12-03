@@ -2834,6 +2834,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.free_req_by_key(key)
 
     def free_req_by_key(self, key):
-        self.requests.free(key)
-        if self.isMaster:
-            self.node.mark_request_as_executed(self.requests.get(key).request)
+        reqState = self.requests.get(key)
+        if reqState:
+            self.requests.free(key)
+            if self.isMaster:
+                self.requests.mark_as_executed(reqState.request)
