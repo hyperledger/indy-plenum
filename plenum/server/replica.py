@@ -2820,6 +2820,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return None
 
     def free_written_txns(self):
+        if not self.isMaster:
+            return
         for lid, queue in self.requestQueues.items():
             to_remove = []
             for key in queue:
@@ -2827,15 +2829,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     to_remove.append(key)
             for key in to_remove:
                 self.discard_req_key(lid, key)
-                self.free_req_by_key(key)
+                self.free_req_by_key_on_master(key)
 
     def free_txns_of_pp(self, pp):
+        if not self.isMaster:
+            return
         for key in pp.reqIdr:
-            self.free_req_by_key(key)
+            self.free_req_by_key_on_master(key)
 
-    def free_req_by_key(self, key):
+    def free_req_by_key_on_master(self, key):
         reqState = self.requests.get(key)
-        if reqState:
+        if reqState and not reqState.executed:
+            self.node.mark_request_as_executed(reqState.request)
             self.requests.free(key)
-            if self.isMaster:
-                self.requests.mark_as_executed(reqState.request)

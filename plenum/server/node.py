@@ -2108,12 +2108,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
-        to_pop = []
-        for key, r in self.requests.items():
-            if not r.forwarded and self.seqNoDB.get(key)[1]:
-                to_pop.append(key)
-        for key in to_pop:
-            self.requests.pop(key, None)
+        self._clean_non_forwarded_ordered()
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
@@ -2133,6 +2128,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # select primaries after pool ledger caughtup
             if not self.view_change_in_progress:
                 self.select_primaries()
+
+    def _clean_non_forwarded_ordered(self):
+        to_pop = []
+        for key, r in self.requests.items():
+            if not r.forwarded and self.seqNoDB.get(key)[1]:
+                to_pop.append(r.request)
+        for req in to_pop:
+            self.requests.pop(req.key, None)
+            self._clean_req_from_verified(req)
+            self.doneProcessingReq(req.key)
 
     def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
         logger.info(
