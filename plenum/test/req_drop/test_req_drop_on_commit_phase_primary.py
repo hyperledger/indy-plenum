@@ -37,8 +37,10 @@ def tconf(tconf):
 def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
-    delay(Commit, frm=[B, C, D], to=A, howlong=howlong)
-    initial_ledger_size = txnPoolNodeSet[0].domainLedger.size
+    lagged_node = A
+    frm = [B, C, D]
+    delay(Commit, frm=frm, to=lagged_node, howlong=howlong)
+    initial_ledger_size = lagged_node.domainLedger.size
     request_couple_json = sdk_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
@@ -54,32 +56,33 @@ def test_req_drop_on_commit_phase_on_master_primary_and_then_ordered(
         sdk_wallet_client, sdk_pool_handle):
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
+    lagged_node = A
 
     def check_propagates():
-        # A should have received a request from the client
-        assert len(recvdRequest(A)) == 1
-        # A should have received a PROPAGATEs
-        assert len(recvdPropagate(A)) == 3
-        # A should have sent a PROPAGATE
-        assert len(sentPropagate(A)) == 1
-        # A should have one request in the requests queue
-        assert len(A.requests) == 1
+        # Node should have received a request from the client
+        assert len(recvdRequest(lagged_node)) == 1
+        # Node should have received a PROPAGATEs
+        assert len(recvdPropagate(lagged_node)) == 3
+        # Node should have sent a PROPAGATE
+        assert len(sentPropagate(lagged_node)) == 1
+        # Node should have one request in the requests queue
+        assert len(lagged_node.requests) == 1
 
     timeout = howlong - 2
     looper.run(eventually(check_propagates, retryWait=.5, timeout=timeout))
 
     def check_prepares_received():
-        # A should have received all Prepares for master instance
-        assert len(recvdPrepareForInstId(A, 0)) == 3
-        assert len(A.requests) == 1
+        # Node should have received all Prepares for master instance
+        assert len(recvdPrepareForInstId(lagged_node, 0)) == 3
+        assert len(lagged_node.requests) == 1
 
     looper.run(eventually(check_prepares_received, retryWait=.5, timeout=timeout))
 
     def check_drop():
-        # A should have not received Commits for master instance
-        assert len(recvdCommitForInstId(A, 0)) == 0
+        # Node should have not received Commits for master instance
+        assert len(recvdCommitForInstId(lagged_node, 0)) == 0
         # Request object should be dropped by timeout
-        assert len(A.requests) == 0
+        assert len(lagged_node.requests) == 0
 
     timeout = tconf.ORDERING_PHASE_REQ_TIMEOUT + tconf.OUTDATED_REQS_CHECK_INTERVAL + 1
     looper.run(eventually(check_drop, retryWait=.5, timeout=timeout))
@@ -88,16 +91,16 @@ def test_req_drop_on_commit_phase_on_master_primary_and_then_ordered(
         n.nodeIbStasher.resetDelays()
 
     def check_commits_received():
-        # A should have received all delayed Commits for master instance
-        assert len(recvdCommitForInstId(A, 0)) == 3
+        # Node should have received all delayed Commits for master instance
+        assert len(recvdCommitForInstId(lagged_node, 0)) == 3
 
     timeout = howlong * 2
     looper.run(eventually(check_commits_received, retryWait=.5, timeout=timeout))
 
     def check_ledger_size():
         # The request should be eventually ordered
-        for node in txnPoolNodeSet:
-            assert node.domainLedger.size - initial_ledger_size == 1
+        for n in txnPoolNodeSet:
+            assert n.domainLedger.size - initial_ledger_size == 1
 
     looper.run(eventually(check_ledger_size, retryWait=.5, timeout=timeout))
 
