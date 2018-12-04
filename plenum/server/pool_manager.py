@@ -239,8 +239,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self.node_blskey_changed(txn_data)
 
         # `onPoolMembershipChange` method can be called only after txn added to ledger
-        seq_no = get_seq_no(txn)
-        if self.ledger.getBySeqNo(seq_no) is None:
+        if self.ledger.getBySeqNo(get_seq_no(txn)) is None:
+            self._set_node_order(nodeNym, node_services=txn_data[DATA].get(SERVICES, None))
             raise LogicError("There are no txns in ledger for nym {}".format(nodeNym))
 
         # If nodeNym is never added in self._ordered_node_services,
@@ -335,7 +335,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def nodeServicesChanged(self, txn_data):
         nodeNym = txn_data[TARGET_NYM]
-        _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         nodeName = self.getNodeName(nodeNym)
         oldServices = set(self._ordered_node_services.get(nodeNym, []))
         newServices = set(txn_data[DATA].get(SERVICES, []))
@@ -355,7 +354,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self.node.nodeJoined(txn_data)
 
                 if self.name != nodeName:
-                    self.connectNewRemote(nodeInfo, nodeName, self.node)
+                    self.connectNewRemote(node_info, nodeName, self.node)
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
