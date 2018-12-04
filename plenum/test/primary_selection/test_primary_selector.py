@@ -120,6 +120,9 @@ class FakeNode:
     def allLedgersCaughtUp(self):
         Node.allLedgersCaughtUp(self)
 
+    def _clean_non_forwarded_ordered(self):
+        return Node._clean_non_forwarded_ordered(self)
+
     def num_txns_caught_up_in_last_catchup(self):
         return Node.num_txns_caught_up_in_last_catchup(self)
 
@@ -127,6 +130,9 @@ class FakeNode:
         Node.mark_request_as_executed(self, request)
 
     def _clean_req_from_verified(self, request):
+        pass
+
+    def doneProcessingReq(self, key):
         pass
 
     def processStashedOrderedReqs(self):

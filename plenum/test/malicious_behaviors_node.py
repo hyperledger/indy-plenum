@@ -21,6 +21,27 @@ from plenum.test.delayers import ppDelay, cDelay
 
 logger = getlogger()
 
+messages = []
+
+
+def dont_send_msgs(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, messages):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def dont_send_msgs_to(nodes, ignore_node_name, *msgs):
+    global messages
+    messages = msgs
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(dont_send_msgs, node)
+
 
 def makeNodeFaulty(node, *behaviors):
     for behavior in behaviors:
@@ -58,23 +79,6 @@ def dont_send_prepare_and_commit_to(nodes, ignore_node_name):
         node.ignore_node_name = ignore_node_name
         node.old_send = types.MethodType(Node.send, node)
         node.send = types.MethodType(dont_send_prepare_commit, node)
-
-
-def dont_send_propagate(self, msg: Any, *rids, signer=None, message_splitter=None):
-    if isinstance(msg, Propagate):
-        if rids:
-            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
-        else:
-            rids = [self.nodestack.getRemote(name).uid for name
-                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
-    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
-
-
-def dont_send_propagate_to(nodes, ignore_node_name):
-    for node in nodes:
-        node.ignore_node_name = ignore_node_name
-        node.old_send = types.MethodType(Node.send, node)
-        node.send = types.MethodType(dont_send_propagate, node)
 
 
 def reset_sending(nodes):
