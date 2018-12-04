@@ -2717,7 +2717,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.checkpoints.clear()
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
-        self.free_written_txns()
 
     def catchup_clear_for_backup(self):
         if not self.isPrimary:
@@ -2756,7 +2755,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
             self._discard_ordered_req_keys(pp)
-            self.free_txns_of_pp(pp)
 
     def _remove_ordered_from_queue(self, last_caught_up_3PC=None):
         """
@@ -2818,27 +2816,3 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                       "".format(last_timestamp))
                     return last_timestamp
         return None
-
-    def free_written_txns(self):
-        if not self.isMaster:
-            return
-        for lid, queue in self.requestQueues.items():
-            to_remove = []
-            for key in queue:
-                if self.node.seqNoDB.get(key)[1]:
-                    to_remove.append(key)
-            for key in to_remove:
-                self.discard_req_key(lid, key)
-                self.free_req_by_key_on_master(key)
-
-    def free_txns_of_pp(self, pp):
-        if not self.isMaster:
-            return
-        for key in pp.reqIdr:
-            self.free_req_by_key_on_master(key)
-
-    def free_req_by_key_on_master(self, key):
-        reqState = self.requests.get(key)
-        if reqState and not reqState.executed:
-            self.node.mark_request_as_executed(reqState.request)
-            self.requests.free(key)
