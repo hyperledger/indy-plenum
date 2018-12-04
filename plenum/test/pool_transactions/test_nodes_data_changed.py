@@ -9,7 +9,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
     sdk_add_new_steward_and_node, sdk_pool_refresh, \
-    update_node_data_and_reconnect
+    update_node_data_and_reconnect, demote_node
 from plenum.test.test_node import checkNodesConnected
 
 from stp_core.common.log import getlogger
@@ -72,6 +72,33 @@ def testNodePortChanged(looper, txnPoolNodeSet,
     new_port = node_new_ha.port
     node_ha = txnPoolNodeSet[0].nodeReg[new_node.name]
     cli_ha = txnPoolNodeSet[0].cliNodeReg[new_node.name + CLIENT_STACK_SUFFIX]
+
+    update_node_data_and_reconnect(looper, txnPoolNodeSet,
+                                   new_steward_wallet,
+                                   sdk_pool_handle,
+                                   new_node,
+                                   node_ha.host, new_port,
+                                   cli_ha.host, cli_ha.port,
+                                   tdir, tconf)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
+
+
+def test_node_port_changed_in_promote_after_demote(looper, txnPoolNodeSet,
+                        sdk_wallet_steward,
+                        sdk_pool_handle,
+                        sdk_node_theta_added,
+                        tdir, tconf):
+    """
+    An running node's port is changed
+    """
+    new_steward_wallet, new_node = sdk_node_theta_added
+
+    node_new_ha = genHa(1)
+    new_port = node_new_ha.port
+    node_ha = txnPoolNodeSet[0].nodeReg[new_node.name]
+    cli_ha = txnPoolNodeSet[0].cliNodeReg[new_node.name + CLIENT_STACK_SUFFIX]
+
+    demote_node(looper, new_steward_wallet, sdk_pool_handle, new_node)
 
     update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    new_steward_wallet,
