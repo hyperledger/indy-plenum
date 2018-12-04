@@ -24,7 +24,7 @@ def tconf(tconf):
     tconf.OUTDATED_REQS_CHECK_ENABLED = True
     tconf.OUTDATED_REQS_CHECK_INTERVAL = 1
     tconf.PROPAGATES_PHASE_REQ_TIMEOUT = 3600
-    tconf.ORDERING_PHASE_REQ_TIMEOUT = 7
+    tconf.ORDERING_PHASE_REQ_TIMEOUT = 10
     yield tconf
 
     tconf.OUTDATED_REQS_CHECK_ENABLED = OUTDATED_REQS_CHECK_ENABLED_OLD
@@ -44,6 +44,11 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     return request_couple_json
 
 
+# NOTE: if this test fails intermittently then ORDERING_PHASE_REQ_TIMEOUT
+# and Prepares and Commits wait timeouts should be tuned as we can not
+# synchronize receiving of Prepares and dropping of the request, for now
+# it is controlled just using timeouts so that we can drop the request
+# before all Prepares received.
 def test_req_drop_on_commit_phase_on_master_primary_and_then_ordered(
         tconf, setup, looper, txnPoolNodeSet,
         sdk_wallet_client, sdk_pool_handle):
@@ -63,9 +68,15 @@ def test_req_drop_on_commit_phase_on_master_primary_and_then_ordered(
     timeout = howlong - 2
     looper.run(eventually(check_propagates, retryWait=.5, timeout=timeout))
 
-    def check_drop():
-        # A should have not received Prepares and Commits for master instance
+    def check_prepares_received():
+        # A should have received all Prepares for master instance
         assert len(recvdPrepareForInstId(A, 0)) == 3
+        assert len(A.requests) == 1
+
+    looper.run(eventually(check_prepares_received, retryWait=.5, timeout=timeout))
+
+    def check_drop():
+        # A should have not received Commits for master instance
         assert len(recvdCommitForInstId(A, 0)) == 0
         # Request object should be dropped by timeout
         assert len(A.requests) == 0
@@ -77,7 +88,7 @@ def test_req_drop_on_commit_phase_on_master_primary_and_then_ordered(
         n.nodeIbStasher.resetDelays()
 
     def check_commits_received():
-        # A should have received all delayed Prepares and Commits for master instance
+        # A should have received all delayed Commits for master instance
         assert len(recvdCommitForInstId(A, 0)) == 3
 
     timeout = howlong * 2
