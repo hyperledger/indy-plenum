@@ -38,11 +38,13 @@ def tconf(tconf):
 def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
-    delay(Propagate, frm=[B, C, D], to=A, howlong=howlong)
+    lagged_node = A
+    frm = [B, C, D]
+    delay(Propagate, frm=frm, to=lagged_node, howlong=howlong)
     # Delay MessageRep by long simulating loss as if Propagate is missing, it
     # is requested
     A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
-    initial_ledger_size = txnPoolNodeSet[0].domainLedger.size
+    initial_ledger_size = lagged_node.domainLedger.size
     request_couple_json = sdk_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
@@ -54,21 +56,23 @@ def test_req_drop_on_propagate_phase_on_master_primary_and_then_ordered(
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
     sent1 = sdk_json_to_request_object(setup[0][0])
+    lagged_node = A
 
     def check_propagates_delayed():
-        # A should have received a request from the client
-        assert len(recvdRequest(A)) == 1
-        # A should not have received a PROPAGATE
-        assert len(recvdPropagate(A)) == 0
-        # A should have sent a PROPAGATE
-        assert len(sentPropagate(A)) == 1
-        assert len(A.requests) == 1
+        # Node should have received a request from the client
+        assert len(recvdRequest(lagged_node)) == 1
+        # Node should not have received a PROPAGATE
+        assert len(recvdPropagate(lagged_node)) == 0
+        # Node should have sent a PROPAGATE
+        assert len(sentPropagate(lagged_node)) == 1
+        # Node should have 1 request in requests queue
+        assert len(lagged_node.requests) == 1
 
     timeout = howlong - 2
     looper.run(eventually(check_propagates_delayed, retryWait=.5, timeout=timeout))
 
     def check_drop():
-        assert len(A.requests) == 0
+        assert len(lagged_node.requests) == 0
 
     timeout = tconf.PROPAGATES_PHASE_REQ_TIMEOUT + tconf.OUTDATED_REQS_CHECK_INTERVAL + 1
     looper.run(eventually(check_drop, retryWait=.5, timeout=timeout))
@@ -77,24 +81,24 @@ def test_req_drop_on_propagate_phase_on_master_primary_and_then_ordered(
         n.nodeIbStasher.resetDelays()
 
     def check_propagates_received():
-        # A should have received 3 PROPAGATEs
-        assert len(recvdPropagate(A)) == 3
-        # A should have total of 4 PROPAGATEs (3 from other nodes and 1 from
+        # Node should have received 3 PROPAGATEs
+        assert len(recvdPropagate(lagged_node)) == 3
+        # Node should have total of 4 PROPAGATEs (3 from other nodes and 1 from
         # itself)
         key = sent1.digest
-        assert key in A.requests
-        assert len(A.requests[key].propagates) == 4
-        # A should still have sent two PROPAGATEs since request
+        assert key in lagged_node.requests
+        assert len(lagged_node.requests[key].propagates) == 4
+        # Node should still have sent two PROPAGATEs since request
         # was dropped and re-received over propagate
-        assert len(sentPropagate(A)) == 2
+        assert len(sentPropagate(lagged_node)) == 2
 
     timeout = howlong + 2
     looper.run(eventually(check_propagates_received, retryWait=.5, timeout=timeout))
 
     def check_ledger_size():
         # The request should be eventually ordered
-        for node in txnPoolNodeSet:
-            assert node.domainLedger.size - initial_ledger_size == 1
+        for n in txnPoolNodeSet:
+            assert n.domainLedger.size - initial_ledger_size == 1
 
     looper.run(eventually(check_ledger_size, retryWait=.5, timeout=timeout))
 
