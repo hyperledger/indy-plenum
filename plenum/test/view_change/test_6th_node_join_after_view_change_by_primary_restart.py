@@ -44,7 +44,7 @@ def test_6th_node_join_after_view_change_by_master_restart(
         looper, txnPoolNodeSet, tdir, tconf,
         allPluginsPath, sdk_pool_handle,
         sdk_wallet_steward,
-        client_tdir, limitTestRunningTime):
+        limitTestRunningTime):
     """
     Test steps:
     1. start pool of 4 nodes

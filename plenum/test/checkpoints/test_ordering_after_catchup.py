@@ -33,7 +33,7 @@ def add_new_node(looper, pool_nodes, sdk_pool_handle, sdk_wallet_steward,
 
 def test_ordering_after_more_than_f_nodes_caught_up(
         chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward,
-        tdir, client_tdir, tconf, allPluginsPath):
+        tdir, tconf, allPluginsPath):
     """
     Verifies that more than LOG_SIZE batches can be ordered in one view
     after more than f nodes caught up in this view when some 3PC-batches
