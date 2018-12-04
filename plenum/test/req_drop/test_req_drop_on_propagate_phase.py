@@ -92,6 +92,7 @@ def test_req_drop_on_propagate_phase_on_master_primary_and_then_ordered(
     looper.run(eventually(check_propagates_received, retryWait=.5, timeout=timeout))
 
     def check_ledger_size():
+        # The request should be eventually ordered
         for node in txnPoolNodeSet:
             assert node.domainLedger.size - initial_ledger_size == 1
 
