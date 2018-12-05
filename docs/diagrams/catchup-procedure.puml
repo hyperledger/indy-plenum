@@ -11,7 +11,7 @@ note over Node1, Node4
     <b>Catch-up of Node4
 end note
 
-Node4 -> Node4: Revert Unordered 3PC Batches
+Node4 -> Node4: Revert unordered 3PC batches on Master replica
 note right Node4
     <b>Revert</b> applied but not yet ordered
     3PC batches on Master replica
@@ -66,8 +66,9 @@ loop For each ledger
         note right Node4
             <b>Process accumulated stashed ORDEREDs:
             For each stashed ORDERED:
-                - re-apply 3PC batch,
-                - execute 3PC batch
+                If ORDERED is from Master replica:
+                    - re-apply 3PC batch,
+                    - execute 3PC batch
         end note
 
         alt Ledger is pool
@@ -157,8 +158,9 @@ loop For each ledger
         note right Node4
             <b>Process accumulated stashed ORDEREDs:
             For each stashed ORDERED:
-                - re-apply 3PC batch,
-                - execute 3PC batch
+                If ORDERED is from Master replica:
+                    - re-apply 3PC batch,
+                    - execute 3PC batch
         end note
 
         alt Ledger is pool
@@ -331,8 +333,9 @@ Node4 -> Node4: Process stashed ORDEREDs
 note right Node4
     <b>Process accumulated stashed ORDEREDs:
     For each stashed ORDERED:
-        - re-apply 3PC batch,
-        - execute 3PC batch
+        If ORDERED is from Master replica:
+            - re-apply 3PC batch,
+            - execute 3PC batch
 end note
 
 Node4 -> Node4: mode = synced
