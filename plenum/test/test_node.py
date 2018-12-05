@@ -50,6 +50,7 @@ from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
+from plenum.server.replica import Replica
 from plenum.common.config_helper import PNodeConfigHelper
 from hashlib import sha256
 from plenum.common.messages.node_messages import Reply
@@ -463,6 +464,7 @@ replica_spyables = [
     replica.Replica.processPrepare,
     replica.Replica.processCommit,
     replica.Replica.processCheckpoint,
+    replica.Replica.dispatchThreePhaseMsg,
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,
