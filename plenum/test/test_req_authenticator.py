@@ -9,8 +9,9 @@ from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.client_authn import SimpleAuthNr, CoreAuthNr
 from plenum.server.req_authenticator import ReqAuthenticator
-from plenum.test.helper import sdk_sign_and_submit_op
+from plenum.test.helper import sdk_sign_and_submit_op, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import new_client_request
+from plenum.test.stasher import delay_rules
 
 
 @pytest.fixture(scope='module')
@@ -78,3 +79,31 @@ def test_authentication(looper, pre_reqs, registration,
     core_authnr.addIdr(did,
                        looper.loop.run_until_complete(key_for_did(sdk_pool_handle, wh, did)))
     assert req_authnr.authenticate(json.loads(req)) == {did, }
+
+
+def test_propagate_of_ordered_request_doesnt_stash_requests_in_authenticator(
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+    # Universal delayer
+    def stopAll(msg):
+        return 100000
+
+    # Make sure that verified req list is empty
+    for node in txnPoolNodeSet:
+        assert len(node.clientAuthNr._verified_reqs) == 0
+
+    lastNode = txnPoolNodeSet[-1]
+
+    # Order one request while cutting off last node
+    with delay_rules(lastNode.nodeIbStasher, stopAll), \
+         delay_rules(lastNode.clientIbStasher, stopAll):
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle,
+                                  sdk_wallet_client, 1)
+
+    # Let last node catch up
+    # TODO: Change to some more sensible wait condition
+    looper.runFor(5.0)
+
+    # Make sure that verified req list is still empty
+    for node in txnPoolNodeSet:
+        assert len(node.clientAuthNr._verified_reqs) == 0
