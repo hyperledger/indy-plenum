@@ -369,7 +369,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self.propagates_phase_req_timeout = self.config.PROPAGATES_PHASE_REQ_TIMEOUT
+        self.propagates_phase_req_timeouts = 0
         self.ordering_phase_req_timeout = self.config.ORDERING_PHASE_REQ_TIMEOUT
+        self.ordering_phase_req_timeouts = 0
 
         if self.config.OUTDATED_REQS_CHECK_ENABLED:
             self.startRepeating(self.check_outdated_reqs, self.config.OUTDATED_REQS_CHECK_INTERVAL)
@@ -2680,6 +2682,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
         self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
                                len(self.monitor.requestTracker.unordered()))
+        self.metrics.add_event(MetricsName.PROPAGATES_PHASE_REQ_TIMEOUTS, self.propagates_phase_req_timeouts)
+        self.metrics.add_event(MetricsName.ORDERING_PHASE_REQ_TIMEOUTS, self.ordering_phase_req_timeouts)
 
         if self.view_changer is not None:
             self.metrics.add_event(MetricsName.CURRENT_VIEW, self.viewNo)
@@ -3715,9 +3719,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if req_state.added_ts is not None and \
                     cur_ts - req_state.added_ts > self.propagates_phase_req_timeout:
                 outdated = True
+                self.propagates_phase_req_timeouts += 1
             if req_state.finalised_ts is not None and \
                     cur_ts - req_state.finalised_ts > self.ordering_phase_req_timeout:
                 outdated = True
+                self.ordering_phase_req_timeouts += 1
             if outdated:
                 self._clean_req_from_verified(req_state.request)
                 self.requests.pop(req_key)
