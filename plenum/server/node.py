@@ -3707,6 +3707,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def check_outdated_reqs(self):
         cur_ts = time.perf_counter()
+        req_keys_to_drop = []
         for req_key in self.requests:
             outdated = False
             req_state = self.requests[req_key]
@@ -3725,6 +3726,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 outdated = True
                 self.ordering_phase_req_timeouts += 1
             if outdated:
+                req_keys_to_drop.append(req_key)
                 self._clean_req_from_verified(req_state.request)
-                self.requests.pop(req_key)
                 self.doneProcessingReq(req_key)
+        for req_key in req_keys_to_drop:
+            self.requests.pop(req_key)
