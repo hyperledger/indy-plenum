@@ -1,5 +1,3 @@
-import functools
-
 import pytest
 
 from plenum.common.constants import NODE, TXN_TYPE, GET_TXN
