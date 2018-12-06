@@ -580,6 +580,12 @@ class ValidatorNodeInfoTool:
                     "Last_txn_3PC_keys": self._prepare_for_json(
                         last_txn_3PC_keys),
                 },
+                "Requests_timeouts": {
+                    "Propagates_phase_req_timeouts": self._prepare_for_json(
+                        self._node.propagates_phase_req_timeouts),
+                    "Ordering_phase_req_timeouts": self._prepare_for_json(
+                        self._node.ordering_phase_req_timeouts)
+                },
                 "Count_of_replicas": self._prepare_for_json(
                     len(self._node.replicas)),
                 "Replicas_status": self._prepare_for_json(
