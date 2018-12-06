@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
@@ -149,12 +150,28 @@ class GcTimeTracker:
             self._timestamps[gen] = None
 
     def report_stats(self):
+        objects = gc.get_objects()
         stats = defaultdict(int)
-        for obj in gc.get_objects():
+        for obj in objects:
             stats[type(obj)] += 1
         logger.info("Top objects tracked by garbage collector:")
         for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:50]:
             logger.info("    {}: {}".format(k, v))
+
+        fat_objects = [(o, len(gc.get_referents(o))) for o in objects]
+        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:10]
+        logger.info("Top big collections tracked by garbage collector:")
+        for obj, count in fat_objects:
+            logger.info("    {}: {}".format(type(obj), count))
+            if isinstance(obj, List):
+                samples = random.sample(obj, 3)
+                for v in samples:
+                    logger.info("        Sample element: {}".format(repr(v)))
+            if isinstance(obj, Dict):
+                samples = random.sample(list(obj.keys()), 3)
+                for k in samples:
+                    logger.info("        Sample key: {}".format(repr(k)))
+                    logger.info("        Sample value: {}".format(repr(obj[k])))
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
