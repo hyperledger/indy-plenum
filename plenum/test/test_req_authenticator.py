@@ -85,13 +85,13 @@ def test_authentication(looper, pre_reqs, registration,
 def test_propagate_of_ordered_request_doesnt_stash_requests_in_authenticator(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
 
-    def check_verified_req_list_is_empty():
-        for node in txnPoolNodeSet:
-            assert len(node.clientAuthNr._verified_reqs) == 0
-
     # Universal delayer
     def stopAll(msg):
         return 100000
+
+    def check_verified_req_list_is_empty():
+        for node in txnPoolNodeSet:
+            assert len(node.clientAuthNr._verified_reqs) == 0
 
     # Order one request while cutting off last node
     lastNode = txnPoolNodeSet[-1]
@@ -100,6 +100,14 @@ def test_propagate_of_ordered_request_doesnt_stash_requests_in_authenticator(
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle,
                                   sdk_wallet_client, 1)
+        old_propagates = [n.spylog.count('processPropagate') for n in txnPoolNodeSet]
+
+    def check_more_propagates_delivered():
+        new_propagates = [n.spylog.count('processPropagate') for n in txnPoolNodeSet]
+        assert all(old < new for old, new in zip(old_propagates, new_propagates))
+
+    # Wait until more propagates are delivered to all nodes
+    looper.run(eventually(check_more_propagates_delivered))
 
     # Make sure that verified req list will be empty eventually
     looper.run(eventually(check_verified_req_list_is_empty))
