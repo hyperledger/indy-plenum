@@ -12,6 +12,7 @@ from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.test.helper import sdk_sign_and_submit_op, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import new_client_request
 from plenum.test.stasher import delay_rules
+from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope='module')
@@ -83,27 +84,22 @@ def test_authentication(looper, pre_reqs, registration,
 
 def test_propagate_of_ordered_request_doesnt_stash_requests_in_authenticator(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+
+    def check_verified_req_list_is_empty():
+        for node in txnPoolNodeSet:
+            assert len(node.clientAuthNr._verified_reqs) == 0
+
     # Universal delayer
     def stopAll(msg):
         return 100000
 
-    # Make sure that verified req list is empty
-    for node in txnPoolNodeSet:
-        assert len(node.clientAuthNr._verified_reqs) == 0
-
-    lastNode = txnPoolNodeSet[-1]
-
     # Order one request while cutting off last node
+    lastNode = txnPoolNodeSet[-1]
     with delay_rules(lastNode.nodeIbStasher, stopAll), \
          delay_rules(lastNode.clientIbStasher, stopAll):
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle,
                                   sdk_wallet_client, 1)
 
-    # Let last node catch up
-    # TODO: Change to some more sensible wait condition
-    looper.runFor(5.0)
-
-    # Make sure that verified req list is still empty
-    for node in txnPoolNodeSet:
-        assert len(node.clientAuthNr._verified_reqs) == 0
+    # Make sure that verified req list will be empty eventually
+    looper.run(eventually(check_verified_req_list_is_empty))
