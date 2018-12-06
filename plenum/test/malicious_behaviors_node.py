@@ -1,25 +1,17 @@
 import random
 import types
+import common.error
+
 from functools import partial
 from typing import Any
 
-from collections import Iterable
-
-from libnacl.sign import Signer
 from plenum.server.router import Router
-
-import common.error
-import plenum.common.error
 from plenum.common.types import f
-
-from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
-    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
-    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, ThreePhaseMsg
+from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, \
+    Commit, Reply, ThreePhaseMsg
 from plenum.common.request import Request
-
 from plenum.common.util import updateNamedTuple
+
 from plenum.server.node import Node
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat

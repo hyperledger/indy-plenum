@@ -2075,12 +2075,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         self.updateSeqNoMap([txn], ledger_id)
-        self._clear_req_key_for_txn(ledger_id, txn)
+        self._clear_request_for_txn(ledger_id, txn)
 
-    def _clear_req_key_for_txn(self, ledger_id, txn):
+    def _clear_request_for_txn(self, ledger_id, txn):
         req_key = get_digest(txn)
         if req_key is not None:
             self.master_replica.discard_req_key(ledger_id, req_key)
+            reqState = self.requests.get(req_key, None)
+            if reqState:
+                if reqState.forwarded and not reqState.executed:
+                    self.mark_request_as_executed(reqState.request)
+                    self.requests.free(reqState.request.key)
+                    self.doneProcessingReq(req_key)
+                if not reqState.forwarded:
+                    self.requests.pop(req_key, None)
+                    self._clean_req_from_verified(reqState.request)
+                    self.doneProcessingReq(req_key)
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         if ledgerId == POOL_LEDGER_ID:
