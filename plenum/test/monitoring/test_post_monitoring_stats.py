@@ -40,7 +40,6 @@ def testPostingThroughput(postingStatsEnabled,
     looper.runFor(WIND_SIZE * MIN_CNT)
 
     for node in txnPoolNodeSet:
-        assert len(node.monitor.orderedRequestsInLast) == reqCount
         assert node.monitor.highResThroughput > 0
         assert node.monitor.totalRequests == reqCount
         # TODO: Add implementation to actually call firebase plugin

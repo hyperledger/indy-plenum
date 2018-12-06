@@ -194,8 +194,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         self.started = datetime.utcnow().isoformat()
 
-        self.orderedRequestsInLast = []
-
         # attention: handlers will work over unordered request only once
         self.unordered_requests_handlers = []  # type: List[Callable]
 
@@ -366,12 +364,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                             .format(key, self.name, instId, now - started))
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
-            if byMaster:
-                # TODO for now, view_change procedure can take more that 15 minutes
-                # (5 minutes for catchup and 10 minutes for primary's answer).
-                # Therefore, view_change triggering by max latency is not indicative now.
-                # self.masterReqLatencies[key] = duration
-                self.orderedRequestsInLast.append(now)
 
             if key in requests:
                 identifier = requests[key].request.identifier

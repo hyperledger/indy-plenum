@@ -2732,8 +2732,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
 
-        self.metrics.add_event(MetricsName.MONITOR_ORDERED_REQUESTS_IN_LAST, len(self.monitor.orderedRequestsInLast))
-
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
