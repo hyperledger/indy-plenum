@@ -1,7 +1,9 @@
-from abc import abstractmethod, ABC
+from abc import abstractmethod
+
+from plenum.server.req_handlers.handler_interfaces.handler import Handler
 
 
-class BatchHandler(ABC):
+class BatchHandler(Handler):
 
     @abstractmethod
     def post_batch_created(self, state_root):

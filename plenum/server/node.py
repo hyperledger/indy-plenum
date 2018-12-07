@@ -20,6 +20,11 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.req_handlers.handler_builders.config_handler_builder import ConfigHandlerBuilder
+from plenum.server.req_handlers.handler_builders.domain_handler_builder import DomainHandlerBuilder
+from plenum.server.req_handlers.handler_builders.plugin_handler_builder import PluginHandlerBuilder
+from plenum.server.req_handlers.handler_builders.pool_handler_builder import PoolHandlerBuilder
+from plenum.server.req_handlers.handler_interfaces.handler import Handler
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -222,6 +227,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
                                                    PLUGIN_TYPE_PROCESSING)
+
+        self.txn_type_to_req_handler = {}  # type: Dict[int, Handler]
+        self.ledger_to_batch_req_handler = {}  # type: Dict[int, BatchHandler]
+
+        config_handler_builder = ConfigHandlerBuilder()
+        domain_handler_builder = DomainHandlerBuilder()
+        plugin_handler_builder = PluginHandlerBuilder()
+        pool_handler_builder = PoolHandlerBuilder()
 
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
@@ -2286,7 +2299,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
                                                format(TXN_TYPE, operation[TXN_TYPE]))
             else:
-                req_handler.doStaticValidation(request)
+                if hasattr(req_handler, 'static_validation'):
+                    req_handler.static_validation(request)
 
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 

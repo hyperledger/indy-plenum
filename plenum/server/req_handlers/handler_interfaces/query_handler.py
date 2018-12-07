@@ -1,7 +1,9 @@
-from abc import abstractmethod, ABC
+from abc import abstractmethod
+
+from plenum.server.req_handlers.handler_interfaces.handler import Handler
 
 
-class QueryHandler(ABC):
+class QueryHandler(Handler):
 
     @abstractmethod
     def query(self, request):
