@@ -130,7 +130,7 @@ class GcObject:
 
 class GcObjectTree:
     def __init__(self):
-        self.objects = {id(obj) : GcObject(obj) for obj in gc.get_objects()}
+        self.objects = {id(obj): GcObject(obj) for obj in gc.get_objects()}
         for obj_id, obj in self.objects.items():
             for ref_id in obj.referents:
                 if ref_id in self.objects:
