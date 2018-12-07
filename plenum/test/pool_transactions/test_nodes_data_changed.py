@@ -64,7 +64,7 @@ def testNodePortChanged(looper, txnPoolNodeSet,
                         sdk_node_theta_added,
                         tdir, tconf):
     """
-    An running node's port is changed
+    A running node's port is changed
     """
     new_steward_wallet, new_node = sdk_node_theta_added
 
@@ -89,7 +89,7 @@ def test_node_port_changed_in_promote_after_demote(looper, txnPoolNodeSet,
                         sdk_node_theta_added,
                         tdir, tconf):
     """
-    An running node's port is changed
+    A running node's port is changed
     """
     new_steward_wallet, new_node = sdk_node_theta_added
 

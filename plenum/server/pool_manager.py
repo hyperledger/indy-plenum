@@ -214,6 +214,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return committedTxns
 
     def onPoolMembershipChange(self, txn):
+        # `onPoolMembershipChange` method can be called only after txn added to ledger
+
         if get_type(txn) != NODE:
             return
 
@@ -224,7 +226,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeName = txn_data[DATA][ALIAS]
         nodeNym = txn_data[TARGET_NYM]
 
-        self._set_node_order(nodeNym, node_name=nodeName)
+        self._set_node_ids_in_cash(nodeNym, nodeName)
 
         def _updateNode(txn_data):
             if SERVICES in txn_data[DATA]:
@@ -238,11 +240,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if BLS_KEY in txn_data[DATA]:
                     self.node_blskey_changed(txn_data)
 
-        # `onPoolMembershipChange` method can be called only after txn added to ledger
-        if self.ledger.getBySeqNo(get_seq_no(txn)) is None:
-            self._set_node_order(nodeNym, node_services=txn_data[DATA].get(SERVICES, None))
-            raise LogicError("There are no txns in ledger for nym {}".format(nodeNym))
-
         # If nodeNym is never added in self._ordered_node_services,
         # nodeNym is never added in ledger
         if nodeNym not in self._ordered_node_services:
@@ -251,7 +248,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         else:
             _updateNode(txn_data)
 
-        self._set_node_order(nodeNym, node_services=txn_data[DATA].get(SERVICES, None))
+        self._set_node_services_in_cash(nodeNym, txn_data[DATA].get(SERVICES, None))
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
@@ -381,6 +378,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.node.update_bls_key(bls_key)
 
     def getNodeName(self, nym):
+        # Assuming ALIAS does not change
         return self._ordered_node_ids[nym]
 
     @property
@@ -417,26 +415,29 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def _load_nodes_order_from_ledger(self):
         self._ordered_node_ids = OrderedDict()
-        self._ordered_node_services = dict()
+        self._ordered_node_services = {}
         for _, txn in self.ledger.getAllTxn():
             if get_type(txn) == NODE:
                 txn_data = get_payload_data(txn)
-                self._set_node_order(txn_data[TARGET_NYM],
-                                     node_name=txn_data[DATA][ALIAS])
+                self._set_node_ids_in_cash(txn_data[TARGET_NYM],
+                                           txn_data[DATA][ALIAS])
+                self._set_node_services_in_cash(txn_data[TARGET_NYM],
+                                                txn_data[DATA].get(SERVICES, None))
 
-    def _set_node_order(self, node_nym, node_name=None, node_services=None):
-        if node_name is not None:
-            curName = self._ordered_node_ids.get(node_nym)
-            if curName is None:
-                self._ordered_node_ids[node_nym] = node_name
-                logger.info("{} sets node {} ({}) order to {}".format(
-                    self.name, node_name, node_nym,
-                    len(self._ordered_node_ids[node_nym])))
-            elif curName != node_name:
-                msg = "{} is trying to order already ordered node {} ({}) with other alias {}" \
-                    .format(self.name, curName, node_nym, node_name)
-                logger.error(msg)
-                raise LogicError(msg)
+    def _set_node_ids_in_cash(self, node_nym, node_name):
+        curName = self._ordered_node_ids.get(node_nym)
+        if curName is None:
+            self._ordered_node_ids[node_nym] = node_name
+            logger.info("{} sets node {} ({}) order to {}".format(
+                self.name, node_name, node_nym,
+                len(self._ordered_node_ids[node_nym])))
+        elif curName != node_name:
+            msg = "{} is trying to order already ordered node {} ({}) with other alias {}" \
+                .format(self.name, curName, node_nym, node_name)
+            logger.error(msg)
+            raise LogicError(msg)
+
+    def _set_node_services_in_cash(self, node_nym, node_services):
         if node_services is not None:
             self._ordered_node_services[node_nym] = node_services
 
