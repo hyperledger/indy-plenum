@@ -1,0 +1,46 @@
+
+input_logs:                                       # List of input logs
+  - path: .                                       # Where to look for log files
+    recursive: yes                                # Whether to descend into subdirectories recursively
+    pattern: (Node\d+)\.log                       # Log file regex pattern to look for
+    node_group: 1                                 # Group number that matches node identifier
+    only_timestamped: yes                         # Whether to discard non-timestamped lines
+
+
+chains:                                           # List of processing chains
+  main:                                           # Main processing chain
+  - match all or drop:                            # Drop unless message...
+    - replica: master                             # ...is from node or master replica...
+    - view_change_event:                          # ...and is related to view change
+  - log line: view_change                         # Save message to view_change log sink
+  - log_view_change_start:                        # Call chain log_view_change_start
+  - log_view_change_done:                         # Call chain log_view_change_done
+
+  log_view_change_start:
+  - match: view_change_start                      # Return unless message is view change start
+  - log line: view_change_start_done              # Save message to view_change_start_done log sink
+  - log time: {view_change: start}                # Add message to view_change-start timelog sink
+  - drop:                                         # Drop message, since we'll no longer need it
+
+  log_view_change_done:
+  - match: view_change_done                       # Return unless message is view change done
+  - log line: view_change_start_done              # Save message to view_change_start_done log sink
+  - log time: {view_change: done}                 # Add message to view_change-done timelog sink
+  - drop:                                         # Drop message, since we'll no longer need it
+
+outputs:
+  logs:                                           # List of output log sinks
+    view_change:                                  # View change log sink
+      filename: view_change.log                   # Filename where to put messages
+      pattern: <timestamp> | <node> | <body>      # Message format
+    view_change_start_done:                       # View change start/done log sink
+      filename: view_change_sd_<replica>.log      # Filename where to put messages
+      pattern: <timestamp> | <node> | <body>      # Message format
+
+  timelogs:                                       # List of timelog
+    view_change:                                  # View changes timelog
+      filename: view_change.csv                   # CSV filename
+      interval: 1                                 # Sampling interval in seconds
+      graphs:                                     # Graph list
+      - start                                     # Graph for view change start events
+      - done                                      # Graph for view change done events

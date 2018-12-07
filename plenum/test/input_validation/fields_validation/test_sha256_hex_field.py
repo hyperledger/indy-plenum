@@ -44,7 +44,7 @@ def test_only_sha256_hex_field():
     b64_h256 = base64.b64encode(h256.digest()).decode()
     assert validator.validate(
         b64_h256) == 'not a valid hash (needs to be in hex too)'
-    b58_h256 = base58.b58encode(h256.digest())
+    b58_h256 = base58.b58encode(h256.digest()).decode("utf-8")
     assert validator.validate(
         b58_h256) == 'not a valid hash (needs to be in hex too)'
 

@@ -1,3 +1,6 @@
+import pytest
+
+from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test import waits
 from plenum.test.batching_3pc.helper import check_uncommitteds_equal
 from stp_core.loop.eventually import eventually
@@ -11,10 +14,31 @@ from plenum.test.test_node import get_master_primary_node
 
 Max3PCBatchSize = 3
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.pool_transactions.conftest import looper
-
 
 TestRunningTimeLimitSec = 200
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_throughput_measurement_class = tconf.throughput_measurement_class
+    old_throughput_measurement_params = tconf.throughput_measurement_params
+    old_max_3pc_batch_size = tconf.Max3PCBatchSize
+    old_timeout = tconf.ACC_MONITOR_TIMEOUT
+
+    tconf.throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
+    tconf.throughput_measurement_params = {
+        'window_size': 2,
+        'min_cnt': 3
+    }
+    tconf.Max3PCBatchSize = Max3PCBatchSize
+    tconf.ACC_MONITOR_TIMEOUT = 5
+
+    yield tconf
+
+    tconf.throughput_measurement_class = old_throughput_measurement_class
+    tconf.throughput_measurement_params = old_throughput_measurement_params
+    tconf.Max3PCBatchSize = old_max_3pc_batch_size
+    tconf.ACC_MONITOR_TIMEOUT = old_timeout
 
 
 def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
@@ -38,7 +62,7 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
 
     looper.run(eventually(chk1, retryWait=1))
     timeout = tconf.PerfCheckFreq + \
-        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+              waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     waitForViewChange(looper, txnPoolNodeSet, old_view_no + 1,
                       customTimeout=timeout)
 

@@ -12,6 +12,7 @@ from ledger.util import STH
 from storage.binary_serializer_based_file_store import BinarySerializerBasedFileStore
 from storage.chunked_file_store import ChunkedFileStore
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
+from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 from storage.text_file_store import TextFileStore
 
 
@@ -70,7 +71,9 @@ def create_ledger(request, txn_serializer, hash_serializer, tempdir, init_genesi
     elif request.param == 'ChunkedFileStorage':
         return create_ledger_chunked_file_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
     elif request.param == 'LeveldbStorage':
-        return create_ledger_leveldb_file_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+        return create_ledger_leveldb_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+    elif request.param == 'RocksdbStorage':
+        return create_ledger_rocksdb_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
 
 
 def create_ledger_text_file_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
@@ -89,13 +92,19 @@ def create_ledger_text_file_storage(txn_serializer, hash_serializer, tempdir, in
                               storeContentHash=False,
                               ensureDurability=False)
 
-    return __create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+    return _create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
 
 
-def create_ledger_leveldb_file_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
+def create_ledger_leveldb_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
     store = KeyValueStorageLeveldbIntKeys(tempdir,
                                           'transactions')
-    return __create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+    return _create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+
+
+def create_ledger_rocksdb_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
+    store = KeyValueStorageRocksdbIntKeys(tempdir,
+                                          'transactions')
+    return _create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
 
 
 def create_ledger_chunked_file_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
@@ -117,10 +126,10 @@ def create_ledger_chunked_file_storage(txn_serializer, hash_serializer, tempdir,
                              chunk_creator=chunk_creator,
                              storeContentHash=False,
                              ensureDurability=False)
-    return __create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
+    return _create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file)
 
 
-def __create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
+def _create_ledger(store, txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
     genesis_txn_initiator = GenesisTxnInitiatorFromFile(tempdir,
                                                         init_genesis_txn_file) if init_genesis_txn_file else None
     ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),

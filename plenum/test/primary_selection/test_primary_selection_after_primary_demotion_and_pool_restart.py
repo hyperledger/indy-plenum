@@ -1,22 +1,26 @@
+from plenum.common.util import hexToFriendly
+
 from stp_core.common.log import getlogger
 
-from plenum.common.constants import ALIAS, SERVICES
-from plenum.test.pool_transactions.conftest import looper
-from plenum.test.pool_transactions.helper import updateNodeData
+from plenum.test.pool_transactions.helper import sdk_send_update_node
 
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies
+    sdk_send_random_and_check
 
 from plenum.test.primary_selection.helper import getPrimaryNodesIdxs
 from plenum.common.config_helper import PNodeConfigHelper
 
 logger = getlogger()
 
+
 def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
-        txnPoolNodeSet, stewardAndWalletForMasterNode, txnPoolMasterNodes,
-        tdir, tconf):
+                                                                   txnPoolNodeSet,
+                                                                   sdk_pool_handle,
+                                                                   sdk_wallet_steward,
+                                                                   txnPoolMasterNodes,
+                                                                   tdir, tconf):
     """
     Demote primary and restart the pool.
     Pool should select new primary and have viewNo=0 after restart.
@@ -24,19 +28,19 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
 
     logger.info("1. turn off the node which has primary replica for master instanse")
     master_node = txnPoolMasterNodes[0]
-    client, wallet = stewardAndWalletForMasterNode
-
-    node_data = {
-        ALIAS: master_node.name,
-        SERVICES: []
-    }
-    updateNodeData(looper, client, wallet, master_node, node_data)
+    node_dest = hexToFriendly(master_node.nodestack.verhex)
+    sdk_send_update_node(looper, sdk_wallet_steward,
+                         sdk_pool_handle,
+                         node_dest, master_node.name,
+                         None, None,
+                         None, None,
+                         services=[])
 
     restNodes = [node for node in txnPoolNodeSet if node.name != master_node.name]
     ensureElectionsDone(looper, restNodes)
 
     # ensure pool is working properly
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+
 
     logger.info("2. restart pool")
     # Stopping existing nodes
@@ -61,7 +65,8 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     looper.run(checkNodesConnected(restNodes))
     ensureElectionsDone(looper, restNodes)
     checkViewNoForNodes(restNodes, 0)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, numReqs=3)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 3)
 
     primariesIdxs = getPrimaryNodesIdxs(restNodes)
     assert restNodes[primariesIdxs[0]].name != master_node.name

@@ -1,10 +1,11 @@
+import base58
 import pytest
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
-from plenum.common.constants import NODE, TXN_TYPE, BLS_KEY, DATA, ALIAS
-from plenum.test.pool_transactions.helper import updateNodeData
-from plenum.test.primary_selection.conftest import stewardAndWalletForMasterNode, txnPoolMasterNodes
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+from plenum.common.constants import NODE, BLS_KEY, DATA
+from plenum.common.keygen_utils import init_bls_keys
+from plenum.common.txn_util import get_type, get_payload_data
+from plenum.common.util import randomString
+from plenum.test.bls.helper import sdk_change_bls_key
 
 nodeCount = 4
 
@@ -18,7 +19,7 @@ def node(txnPoolNodeSet):
 def pool_node_txns(poolTxnData):
     node_txns = []
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NODE:
+        if get_type(txn) == NODE:
             node_txns.append(txn)
     return node_txns
 
@@ -39,7 +40,7 @@ def test_get_key_for_current_root(bls_key_register_ledger, txnPoolNodeSet, pool_
         bls_key = bls_key_register_ledger.get_key_by_name(
             txnPoolNodeSet[i].name)
         assert bls_key
-        assert bls_key == pool_node_txns[i][DATA][BLS_KEY]
+        assert bls_key == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
 
 
 def test_get_key_for_current_root_explicitly(bls_key_register_ledger, txnPoolNodeSet, pool_node_txns):
@@ -47,22 +48,29 @@ def test_get_key_for_current_root_explicitly(bls_key_register_ledger, txnPoolNod
         bls_key = bls_key_register_ledger.get_key_by_name(txnPoolNodeSet[i].name,
                                                           bls_key_register_ledger.get_pool_root_hash_committed())
         assert bls_key
-        assert bls_key == pool_node_txns[i][DATA][BLS_KEY]
+        assert bls_key == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
 
 
 def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                            pool_node_txns,
+                                           txnPoolNodeSet,
                                            node,
                                            looper,
-                                           stewardAndWalletForMasterNode):
-    old_bls_key = pool_node_txns[0][DATA][BLS_KEY]
-    new_bls_key = pool_node_txns[0][DATA][BLS_KEY] + "Changed"
+                                           sdk_wallet_steward,
+                                           sdk_pool_handle):
+    old_bls_key = get_payload_data(pool_node_txns[0])[DATA][BLS_KEY]
+    new_bls_key, key_proof = init_bls_keys(node.keys_dir, node.name)
     old_pool_root_hash = node.poolManager.state.committedHeadHash
 
     # change BLS keys
-    client, wallet = stewardAndWalletForMasterNode
-    change_bls_keys(new_bls_key, node,
-                    looper, client, wallet)
+
+    sdk_change_bls_key(looper, txnPoolNodeSet,
+                       node,
+                       sdk_pool_handle,
+                       sdk_wallet_steward,
+                       add_wrong=False,
+                       new_bls=new_bls_key,
+                       new_key_proof=key_proof)
 
     new_pool_root_hash = node.poolManager.state.committedHeadHash
     assert old_pool_root_hash != new_pool_root_hash
@@ -77,17 +85,3 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                                       new_pool_root_hash)
     assert bls_key
     assert bls_key == new_bls_key
-
-
-def change_bls_keys(new_bls_key, node,
-                    looper, client, wallet):
-    node_data = {
-        ALIAS: node.name,
-        BLS_KEY: new_bls_key
-    }
-    updateNodeData(looper,
-                   client,
-                   wallet,
-                   node,
-                   node_data)
-    return

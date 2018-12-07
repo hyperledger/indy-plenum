@@ -11,6 +11,8 @@ def initialize_node_environment(name, node_config_helper, sigseed=None,
                                 override_keep=False):
     cleanup_environment(node_config_helper.ledger_dir)
 
-    _, vk, bls_key = initNodeKeysForBothStacks(name=name, keys_dir=node_config_helper.keys_dir,
-                                               sigseed=sigseed, override=override_keep)
-    return vk, bls_key
+    _, vk, bls_key, key_proof = initNodeKeysForBothStacks(name=name,
+                                                          keys_dir=node_config_helper.keys_dir,
+                                                          sigseed=sigseed,
+                                                          override=override_keep)
+    return vk, bls_key, key_proof

@@ -10,7 +10,6 @@ from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \
     get_timestamp_suspicion_count
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_request
 
-
 Max3PCBatchSize = 4
 
 from plenum.test.batching_3pc.conftest import tconf
@@ -40,9 +39,9 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet,
         make_clock_faulty(
             node,
             clock_slow_by_sec=node.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS +
-            randint(
-                5,
-                15),
+                              randint(
+                                  5,
+                                  15),
             ppr_always_wrong=False)
 
     for _ in range(5):

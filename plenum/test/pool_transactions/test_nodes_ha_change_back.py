@@ -5,6 +5,8 @@ from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
 
+TestRunningTimeLimitSec = 200
+
 
 def testChangeNodeHaBack(looper, txnPoolNodeSet,
                          sdk_pool_handle,

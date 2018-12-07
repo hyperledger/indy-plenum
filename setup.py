@@ -13,36 +13,27 @@ if sys.version_info < (3, 5):
     print("NOTE: Installation failed. Run setup.py using python3")
     sys.exit(1)
 
-# Change to ioflo's source directory prior to running any command
-try:
-    SETUP_DIRNAME = os.path.dirname(__file__)
-except NameError:
-    # We're probably being frozen, and __file__ triggered this NameError
-    # Work around this
-    SETUP_DIRNAME = os.path.dirname(sys.argv[0])
+here = os.path.abspath(os.path.dirname(__file__))
 
-if SETUP_DIRNAME != '':
-    os.chdir(SETUP_DIRNAME)
+md = {}
+with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
+    exec(f.read(), md)
 
-SETUP_DIRNAME = os.path.abspath(SETUP_DIRNAME)
-
-METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
-# Load the metadata using exec() so we don't trigger an import of ioflo.__init__
-exec(compile(open(METADATA).read(), METADATA, 'exec'))
-
-tests_require = ['pytest', 'pytest-xdist', 'python3-indy==1.3.1-dev-403']
+tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.8']
 
 setup(
-    name='indy-plenum-dev',
-    version=__version__,
-    description='Plenum Byzantine Fault Tolerant Protocol',
-    long_description='Plenum Byzantine Fault Tolerant Protocol',
-    url='https://github.com/hyperledger/indy-plenum',
-    download_url='https://github.com/hyperledger/indy-plenum/tarball/{}'.
-        format(__version__),
-    author=__author__,
-    author_email='hyperledger-indy@lists.hyperledger.org',
-    license=__license__,
+    name='indy-plenum-dev',  # TODO refers to metadata as well
+    version=md['__version__'],
+    author=md['__author__'],
+    author_email=md['__author_email__'],
+    maintainer=md['__maintainer__'],
+    maintainer_email=md['__maintainer_email__'],
+    url=md['__url__'],
+    description=md['__description__'],
+    long_description=md['__long_description__'],
+    download_url=md['__download_url__'],
+    license=md['__license__'],
+
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],
@@ -50,14 +41,16 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
-    install_requires=['jsonpickle', 'ujson==1.33',
-                      'prompt_toolkit==0.57', 'pygments',
-                      'rlp', 'sha3', 'leveldb',
-                      'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip',
-                      'portalocker==0.5.7', 'pyzmq', 'libnacl==1.6.1',
-                      'six==1.11.0', 'psutil', 'intervaltree',
-                      'msgpack-python==0.4.6', 'indy-crypto==0.2.0'],
+    install_requires=['jsonpickle==0.9.6', 'ujson==1.33',
+                      'prompt_toolkit==0.57', 'pygments==2.2.0',
+                      'rlp==0.5.1', 'sha3==0.2.1', 'leveldb',
+                      'ioflo==1.5.4', 'semver==2.7.9', 'base58==1.0.0', 'orderedset==2.0',
+                      'sortedcontainers==1.5.7', 'psutil==5.4.3', 'pip<10.0.0',
+                      'portalocker==0.5.7', 'pyzmq==17.0.0', 'libnacl==1.6.1',
+                      'six==1.11.0', 'psutil==5.4.3', 'intervaltree==2.1.0',
+                      'msgpack-python==0.4.6', 'indy-crypto==0.4.5',
+                      'python-rocksdb==0.6.9', 'python-dateutil==2.6.1',
+                      'pympler==0.5'],
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,
@@ -65,12 +58,14 @@ setup(
         'benchmark': ['pympler']
     },
     tests_require=tests_require,
-    scripts=['scripts/plenum', 'scripts/init_plenum_keys',
+    scripts=['scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',
              'scripts/export-gen-txns', 'scripts/get_keys',
              'scripts/udp_sender', 'scripts/udp_receiver', 'scripts/filter_log',
              'scripts/log_stats',
-             'scripts/init_bls_keys']
+             'scripts/init_bls_keys',
+             'scripts/process_logs/process_logs',
+             'scripts/process_logs/process_logs.yml']
 )

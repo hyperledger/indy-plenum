@@ -22,7 +22,7 @@ def testRequestStaticValidation(tconf, looper, txnPoolNodeSet,
         node.doStaticValidation(req)
 
 
-def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
+def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet,
                                       sdk_wallet_client, sdk_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are
@@ -65,8 +65,6 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     REJECT is sent to the client
     :return:
     """
-    # TODO: Change this test for using SDK.
-    # Now SDK, can't distinguish REJECTED messages and simply raise IndyError
     origMethods = []
     names = {node.name: 0 for node in txnPoolNodeSet}
 

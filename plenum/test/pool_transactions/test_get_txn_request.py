@@ -4,9 +4,9 @@ import pytest
 
 from random import randint
 
-from plenum.common.constants import INVALID_LEDGER_ID, \
-    INVALID_SEQ_NO, DATA
+from plenum.common.constants import DATA
 from plenum.common.exceptions import RequestNackedException
+from plenum.common.txn_util import get_seq_no
 from plenum.test.pool_transactions.helper import \
     sdk_sign_and_send_prepared_request, prepare_nym_request, \
     sdk_build_get_txn_request
@@ -16,6 +16,10 @@ from plenum.common.util import getMaxFailures, randomString
 
 c_delay = 10
 fValue = getMaxFailures(4)
+
+
+INVALID_LEDGER_ID = 5908
+INVALID_SEQ_NO = -23
 
 
 def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
@@ -117,7 +121,7 @@ def test_get_txn_response_as_expected(looper, txnPoolNodeSet,
 
     result1 = sdk_get_and_check_replies(looper,
                                         [request_couple])[0][1]['result']
-    seqNo = result1['seqNo']
+    seqNo = get_seq_no(result1)
 
     _, steward_did = sdk_wallet_steward
     request = sdk_build_get_txn_request(looper, steward_did, seqNo)

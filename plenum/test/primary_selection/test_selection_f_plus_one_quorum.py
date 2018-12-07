@@ -7,10 +7,6 @@ from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.view_change.helper import start_stopped_node
 
 
-# Do not remove these imports
-from plenum.test.pool_transactions.conftest import client1, wallet1, client1Connected, looper
-
-
 def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath,
                                      tdir, tconf, sdk_pool_handle, sdk_wallet_client):
     """
@@ -38,7 +34,7 @@ def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath,
 
     # Make nodes to perform view change
     ensure_view_change(looper, non_lagging_nodes)
-    ensureElectionsDone(looper=looper, nodes=non_lagging_nodes, numInstances=2)
+    ensureElectionsDone(looper=looper, nodes=non_lagging_nodes, instances_list=range(2))
     ensure_all_nodes_have_same_data(looper, nodes=non_lagging_nodes)
 
     # Stop two more of active nodes
@@ -57,7 +53,7 @@ def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath,
     # Check that primary selected
     expected_view_no = initial_view_no + 1
     ensureElectionsDone(looper=looper, nodes=active_nodes,
-                        numInstances=2, customTimeout=30)
+                        instances_list=range(2), customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)

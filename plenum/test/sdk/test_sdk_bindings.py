@@ -1,5 +1,3 @@
-import pytest
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.helper import sdk_send_random_request, \
     sdk_send_random_requests, sdk_get_and_check_replies, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import sdk_pool_refresh
@@ -59,6 +57,12 @@ def test_sdk_steward_send(looper, sdk_pool_handle, sdk_wallet_steward):
 
 def test_sdk_client_send(looper, sdk_pool_handle, sdk_wallet_client):
     resp_task = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    _, j_resp = sdk_get_and_check_replies(looper, [resp_task])[0]
+    assert j_resp['result']
+
+
+def test_sdk_client2_send(looper, sdk_pool_handle, sdk_wallet_client2):
+    resp_task = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client2)
     _, j_resp = sdk_get_and_check_replies(looper, [resp_task])[0]
     assert j_resp['result']
 

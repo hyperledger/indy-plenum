@@ -4,6 +4,7 @@ from functools import wraps
 from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
     Callable
 from typing import Dict
+import traceback
 
 try:
     from plenum.test import NO_SPIES
@@ -87,6 +88,7 @@ def spy(func, is_init, should_spy, spy_log=None):
             r = func(self, *args, **kwargs)
         except Exception as ex:
             r = ex
+            # logger.error(traceback.print_exc())
             raise
         finally:
             bound = sig.bind(self, *args, **kwargs)
@@ -126,12 +128,12 @@ def spyable(name: str = None, methods: SpyableMethods = None,
                          if callable(getattr(clas, method))]:
             isInit = nm == "__init__"
             matched = (nm if methods and nm in methods else
-                       func if methods and func in methods else
-                       None)
+            func if methods and func in methods else
+            None)
             # if method was specified to be spied on or is `__init__` method
             # or is does not have name starting with `__`
             shouldSpy = bool(matched) if methods else (
-                not nm.startswith("__") or isInit)
+                    not nm.startswith("__") or isInit)
             if shouldSpy or isInit:
                 newFunc = spy(func, isInit, shouldSpy)
                 morphed[func] = newFunc

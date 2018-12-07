@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.delayers import delay_3pc_messages
 from plenum.test.helper import countDiscarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -6,6 +8,18 @@ from plenum.test.node_request.node_request_helper import \
 from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_batches_of_random_and_check
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = 6
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
@@ -27,8 +41,9 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,
-                                         num_reqs=2*sent_batches,
+                                         num_reqs=2 * sent_batches,
                                          num_batches=sent_batches)
+
     # send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
     #                                        2 * sent_batches, sent_batches)
 

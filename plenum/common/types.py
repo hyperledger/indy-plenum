@@ -31,6 +31,7 @@ class f:  # provides a namespace for reusable field constants
     ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
     # Last ordered seq no of each protocol instance, sent during view change
     ORD_SEQ_NOS = Field('ordSeqNos', List[int])
+    INSTANCES = Field('instancesIdr', List[int])
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
@@ -45,11 +46,13 @@ class f:  # provides a namespace for reusable field constants
     ELECTION_DATA = Field('electionData', Any)
     TXN_ID = Field('txnId', str)
     REASON = Field('reason', Any)
+    IS_SUCCESS = Field('isSuccess', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
-    REQ_IDR = Field("reqIdr", List[Tuple[str, int]])
+    REQ_IDR = Field("reqIdr", List[str])
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("stateRootHash", str)
+    POOL_STATE_ROOT_HASH = Field("poolStateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     BLS_SIG = Field("blsSig", str)
     BLS_MULTI_SIG = Field("blsMultiSig", str)
@@ -60,8 +63,6 @@ class f:  # provides a namespace for reusable field constants
     TXN_SEQ_NO = Field("txnSeqNo", int)
     # 0 for pool transaction ledger, 1 for domain transaction ledger
     LEDGER_ID = Field("ledgerId", int)
-    SEQ_NO_START = Field("seqNoStart", int)
-    SEQ_NO_END = Field("seqNoEnd", int)
     CATCHUP_TILL = Field("catchupTill", int)
     HASHES = Field("hashes", List[str])
     TXNS = Field("txns", List[Any])
@@ -73,6 +74,11 @@ class f:  # provides a namespace for reusable field constants
     PRIMARY = Field("primary", dict)
     SIGS = Field('signatures', dict)
     PLUGIN_FIELDS = Field('plugin_fields', dict)
+    FEES = Field('fees', dict)
+    SUB_SEQ_NO = Field('sub_seq_no', int)
+    FINAL = Field('final', bool)
+    VALID_REQ_IDR = Field("valid_reqIdr", List[str])
+    INVALID_REQ_IDR = Field("invalid_reqIdr", List[str])
 
 
 OPERATION = 'operation'

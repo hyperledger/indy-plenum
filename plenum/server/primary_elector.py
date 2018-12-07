@@ -145,7 +145,7 @@ class PrimaryElector(PrimaryDecider):
         Start the election process by nominating self as primary.
         """
         logger.debug("{} starting election".format(self))
-        for r in self.replicas:
+        for r in self.replicas.values():
             self.prepareReplicaForElection(r)
 
         self.nominateItself()
@@ -166,8 +166,7 @@ class PrimaryElector(PrimaryDecider):
                     "{} attempting to nominate a replica".format(self.name))
                 self.nominateRandomReplica()
             else:
-                logger.debug(
-                    "{} already has a primary replica".format(self.name))
+                logger.info("{} already has a primary replica".format(self.name))
         else:
             logger.debug(
                 "{} already has an election in progress".format(self.name))
@@ -184,19 +183,15 @@ class PrimaryElector(PrimaryDecider):
 
         undecideds, chosen = self._get_undecided_inst_id()
         if chosen is not None:
-            logger.debug("{} does not have a primary, "
-                         "replicas {} are undecided, "
-                         "choosing {} to nominate".
-                         format(self, undecideds, chosen))
+            logger.info("{} does not have a primary, replicas {} are undecided, "
+                        "choosing {} to nominate".format(self, undecideds, chosen))
 
             # A replica has nominated for itself, so set the flag
             self.replicaNominatedForItself = chosen
             self._schedule(partial(self.nominateReplica, chosen))
         else:
-            logger.debug("{} does not have a primary, "
-                         "but elections for all {} instances "
-                         "have been decided".
-                         format(self, len(self.replicas)))
+            logger.info("{} does not have a primary, but elections for all {} instances "
+                        "have been decided".format(self, len(self.replicas)))
 
     def nominateReplica(self, instId):
         """
@@ -216,11 +211,11 @@ class PrimaryElector(PrimaryDecider):
                 "{} already nominated, so hanging back".format(replica))
 
     def _get_undecided_inst_id(self):
-        undecideds = [i for i, r in enumerate(self.replicas)
+        undecideds = [i for i, r in self.replicas
                       if r.isPrimary is None]
         if 0 in undecideds and self.was_master_primary_in_prev_view:
-            logger.debug('{} was primary for master in previous view, '
-                         'so will not nominate master replica'.format(self))
+            logger.info('{} was primary for master in previous view, '
+                        'so will not nominate master replica'.format(self))
             undecideds.remove(0)
 
         if undecideds:
@@ -309,7 +304,7 @@ class PrimaryElector(PrimaryDecider):
             self.discard(prim, '{} got Primary from {} for {} who was primary'
                                ' of master in previous view too'.
                          format(self, sender, prim.name),
-                         logMethod=logger.debug)
+                         logMethod=logger.info)
             return
 
         sndrRep = replica.generateName(sender, prim.instId)
@@ -627,9 +622,8 @@ class PrimaryElector(PrimaryDecider):
         self.primaryDeclarations[instId][replica.name] = (primaryName,
                                                           lastOrderedSeqNo)
         self.scheduledPrimaryDecisions[instId] = None
-        logger.debug("{} declaring primary as: {} on the basis of {}".
-                     format(replica, primaryName,
-                            self.nominations[instId]))
+        logger.info("{} declaring primary as: {} on the basis of {}".
+                    format(replica, primaryName, self.nominations[instId]))
         prim = Primary(primaryName, instId, self.viewNo,
                        lastOrderedSeqNo)
         self.send(prim)
@@ -711,7 +705,7 @@ class PrimaryElector(PrimaryDecider):
         if super().view_change_started(viewNo):
             # Reset to defaults values for different data structures as new
             # elections would begin
-            for r in self.replicas:
+            for r in self.replicas.values():
                 self.setDefaults(r.instId)
             self.replicaNominatedForItself = None
 
@@ -767,6 +761,6 @@ class PrimaryElector(PrimaryDecider):
         started node, a node that has crashed and recovered etc.)
         """
         msgs = []
-        for instId in range(len(self.replicas)):
+        for instId in self.replicas.keys():
             msgs.extend(self.getElectionMsgsForInstance(instId))
         return msgs

@@ -20,7 +20,7 @@ def fake_node(txnPoolNodeSet,
     newNodeName = "NewTestNode"
     sigseed = randomString(32).encode()
     config_helper = PNodeConfigHelper(newNodeName, tconf, chroot=tdir)
-    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName,
+    _, verkey, bls_key, _ = initNodeKeysForBothStacks(newNodeName,
                                                    config_helper.keys_dir,
                                                    sigseed, override=True)
     node = new_node(node_name=newNodeName,

@@ -4,7 +4,6 @@ from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, LimitedLengthStringField
 
-
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),

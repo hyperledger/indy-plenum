@@ -103,6 +103,7 @@ class Looper:
             asyncio.set_event_loop(evl)
             self.loop = evl
 
+        logger.info("Starting up indy-node")
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
 
@@ -188,8 +189,11 @@ class Looper:
             logger.error("Provide a prodable object or a prodable name")
 
     def hasProdable(self, prodable: Prodable=None, name: str=None) -> bool:
-        assert lxor(prodable, name), \
-            "One and only one of prodable or name must be provided"
+        if not lxor(prodable, name):
+            raise ValueError(
+                "One and only one of prodable or name must be provided, "
+                "passed {} and {}".format(prodable, name)
+            )
 
         for p in self.prodables:
             if (prodable and p == prodable) or (name and name == p.name):
@@ -208,9 +212,9 @@ class Looper:
             # if no let other stuff run
             await asyncio.sleep(0.01, loop=self.loop)
         dur = time.perf_counter() - start
-        if dur >= 0.5:
-            logger.debug("it took {:.3f} seconds to run once nicely".
-                         format(dur), extra={"cli": False})
+        if dur >= 15:
+            logger.info("it took {:.3f} seconds to run once nicely".
+                        format(dur), extra={"cli": False})
 
     def runFor(self, timeout):
         self.run(asyncio.sleep(timeout))
@@ -246,8 +250,7 @@ class Looper:
                         raise RuntimeError(
                             "don't know how to run {}".format(coro))
                 except Exception as ex:
-                    logger.error("Error while running coroutine {}: {}"
-                                 .format(coro.__name__, ex.__repr__()))
+                    logger.error("Error while running coroutine {}: {}".format(coro.__name__, ex.__repr__()))
                     raise ex
             if len(results) == 1:
                 return results[0]
@@ -262,23 +265,21 @@ class Looper:
     def handleSignal(self, sig=None):
         # Allowing sig to be optional since asyncio not passing the signal or
         # KeyboardInterrupt (Ctrl+C)
-        logger.debug("Signal {} received, stopping looper...".format(sig))
+        logger.display("Signal {} received, stopping looper...".format(sig))
         self.running = False
 
     async def shutdown(self):
         """
         Shut down this Looper.
         """
-        logger.info("Looper shutting down now...",
-                    extra={"cli": False})
+        logger.display("Looper shutting down now...", extra={"cli": False})
         self.running = False
         start = time.perf_counter()
         if not self.runFut.done():
             await self.runFut
         self.stopall()
-        logger.info("Looper shut down in {:.3f} seconds.".
-                    format(time.perf_counter() - start),
-                    extra={"cli": False})
+        logger.display("Looper shut down in {:.3f} seconds.".
+                       format(time.perf_counter() - start), extra={"cli": False})
         # Unset signal handlers, bug: https://bugs.python.org/issue23548
         for sig_name in self.signals:
             logger.debug("Unsetting handler for {}".format(sig_name))

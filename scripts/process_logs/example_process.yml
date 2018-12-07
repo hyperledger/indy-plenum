@@ -1,0 +1,46 @@
+
+input_logs:                        # List of input logs
+  - path: .                        # Where to look for log files
+    recursive: yes                 # Whether to descend into subdirectories recursively
+    pattern: (Node\d+)\.log        # Log file regex pattern to look for
+    node_group: 1                  # Group number that matches node identifier
+    only_timestamped: yes          # Whether to discard non-timestamped lines
+
+
+chains:
+  main:
+  - log count: {monitoring: total}
+  - log time: {monitoring: total}
+  - filter_all_spam:
+  - log count: {monitoring: interesting}
+  - filter_ok:
+  - slow_filter_ok:
+  - filter_to_decide:
+  - log count: {monitoring: unknown}
+  - log line: output
+
+  filter_to_decide:
+  - match any and drop:
+    - func: processCatchupRep
+    - func: _ask_for_ledger_status
+    - message: authenticated
+    - message: stashing ledger status
+    - message: creating catchup request
+
+outputs:
+  logs:
+    output:
+      filename: output.log
+      pattern: <timestamp> | <node> <replica> | <source> | <func> | <body>
+
+  timelogs:
+    monitoring:
+      filename: monitoring.csv # CSV filename
+      interval: 5              # Interval in seconds
+      graphs:                  # Graph list
+      - total
+
+  counters:
+    monitoring:
+      format: |
+        <node>: <total> total, <interesting> interesting, <unknown> unknown

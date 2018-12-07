@@ -1,0 +1,52 @@
+
+input_logs:                                       # List of input logs
+  - path: .                                       # Where to look for log files
+    recursive: yes                                # Whether to descend into subdirectories recursively
+    pattern: (Node\d+)\.log                       # Log file regex pattern to look for
+    node_group: 1                                 # Group number that matches node identifier
+    only_timestamped: yes                         # Whether to discard non-timestamped lines
+
+
+chains:                                           # List of processing chains
+  main:                                           # Main processing chain
+  - match or drop: network_message                # Drop everything except network-related messages
+  - log_total:                                    # Call chain log_total
+  - log_ping_pong:                                # Call chain log_ping_pong
+  - log_disconnect:                               # Call chain log_disconnect
+
+  log_total:
+  - log line: network                             # Save message to network log sink
+  - log time: {general: total}                    # Add message to general-total timelog sink
+                                                  # By default return message to calling chain
+
+  log_ping_pong:
+  - match: network_ping_pong                      # Return unless message is network ping pong
+  - log time: {general: ping_pong}                # Add message to general-ping_pong timelog sink
+  - drop:                                         # Drop message, since we'll no longer need it
+
+  log_disconnect:
+  - match: network_disconnect                     # Return unless message is network disconnect
+  - log time: {general: disconnect}               # Add message to general-disconnect timelog sink
+  - log time: {alarms: disconnect}                # Add message to alarms-disconnect timelog sink
+  - drop:                                         # Drop message, since we'll no longer need it
+
+outputs:
+  logs:                                           # List of output log sinks
+    network:                                      # Network log sink
+      filename: output.log                        # Filename where to put messages
+      pattern: <timestamp> | <node> | <body>      # Message format
+
+  timelogs:                                       # List of timelog
+    general:                                      # General timelog
+      filename: general.csv                       # CSV filename
+      interval: 10                                # Sampling interval in seconds
+      graphs:                                     # Graph list
+      - total                                     # Graph for total events, in blue color
+      - ping_pong                                 # Graph for ping pongs, in green color
+      - disconnect                                # Graph for disconnect events, in red color
+
+    alarms:                                       # Dedicated alarms timelog
+      filename: alarms.csv                        # CSV filename
+      interval: 10                                # Sampling interval in seconds
+      graphs:                                     # Graph list
+      - disconnect                                # Graph for disconnect events, in red color

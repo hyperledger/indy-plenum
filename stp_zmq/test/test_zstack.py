@@ -1,5 +1,6 @@
 import pytest
 
+from common.exceptions import PlenumTypeError, PlenumValueError
 from stp_core.crypto.util import randomSeed
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -8,6 +9,39 @@ from stp_zmq.test.helper import genKeys, create_and_prep_stacks, \
     check_stacks_communicating, get_file_permission_mask, get_zstack_key_paths
 from stp_zmq.zstack import ZStack
 from stp_core.common.util import adict
+from stp_zmq.test.conftest import BIG_NUM_OF_MSGS
+
+
+@pytest.fixture
+def dummyZStack(tdir, tconf):
+    name = 'Alpha'
+    alphaP = Printer(name)
+    return ZStack(name, ha=genHa(), basedirpath=tdir,
+                  msgHandler=alphaP.print, seed=randomSeed(),
+                  config=tconf)
+
+
+def testReconnectRemoteApi(dummyZStack):
+    with pytest.raises(PlenumTypeError):
+        dummyZStack.reconnectRemote(None)
+
+
+def testReconnectRemoteWithNameApi(dummyZStack):
+    with pytest.raises(PlenumValueError):
+        dummyZStack.reconnectRemoteWithName('123')
+
+
+def testDisconnectByName(dummyZStack):
+    with pytest.raises(PlenumValueError):
+        dummyZStack.disconnectByName('')
+
+
+def testAddRemote(dummyZStack):
+    with pytest.raises(PlenumValueError):
+        dummyZStack.addRemote(None, genHa(), 'verkey', 'pubkey')
+
+    with pytest.raises(PlenumValueError):
+        dummyZStack.addRemote('', genHa(), 'verkey', 'pubkey')
 
 
 def testRestricted2ZStackCommunication(tdir, looper, tconf):
@@ -132,7 +166,7 @@ def test_high_load(set_info_log_level, tdir, looper, tconf):
                'V', 'W', 'X', 'Y', 'Z']
 
     num_of_senders = 3
-    num_of_requests_per_sender = 100000
+    num_of_requests_per_sender = BIG_NUM_OF_MSGS
 
     expected_messages = []
     received_messages = []
@@ -150,13 +184,12 @@ def test_high_load(set_info_log_level, tdir, looper, tconf):
     gamma = create_stack("Gamma", handler)
     prepStacks(looper, *senders, gamma, connect=True, useKeys=True)
 
-    for i in range(num_of_requests_per_sender):
-        for sender in senders:
+    for sender in senders:
+        for i in range(num_of_requests_per_sender):
             msg = {sender.name: i}
             expected_messages.append(msg)
             sender.send(msg, gamma.name)
-
-    looper.runFor(5)
+        looper.runFor(5)
 
     assert len(received_messages) != 0
     assert len(expected_messages) == len(received_messages), \
@@ -291,3 +324,18 @@ def testZStackRecvHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
 
     assert betaHandlers[0] is False
     assert betaHandlers[1] is True
+
+
+def test_queue_size_limit_set(tdir, tconf):
+    stack = ZStack("Alpha", ha=genHa(), basedirpath=tdir, msgHandler=None,
+                   restricted=False, seed=randomSeed(), config=tconf)
+    stack.start()
+    assert stack.listener.get_hwm() == 0
+    stack.stop()
+
+    queue_size = 100
+    stack = ZStack("Alpha", ha=genHa(), basedirpath=tdir, msgHandler=None,
+                   restricted=False, seed=randomSeed(), config=tconf, queue_size=queue_size)
+    stack.start()
+    assert stack.listener.get_hwm() == queue_size
+    stack.stop()

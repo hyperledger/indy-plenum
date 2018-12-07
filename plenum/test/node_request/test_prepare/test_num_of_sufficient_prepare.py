@@ -28,12 +28,12 @@ def setup(txnPoolNodeSet):
 @pytest.fixture(scope="module")
 def afterElection(setup):
     for n in setup.faulties:
-        for r in n.replicas:
+        for r in n.replicas.values():
             assert not r.isPrimary
 
 
 def testNumOfSufficientPrepare(afterElection, prepared1, txnPoolNodeSet):
     for n in txnPoolNodeSet:
-        for r in n.replicas:
+        for r in n.replicas.values():
             if r.isPrimary:
                 logger.info("{} is primary".format(r))

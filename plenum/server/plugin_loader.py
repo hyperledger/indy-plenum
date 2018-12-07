@@ -7,10 +7,10 @@ from os import listdir
 from os.path import isfile, join
 from typing import Any, Set, Dict
 
+from stp_core.common.log import getlogger
+
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
-
-from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -31,9 +31,9 @@ class PluginLoader:
     will look for any classes declared in these modules that have a class
     attribute named 'pluginType', and then it checks to see that the
     'pluginType' attribute is equal to any of the valid types. Right now there
-    three types of plugins: 'VERIFICATION', 'PROCESSING' and STATS_CONSUMER. Then, it instantiates an object of
-    that class type, without any constructor arguments. This is the plugin
-    instance.
+    three types of plugins: 'VERIFICATION', 'PROCESSING' and STATS_CONSUMER.
+    Then,it instantiates an object of that class type, without any constructor
+    arguments. This is the plugin instance.
 
     When an opVerificationPluginPath keyword argument is provided in the Node
     constructor, the Node will create a PluginLoader with that path and look
@@ -54,7 +54,8 @@ class PluginLoader:
     """
 
     def __init__(self, path):
-        assert path, "path is required"
+        if not path:
+            raise ValueError("path is required")
         self.path = path
         self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING,
                             PLUGIN_TYPE_STATS_CONSUMER]
@@ -91,19 +92,14 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.debug("skipping plugin {}[class: {}] "
-                                     "because it does not have a '{}' "
-                                     "attribute".
-                                     format(mod, c, self._pluginTypeAttrName))
+                        logger.display("skipping plugin {}[class: {}] because it does not have a '{}' "
+                                       "attribute".format(mod, c, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:
-                            logger.debug("skipping plugin '{0}' because it "
-                                         "does not have a valid '{1}' "
-                                         "attribute; valid {1} are: {2}".
-                                         format(mod,
-                                                self._pluginTypeAttrName,
-                                                self._validTypes))
+                            logger.display("skipping plugin '{0}' because it does not have a valid '{1}' "
+                                           "attribute; valid {1} are: {2}".
+                                           format(mod, self._pluginTypeAttrName, self._validTypes))
                         else:
                             inst = c()
                             if isinstance(inst, HasDynamicallyImportedModules):
@@ -121,8 +117,7 @@ class PluginLoader:
                                 else:
                                     plugins[typ] = {inst}
                             else:
-                                logger.info("** ERROR occurred while loading "
-                                            "{} plugin from module {}".
+                                logger.info("** ERROR occurred while loading {} plugin from module {}".
                                             format(c.__name__, mod))
 
             sys.path.pop(0)

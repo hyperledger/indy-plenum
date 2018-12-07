@@ -1,14 +1,19 @@
 from typing import TypeVar, NamedTuple
 
-from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, BLACKLIST, REQACK, REQNACK, REJECT, \
-    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
-    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED
+from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
+    BLACKLIST, REQACK, REQNACK, REJECT, \
+    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, \
+    CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
+    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
+    CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
+    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
+    BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
-    SerializedValueField, SignatureField, TieAmongField, AnyValueField, RequestIdentifierField, TimestampField, \
+    SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
-    LimitedLengthStringField, BlsMultiSignatureField
+    LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
+    IntegerField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -109,7 +114,10 @@ class Ordered(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
+        (f.VALID_REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
+        (f.INVALID_REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -122,29 +130,35 @@ class Ordered(MessageBase):
 class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
-        (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
+        (f.REQUEST.nm, ClientMessageValidator(
+            operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT)),
         (f.SENDER_CLIENT.nm, LimitedLengthStringField(max_length=SENDER_CLIENT_FIELD_LIMIT, nullable=True)),
     )
 
 
 class PrePrepare(MessageBase):
-    typename = PREPREPARE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
-        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
-        (f.DISCARDED.nm, NonNegativeNumberField()),
+        (f.REQ_IDR.nm, IterableField(LimitedLengthStringField(
+            max_length=DIGEST_FIELD_LIMIT))),
+        (f.DISCARDED.nm, SerializedValueField(nullable=True)),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.SUB_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.FINAL.nm, BooleanField()),
+        (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
+                                                    nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
+    typename = PREPREPARE
 
 
 class Prepare(MessageBase):
@@ -191,7 +205,7 @@ class ThreePCState(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.MSGS.nm, IterableField(ClientMessageValidator(
-            operation_schema_is_strict=True))),
+            operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
     )
 
 
@@ -223,6 +237,15 @@ class InstanceChange(MessageBase):
     )
 
 
+class BackupInstanceFaulty(MessageBase):
+    typename = BACKUP_INSTANCE_FAULTY
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.INSTANCES.nm, IterableField(NonNegativeNumberField())),
+        (f.REASON.nm, NonNegativeNumberField())
+    )
+
+
 class LedgerStatus(MessageBase):
     """
     Purpose: spread status of ledger copy on a specific node.
@@ -237,6 +260,7 @@ class LedgerStatus(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField())
     )
 
 
@@ -320,8 +344,8 @@ class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
     """
-    allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE,
-                     PROPAGATE, PREPARE}
+    allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE, PREPARE,
+                     COMMIT, PROPAGATE}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
@@ -363,7 +387,8 @@ class BatchCommitted(MessageBase):
     typename = BATCH_COMMITTED
     schema = (
         (f.REQUESTS.nm,
-         IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+         IterableField(ClientMessageValidator(
+             operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
@@ -398,3 +423,27 @@ class ObservedData(MessageBase):
         self._raise_invalid_fields(
             f.MSG.nm, msg,
             "The message type must be {} ".format(expected_type_cls.typename))
+
+
+class FutureViewChangeDone:
+    """
+    Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
+    In particular, it's sent when CURRENT_STATE (with primary propagation) is processed.
+    """
+    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
+        self.vcd_msg = vcd_msg
+        self.from_current_state = from_current_state
+
+
+class ViewChangeStartMessage(MessageBase):
+    typename = VIEW_CHANGE_START
+    schema = (
+        (PROPOSED_VIEW_NO, IntegerField()),
+    )
+
+
+class ViewChangeContinueMessage(MessageBase):
+    typename = VIEW_CHANGE_CONTINUE
+    schema = (
+        (PROPOSED_VIEW_NO, IntegerField()),
+    )

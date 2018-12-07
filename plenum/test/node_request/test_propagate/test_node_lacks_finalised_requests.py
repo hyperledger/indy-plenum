@@ -3,8 +3,19 @@ from plenum.test.delayers import ppgDelay, req_delay
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.pool_transactions.conftest import looper
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = 5
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 @pytest.fixture(scope='function', params=['client_requests',
@@ -65,8 +76,8 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     # number of sent batches in both replicas since both replicas
     # independently request PROPAGATEs
     assert get_count(faulty_node, faulty_node.request_propagates) - \
-        old_count_request_propagates == (sum_of_sent_batches() -
-                                         old_sum_of_sent_batches)
+           old_count_request_propagates == (sum_of_sent_batches() -
+                                            old_sum_of_sent_batches)
 
     requested_propagate_counts = getAllReturnVals(
         faulty_node, faulty_node.request_propagates)
