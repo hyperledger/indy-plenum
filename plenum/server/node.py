@@ -121,6 +121,71 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
+class GcObject:
+    def __init__(self, obj):
+        self.obj = obj
+        self.referents = [id(ref) for ref in gc.get_referents(obj)]
+        self.referrers = set()
+
+
+class GcObjectTree:
+    def __init__(self):
+        self.objects = {id(obj) : GcObject(obj) for obj in gc.get_objects()}
+        for obj_id, obj in self.objects.items():
+            for ref_id in obj.referents:
+                if ref_id in self.objects:
+                    self.objects[ref_id].referrers.add(obj_id)
+
+    def report_top_obj_types(self, num=50):
+        stats = defaultdict(int)
+        for obj in self.objects.values():
+            stats[type(obj.obj)] += 1
+        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:num]:
+            logger.info("    {}: {}".format(k, v))
+
+    def report_top_collections(self, num=10):
+        fat_objects = [(o.obj, len(o.referents)) for o in self.objects.values()]
+        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:num]
+
+        logger.info("Top big collections tracked by garbage collector:")
+        for obj, count in fat_objects:
+            logger.info("    {}: {}".format(type(obj), count))
+            self.report_collection_owners(obj)
+            self.report_collection_items(obj)
+
+    def report_collection_owners(self, obj):
+        referrers = {ref_id for ref_id in self.objects[id(obj)].referrers if ref_id in self.objects}
+        for _ in range(3):
+            self.add_super_referrerrs(referrers)
+        referrers = {type(self.objects[ref_id].obj) for ref_id in referrers}
+
+        logger.info("        Referrers:")
+        for v in referrers:
+            logger.info("            {}".format(v))
+
+    def add_super_referrerrs(self, referrers):
+        for ref_id in list(referrers):
+            for sup_ref_id in self.objects[ref_id].referrers:
+                if sup_ref_id in self.objects:
+                    referrers.add(sup_ref_id)
+
+    def report_collection_items(self, obj):
+        if not isinstance(obj, Iterable):
+            return
+        tmp_list = list(obj)
+        samples = random.sample(tmp_list, 3)
+
+        logger.info("        Samples:")
+        for k in samples:
+            if isinstance(obj, Dict):
+                logger.info("            {} : {}".format(repr(k), repr(obj[k])))
+            else:
+                logger.info("            {}".format(repr(k)))
+
+    def cleanup(self):
+        del self.objects
+
+
 class GcTimeTracker:
     def __init__(self, metrics: MetricsCollector):
         self._metrics = metrics
@@ -148,30 +213,6 @@ class GcTimeTracker:
             elapsed = time.perf_counter() - start
             self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
             self._timestamps[gen] = None
-
-    def report_stats(self):
-        objects = gc.get_objects()
-        stats = defaultdict(int)
-        for obj in objects:
-            stats[type(obj)] += 1
-        logger.info("Top objects tracked by garbage collector:")
-        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:50]:
-            logger.info("    {}: {}".format(k, v))
-
-        fat_objects = [(o, len(gc.get_referents(o))) for o in objects]
-        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:10]
-        logger.info("Top big collections tracked by garbage collector:")
-        for obj, count in fat_objects:
-            logger.info("    {}: {}".format(type(obj), count))
-            if isinstance(obj, List):
-                samples = random.sample(obj, 3)
-                for v in samples:
-                    logger.info("        Sample element: {}".format(repr(v)))
-            if isinstance(obj, Dict):
-                samples = random.sample(list(obj.keys()), 3)
-                for k in samples:
-                    logger.info("        Sample key: {}".format(repr(k)))
-                    logger.info("        Sample value: {}".format(repr(obj[k])))
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -403,7 +444,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
         if config.GC_STATS_REPORT_INTERVAL > 0:
-            self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
+            self.startRepeating(self.report_gc_stats, config.GC_STATS_REPORT_INTERVAL)
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
@@ -2680,6 +2721,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         else:
             return False
+
+    def report_gc_stats(self):
+        obj_tree = GcObjectTree()
+        obj_tree.report_top_obj_types()
+        obj_tree.report_top_collections()
+        obj_tree.cleanup()
 
     def flush_metrics(self):
         # Flush accumulated should always be done to avoid numeric overflow in accumulators
