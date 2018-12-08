@@ -8,8 +8,8 @@ import pytest
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsStorage, KvStoreMetricsFormat, MetricsEvent, \
     measure_time, async_measure_time, MetricsCollector
 from plenum.common.value_accumulator import ValueAccumulator
-from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp, \
-    MockMetricsStorage, MockEvent
+from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, gen_metrics_event_list, MockTimestamp, \
+    MockMetricsStorage, MockEvent, gen_metrics_event, gen_value_accumulator
 from storage.kv_store import KeyValueStorage
 
 
@@ -166,31 +166,33 @@ def test_async_measure_time_decorator(looper, mock_storage: MockMetricsStorage):
 
 
 def test_kv_store_decode_restores_encoded_event():
-    event = MetricsEvent(gen_next_timestamp(), gen_metrics_name(), 4.2)
+    for _ in range(100):
+        event = gen_metrics_event()
 
-    k, v = KvStoreMetricsFormat.encode(event)
-    decoded_event = KvStoreMetricsFormat.decode(k, v)
+        k, v = KvStoreMetricsFormat.encode(event)
+        decoded_event = KvStoreMetricsFormat.decode(k, v)
 
-    assert event == decoded_event
+        assert event == decoded_event
 
 
 def test_kv_store_encode_generate_different_keys_for_different_seq_no():
-    event = MetricsEvent(gen_next_timestamp(), gen_metrics_name(), 4.2)
+    for _ in range(100):
+        event = gen_metrics_event()
 
-    k1, v1 = KvStoreMetricsFormat.encode(event, 1)
-    k2, v2 = KvStoreMetricsFormat.encode(event, 2)
+        k1, v1 = KvStoreMetricsFormat.encode(event, 1)
+        k2, v2 = KvStoreMetricsFormat.encode(event, 2)
 
-    assert k1 != k2
-    assert v1 == v2
+        assert k1 != k2
+        assert v1 == v2
 
 
-@pytest.mark.parametrize("value", [4.2, ValueAccumulator([42, -7, 0])])
-def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyValueStorage, value):
+def test_kv_store_metrics_storage_stores_properly_encoded_data(storage: KeyValueStorage):
     ts = MockTimestamp(gen_next_timestamp())
     metrics_storage = KvStoreMetricsStorage(storage, ts)
     assert len([(k, v) for k, v in storage.iterator()]) == 0
 
     id = gen_metrics_name()
+    value = gen_value_accumulator()
     event = MetricsEvent(ts.value, id, value)
     encoded_key, encoded_value = KvStoreMetricsFormat.encode(event)
 
@@ -202,10 +204,10 @@ def test_kv_store_metrics_collector_stores_properly_encoded_data(storage: KeyVal
     assert stored_events[0][1] == encoded_value
 
 
-def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueStorage):
+def test_kv_store_metrics_storage_store_all_data_in_order(storage: KeyValueStorage):
     ts = MockTimestamp()
     metrics_storage = KvStoreMetricsStorage(storage, ts)
-    events = generate_events(10)
+    events = gen_metrics_event_list(30)
 
     for e in events:
         ts.value = e.timestamp
@@ -224,10 +226,10 @@ def test_kv_store_metrics_collector_store_all_data_in_order(storage: KeyValueSto
         assert ev in stored_events
 
 
-def test_kv_store_metrics_collector_store_all_events_with_same_timestamp(storage: KeyValueStorage):
+def test_kv_store_metrics_storage_store_all_events_with_same_timestamp(storage: KeyValueStorage):
     ts = MockTimestamp()
     metrics_storage = KvStoreMetricsStorage(storage, ts)
-    values = [10, 2, 54, 2]
+    values = [gen_value_accumulator() for _ in range(10)]
 
     for v in values:
         metrics_storage.store_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, v)

@@ -22,17 +22,23 @@ def gen_next_timestamp(prev=None) -> datetime:
     return round_ts(prev + timedelta(seconds=uniform(0.001, 10.0)))
 
 
-def generate_events(num: int, min_ts=None) -> List[MetricsEvent]:
+def gen_value_accumulator() -> ValueAccumulator:
+    return ValueAccumulator([gauss(0.0, 100.0) for _ in range(randint(0, 5))])
+
+
+def gen_metrics_event(min_ts=None) -> MetricsEvent:
     ts = gen_next_timestamp(min_ts)
+    name = gen_metrics_name()
+    value = gen_value_accumulator()
+    return MetricsEvent(ts, name, value)
+
+
+def gen_metrics_event_list(num: int, min_ts=None) -> List[MetricsEvent]:
     result = []
     for _ in range(num):
-        ts = gen_next_timestamp(ts)
-        name = gen_metrics_name()
-        if random() > 0.5:
-            value = gauss(0.0, 100.0)
-        else:
-            value = ValueAccumulator([gauss(0.0, 100.0) for _ in range(randint(2, 5))])
-        result += [MetricsEvent(ts, name, value)]
+        event = gen_metrics_event(min_ts)
+        min_ts = event.timestamp
+        result.append(event)
     return result
 
 

@@ -217,12 +217,12 @@ class MetricsName(IntEnum):
 
 
 MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', MetricsName),
-                                           ('value', Union[float, ValueAccumulator])])
+                                           ('value', ValueAccumulator)])
 
 
 class MetricsStorage(ABC):
     @abstractmethod
-    def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
+    def store_event(self, name: MetricsName, value: ValueAccumulator):
         pass
 
 
@@ -299,10 +299,7 @@ class KvStoreMetricsFormat:
     def encode(event: MetricsEvent, seq_no: int = 0) -> (bytes, bytes):
         key = KvStoreMetricsFormat.encode_key(event.timestamp, seq_no)
         value = event.name.to_bytes(32, byteorder='big', signed=False)
-        if isinstance(event.value, ValueAccumulator):
-            value += event.value.to_bytes()
-        else:
-            value += struct.pack('d', event.value)
+        value += event.value.to_bytes()
         return key, value
 
     @staticmethod
@@ -314,10 +311,7 @@ class KvStoreMetricsFormat:
             return None
         name = MetricsName(name)
         data = value[32:]
-        if len(data) == 8:
-            value = struct.unpack('d', data)[0]
-        else:
-            value = ValueAccumulator.from_bytes(data)
+        value = ValueAccumulator.from_bytes(data)
         return MetricsEvent(ts, name, value)
 
 
@@ -330,7 +324,7 @@ class KvStoreMetricsStorage(MetricsStorage):
     def close(self):
         self._storage.close()
 
-    def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
+    def store_event(self, name: MetricsName, value: ValueAccumulator):
         if self._storage.closed:
             return
 

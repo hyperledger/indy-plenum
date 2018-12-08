@@ -3,6 +3,7 @@ import statistics
 import struct
 
 from plenum.common.value_accumulator import ValueAccumulator
+from plenum.test.metrics.helper import gen_value_accumulator
 
 
 def test_value_accumulator_dont_return_anything_when_created():
@@ -96,14 +97,14 @@ def test_value_accumulator_can_merge():
 
 
 def test_value_accumulator_can_be_stored_as_bytes():
-    values = [4.2, -1.3, 10.8]
-    acc = ValueAccumulator(values)
+    for _ in range(100):
+        acc = gen_value_accumulator()
 
-    data = acc.to_bytes()
-    assert isinstance(data, bytes)
+        data = acc.to_bytes()
+        assert isinstance(data, bytes)
 
-    restored_acc = ValueAccumulator.from_bytes(data)
-    assert acc == restored_acc
+        restored_acc = ValueAccumulator.from_bytes(data)
+        assert acc == restored_acc
 
 
 def test_value_accumulator_with_one_value_is_stored_as_single_float64():

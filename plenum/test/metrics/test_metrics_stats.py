@@ -6,7 +6,7 @@ from copy import deepcopy
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsStorage
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
-from plenum.test.metrics.helper import generate_events, MockTimestamp
+from plenum.test.metrics.helper import gen_metrics_event_list, MockTimestamp
 
 
 def _metrics_stats_frame(events):
@@ -80,9 +80,9 @@ def test_metrics_stats_can_add_values():
     gap_ts = next_ts + 3 * stats.timestep
     max_ts = gap_ts + stats.timestep
 
-    first_events = [ev for ev in generate_events(10, min_ts) if ev.timestamp < min_ts + stats.timestep]
-    next_events = [ev for ev in generate_events(10, next_ts) if ev.timestamp < next_ts + stats.timestep]
-    after_gap_events = [ev for ev in generate_events(10, gap_ts) if ev.timestamp < gap_ts + stats.timestep]
+    first_events = [ev for ev in gen_metrics_event_list(10, min_ts) if ev.timestamp < min_ts + stats.timestep]
+    next_events = [ev for ev in gen_metrics_event_list(10, next_ts) if ev.timestamp < next_ts + stats.timestep]
+    after_gap_events = [ev for ev in gen_metrics_event_list(10, gap_ts) if ev.timestamp < gap_ts + stats.timestep]
 
     all_events = first_events + next_events + after_gap_events
     for ev in all_events:
@@ -105,7 +105,7 @@ def test_metrics_stats_can_add_values():
 
 
 def test_metrics_stats_total_is_merge_of_all_frames():
-    events = generate_events(50)
+    events = gen_metrics_event_list(50)
 
     stats = MetricsStats()
     for ev in events:
@@ -119,7 +119,7 @@ def test_metrics_stats_total_is_merge_of_all_frames():
 
 
 def test_metrics_stats_merge_all_should_not_alter_source_frames():
-    events = generate_events(50)
+    events = gen_metrics_event_list(50)
 
     stats = MetricsStats()
     for ev in events:
@@ -151,7 +151,7 @@ def test_metrics_stats_eq_has_value_semantics():
 
 
 def test_load_metrics_from_kv_store_can_load_all_values(storage):
-    events = generate_events(10)
+    events = gen_metrics_event_list(10)
     step = timedelta(seconds=5)
     ts = MockTimestamp()
     metrics_storage = KvStoreMetricsStorage(storage, ts)
@@ -167,7 +167,7 @@ def test_load_metrics_from_kv_store_can_load_all_values(storage):
 
 
 def test_load_metrics_from_kv_store_can_filter_values(storage):
-    events = generate_events(10)
+    events = gen_metrics_event_list(10)
     step = timedelta(seconds=3)
     ts = MockTimestamp()
     metrics_storage = KvStoreMetricsStorage(storage, ts)
