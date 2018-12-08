@@ -49,14 +49,14 @@ class ValueAccumulator:
 
     def to_bytes(self) -> bytes:
         if self._count == 0:
-            return b'NONE'
+            return b''
         if self._count == 1:
             return struct.pack('d', self._sum)
         return struct.pack('dQddd', self._sum, self._count, self._min, self._max, self._sumsq)
 
     @staticmethod
     def from_bytes(data: bytes):
-        if data == b'NONE':
+        if data == b'':
             return ValueAccumulator()
         if len(data) == 8:
             return ValueAccumulator(struct.unpack('d', data)[0])

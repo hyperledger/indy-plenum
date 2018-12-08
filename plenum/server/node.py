@@ -14,7 +14,8 @@ from intervaltree import IntervalTree
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
-from plenum.common.metrics_collector import MetricsCollector, KvStoreMetricsStorage, MetricsName, \
+from plenum.common import metrics_names
+from plenum.common.metrics_collector import MetricsCollector, KvStoreMetricsStorage, \
     async_measure_time, measure_time
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
@@ -128,15 +129,16 @@ class GcTimeTracker:
 
     def _gc_callback(self, action, info):
         gen = info['generation']
+        gen = str(gen).encode()
 
         collected = info.get('collected', 0)
         if collected > 0:
-            self._metrics.add_event(MetricsName.GC_TOTAL_COLLECTED_OBJECTS, collected)
-            self._metrics.add_event(MetricsName.GC_GEN0_COLLECTED_OBJECTS + gen, collected)
+            self._metrics.add_event(metrics_names.GC_TOTAL_COLLECTED_OBJECTS, collected)
+            self._metrics.add_event(b''.join([metrics_names.GC_COLLECTED_OBJECTS_GEN, gen]), collected)
 
         uncollectable = info.get('uncollectable', 0)
         if uncollectable > 0:
-            self._metrics.add_event(MetricsName.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
+            self._metrics.add_event(metrics_names.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
 
         if action == 'start':
             self._timestamps[gen] = time.perf_counter()
@@ -145,7 +147,7 @@ class GcTimeTracker:
             if start is None:
                 return
             elapsed = time.perf_counter() - start
-            self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
+            self._metrics.add_event(b''.join([metrics_names.GC_TIME_GEN, gen]), elapsed)
             self._timestamps[gen] = None
 
     def report_stats(self):
@@ -1175,7 +1177,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.elector = None
         self.view_changer = None
 
-    @async_measure_time(MetricsName.NODE_PROD_TIME)
+    @async_measure_time(metrics_names.NODE_PROD_TIME)
     async def prod(self, limit: int=None) -> int:
         """.opened
         This function is executed by the node each time it gets its share of
@@ -1187,7 +1189,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         c = 0
 
         if self.last_prod_started:
-            self.metrics.add_event(MetricsName.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
+            self.metrics.add_event(metrics_names.LOOPER_RUN_TIME_SPENT, time.perf_counter() - self.last_prod_started)
         self.last_prod_started = time.perf_counter()
 
         self.quota_control.update_state({
@@ -1198,25 +1200,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceReplicas(limit)
             c += await self.serviceNodeMsgs(limit)
             c += await self.serviceClientMsgs(limit)
-            with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
+            with self.metrics.measure_time(metrics_names.SERVICE_NODE_ACTIONS_TIME):
                 c += self._serviceActions()
             c += self.ledgerManager.service()
-            with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
+            with self.metrics.measure_time(metrics_names.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
             c += await self.serviceViewChanger(limit)
             c += await self.service_observable(limit)
             c += await self.service_observer(limit)
-            with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
+            with self.metrics.measure_time(metrics_names.FLUSH_OUTBOXES_TIME):
                 self.nodestack.flushOutBoxes()
         if self.isGoing():
-            with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+            with self.metrics.measure_time(metrics_names.SERVICE_NODE_LIFECYCLE_TIME):
                 self.nodestack.serviceLifecycle()
-            with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
+            with self.metrics.measure_time(metrics_names.SERVICE_CLIENT_STACK_TIME):
                 self.clientstack.serviceClientStack()
 
         return c
 
-    @async_measure_time(MetricsName.SERVICE_REPLICAS_TIME)
+    @async_measure_time(metrics_names.SERVICE_REPLICAS_TIME)
     async def serviceReplicas(self, limit) -> int:
         """
         Processes messages from replicas outbox and gives it time
@@ -1229,7 +1231,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
 
-    @async_measure_time(MetricsName.SERVICE_NODE_MSGS_TIME)
+    @async_measure_time(metrics_names.SERVICE_NODE_MSGS_TIME)
     async def serviceNodeMsgs(self, limit: int) -> int:
         """
         Process `limit` number of messages from the nodeInBox.
@@ -1237,15 +1239,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
-        with self.metrics.measure_time(MetricsName.SERVICE_NODE_STACK_TIME):
+        with self.metrics.measure_time(metrics_names.SERVICE_NODE_STACK_TIME):
             n = await self.nodestack.service(limit, self.quota_control.node_quota)
 
-        self.metrics.add_event(MetricsName.NODE_STACK_MESSAGES_PROCESSED, n)
+        self.metrics.add_event(metrics_names.NODE_STACK_MESSAGES_PROCESSED, n)
 
         await self.processNodeInBox()
         return n
 
-    @async_measure_time(MetricsName.SERVICE_CLIENT_MSGS_TIME)
+    @async_measure_time(metrics_names.SERVICE_CLIENT_MSGS_TIME)
     async def serviceClientMsgs(self, limit: int) -> int:
         """
         Process `limit` number of messages from the clientInBox.
@@ -1254,12 +1256,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: the number of messages successfully processed
         """
         c = await self.clientstack.service(limit, self.quota_control.client_quota)
-        self.metrics.add_event(MetricsName.CLIENT_STACK_MESSAGES_PROCESSED, c)
+        self.metrics.add_event(metrics_names.CLIENT_STACK_MESSAGES_PROCESSED, c)
 
         await self.processClientInBox()
         return c
 
-    @async_measure_time(MetricsName.SERVICE_VIEW_CHANGER_TIME)
+    @async_measure_time(metrics_names.SERVICE_VIEW_CHANGER_TIME)
     async def serviceViewChanger(self, limit) -> int:
         """
         Service the view_changer's inBox, outBox and action queues.
@@ -1274,7 +1276,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         a = self.view_changer._serviceActions()
         return o + i + a
 
-    @async_measure_time(MetricsName.SERVICE_OBSERVABLE_TIME)
+    @async_measure_time(metrics_names.SERVICE_OBSERVABLE_TIME)
     async def service_observable(self, limit) -> int:
         """
         Service the observable's inBox and outBox
@@ -1308,7 +1310,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendToNodes(msg, observer_ids)
         return msg_count
 
-    @async_measure_time(MetricsName.SERVICE_OBSERVER_TIME)
+    @async_measure_time(metrics_names.SERVICE_OBSERVER_TIME)
     async def service_observer(self, limit) -> int:
         """
         Service the observer's inBox and outBox
@@ -1556,7 +1558,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.on_view_change_not_completed_in_time()
         return True
 
-    @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
+    @measure_time(metrics_names.SERVICE_REPLICAS_OUTBOX_TIME)
     def service_replicas_outbox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages
@@ -1571,7 +1573,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
-                with self.metrics.measure_time(MetricsName.NODE_SEND_REJECT_TIME):
+                with self.metrics.measure_time(metrics_names.NODE_SEND_REJECT_TIME):
                     digest, reject = message
                     result_reject = Reject(
                         reject.identifier,
@@ -1710,7 +1712,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return False
 
-    @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
+    @measure_time(metrics_names.SEND_TO_REPLICA_TIME)
     def sendToReplica(self, msg, frm):
         """
         Send the message to the intended replica.
@@ -1770,7 +1772,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg, frm = wrappedMsg
             self.discard(msg, ex, logger.info)
 
-    @measure_time(MetricsName.VALIDATE_NODE_MSG_TIME)
+    @measure_time(metrics_names.VALIDATE_NODE_MSG_TIME)
     def validateNodeMsg(self, wrappedMsg):
         """
         Validate another node's message sent to this node.
@@ -1784,7 +1786,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
-        with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
+        with self.metrics.measure_time(metrics_names.INT_VALIDATE_NODE_MSG_TIME):
             try:
                 message = node_message_factory.get_instance(**msg)
             except (MissingNodeOp, InvalidNodeOp) as ex:
@@ -1812,7 +1814,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if isinstance(msg, Batch):
             logger.trace("{} processing a batch {}".format(self, msg))
-            with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
+            with self.metrics.measure_time(metrics_names.UNPACK_BATCH_TIME):
                 for m in msg.messages:
                     try:
                         m = self.nodestack.deserializeMsg(m)
@@ -1833,7 +1835,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
-    @async_measure_time(MetricsName.PROCESS_NODE_INBOX_TIME)
+    @async_measure_time(metrics_names.PROCESS_NODE_INBOX_TIME)
     async def processNodeInBox(self):
         """
         Process the messages in the node inbox asynchronously.
@@ -2352,7 +2354,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req_handler.validate(request)
             req_handler.applyForced(request)
 
-    @measure_time(MetricsName.PROCESS_REQUEST_TIME)
+    @measure_time(metrics_names.PROCESS_REQUEST_TIME)
     def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
@@ -2457,7 +2459,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                          str(ex)), frm)
 
     # noinspection PyUnusedLocal
-    @measure_time(MetricsName.PROCESS_PROPAGATE_TIME)
+    @measure_time(metrics_names.PROCESS_PROPAGATE_TIME)
     def processPropagate(self, msg: Propagate, frm):
         """
         Process one propagateRequest sent to this node asynchronously
@@ -2560,7 +2562,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.transmitToClient(Reply(result), frm)
 
-    @measure_time(MetricsName.PROCESS_ORDERED_TIME)
+    @measure_time(metrics_names.PROCESS_ORDERED_TIME)
     def processOrdered(self, ordered: Ordered):
         """
         Execute ordered request
@@ -2578,7 +2580,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
                          .format(self, ordered.instId))
-            with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
+            with self.metrics.measure_time(metrics_names.MONITOR_REQUEST_ORDERED_TIME):
                 self.monitor.requestOrdered(ordered.valid_reqIdr + ordered.invalid_reqIdr,
                                             ordered.instId,
                                             self.requests,
@@ -2603,7 +2605,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
 
-        with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
+        with self.metrics.measure_time(metrics_names.MONITOR_REQUEST_ORDERED_TIME):
             self.monitor.requestOrdered(ordered.valid_reqIdr + ordered.invalid_reqIdr,
                                         ordered.instId,
                                         self.requests,
@@ -2666,65 +2668,68 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def flush_metrics(self):
         ram_by_process = psutil.Process().memory_info()
-        self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
-        self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
-        self.metrics.add_event(MetricsName.NODE_VMS_SIZE, ram_by_process.vms)
-        self.metrics.add_event(MetricsName.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
-        self.metrics.add_event(MetricsName.GC_TRACKED_OBJECTS, len(gc.get_objects()))
+        self.metrics.add_event(metrics_names.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
+        self.metrics.add_event(metrics_names.NODE_RSS_SIZE, ram_by_process.rss)
+        self.metrics.add_event(metrics_names.NODE_VMS_SIZE, ram_by_process.vms)
+        self.metrics.add_event(metrics_names.CONNECTED_CLIENTS_NUM, self.clientstack.connected_clients_num)
+        self.metrics.add_event(metrics_names.GC_TRACKED_OBJECTS, len(gc.get_objects()))
 
-        self.metrics.add_event(MetricsName.REQUEST_QUEUE_SIZE, len(self.requests))
-        self.metrics.add_event(MetricsName.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
-        self.metrics.add_event(MetricsName.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
-        self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
+        self.metrics.add_event(metrics_names.REQUEST_QUEUE_SIZE, len(self.requests))
+        self.metrics.add_event(metrics_names.FINALISED_REQUEST_QUEUE_SIZE, self.requests.finalised_count)
+        self.metrics.add_event(metrics_names.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
+        self.metrics.add_event(metrics_names.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
                                len(self.monitor.requestTracker.unordered()))
-        self.metrics.add_event(MetricsName.PROPAGATES_PHASE_REQ_TIMEOUTS, self.propagates_phase_req_timeouts)
-        self.metrics.add_event(MetricsName.ORDERING_PHASE_REQ_TIMEOUTS, self.ordering_phase_req_timeouts)
+        self.metrics.add_event(metrics_names.PROPAGATES_PHASE_REQ_TIMEOUTS, self.propagates_phase_req_timeouts)
+        self.metrics.add_event(metrics_names.ORDERING_PHASE_REQ_TIMEOUTS, self.ordering_phase_req_timeouts)
 
         if self.view_changer is not None:
-            self.metrics.add_event(MetricsName.CURRENT_VIEW, self.viewNo)
-            self.metrics.add_event(MetricsName.VIEW_CHANGE_IN_PROGRESS, int(self.view_changer.view_change_in_progress))
+            self.metrics.add_event(metrics_names.CURRENT_VIEW, self.viewNo)
+            self.metrics.add_event(metrics_names.VIEW_CHANGE_IN_PROGRESS, int(self.view_changer.view_change_in_progress))
 
-        self.metrics.add_event(MetricsName.NODE_STATUS, int(self.mode) if self.mode is not None else 0)
-        self.metrics.add_event(MetricsName.CONNECTED_NODES_NUM, self.connectedNodeCount)
-        self.metrics.add_event(MetricsName.BLACKLISTED_NODES_NUM, len(self.blacklistedNodes))
-        self.metrics.add_event(MetricsName.REPLICA_COUNT, self.replicas.num_replicas)
+        self.metrics.add_event(metrics_names.NODE_STATUS, int(self.mode) if self.mode is not None else 0)
+        self.metrics.add_event(metrics_names.CONNECTED_NODES_NUM, self.connectedNodeCount)
+        self.metrics.add_event(metrics_names.BLACKLISTED_NODES_NUM, len(self.blacklistedNodes))
+        self.metrics.add_event(metrics_names.REPLICA_COUNT, self.replicas.num_replicas)
 
-        self.metrics.add_event(MetricsName.POOL_LEDGER_SIZE, self.poolLedger.size)
-        self.metrics.add_event(MetricsName.DOMAIN_LEDGER_SIZE, self.domainLedger.size)
-        self.metrics.add_event(MetricsName.CONFIG_LEDGER_SIZE, self.configLedger.size)
+        self.metrics.add_event(metrics_names.POOL_LEDGER_SIZE, self.poolLedger.size)
+        self.metrics.add_event(metrics_names.DOMAIN_LEDGER_SIZE, self.domainLedger.size)
+        self.metrics.add_event(metrics_names.CONFIG_LEDGER_SIZE, self.configLedger.size)
 
-        self.metrics.add_event(MetricsName.POOL_LEDGER_UNCOMMITTED_SIZE, len(self.poolLedger.uncommittedTxns))
-        self.metrics.add_event(MetricsName.DOMAIN_LEDGER_UNCOMMITTED_SIZE, len(self.domainLedger.uncommittedTxns))
-        self.metrics.add_event(MetricsName.CONFIG_LEDGER_UNCOMMITTED_SIZE, len(self.configLedger.uncommittedTxns))
+        self.metrics.add_event(metrics_names.POOL_LEDGER_UNCOMMITTED_SIZE, len(self.poolLedger.uncommittedTxns))
+        self.metrics.add_event(metrics_names.DOMAIN_LEDGER_UNCOMMITTED_SIZE, len(self.domainLedger.uncommittedTxns))
+        self.metrics.add_event(metrics_names.CONFIG_LEDGER_UNCOMMITTED_SIZE, len(self.configLedger.uncommittedTxns))
 
         def store_rocksdb_metrics(name, storage):
             if not hasattr(storage, '_db'):
                 return
             if not hasattr(storage._db, 'get_property'):
                 return
-            self.metrics.add_event(name, int(storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
-            self.metrics.add_event(name + 1, int(storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
-            self.metrics.add_event(name + 2, int(storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
+            self.metrics.add_event(b''.join([name, metrics_names._STORAGE_READERS]),
+                                   int(storage._db.get_property(b"rocksdb.estimate-table-readers-mem")))
+            self.metrics.add_event(b''.join([name, metrics_names._STORAGE_TABLES_NUM]),
+                                   int(storage._db.get_property(b"rocksdb.num-immutable-mem-table")))
+            self.metrics.add_event(b''.join([name, metrics_names._STORAGE_TABLES_SIZE]),
+                                   int(storage._db.get_property(b"rocksdb.cur-size-all-mem-tables")))
 
         if hasattr(self, 'idrCache'):
-            store_rocksdb_metrics(MetricsName.STORAGE_IDR_CACHE_READERS, self.idrCache._keyValueStorage)
+            store_rocksdb_metrics(metrics_names.STORAGE_IDR_CACHE, self.idrCache._keyValueStorage)
 
         if hasattr(self, 'attributeStore'):
-            store_rocksdb_metrics(MetricsName.STORAGE_ATTRIBUTE_STORE_READERS, self.attributeStore._keyValueStorage)
+            store_rocksdb_metrics(metrics_names.STORAGE_ATTRIBUTE_STORE, self.attributeStore._keyValueStorage)
 
-        store_rocksdb_metrics(MetricsName.STORAGE_POOL_STATE_READERS, self.states.get(0)._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_DOMAIN_STATE_READERS, self.states.get(1)._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_CONFIG_STATE_READERS, self.states.get(2)._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_POOL_MANAGER_READERS, self.poolManager.state._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
-        store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
+        store_rocksdb_metrics(metrics_names.STORAGE_POOL_STATE, self.states.get(0)._kv)
+        store_rocksdb_metrics(metrics_names.STORAGE_DOMAIN_STATE, self.states.get(1)._kv)
+        store_rocksdb_metrics(metrics_names.STORAGE_CONFIG_STATE, self.states.get(2)._kv)
+        store_rocksdb_metrics(metrics_names.STORAGE_POOL_MANAGER, self.poolManager.state._kv)
+        store_rocksdb_metrics(metrics_names.STORAGE_BLS_BFT, self.bls_bft.bls_store._kvs)
+        store_rocksdb_metrics(metrics_names.STORAGE_SEQ_NO, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
             # TODO: This should be changed when more than one storage is enabled!
-            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storages[0]._storage)
+            store_rocksdb_metrics(metrics_names.STORAGE_METRICS, self.metrics._storages[0]._storage)
 
         self.metrics.flush_accumulated()
 
-    @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
+    @measure_time(metrics_names.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:
         """
         Check if master instance is slow and send an instance change request.
@@ -2750,16 +2755,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             master_throughput, backup_throughput = self.monitor.getThroughputs(0)
             if master_throughput is not None:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_THROUGHPUT, master_throughput)
+                self.metrics.add_event(metrics_names.MONITOR_AVG_THROUGHPUT, master_throughput)
             if backup_throughput is not None:
-                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT, backup_throughput)
+                self.metrics.add_event(metrics_names.BACKUP_MONITOR_AVG_THROUGHPUT, backup_throughput)
 
             avg_lat_master, avg_lat_backup = self.monitor.getLatencies()
             if avg_lat_master:
-                self.metrics.add_event(MetricsName.MONITOR_AVG_LATENCY, avg_lat_master)
+                self.metrics.add_event(metrics_names.MONITOR_AVG_LATENCY, avg_lat_master)
 
             if avg_lat_backup:
-                self.metrics.add_event(MetricsName.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
+                self.metrics.add_event(metrics_names.BACKUP_MONITOR_AVG_LATENCY, avg_lat_backup)
 
             degraded_backups = self.monitor.areBackupsDegraded()
             if degraded_backups:
@@ -2775,7 +2780,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(self))
         return True
 
-    @measure_time(MetricsName.NODE_CHECK_NODE_REQUEST_SPIKE)
+    @measure_time(metrics_names.NODE_CHECK_NODE_REQUEST_SPIKE)
     def checkNodeRequestSpike(self):
         logger.trace("{} checking its request amount".format(self))
 
@@ -2978,7 +2983,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = req.as_dict
 
-        with self.metrics.measure_time(MetricsName.VERIFY_SIGNATURE_TIME):
+        with self.metrics.measure_time(metrics_names.VERIFY_SIGNATURE_TIME):
             identifiers = self.authNr(req).authenticate(req, key=key)
 
         logger.debug("{} authenticated {} signature on {} request {}".
@@ -3000,7 +3005,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return s.pop().data
         return None
 
-    @measure_time(MetricsName.EXECUTE_BATCH_TIME)
+    @measure_time(metrics_names.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
                      valid_reqs_keys: List, invalid_reqs_keys: List,
                      ledger_id, state_root, txn_root) -> None:
@@ -3414,7 +3419,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)
 
-    @measure_time(MetricsName.NODE_SEND_TIME)
+    @measure_time(metrics_names.NODE_SEND_TIME)
     def send(self,
              msg: Any,
              *rids: Iterable[int],

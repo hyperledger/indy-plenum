@@ -3,7 +3,8 @@ from random import shuffle
 
 from copy import deepcopy
 
-from plenum.common.metrics_collector import MetricsName, KvStoreMetricsStorage
+from plenum.common import metrics_names
+from plenum.common.metrics_collector import KvStoreMetricsStorage
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
 from plenum.test.metrics.helper import gen_metrics_event_list, MockTimestamp
@@ -41,18 +42,18 @@ def test_metrics_stats_frame_can_add_values():
 
     events = []
     for v in events_transport_batch_size:
-        events.append((MetricsName.TRANSPORT_BATCH_SIZE, v))
+        events.append((metrics_names.TRANSPORT_BATCH_SIZE, v))
     for v in events_looper_run_time_spent:
-        events.append((MetricsName.LOOPER_RUN_TIME_SPENT, v))
+        events.append((metrics_names.LOOPER_RUN_TIME_SPENT, v))
     shuffle(events)
 
     frame = MetricsStatsFrame()
     for id, value in events:
         frame.add(id, value)
 
-    assert frame.get(MetricsName.TRANSPORT_BATCH_SIZE) == ValueAccumulator(events_transport_batch_size)
-    assert frame.get(MetricsName.LOOPER_RUN_TIME_SPENT) == ValueAccumulator(events_looper_run_time_spent)
-    assert frame.get(MetricsName.BACKUP_THREE_PC_BATCH_SIZE) == ValueAccumulator()
+    assert frame.get(metrics_names.TRANSPORT_BATCH_SIZE) == ValueAccumulator(events_transport_batch_size)
+    assert frame.get(metrics_names.LOOPER_RUN_TIME_SPENT) == ValueAccumulator(events_looper_run_time_spent)
+    assert frame.get(metrics_names.BACKUP_THREE_PC_BATCH_SIZE) == ValueAccumulator()
 
 
 def test_metrics_stats_frame_eq_has_value_semantics():
@@ -60,14 +61,14 @@ def test_metrics_stats_frame_eq_has_value_semantics():
     b = MetricsStatsFrame()
     assert a == b
 
-    a.add(MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
+    a.add(metrics_names.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a != b
 
-    b.add(MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
+    b.add(metrics_names.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1)
-    b.add(MetricsName.TRANSPORT_BATCH_SIZE, 2)
+    a.add(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 1)
+    b.add(metrics_names.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
 
@@ -139,14 +140,14 @@ def test_metrics_stats_eq_has_value_semantics():
     b = MetricsStats()
     assert a == b
 
-    a.add(ts, MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
+    a.add(ts, metrics_names.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a != b
 
-    b.add(ts, MetricsName.LOOPER_RUN_TIME_SPENT, 2.0)
+    b.add(ts, metrics_names.LOOPER_RUN_TIME_SPENT, 2.0)
     assert a == b
 
-    a.add(datetime.utcnow(), MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1)
-    b.add(datetime.utcnow(), MetricsName.TRANSPORT_BATCH_SIZE, 2)
+    a.add(datetime.utcnow(), metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 1)
+    b.add(datetime.utcnow(), metrics_names.TRANSPORT_BATCH_SIZE, 2)
     assert a != b
 
 

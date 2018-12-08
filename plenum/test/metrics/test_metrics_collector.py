@@ -3,14 +3,42 @@ import asyncio
 import time
 from typing import Callable
 
-import pytest
-
-from plenum.common.metrics_collector import MetricsName, KvStoreMetricsStorage, KvStoreMetricsFormat, MetricsEvent, \
+from plenum.common import metrics_names
+from plenum.common.metrics_collector import KvStoreMetricsStorage, KvStoreMetricsFormat, MetricsEvent, \
     measure_time, async_measure_time, MetricsCollector
-from plenum.common.value_accumulator import ValueAccumulator
 from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, gen_metrics_event_list, MockTimestamp, \
     MockMetricsStorage, MockEvent, gen_metrics_event, gen_value_accumulator
 from storage.kv_store import KeyValueStorage
+
+
+def test_metrics_collector_doesnt_accumulate_without_storage():
+    mc = MetricsCollector()
+    mc.add_event(gen_metrics_name(), 3.0)
+
+    assert len(mc._accumulators) == 0
+
+
+def test_metrics_collector_accumulates_when_forced():
+    mc = MetricsCollector()
+    mc.always_accumulate = True
+    mc.add_event(gen_metrics_name(), 3.0)
+
+    assert len(mc._accumulators) > 0
+
+
+def test_metrics_collector_accumulates_with_storage(mock_storage: MockMetricsStorage):
+    mc = MetricsCollector(mock_storage)
+    mc.add_event(gen_metrics_name(), 3.0)
+
+    assert len(mc._accumulators) > 0
+
+
+def test_metrics_collector_resets_accumulator_after_flush(mock_storage: MockMetricsStorage):
+    mc = MetricsCollector(mock_storage)
+    mc.add_event(gen_metrics_name(), 3.0)
+    mc.flush_accumulated()
+
+    assert len(mc._accumulators) == 0
 
 
 def test_metrics_collector_dont_add_events_when_accumulating(mock_storage: MockMetricsStorage):
@@ -29,48 +57,48 @@ def test_metrics_collector_dont_add_events_when_flushing_empty(mock_storage: Moc
 
 def test_metrics_collector_adds_events_when_flushing_accumulated(mock_storage: MockMetricsStorage):
     mc = MetricsCollector(mock_storage)
-    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
     mc.flush_accumulated()
 
     assert len(mock_storage.events) == 1
-    assert mock_storage.events[0] == MockEvent(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1, 3.0)
+    assert mock_storage.events[0] == MockEvent(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 1, 3.0)
 
 
 def test_metrics_collector_accumulate_same_events_into_one(mock_storage: MockMetricsStorage):
     mc = MetricsCollector(mock_storage)
-    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
-    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
+    mc.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
     mc.flush_accumulated()
 
     assert len(mock_storage.events) == 1
-    assert mock_storage.events[0] == MockEvent(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2, 5.0)
+    assert mock_storage.events[0] == MockEvent(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 2, 5.0)
 
 
 def test_metrics_collector_separates_different_events(mock_storage: MockMetricsStorage):
     mc = MetricsCollector(mock_storage)
-    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
-    mc.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, 2.0)
+    mc.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(metrics_names.BACKUP_ORDERED_BATCH_SIZE, 2.0)
     mc.flush_accumulated()
 
     assert len(mock_storage.events) == 2
-    assert MockEvent(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1, 3.0) in mock_storage.events
-    assert MockEvent(MetricsName.BACKUP_ORDERED_BATCH_SIZE, 1, 2.0) in mock_storage.events
+    assert MockEvent(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 1, 3.0) in mock_storage.events
+    assert MockEvent(metrics_names.BACKUP_ORDERED_BATCH_SIZE, 1, 2.0) in mock_storage.events
 
 
 def test_metrics_collector_resets_accumulated_after_flush(mock_storage: MockMetricsStorage):
     mc = MetricsCollector(mock_storage)
-    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
+    mc.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 3.0)
     mc.flush_accumulated()
-    mc.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
+    mc.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 2.0)
     mc.flush_accumulated()
 
     assert len(mock_storage.events) == 2
-    assert mock_storage.events[0] == MockEvent(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1, 3.0) in mock_storage.events
-    assert mock_storage.events[1] == MockEvent(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, 1, 2.0) in mock_storage.events
+    assert mock_storage.events[0] == MockEvent(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 1, 3.0) in mock_storage.events
+    assert mock_storage.events[1] == MockEvent(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, 1, 2.0) in mock_storage.events
 
 
 TIMING_ITER_COUNT = 60
-TIMING_METRIC_NAME = MetricsName.LOOPER_RUN_TIME_SPENT
+TIMING_METRIC_NAME = metrics_names.LOOPER_RUN_TIME_SPENT
 TIMING_FUNC_DURATION = 0.05
 
 
@@ -231,8 +259,9 @@ def test_kv_store_metrics_storage_store_all_events_with_same_timestamp(storage: 
     metrics_storage = KvStoreMetricsStorage(storage, ts)
     values = [gen_value_accumulator() for _ in range(10)]
 
+    name = gen_metrics_name()
     for v in values:
-        metrics_storage.store_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, v)
+        metrics_storage.store_event(name, v)
     events = [KvStoreMetricsFormat.decode(k, v) for k, v in storage.iterator()]
 
     # Check that all events are stored

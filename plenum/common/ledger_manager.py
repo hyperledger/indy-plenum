@@ -9,13 +9,14 @@ from typing import Any, List, Dict, Tuple
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
+from plenum.common import metrics_names
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, CONSISTENCY_PROOF, CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
-from plenum.common.metrics_collector import MetricsCollector, measure_time, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, measure_time
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
@@ -63,7 +64,7 @@ class LedgerManager(HasActionQueue):
     def __repr__(self):
         return self.owner.name
 
-    @measure_time(MetricsName.SERVICE_LEDGER_MANAGER_TIME)
+    @measure_time(metrics_names.SERVICE_LEDGER_MANAGER_TIME)
     def service(self):
         return self._serviceActions()
 
@@ -268,7 +269,7 @@ class LedgerManager(HasActionQueue):
         for ledger_info in self.ledgerRegistry.values():
             ledger_info.set_defaults()
 
-    @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
+    @measure_time(metrics_names.PROCESS_LEDGER_STATUS_TIME)
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
         logger.info("{} received ledger status: {} from {}".format(self, status, frm))
         if not status:
@@ -379,7 +380,7 @@ class LedgerManager(HasActionQueue):
         quorum = Quorums(total_nodes).ledger_status
         return quorum.is_reached(leger_status_num)
 
-    @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
+    @measure_time(metrics_names.PROCESS_CONSISTENCY_PROOF_TIME)
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
         logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
         ledgerId = getattr(proof, f.LEDGER_ID.nm)
@@ -420,7 +421,7 @@ class LedgerManager(HasActionQueue):
             return False
         return True
 
-    @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
+    @measure_time(metrics_names.PROCESS_CATCHUP_REQ_TIME)
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.info("{} received catchup request: {} from {}".format(self, req, frm))
         if not self.ownedByNode:
@@ -462,7 +463,7 @@ class LedgerManager(HasActionQueue):
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
-        self.metrics.add_event(MetricsName.CATCHUP_TXNS_SENT, len(txns))
+        self.metrics.add_event(metrics_names.CATCHUP_TXNS_SENT, len(txns))
         sorted_txns = SortedDict(txns)
         rep = CatchupRep(getattr(req, f.LEDGER_ID.nm),
                          sorted_txns,
@@ -480,14 +481,14 @@ class LedgerManager(HasActionQueue):
         string_proof = [Ledger.hashToStr(p) for p in proof]
         return string_proof
 
-    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
+    @measure_time(metrics_names.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
 
         txns = self.canProcessCatchupReply(rep)
         txnsNum = len(txns) if txns else 0
         logger.info("{} found {} transactions in the catchup from {}".format(self, txnsNum, frm))
-        self.metrics.add_event(MetricsName.CATCHUP_TXNS_RECEIVED, txnsNum)
+        self.metrics.add_event(metrics_names.CATCHUP_TXNS_RECEIVED, txnsNum)
         if not txns:
             return
 

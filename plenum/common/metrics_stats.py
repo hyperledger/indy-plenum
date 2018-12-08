@@ -1,9 +1,9 @@
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
-from typing import Sequence, Union
+from typing import Union, Sequence
 
-from plenum.common.metrics_collector import MetricsName, KvStoreMetricsFormat
+from plenum.common.metrics_collector import KvStoreMetricsFormat
 from plenum.common.value_accumulator import ValueAccumulator
 from storage.kv_store import KeyValueStorage
 
@@ -20,13 +20,13 @@ class MetricsStatsFrame:
     def __init__(self):
         self._stats = defaultdict(ValueAccumulator)
 
-    def add(self, id: MetricsName, value: Union[float, ValueAccumulator]):
+    def add(self, id: bytes, value: Union[float, ValueAccumulator]):
         if isinstance(value, ValueAccumulator):
             self._stats[id].merge(value)
         else:
             self._stats[id].add(value)
 
-    def get(self, id: MetricsName) -> ValueAccumulator:
+    def get(self, id: bytes) -> ValueAccumulator:
         return self._stats[id]
 
     def merge(self, other):
@@ -48,7 +48,7 @@ class MetricsStats:
         self._frames = defaultdict(MetricsStatsFrame)
         self._total = None
 
-    def add(self, ts: datetime, name: MetricsName, value: Union[float, ValueAccumulator]):
+    def add(self, ts: datetime, name: bytes, value: Union[float, ValueAccumulator]):
         ts = trunc_ts(ts, self._timestep)
         self._frames[ts].add(name, value)
         self._total = None

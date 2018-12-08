@@ -1,7 +1,7 @@
 import pytest
-from stp_core.loop.eventually import eventually
 
-from plenum.common.metrics_collector import MetricsName
+from plenum.common import metrics_names
+from stp_core.loop.eventually import eventually
 
 from plenum.test.helper import sdk_send_random_and_check
 
@@ -31,7 +31,7 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
     alive_pool.remove(demoted_node)
 
     def get_node_prods_count(node):
-        return node.metrics._accumulators[MetricsName.NODE_PROD_TIME].count
+        return node.metrics._accumulators[metrics_names.NODE_PROD_TIME].count
 
     def is_prods_run(node, old, diff):
         new = get_node_prods_count(node)

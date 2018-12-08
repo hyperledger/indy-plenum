@@ -4,11 +4,12 @@ import zmq
 from random import randint
 from typing import Callable, Any, List, Dict
 
+from plenum.common import metrics_names
 from plenum.common.batched import Batched, logger
 from plenum.common.config_util import getConfig, \
     get_global_config_else_read_config
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.metrics_collector import MetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector
 from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
 from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -42,8 +43,8 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
             msgRejectHandler=msgRejectHandler,
             create_listener_monitor=config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED,
             metrics=metrics,
-            mt_incoming_size=MetricsName.INCOMING_CLIENT_MESSAGE_SIZE,
-            mt_outgoing_size=MetricsName.OUTGOING_CLIENT_MESSAGE_SIZE)
+            mt_incoming_size=metrics_names.INCOMING_CLIENT_MESSAGE_SIZE,
+            mt_outgoing_size=metrics_names.OUTGOING_CLIENT_MESSAGE_SIZE)
         MessageProcessor.__init__(self, allowDictOnly=False)
 
         if config.CLIENT_STACK_RESTART_ENABLED and not config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED:
@@ -171,8 +172,8 @@ class NodeZStack(Batched, KITZStack):
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
                            seed=seed, sighex=sighex, config=config,
                            metrics=metrics,
-                           mt_incoming_size=MetricsName.INCOMING_NODE_MESSAGE_SIZE,
-                           mt_outgoing_size=MetricsName.OUTGOING_NODE_MESSAGE_SIZE)
+                           mt_incoming_size=metrics_names.INCOMING_NODE_MESSAGE_SIZE,
+                           mt_outgoing_size=metrics_names.OUTGOING_NODE_MESSAGE_SIZE)
         MessageProcessor.__init__(self, allowDictOnly=False)
         self.listenerQuota = config.NODE_TO_NODE_STACK_QUOTA
         self.listenerSize = config.NODE_TO_NODE_STACK_SIZE

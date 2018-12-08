@@ -5,9 +5,10 @@ from collections import OrderedDict, defaultdict
 from typing import Union
 
 from orderedset import OrderedSet
+from plenum.common import metrics_names
 from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
 from plenum.common.messages.node_messages import Propagate
-from plenum.common.metrics_collector import MetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.server.quorums import Quorum
@@ -186,7 +187,7 @@ class Propagator:
         if self.requests.has_propagated(request, self.name):
             logger.trace("{} already propagated {}".format(self, request))
         else:
-            with self.metrics.measure_time(MetricsName.SEND_PROPAGATE_TIME):
+            with self.metrics.measure_time(metrics_names.SEND_PROPAGATE_TIME):
                 self.requests.add_propagate(request, self.name)
                 propagate = self.createPropagate(request, clientName)
                 logger.debug("{} propagating request {} from client {}".format(self, request.key, clientName),

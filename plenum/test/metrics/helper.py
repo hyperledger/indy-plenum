@@ -1,20 +1,37 @@
+import string
 from datetime import datetime, timedelta
 from numbers import Number
-from random import choice, uniform, gauss, random, randint
+from random import choice, uniform, gauss, randint
 from typing import List, Union
 
-from plenum.common.metrics_collector import MetricsName, MetricsEvent, MetricsStorage
+from plenum.common import metrics_names
+from plenum.common.metrics_collector import MetricsEvent, MetricsStorage
 from plenum.common.value_accumulator import ValueAccumulator
 
 
-def gen_metrics_name() -> MetricsName:
-    return choice(list(MetricsName))
+def _plenum_metrics():
+    result = set(dir(metrics_names))
+    result -= {'__builtins__', '__file__', '__cached__', '__doc__',
+               '__name__', '__package__', '__loader__', '__spec__'}
+    result = [getattr(metrics_names, name) for name in result]
+    result = [v for v in result if isinstance(v, bytes)]
+    return result
+
+
+plenum_metrics = _plenum_metrics()
+
+
+def gen_metrics_name() -> bytes:
+    if randint(0, 1):
+        return b''.join(choice(string.printable).encode() for _ in range(randint(0, 8)))
+    else:
+        return choice(plenum_metrics)
 
 
 def gen_next_timestamp(prev=None) -> datetime:
     def round_ts(ts: datetime) -> datetime:
         us = round(ts.microsecond - 500, -3)
-        return ts.replace(microsecond=us)
+        return ts.replace(microsecond=int(us))
 
     if prev is None:
         return round_ts(datetime.utcnow())
@@ -74,7 +91,7 @@ class MockMetricsStorage(MetricsStorage):
     def __init__(self):
         self.events = []
 
-    def store_event(self, name: MetricsName, value: Union[Number, ValueAccumulator]):
+    def store_event(self, name: str, value: Union[Number, ValueAccumulator]):
         if isinstance(value, Number):
             self.events.append(MockEvent(name, 1, value))
         else:

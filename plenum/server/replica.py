@@ -16,6 +16,7 @@ from common.serializers.serialization import serialize_msg_for_signing, state_ro
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
+from plenum.common import metrics_names
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID
@@ -26,7 +27,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import MetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -193,7 +194,7 @@ PP_SUB_SEQ_NO_WRONG = 12
 PP_NOT_FINAL = 13
 
 
-def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
+def measure_replica_time(master_name: str, backup_name: str):
     def decorator(f):
         @functools.wraps(f)
         def wrapper(self, *args, **kwargs):
@@ -811,9 +812,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
         if self.isMaster:
-            self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+            self.metrics.add_event(metrics_names.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
         else:
-            self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+            self.metrics.add_event(metrics_names.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
@@ -844,8 +845,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
-    @measure_replica_time(MetricsName.REQUEST_PROCESSING_TIME,
-                          MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
+    @measure_replica_time(metrics_names.REQUEST_PROCESSING_TIME,
+                          metrics_names.BACKUP_REQUEST_PROCESSING_TIME)
     def processReqDuringBatch(
             self,
             req: Request,
@@ -858,8 +859,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.node.doDynamicValidation(req)
             self.node.applyReq(req, cons_time)
 
-    @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
-                          MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
+    @measure_replica_time(metrics_names.CREATE_3PC_BATCH_TIME,
+                          metrics_names.BACKUP_CREATE_3PC_BATCH_TIME)
     def create3PCBatch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
         pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
@@ -951,8 +952,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         return reqs, invalid_indices, rejects, tm
 
-    @measure_replica_time(MetricsName.SEND_PREPREPARE_TIME,
-                          MetricsName.BACKUP_SEND_PREPREPARE_TIME)
+    @measure_replica_time(metrics_names.SEND_PREPREPARE_TIME,
+                          metrics_names.BACKUP_SEND_PREPREPARE_TIME)
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
@@ -972,8 +973,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 'a primary so the replica will not process the request '
                                 'until a primary is chosen'.format(self))
 
-    @measure_replica_time(MetricsName.SERVICE_REPLICA_QUEUES_TIME,
-                          MetricsName.SERVICE_BACKUP_REPLICAS_QUEUES_TIME)
+    @measure_replica_time(metrics_names.SERVICE_REPLICA_QUEUES_TIME,
+                          metrics_names.SERVICE_BACKUP_REPLICAS_QUEUES_TIME)
     def serviceQueues(self, limit=None):
         """
         Process `limit` number of messages in the inBox.
@@ -1080,8 +1081,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           extra={"tags": ["processing"]})
         return None
 
-    @measure_replica_time(MetricsName.PROCESS_PREPREPARE_TIME,
-                          MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
+    @measure_replica_time(metrics_names.PROCESS_PREPREPARE_TIME,
+                          metrics_names.BACKUP_PROCESS_PREPREPARE_TIME)
     def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Validate and process provided PRE-PREPARE, create and
@@ -1184,8 +1185,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.logger.debug("{} cannot send PREPARE since {}".format(self, msg))
 
-    @measure_replica_time(MetricsName.PROCESS_PREPARE_TIME,
-                          MetricsName.BACKUP_PROCESS_PREPARE_TIME)
+    @measure_replica_time(metrics_names.PROCESS_PREPARE_TIME,
+                          metrics_names.BACKUP_PROCESS_PREPARE_TIME)
     def processPrepare(self, prepare: Prepare, sender: str) -> None:
         """
         Validate and process the PREPARE specified.
@@ -1216,8 +1217,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
 
-    @measure_replica_time(MetricsName.PROCESS_COMMIT_TIME,
-                          MetricsName.BACKUP_PROCESS_COMMIT_TIME)
+    @measure_replica_time(metrics_names.PROCESS_COMMIT_TIME,
+                          metrics_names.BACKUP_PROCESS_COMMIT_TIME)
     def processCommit(self, commit: Commit, sender: str) -> None:
         """
         Validate and process the COMMIT specified.
@@ -1264,8 +1265,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.debug("{} cannot return request to node: {}".format(self, reason))
         return canOrder
 
-    @measure_replica_time(MetricsName.SEND_PREPARE_TIME,
-                          MetricsName.BACKUP_SEND_PREPARE_TIME)
+    @measure_replica_time(metrics_names.SEND_PREPARE_TIME,
+                          metrics_names.BACKUP_SEND_PREPARE_TIME)
     def doPrepare(self, pp: PrePrepare):
         self.logger.debug("{} Sending PREPARE{} at {}".format(
             self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
@@ -1287,8 +1288,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
 
-    @measure_replica_time(MetricsName.SEND_COMMIT_TIME,
-                          MetricsName.BACKUP_SEND_COMMIT_TIME)
+    @measure_replica_time(metrics_names.SEND_COMMIT_TIME,
+                          metrics_names.BACKUP_SEND_COMMIT_TIME)
     def doCommit(self, p: Prepare):
         """
         Create a commit message from the given Prepare message and trigger the
@@ -1870,8 +1871,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
-    @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
-                          MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
+    @measure_replica_time(metrics_names.ORDER_3PC_BATCH_TIME,
+                          metrics_names.BACKUP_ORDER_3PC_BATCH_TIME)
     def order_3pc_key(self, key):
         pp = self.getPrePrepare(*key)
         if pp is None:
@@ -1916,10 +1917,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 pp.stateRootHash, pp.txnRootHash, len(valid_reqIdr),
                                 len(invalid_reqIdr)))
         if self.isMaster:
-            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
-            self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
+            self.metrics.add_event(metrics_names.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
+            self.metrics.add_event(metrics_names.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         else:
-            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
+            self.metrics.add_event(metrics_names.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
 
         self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
@@ -1940,8 +1941,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
 
-    @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
-                          MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
+    @measure_replica_time(metrics_names.PROCESS_CHECKPOINT_TIME,
+                          metrics_names.BACKUP_PROCESS_CHECKPOINT_TIME)
     def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
@@ -2039,8 +2040,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.doCheckpoint(state, s, e, ledger_id, view_no)
             self.processStashedCheckpoints((s, e), view_no)
 
-    @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
-                          MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
+    @measure_replica_time(metrics_names.SEND_CHECKPOINT_TIME,
+                          metrics_names.BACKUP_SEND_CHECKPOINT_TIME)
     def doCheckpoint(self, state, s, e, ledger_id, view_no):
         # TODO CheckpointState/Checkpoint is not a namedtuple anymore
         # 1. check if updateNamedTuple works for the new message type

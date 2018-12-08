@@ -4,9 +4,10 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
+from plenum.common import metrics_names
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
-from plenum.common.metrics_collector import MetricsCollector, measure_time, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, measure_time
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from stp_core.common.log import getlogger
@@ -32,7 +33,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----VALIDATE----
 
-    @measure_time(MetricsName.BLS_VALIDATE_PREPREPARE_TIME)
+    @measure_time(metrics_names.BLS_VALIDATE_PREPREPARE_TIME)
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
                 pre_prepare.blsMultiSig is None:
@@ -45,7 +46,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def validate_prepare(self, prepare: Prepare, sender):
         pass
 
-    @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
+    @measure_time(metrics_names.BLS_VALIDATE_COMMIT_TIME)
     def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
@@ -56,7 +57,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----CREATE/UPDATE----
 
-    @measure_time(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
+    @measure_time(metrics_names.BLS_UPDATE_PREPREPARE_TIME)
     def update_pre_prepare(self, pre_prepare_params, ledger_id):
         if not self._can_process_ledger(ledger_id):
             return pre_prepare_params
@@ -74,7 +75,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         # Send BLS signature in COMMITs only
         return prepare_params
 
-    @measure_time(MetricsName.BLS_UPDATE_COMMIT_TIME)
+    @measure_time(metrics_names.BLS_UPDATE_COMMIT_TIME)
     def update_commit(self, commit_params, pre_prepare: PrePrepare):
         ledger_id = pre_prepare.ledgerId
         state_root_hash = pre_prepare.stateRootHash
