@@ -9,7 +9,7 @@ from plenum.server.propagator import Requests
 
 from plenum.server.node import Node
 
-from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.metrics_collector import MetricsCollector
 from stp_core.types import HA
 
 from plenum.common.startable import Mode
@@ -21,7 +21,6 @@ from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.config_util import getConfigOnce
 from plenum.test.helper import create_new_test_node
-from plenum.test.test_node import TestNode
 
 whitelist = ['but majority declared']
 
@@ -68,7 +67,7 @@ class FakeNode:
         self.quorums = Quorums(self.totalNodes)
         self.view_changer = ViewChanger(self)
         self.elector = PrimarySelector(self)
-        self.metrics = NullMetricsCollector()
+        self.metrics = MetricsCollector()
 
         # For catchup testing
         self.catchup_rounds_without_txns = 0
