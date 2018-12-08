@@ -15,7 +15,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
-from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
@@ -32,7 +32,7 @@ class LedgerManager(HasActionQueue):
                  preCatchupClbk: Optional[Callable] = None,
                  postCatchupClbk: Optional[Callable] = None,
                  ledger_sync_order: Optional[List] = None,
-                 metrics: MetricsCollector = NullMetricsCollector()):
+                 metrics: MetricsCollector = MetricsCollector()):
         # If ledger_sync_order is not provided (is None), it is assumed that
         # `postCatchupCompleteClbk` of the LedgerInfo will be used
         self.owner = owner

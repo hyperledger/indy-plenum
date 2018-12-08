@@ -6,7 +6,7 @@ from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import BLS_PREFIX
-from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
+from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.request import ReqKey
 from plenum.common.util import SortedDict
 from plenum.server.monitor import Monitor
@@ -21,7 +21,7 @@ MASTER_REPLICA_INDEX = 0
 class Replicas:
     _replica_class = Replica
 
-    def __init__(self, node, monitor: Monitor, config=None, metrics: MetricsCollector = NullMetricsCollector()):
+    def __init__(self, node, monitor: Monitor, config=None, metrics: MetricsCollector = MetricsCollector()):
         # passing full node because Replica requires it
         self._node = node
         self._monitor = monitor

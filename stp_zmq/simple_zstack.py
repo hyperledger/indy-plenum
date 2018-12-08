@@ -1,4 +1,4 @@
-from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.metrics_collector import MetricsCollector
 from stp_zmq.zstack import ZStack
 from typing import Dict, Callable
 from stp_core.network.auth_mode import AuthMode
@@ -15,7 +15,7 @@ class SimpleZStack(ZStack):
                  config=None,
                  msgRejectHandler=None,
                  create_listener_monitor=False,
-                 metrics=NullMetricsCollector(),
+                 metrics=MetricsCollector(),
                  mt_incoming_size=None,
                  mt_outgoing_size=None):
 

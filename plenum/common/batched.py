@@ -3,7 +3,7 @@ from typing import Any, Iterable, Dict
 
 from plenum.common.util import z85_to_friendly
 from plenum.common.constants import BATCH, OP_FIELD_NAME
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsName, measure_time
+from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.prepare_batch import split_messages_on_batches
 from stp_core.common.constants import CONNECTION_PREFIX
 from stp_core.crypto.signer import Signer
@@ -23,7 +23,7 @@ class Batched(MessageProcessor):
     Assumes a Stack (ZStack or RStack) is mixed
     """
 
-    def __init__(self, config=None, metrics=NullMetricsCollector()):
+    def __init__(self, config=None, metrics=MetricsCollector()):
         """
         :param self: 'NodeStacked'
         :param config: 'stp config'

@@ -7,7 +7,7 @@ from typing import Union
 from orderedset import OrderedSet
 from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
 from plenum.common.messages.node_messages import Propagate
-from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.server.quorums import Quorum
@@ -171,7 +171,7 @@ class Requests(OrderedDict):
 class Propagator:
     MAX_REQUESTED_KEYS_TO_KEEP = 1000
 
-    def __init__(self, metrics: MetricsCollector = NullMetricsCollector()):
+    def __init__(self, metrics: MetricsCollector = MetricsCollector()):
         self.requests = Requests()
         self.requested_propagates_for = OrderedSet()
         self.metrics = metrics

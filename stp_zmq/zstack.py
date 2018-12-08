@@ -1,6 +1,6 @@
 import inspect
 
-from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
@@ -67,7 +67,7 @@ class ZStack(NetworkInterface):
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
-                 create_listener_monitor=False, metrics=NullMetricsCollector(),
+                 create_listener_monitor=False, metrics=MetricsCollector(),
                  mt_incoming_size=None, mt_outgoing_size=None):
         self._name = name
         self.ha = ha

@@ -8,7 +8,7 @@ from plenum.common.batched import Batched, logger
 from plenum.common.config_util import getConfig, \
     get_global_config_else_read_config
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.recorder.simple_zstack_with_recorder import SimpleZStackWithRecorder
 from plenum.recorder.simple_zstack_with_silencer import SimpleZStackWithSilencer
 from stp_core.common.constants import CONNECTION_PREFIX
@@ -29,7 +29,7 @@ else:
 
 class ClientZStack(simple_zstack_class, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None,
-                 config=None, msgRejectHandler=None, metrics=NullMetricsCollector()):
+                 config=None, msgRejectHandler=None, metrics=MetricsCollector()):
         config = config or getConfig()
 
         simple_zstack_class.__init__(
@@ -165,7 +165,7 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
 class NodeZStack(Batched, KITZStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA], seed=None, sighex: str=None,
-                 config=None, metrics=NullMetricsCollector()):
+                 config=None, metrics=MetricsCollector()):
         config = config or getConfig()
         Batched.__init__(self, config=config, metrics=metrics)
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,

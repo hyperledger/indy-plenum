@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.constants import KeyValueStorageType
+from plenum.test.metrics.helper import MockMetricsStorage
 from storage.helper import initKeyValueStorage
 from storage.kv_store import KeyValueStorage
 
@@ -16,3 +17,8 @@ def storage(request, tdir) -> KeyValueStorage:
     db_no += 1
     yield db
     db.close()
+
+
+@pytest.fixture
+def mock_storage() -> MockMetricsStorage:
+    return MockMetricsStorage()

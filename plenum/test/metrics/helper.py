@@ -3,7 +3,7 @@ from numbers import Number
 from random import choice, uniform, gauss, random, randint
 from typing import List, Union
 
-from plenum.common.metrics_collector import MetricsName, MetricsEvent, MetricsCollector
+from plenum.common.metrics_collector import MetricsName, MetricsEvent, MetricsStorage
 from plenum.common.value_accumulator import ValueAccumulator
 
 
@@ -64,9 +64,8 @@ class MockEvent:
         return self.sum / self.count
 
 
-class MockMetricsCollector(MetricsCollector):
+class MockMetricsStorage(MetricsStorage):
     def __init__(self):
-        super().__init__()
         self.events = []
 
     def store_event(self, name: MetricsName, value: Union[Number, ValueAccumulator]):

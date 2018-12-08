@@ -220,20 +220,32 @@ MetricsEvent = NamedTuple('MetricsEvent', [('timestamp', datetime), ('name', Met
                                            ('value', Union[float, ValueAccumulator])])
 
 
-class MetricsCollector(ABC):
+class MetricsStorage(ABC):
     @abstractmethod
     def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
         pass
 
-    def __init__(self):
+
+class MetricsCollector:
+    def __init__(self, storage: Optional[MetricsStorage] = None):
         self._accumulators = defaultdict(ValueAccumulator)
+        self._storages = []  # List[MetricsStorage]
+        if storage is not None:
+            self._storages.append(storage)
+
+    def add_storage(self, storage: MetricsStorage):
+        self._storages.append(storage)
 
     def add_event(self, name: MetricsName, value: float):
+        # Don't do anything unless it's going to be stored someday
+        if len(self._storages) == 0:
+            return
         self._accumulators[name].add(value)
 
     def flush_accumulated(self):
         for name, value in self._accumulators.items():
-            self.store_event(name, value)
+            for storage in self._storages:
+                storage.store_event(name, value)
         self._accumulators.clear()
 
     @contextmanager
@@ -267,14 +279,6 @@ def async_measure_time(name: MetricsName, attr='metrics'):
         return wrapper
 
     return decorator
-
-
-class NullMetricsCollector(MetricsCollector):
-    def __init__(self):
-        super().__init__()
-
-    def store_event(self, name: MetricsName, value: Union[float, ValueAccumulator]):
-        pass
 
 
 class KvStoreMetricsFormat:
@@ -317,9 +321,8 @@ class KvStoreMetricsFormat:
         return MetricsEvent(ts, name, value)
 
 
-class KvStoreMetricsCollector(MetricsCollector):
+class KvStoreMetricsStorage(MetricsStorage):
     def __init__(self, storage: KeyValueStorage, ts_provider: Callable = datetime.utcnow):
-        super().__init__()
         self._storage = storage
         self._ts_provider = ts_provider
         self._seq_no = 0

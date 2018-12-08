@@ -3,7 +3,7 @@ from random import shuffle
 
 from copy import deepcopy
 
-from plenum.common.metrics_collector import KvStoreMetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsName, KvStoreMetricsStorage
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
 from plenum.test.metrics.helper import generate_events, MockTimestamp
@@ -154,12 +154,12 @@ def test_load_metrics_from_kv_store_can_load_all_values(storage):
     events = generate_events(10)
     step = timedelta(seconds=5)
     ts = MockTimestamp()
-    metrics = KvStoreMetricsCollector(storage, ts)
+    metrics_storage = KvStoreMetricsStorage(storage, ts)
     expected_stats = MetricsStats(step)
 
     for ev in events:
         ts.value = ev.timestamp
-        metrics.store_event(ev.name, ev.value)
+        metrics_storage.store_event(ev.name, ev.value)
         expected_stats.add(ev.timestamp, ev.name, ev.value)
 
     stats = load_metrics_from_kv_store(storage, step=step)
@@ -170,7 +170,7 @@ def test_load_metrics_from_kv_store_can_filter_values(storage):
     events = generate_events(10)
     step = timedelta(seconds=3)
     ts = MockTimestamp()
-    metrics = KvStoreMetricsCollector(storage, ts)
+    metrics_storage = KvStoreMetricsStorage(storage, ts)
     expected_stats = MetricsStats(step)
 
     timestamps = sorted(ev.timestamp for ev in events)
@@ -179,7 +179,7 @@ def test_load_metrics_from_kv_store_can_filter_values(storage):
 
     for ev in events:
         ts.value = ev.timestamp
-        metrics.store_event(ev.name, ev.value)
+        metrics_storage.store_event(ev.name, ev.value)
         if min_ts <= ev.timestamp <= max_ts:
             expected_stats.add(ev.timestamp, ev.name, ev.value)
 

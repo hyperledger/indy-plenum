@@ -26,7 +26,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
@@ -218,7 +218,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                  config=None,
                  isMaster: bool = False,
                  bls_bft_replica: BlsBftReplica = None,
-                 metrics: MetricsCollector = NullMetricsCollector()):
+                 metrics: MetricsCollector = MetricsCollector()):
         """
         Create a new replica.
 

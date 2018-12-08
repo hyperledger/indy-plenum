@@ -14,8 +14,8 @@ from intervaltree import IntervalTree
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
-from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
-    async_measure_time, measure_time, MetricsCollector
+from plenum.common.metrics_collector import MetricsCollector, KvStoreMetricsStorage, MetricsName, \
+    async_measure_time, measure_time
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
@@ -383,7 +383,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
+        if config.METRICS_COLLECTOR_TYPE is not None:
+            self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
         if config.GC_STATS_REPORT_INTERVAL > 0:
             self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
@@ -771,20 +772,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
-            return NullMetricsCollector()
+            return MetricsCollector()
 
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
-            return KvStoreMetricsCollector(
+            return MetricsCollector(KvStoreMetricsStorage(
                 initKeyValueStorage(
                     self.config.METRICS_KV_STORAGE,
                     self.dataLocation,
                     self.config.METRICS_KV_DB_NAME,
                     db_config=self.config.METRICS_KV_CONFIG
-                )
-            )
+                )))
 
         logger.warning("Unknown metrics collector type: {}".format(self.config.METRICS_COLLECTOR_TYPE))
-        return NullMetricsCollector()
+        return MetricsCollector()
 
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):
@@ -2665,11 +2665,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
 
     def flush_metrics(self):
-        # Flush accumulated should always be done to avoid numeric overflow in accumulators
-        self.metrics.flush_accumulated()
-        if self.config.METRICS_COLLECTOR_TYPE is None:
-            return
-
         ram_by_process = psutil.Process().memory_info()
         self.metrics.add_event(MetricsName.AVAILABLE_RAM_SIZE, psutil.virtual_memory().available)
         self.metrics.add_event(MetricsName.NODE_RSS_SIZE, ram_by_process.rss)
@@ -2724,7 +2719,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
-            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storage)
+            # TODO: This should be changed when more than one storage is enabled!
+            store_rocksdb_metrics(MetricsName.STORAGE_METRICS_READERS, self.metrics._storages[0]._storage)
+
+        self.metrics.flush_accumulated()
 
     @measure_time(MetricsName.NODE_CHECK_PERFORMANCE_TIME)
     def checkPerformance(self) -> Optional[bool]:

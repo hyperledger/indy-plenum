@@ -3,7 +3,7 @@ from typing import Dict, List
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
     PROPAGATE, PREPARE, COMMIT
 from plenum.common.messages.node_messages import MessageReq, MessageRep
-from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
+from plenum.common.metrics_collector import measure_time, MetricsName, MetricsCollector
 from plenum.common.types import f
 from stp_core.common.log import getlogger
 from plenum.server.message_handlers import LedgerStatusHandler, \
@@ -15,7 +15,7 @@ logger = getlogger()
 
 class MessageReqProcessor:
     # This is a mixin, it's mixed with node.
-    def __init__(self, metrics=NullMetricsCollector):
+    def __init__(self, metrics=MetricsCollector()):
         self.metrics = metrics
         self.handlers = {
             LEDGER_STATUS: LedgerStatusHandler(self),

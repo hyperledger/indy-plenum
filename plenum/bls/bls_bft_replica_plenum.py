@@ -6,7 +6,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
-from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, measure_time, MetricsName
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from stp_core.common.log import getlogger
@@ -19,7 +19,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                  node_id,
                  bls_bft: BlsBft,
                  is_master,
-                 metrics: MetricsCollector = NullMetricsCollector()):
+                 metrics: MetricsCollector = MetricsCollector()):
         super().__init__(bls_bft, is_master)
         self.node_id = node_id
         self._signatures = {}
