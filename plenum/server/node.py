@@ -1966,17 +1966,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a client message
         :param frm: the name of the client that sent this `msg`
         """
-        if self.view_changer.view_change_in_progress:
 
-            msg_dict = msg if isinstance(msg, dict) else msg.as_dict
-            self.discard(msg_dict,
-                         reason="view change in progress",
-                         logMethod=logger.debug)
-            self.send_nack_to_client((idr_from_req_data(msg_dict),
-                                      msg_dict.get(f.REQ_ID.nm, None)),
-                                     "Client request is discarded since view "
-                                     "change is in progress", frm)
-            return
         if isinstance(msg, Batch):
             for m in msg.messages:
                 # This check is done since Client uses NodeStack (which can
@@ -1989,6 +1979,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 m = self.clientstack.deserializeMsg(m)
                 self.handleOneClientMsg((m, frm))
         else:
+            msg_dict = msg.as_dict if isinstance(msg, Request) else msg
+            if isinstance(msg_dict, dict):
+                txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, False) \
+                    if OPERATION in msg_dict \
+                    else False
+                txn_need_quorum = txn_type and not (txn_type == GET_TXN or
+                                                    self.is_action(txn_type) or
+                                                    self.is_query(txn_type))
+                if self.view_changer.view_change_in_progress and txn_need_quorum:
+                    self.discard(msg_dict,
+                                 reason="view change in progress",
+                                 logMethod=logger.debug)
+                    self.send_nack_to_client((idr_from_req_data(msg_dict),
+                                              msg_dict.get(f.REQ_ID.nm, None)),
+                                             "Client request is discarded since view "
+                                             "change is in progress", frm)
+                    return
             self.postToClientInBox(msg, frm)
 
     def postToClientInBox(self, msg, frm):
