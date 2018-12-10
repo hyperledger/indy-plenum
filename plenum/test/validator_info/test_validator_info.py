@@ -151,6 +151,9 @@ def test_node_info_section(info, node):
     assert 'View_No'        in info['Node_info']['View_change_status']
     assert 'Last_complete_view_no' in info['Node_info']['View_change_status']
     assert 'Last_view_change_started_at' in info['Node_info']['View_change_status']
+    assert info['Node_info']['Requests_timeouts']
+    assert 'Propagates_phase_req_timeouts' in info['Node_info']['Requests_timeouts']
+    assert 'Ordering_phase_req_timeouts' in info['Node_info']['Requests_timeouts']
 
 
 def test_pool_info_section(info):

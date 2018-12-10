@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
@@ -121,6 +122,71 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
+class GcObject:
+    def __init__(self, obj):
+        self.obj = obj
+        self.referents = [id(ref) for ref in gc.get_referents(obj)]
+        self.referrers = set()
+
+
+class GcObjectTree:
+    def __init__(self):
+        self.objects = {id(obj): GcObject(obj) for obj in gc.get_objects()}
+        for obj_id, obj in self.objects.items():
+            for ref_id in obj.referents:
+                if ref_id in self.objects:
+                    self.objects[ref_id].referrers.add(obj_id)
+
+    def report_top_obj_types(self, num=50):
+        stats = defaultdict(int)
+        for obj in self.objects.values():
+            stats[type(obj.obj)] += 1
+        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:num]:
+            logger.info("    {}: {}".format(k, v))
+
+    def report_top_collections(self, num=10):
+        fat_objects = [(o.obj, len(o.referents)) for o in self.objects.values()]
+        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:num]
+
+        logger.info("Top big collections tracked by garbage collector:")
+        for obj, count in fat_objects:
+            logger.info("    {}: {}".format(type(obj), count))
+            self.report_collection_owners(obj)
+            self.report_collection_items(obj)
+
+    def report_collection_owners(self, obj):
+        referrers = {ref_id for ref_id in self.objects[id(obj)].referrers if ref_id in self.objects}
+        for _ in range(3):
+            self.add_super_referrerrs(referrers)
+        referrers = {type(self.objects[ref_id].obj) for ref_id in referrers}
+
+        logger.info("        Referrers:")
+        for v in referrers:
+            logger.info("            {}".format(v))
+
+    def add_super_referrerrs(self, referrers):
+        for ref_id in list(referrers):
+            for sup_ref_id in self.objects[ref_id].referrers:
+                if sup_ref_id in self.objects:
+                    referrers.add(sup_ref_id)
+
+    def report_collection_items(self, obj):
+        if not isinstance(obj, Iterable):
+            return
+        tmp_list = list(obj)
+        samples = random.sample(tmp_list, 3)
+
+        logger.info("        Samples:")
+        for k in samples:
+            if isinstance(obj, Dict):
+                logger.info("            {} : {}".format(repr(k), repr(obj[k])))
+            else:
+                logger.info("            {}".format(repr(k)))
+
+    def cleanup(self):
+        del self.objects
+
+
 class GcTimeTracker:
     def __init__(self, metrics: MetricsCollector):
         self._metrics = metrics
@@ -148,14 +214,6 @@ class GcTimeTracker:
             elapsed = time.perf_counter() - start
             self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
             self._timestamps[gen] = None
-
-    def report_stats(self):
-        stats = defaultdict(int)
-        for obj in gc.get_objects():
-            stats[type(obj)] += 1
-        logger.info("Top objects tracked by garbage collector:")
-        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:50]:
-            logger.info("    {}: {}".format(k, v))
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -319,7 +377,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self.propagates_phase_req_timeout = self.config.PROPAGATES_PHASE_REQ_TIMEOUT
+        self.propagates_phase_req_timeouts = 0
         self.ordering_phase_req_timeout = self.config.ORDERING_PHASE_REQ_TIMEOUT
+        self.ordering_phase_req_timeouts = 0
 
         if self.config.OUTDATED_REQS_CHECK_ENABLED:
             self.startRepeating(self.check_outdated_reqs, self.config.OUTDATED_REQS_CHECK_INTERVAL)
@@ -334,11 +394,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
         if config.GC_STATS_REPORT_INTERVAL > 0:
-            self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
+            self.startRepeating(self.report_gc_stats, config.GC_STATS_REPORT_INTERVAL)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        self.requestSender = {}  # Dict[Tuple[str, int], str]
+        self.requestSender = {}  # Dict[str, str]
         self.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(self)
 
         self.white_list_initialization()
@@ -1993,16 +2053,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a client message
         :param frm: the name of the client that sent this `msg`
         """
-        if self.view_changer.view_change_in_progress:
-            msg_dict = msg if isinstance(msg, dict) else msg.as_dict
-            self.discard(msg_dict,
-                         reason="view change in progress",
-                         logMethod=logger.debug)
-            self.send_nack_to_client((idr_from_req_data(msg_dict),
-                                      msg_dict.get(f.REQ_ID.nm, None)),
-                                     "Client request is discarded since view "
-                                     "change is in progress", frm)
-            return
         if isinstance(msg, Batch):
             for m in msg.messages:
                 # This check is done since Client uses NodeStack (which can
@@ -2015,6 +2065,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 m = self.clientstack.deserializeMsg(m)
                 self.handleOneClientMsg((m, frm))
         else:
+            msg_dict = msg.as_dict if isinstance(msg, Request) else msg
+            if isinstance(msg_dict, dict):
+                if self.view_changer.view_change_in_progress and self.is_request_need_quorum(msg_dict):
+                    self.discard(msg_dict,
+                                 reason="view change in progress",
+                                 logMethod=logger.debug)
+                    self.send_nack_to_client((idr_from_req_data(msg_dict),
+                                              msg_dict.get(f.REQ_ID.nm, None)),
+                                             "Client request is discarded since view "
+                                             "change is in progress", frm)
+                    return
             self.postToClientInBox(msg, frm)
 
     def postToClientInBox(self, msg, frm):
@@ -2103,12 +2164,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         self.updateSeqNoMap([txn], ledger_id)
-        self._clear_req_key_for_txn(ledger_id, txn)
+        self._clear_request_for_txn(ledger_id, txn)
 
-    def _clear_req_key_for_txn(self, ledger_id, txn):
+    def _clear_request_for_txn(self, ledger_id, txn):
         req_key = get_digest(txn)
         if req_key is not None:
             self.master_replica.discard_req_key(ledger_id, req_key)
+            reqState = self.requests.get(req_key, None)
+            if reqState:
+                if reqState.forwarded and not reqState.executed:
+                    self.mark_request_as_executed(reqState.request)
+                    self.requests.free(reqState.request.key)
+                    self.doneProcessingReq(req_key)
+                if not reqState.forwarded:
+                    self.requests.pop(req_key, None)
+                    self._clean_req_from_verified(reqState.request)
+                    self.doneProcessingReq(req_key)
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         if ledgerId == POOL_LEDGER_ID:
@@ -2496,6 +2567,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isProcessingReq(request.key):
             ledger_id, seq_no = self.seqNoDB.get(request.key)
             if ledger_id is not None and seq_no is not None:
+                self._clean_req_from_verified(request)
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
@@ -2680,6 +2752,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return False
 
+    def report_gc_stats(self):
+        obj_tree = GcObjectTree()
+        obj_tree.report_top_obj_types()
+        obj_tree.report_top_collections()
+        obj_tree.cleanup()
+
     def flush_metrics(self):
         # Flush accumulated should always be done to avoid numeric overflow in accumulators
         self.metrics.flush_accumulated()
@@ -2698,6 +2776,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
         self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
                                len(self.monitor.requestTracker.unordered()))
+        self.metrics.add_event(MetricsName.PROPAGATES_PHASE_REQ_TIMEOUTS, self.propagates_phase_req_timeouts)
+        self.metrics.add_event(MetricsName.ORDERING_PHASE_REQ_TIMEOUTS, self.ordering_phase_req_timeouts)
 
         if self.view_changer is not None:
             self.metrics.add_event(MetricsName.CURRENT_VIEW, self.viewNo)
@@ -2749,8 +2829,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_SCHEDULED, len(self.primaryDecider.scheduled))
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
-
-        self.metrics.add_event(MetricsName.MONITOR_ORDERED_REQUESTS_IN_LAST, len(self.monitor.orderedRequestsInLast))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
@@ -3744,6 +3822,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def check_outdated_reqs(self):
         cur_ts = time.perf_counter()
+        req_keys_to_drop = []
         for req_key in self.requests:
             outdated = False
             req_state = self.requests[req_key]
@@ -3756,10 +3835,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if req_state.added_ts is not None and \
                     cur_ts - req_state.added_ts > self.propagates_phase_req_timeout:
                 outdated = True
+                self.propagates_phase_req_timeouts += 1
             if req_state.finalised_ts is not None and \
                     cur_ts - req_state.finalised_ts > self.ordering_phase_req_timeout:
                 outdated = True
+                self.ordering_phase_req_timeouts += 1
             if outdated:
+                req_keys_to_drop.append(req_key)
                 self._clean_req_from_verified(req_state.request)
-                self.requests.pop(req_key)
                 self.doneProcessingReq(req_key)
+        for req_key in req_keys_to_drop:
+            self.requests.pop(req_key)
+
+    def is_request_need_quorum(self, msg_dict: dict):
+        txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, None) \
+            if OPERATION in msg_dict \
+            else None
+
+        return txn_type and not (txn_type == GET_TXN or
+                                 self.is_action(txn_type) or
+                                 self.is_query(txn_type))

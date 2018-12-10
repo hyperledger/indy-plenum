@@ -1094,3 +1094,22 @@ def one_replica_and_others_in_backup_instance(
         return primary, non_primaries
     else:
         return non_primaries[0], [primary] + non_primaries[1:]
+
+
+@pytest.fixture(scope='function')
+def test_node(tdirWithPoolTxns,
+              tdirWithDomainTxns,
+              poolTxnNodeNames,
+              tdirWithNodeKeepInited,
+              tdir,
+              tconf,
+              allPluginsPath):
+    node_name = poolTxnNodeNames[0]
+    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
+    node = TestNode(
+        node_name,
+        config_helper=config_helper,
+        config=tconf,
+        pluginPaths=allPluginsPath)
+    yield node
+    node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state
