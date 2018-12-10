@@ -242,6 +242,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.poolManager.reqHandler.bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
         self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
+        self.register_executer(POOL_LEDGER_ID, self.executePoolTxns)
 
         self.nodeReg = self.poolManager.nodeReg
 
@@ -3277,8 +3278,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.commitAndSendReplies(ledger_id,
                                          pp_time, reqs_keys, state_root, txn_root)
 
-    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
-                          txnRoot) -> List:
+    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot, txnRoot) -> List:
         committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
                                                stateRoot, txnRoot)
 
@@ -3290,6 +3290,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.addNewRole(txn)
 
         return committed_txns
+
+    def executePoolTxns(self, ppTime, reqs: List[Request], stateRoot, txnRoot) -> List:
+        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime, reqs,
+                                               stateRoot, txnRoot)
+        for txn in committed_txns:
+            self.poolManager.onPoolMembershipChange(txn)
 
     def onBatchCreated(self, ledger_id, state_root):
         """

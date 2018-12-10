@@ -98,7 +98,6 @@ class HasPoolManager:
     def __init__(self, ha=None, cliname=None, cliha=None):
         self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                           cliha=cliha)
-        self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
@@ -193,25 +192,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             cstack['basedirpath'] = keys_dir
 
         return nstack, cstack, nodeReg, cliNodeReg
-
-    def executePoolTxnBatch(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
-        """
-        Execute a transaction that involves consensus pool management, like
-        adding a node, client or a steward.
-
-        :param ppTime: PrePrepare request time
-        :param reqs_keys: requests keys to be committed
-        """
-        committedTxns = self.reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
-        self.node.updateSeqNoMap(committedTxns, POOL_LEDGER_ID)
-        for txn in committedTxns:
-            t = deepcopy(txn)
-            # Since the committed transactions contain merkle info,
-            # try to avoid this kind of strictness
-            pop_merkle_info(t)
-            self.onPoolMembershipChange(t)
-        self.node.sendRepliesToClients(committedTxns, ppTime)
-        return committedTxns
 
     def onPoolMembershipChange(self, txn):
         if get_type(txn) != NODE:
