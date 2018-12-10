@@ -2039,13 +2039,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             msg_dict = msg.as_dict if isinstance(msg, Request) else msg
             if isinstance(msg_dict, dict):
-                txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, False) \
-                    if OPERATION in msg_dict \
-                    else False
-                txn_need_quorum = txn_type and not (txn_type == GET_TXN or
-                                                    self.is_action(txn_type) or
-                                                    self.is_query(txn_type))
-                if self.view_changer.view_change_in_progress and txn_need_quorum:
+                if self.view_changer.view_change_in_progress and self.is_request_need_quorum(msg_dict):
                     self.discard(msg_dict,
                                  reason="view change in progress",
                                  logMethod=logger.debug)
@@ -3802,3 +3796,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.doneProcessingReq(req_key)
         for req_key in req_keys_to_drop:
             self.requests.pop(req_key)
+
+    def is_request_need_quorum(self, msg_dict: dict):
+        txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, None) \
+            if OPERATION in msg_dict \
+            else None
+
+        return txn_type and not (txn_type == GET_TXN or
+                                 self.is_action(txn_type) or
+                                 self.is_query(txn_type))
