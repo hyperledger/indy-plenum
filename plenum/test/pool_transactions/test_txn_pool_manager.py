@@ -18,36 +18,6 @@ nodeCount = 7
 nodes_wth_bls = 0
 
 
-@pytest.fixture()
-def pool_node_txns(poolTxnData):
-    node_txns = []
-    for txn in poolTxnData["txns"]:
-        if get_type(txn) == NODE:
-            node_txns.append(txn)
-    return node_txns
-
-
-@pytest.fixture(scope='function')
-def test_node(
-        tdirWithPoolTxns,
-        tdirWithDomainTxns,
-        poolTxnNodeNames,
-        tdirWithNodeKeepInited,
-        tdir,
-        tconf,
-        allPluginsPath):
-
-    node_name = poolTxnNodeNames[0]
-    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
-    node = TestNode(
-        node_name,
-        config_helper=config_helper,
-        config=tconf,
-        pluginPaths=allPluginsPath)
-    yield node
-    node.onStopping()
-
-
 def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
                                             looper, sdk_wallet_stewards, sdk_pool_handle):
     request_count = 5
@@ -120,27 +90,3 @@ def check_get_nym_by_name(txnPoolNodeSet, pool_node_txns):
 
         assert node_nym
         assert node_nym == expected_data
-
-
-def test_on_pool_membership_changes(test_node, pool_node_txns):
-
-    def get_all_txn():
-        assert False, "ledger.getAllTxn() shouldn't be called in onPoolMembershipChange()"
-    pool_manager = test_node.poolManager
-    pool_manager.ledger.getAllTxn = get_all_txn
-
-    txn = pool_node_txns[0]
-    node_nym = get_payload_data(txn)[TARGET_NYM]
-
-    txn[TXN_PAYLOAD][DATA][DATA][SERVICES] = []
-    assert node_nym not in pool_manager._ordered_node_services
-    pool_manager.onPoolMembershipChange(txn)
-    assert pool_manager._ordered_node_services[node_nym] == []
-
-    txn[TXN_PAYLOAD][DATA][DATA][SERVICES] = [VALIDATOR]
-    pool_manager.onPoolMembershipChange(txn)
-    assert pool_manager._ordered_node_services[node_nym] == [VALIDATOR]
-
-    txn[TXN_PAYLOAD][DATA][DATA][SERVICES] = []
-    pool_manager.onPoolMembershipChange(pool_node_txns[0])
-    assert pool_manager._ordered_node_services[node_nym] == []

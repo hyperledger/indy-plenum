@@ -83,33 +83,6 @@ def testNodePortChanged(looper, txnPoolNodeSet,
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
 
 
-def test_node_port_changed_in_promote_after_demote(looper, txnPoolNodeSet,
-                        sdk_wallet_steward,
-                        sdk_pool_handle,
-                        sdk_node_theta_added,
-                        tdir, tconf):
-    """
-    A running node's port is changed
-    """
-    new_steward_wallet, new_node = sdk_node_theta_added
-
-    node_new_ha = genHa(1)
-    new_port = node_new_ha.port
-    node_ha = txnPoolNodeSet[0].nodeReg[new_node.name]
-    cli_ha = txnPoolNodeSet[0].cliNodeReg[new_node.name + CLIENT_STACK_SUFFIX]
-
-    demote_node(looper, new_steward_wallet, sdk_pool_handle, new_node)
-
-    update_node_data_and_reconnect(looper, txnPoolNodeSet,
-                                   new_steward_wallet,
-                                   sdk_pool_handle,
-                                   new_node,
-                                   node_ha.host, new_port,
-                                   cli_ha.host, cli_ha.port,
-                                   tdir, tconf)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
-
-
 def test_fail_node_bls_key_validation(looper,
                                       sdk_pool_handle,
                                       sdk_node_theta_added):

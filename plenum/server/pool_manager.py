@@ -243,6 +243,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # If nodeNym is never added in self._ordered_node_services,
         # nodeNym is never added in ledger
         if nodeNym not in self._ordered_node_services:
+            txn_data[DATA].setdefault(SERVICES, [])
             if VALIDATOR in txn_data[DATA].get(SERVICES, []):
                 self.addNewNodeAndConnect(txn_data)
         else:
@@ -351,7 +352,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self.node.nodeJoined(txn_data)
 
                 if self.name != nodeName:
-                    self.connectNewRemote(node_info, nodeName, self.node)
+                    self.connectNewRemote({DATA: node_info,
+                                           TARGET_NYM: nodeNym}, nodeName, self.node)
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
