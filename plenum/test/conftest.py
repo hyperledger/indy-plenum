@@ -1097,14 +1097,13 @@ def one_replica_and_others_in_backup_instance(
 
 
 @pytest.fixture(scope='function')
-def test_node(
-        tdirWithPoolTxns,
-        tdirWithDomainTxns,
-        poolTxnNodeNames,
-        tdirWithNodeKeepInited,
-        tdir,
-        tconf,
-        allPluginsPath):
+def test_node(tdirWithPoolTxns,
+              tdirWithDomainTxns,
+              poolTxnNodeNames,
+              tdirWithNodeKeepInited,
+              tdir,
+              tconf,
+              allPluginsPath):
     node_name = poolTxnNodeNames[0]
     config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
     node = TestNode(
