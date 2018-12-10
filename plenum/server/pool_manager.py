@@ -5,13 +5,10 @@ from collections import OrderedDict
 
 from typing import Optional
 
-from copy import deepcopy
 from typing import List
 
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
-from storage.helper import initKeyValueStorage
-from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
@@ -19,10 +16,9 @@ from stp_core.types import HA
 
 from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
+    VALIDATOR, CLIENT_STACK_SUFFIX, BLS_KEY
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn_util import get_type, get_payload_data
-from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
 
 logger = getlogger()
@@ -95,24 +91,24 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, ha=None, cliname=None, cliha=None):
-        self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
-                                          cliha=cliha)
+    def __init__(self, pool_state, pool_ledger, ha=None, cliname=None, cliha=None):
+        self.poolManager = TxnPoolManager(self, pool_state, pool_ledger,
+                                          ha=ha, cliname=cliname, cliha=cliha)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
-    def __init__(self, node, ha=None, cliname=None, cliha=None):
+    def __init__(self, node, pool_state, pool_ledger, ha=None, cliname=None, cliha=None):
         self.node = node
         self.name = node.name
         self.config = node.config
         self.genesis_dir = node.genesis_dir
         self.keys_dir = node.keys_dir
-        self._ledger = None
+        self.ledger = pool_ledger
+        self.state = pool_state
         self._id = None
 
         TxnStackManager.__init__(
             self, self.name, node.genesis_dir, node.keys_dir, isNode=True)
-        self.state = self.loadState()
         self.reqHandler = self.getPoolReqHandler()
         self.initPoolState()
         self._load_nodes_order_from_ledger()
@@ -132,34 +128,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getPoolReqHandler(self):
         return PoolRequestHandler(self.ledger, self.state,
-                                  self.node.states[DOMAIN_LEDGER_ID])
-
-    def loadState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.poolStateStorage,
-                self.node.dataLocation,
-                self.config.poolStateDbName,
-                db_config=self.config.db_state_config)
-        )
+                                  self.node.states)
 
     def initPoolState(self):
         self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
         logger.info(
             "{} initialized pool state: state root {}".format(self, state_roots_serializer.serialize(
                 bytes(self.state.committedHeadHash))))
-
-    @property
-    def hasLedger(self):
-        return self.node.hasFile(self.ledgerFile)
-
-    @property
-    def ledgerLocation(self):
-        return self.node.dataLocation
-
-    @property
-    def ledgerFile(self):
-        return self.config.poolTransactionsFile
 
     def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):

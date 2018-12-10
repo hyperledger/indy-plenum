@@ -32,7 +32,7 @@ def bls_key_register_ledger(node):
 def test_current_committed_root(bls_key_register_ledger, node):
     committed_root = bls_key_register_ledger.get_pool_root_hash_committed()
     assert committed_root
-    assert committed_root == node.poolManager.state.committedHeadHash
+    assert committed_root == node.states.get(0).committedHeadHash
 
 
 def test_get_key_for_current_root(bls_key_register_ledger, txnPoolNodeSet, pool_node_txns):
@@ -60,7 +60,7 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                            sdk_pool_handle):
     old_bls_key = get_payload_data(pool_node_txns[0])[DATA][BLS_KEY]
     new_bls_key, key_proof = init_bls_keys(node.keys_dir, node.name)
-    old_pool_root_hash = node.poolManager.state.committedHeadHash
+    old_pool_root_hash = node.states.get(0).committedHeadHash
 
     # change BLS keys
 
@@ -72,7 +72,7 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                        new_bls=new_bls_key,
                        new_key_proof=key_proof)
 
-    new_pool_root_hash = node.poolManager.state.committedHeadHash
+    new_pool_root_hash = node.states.get(0).committedHeadHash
     assert old_pool_root_hash != new_pool_root_hash
 
     # get old and new keys

@@ -41,7 +41,7 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
     demote_node(looper, sdk_wallet_stewards[2], sdk_pool_handle, demoted_node)
 
     demoted_nym = None
-    for _, txn in txnPoolNodeSet[0].poolManager.ledger.getAllTxn():
+    for _, txn in txnPoolNodeSet[0].poolLedger.getAllTxn():
         txn_data = get_payload_data(txn)
         if txn_data[DATA][ALIAS] == demoted_node.name:
             demoted_nym = txn_data[TARGET_NYM]
