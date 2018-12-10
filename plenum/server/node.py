@@ -10,6 +10,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 import gc
 import psutil
 from intervaltree import IntervalTree
+from plenum.server.pool_req_handler import PoolRequestHandler
 
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
@@ -214,8 +215,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.states = {}  # type: Dict[int, State]
 
+        # Pool ledger initialization
         self.register_state(POOL_LEDGER_ID, self.loadPoolState())
         self._poolLedger = self.getPoolLedger()
+        self.register_req_handler(self.getPoolReqHandler(), POOL_LEDGER_ID)
+        self.register_executer(POOL_LEDGER_ID, self.executePoolTxns)
+        self.initPoolState()
         HasPoolManager.__init__(self, self.states[POOL_LEDGER_ID],
                                 self._poolLedger, ha, cliname, cliha)
 
@@ -226,6 +231,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This is storage for storing map: timestamp/state.headHash
         # Now it used in domainLedger
         self.stateTsDbStorage = None
+
+        # Domain ledger initialization
         self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
         self._domainLedger = storage or self.getDomainLedger()
         self.register_req_handler(self.getDomainReqHandler(), DOMAIN_LEDGER_ID)
@@ -237,10 +244,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.addGenesisNyms()
 
         self.mode = None  # type: Optional[Mode]
-        self.poolManager.reqHandler.bls_crypto_verifier = \
+        self.get_req_handler(POOL_LEDGER_ID).bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
-        self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
-        self.register_executer(POOL_LEDGER_ID, self.executePoolTxns)
 
         self.nodeReg = self.poolManager.nodeReg
 
@@ -539,8 +544,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        return (False if self.view_changer is None else
-        self.view_changer.view_change_in_progress)
+        return (False if self.view_changer is None else self.view_changer.view_change_in_progress)
 
     def init_config_state(self):
         self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
@@ -613,14 +617,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.configStateDbName,
                 db_config=self.config.db_state_config)
         )
-
-    def initConfigState(self):
-        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
-                                 self.configLedger, self.configReqHandler)
-        logger.info(
-            "{} initialized config state: state root {}"
-                .format(self, state_roots_serializer.serialize(
-                bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     def getConfigReqHandler(self):
         return ConfigReqHandler(self.configLedger,
@@ -776,6 +772,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __repr__(self):
         return self.name
+
+    def getPoolReqHandler(self):
+        return PoolRequestHandler(self.poolLedger,
+                                  self.states[POOL_LEDGER_ID],
+                                  self.states)
 
     def getDomainReqHandler(self):
         return DomainRequestHandler(self.domainLedger,
@@ -3394,13 +3395,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 reqHandler.updateState([txn, ], isCommitted=True)
                 state.commit(rootHash=state.headHash)
 
+    def initConfigState(self):
+        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
+                                 self.configLedger, self.configReqHandler)
+        logger.info(
+            "{} initialized config state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
+
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
                                  self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
         logger.info(
-            "{} initialized domain state: state root {}"
-                .format(self, state_roots_serializer.serialize(
-                bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
+            "{} initialized domain state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
+
+    def initPoolState(self):
+        self.initStateFromLedger(self.states[POOL_LEDGER_ID],
+                                 self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
+        logger.info(
+            "{} initialized pool state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION

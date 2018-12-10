@@ -1,25 +1,19 @@
 import ipaddress
-
 from abc import abstractmethod
 from collections import OrderedDict
-
+from typing import List
 from typing import Optional
 
-from typing import List
-
 from common.exceptions import LogicError
-from common.serializers.serialization import state_roots_serializer
-from stp_core.common.log import getlogger
-from stp_core.network.auth_mode import AuthMode
-from stp_core.network.exceptions import RemoteNotFound
-from stp_core.types import HA
-
 from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR, CLIENT_STACK_SUFFIX, BLS_KEY
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn_util import get_type, get_payload_data
-from plenum.server.pool_req_handler import PoolRequestHandler
+from stp_core.common.log import getlogger
+from stp_core.network.auth_mode import AuthMode
+from stp_core.network.exceptions import RemoteNotFound
+from stp_core.types import HA
 
 logger = getlogger()
 
@@ -109,8 +103,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         TxnStackManager.__init__(
             self, self.name, node.genesis_dir, node.keys_dir, isNode=True)
-        self.reqHandler = self.getPoolReqHandler()
-        self.initPoolState()
         self._load_nodes_order_from_ledger()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.keys_dir, ha=ha,
@@ -125,16 +117,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def __repr__(self):
         return self.node.name
-
-    def getPoolReqHandler(self):
-        return PoolRequestHandler(self.ledger, self.state,
-                                  self.node.states)
-
-    def initPoolState(self):
-        self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
-        logger.info(
-            "{} initialized pool state: state root {}".format(self, state_roots_serializer.serialize(
-                bytes(self.state.committedHeadHash))))
 
     def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
