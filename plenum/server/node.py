@@ -784,7 +784,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        return (False if self.view_changer is None else self.view_changer.view_change_in_progress)
+        return False if self.view_changer is None \
+            else self.view_changer.view_change_in_progress
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
