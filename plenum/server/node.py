@@ -302,6 +302,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
         self.initDomainState()
 
+        # Config ledger init
+        self._configLedger = self.getConfigLedger()
+        self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
+        self.register_req_handler(self.getConfigReqHandler(), CONFIG_LEDGER_ID)
+        self.initConfigState()
+
+        # Action req handler
+        self.actionReqHandler = self.getActionReqHandler()
+        self.register_req_handler(self.actionReqHandler)
+
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
         self.addGenesisNyms()
@@ -462,8 +472,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._last_performance_check_data = {}
 
-        self.init_config_ledger_and_req_handler()
-
         self.init_ledger_manager()
 
         HookManager.__init__(self, NodeHooks.get_all_vals())
@@ -593,6 +601,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
 
     # LEDGERS
+    @property
+    def poolLedger(self):
+        return self._poolLedger
+
+    @property
+    def domainLedger(self):
+        return self._domainLedger
+
+    @property
+    def configLedger(self):
+        return self._configLedger
+
     def getPoolLedger(self):
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(
             self.genesis_dir, self.config.poolTransactionsFile)
@@ -677,12 +697,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return ConfigReqHandler(self.configLedger,
                                 self.states[CONFIG_LEDGER_ID])
 
+    def getActionReqHandler(self):
+        return ActionReqHandler()
+
+    # EXECUTERS
     def default_executer(self, ledger_id, pp_time, reqs_keys,
                          state_root, txn_root):
         return self.commitAndSendReplies(ledger_id,
                                          pp_time, reqs_keys, state_root, txn_root)
 
-    # EXECUTERS
     def executePoolTxns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
         """
         Execute a transaction that involves consensus pool management, like
@@ -742,9 +765,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self, state_roots_serializer.serialize(
                     bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
-    def init_config_ledger_and_req_handler(self):
-        self.configLedger = self.getConfigLedger()
-        self.init_config_state()
+    def initConfigState(self):
+        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
+                                 self.configLedger, self.get_req_handler(CONFIG_LEDGER_ID))
+        logger.info(
+            "{} initialized config state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     @property
     def viewNo(self):
@@ -759,12 +786,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def view_change_in_progress(self):
         return (False if self.view_changer is None else self.view_changer.view_change_in_progress)
 
-    def init_config_state(self):
-        self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
-        self.setup_config_req_handler()
-        self.setup_action_req_handler()
-        self.initConfigState()
-
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
             CONFIG_LEDGER_ID,
@@ -773,25 +794,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
-
-    def setup_config_req_handler(self):
-        self.configReqHandler = self.getConfigReqHandler()
-        self.register_req_handler(self.configReqHandler, CONFIG_LEDGER_ID)
-
-    def setup_action_req_handler(self):
-        self.actionReqHandler = self.get_action_req_handler()
-        self.register_req_handler(self.actionReqHandler)
-
-    def initConfigState(self):
-        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
-                                 self.configLedger, self.configReqHandler)
-        logger.info(
-            "{} initialized config state: state root {}".format(
-                self, state_roots_serializer.serialize(
-                    bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
-
-    def get_action_req_handler(self):
-        return ActionReqHandler()
 
     def prePoolLedgerCatchup(self, **kwargs):
         self.mode = Mode.discovering
@@ -1001,14 +1003,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self, self.f, self.totalNodes,
                 self.allNodeNames, self.requiredNumberOfInstances,
                 self.minimumNodes, self.quorums))
-
-    @property
-    def poolLedger(self):
-        return self._poolLedger
-
-    @property
-    def domainLedger(self):
-        return self._domainLedger
 
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
