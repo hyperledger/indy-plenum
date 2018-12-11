@@ -592,6 +592,126 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (CatchupReq, self.ledgerManager.processCatchupReq),
         )
 
+    # LEDGERS
+    def getPoolLedger(self):
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+            self.genesis_dir, self.config.poolTransactionsFile)
+        tree = CompactMerkleTree(hashStore=self.getHashStore('pool'))
+        return Ledger(tree,
+                      dataDir=self.dataLocation,
+                      fileName=self.config.poolTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability,
+                      genesis_txn_initiator=genesis_txn_initiator)
+
+    def getDomainLedger(self):
+        """
+        This is usually an implementation of Ledger
+        """
+        if self.config.primaryStorage is None:
+            # TODO: add a place for initialization of all ledgers, so it's
+            # clear what ledgers we have and how they are initialized
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+                self.genesis_dir, self.config.domainTransactionsFile)
+            tree = CompactMerkleTree(hashStore=self.getHashStore('domain'))
+            return Ledger(tree,
+                          dataDir=self.dataLocation,
+                          fileName=self.config.domainTransactionsFile,
+                          ensureDurability=self.config.EnsureLedgerDurability,
+                          genesis_txn_initiator=genesis_txn_initiator)
+        else:
+            # TODO: we need to rethink this functionality
+            return initStorage(self.config.primaryStorage,
+                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
+                               dataDir=self.dataLocation,
+                               config=self.config)
+
+    def getConfigLedger(self):
+        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
+                      dataDir=self.dataLocation,
+                      fileName=self.config.configTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability)
+
+    # STATES
+    def loadPoolState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.poolStateStorage,
+                self.dataLocation,
+                self.config.poolStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def loadDomainState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.domainStateStorage,
+                self.dataLocation,
+                self.config.domainStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def loadConfigState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.configStateStorage,
+                self.dataLocation,
+                self.config.configStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    # REQ_HANDLERS
+    def getPoolReqHandler(self):
+        return PoolRequestHandler(self.poolLedger,
+                                  self.states[POOL_LEDGER_ID],
+                                  self.states)
+
+    def getDomainReqHandler(self):
+        return DomainRequestHandler(self.domainLedger,
+                                    self.states[DOMAIN_LEDGER_ID],
+                                    self.config,
+                                    self.reqProcessors,
+                                    self.bls_bft.bls_store,
+                                    self.getStateTsDbStorage())
+
+    def getConfigReqHandler(self):
+        return ConfigReqHandler(self.configLedger,
+                                self.states[CONFIG_LEDGER_ID])
+
+    def default_executer(self, ledger_id, pp_time, reqs_keys,
+                         state_root, txn_root):
+        return self.commitAndSendReplies(ledger_id,
+                                         pp_time, reqs_keys, state_root, txn_root)
+
+    # EXECUTERS
+    def executePoolTxns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
+        """
+        Execute a transaction that involves consensus pool management, like
+        adding a node, client or a steward.
+
+        :param ppTime: PrePrepare request time
+        :param reqs_keys: requests keys to be committed
+        """
+        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
+                                               reqs_keys,
+                                               stateRoot, txnRoot)
+        for txn in committed_txns:
+            self.poolManager.onPoolMembershipChange(txn)
+        return committed_txns
+
+    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
+                          txnRoot) -> List:
+        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
+                                               stateRoot, txnRoot)
+
+        # Refactor: This is only needed for plenum as some old style tests
+        # require authentication based on an in-memory map. This would be
+        # removed later when we migrate old-style tests
+        for txn in committed_txns:
+            if get_type(txn) == NYM:
+                self.addNewRole(txn)
+
+        return committed_txns
+
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
         self.init_config_state()
@@ -791,23 +911,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def __repr__(self):
         return self.name
 
-    def getPoolReqHandler(self):
-        return PoolRequestHandler(self.poolLedger,
-                                  self.states[POOL_LEDGER_ID],
-                                  self.states)
-
-    def getDomainReqHandler(self):
-        return DomainRequestHandler(self.domainLedger,
-                                    self.states[DOMAIN_LEDGER_ID],
-                                    self.config,
-                                    self.reqProcessors,
-                                    self.bls_bft.bls_store,
-                                    self.getStateTsDbStorage())
-
-    def getConfigReqHandler(self):
-        return ConfigReqHandler(self.configLedger,
-                                self.states[CONFIG_LEDGER_ID])
-
     def getStateTsDbStorage(self):
         if self.stateTsDbStorage is None:
             self.stateTsDbStorage = StateTsDbStorage(
@@ -929,44 +1032,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def clientStackClass(self) -> NetworkInterface:
         return clientStackClass
 
-    def getPoolLedger(self):
-        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-            self.genesis_dir, self.config.poolTransactionsFile)
-        tree = CompactMerkleTree(hashStore=self.getHashStore('pool'))
-        return Ledger(tree,
-                      dataDir=self.dataLocation,
-                      fileName=self.config.poolTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability,
-                      genesis_txn_initiator=genesis_txn_initiator)
-
-    def getDomainLedger(self):
-        """
-        This is usually an implementation of Ledger
-        """
-        if self.config.primaryStorage is None:
-            # TODO: add a place for initialization of all ledgers, so it's
-            # clear what ledgers we have and how they are initialized
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.genesis_dir, self.config.domainTransactionsFile)
-            tree = CompactMerkleTree(hashStore=self.getHashStore('domain'))
-            return Ledger(tree,
-                          dataDir=self.dataLocation,
-                          fileName=self.config.domainTransactionsFile,
-                          ensureDurability=self.config.EnsureLedgerDurability,
-                          genesis_txn_initiator=genesis_txn_initiator)
-        else:
-            # TODO: we need to rethink this functionality
-            return initStorage(self.config.primaryStorage,
-                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
-                               dataDir=self.dataLocation,
-                               config=self.config)
-
-    def getConfigLedger(self):
-        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
-                      dataDir=self.dataLocation,
-                      fileName=self.config.configTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability)
-
     def _add_pool_ledger(self):
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(
@@ -1044,33 +1109,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return executer
         else:
             return partial(self.default_executer, ledger_id)
-
-    def loadPoolState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.poolStateStorage,
-                self.dataLocation,
-                self.config.poolStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
-    def loadDomainState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.domainStateStorage,
-                self.dataLocation,
-                self.config.domainStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
-    def loadConfigState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.configStateStorage,
-                self.dataLocation,
-                self.config.configStateDbName,
-                db_config=self.config.db_state_config)
-        )
 
     def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
@@ -3369,40 +3407,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def hook_post_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
-
-    def default_executer(self, ledger_id, pp_time, reqs_keys,
-                         state_root, txn_root):
-        return self.commitAndSendReplies(ledger_id,
-                                         pp_time, reqs_keys, state_root, txn_root)
-
-    def executePoolTxns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
-        """
-        Execute a transaction that involves consensus pool management, like
-        adding a node, client or a steward.
-
-        :param ppTime: PrePrepare request time
-        :param reqs_keys: requests keys to be committed
-        """
-        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
-                                               reqs_keys,
-                                               stateRoot, txnRoot)
-        for txn in committed_txns:
-            self.poolManager.onPoolMembershipChange(txn)
-        return committed_txns
-
-    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
-                          txnRoot) -> List:
-        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
-                                               stateRoot, txnRoot)
-
-        # Refactor: This is only needed for plenum as some old style tests
-        # require authentication based on an in-memory map. This would be
-        # removed later when we migrate old-style tests
-        for txn in committed_txns:
-            if get_type(txn) == NYM:
-                self.addNewRole(txn)
-
-        return committed_txns
 
     def onBatchCreated(self, ledger_id, state_root):
         """
