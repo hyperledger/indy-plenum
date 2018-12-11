@@ -271,23 +271,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.states = {}  # type: Dict[int, State]
 
-        self.primaryStorage = storage or self.getPrimaryStorage()
-
-        # This is storage for storing map: timestamp/state.headHash
-        # Now it used in domainLedger
-        self.stateTsDbStorage = None
-
-        self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
-
-        self.initPoolManager(ha, cliname, cliha)
+        # Pool ledger init
+        HasPoolManager.__init__(self, ha, cliname, cliha)
+        if self.poolLedger:
+            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
 
         # init BLS after pool manager!
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
+        # This is storage for storing map: timestamp/state.headHash
+        # Now it used in domainLedger
+        self.stateTsDbStorage = None
+
+        # Domain ledger init
+        self._domainLedger = storage or self.getDomainLedger()
+        self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
         self.register_req_handler(self.getDomainReqHandler(), DOMAIN_LEDGER_ID)
         self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
-
         self.initDomainState()
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
@@ -357,9 +358,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Requests that are to be given to the view_changer by the node
         self.msgsToViewChanger = deque()
-
-        if self.poolLedger:
-            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
 
         self.ledgerManager = self.get_new_ledger_manager()
 
@@ -628,12 +626,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.actionReqHandler = self.get_action_req_handler()
         self.register_req_handler(self.actionReqHandler)
 
-    def getConfigLedger(self):
-        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
-                      dataDir=self.dataLocation,
-                      fileName=self.config.configTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability)
-
     def loadConfigState(self):
         return PruningState(
             initKeyValueStorage(
@@ -803,9 +795,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return get_utc_epoch()
 
-    def initPoolManager(self, ha, cliname, cliha):
-        HasPoolManager.__init__(self, ha, cliname, cliha)
-
     def __repr__(self):
         return self.name
 
@@ -886,7 +875,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def domainLedger(self):
-        return self.primaryStorage
+        return self._domainLedger
 
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
@@ -940,7 +929,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def clientStackClass(self) -> NetworkInterface:
         return clientStackClass
 
-    def getPrimaryStorage(self):
+    def getDomainLedger(self):
         """
         This is usually an implementation of Ledger
         """
@@ -962,6 +951,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
                                dataDir=self.dataLocation,
                                config=self.config)
+
+    def getConfigLedger(self):
+        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
+                      dataDir=self.dataLocation,
+                      fileName=self.config.configTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability)
 
     def _add_pool_ledger(self):
         if isinstance(self.poolManager, TxnPoolManager):

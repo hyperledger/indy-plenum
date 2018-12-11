@@ -133,7 +133,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getPoolReqHandler(self):
         return PoolRequestHandler(self.ledger, self.state,
-                                  self.node.states[DOMAIN_LEDGER_ID])
+                                  self.node.states)
 
     def loadState(self):
         return PruningState(
