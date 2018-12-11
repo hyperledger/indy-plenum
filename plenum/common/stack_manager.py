@@ -282,25 +282,6 @@ class TxnStackManager(metaclass=ABCMeta):
     def nodeIds(self) -> set:
         return {get_payload_data(txn)[TARGET_NYM] for _, txn in self.ledger.getAllTxn()}
 
-    def getNodeInfoFromLedger(self, nym, excludeLast=True):
-        # Returns the info of the node from the ledger with transaction
-        # sequence numbers that added or updated the info excluding the last
-        # update transaction. The reason for ignoring last transactions is that
-        #  it is used after update to the ledger has already been made
-        txns = []
-        nodeTxnSeqNos = []
-        for seqNo, txn in self.ledger.getAllTxn():
-            txn_data = get_payload_data(txn)
-            if get_type(txn) == NODE and txn_data[TARGET_NYM] == nym:
-                txns.append(txn)
-                nodeTxnSeqNos.append(seqNo)
-        info = {}
-        if len(txns) > 1 and excludeLast:
-            txns = txns[:-1]
-        for txn in txns:
-            self.updateNodeTxns(info, get_payload_data(txn))
-        return nodeTxnSeqNos, info
-
     def getNodesServices(self):
         # Returns services for each node
         srvs = dict()
