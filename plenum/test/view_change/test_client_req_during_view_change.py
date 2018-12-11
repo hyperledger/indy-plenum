@@ -12,7 +12,6 @@ def test_node(test_node):
                                            view_no=1)
     test_node.getConfigReqHandler = lambda: TestConfigReqHandler(test_node.configLedger,
                                                                  test_node.states[CONFIG_LEDGER_ID])
-    test_node.setup_config_req_handler()
     return test_node
 
 
