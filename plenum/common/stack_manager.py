@@ -1,64 +1,24 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta
 from collections import OrderedDict
 
-from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
-from plenum.common.tools import lazy_field
 from plenum.common.txn_util import get_payload_data, get_type, get_from
-from storage.helper import initHashStore
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
-from ledger.compact_merkle_tree import CompactMerkleTree
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
-from plenum.common.ledger import Ledger
 
 logger = getlogger()
 
 
 class TxnStackManager(metaclass=ABCMeta):
-    def __init__(self, name, genesis_dir, keys_dir, isNode=True):
+    def __init__(self, name, keys_dir, isNode=True):
         self.name = name
-        self.genesis_dir = genesis_dir
         self.keys_dir = keys_dir
         self.isNode = isNode
-
-    @property
-    @abstractmethod
-    def hasLedger(self) -> bool:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def ledgerLocation(self) -> str:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def ledgerFile(self) -> str:
-        raise NotImplementedError
-
-    @lazy_field
-    def hashStore(self):
-        return initHashStore(self.ledgerLocation, 'pool', self.config)
-
-    # noinspection PyTypeChecker
-    @lazy_field
-    def ledger(self):
-        data_dir = self.ledgerLocation
-        genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.genesis_dir,
-                                                            self.ledgerFile)
-        tree = CompactMerkleTree(hashStore=self.hashStore)
-        ledger = Ledger(tree,
-                        dataDir=data_dir,
-                        fileName=self.ledgerFile,
-                        ensureDurability=self.config.EnsureLedgerDurability,
-                        genesis_txn_initiator=genesis_txn_initiator)
-
-        return ledger
 
     @staticmethod
     def parseLedgerForHaAndKeys(ledger, returnActive=True, ledger_size=None):

@@ -87,6 +87,7 @@ from plenum.recorder.recorder import add_start_time, add_stop_time
 
 from plenum.client.wallet import Wallet
 
+from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
@@ -272,9 +273,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.states = {}  # type: Dict[int, State]
 
         # Pool ledger init
-        HasPoolManager.__init__(self, ha, cliname, cliha)
-        if self.poolLedger:
-            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
+        self._poolLedger = self.getPoolLedger()
+        self.register_state(POOL_LEDGER_ID, self.loadPoolState())
+        self.register_req_handler(self.getPoolReqHandler(), POOL_LEDGER_ID)
+        self.register_executer(POOL_LEDGER_ID, self.executePoolTxns)
+        self.initPoolState()
+
+        # Pool manager init
+        HasPoolManager.__init__(self, self._poolLedger,
+                                self.states[POOL_LEDGER_ID],
+                                self.get_req_handler(POOL_LEDGER_ID),
+                                ha, cliname, cliha)
+        self.nodeReg = self.poolManager.nodeReg
+        self.cliNodeReg = self.poolManager.cliNodeReg
 
         # init BLS after pool manager!
         # init before domain req handler!
@@ -298,13 +309,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = None  # type: Optional[Mode]
         self.poolManager.reqHandler.bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
-        self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
-
-        self.nodeReg = self.poolManager.nodeReg
 
         self.network_stacks_init(seed)
-
-        self.cliNodeReg = self.poolManager.cliNodeReg
 
         HasActionQueue.__init__(self)
 
@@ -626,15 +632,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.actionReqHandler = self.get_action_req_handler()
         self.register_req_handler(self.actionReqHandler)
 
-    def loadConfigState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.configStateStorage,
-                self.dataLocation,
-                self.config.configStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
     def initConfigState(self):
         self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
                                  self.configLedger, self.configReqHandler)
@@ -642,10 +639,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "{} initialized config state: state root {}".format(
                 self, state_roots_serializer.serialize(
                     bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
-
-    def getConfigReqHandler(self):
-        return ConfigReqHandler(self.configLedger,
-                                self.states[CONFIG_LEDGER_ID])
 
     def get_action_req_handler(self):
         return ActionReqHandler()
@@ -798,6 +791,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def __repr__(self):
         return self.name
 
+    def getPoolReqHandler(self):
+        return PoolRequestHandler(self.poolLedger,
+                                  self.states[POOL_LEDGER_ID],
+                                  self.states)
+
     def getDomainReqHandler(self):
         return DomainRequestHandler(self.domainLedger,
                                     self.states[DOMAIN_LEDGER_ID],
@@ -805,6 +803,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     self.reqProcessors,
                                     self.bls_bft.bls_store,
                                     self.getStateTsDbStorage())
+
+    def getConfigReqHandler(self):
+        return ConfigReqHandler(self.configLedger,
+                                self.states[CONFIG_LEDGER_ID])
 
     def getStateTsDbStorage(self):
         if self.stateTsDbStorage is None:
@@ -869,9 +871,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def poolLedger(self):
-        return self.poolManager.ledger \
-            if isinstance(self.poolManager, TxnPoolManager) \
-            else None
+        return self._poolLedger
 
     @property
     def domainLedger(self):
@@ -929,6 +929,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def clientStackClass(self) -> NetworkInterface:
         return clientStackClass
 
+    def getPoolLedger(self):
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+            self.genesis_dir, self.config.poolTransactionsFile)
+        tree = CompactMerkleTree(hashStore=self.getHashStore('pool'))
+        return Ledger(tree,
+                      dataDir=self.dataLocation,
+                      fileName=self.config.poolTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability,
+                      genesis_txn_initiator=genesis_txn_initiator)
+
     def getDomainLedger(self):
         """
         This is usually an implementation of Ledger
@@ -938,13 +948,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # clear what ledgers we have and how they are initialized
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(
                 self.genesis_dir, self.config.domainTransactionsFile)
-            return Ledger(
-                CompactMerkleTree(
-                    hashStore=self.getHashStore('domain')),
-                dataDir=self.dataLocation,
-                fileName=self.config.domainTransactionsFile,
-                ensureDurability=self.config.EnsureLedgerDurability,
-                genesis_txn_initiator=genesis_txn_initiator)
+            tree = CompactMerkleTree(hashStore=self.getHashStore('domain'))
+            return Ledger(tree,
+                          dataDir=self.dataLocation,
+                          fileName=self.config.domainTransactionsFile,
+                          ensureDurability=self.config.EnsureLedgerDurability,
+                          genesis_txn_initiator=genesis_txn_initiator)
         else:
             # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,
@@ -1036,12 +1045,30 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return partial(self.default_executer, ledger_id)
 
+    def loadPoolState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.poolStateStorage,
+                self.dataLocation,
+                self.config.poolStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
     def loadDomainState(self):
         return PruningState(
             initKeyValueStorage(
                 self.config.domainStateStorage,
                 self.dataLocation,
                 self.config.domainStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def loadConfigState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.configStateStorage,
+                self.dataLocation,
+                self.config.configStateDbName,
                 db_config=self.config.db_state_config)
         )
 
@@ -2932,7 +2959,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_POOL_STATE_READERS, self.states.get(0)._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_DOMAIN_STATE_READERS, self.states.get(1)._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_CONFIG_STATE_READERS, self.states.get(2)._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_POOL_MANAGER_READERS, self.poolManager.state._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
@@ -3349,6 +3375,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.commitAndSendReplies(ledger_id,
                                          pp_time, reqs_keys, state_root, txn_root)
 
+    def executePoolTxns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
+        """
+        Execute a transaction that involves consensus pool management, like
+        adding a node, client or a steward.
+
+        :param ppTime: PrePrepare request time
+        :param reqs_keys: requests keys to be committed
+        """
+        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
+                                               reqs_keys,
+                                               stateRoot, txnRoot)
+        for txn in committed_txns:
+            self.poolManager.onPoolMembershipChange(txn)
+        return committed_txns
+
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
         committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
@@ -3449,6 +3490,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 txn = self.update_txn_with_extra_data(txn)
                 reqHandler.updateState([txn, ], isCommitted=True)
                 state.commit(rootHash=state.headHash)
+
+    def initPoolState(self):
+        self.initStateFromLedger(self.states[POOL_LEDGER_ID],
+                                 self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
+        logger.info(
+            "{} initialized pool state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
 
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
