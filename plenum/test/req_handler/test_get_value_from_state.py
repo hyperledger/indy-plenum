@@ -10,7 +10,7 @@ num = 0
 
 @pytest.fixture(scope="function")
 def domain_req_handler(txnPoolNodeSet):
-    return txnPoolNodeSet[0].getDomainReqHandler()
+    return txnPoolNodeSet[0].init_domain_req_handler()
 
 
 @pytest.fixture(scope="function")

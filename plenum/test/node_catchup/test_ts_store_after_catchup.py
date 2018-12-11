@@ -31,7 +31,7 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
-    req_handler = node_to_disconnect.getDomainReqHandler()
+    req_handler = node_to_disconnect.init_domain_req_handler()
     for reply in sdk_replies:
         key = req_handler.prepare_buy_key(get_from(reply[1]['result']),
                                            get_req_id(reply[1]['result']))

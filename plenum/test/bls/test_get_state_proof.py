@@ -7,7 +7,7 @@ from plenum.common.constants import ROOT_HASH
 def test_get_state_value_and_proof(looper, sdk_wallet_steward,
                                    sdk_pool_handle, txnPoolNodeSet):
     node = txnPoolNodeSet[0]
-    req_handler = node.getDomainReqHandler()
+    req_handler = node.init_domain_req_handler()
     req1, _ = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)[0]
     # Save headHash after first request
     head1 = req_handler.state.headHash
