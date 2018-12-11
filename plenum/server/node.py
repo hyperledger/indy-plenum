@@ -712,6 +712,36 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         return committed_txns
 
+    # STATES INIT
+    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
+        """
+        If the trie is empty then initialize it by applying
+        txns from ledger.
+        """
+        if state.isEmpty:
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
+            for seq_no, txn in ledger.getAllTxn():
+                txn = self.update_txn_with_extra_data(txn)
+                reqHandler.updateState([txn, ], isCommitted=True)
+                state.commit(rootHash=state.headHash)
+
+    def initPoolState(self):
+        self.initStateFromLedger(self.states[POOL_LEDGER_ID],
+                                 self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
+        logger.info(
+            "{} initialized pool state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
+
+    def initDomainState(self):
+        self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
+                                 self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
+        logger.info(
+            "{} initialized domain state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
+
     def init_config_ledger_and_req_handler(self):
         self.configLedger = self.getConfigLedger()
         self.init_config_state()
@@ -3481,35 +3511,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.clientAuthNr.core_authenticator.addIdr(identifier,
                                                             verkey=v.verkey,
                                                             role=role)
-
-    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
-        """
-        If the trie is empty then initialize it by applying
-        txns from ledger.
-        """
-        if state.isEmpty:
-            logger.info('{} found state to be empty, recreating from '
-                        'ledger'.format(self))
-            for seq_no, txn in ledger.getAllTxn():
-                txn = self.update_txn_with_extra_data(txn)
-                reqHandler.updateState([txn, ], isCommitted=True)
-                state.commit(rootHash=state.headHash)
-
-    def initPoolState(self):
-        self.initStateFromLedger(self.states[POOL_LEDGER_ID],
-                                 self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
-        logger.info(
-            "{} initialized pool state: state root {}".format(
-                self, state_roots_serializer.serialize(
-                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
-
-    def initDomainState(self):
-        self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
-                                 self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
-        logger.info(
-            "{} initialized domain state: state root {}".format(
-                self, state_roots_serializer.serialize(
-                    bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
