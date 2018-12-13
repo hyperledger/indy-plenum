@@ -380,7 +380,7 @@ class ZStack(NetworkInterface):
                 bound = True
             except zmq.error.ZMQError as zmq_err:
                 bind_retries += 1
-                if bind_retries == 5:
+                if bind_retries == 50:
                     raise zmq_err
                 time.sleep(0.2)
 
