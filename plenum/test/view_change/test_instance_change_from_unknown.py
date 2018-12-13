@@ -6,7 +6,7 @@ def test_instance_change_from_known(fake_view_changer):
     frm = list(fake_view_changer.node.nodestack.connecteds)[0]
     fake_view_changer.process_instance_change_msg(ic_msg,
                                                   frm=frm)
-    assert fake_view_changer.instanceChanges.hasInstChngFrom(proposed_view, frm)
+    assert fake_view_changer.instanceChanges.has_inst_chng_from(proposed_view, frm)
 
 
 def test_instance_change_from_unknown(fake_view_changer):
@@ -17,4 +17,4 @@ def test_instance_change_from_unknown(fake_view_changer):
     frm = b'SomeUnknownNode'
     fake_view_changer.process_instance_change_msg(ic_msg,
                                                   frm=frm)
-    assert not fake_view_changer.instanceChanges.hasInstChngFrom(proposed_view, frm)
+    assert not fake_view_changer.instanceChanges.has_inst_chng_from(proposed_view, frm)

@@ -374,3 +374,6 @@ OUTDATED_REQS_CHECK_ENABLED = True
 OUTDATED_REQS_CHECK_INTERVAL = 600  # seconds
 PROPAGATES_PHASE_REQ_TIMEOUT = 36000  # seconds
 ORDERING_PHASE_REQ_TIMEOUT = 72000  # seconds
+
+# Timeout factor after which an InstanceChange message are removed (0 to turn off)
+OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 300  # seconds
