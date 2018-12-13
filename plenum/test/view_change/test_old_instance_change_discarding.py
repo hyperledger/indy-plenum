@@ -8,7 +8,7 @@ from stp_core.loop.eventually import eventually
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_interval = tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL
-    tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 0
+    tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 10
     yield tconf
 
     tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = old_interval
