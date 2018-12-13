@@ -15,7 +15,7 @@ def tconf(tconf, request):
 
 
 def is_instance_change_sent_for_view_no(node, view_no):
-    return node.view_changer.instanceChanges.hasView(view_no)
+    return node.view_changer.instanceChanges.has_view(view_no)
 
 
 def test_instance_change_happens_post_timeout(tconf, looper, txnPoolNodeSet):

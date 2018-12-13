@@ -74,8 +74,7 @@ def test_prepare_in_queue_before_vc(looper,
     """
     def chk_quorumed_prepares_count(prepares, count):
         pp_qourum = slow_node.quorums.prepare.value
-        assert len([pp for key, pp in prepares.items() if prepares.hasQuorum(pp.msg, pp_qourum)]) == count
-
+        assert len([pp for key, pp in prepares.items() if prepares.has_quorum(pp.msg, pp_qourum)]) == count
 
     def patched_startViewChange(self, *args, **kwargs):
         self.node.processNodeInBox = functools.partial(TestNode.processNodeInBox, self.node)
