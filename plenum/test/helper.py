@@ -11,8 +11,11 @@ from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
+import base58
 import pytest
 from indy.pool import set_protocol_version
+
+from common.serializers.serialization import invalid_index_serializer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
@@ -1034,3 +1037,92 @@ def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_moni
     tconf.ACC_MONITOR_TIMEOUT = old_timeout
     tconf.ACC_MONITOR_TXN_DELTA_K = old_delta
     tconf.ACC_MONITOR_ENABLED = old_acc_monitor_enabled
+
+
+def create_pre_prepare_params(state_root,
+                              ledger_id=DOMAIN_LEDGER_ID,
+                              txn_root=None,
+                              timestamp=None,
+                              bls_multi_sig=None,
+                              view_no=0,
+                              pool_state_root=None,
+                              pp_seq_no=0,
+                              inst_id=0):
+    params = [inst_id,
+              view_no,
+              pp_seq_no,
+              timestamp or get_utc_epoch(),
+              ["random request digest"],
+              init_discarded(0),
+              "random digest",
+              ledger_id,
+              state_root,
+              txn_root or '1' * 32,
+              0,
+              True]
+    if pool_state_root is not None:
+        params.append(pool_state_root)
+    if bls_multi_sig:
+        params.append(bls_multi_sig.as_list())
+    return params
+
+
+def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0):
+    params = create_pre_prepare_params(state_root=state_root,
+                                       view_no=view_no,
+                                       pool_state_root=pool_state_root,
+                                       pp_seq_no=pp_seq_no,
+                                       inst_id=inst_id)
+    return PrePrepare(*params)
+
+
+def create_commit_params(view_no, pp_seq_no, inst_id=0):
+    return [inst_id, view_no, pp_seq_no]
+
+
+def create_commit_no_bls_sig(req_key, inst_id=0):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no, inst_id=inst_id)
+    return Commit(*params)
+
+
+def create_commit_with_bls_sig(req_key, bls_sig):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params.append(bls_sig)
+    return Commit(*params)
+
+
+def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params = bls_bft.update_commit(params, pre_prepare)
+    return Commit(*params)
+
+
+def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
+    return [inst_id,
+            view_no,
+            pp_seq_no,
+            get_utc_epoch(),
+            "random digest",
+            state_root,
+            '1' * 32]
+
+
+def create_prepare(req_key, state_root, inst_id=0):
+    view_no, pp_seq_no = req_key
+    params = create_prepare_params(view_no, pp_seq_no, state_root, inst_id=inst_id)
+    return Prepare(*params)
+
+
+def generate_state_root():
+    return base58.b58encode(os.urandom(32)).decode("utf-8")
+
+
+def init_discarded(value=None):
+    """init discarded field with value and return message like representation"""
+    discarded = []
+    if value:
+        discarded.append(value)
+    return invalid_index_serializer.serialize(discarded, toBytes=False)

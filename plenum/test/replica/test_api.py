@@ -10,9 +10,8 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
-from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls, create_pre_prepare_params, \
-    generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params, create_pre_prepare_no_bls, \
+    create_prepare, generate_state_root
 from stp_zmq.zstack import ZStack
 
 nodeCount = 4

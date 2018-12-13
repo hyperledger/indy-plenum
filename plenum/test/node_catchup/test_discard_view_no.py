@@ -1,10 +1,9 @@
 from plenum.common.request import Request
 from plenum.common.util import get_utc_epoch
-from plenum.test.bls.helper import init_discarded
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.helper import checkDiscardMsg
+from plenum.test.helper import checkDiscardMsg, init_discarded
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkProtocolInstanceSetup, \
