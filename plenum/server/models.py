@@ -123,7 +123,7 @@ class InstanceChanges(TrackedMsgs):
     """
 
     def __init__(self, config) -> None:
-        self.outdated_ic_interval = \
+        self._outdated_ic_interval = \
             config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL
         super().__init__()
 
@@ -154,10 +154,10 @@ class InstanceChanges(TrackedMsgs):
         return self._has_enough_votes(view_no, quorum)
 
     def _update_votes(self, view_no: int):
-        if self.outdated_ic_interval <= 0 or view_no not in self:
+        if self._outdated_ic_interval <= 0 or view_no not in self:
             return
         for voter, vote_time in dict(self[view_no].voters).items():
-            if vote_time < time.perf_counter() - self.outdated_ic_interval:
+            if vote_time < time.perf_counter() - self._outdated_ic_interval:
                 del self[view_no].voters[voter]
             if not self[view_no].voters:
                 del self[view_no]
