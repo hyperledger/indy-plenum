@@ -14,8 +14,8 @@ def check_prepare_certificate(nodes, ppSeqNo):
     for node in nodes:
         key = (node.viewNo, ppSeqNo)
         quorum = node.master_replica.quorums.prepare.value
-        assert node.master_replica.prepares.hasQuorum(ThreePhaseKey(*key),
-                                                      quorum)
+        assert node.master_replica.prepares.has_quorum(ThreePhaseKey(*key),
+                                                       quorum)
 
 
 def test_view_change_with_different_prepare_certificate(looper, txnPoolNodeSet,
