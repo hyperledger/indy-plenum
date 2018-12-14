@@ -25,7 +25,7 @@ from plenum.common.hook_manager import HookManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+    PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.types import f
@@ -237,7 +237,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             (Prepare, self.processThreePhaseMsg),
             (Commit, self.processThreePhaseMsg),
             (Checkpoint, self.processCheckpoint),
-            (ThreePCState, self.process3PhaseState),
         )
 
         self.threePhaseRouter = Replica3PRouter(
@@ -1003,9 +1002,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
-        if self.isPpSeqNoStable(msg.ppSeqNo):
-            self.discard(msg, "achieved stable checkpoint for 3 phase message", self.logger.info)
-            return
 
         if self.has_already_ordered(msg.viewNo, msg.ppSeqNo):
             self.discard(msg, 'already ordered 3 phase message', self.logger.trace)
@@ -1186,11 +1182,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} received PREPARE{} from {}".format(self, key, sender))
 
         # TODO move this try/except up higher
-        if self.isPpSeqNoStable(prepare.ppSeqNo):
-            self.discard(prepare,
-                         "achieved stable checkpoint for Prepare",
-                         self.logger.debug)
-            return
         try:
             if self.validatePrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
@@ -1216,12 +1207,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         self.logger.debug("{} received COMMIT{} from {}".format(
             self, (commit.viewNo, commit.ppSeqNo), sender))
-
-        if self.isPpSeqNoStable(commit.ppSeqNo):
-            self.discard(commit,
-                         "achieved stable checkpoint for Commit",
-                         self.logger.debug)
-            return
 
         if self.validateCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
@@ -1938,7 +1923,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         self.logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         seqNoEnd = msg.seqNoEnd
-        if self.isPpSeqNoStable(seqNoEnd):
+        if self.is_pp_seq_no_stable(msg):
             self.discard(msg, reason="Checkpoint already stable", logMethod=self.logger.debug)
             return True
 
@@ -2267,16 +2252,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             return self.checkpoints.peekitem(-1)
 
-    def isPpSeqNoStable(self, ppSeqNo):
+    def is_pp_seq_no_stable(self, msg: Checkpoint):
         """
         :param ppSeqNo:
         :return: True if ppSeqNo is less than or equal to last stable
         checkpoint, false otherwise
         """
+        pp_seq_no = msg.seqNoEnd
         ck = self.firstCheckPoint
         if ck:
             _, ckState = ck
-            return ckState.isStable and ckState.seqNo >= ppSeqNo
+            return ckState.isStable and ckState.seqNo >= pp_seq_no
         else:
             return False
 
@@ -2655,21 +2641,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.threePhaseRouter.handleSync((pp, sender))
                 return True
         return False
-
-    # @property
-    # def threePhaseState(self):
-    #     # TODO: This method is incomplete
-    #     # Gets the current stable and unstable checkpoints and creates digest
-    #     # of unstable checkpoints
-    #     if self.checkpoints:
-    #         pass
-    #     else:
-    #         state = []
-    #     return ThreePCState(self.instId, state)
-
-    def process3PhaseState(self, msg: ThreePCState, sender: str):
-        # TODO: This is not complete
-        pass
 
     def send(self, msg, stat=None) -> None:
         """

@@ -57,7 +57,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
     Primary, RequestAck, RequestNack, Reject, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
     ObservedData, FutureViewChangeDone, BackupInstanceFaulty
@@ -406,7 +406,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ConsistencyProof,
             CatchupReq,
             CatchupRep,
-            ThreePCState,
             MessageReq,
             MessageRep,
             CurrentState,
@@ -430,7 +429,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (Prepare, self.sendToReplica),
             (Commit, self.sendToReplica),
             (Checkpoint, self.sendToReplica),
-            (ThreePCState, self.sendToReplica),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
