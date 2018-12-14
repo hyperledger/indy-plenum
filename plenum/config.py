@@ -376,4 +376,4 @@ PROPAGATES_PHASE_REQ_TIMEOUT = 36000  # seconds
 ORDERING_PHASE_REQ_TIMEOUT = 72000  # seconds
 
 # Timeout factor after which an InstanceChange message are removed (0 to turn off)
-OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 300  # seconds
+OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 7200  # seconds
