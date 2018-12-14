@@ -114,11 +114,6 @@ def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):
 # noinspection PyIncorrectDocstring
 
 
-def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
-    return [item[0] for item in replica.postElectionMsgs if
-            isinstance(item[0], requestType)]
-
-
 def assertLength(collection: Iterable[Any], expectedLength: int):
     assert len(
         collection) == expectedLength, "Observed length was {} but " \

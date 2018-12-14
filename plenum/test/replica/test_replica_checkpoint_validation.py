@@ -3,8 +3,8 @@ import pytest
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
-    STASH, GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE
+from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, CATCHING_UP, ALREADY_STABLE, \
+    STASH_CATCH_UP
 
 
 @pytest.fixture(scope='function', params=[0, 1])
@@ -47,11 +47,11 @@ def test_check_inst_id_incorrect(validator):
 
 
 @pytest.mark.parametrize('mode, result', [
-    (Mode.starting, (STASH, CATCHING_UP)),
-    (Mode.discovering, (STASH, CATCHING_UP)),
-    (Mode.discovered, (STASH, CATCHING_UP)),
-    (Mode.syncing, (STASH, CATCHING_UP)),
-    (Mode.synced, (STASH, CATCHING_UP)),
+    (Mode.starting, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.discovering, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.discovered, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.syncing, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.synced, (STASH_CATCH_UP, CATCHING_UP)),
     (Mode.participating, (PROCESS, None)),
 ])
 def test_check_participating(validator, mode, result):
@@ -88,9 +88,9 @@ def test_check_stable(validator, seq_no_end, result):
     (19, (DISCARD, ALREADY_STABLE)),
     (20, (DISCARD, ALREADY_STABLE)),
     # assume stable is 10
-    (21, (STASH, CATCHING_UP)),
-    (22, (STASH, CATCHING_UP)),
-    (100, (STASH, CATCHING_UP)),
+    (21, (STASH_CATCH_UP, CATCHING_UP)),
+    (22, (STASH_CATCH_UP, CATCHING_UP)),
+    (100, (STASH_CATCH_UP, CATCHING_UP)),
 ])
 def test_check_stable_not_participating(validator, seq_no_end, result):
     validator.replica.is_pp_seq_no_stable = lambda msg: msg.seqNoEnd <= 20

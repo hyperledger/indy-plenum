@@ -276,13 +276,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # instance is
         self._primaryName = None  # type: Optional[str]
 
-        # TODO: Rename since it will contain all messages till primary is
-        # selected, primary selection is only done once pool ledger is
-        # caught up
-        # Requests waiting to be processed once the replica is able to decide
-        # whether it is primary or not
-        self.postElectionMsgs = deque()
-
         # PRE-PREPAREs that are waiting to be processed but do not have the
         # corresponding request finalised. Happens when replica has not been
         # forwarded the request by the node but is getting 3 phase messages.
@@ -588,7 +581,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._gc_before_new_view()
             if self.viewNo > 0:
                 self._reset_watermarks_before_new_view()
-            self._stateChanged()
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -752,37 +744,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return self.primaryNames[msg.viewNo] == sender
         except KeyError:
             return False
-
-    def _stateChanged(self):
-        """
-        A series of actions to be performed when the state of this replica
-        changes.
-
-        - UnstashInBox (see _unstashInBox)
-        """
-        self._unstashInBox()
-        if self.isPrimary is not None:
-            try:
-                self.processPostElectionMsgs()
-            except SuspiciousNode as ex:
-                self.outBox.append(ex)
-                self.discard(ex.msg, ex.reason, self.logger.warning)
-
-    def _stashInBox(self, msg):
-        """
-        Stash the specified message into the inBoxStash of this replica.
-
-        :param msg: the message to stash
-        """
-        self.inBoxStash.append(msg)
-
-    def _unstashInBox(self):
-        """
-        Append the inBoxStash to the right of the inBox.
-        """
-        # The stashed values need to go in "front" of the inBox.
-        self.inBox.extendleft(self.inBoxStash)
-        self.inBoxStash.clear()
 
     def __repr__(self):
         return self.name
@@ -984,15 +945,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
-    def processPostElectionMsgs(self):
-        """
-        Process messages waiting for the election of a primary replica to
-        complete.
-        """
-        while self.postElectionMsgs:
-            msg = self.postElectionMsgs.popleft()
-            self.logger.debug("{} processing pended msg {}".format(self, msg))
-            self.dispatchThreePhaseMsg(*msg)
 
     def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
         """
@@ -1027,11 +979,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             COMMIT
         :param sender: name of the node that sent this message
         """
-        if self.isPrimary is None:
-            if not self.can_process_since_view_change_in_progress(msg):
-                self.postElectionMsgs.append((msg, sender))
-                self.logger.debug("Replica {} pended request {} from {}".format(self, msg, sender))
-                return
         self.dispatchThreePhaseMsg(msg, sender)
 
     def can_process_since_view_change_in_progress(self, msg):

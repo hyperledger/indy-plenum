@@ -1,7 +1,9 @@
 # ReplicaValidationResult
 PROCESS = 0
 DISCARD = 1
-STASH = 2
+STASH_VIEW = 2
+STASH_WATERMARKS = 3
+STASH_CATCH_UP = 4
 
 # ReplicaValidationReasons
 INCORRECT_INSTANCE = "Incorrect instance"

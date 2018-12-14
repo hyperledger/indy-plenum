@@ -1,7 +1,8 @@
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
-    STASH, GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE
+    GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE, STASH_WATERMARKS, \
+    STASH_CATCH_UP, STASH_VIEW
 
 
 class ReplicaValidator:
@@ -38,11 +39,15 @@ class ReplicaValidator:
 
         # 4. Check watermarks
         if not (self.replica.h < pp_seq_no <= self.replica.H):
-            return STASH, OUTSIDE_WATERMARKS
+            return STASH_WATERMARKS, OUTSIDE_WATERMARKS
 
-        # 5. Check viewNo
+        # 5. Check if Participating
+        if not node.isParticipating:
+            return STASH_CATCH_UP, CATCHING_UP
+
+        # 6. Check viewNo
         if view_no > self.replica.viewNo:
-            return STASH, FUTURE_VIEW
+            return STASH_VIEW, FUTURE_VIEW
         if view_no < self.replica.viewNo - 1:
             return DISCARD, OLD_VIEW
         if view_no == self.replica.viewNo - 1:
@@ -53,11 +58,7 @@ class ReplicaValidator:
             if compare_3PC_keys((view_no, pp_seq_no), self.replica.last_prepared_before_view_change) < 0:
                 return DISCARD, GREATER_PREP_CERT
         if view_no == self.replica.viewNo and node.view_change_in_progress:
-            return STASH, FUTURE_VIEW
-
-        # 6. Check if Participating
-        if not node.isParticipating:
-            return STASH, CATCHING_UP
+            return STASH_VIEW, FUTURE_VIEW
 
         return PROCESS, None
 
@@ -76,6 +77,6 @@ class ReplicaValidator:
 
         # 3. Check if Participating
         if not node.isParticipating:
-            return STASH, CATCHING_UP
+            return STASH_CATCH_UP, CATCHING_UP
 
         return PROCESS, None
