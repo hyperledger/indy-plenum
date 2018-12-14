@@ -128,7 +128,7 @@ class InstanceChanges(TrackedMsgs):
     def __init__(self, config, time_provider: Callable = time.perf_counter) -> None:
         self._outdated_ic_interval = \
             config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL
-        self.time_provider = time_provider
+        self._time_provider = time_provider
         super().__init__()
 
     def _new_vote_msg(self, msg):
@@ -143,7 +143,7 @@ class InstanceChanges(TrackedMsgs):
         key = self._get_key(msg)
         if key not in self:
             self[key] = self._new_vote_msg(msg)
-        self[key].voters[voter] = self.time_provider()
+        self[key].voters[voter] = self._time_provider()
 
     def has_view(self, view_no: int) -> bool:
         self._update_votes(view_no)
@@ -161,7 +161,7 @@ class InstanceChanges(TrackedMsgs):
         if self._outdated_ic_interval <= 0 or view_no not in self:
             return
         for voter, vote_time in dict(self[view_no].voters).items():
-            now = self.time_provider()
+            now = self._time_provider()
             if vote_time < now - self._outdated_ic_interval:
                 logger.info("Discard InstanceChange from {} for ViewNo {} "
                             "because it is out of date (was received {}sec "
