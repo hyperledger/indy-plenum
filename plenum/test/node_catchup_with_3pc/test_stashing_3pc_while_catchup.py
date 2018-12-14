@@ -1,6 +1,7 @@
 from logging import getLogger
 
 from plenum.common.startable import Mode
+from plenum.server.node import Node
 from plenum.test.delayers import cqDelay, cr_delay, cs_delay, reset_delays_and_process_delayeds, lsDelay, cpDelay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -54,6 +55,7 @@ def test_3pc_while_catchup(tdir, tconf,
                                       start=False,
                                       )
 
+    initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
     with delay_rules(lagging_node.nodeIbStasher, cr_delay()):
         looper.add(lagging_node)
         txnPoolNodeSet[-1] = lagging_node
@@ -73,6 +75,9 @@ def test_3pc_while_catchup(tdir, tconf,
         lagging_node.nodeIbStasher.delay(cpDelay())
 
     # check that the first catch-up is finished
+    looper.run(
+        eventually(lambda: assertExp(lagging_node.spylog.count(Node.allLedgersCaughtUp) > initial_all_ledgers_caught_up),
+                   retryWait=1, timeout=60))
     looper.run(
         eventually(lambda: assertExp(lagging_node.mode == Mode.participating), retryWait=1, timeout=60))
     # check that the node was able to order requests stashed during catch-up

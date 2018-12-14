@@ -19,7 +19,6 @@ nodeCount = 4
 
 @pytest.fixture(scope="function")
 def fake_replica(replica):
-    replica.node.isParticipating = True
     replica.nonFinalisedReqs = lambda a: []
     replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
     replica._bls_bft_replica.update_prepare = lambda a, b: a
