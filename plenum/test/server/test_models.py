@@ -11,14 +11,21 @@ def instance_changes(tconf):
     return InstanceChanges(tconf)
 
 
+def test_instance_changes_are_empty_when_created(instance_changes):
+    frm = "Node1"
+    view_no = 1
+
+    assert not instance_changes
+    assert view_no not in instance_changes
+    assert not instance_changes.has_view(view_no)
+    assert not instance_changes.has_inst_chng_from(view_no, frm)
+
+
 def test_add_first_vote(instance_changes):
     frm = "Node1"
     view_no = 1
     msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
-
-    assert view_no not in instance_changes
-    assert not instance_changes.has_view(view_no)
-    assert not instance_changes.has_inst_chng_from(view_no, frm)
+    assert not instance_changes
 
     instance_changes.add_vote(msg, frm)
 
@@ -45,7 +52,7 @@ def test_equal_votes_dont_accumulate_when_added(instance_changes, tconf):
     assert len(instance_changes) == 1
 
 
-def test_has_no_quorum_if_message_discarded(instance_changes, tconf):
+def test_too_old_messages_dont_count_towards_quorum(instance_changes, tconf):
     frm1 = "Node1"
     frm2 = "Node2"
     view_no = 1
@@ -67,7 +74,7 @@ def test_has_no_quorum_if_message_discarded(instance_changes, tconf):
     assert instance_changes.has_inst_chng_from(view_no, frm2)
 
 
-def test_has_quorum(instance_changes):
+def test_instance_changes_has_quorum_when_enough_distinct_votes_are_added(instance_changes):
     quorum = 2
     view_no = 1
 
@@ -78,7 +85,7 @@ def test_has_quorum(instance_changes):
     assert instance_changes.has_quorum(view_no, quorum)
 
 
-def test_old_ic_discard(instance_changes, looper, tconf):
+def test_old_ic_discard(instance_changes, tconf):
     frm = "Node1"
     view_no = 1
     quorum = 2
