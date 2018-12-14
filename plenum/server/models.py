@@ -2,9 +2,12 @@
 Some model objects used in Plenum protocol.
 """
 import time
-from typing import NamedTuple, Set, Optional, Any, Dict
+from typing import NamedTuple, Set, Optional, Any, Dict, Callable
 
 from plenum.common.messages.node_messages import Prepare, Commit
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str]),
@@ -122,9 +125,10 @@ class InstanceChanges(TrackedMsgs):
     that can trigger a view change as equal
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, time_provider: Callable = time.perf_counter) -> None:
         self._outdated_ic_interval = \
             config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL
+        self.time_provider = time_provider
         super().__init__()
 
     def _new_vote_msg(self, msg):
@@ -139,7 +143,7 @@ class InstanceChanges(TrackedMsgs):
         key = self._get_key(msg)
         if key not in self:
             self[key] = self._new_vote_msg(msg)
-        self[key].voters[voter] = time.perf_counter()
+        self[key].voters[voter] = self.time_provider()
 
     def has_view(self, view_no: int) -> bool:
         self._update_votes(view_no)
@@ -157,7 +161,11 @@ class InstanceChanges(TrackedMsgs):
         if self._outdated_ic_interval <= 0 or view_no not in self:
             return
         for voter, vote_time in dict(self[view_no].voters).items():
-            if vote_time < time.perf_counter() - self._outdated_ic_interval:
+            now = self.time_provider()
+            if vote_time < now - self._outdated_ic_interval:
+                logger.info("Discard InstanceChange from {} "
+                            "because it is out of date (was received {}sec "
+                            "ago)".format(voter, int(now - vote_time)))
                 del self[view_no].voters[voter]
             if not self[view_no].voters:
                 del self[view_no]
