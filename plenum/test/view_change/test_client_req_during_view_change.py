@@ -1,4 +1,5 @@
 import pytest
+from _pytest import logging
 
 from plenum.common.constants import NODE, TXN_TYPE, GET_TXN, CONFIG_LEDGER_ID
 from plenum.test.helper import sdk_gen_request, checkDiscardMsg
@@ -10,9 +11,9 @@ from plenum.test.testing_utils import FakeSomething
 def test_node(test_node):
     test_node.view_changer = FakeSomething(view_change_in_progress=True,
                                            view_no=1)
-    test_node.getConfigReqHandler = lambda: TestConfigReqHandler(test_node.configLedger,
-                                                                 test_node.states[CONFIG_LEDGER_ID])
-    test_node.setup_config_req_handler()
+    test_node.init_config_req_handler = lambda: TestConfigReqHandler(test_node.configLedger,
+                                                                     test_node.states[CONFIG_LEDGER_ID])
+    test_node.register_req_handler(test_node.init_config_req_handler(), CONFIG_LEDGER_ID)
     return test_node
 
 
