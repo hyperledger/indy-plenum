@@ -14,10 +14,14 @@ class WriteRequestManager(RequestManager):
         self.request_handlers = {}  # type: Dict[int,List[WriteRequestHandler]]
         self.batch_handlers = {}
 
-    def append_req_handler(self, txn_type, handler):
-        if txn_type not in self.request_handlers:
-            self.request_handlers[txn_type] = []
-        self.request_handlers[txn_type].append(handler)
+    def register_req_handler(self, handler: WriteRequestHandler):
+        if not isinstance(handler, WriteRequestHandler):
+            raise LogicError
+
+        type = handler.txn_type
+        if type not in self.request_handlers:
+            self.request_handlers[type] = []
+        self.request_handlers[type].append(handler)
 
     def remove_req_handlers(self, txn_type):
         del self.request_handlers[txn_type]

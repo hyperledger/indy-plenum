@@ -11,3 +11,6 @@ class ReadRequestHandler(RequestHandler):
 
     def dynamic_validation(self, request: Request):
         pass
+
+    def get_result(self, request: Request):
+        pass

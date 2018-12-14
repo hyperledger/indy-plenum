@@ -11,3 +11,6 @@ class ActionRequestHandler(RequestHandler):
 
     def dynamic_validation(self, request: Request):
         pass
+
+    def process_action(self, request: Request):
+        pass

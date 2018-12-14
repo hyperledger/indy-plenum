@@ -21,8 +21,9 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     state control
     """
 
-    def __init__(self, database_manager: DatabaseManager):
+    def __init__(self, database_manager: DatabaseManager, txn_type):
         self.database_manager = database_manager
+        self.txn_type = txn_type
 
     @abstractmethod
     def static_validation(self, request: Request):
