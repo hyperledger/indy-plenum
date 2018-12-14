@@ -6,7 +6,8 @@ from copy import deepcopy
 from plenum.common.metrics_collector import KvStoreMetricsCollector, MetricsName
 from plenum.common.metrics_stats import trunc_ts, ValueAccumulator, MetricsStatsFrame, \
     MetricsStats, load_metrics_from_kv_store
-from plenum.test.metrics.helper import generate_events, MockTimestamp
+from plenum.test.metrics.helper import generate_events
+from plenum.test.helper import MockTimestamp
 
 
 def _metrics_stats_frame(events):
