@@ -163,9 +163,9 @@ class InstanceChanges(TrackedMsgs):
         for voter, vote_time in dict(self[view_no].voters).items():
             now = self.time_provider()
             if vote_time < now - self._outdated_ic_interval:
-                logger.info("Discard InstanceChange from {} "
+                logger.info("Discard InstanceChange from {} for ViewNo {} "
                             "because it is out of date (was received {}sec "
-                            "ago)".format(voter, int(now - vote_time)))
+                            "ago)".format(voter, view_no, int(now - vote_time)))
                 del self[view_no].voters[voter]
             if not self[view_no].voters:
                 del self[view_no]
