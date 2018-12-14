@@ -36,14 +36,6 @@ def generate_events(num: int, min_ts=None) -> List[MetricsEvent]:
     return result
 
 
-class MockTimestamp:
-    def __init__(self, value=datetime.utcnow()):
-        self.value = value
-
-    def __call__(self):
-        return self.value
-
-
 class MockEvent:
     def __init__(self, name, count, sum):
         self.name = name
