@@ -129,10 +129,8 @@ class RequestTimeTracker:
     def force_req_drop(self, key):
         if key in self._requests:
             del self._requests[key]
-        if key in self._unordered:
-            self._unordered.discard(key)
-        if key in self._handled_unordered:
-            self._handled_unordered.discard(key)
+        self._unordered.discard(key)
+        self._handled_unordered.discard(key)
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
