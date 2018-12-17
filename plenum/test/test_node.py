@@ -445,7 +445,8 @@ view_changer_spyables = [
     ViewChanger._start_view_change_if_possible,
     ViewChanger.process_instance_change_msg,
     ViewChanger.startViewChange,
-    ViewChanger.process_future_view_vchd_msg
+    ViewChanger.process_future_view_vchd_msg,
+    ViewChanger._canViewChange
 ]
 
 
