@@ -3854,6 +3854,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 req_keys_to_drop.append(req_key)
                 self._clean_req_from_verified(req_state.request)
                 self.doneProcessingReq(req_key)
+                self.monitor.requestTracker.force_req_drop(req_key)
         for req_key in req_keys_to_drop:
             self.requests.pop(req_key)
 
