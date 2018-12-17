@@ -308,6 +308,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.register_req_handler(self.init_config_req_handler(), CONFIG_LEDGER_ID)
         self.upload_config_state()
 
+        # Number of read requests the node has processed
+        self.total_read_request_number = 0
+        self._info_tool = self._info_tool_class(self)
+
         # Action req handler
         self.actionReqHandler = self.init_action_req_handler()
         self.register_req_handler(self.actionReqHandler)
@@ -465,10 +469,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
-
-        # Number of read requests the node has processed
-        self.total_read_request_number = 0
-        self._info_tool = self._info_tool_class(self)
 
         self._last_performance_check_data = {}
 
