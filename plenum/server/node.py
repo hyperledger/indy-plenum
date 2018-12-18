@@ -18,9 +18,16 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
+from plenum.server.batch_handlers.pool_batch_request_handler import PoolBatchHandler
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.request_handlers.node_handler import NodeHandler
+from plenum.server.request_handlers.nym_handler import NymHandler
+from plenum.server.request_managers.action_request_manager import ActionRequestManager
+from plenum.server.request_managers.read_request_manager import ReadRequestManager
+from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -272,17 +279,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.states = {}  # type: Dict[int, State]
 
+        self.db_manager = DatabaseManager()
+        self.write_manager = WriteRequestManager(self.db_manager)
+        self.read_manager = ReadRequestManager()
+        self.action_manager = ActionRequestManager()
+        self.txn_type_to_req_manager = {}
+
         # Pool ledger init
-        self._poolLedger = self.init_pool_ledger()
-        self.register_state(POOL_LEDGER_ID, self.init_pool_state())
-        self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
-        self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
+        self.db_manager.register_new_database(POOL_LEDGER_ID,
+                                              self.init_pool_ledger(),
+                                              self.init_pool_state())
         self.upload_pool_state()
+        self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
+        bh = PoolBatchHandler(self.db_manager, POOL_LEDGER_ID)
+        self.write_manager.register_batch_handler(bh)
 
         # Pool manager init
-        HasPoolManager.__init__(self, self._poolLedger,
-                                self.states[POOL_LEDGER_ID],
-                                self.get_req_handler(POOL_LEDGER_ID),
+        HasPoolManager.__init__(self, self.db_manager,
+                                self.write_manager,
                                 ha, cliname, cliha)
         self.nodeReg = self.poolManager.nodeReg
         self.cliNodeReg = self.poolManager.cliNodeReg
@@ -291,26 +305,36 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
+        # Register node handler
+        h = NodeHandler(self.config, self.db_manager,
+                        self.bls_bft.bls_crypto_verifier)
+        self.txn_type_to_req_manager[h.txn_type] = h
+        self.txn_type_to_ledger_id[POOL_LEDGER_ID] = h
+        self.write_manager.register_req_handler(h)
+
         # This is storage for storing map: timestamp/state.headHash
         # Now it used in domainLedger
-        self.stateTsDbStorage = None
+        self.db_manager.register_new_store('ts', self.init_state_ts_db_storage())
 
         # Domain ledger init
-        self._domainLedger = storage or self.init_domain_ledger()
-        self.register_state(DOMAIN_LEDGER_ID, self.init_domain_state())
-        self.register_req_handler(self.init_domain_req_handler(), DOMAIN_LEDGER_ID)
+        self.db_manager.register_new_database(DOMAIN_LEDGER_ID,
+                                              storage or self.init_domain_ledger(),
+                                              self.init_domain_state())
+
+        # Register nym handler
+        h = NymHandler(self.config, self.db_manager)
+        self.txn_type_to_req_manager[h.txn_type] = h
+        self.txn_type_to_ledger_id[DOMAIN_LEDGER_ID] = h
+        self.write_manager.register_req_handler(h)
+
         self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
         self.upload_domain_state()
 
         # Config ledger init
-        self._configLedger = self.init_config_ledger()
-        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
-        self.register_req_handler(self.init_config_req_handler(), CONFIG_LEDGER_ID)
+        self.db_manager.register_new_database(DOMAIN_LEDGER_ID,
+                                              self.init_config_ledger(),
+                                              self.init_config_state())
         self.upload_config_state()
-
-        # Action req handler
-        self.actionReqHandler = self.init_action_req_handler()
-        self.register_req_handler(self.actionReqHandler)
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -323,9 +347,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.network_stacks_init(seed)
 
         HasActionQueue.__init__(self)
-
         Propagator.__init__(self, metrics=self.metrics)
-
         MessageReqProcessor.__init__(self, metrics=self.metrics)
 
         self.view_changer = view_changer
@@ -448,7 +470,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
         self._wallet = None
-        self.seqNoDB = self.loadSeqNoDB()
+        self.seqNoDB = self.init_seq_no_db()
         self.nodeStatusDB = self.loadNodeStatusDB()
 
         self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
@@ -603,15 +625,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # LEDGERS
     @property
     def poolLedger(self):
-        return self._poolLedger
+        return self.db_manager.get_database(POOL_LEDGER_ID).ledger
 
     @property
     def domainLedger(self):
-        return self._domainLedger
+        return self.db_manager.get_database(DOMAIN_LEDGER_ID).ledger
 
     @property
     def configLedger(self):
-        return self._configLedger
+        return self.db_manager.get_database(CONFIG_LEDGER_ID).ledger
 
     def init_pool_ledger(self):
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(
@@ -691,7 +713,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     self.config,
                                     self.reqProcessors,
                                     self.bls_bft.bls_store,
-                                    self.getStateTsDbStorage())
+                                    self.init_state_ts_db_storage())
 
     def init_config_req_handler(self):
         return ConfigReqHandler(self.configLedger,
@@ -736,7 +758,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return committed_txns
 
     # STATES INIT
-    def init_state_from_ledger(self, state: State, ledger: Ledger, reqHandler):
+    def init_state_from_ledger(self, state: State, ledger: Ledger):
         """
         If the trie is empty then initialize it by applying
         txns from ledger.
@@ -746,28 +768,31 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         'ledger'.format(self))
             for seq_no, txn in ledger.getAllTxn():
                 txn = self.update_txn_with_extra_data(txn)
-                reqHandler.updateState([txn, ], isCommitted=True)
+                self.write_manager.update_state([txn], isCommitted=True)
                 state.commit(rootHash=state.headHash)
 
     def upload_pool_state(self):
-        self.init_state_from_ledger(self.states[POOL_LEDGER_ID],
-                                    self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
+        db = self.db_manager.get_database(POOL_LEDGER_ID)
+        self.init_state_from_ledger(db.state,
+                                    db.ledger)
         logger.info(
             "{} initialized pool state: state root {}".format(
                 self, state_roots_serializer.serialize(
-                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
+                    bytes(db.state.committedHeadHash))))
 
     def upload_domain_state(self):
-        self.init_state_from_ledger(self.states[DOMAIN_LEDGER_ID],
-                                    self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
+        db = self.db_manager.get_database(DOMAIN_LEDGER_ID)
+        self.init_state_from_ledger(db.state,
+                                    db.ledger)
         logger.info(
             "{} initialized domain state: state root {}".format(
                 self, state_roots_serializer.serialize(
                     bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
     def upload_config_state(self):
-        self.init_state_from_ledger(self.states[CONFIG_LEDGER_ID],
-                                    self.configLedger, self.get_req_handler(CONFIG_LEDGER_ID))
+        db = self.db_manager.get_database(CONFIG_LEDGER_ID)
+        self.init_state_from_ledger(db.state,
+                                    db.ledger)
         logger.info(
             "{} initialized config state: state root {}".format(
                 self, state_roots_serializer.serialize(
@@ -944,18 +969,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def __repr__(self):
         return self.name
 
-    def getStateTsDbStorage(self):
-        if self.stateTsDbStorage is None:
-            self.stateTsDbStorage = StateTsDbStorage(
-                self.name,
-                initKeyValueStorageIntKeys(self.config.stateTsStorage,
-                                           self.dataLocation,
-                                           self.config.stateTsDbName,
-                                           db_config=self.config.db_state_ts_db_config)
-            )
-        return self.stateTsDbStorage
+    def init_state_ts_db_storage(self):
+        return StateTsDbStorage(
+            self.name,
+            initKeyValueStorageIntKeys(self.config.stateTsStorage,
+                                       self.dataLocation,
+                                       self.config.stateTsDbName,
+                                       db_config=self.config.db_state_ts_db_config)
+        )
 
-    def loadSeqNoDB(self):
+    def init_seq_no_db(self):
         return ReqIdrToTxn(
             initKeyValueStorage(
                 self.config.reqIdToTxnStorage,
@@ -1103,30 +1126,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def register_state(self, ledger_id, state):
         self.states[ledger_id] = state
 
-    def register_req_handler(self, req_handler: RequestHandler,
-                             ledger_id: int = None):
-        if ledger_id is not None:
-            self.ledger_to_req_handler[ledger_id] = req_handler
-        for txn_type in req_handler.operation_types:
-            self.register_txn_type(txn_type, req_handler, ledger_id)
-
-    def register_txn_type(self, txn_type, req_handler: RequestHandler,
-                          ledger_id: int = None):
-        if txn_type in self.txn_type_to_req_handler:
-            raise ValueError('{} already registered for {}'
-                             .format(txn_type, self.txn_type_to_req_handler[txn_type]))
-        self.txn_type_to_req_handler[txn_type] = req_handler
-        if ledger_id is not None:
-            self.txn_type_to_ledger_id[txn_type] = ledger_id
-
     def register_executer(self, ledger_id: int, executer: Callable):
         self.requestExecuter[ledger_id] = executer
-
-    def get_req_handler(self, ledger_id=None, txn_type=None) -> Optional[RequestHandler]:
-        if ledger_id is not None:
-            return self.ledger_to_req_handler.get(ledger_id)
-        if txn_type is not None:
-            return self.txn_type_to_req_handler.get(txn_type)
 
     def get_executer(self, ledger_id):
         executer = self.requestExecuter.get(ledger_id)
@@ -2225,17 +2226,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._update_txn_seq_range_to_3phase_after_catchup(ledger_id, last_caughtup_3pc)
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
-        rh = self.postRecvTxnFromCatchup(ledger_id, txn)
-        if rh:
-            rh.updateState([txn], isCommitted=True)
-            state = self.getState(ledger_id)
-            state.commit(rootHash=state.headHash)
-            if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
-                rh.ts_store.set(get_txn_time(txn),
-                                state.headHash)
-            logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
-                         .format(self, get_seq_no(txn), ledger_id,
-                                 state_roots_serializer.serialize(bytes(state.committedHeadHash))))
+        self.postRecvTxnFromCatchup(ledger_id, txn)
+        self.write_manager.update_state([txn], isCommitted=True)
+        state = self.db_manager.get_database(ledger_id).state
+        state.commit(rootHash=state.headHash)
+        ts_store = self.db_manager.get_store('ts')
+        if ledger_id == DOMAIN_LEDGER_ID:
+            ts_store.set(get_txn_time(txn),
+                         state.headHash)
+        logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
+                     .format(self, get_seq_no(txn), ledger_id,
+                             state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         self.updateSeqNoMap([txn], ledger_id)
         self._clear_request_for_txn(ledger_id, txn)
 
@@ -2259,11 +2260,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerId == DOMAIN_LEDGER_ID:
             self.post_txn_from_catchup_added_to_domain_ledger(txn)
-        typ = get_type(txn)
-        # Since a ledger can contain txns which can be processed by an arbitrary number of request handlers;
-        # ledger-to-request_handler is a one-to-many relationship
-        rh = self.get_req_handler(txn_type=typ)
-        return rh
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
@@ -2437,29 +2433,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.transmitToClient(ls, client)
 
     def doStaticValidation(self, request: Request):
-        identifier, req_id, operation = request.identifier, request.reqId, request.operation
-        if TXN_TYPE not in operation:
+        self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
+        identifier, req_id = request.identifier, request.reqId
+
+        typ = request.operation.get(TXN_TYPE, None)
+        if typ is None:
             raise InvalidClientRequest(identifier, req_id)
 
-        self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
-        if operation[TXN_TYPE] != GET_TXN:
-            # GET_TXN is generic, needs no request handler
+        manager = self.txn_type_to_req_manager.get(typ, None)
+        if manager is None:
+            raise InvalidClientRequest(identifier, req_id)
 
-            req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
-            if not req_handler:
-                # TODO: This code should probably be removed.
-                if self.opVerifiers:
-                    try:
-                        for v in self.opVerifiers:
-                            v.verify(operation)
-                    except Exception as ex:
-                        raise InvalidClientRequest(identifier, req_id) from ex
-                else:
-                    raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
-                                               format(TXN_TYPE, operation[TXN_TYPE]))
-            else:
-                req_handler.doStaticValidation(request)
-
+        manager.static_validation()
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
     def doDynamicValidation(self, request: Request):
@@ -2467,26 +2452,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         State based validation
         """
         self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
-        operation = request.operation
-        req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
-        req_handler.validate(request)
+        typ = request.operation.get(TXN_TYPE)
+        manager = self.txn_type_to_req_manager.get(typ)
+        manager.dynamic_validation(request)
         self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
-    def applyReq(self, request: Request, cons_time: int):
+    def applyReq(self, request: Request, batch_ts: int):
         """
         Apply request to appropriate ledger and state. `cons_time` is the
         UTC epoch at which consensus was reached.
         """
         self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
-                          cons_time=cons_time)
-        req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
-        seq_no, txn = req_handler.apply(request, cons_time)
+                          cons_time=batch_ts)
+        seq_no, txn = self.write_manager.apply_request(request, batch_ts)
         ledger_id = self.ledger_id_for_request(request)
         self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
-                          cons_time=cons_time, ledger_id=ledger_id,
+                          cons_time=batch_ts, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
 
-    def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
+    def apply_stashed_reqs(self, request_ids, batch_ts: int, ledger_id):
         requests = []
         for req_key in request_ids:
             if req_key in self.requests:
@@ -2497,20 +2481,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             _, seq_no = self.seqNoDB.get(req.digest)
             if seq_no is None:
                 requests.append(req)
-        self.apply_reqs(requests, cons_time, ledger_id)
+        self.apply_reqs(requests, batch_ts, ledger_id)
 
-    def apply_reqs(self, requests, cons_time: int, ledger_id):
+    def apply_reqs(self, requests, batch_ts: int, ledger_id):
         for req in requests:
-            self.applyReq(req, cons_time)
+            self.applyReq(req, batch_ts)
         state_root = self.stateRootHash(ledger_id, isCommitted=False)
         self.onBatchCreated(ledger_id, state_root)
 
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
-            req_handler = self.get_req_handler(
-                txn_type=request.operation[TXN_TYPE])
-            req_handler.validate(request)
-            req_handler.applyForced(request)
+            self.write_manager.dynamic_validation(request)
+            self.write_manager.apply_forced_request(request)
 
     @measure_time(MetricsName.PROCESS_REQUEST_TIME)
     def processRequest(self, request: Request, frm: str):
@@ -2546,11 +2528,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.is_action(txn_type):
             self.process_action(request, frm)
 
-        elif txn_type == GET_TXN:
-            self.handle_get_txn_req(request, frm)
-            self.total_read_request_number += 1
-
-        elif self.is_query(txn_type):
+        elif self.is_read(txn_type):
             self.process_query(request, frm)
             self.total_read_request_number += 1
 
@@ -2579,37 +2557,31 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 request.reqId,
                 'Pool is in readonly mode, try again in 60 seconds')
 
-    def is_query(self, txn_type) -> bool:
+    def is_read(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?
-        handler = self.get_req_handler(txn_type=txn_type)
-        return handler and isinstance(handler,
-                                      LedgerRequestHandler
-                                      ) and handler.is_query(txn_type)
+        manager = self.txn_type_to_req_manager.get(txn_type, None)
+        return manager and isinstance(manager, ReadRequestManager)
 
     def is_action(self, txn_type) -> bool:
-        return txn_type in self.actionReqHandler.operation_types
+        manager = self.txn_type_to_req_manager.get(txn_type, None)
+        return manager and isinstance(manager, ActionRequestManager)
 
     def can_write_txn(self, txn_type):
         return True
 
     def process_query(self, request: Request, frm: str):
         # Process a read request from client
-        handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
-        try:
-            handler.doStaticValidation(request)
-            self.send_ack_to_client((request.identifier, request.reqId), frm)
-        except Exception as ex:
-            self.send_nack_to_client((request.identifier, request.reqId),
-                                     str(ex), frm)
-        result = handler.get_query_response(request)
-        self.transmitToClient(Reply(result), frm)
+        # TODO: Do we need to call dynamic_validation for get requests?
+        self.send_ack_to_client((request.identifier, request.reqId), frm)
+        result = self.read_manager.get_result(request)
+        self.transmitToClient(result, frm)
 
-    def process_action(self, request, frm):
+    def process_action(self, request: Request, frm):
         # Process an execute action request
         self.send_ack_to_client((request.identifier, request.reqId), frm)
         try:
-            self.actionReqHandler.validate(request)
-            result = self.actionReqHandler.apply(request)
+            self.action_manager.dynamic_validation(request)
+            result = self.action_manager.process_action(request)
             self.transmitToClient(Reply(result), frm)
         except Exception as ex:
             self.transmitToClient(Reject(request.identifier,
@@ -2681,44 +2653,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def send_nack_to_client(self, req_key, reason, to_client):
         self.transmitToClient(RequestNack(*req_key, reason), to_client)
-
-    def handle_get_txn_req(self, request: Request, frm: str):
-        """
-        Handle GET_TXN request
-        """
-        ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
-        if ledger_id not in self.ledger_to_req_handler:
-            self.send_nack_to_client((request.identifier, request.reqId),
-                                     'Invalid ledger id {}'.format(ledger_id),
-                                     frm)
-            return
-
-        seq_no = request.operation.get(DATA)
-        self.send_ack_to_client((request.identifier, request.reqId), frm)
-        ledger = self.getLedger(ledger_id)
-
-        try:
-            txn = self.getReplyFromLedger(ledger, seq_no)
-        except KeyError:
-            txn = None
-
-        if txn is None:
-            logger.debug(
-                "{} can not handle GET_TXN request: ledger doesn't "
-                "have txn with seqNo={}".format(self, str(seq_no)))
-
-        result = {
-            f.IDENTIFIER.nm: request.identifier,
-            f.REQ_ID.nm: request.reqId,
-            TXN_TYPE: request.operation[TXN_TYPE],
-            DATA: None
-        }
-
-        if txn:
-            result[DATA] = txn.result
-            result[f.SEQ_NO.nm] = get_seq_no(txn.result)
-
-        self.transmitToClient(Reply(result), frm)
 
     @measure_time(MetricsName.PROCESS_ORDERED_TIME)
     def processOrdered(self, ordered: Ordered):
@@ -3415,8 +3349,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def commitAndSendReplies(self, ledger_id, ppTime, reqs_keys,
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
-        reqHandler = self.get_req_handler(ledger_id)
-        committedTxns = reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
+        committedTxns = self.write_manager.commit_batch(ledger_id, len(reqs_keys), stateRoot, txnRoot, ppTime)
         self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
                           pp_time=ppTime, committed_txns=committedTxns,
                           state_root=stateRoot, txn_root=txnRoot)
@@ -3441,13 +3374,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param state_root: state root after the batch creation
         :return:
         """
-        if ledger_id == POOL_LEDGER_ID:
-            if isinstance(self.poolManager, TxnPoolManager):
-                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(state_root)
-        elif self.get_req_handler(ledger_id):
-            self.get_req_handler(ledger_id).onBatchCreated(state_root)
-        else:
-            logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+        self.write_manager.post_apply_batch()
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
 
     def onBatchRejected(self, ledger_id):
@@ -3458,13 +3385,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param stateRoot: state root after the batch was created
         :return:
         """
-        if ledger_id == POOL_LEDGER_ID:
-            if isinstance(self.poolManager, TxnPoolManager):
-                self.get_req_handler(POOL_LEDGER_ID).onBatchRejected()
-        elif self.get_req_handler(ledger_id):
-            self.get_req_handler(ledger_id).onBatchRejected()
-        else:
-            logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+        self.write_manager.revert_batch()
         self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
@@ -3736,9 +3657,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn
 
     def transform_txn_for_ledger(self, txn):
-        txn_type = get_type(txn)
-        return self.get_req_handler(txn_type=txn_type). \
-            transform_txn_for_ledger(txn)
+        return self.write_manager.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self
@@ -3864,4 +3783,4 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         return txn_type and not (txn_type == GET_TXN or
                                  self.is_action(txn_type) or
-                                 self.is_query(txn_type))
+                                 self.is_read(txn_type))

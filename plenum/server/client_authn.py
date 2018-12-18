@@ -17,6 +17,7 @@ from plenum.common.verifier import DidVerifier, Verifier
 from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.pool_req_handler import PoolRequestHandler
+from plenum.server.request_handlers.nym_handler import NymHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -86,7 +87,7 @@ class ClientAuthNr:
 class NaclAuthNr(ClientAuthNr):
 
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
-                           threshold: Optional[int]=None, verifier: Verifier=DidVerifier):
+                           threshold: Optional[int] = None, verifier: Verifier = DidVerifier):
         num_sigs = len(signatures)
         if threshold is not None:
             if num_sigs < threshold:
@@ -158,7 +159,7 @@ class SimpleAuthNr(NaclAuthNr):
             # created identity, also its possible to have multiple uncommitted
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
-            nym = DomainRequestHandler.getNymDetails(
+            nym = NymHandler.getNymDetails(
                 self.state, identifier, isCommitted=False)
             if not nym:
                 raise UnknownIdentifier(identifier)
@@ -213,9 +214,9 @@ class CoreAuthMixin:
             raise EmptyIdentifier
         return msg[f.IDENTIFIER.nm]
 
-    def authenticate(self, req_data, identifier: Optional[str]=None,
-                     signature: Optional[str]=None, threshold: Optional[int] = None,
-                     verifier: Verifier=DidVerifier):
+    def authenticate(self, req_data, identifier: Optional[str] = None,
+                     signature: Optional[str] = None, threshold: Optional[int] = None,
+                     verifier: Verifier = DidVerifier):
         """
         Prepares the data to be serialised for signing and then verifies the
         signature

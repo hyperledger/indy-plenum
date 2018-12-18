@@ -15,7 +15,7 @@ from stp_core.types import HA
 
 from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX, BLS_KEY
+    VALIDATOR, CLIENT_STACK_SUFFIX, BLS_KEY, POOL_LEDGER_ID
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn_util import get_type, get_payload_data
 
@@ -89,25 +89,24 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, ledger, state, reqHandler, ha=None, cliname=None, cliha=None):
-        self.poolManager = TxnPoolManager(self, ledger, state, reqHandler,
+    def __init__(self, db_manager, write_manager, ha=None, cliname=None, cliha=None):
+        self.poolManager = TxnPoolManager(self, db_manager, write_manager,
                                           ha=ha, cliname=cliname, cliha=cliha)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
-    def __init__(self, node, ledger, state, reqHandler, ha=None, cliname=None, cliha=None):
+    def __init__(self, node, db_manager, write_manager, ha=None, cliname=None, cliha=None):
         self.node = node
         self.name = node.name
         self.config = node.config
         self.genesis_dir = node.genesis_dir
         self.keys_dir = node.keys_dir
-        self.ledger = ledger
+        self.db_manager = db_manager
+        self.write_manager = write_manager
         self._id = None
 
         TxnStackManager.__init__(
             self, self.name, node.keys_dir, isNode=True)
-        self.state = state
-        self.reqHandler = reqHandler
         self._load_nodes_order_from_ledger()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.keys_dir, ha=ha,
@@ -122,6 +121,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def __repr__(self):
         return self.node.name
+
+    @property
+    def ledger(self):
+        return self.db_manager.get_database(POOL_LEDGER_ID).ledger
+
+    @property
+    def state(self):
+        return self.db_manager.get_database(POOL_LEDGER_ID).state
 
     def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
@@ -284,7 +291,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         else:
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
-                node_info = self.reqHandler.getNodeData(nodeNym)
+                node_info = self.write_manager.get_node_data(nodeNym)
                 self.node.nodeReg[nodeName] = HA(node_info[NODE_IP],
                                                  node_info[NODE_PORT])
                 self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(node_info[CLIENT_IP],
