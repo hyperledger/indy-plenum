@@ -72,17 +72,20 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
     nodes_to_restart = txnPoolNodeSet[1:3]
 
     # waiting to discard InstanceChange
-    looper.runFor(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1)
+    def check_old_ic_discarded():
+        assert all(not n.view_changer.instanceChanges.has_inst_chng_from(view_no + 1, panic_node.name)
+                   for n in txnPoolNodeSet)
+
+    looper.run(eventually(check_old_ic_discarded, timeout=tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1))
 
     for n in nodes_to_restart:
         n.view_changer.on_master_degradation()
 
-    def check():
+    def check_ic():
         assert all(panic_node.view_changer.instanceChanges.has_inst_chng_from(view_no + 1, node.name)
                    for node in nodes_to_restart)
-        assert not panic_node.view_changer.instanceChanges.has_inst_chng_from(view_no + 1, panic_node.name)
 
-    looper.run(eventually(check))
+    looper.run(eventually(check_ic))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
