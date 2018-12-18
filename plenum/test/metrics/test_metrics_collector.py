@@ -8,8 +8,9 @@ import pytest
 from plenum.common.metrics_collector import MetricsName, KvStoreMetricsCollector, KvStoreMetricsFormat, MetricsEvent, \
     measure_time, async_measure_time
 from plenum.common.value_accumulator import ValueAccumulator
-from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, MockTimestamp, \
+from plenum.test.metrics.helper import gen_next_timestamp, gen_metrics_name, generate_events, \
     MockMetricsCollector, MockEvent
+from plenum.test.helper import MockTimestamp
 from storage.kv_store import KeyValueStorage
 
 

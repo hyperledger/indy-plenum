@@ -9,12 +9,9 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
-from plenum.common.request import Request
-from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
-from plenum.server.propagator import Requests
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -50,7 +47,6 @@ from plenum.test.testable import spyable
 from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
-from plenum.server.replica import Replica
 from plenum.common.config_helper import PNodeConfigHelper
 from hashlib import sha256
 from plenum.common.messages.node_messages import Reply
@@ -283,7 +279,7 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(self):
         pass
 
-    def getDomainReqHandler(self):
+    def init_domain_req_handler(self):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,

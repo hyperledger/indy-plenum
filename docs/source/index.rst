@@ -18,5 +18,7 @@ Welcome to Indy Plenum's documentation!
    storage.md
    recorder.md
    diagrams/index.rst
-
+   message_requests.md
+   misc/zeromq_features.md
+   
 

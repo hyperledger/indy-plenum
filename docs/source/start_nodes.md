@@ -1,3 +1,4 @@
+# Start Nodes
 #### Initializing Keys
 Each Node needs to have keys initialized
  - ed25519 transport keys (used by ZMQ for Node-to-Node and Node-to-Client communication)

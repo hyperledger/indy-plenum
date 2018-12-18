@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
@@ -86,6 +87,7 @@ from plenum.recorder.recorder import add_start_time, add_stop_time
 
 from plenum.client.wallet import Wallet
 
+from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
@@ -120,6 +122,71 @@ pluginManager = PluginManager()
 logger = getlogger()
 
 
+class GcObject:
+    def __init__(self, obj):
+        self.obj = obj
+        self.referents = [id(ref) for ref in gc.get_referents(obj)]
+        self.referrers = set()
+
+
+class GcObjectTree:
+    def __init__(self):
+        self.objects = {id(obj): GcObject(obj) for obj in gc.get_objects()}
+        for obj_id, obj in self.objects.items():
+            for ref_id in obj.referents:
+                if ref_id in self.objects:
+                    self.objects[ref_id].referrers.add(obj_id)
+
+    def report_top_obj_types(self, num=50):
+        stats = defaultdict(int)
+        for obj in self.objects.values():
+            stats[type(obj.obj)] += 1
+        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:num]:
+            logger.info("    {}: {}".format(k, v))
+
+    def report_top_collections(self, num=10):
+        fat_objects = [(o.obj, len(o.referents)) for o in self.objects.values()]
+        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:num]
+
+        logger.info("Top big collections tracked by garbage collector:")
+        for obj, count in fat_objects:
+            logger.info("    {}: {}".format(type(obj), count))
+            self.report_collection_owners(obj)
+            self.report_collection_items(obj)
+
+    def report_collection_owners(self, obj):
+        referrers = {ref_id for ref_id in self.objects[id(obj)].referrers if ref_id in self.objects}
+        for _ in range(3):
+            self.add_super_referrerrs(referrers)
+        referrers = {type(self.objects[ref_id].obj) for ref_id in referrers}
+
+        logger.info("        Referrers:")
+        for v in referrers:
+            logger.info("            {}".format(v))
+
+    def add_super_referrerrs(self, referrers):
+        for ref_id in list(referrers):
+            for sup_ref_id in self.objects[ref_id].referrers:
+                if sup_ref_id in self.objects:
+                    referrers.add(sup_ref_id)
+
+    def report_collection_items(self, obj):
+        if not isinstance(obj, Iterable):
+            return
+        tmp_list = list(obj)
+        samples = random.sample(tmp_list, 3)
+
+        logger.info("        Samples:")
+        for k in samples:
+            if isinstance(obj, Dict):
+                logger.info("            {} : {}".format(repr(k), repr(obj[k])))
+            else:
+                logger.info("            {}".format(repr(k)))
+
+    def cleanup(self):
+        del self.objects
+
+
 class GcTimeTracker:
     def __init__(self, metrics: MetricsCollector):
         self._metrics = metrics
@@ -148,14 +215,6 @@ class GcTimeTracker:
             self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
             self._timestamps[gen] = None
 
-    def report_stats(self):
-        stats = defaultdict(int)
-        for obj in gc.get_objects():
-            stats[type(obj)] += 1
-        logger.info("Top objects tracked by garbage collector:")
-        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:50]:
-            logger.info("    {}: {}".format(k, v))
-
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):
@@ -175,10 +234,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 clientAuthNr: ClientAuthNr=None,
-                 ha: HA=None,
-                 cliname: str=None,
-                 cliha: HA=None,
+                 clientAuthNr: ClientAuthNr = None,
+                 ha: HA = None,
+                 cliname: str = None,
+                 cliha: HA = None,
                  config_helper=None,
                  ledger_dir: str = None,
                  keys_dir: str = None,
@@ -198,35 +257,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
-        self.created = time.time()
-        self.name = name
-        self.last_prod_started = None
-        self.config = config or getConfig()
-
-        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
-
-        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
-        self.keys_dir = keys_dir or self.config_helper.keys_dir
-        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
-        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
-        self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
-
-        if self.config.STACK_COMPANION == 1:
-            add_start_time(self.ledger_dir, self.utc_epoch())
-
-        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
-
-        HasFileStorage.__init__(self, self.ledger_dir)
-        self.ensureKeysAreSetup()
-        self.opVerifiers = self.getPluginsByType(pluginPaths,
-                                                 PLUGIN_TYPE_VERIFICATION)
-        self.reqProcessors = self.getPluginsByType(pluginPaths,
-                                                   PLUGIN_TYPE_PROCESSING)
-
+        self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
+                                  genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
-        self.requestExecuter = {}   # type: Dict[int, Callable]
+        self.requestExecuter = {}  # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
         if self.config.METRICS_COLLECTOR_TYPE is not None:
@@ -236,24 +272,49 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.states = {}  # type: Dict[int, State]
 
-        self.primaryStorage = storage or self.getPrimaryStorage()
+        # Pool ledger init
+        self._poolLedger = self.init_pool_ledger()
+        self.register_state(POOL_LEDGER_ID, self.init_pool_state())
+        self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
+        self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
+        self.upload_pool_state()
 
-        # This is storage for storing map: timestamp/state.headHash
-        # Now it used in domainLedger
-        self.stateTsDbStorage = None
-
-        self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
-
-        self.initPoolManager(ha, cliname, cliha)
+        # Pool manager init
+        HasPoolManager.__init__(self, self._poolLedger,
+                                self.states[POOL_LEDGER_ID],
+                                self.get_req_handler(POOL_LEDGER_ID),
+                                ha, cliname, cliha)
+        self.nodeReg = self.poolManager.nodeReg
+        self.cliNodeReg = self.poolManager.cliNodeReg
 
         # init BLS after pool manager!
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
-        self.register_req_handler(self.getDomainReqHandler(), DOMAIN_LEDGER_ID)
-        self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
+        # This is storage for storing map: timestamp/state.headHash
+        # Now it used in domainLedger
+        self.stateTsDbStorage = None
 
-        self.initDomainState()
+        # Domain ledger init
+        self._domainLedger = storage or self.init_domain_ledger()
+        self.register_state(DOMAIN_LEDGER_ID, self.init_domain_state())
+        self.register_req_handler(self.init_domain_req_handler(), DOMAIN_LEDGER_ID)
+        self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
+        self.upload_domain_state()
+
+        # Config ledger init
+        self._configLedger = self.init_config_ledger()
+        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        self.register_req_handler(self.init_config_req_handler(), CONFIG_LEDGER_ID)
+        self.upload_config_state()
+
+        # Number of read requests the node has processed
+        self.total_read_request_number = 0
+        self._info_tool = self._info_tool_class(self)
+
+        # Action req handler
+        self.actionReqHandler = self.init_action_req_handler()
+        self.register_req_handler(self.actionReqHandler)
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -262,33 +323,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = None  # type: Optional[Mode]
         self.poolManager.reqHandler.bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
-        self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
 
-        self.nodeReg = self.poolManager.nodeReg
-
-        kwargs = dict(stackParams=self.poolManager.nstack,
-                      msgHandler=self.handleOneNodeMsg,
-                      registry=self.nodeReg,
-                      metrics=self.metrics)
-        cls = self.nodeStackClass
-        kwargs.update(seed=seed)
-        # noinspection PyCallingNonCallable
-        self.nodestack = cls(**kwargs)
-        self.nodestack.onConnsChanged = self.onConnsChanged
-
-        kwargs = dict(
-            stackParams=self.poolManager.cstack,
-            msgHandler=self.handleOneClientMsg,
-            # TODO, Reject is used when dynamic validation fails, use Reqnack
-            msgRejectHandler=self.reject_client_msg_handler,
-            metrics=self.metrics)
-        cls = self.clientStackClass
-        kwargs.update(seed=seed)
-
-        # noinspection PyCallingNonCallable
-        self.clientstack = cls(**kwargs)
-
-        self.cliNodeReg = self.poolManager.cliNodeReg
+        self.network_stacks_init(seed)
 
         HasActionQueue.__init__(self)
 
@@ -323,18 +359,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._elector = None  # type: PrimaryDecider
 
         self.instances = Instances()
-        # QUESTION: Why does the monitor need blacklister?
-        self.monitor = Monitor(self.name,
-                               Delta=self.config.DELTA,
-                               Lambda=self.config.LAMBDA,
-                               Omega=self.config.OMEGA,
-                               instances=self.instances,
-                               nodestack=self.nodestack,
-                               blacklister=self.nodeBlacklister,
-                               nodeInfo=self.nodeInfo,
-                               notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
-                               pluginPaths=pluginPaths,
-                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
+
+        self.monitor_init(pluginPaths)
 
         self.replicas = self.create_replicas()
 
@@ -352,9 +378,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Requests that are to be given to the view_changer by the node
         self.msgsToViewChanger = deque()
-
-        if self.poolLedger:
-            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
 
         self.ledgerManager = self.get_new_ledger_manager()
 
@@ -386,67 +409,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
         if config.GC_STATS_REPORT_INTERVAL > 0:
-            self.startRepeating(self._gc_time_tracker.report_stats, config.GC_STATS_REPORT_INTERVAL)
+            self.startRepeating(self.report_gc_stats, config.GC_STATS_REPORT_INTERVAL)
 
-        # BE CAREFUL HERE
-        # This controls which message types are excluded from signature
-        # verification. Expressly prohibited from being in this is
-        # ClientRequest and Propagation, which both require client
-        # signature verification
-        self.authnWhitelist = (
-            Nomination,
-            Primary,
-            Reelection,
-            Batch,
-            ViewChangeDone,
-            PrePrepare,
-            Prepare,
-            Checkpoint,
-            Commit,
-            InstanceChange,
-            LedgerStatus,
-            ConsistencyProof,
-            CatchupReq,
-            CatchupRep,
-            ThreePCState,
-            MessageReq,
-            MessageRep,
-            CurrentState,
-            ObservedData,
-            BackupInstanceFaulty
-        )
+        self.white_list_init()
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}  # Dict[str, str]
         self.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(self)
 
-        # CurrentState
-        self.nodeMsgRouter = Router(
-            (Propagate, self.processPropagate),
-            (InstanceChange, self.sendToViewChanger),
-            (ViewChangeDone, self.sendToViewChanger),
-            (MessageReq, self.process_message_req),
-            (MessageRep, self.process_message_rep),
-            (PrePrepare, self.sendToReplica),
-            (Prepare, self.sendToReplica),
-            (Commit, self.sendToReplica),
-            (Checkpoint, self.sendToReplica),
-            (ThreePCState, self.sendToReplica),
-            (LedgerStatus, self.ledgerManager.processLedgerStatus),
-            (ConsistencyProof, self.ledgerManager.processConsistencyProof),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
-            (CatchupRep, self.ledgerManager.processCatchupRep),
-            (CurrentState, self.process_current_state_message),
-            (ObservedData, self.send_to_observer),
-            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
-        )
-
-        self.clientMsgRouter = Router(
-            (Request, self.processRequest),
-            (LedgerStatus, self.ledgerManager.processLedgerStatus),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
-        )
+        self.routers_init()
 
         # Quotas control
         node_quota = Quota(count=config.NODE_TO_NODE_STACK_QUOTA,
@@ -498,13 +470,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
 
-        # Number of read requests the node has processed
-        self.total_read_request_number = 0
-        self._info_tool = self._info_tool_class(self)
-
         self._last_performance_check_data = {}
-
-        self.init_config_ledger_and_req_handler()
 
         self.init_ledger_manager()
 
@@ -513,9 +479,299 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable = Observable()
         self._observer = NodeObserver(self)
 
-    def init_config_ledger_and_req_handler(self):
-        self.configLedger = self.getConfigLedger()
-        self.init_config_state()
+    def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
+                             genesis_dir, plugins_dir, node_info_dir, pluginPaths):
+        self.created = time.time()
+        self.name = name
+        self.last_prod_started = None
+        self.config = config or getConfig()
+
+        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
+
+        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
+        self.keys_dir = keys_dir or self.config_helper.keys_dir
+        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
+        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
+        self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
+
+        if self.config.STACK_COMPANION == 1:
+            add_start_time(self.ledger_dir, self.utc_epoch())
+
+        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
+
+        HasFileStorage.__init__(self, self.ledger_dir)
+        self.ensureKeysAreSetup()
+        self.opVerifiers = self.getPluginsByType(pluginPaths,
+                                                 PLUGIN_TYPE_VERIFICATION)
+        self.reqProcessors = self.getPluginsByType(pluginPaths,
+                                                   PLUGIN_TYPE_PROCESSING)
+
+    def network_stacks_init(self, seed):
+        kwargs = dict(stackParams=self.poolManager.nstack,
+                      msgHandler=self.handleOneNodeMsg,
+                      registry=self.nodeReg,
+                      metrics=self.metrics)
+        cls = self.nodeStackClass
+        kwargs.update(seed=seed)
+        # noinspection PyCallingNonCallable
+        self.nodestack = cls(**kwargs)
+        self.nodestack.onConnsChanged = self.onConnsChanged
+
+        kwargs = dict(
+            stackParams=self.poolManager.cstack,
+            msgHandler=self.handleOneClientMsg,
+            # TODO, Reject is used when dynamic validation fails, use Reqnack
+            msgRejectHandler=self.reject_client_msg_handler,
+            metrics=self.metrics)
+        cls = self.clientStackClass
+        kwargs.update(seed=seed)
+
+        # noinspection PyCallingNonCallable
+        self.clientstack = cls(**kwargs)
+
+    def monitor_init(self, pluginPaths):
+        # QUESTION: Why does the monitor need blacklister?
+        self.monitor = Monitor(self.name,
+                               Delta=self.config.DELTA,
+                               Lambda=self.config.LAMBDA,
+                               Omega=self.config.OMEGA,
+                               instances=self.instances,
+                               nodestack=self.nodestack,
+                               blacklister=self.nodeBlacklister,
+                               nodeInfo=self.nodeInfo,
+                               notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
+                               pluginPaths=pluginPaths,
+                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
+
+    def white_list_init(self):
+        # BE CAREFUL HERE
+        # This controls which message types are excluded from signature
+        # verification. Expressly prohibited from being in this is
+        # ClientRequest and Propagation, which both require client
+        # signature verification
+        self.authnWhitelist = (
+            Nomination,
+            Primary,
+            Reelection,
+            Batch,
+            ViewChangeDone,
+            PrePrepare,
+            Prepare,
+            Checkpoint,
+            Commit,
+            InstanceChange,
+            LedgerStatus,
+            ConsistencyProof,
+            CatchupReq,
+            CatchupRep,
+            ThreePCState,
+            MessageReq,
+            MessageRep,
+            CurrentState,
+            ObservedData,
+            BackupInstanceFaulty
+        )
+
+    def routers_init(self):
+        # CurrentState
+        self.nodeMsgRouter = Router(
+            (Propagate, self.processPropagate),
+            (InstanceChange, self.sendToViewChanger),
+            (ViewChangeDone, self.sendToViewChanger),
+            (MessageReq, self.process_message_req),
+            (MessageRep, self.process_message_rep),
+            (PrePrepare, self.sendToReplica),
+            (Prepare, self.sendToReplica),
+            (Commit, self.sendToReplica),
+            (Checkpoint, self.sendToReplica),
+            (ThreePCState, self.sendToReplica),
+            (LedgerStatus, self.ledgerManager.processLedgerStatus),
+            (ConsistencyProof, self.ledgerManager.processConsistencyProof),
+            (CatchupReq, self.ledgerManager.processCatchupReq),
+            (CatchupRep, self.ledgerManager.processCatchupRep),
+            (CurrentState, self.process_current_state_message),
+            (ObservedData, self.send_to_observer),
+            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
+        )
+
+        self.clientMsgRouter = Router(
+            (Request, self.processRequest),
+            (LedgerStatus, self.ledgerManager.processLedgerStatus),
+            (CatchupReq, self.ledgerManager.processCatchupReq),
+        )
+
+    # LEDGERS
+    @property
+    def poolLedger(self):
+        return self._poolLedger
+
+    @property
+    def domainLedger(self):
+        return self._domainLedger
+
+    @property
+    def configLedger(self):
+        return self._configLedger
+
+    def init_pool_ledger(self):
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+            self.genesis_dir, self.config.poolTransactionsFile)
+        tree = CompactMerkleTree(hashStore=self.getHashStore('pool'))
+        return Ledger(tree,
+                      dataDir=self.dataLocation,
+                      fileName=self.config.poolTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability,
+                      genesis_txn_initiator=genesis_txn_initiator)
+
+    def init_domain_ledger(self):
+        """
+        This is usually an implementation of Ledger
+        """
+        if self.config.primaryStorage is None:
+            # TODO: add a place for initialization of all ledgers, so it's
+            # clear what ledgers we have and how they are initialized
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+                self.genesis_dir, self.config.domainTransactionsFile)
+            tree = CompactMerkleTree(hashStore=self.getHashStore('domain'))
+            return Ledger(tree,
+                          dataDir=self.dataLocation,
+                          fileName=self.config.domainTransactionsFile,
+                          ensureDurability=self.config.EnsureLedgerDurability,
+                          genesis_txn_initiator=genesis_txn_initiator)
+        else:
+            # TODO: we need to rethink this functionality
+            return initStorage(self.config.primaryStorage,
+                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
+                               dataDir=self.dataLocation,
+                               config=self.config)
+
+    def init_config_ledger(self):
+        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
+                      dataDir=self.dataLocation,
+                      fileName=self.config.configTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability)
+
+    # STATES
+    def init_pool_state(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.poolStateStorage,
+                self.dataLocation,
+                self.config.poolStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def init_domain_state(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.domainStateStorage,
+                self.dataLocation,
+                self.config.domainStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def init_config_state(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.configStateStorage,
+                self.dataLocation,
+                self.config.configStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    # REQ_HANDLERS
+    def init_pool_req_handler(self):
+        return PoolRequestHandler(self.poolLedger,
+                                  self.states[POOL_LEDGER_ID],
+                                  self.states)
+
+    def init_domain_req_handler(self):
+        return DomainRequestHandler(self.domainLedger,
+                                    self.states[DOMAIN_LEDGER_ID],
+                                    self.config,
+                                    self.reqProcessors,
+                                    self.bls_bft.bls_store,
+                                    self.getStateTsDbStorage())
+
+    def init_config_req_handler(self):
+        return ConfigReqHandler(self.configLedger,
+                                self.states[CONFIG_LEDGER_ID])
+
+    def init_action_req_handler(self):
+        return ActionReqHandler()
+
+    # EXECUTERS
+    def default_executer(self, ledger_id, pp_time, reqs_keys,
+                         state_root, txn_root):
+        return self.commitAndSendReplies(ledger_id,
+                                         pp_time, reqs_keys, state_root, txn_root)
+
+    def execute_pool_txns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
+        """
+        Execute a transaction that involves consensus pool management, like
+        adding a node, client or a steward.
+
+        :param ppTime: PrePrepare request time
+        :param reqs_keys: requests keys to be committed
+        """
+        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
+                                               reqs_keys,
+                                               stateRoot, txnRoot)
+        for txn in committed_txns:
+            self.poolManager.onPoolMembershipChange(txn)
+        return committed_txns
+
+    def execute_domain_txns(self, ppTime, reqs: List[Request], stateRoot,
+                            txnRoot) -> List:
+        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
+                                               stateRoot, txnRoot)
+
+        # Refactor: This is only needed for plenum as some old style tests
+        # require authentication based on an in-memory map. This would be
+        # removed later when we migrate old-style tests
+        for txn in committed_txns:
+            if get_type(txn) == NYM:
+                self.addNewRole(txn)
+
+        return committed_txns
+
+    # STATES INIT
+    def init_state_from_ledger(self, state: State, ledger: Ledger, reqHandler):
+        """
+        If the trie is empty then initialize it by applying
+        txns from ledger.
+        """
+        if state.isEmpty:
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
+            for seq_no, txn in ledger.getAllTxn():
+                txn = self.update_txn_with_extra_data(txn)
+                reqHandler.updateState([txn, ], isCommitted=True)
+                state.commit(rootHash=state.headHash)
+
+    def upload_pool_state(self):
+        self.init_state_from_ledger(self.states[POOL_LEDGER_ID],
+                                    self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
+        logger.info(
+            "{} initialized pool state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
+
+    def upload_domain_state(self):
+        self.init_state_from_ledger(self.states[DOMAIN_LEDGER_ID],
+                                    self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
+        logger.info(
+            "{} initialized domain state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
+
+    def upload_config_state(self):
+        self.init_state_from_ledger(self.states[CONFIG_LEDGER_ID],
+                                    self.configLedger, self.get_req_handler(CONFIG_LEDGER_ID))
+        logger.info(
+            "{} initialized config state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     @property
     def viewNo(self):
@@ -528,14 +784,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        return (False if self.view_changer is None else
-                self.view_changer.view_change_in_progress)
-
-    def init_config_state(self):
-        self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
-        self.setup_config_req_handler()
-        self.setup_action_req_handler()
-        self.initConfigState()
+        return False if self.view_changer is None \
+            else self.view_changer.view_change_in_progress
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -545,44 +795,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
-
-    def setup_config_req_handler(self):
-        self.configReqHandler = self.getConfigReqHandler()
-        self.register_req_handler(self.configReqHandler, CONFIG_LEDGER_ID)
-
-    def setup_action_req_handler(self):
-        self.actionReqHandler = self.get_action_req_handler()
-        self.register_req_handler(self.actionReqHandler)
-
-    def getConfigLedger(self):
-        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
-                      dataDir=self.dataLocation,
-                      fileName=self.config.configTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability)
-
-    def loadConfigState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.configStateStorage,
-                self.dataLocation,
-                self.config.configStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
-    def initConfigState(self):
-        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
-                                 self.configLedger, self.configReqHandler)
-        logger.info(
-            "{} initialized config state: state root {}"
-            .format(self, state_roots_serializer.serialize(
-                bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
-
-    def getConfigReqHandler(self):
-        return ConfigReqHandler(self.configLedger,
-                                self.states[CONFIG_LEDGER_ID])
-
-    def get_action_req_handler(self):
-        return ActionReqHandler()
 
     def prePoolLedgerCatchup(self, **kwargs):
         self.mode = Mode.discovering
@@ -729,19 +941,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return get_utc_epoch()
 
-    def initPoolManager(self, ha, cliname, cliha):
-        HasPoolManager.__init__(self, ha, cliname, cliha)
-
     def __repr__(self):
         return self.name
-
-    def getDomainReqHandler(self):
-        return DomainRequestHandler(self.domainLedger,
-                                    self.states[DOMAIN_LEDGER_ID],
-                                    self.config,
-                                    self.reqProcessors,
-                                    self.bls_bft.bls_store,
-                                    self.getStateTsDbStorage())
 
     def getStateTsDbStorage(self):
         if self.stateTsDbStorage is None:
@@ -804,16 +1005,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.allNodeNames, self.requiredNumberOfInstances,
                 self.minimumNodes, self.quorums))
 
-    @property
-    def poolLedger(self):
-        return self.poolManager.ledger \
-            if isinstance(self.poolManager, TxnPoolManager) \
-            else None
-
-    @property
-    def domainLedger(self):
-        return self.primaryStorage
-
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
         ledger_size = ledger.size
@@ -865,29 +1056,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def clientStackClass(self) -> NetworkInterface:
         return clientStackClass
-
-    def getPrimaryStorage(self):
-        """
-        This is usually an implementation of Ledger
-        """
-        if self.config.primaryStorage is None:
-            # TODO: add a place for initialization of all ledgers, so it's
-            # clear what ledgers we have and how they are initialized
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.genesis_dir, self.config.domainTransactionsFile)
-            return Ledger(
-                CompactMerkleTree(
-                    hashStore=self.getHashStore('domain')),
-                dataDir=self.dataLocation,
-                fileName=self.config.domainTransactionsFile,
-                ensureDurability=self.config.EnsureLedgerDurability,
-                genesis_txn_initiator=genesis_txn_initiator)
-        else:
-            # TODO: we need to rethink this functionality
-            return initStorage(self.config.primaryStorage,
-                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
-                               dataDir=self.dataLocation,
-                               config=self.config)
 
     def _add_pool_ledger(self):
         if isinstance(self.poolManager, TxnPoolManager):
@@ -966,15 +1134,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return executer
         else:
             return partial(self.default_executer, ledger_id)
-
-    def loadDomainState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.domainStateStorage,
-                self.dataLocation,
-                self.config.domainStateDbName,
-                db_config=self.config.db_state_config)
-        )
 
     def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
@@ -1176,7 +1335,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer = None
 
     @async_measure_time(MetricsName.NODE_PROD_TIME)
-    async def prod(self, limit: int=None) -> int:
+    async def prod(self, limit: int = None) -> int:
         """.opened
         This function is executed by the node each time it gets its share of
         CPU time from the event loop.
@@ -1287,7 +1446,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = await self._observable.serviceQueues(limit)
         return o + i
 
-    def _service_observable_out_box(self, limit: int=None) -> int:
+    def _service_observable_out_box(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the observable's outBox.
 
@@ -1557,7 +1716,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
-    def service_replicas_outbox(self, limit: int=None) -> int:
+    def service_replicas_outbox(self, limit: int = None) -> int:
         """
         Process `limit` number of replica messages
         """
@@ -1590,7 +1749,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
-    def serviceViewChangerOutBox(self, limit: int=None) -> int:
+    def serviceViewChangerOutBox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -1607,7 +1766,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(msg))
         return msgCount
 
-    async def serviceViewChangerInbox(self, limit: int=None) -> int:
+    async def serviceViewChangerInbox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -1966,17 +2125,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a client message
         :param frm: the name of the client that sent this `msg`
         """
-        if self.view_changer.view_change_in_progress:
 
-            msg_dict = msg if isinstance(msg, dict) else msg.as_dict
-            self.discard(msg_dict,
-                         reason="view change in progress",
-                         logMethod=logger.debug)
-            self.send_nack_to_client((idr_from_req_data(msg_dict),
-                                      msg_dict.get(f.REQ_ID.nm, None)),
-                                     "Client request is discarded since view "
-                                     "change is in progress", frm)
-            return
         if isinstance(msg, Batch):
             for m in msg.messages:
                 # This check is done since Client uses NodeStack (which can
@@ -1989,6 +2138,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 m = self.clientstack.deserializeMsg(m)
                 self.handleOneClientMsg((m, frm))
         else:
+            msg_dict = msg.as_dict if isinstance(msg, Request) else msg
+            if isinstance(msg_dict, dict):
+                if self.view_changer.view_change_in_progress and self.is_request_need_quorum(msg_dict):
+                    self.discard(msg_dict,
+                                 reason="view change in progress",
+                                 logMethod=logger.debug)
+                    self.send_nack_to_client((idr_from_req_data(msg_dict),
+                                              msg_dict.get(f.REQ_ID.nm, None)),
+                                             "Client request is discarded since view "
+                                             "change is in progress", frm)
+                    return
             self.postToClientInBox(msg, frm)
 
     def postToClientInBox(self, msg, frm):
@@ -2545,7 +2705,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if txn is None:
             logger.debug(
                 "{} can not handle GET_TXN request: ledger doesn't "
-                "have txn with seqNo={}". format(self, str(seq_no)))
+                "have txn with seqNo={}".format(self, str(seq_no)))
 
         result = {
             f.IDENTIFIER.nm: request.identifier,
@@ -2663,6 +2823,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         else:
             return False
+
+    def report_gc_stats(self):
+        obj_tree = GcObjectTree()
+        obj_tree.report_top_obj_types()
+        obj_tree.report_top_collections()
+        obj_tree.cleanup()
 
     def flush_metrics(self):
         # Flush accumulated should always be done to avoid numeric overflow in accumulators
@@ -2856,7 +3022,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_POOL_STATE_READERS, self.states.get(0)._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_DOMAIN_STATE_READERS, self.states.get(1)._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_CONFIG_STATE_READERS, self.states.get(2)._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_POOL_MANAGER_READERS, self.poolManager.state._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
@@ -3004,7 +3169,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule_view_change()
 
-    def select_primaries(self, nodeReg: Dict[str, HA]=None):
+    def select_primaries(self, nodeReg: Dict[str, HA] = None):
         primaries = set()
         primary_rank = None
         '''
@@ -3268,25 +3433,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def hook_post_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
-    def default_executer(self, ledger_id, pp_time, reqs_keys,
-                         state_root, txn_root):
-        return self.commitAndSendReplies(ledger_id,
-                                         pp_time, reqs_keys, state_root, txn_root)
-
-    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
-                          txnRoot) -> List:
-        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
-                                               stateRoot, txnRoot)
-
-        # Refactor: This is only needed for plenum as some old style tests
-        # require authentication based on an in-memory map. This would be
-        # removed later when we migrate old-style tests
-        for txn in committed_txns:
-            if get_type(txn) == NYM:
-                self.addNewRole(txn)
-
-        return committed_txns
-
     def onBatchCreated(self, ledger_id, state_root):
         """
         A batch of requests has been created and has been applied but
@@ -3360,27 +3506,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.clientAuthNr.core_authenticator.addIdr(identifier,
                                                             verkey=v.verkey,
                                                             role=role)
-
-    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
-        """
-        If the trie is empty then initialize it by applying
-        txns from ledger.
-        """
-        if state.isEmpty:
-            logger.info('{} found state to be empty, recreating from '
-                        'ledger'.format(self))
-            for seq_no, txn in ledger.getAllTxn():
-                txn = self.update_txn_with_extra_data(txn)
-                reqHandler.updateState([txn, ], isCommitted=True)
-                state.commit(rootHash=state.headHash)
-
-    def initDomainState(self):
-        self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
-                                 self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
-        logger.info(
-            "{} initialized domain state: state root {}"
-            .format(self, state_roots_serializer.serialize(
-                bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
@@ -3729,5 +3854,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 req_keys_to_drop.append(req_key)
                 self._clean_req_from_verified(req_state.request)
                 self.doneProcessingReq(req_key)
+                self.monitor.requestTracker.force_req_drop(req_key)
         for req_key in req_keys_to_drop:
             self.requests.pop(req_key)
+
+    def is_request_need_quorum(self, msg_dict: dict):
+        txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, None) \
+            if OPERATION in msg_dict \
+            else None
+
+        return txn_type and not (txn_type == GET_TXN or
+                                 self.is_action(txn_type) or
+                                 self.is_query(txn_type))

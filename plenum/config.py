@@ -193,7 +193,7 @@ ViewChangeWindowSize = 60
 
 # A node if finds itself disconnected from primary of the master instance will
 # wait for `ToleratePrimaryDisconnection` before sending a view change message
-ToleratePrimaryDisconnection = 2
+ToleratePrimaryDisconnection = 60
 
 # A node if finds itself disconnected from primary of some backup instance will
 # wait for `TolerateBackupPrimaryDisconnection` before remove its replica
@@ -374,3 +374,6 @@ OUTDATED_REQS_CHECK_ENABLED = True
 OUTDATED_REQS_CHECK_INTERVAL = 600  # seconds
 PROPAGATES_PHASE_REQ_TIMEOUT = 36000  # seconds
 ORDERING_PHASE_REQ_TIMEOUT = 72000  # seconds
+
+# Timeout factor after which an InstanceChange message are removed (0 to turn off)
+OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 7200  # seconds

@@ -1,8 +1,6 @@
 # Documentation README
 Check out the docs at http://hyperledger-indy.readthedocs.io/projects/plenum
 
-Learn more about how our docs are built and maintained at http://hyperledger-indy.readthedocs.io/en/latest/docs.html
-
 This `docs/` directory should contain all of the documents associated with the repository, with the exception of README files that describe technical details with the directories of code. 
 
 The `docs/source/` directory contains all of the documentation that is built and hosted on readthedocs. Based on the maintainer's discretion, some docs may not be necessary to build on readthedocs, and can exist within the `docs/` directory but outside of the `source/` directory. 
@@ -10,7 +8,7 @@ The `docs/source/` directory contains all of the documentation that is built and
 ## How to Add Documentation
 For new features and pull requests, maintainers should make sure that the **contributor has added an explanation for their changes in the docs folder before merging the PR.**
   
-Contributors should add a new file to the docs/source/ folder or write an addition to a current file that explains what their feature is and how it works. If needed, they may also add a link to more technical README's located nearer to the code.
+Contributors should write an addition to a current file or add a new file to the docs/source/ folder that explains what their feature is and how it works. If needed, they may also add a link to more technical README's located nearer to the code.
 
 Whenever additions are made to the docs, make sure to update the `index.rst` in whichever folder the file has been added, and build the docs locally to confirm they work (TODO: add the `sphinx-build` command to our CI/CD flow).
 
@@ -39,10 +37,8 @@ If you'd like to link to a file outside of the docs/ folder, you'll need to prov
 Here are the quick steps to achieve this on a local machine without depending on ReadTheDocs. Note: Instructions may differ depending on your OS.
 Run these commands within the repository folder
 ```bash
-pip install Sphinx
-pip install sphinx_rtd_theme
-pip install recommonmark==0.4.0
 cd docs/source # Be in this directory. Makefile sits there.
+pip install -r requirements.txt
 make html
 ```
 
