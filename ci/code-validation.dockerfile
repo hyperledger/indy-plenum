@@ -11,9 +11,8 @@ RUN apt-get update -y && apt-get install -y \
 	python3-pip \
 	python-setuptools \
 	python3-nacl
-RUN pip3 install -U \ 
-	pip \ 
+RUN pip3 install -U \
 	setuptools \
-	pep8 \
-	pep8-naming \
-	flake8
+	pep8==1.7.1 \
+	pep8-naming==0.6.1 \
+	flake8==3.5.0

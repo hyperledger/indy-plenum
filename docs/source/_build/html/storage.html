@@ -1,0 +1,398 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Storage components &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Recorder" href="recorder.html" />
+    <link rel="prev" title="Request handling" href="request_handling.html" /> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="request_handling.html">Request handling</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Storage components</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#ledger">1. Ledger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#state">2. State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#node-status-database">3. Node Status Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#bls-multi-signature-database">4. BLS Multi-Signature Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#request-to-transaction-mapping-database">5. Request to Transaction Mapping Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#timestamp-storage">6. Timestamp storage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#identifier-cache-database-in-indy-node">7. Identifier Cache Database (in Indy Node)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#attribute-database-in-indy-node">8. Attribute Database (in Indy Node)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-storage-abstractions">Common Storage abstractions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="recorder.html">Recorder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_nodes.html">Start Nodes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="message_requests.html">Message Requests</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Storage components</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/storage.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="storage-components">
+<span id="storage-components"></span><h1>Storage components<a class="headerlink" href="#storage-components" title="Permalink to this headline">¶</a></h1>
+<p>As of now, RocksDB is used as a key-value database for all Storages.</p>
+<div class="section" id="ledger">
+<span id="ledger"></span><h2>1. Ledger<a class="headerlink" href="#ledger" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>The ledger is an ordered log of transactions with each transaction assigned a unique monotonically increasing positive integer called sequence number.</li>
+<li>Sequence numbers start from 1 and then increase by 1 for each new transaction. There are no gaps in sequence numbers.</li>
+<li>RocksDB is used as a key-value storage where key is the sequence number and value is the transaction.</li>
+<li>A transaction is serialised (currently as MsgPack) before storing in the ledger, more on this in the Serialisation doc.</li>
+<li>Exact format of each transaction can be found in <a class="reference external" href="https://github.com/hyperledger/indy-node/blob/master/docs/transactions.md">Indy Node Transactions</a>.</li>
+<li>Each node hosts several ledgers each identified by a unique id:<ul>
+<li>Pool Ledger (id is 0): Contains transactions related to pool membership, like joining of new nodes, suspension of existing nodes, changing the IP/port or keys of existing nodes.</li>
+<li>Domain Ledger (id is 1): Contains transactions related to the core application logic. Currently it contains NYM transactions. The <code class="docutils literal notranslate"><span class="pre">indy-node</span></code> codebase extends this ledger with other identity transactions.</li>
+<li>Config Ledger (id is 2): Contains transactions related to the configuration parameters for which the pool needs to agree, eg. if each node of the pool needs to use the value <code class="docutils literal notranslate"><span class="pre">5</span></code> for a config variable <code class="docutils literal notranslate"><span class="pre">x</span></code>, then this ledger should contain transaction specifying the value of <code class="docutils literal notranslate"><span class="pre">x</span></code> as <code class="docutils literal notranslate"><span class="pre">5</span></code>. The <code class="docutils literal notranslate"><span class="pre">indy-node</span></code> codebase extends this ledger with source code update transactions.</li>
+<li>More ledgers can be added by plugins.</li>
+</ul>
+</li>
+<li>Each correct node should have exactly the same transactions for each ledger id.</li>
+<li>A ledger is associated with a <a class="reference external" href="https://github.com/google/certificate-transparency/blob/master/python/ct/crypto/merkle.py">compact merkle tree</a>.<ul>
+<li>Each new transaction is added to the ledger (log) and is also hashed (sha256) and this hash becomes a new leaf of the merkle tree which also
+results in a new merkle root. Thus for each transaction a merkle proof of presence, called <code class="docutils literal notranslate"><span class="pre">inclusion</span> <span class="pre">proof</span></code> or <code class="docutils literal notranslate"><span class="pre">audit_path</span></code> can be created by
+using the root hash a few (<code class="docutils literal notranslate"><span class="pre">O(lgn)</span></code>, <code class="docutils literal notranslate"><span class="pre">n</span></code> being the total number of leaves/transactions in the tree/ledger) intermediate hashes.</li>
+<li>Hashes of all the leaves and intermediate nodes of the tree are stored in a <code class="docutils literal notranslate"><span class="pre">HashStore</span></code>, enabling the creating of inclusion proofs and subset proofs. A subset proof
+proves that a particular merkle tree is a subset of another (usually larger) merkle tree; more on this in the Catchup doc.\</li>
+<li>The <code class="docutils literal notranslate"><span class="pre">HashStore</span></code> has 2 separate storages for storing leaves
+and intermediate nodes, each leaf or node of the tree is 32 bytes. Each of these storages can be a binary file or a key value store.
+The leaf or node hashes are queried by their number.</li>
+</ul>
+</li>
+<li>When a client write request completes or it requests a transaction with a particular sequence number from a ledger,
+the transaction is returned with its inclusion proof.</li>
+<li>States and Caches can be deterministically re-created from the Transaction Log.</li>
+<li>There are 9 storages associated with the Ledgers (3 for each of the ledgers):<ul>
+<li>Pool Ledger:<ul>
+<li><code class="docutils literal notranslate"><span class="pre">pool_transactions</span></code> (Transaction Log)</li>
+<li><code class="docutils literal notranslate"><span class="pre">pool_merkleLeaves</span></code> (Hash Store for leaves)</li>
+<li><code class="docutils literal notranslate"><span class="pre">pool_merkleNodes</span></code> (Hash Store for nodes)</li>
+</ul>
+</li>
+<li>Domain Ledger:<ul>
+<li><code class="docutils literal notranslate"><span class="pre">domain_transactions</span></code> (Transaction Log)</li>
+<li><code class="docutils literal notranslate"><span class="pre">domain_merkleLeaves</span></code> (Hash Store for leaves)</li>
+<li><code class="docutils literal notranslate"><span class="pre">domain_merkleNodes</span></code> (Hash Store for nodes)</li>
+</ul>
+</li>
+<li>Config Ledger:<ul>
+<li><code class="docutils literal notranslate"><span class="pre">config_transactions</span></code> (Transaction Log)</li>
+<li><code class="docutils literal notranslate"><span class="pre">config_merkleLeaves</span></code> (Hash Store for leaves)</li>
+<li><code class="docutils literal notranslate"><span class="pre">config_merkleNodes</span></code> (Hash Store for nodes)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>Ledger: <code class="docutils literal notranslate"><span class="pre">plenum/common/ledger.py</span></code> and <code class="docutils literal notranslate"><span class="pre">ledger/ledger.py</span></code></li>
+<li>Compact Merkle Tree: <code class="docutils literal notranslate"><span class="pre">ledger/compact_merkle_tree.py</span></code></li>
+<li>HashStore: <code class="docutils literal notranslate"><span class="pre">ledger/hash_stores/hash_store.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="state">
+<span id="state"></span><h2>2. State<a class="headerlink" href="#state" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Each Ledger has a State. State is a resulting view (projection) of the ledger data used by Node and Application business logic,
+as well as for read requests.</li>
+<li>The underlying data structure of state is the <a class="reference external" href="https://blog.ethereum.org/2015/11/15/merkling-in-ethereum/">Merkle Patricia Trie</a> used by Ethereum.</li>
+<li>The state can be considered a collection of key value pairs but this collection has some properties of merkle tree like a root hash and
+inclusion proof of the keys, eg. If there are 3 key value pairs <code class="docutils literal notranslate"><span class="pre">k1-v1</span></code>, <code class="docutils literal notranslate"><span class="pre">k2-&gt;v2</span></code> and <code class="docutils literal notranslate"><span class="pre">k3-&gt;v3</span></code>, then state will have a root hash say <code class="docutils literal notranslate"><span class="pre">R</span></code>
+and a proof can be generated that state with root hash <code class="docutils literal notranslate"><span class="pre">R</span></code> has a key <code class="docutils literal notranslate"><span class="pre">k1</span></code> with value <code class="docutils literal notranslate"><span class="pre">v1</span></code>, similarly for other keys. When a new key is added
+or value of an old key is changed the root hash changes from <code class="docutils literal notranslate"><span class="pre">R</span></code> to <code class="docutils literal notranslate"><span class="pre">R'</span></code>. Note that the order of insertion of keys does not matter, any order of the
+keys will result in the same root hash and same inclusion proof.</li>
+<li>It’s possible to get the current value (state) for a key, as well as
+a value from the past (defined by a state root hash).</li>
+<li>The state is built from a ledger, hence each ledger will usually have a corresponding state. State can be reconstructed from the Ledger.</li>
+<li>There are 3 storages associated with every Ledger:<ul>
+<li><code class="docutils literal notranslate"><span class="pre">pool_state</span></code></li>
+<li><code class="docutils literal notranslate"><span class="pre">domain_state</span></code></li>
+<li><code class="docutils literal notranslate"><span class="pre">config_state</span></code></li>
+</ul>
+</li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>State: <code class="docutils literal notranslate"><span class="pre">state/pruning_state.py</span></code></li>
+<li>Merkle Patricia Trie: <code class="docutils literal notranslate"><span class="pre">state/trie/pruning_trie.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="node-status-database">
+<span id="node-status-database"></span><h2>3. Node Status Database<a class="headerlink" href="#node-status-database" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Auxiliary storage to persist data needed for consensus algorithm</li>
+<li>Storage name: <code class="docutils literal notranslate"><span class="pre">node_status_db</span></code></li>
+</ul>
+</div>
+<div class="section" id="bls-multi-signature-database">
+<span id="bls-multi-signature-database"></span><h2>4. BLS Multi-Signature Database<a class="headerlink" href="#bls-multi-signature-database" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Every transaction for the given time (that is every update of the state)
+is signed (using BLS schema) by all nodes during consensus,
+and BLS multi-signature is created and stored in this state for every state root hash.</li>
+<li>This is used together with a State Proof as part of replies to read requests.</li>
+<li>Storage name: <code class="docutils literal notranslate"><span class="pre">state_signature</span></code></li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>BlsStore: <code class="docutils literal notranslate"><span class="pre">plenum/bls/bls_store.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="request-to-transaction-mapping-database">
+<span id="request-to-transaction-mapping-database"></span><h2>5. Request to Transaction Mapping Database<a class="headerlink" href="#request-to-transaction-mapping-database" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>This database stores the mapping <code class="docutils literal notranslate"><span class="pre">request_digest</span> <span class="pre">-&gt;</span> <span class="pre">ledger_id&lt;delimiter&gt;seq_no</span></code> in a key value store.</li>
+<li>Each client request is uniquely identified by a <code class="docutils literal notranslate"><span class="pre">digest</span></code>.</li>
+<li>When this request is ordered (consensus successfully completes), it is stored in the ledger and assigned a sequence number.</li>
+<li>One use case is that the client can ask any node to give it the transaction corresponding to a request key <code class="docutils literal notranslate"><span class="pre">digest</span></code>,
+and the node will use this database to get the sequence number and then use the sequence number to get the transaction from the ledger.</li>
+<li>Storage name: <code class="docutils literal notranslate"><span class="pre">seq_no_db</span></code></li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>ReqIdrToTxn: <code class="docutils literal notranslate"><span class="pre">plenum/persistence/req_id_to_txn.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="timestamp-storage">
+<span id="timestamp-storage"></span><h2>6. Timestamp storage<a class="headerlink" href="#timestamp-storage" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>This database stores the mapping <code class="docutils literal notranslate"><span class="pre">timestamp</span> <span class="pre">-&gt;</span> <span class="pre">state</span> <span class="pre">root</span> <span class="pre">hash</span></code> in a key value store.</li>
+<li>This is used to get the state root hash for the given timestamp to efficiently
+get data from the past.</li>
+<li>Storage name: <code class="docutils literal notranslate"><span class="pre">state_ts_db</span></code></li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>StateTsDbStorage: <code class="docutils literal notranslate"><span class="pre">storage/state_ts_store.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="identifier-cache-database-in-indy-node">
+<span id="identifier-cache-database-in-indy-node"></span><h2>7. Identifier Cache Database (in Indy Node)<a class="headerlink" href="#identifier-cache-database-in-indy-node" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>This database stores the mapping <code class="docutils literal notranslate"><span class="pre">DID</span> <span class="pre">-&gt;</span> <span class="pre">verkey/role</span></code> in a key value store.</li>
+<li>It’s used for efficient validation and getting verkey for a  DID.</li>
+<li>Storage name: <code class="docutils literal notranslate"><span class="pre">idr_cache_db</span></code></li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>IdrCache: <code class="docutils literal notranslate"><span class="pre">indy-node/persistence/idr_cache.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="attribute-database-in-indy-node">
+<span id="attribute-database-in-indy-node"></span><h2>8. Attribute Database (in Indy Node)<a class="headerlink" href="#attribute-database-in-indy-node" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Raw attributes from ATTRIB transaction are stored in this database.</li>
+<li>The ATTRIB transaction in the Domain Ledger contains the hash of the data only.</li>
+<li>Storage name: <code class="docutils literal notranslate"><span class="pre">attr_db</span></code></li>
+</ul>
+<p>Relevant code:</p>
+<ul class="simple">
+<li>AttributeStore: <code class="docutils literal notranslate"><span class="pre">indy-node/persistence/attribuite_store.py</span></code></li>
+</ul>
+</div>
+<div class="section" id="common-storage-abstractions">
+<span id="common-storage-abstractions"></span><h2>Common Storage abstractions<a class="headerlink" href="#common-storage-abstractions" title="Permalink to this headline">¶</a></h2>
+<p>The data structures in the code use some abstractions like a <code class="docutils literal notranslate"><span class="pre">KeyValueStorage</span></code> interface which has a LevelDB
+and RocksDB implementations, as well as file implementations (both single and chunked file storages).</p>
+<p>Relevant code:</p>
+<ul class="simple">
+<li><code class="docutils literal notranslate"><span class="pre">storage/kv_store.py</span></code></li>
+<li><code class="docutils literal notranslate"><span class="pre">storage</span></code> package</li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="recorder.html" class="btn btn-neutral float-right" title="Recorder" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="request_handling.html" class="btn btn-neutral" title="Request handling" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

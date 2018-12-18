@@ -1,6 +1,6 @@
 from stp_core.common.log import getlogger
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import \
@@ -14,12 +14,15 @@ logger = getlogger()
 txnCount = 5
 
 
-def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf, tdir,
+def testNodeCatchupFPlusOne(looper,
+                            txnPoolNodeSet,
+                            sdk_pool_handle,
+                            sdk_wallet_steward,
+                            tconf, tdir,
                             tdirWithPoolTxns, allPluginsPath, testNodeClass):
     """
     Check that f+1 nodes is enough for catchup
     """
-    looper, client, wallet = poolAfterSomeTxns
 
     assert len(txnPoolNodeSet) == 4
 
@@ -33,7 +36,8 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf, tdir,
     looper.removeProdable(node0)
 
     logger.debug("Sending requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 5)
 
     logger.debug("Stopping node1 with pool ledger size {}".
                  format(node1.poolManager.txnSeqNo))
@@ -61,5 +65,6 @@ def testNodeCatchupFPlusOne(txnPoolNodeSet, poolAfterSomeTxns, tconf, tdir,
     waitNodeDataEquality(looper, node0, *txnPoolNodeSet[:-2])
 
     logger.debug("Sending more requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 2)
     checkNodeDataForEquality(node0, *txnPoolNodeSet[:-2])

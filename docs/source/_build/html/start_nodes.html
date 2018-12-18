@@ -1,0 +1,248 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Start Nodes &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Message Requests" href="message_requests.html" />
+    <link rel="prev" title="Recorder" href="recorder.html" /> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="request_handling.html">Request handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">Storage components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recorder.html">Recorder</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Start Nodes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#initializing-keys">Initializing Keys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-node">Running Node</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="message_requests.html">Message Requests</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Start Nodes</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/start_nodes.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="start-nodes">
+<span id="start-nodes"></span><h1>Start Nodes<a class="headerlink" href="#start-nodes" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="initializing-keys">
+<span id="initializing-keys"></span><h2>Initializing Keys<a class="headerlink" href="#initializing-keys" title="Permalink to this headline">¶</a></h2>
+<p>Each Node needs to have keys initialized</p>
+<ul class="simple">
+<li>ed25519 transport keys (used by ZMQ for Node-to-Node and Node-to-Client communication)</li>
+<li>BLS keys for BLS multi-signature and state proofs support</li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">init_plenum_keys</span> <span class="o">--</span><span class="n">name</span> <span class="n">Alpha</span> <span class="o">--</span><span class="n">seeds</span> <span class="mi">000000000000000000000000000</span><span class="n">Alpha</span> <span class="n">Alpha000000000000000000000000000</span> <span class="o">--</span><span class="n">force</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">init_plenum_keys</span> <span class="o">--</span><span class="n">name</span> <span class="n">Beta</span> <span class="o">--</span><span class="n">seeds</span> <span class="mi">0000000000000000000000000000</span><span class="n">Beta</span> <span class="n">Beta0000000000000000000000000000</span> <span class="o">--</span><span class="n">force</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">init_plenum_keys</span> <span class="o">--</span><span class="n">name</span> <span class="n">Gamma</span> <span class="o">--</span><span class="n">seeds</span> <span class="mi">000000000000000000000000000</span><span class="n">Gamma</span> <span class="n">Gamma000000000000000000000000000</span> <span class="o">--</span><span class="n">force</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">init_plenum_keys</span> <span class="o">--</span><span class="n">name</span> <span class="n">Delta</span> <span class="o">--</span><span class="n">seeds</span> <span class="mi">000000000000000000000000000</span><span class="n">Delta</span> <span class="n">Delta000000000000000000000000000</span> <span class="o">--</span><span class="n">force</span>
+</pre></div>
+</div>
+<p>Note: Seed can be any randomly chosen 32 byte value. It does not have to be in the format <code class="docutils literal notranslate"><span class="pre">00..&lt;name</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">node&gt;</span></code>.</p>
+</div>
+<div class="section" id="running-node">
+<span id="running-node"></span><h2>Running Node<a class="headerlink" href="#running-node" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">start_plenum_node</span> <span class="n">Alpha</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="message_requests.html" class="btn btn-neutral float-right" title="Message Requests" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="recorder.html" class="btn btn-neutral" title="Recorder" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

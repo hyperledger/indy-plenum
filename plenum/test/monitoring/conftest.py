@@ -1,6 +1,12 @@
+import functools
+
 import pytest
 
+from plenum.common.average_strategies import MedianLowStrategy
+from plenum.server.instances import Instances
+from plenum.server.monitor import Monitor
 from plenum.test.helper import sdk_eval_timeout, sdk_send_random_request, sdk_get_reply
+from plenum.test.testing_utils import FakeSomething
 
 
 @pytest.fixture()
@@ -15,17 +21,40 @@ def requests(looper, sdk_wallet_client, sdk_pool_handle):
 
 @pytest.fixture
 def decreasedMonitoringTimeouts(tconf, request):
-    oldThroughputWindowSize = tconf.ThroughputWindowSize
     oldDashboardUpdateFreq = tconf.DashboardUpdateFreq
-    oldLatencyWindowSize = tconf.LatencyWindowSize
-    tconf.ThroughputWindowSize = 5
-    tconf.LatencyWindowSize = 5
     tconf.DashboardUpdateFreq = 1
 
     def reset():
-        tconf.ThroughputWindowSize = oldThroughputWindowSize
-        tconf.LatencyWindowSize = oldLatencyWindowSize
         tconf.DashboardUpdateFreq = oldDashboardUpdateFreq
 
     request.addfinalizer(reset)
     return tconf
+
+
+@pytest.fixture(scope='function')
+def fake_monitor(tconf):
+    def getThroughput(self, instId):
+        return self.throughputs[instId].throughput
+
+    throughputs = dict()
+    instances = Instances()
+    num_of_replicas = 5
+    for i in range(num_of_replicas):
+        throughputs[i] = Monitor.create_throughput_measurement(tconf)
+        instances.add(i)
+    monitor = FakeSomething(
+        throughputs=throughputs,
+        instances=instances,
+        Delta=tconf.DELTA,
+        throughput_avg_strategy_cls=MedianLowStrategy,
+        )
+    monitor.numOrderedRequests = dict()
+    for i in range(num_of_replicas):
+        monitor.numOrderedRequests[i] = (100, 100)
+    monitor.getThroughputs = functools.partial(Monitor.getThroughputs, monitor)
+    monitor.getThroughput = functools.partial(getThroughput, monitor)
+    monitor.getInstanceMetrics = functools.partial(Monitor.getInstanceMetrics, monitor)
+    monitor.instance_throughput_ratio = functools.partial(Monitor.instance_throughput_ratio, monitor)
+    monitor.is_instance_throughput_too_low = functools.partial(Monitor.is_instance_throughput_too_low, monitor)
+    monitor.addInstance = functools.partial(Monitor.addInstance, monitor)
+    return monitor

@@ -7,10 +7,9 @@ from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.primary_election.helpers import checkNomination, \
     getSelfNominationByNode, nominationByNode
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+from plenum.test.test_node import checkNodesConnected, \
     ensureElectionsDone
 from plenum.test import waits
-
 
 nodeCount = 4
 whitelist = ['already got nomination',
@@ -18,8 +17,8 @@ whitelist = ['already got nomination',
 
 
 @pytest.fixture()
-def case2Setup(startedNodes: TestNodeSet):
-    A, B, C, D = startedNodes.nodes.values()
+def case2Setup(txnPoolNodeSet):
+    A, B, C, D = txnPoolNodeSet
 
     # Node B delays self nomination so A's nomination reaches everyone
     B.delaySelfNomination(5)
@@ -37,23 +36,23 @@ def case2Setup(startedNodes: TestNodeSet):
     for node in A, C, D:
         node.whitelistNode(B.name, Suspicions.DUPLICATE_NOM_SENT.code)
 
+
 # noinspection PyIncorrectDocstring
 
 
 @pytest.mark.skip('Nodes use round robin primary selection')
-def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
+def testPrimaryElectionCase2(case2Setup, looper, txnPoolNodeSet):
     """
     Case 2 - A node making nominations for a multiple other nodes. Consider 4
     nodes A, B, C, and D. Lets say node B is malicious and nominates node C
     to all nodes. Again node B nominates node D to all nodes.
     """
-    nodeSet = keySharedNodes
-    A, B, C, D = nodeSet.nodes.values()
+    A, B, C, D = txnPoolNodeSet
 
-    looper.run(checkNodesConnected(nodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Node B sends multiple NOMINATE msgs but only after A has nominated itself
-    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNomination, A, A.name,
                           retryWait=.25, timeout=timeout))
 
@@ -71,7 +70,7 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     B.send(nominationByNode(DRep, B, instId))
 
     # Ensure elections are done
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so
     # not considering it) should have nomination for node C from node B since

@@ -1,0 +1,243 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Message Requests &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Start Nodes" href="start_nodes.html" /> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="request_handling.html">Request handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">Storage components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recorder.html">Recorder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_nodes.html">Start Nodes</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Message Requests</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Message Requests</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/message_requests.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="message-requests">
+<span id="message-requests"></span><h1>Message Requests<a class="headerlink" href="#message-requests" title="Permalink to this headline">¶</a></h1>
+<p>In BFT protocols you can lose no more than a certain number of messages. In Plenum it may happen in the following valid cases:</p>
+<ul class="simple">
+<li>A node received more number of messages than maximum size of a ZMQ queue.</li>
+<li>A node discarded messages because it was unable to process it.</li>
+<li>A node disconnected for a short time.</li>
+</ul>
+<p>In plenum there are classes <code class="docutils literal notranslate"><span class="pre">MessageReq</span></code> for message requests and <code class="docutils literal notranslate"><span class="pre">MessageRep</span></code> for replies. <code class="docutils literal notranslate"><span class="pre">MessageReqProcessor</span></code> manages receiving, sending and processing request and reply messages.</p>
+<p>###Three-phase commit messages</p>
+<p>If a node lost a lot of messages for three-phase commit, ordering can stop for this node until a catch-up is triggered by a checkpoint. The problem is successfully solved via message request mechanism.
+A node requests lost messages from other nodes in follow cases:</p>
+<ul class="simple">
+<li>All PrePrepares need to be applied sequentially, without any gaps. If a node receives a <strong>PrePrepare</strong> where previous PrePrepare(s) are not received yet or lost, it <strong>asks PrePrepares, Prepares, Commits</strong> from the node last pp_seq_no to received PrePrepare (pp_seq_no - 1). If the number of messages to be requested is more than CHK_FREQ, that is the size of Checkpoint, then nothing is requested since the Node is falling behind and is going to start a catch-up in any case because of a quorum of stashed stable checkpoints.</li>
+<li>A node receives a <strong>Prepare</strong> for which it doesn’t have the corresponding PrePrepare -&gt; <strong>ask PrePrepares</strong> for pp_seq_no from received Prepare</li>
+<li>A node receives a <strong>PrePrepare for a not finalized request</strong> (that is request for which the Node doesn’t have a quorum of Propagates) -&gt; ask <strong>Propagates</strong> for not finalize requests from PrePrepare</li>
+</ul>
+<p>For system security, there are the following message request rules:</p>
+<ul class="simple">
+<li>Lost Pre-prepares are requested only from the primary node</li>
+<li>Lost Commits, Prepares and Propagates are requested from all nodes</li>
+</ul>
+<p>###Catchup messages</p>
+<p>Lost messages may delay catchup for a long time. The node message requests mechanism is used in follow cases:</p>
+<ul class="simple">
+<li>A node requests a LedgerStatus in a start of catchup process to compare with self ledger.</li>
+<li>With the first message request for a LedgerStatus the node is scheduling a new message request in config.LedgerStatusTimeout for case the answer to the first request is not received.</li>
+<li>A node requests a ConsistencyProof with median rate of ledger size on other nodes.</li>
+<li>With the first message request for a ConsistencyProof the node is scheduling a new message request in config.ConsistencyProofTimeout for case the answer to the first request is not received.</li>
+</ul>
+<p>If the node has the quorum(n - f - 1) of LedgerStatuses or the quorum(f + 1) of ConsistencyProofs, scheduled request will be canceled.</p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="start_nodes.html" class="btn btn-neutral" title="Start Nodes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

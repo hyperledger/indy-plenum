@@ -1,0 +1,44 @@
+
+input_logs:                                       # List of input logs
+  - path: .                                       # Where to look for log files
+    recursive: yes                                # Whether to descend into subdirectories recursively
+    pattern: (Node\d+)\.log                       # Log file regex pattern to look for
+    node_group: 1                                 # Group number that matches node identifier
+    only_timestamped: yes                         # Whether to discard non-timestamped lines
+
+
+chains:                                           # List of processing chains
+  main:                                           # Main processing chain
+  - match: [replica: master]
+  - track_requests:
+  - match: request
+  - log line: output
+  - stat_received:
+  - stat_ordered:
+
+  stat_received:
+  - match: [request: received]
+  - log time: { stats: received }
+  - drop:
+
+  stat_ordered:
+  - match: [request: ordered]
+  - log time: { stats: ordered }
+  - drop:
+
+outputs:
+  logs:                                           # List of output log sinks
+    output:                                       # View change log sink
+      filename: output.log                        # Filename where to put messages
+
+  timelogs:
+    stats:
+      filename: stats.csv
+      graphs:
+      - received
+      - ordered
+
+  requests:
+    report_stats: yes
+    report_lags: yes
+    filename: requests.csv

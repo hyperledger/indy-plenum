@@ -1,19 +1,21 @@
 #! /usr/bin/env python3
 
-import os
+import argparse
 import json
+import os
+import random
 import time
 from contextlib import ExitStack
-import argparse
-import random
 from typing import Sequence
-from plenum.common.request import Request
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
-from plenum.common.util import randomString
-from plenum.common.config_util import getConfig
-from plenum.common.txn_util import sdk_reqToTxn
+
+from indy import did, wallet
 from indy.ledger import sign_request
-from indy import signus, wallet
+
+from plenum.common.config_util import getConfig
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.request import Request
+from plenum.common.txn_util import reqToTxn, append_txn_metadata
+from plenum.common.util import randomString
 from stp_core.loop.looper import Looper
 
 config = getConfig()
@@ -31,12 +33,12 @@ async def get_wallet_and_pool():
     await wallet.create_wallet(pool_name, their_wallet_name, None, None, None)
     their_wallet_handle = await wallet.open_wallet(their_wallet_name, None, None)
 
-    await signus.create_and_store_my_did(my_wallet_handle, "{}")
+    await did.create_and_store_my_did(my_wallet_handle, "{}")
 
-    (their_did, their_verkey) = await signus.create_and_store_my_did(their_wallet_handle,
-                                                                     json.dumps({"seed": seed_trustee1}))
+    (their_did, their_verkey) = await did.create_and_store_my_did(their_wallet_handle,
+                                                                  json.dumps({"seed": seed_trustee1}))
 
-    await signus.store_their_did(my_wallet_handle, json.dumps({'did': their_did, 'verkey': their_verkey}))
+    await did.store_their_did(my_wallet_handle, json.dumps({'did': their_did, 'verkey': their_verkey}))
 
     return their_wallet_handle, their_did
 
@@ -84,11 +86,12 @@ if __name__ == "__main__":
 
     with ExitStack() as exit_stack:
         with Looper() as looper:
-            sdk_wallet, did = looper.loop.run_until_complete(get_wallet_and_pool())
+            sdk_wallet, DID = looper.loop.run_until_complete(get_wallet_and_pool())
             with open(path_to_save, 'w') as outpath:
-                for _ in range(args.count):
-                    req = sdk_signed_random_requests(looper, (sdk_wallet, did), 1)[0]
-                    txn = sdk_reqToTxn(req, int(time.time()))
+                for i in range(args.count):
+                    req = sdk_signed_random_requests(looper, (sdk_wallet, DID), 1)[0]
+                    txn = reqToTxn(req)
+                    append_txn_metadata(txn, txn_time=int(time.time()))
                     outpath.write(json.dumps(txn))
                     outpath.write(os.linesep)
             looper.stopall()

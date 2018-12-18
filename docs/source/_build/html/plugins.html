@@ -1,0 +1,289 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Plugins &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Request handling" href="request_handling.html" />
+    <link rel="prev" title="Glossary" href="glossary.html" /> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Plugins</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#conventions-that-need-to-be-followed-when-defining-a-new-plugin">Conventions that need to be followed when defining a new plugin:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plugin-setup">Plugin setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#demo-plugin">Demo plugin</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="request_handling.html">Request handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">Storage components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="recorder.html">Recorder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_nodes.html">Start Nodes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="message_requests.html">Message Requests</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Plugins</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/plugins.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="plugins">
+<span id="plugins"></span><h1>Plugins<a class="headerlink" href="#plugins" title="Permalink to this headline">¶</a></h1>
+<p>Plugins allow for supporting new transactions without modifying/adding to the core parts of the system.
+Supporting any new transaction requires:</p>
+<ul class="simple">
+<li>Defining new transaction types</li>
+<li>Defining new message validation rules or updates to any message validation rules</li>
+<li>Logic to handle new transactions, validation, making changes to state, etc (for more detail look at the doc on <a class="reference internal" href="request_handling.html"><span class="doc">request handling</span></a>).</li>
+<li>Storage of transactions in existing ledger or introducing new ledgers</li>
+<li>Changes to existing state or introducing new states</li>
+<li>Defining new constants</li>
+<li>Defining any new config variables</li>
+</ul>
+<div class="section" id="conventions-that-need-to-be-followed-when-defining-a-new-plugin">
+<span id="conventions-that-need-to-be-followed-when-defining-a-new-plugin"></span><h2>Conventions that need to be followed when defining a new plugin:<a class="headerlink" href="#conventions-that-need-to-be-followed-when-defining-a-new-plugin" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li>Each plugin is a separate python package that lives under the package defined in <code class="docutils literal notranslate"><span class="pre">PLUGIN_ROOT</span></code> in <code class="docutils literal notranslate"><span class="pre">config.py</span></code>. It is currently set to <code class="docutils literal notranslate"><span class="pre">plenum.server.plugin</span></code></li>
+<li>The list of enabled plugins is defined in <code class="docutils literal notranslate"><span class="pre">ENABLED_PLUGINS</span></code> in <code class="docutils literal notranslate"><span class="pre">config.py</span></code>.</li>
+<li>Each plugin has unique name, this is the name in the list <code class="docutils literal notranslate"><span class="pre">ENABLED_PLUGINS</span></code> and has to match the package name of the plugin.</li>
+<li>The plugin package contains defines several items in the <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> file<ul>
+<li>It contains a ledger id for each new ledger that the plugin introduces, see <code class="docutils literal notranslate"><span class="pre">LEDGER_IDS</span></code></li>
+<li>For each new field that needs to be added in the <code class="docutils literal notranslate"><span class="pre">Request</span></code>, the plugin defines the name and its corresponding input validation function in a dict, see <code class="docutils literal notranslate"><span class="pre">CLIENT_REQUEST_FIELDS</span></code></li>
+<li>Each write or query transaction type is defined in <code class="docutils literal notranslate"><span class="pre">AcceptableWriteTypes</span></code> and <code class="docutils literal notranslate"><span class="pre">AcceptableQueryTypes</span></code> respectively</li>
+</ul>
+</li>
+<li>Each plugin package contains a <code class="docutils literal notranslate"><span class="pre">main.py</span></code> that contains a method <code class="docutils literal notranslate"><span class="pre">integrate_plugin_in_node</span></code> to initialise and register any new ledgers, states, authenticators,
+request handlers, etc.</li>
+<li>If the plugin requires a new authenticator, it should be defined in <code class="docutils literal notranslate"><span class="pre">client_authn.py</span></code> in the plugin package.</li>
+<li>New storage layers should be defined in <code class="docutils literal notranslate"><span class="pre">storage.py</span></code> in the package</li>
+<li>New transactions need to be in <code class="docutils literal notranslate"><span class="pre">transactions.py</span></code> in the plugin package. To avoid conflicts in transaction type values, each plugin defines a unique prefix to be added before
+the value of the transaction type, see <code class="docutils literal notranslate"><span class="pre">PREFIX</span></code>.</li>
+<li>Any new config variables that have to be introduced are introduced in <code class="docutils literal notranslate"><span class="pre">get_config</span></code> in <code class="docutils literal notranslate"><span class="pre">config.py</span></code> in the plugin package.</li>
+</ol>
+</div>
+<div class="section" id="plugin-setup">
+<span id="plugin-setup"></span><h2>Plugin setup<a class="headerlink" href="#plugin-setup" title="Permalink to this headline">¶</a></h2>
+<p>When plenum initialises, initialises all enabled plugins; this is done through <code class="docutils literal notranslate"><span class="pre">setup_plugins</span></code> method defined in <code class="docutils literal notranslate"><span class="pre">plenum/__init__.py</span></code> Plenum defines 2 project level globals:
+<code class="docutils literal notranslate"><span class="pre">PLUGIN_LEDGER_IDS</span></code> which would be the set of ids of all new ledgers defined by any enabled plugin and <code class="docutils literal notranslate"><span class="pre">PLUGIN_CLIENT_REQUEST_FIELDS</span></code> would be a dictionary of all new <code class="docutils literal notranslate"><span class="pre">Request</span></code> fields
+defined by any plugin and its corresponding validator.
+<code class="docutils literal notranslate"><span class="pre">setup_plugins</span></code> iterates over each of the enabled plugin packages and updates <code class="docutils literal notranslate"><span class="pre">PLUGIN_LEDGER_IDS</span></code> and <code class="docutils literal notranslate"><span class="pre">PLUGIN_CLIENT_REQUEST_FIELDS</span></code>.
+It then reloads some modules which defines input validation objects and schemas, this is done since set of valid ledger ids of request fields might have changed.</p>
+</div>
+<div class="section" id="demo-plugin">
+<span id="demo-plugin"></span><h2>Demo plugin<a class="headerlink" href="#demo-plugin" title="Permalink to this headline">¶</a></h2>
+<p>The Demo plugin serves as an example of how a plugin should be written, though it does some extra setup actions that an actual plugin will not do.
+Since the configuration has been already loaded completely and the input validation objects have been initialised, the changes made by this plugin need to be reflected in them.
+Therefore after updating the loaded config in <code class="docutils literal notranslate"><span class="pre">tconf</span></code> in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/conftest.py</span></code>, in the <code class="docutils literal notranslate"><span class="pre">do_plugin_initialisation_for_tests</span></code>, all such modules are reloaded and <code class="docutils literal notranslate"><span class="pre">do_plugin_initialisation_for_tests</span></code> is called after the plugin is setup (<code class="docutils literal notranslate"><span class="pre">setup_plugins</span></code>)
+The demo plugin is located at <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin</span></code>. The demo plugin models a very trivial auction functionality.</p>
+<ol class="simple">
+<li>The plugin defines new transaction in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/transactions.py</span></code></li>
+<li>The plugin defines constants denoting transaction types in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/constants.py</span></code></li>
+<li>The demo plugin defines a new ledger for which it declares the ledger id <code class="docutils literal notranslate"><span class="pre">AUCTION_LEDGER_ID</span></code> in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/__init__.py</span></code>.
+Also the plugin defines a new field in request called <code class="docutils literal notranslate"><span class="pre">fix_length_dummy</span></code> and corresponding input validator for that.</li>
+<li>New ledger, hash store and state are defined in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/storage.py</span></code></li>
+<li>A request handler for the plugin introduced transactions are defined, <code class="docutils literal notranslate"><span class="pre">AuctionReqHandler</span></code> in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/auction_req_handler.py</span></code>.
+The request handler defines methods for static validation, dynamic validation and state changes.</li>
+<li>New config entries for ledger name, state name, storage type are defined in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/config.py</span></code></li>
+<li>An authenticator <code class="docutils literal notranslate"><span class="pre">AuctionAuthNr</span></code> is defined in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/client_authnr.py</span></code>, that specifies the query and write types.</li>
+<li>The integration of this plugin happens in <code class="docutils literal notranslate"><span class="pre">integrate_plugin_in_node</span></code> in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/main.py</span></code> which takes the node as an argument. In this integration method:<ul>
+<li>Update the node’s config with the plugin’s config</li>
+<li>Initialise the plugin’s ledger, state and other storage components</li>
+<li>Register the storage components in the node.</li>
+<li>Initialise the authenticator and register it with the node</li>
+<li>Initialise and register the request handler with the node.</li>
+</ul>
+</li>
+<li>Now the above method can be called on any initialised node. For the tests, the <code class="docutils literal notranslate"><span class="pre">TestNode</span></code>s are updated in the fixture <code class="docutils literal notranslate"><span class="pre">do_post_node_creation</span></code> in <code class="docutils literal notranslate"><span class="pre">plenum/test/plugin/demo_plugin/conftest.py</span></code></li>
+</ol>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="request_handling.html" class="btn btn-neutral float-right" title="Request handling" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="glossary.html" class="btn btn-neutral" title="Glossary" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

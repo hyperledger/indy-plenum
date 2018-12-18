@@ -47,9 +47,19 @@ def looper(tdirAndLooper):
     return tdirAndLooper[1]
 
 
+BIG_NUM_OF_MSGS = 100000
+
+
 @pytest.fixture()
 def tconf():
-    return getConfig()
+    tmp = getConfig()
+    old_node_num = tmp.ZMQ_NODE_QUEUE_SIZE
+    old_client_num = tmp.ZMQ_CLIENT_QUEUE_SIZE
+    tmp.ZMQ_NODE_QUEUE_SIZE = BIG_NUM_OF_MSGS
+    tmp.ZMQ_CLIENT_QUEUE_SIZE = BIG_NUM_OF_MSGS
+    yield tmp
+    tmp.ZMQ_NODE_QUEUE_SIZE = old_node_num
+    tmp.ZMQ_CLIENT_QUEUE_SIZE = old_client_num
 
 
 @pytest.fixture(scope="module")

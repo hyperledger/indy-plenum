@@ -1,5 +1,6 @@
 import pip
 import importlib
+import math
 from typing import Dict
 import time
 
@@ -58,48 +59,66 @@ class PluginManager:
             config: Dict,
             nodeName: str,
             enabled: bool):
-        assert 'value' in historicalData
-        assert 'cnt' in historicalData
-        assert 'minCnt' in config
-        assert 'coefficient' in config
-        assert 'minActivityThreshold' in config
-        assert 'enabled' in config
+
+        _d = set(('value', 'cnt')) - set(historicalData.keys())
+        if _d:
+            raise KeyError(
+                "{} keys are not found in 'historicalData'".format(_d)
+            )
+
+        _d = set(('min_cnt', 'bounds_coeff', 'min_activity_threshold',
+                  'use_weighted_bounds_coeff', 'enabled')) - set(config.keys())
+        if _d:
+            raise KeyError(
+                "{} keys are not found in 'config'".format(_d)
+            )
 
         if not (enabled and config['enabled']):
-            logger.debug('Suspicious Spike check is disabled')
+            logger.trace('Suspicious Spike check is disabled')
             return None
 
-        coefficient = config['coefficient']
-        minCnt = config['minCnt']
-        val_thres = config['minActivityThreshold']
+        min_cnt = config['min_cnt']
+        val_thres = config['min_activity_threshold']
+        bounds_coeff = config['bounds_coeff']
+        use_weighted_bounds_coeff = config['use_weighted_bounds_coeff']
+
         val = historicalData['value']
-        cnt = historicalData['cnt']
-        historicalData['value'] = \
-            val * (cnt / (cnt + 1)) + newVal / (cnt + 1)
+        alpha = 2 / (min_cnt + 1)
+        historicalData['value'] = val * (1 - alpha) + newVal * alpha
         historicalData['cnt'] += 1
+        cnt = historicalData['cnt']
+
+        if cnt <= min_cnt:
+            logger.debug('Not enough data to detect a {} spike'.format(event))
+            return None
 
         if val < val_thres:
             logger.debug('Current activity {} is below threshold level {}'.format(val, val_thres))
             return None
 
-        if cnt < minCnt:
-            logger.debug('Not enough data to detect a {} spike'.format(event))
-            return None
+        log_base = 10
+        if use_weighted_bounds_coeff and cnt > log_base:
+            # Weighted coefficient allows to adapt bounds in accordance to values,
+            # growing values leads to lower bounds.
+            bounds_coeff /= math.log(cnt, log_base)
 
-        if (val / coefficient) <= newVal <= (val * coefficient):
+        lower_bound = val / bounds_coeff
+        higher_bound = val * bounds_coeff
+        if lower_bound <= newVal <= higher_bound:
             logger.debug(
-                '{}: New value {} is within bounds. Average: {}'.format(
-                    event, newVal, val))
+                '{}: Actual value {} is within bounds [{}, {}]. Expected value: {}'.format(
+                    event, newVal, lower_bound, higher_bound, val))
             return None
 
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
-                  'Usual: {}. New: {}.'\
-            .format(event, nodeName, time.time(), val, newVal)
-        logger.debug(message)
+                  'Actual: {}. Expected: {}. Bounds: [{}, {}].'\
+            .format(event, nodeName, time.time(), newVal, val, lower_bound, higher_bound)
+        logger.display(message)
         return self._sendMessage(event, message)
 
     def importPlugins(self):
         plugins = self._findPlugins()
+        logger.info("Found notifier plugins: {}".format(plugins))
         self.plugins = []
         i = 0
         for plugin in plugins:

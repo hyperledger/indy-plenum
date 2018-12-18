@@ -2,7 +2,7 @@ from functools import partial
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
-from stp_zmq.zstack import ZStack
+from stp_zmq.zstack import ZStack, Quota
 from stp_core.types import HA
 
 from stp_core.loop.eventually import eventuallyAll, eventually
@@ -13,7 +13,6 @@ from plenum.test.stasher import Stasher
 from plenum.test import waits
 
 logger = getlogger()
-
 
 BaseStackClass = ZStack
 
@@ -30,8 +29,8 @@ class TestStack(BaseStackClass):
     #     super()._serviceStack(age)
     #     self.stasher.process(age)
 
-    async def _serviceStack(self, age):
-        await super()._serviceStack(age)
+    async def _serviceStack(self, age, quota: Quota):
+        await super()._serviceStack(age, quota)
         self.stasher.process(age)
 
     def resetDelays(self):
@@ -62,7 +61,7 @@ class StackedTester:
 
     async def ensureConnectedToNodes(self, customTimeout=None, count=None):
         timeout = customTimeout or \
-            waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
+                  waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
 
         logger.debug(
             "waiting for {} seconds to check client connections to "
@@ -109,7 +108,7 @@ JOINED_NOT_ALLOWED = RemoteState(isConnected=False)
 JOINED = RemoteState(isConnected=False)
 
 
-def checkState(state: RemoteState, obj: Any, details: str=None):
+def checkState(state: RemoteState, obj: Any, details: str = None):
     if state is not None:
         checkedItems = {}
         for key, s in state._asdict().items():

@@ -1,0 +1,275 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>ZeroMQ features &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../request_handling.html">Request handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../storage.html">Storage components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../recorder.html">Recorder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_nodes.html">Start Nodes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../message_requests.html">Message Requests</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>ZeroMQ features</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/misc/zeromq_features.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="zeromq-features">
+<span id="zeromq-features"></span><h1>ZeroMQ features<a class="headerlink" href="#zeromq-features" title="Permalink to this headline">¶</a></h1>
+<p>ZeroMQ has several unclear features that affect consumer application.
+This doc describes known features/issues/limitations of ZeroMQ that were
+found during our testing and observation.</p>
+<p><strong>NOTE: all following info is valid for the server side when ZMQ_ROUTER socket type is used.</strong></p>
+<div class="section" id="there-are-no-zeromq-api-calls-to-stop-accepting-new-connections">
+<span id="there-are-no-zeromq-api-calls-to-stop-accepting-new-connections"></span><h2>There are no ZeroMQ API calls to stop accepting new connections<a class="headerlink" href="#there-are-no-zeromq-api-calls-to-stop-accepting-new-connections" title="Permalink to this headline">¶</a></h2>
+<p>It means that there is no ability to limit the number of clients connections using ZeroMQ API.
+External firewall is needed to implement such limits.</p>
+</div>
+<div class="section" id="there-is-no-ability-to-track-and-drop-clients-connections-using-zeromq-api">
+<span id="there-is-no-ability-to-track-and-drop-clients-connections-using-zeromq-api"></span><h2>There is no ability to track and drop clients connections using ZeroMQ API<a class="headerlink" href="#there-is-no-ability-to-track-and-drop-clients-connections-using-zeromq-api" title="Permalink to this headline">¶</a></h2>
+<p>To protect the server side from file descriptors exhaustion it is needed to have the ability
+to track clients connections and drop those of them that are kept for a long time.
+However when using ZMQ_ROUTER socket type there is no access to particular connection.</p>
+<p>We even created a ticket regarding this issue:</p>
+<p>https://github.com/zeromq/libzmq/issues/2877</p>
+<p>Guys from ZeroMQ said that external firewall is needed to implement required functionality.</p>
+<p>Despite ZeroMQ encapsulates all work with clients connection sockets we can retrieve a new
+connection socket file descriptor from <em>CONNECTED</em> event reported by ZeroMQ monitor socket.
+So that we can close this file descriptor using an ordinary close() system call after certain
+time from the <em>CONNECTED</em> event.</p>
+<p>But the problem here is that ZeroMQ does not expect that its controlled sockets may be
+closed externally. Internally ZeroMQ is the epoll-based network library and closing of sockets
+does not trigger any epoll events. So this invalid descriptor continues to be kept in ZeroMQ’s
+epoll and DISCONNECTED event is not triggered. This leads to ZeroMQ crash with “Bad file descriptor”
+error during ZeroMQ finalizing. Moreover, seems like newly open socket with the same file descriptor
+number leads to mess in inner ZeroMQ structures associated with externally closed file descriptor
+as they were not finalized.</p>
+<p>More info here:</p>
+<p>https://jira.hyperledger.org/browse/INDY-1417?focusedCommentId=46595&amp;page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-46595</p>
+</div>
+<div class="section" id="zeromq-creates-a-separate-queue-for-each-client-connection">
+<span id="zeromq-creates-a-separate-queue-for-each-client-connection"></span><h2>ZeroMQ creates a separate queue for each client connection<a class="headerlink" href="#zeromq-creates-a-separate-queue-for-each-client-connection" title="Permalink to this headline">¶</a></h2>
+<p>And also these inner queues are not cleaned if corresponding connection socket has been closed
+from the client side (for example by time out), such queue is kept in memory until the last
+packet is read.</p>
+</div>
+<div class="section" id="zeromq-handles-all-inner-queues-associated-with-clients-connections-in-round-robin-manner">
+<span id="zeromq-handles-all-inner-queues-associated-with-clients-connections-in-round-robin-manner"></span><h2>ZeroMQ handles all inner queues associated with clients connections in Round-Robin manner<a class="headerlink" href="#zeromq-handles-all-inner-queues-associated-with-clients-connections-in-round-robin-manner" title="Permalink to this headline">¶</a></h2>
+<p>ZeroMQ reads from these queues in a Round-Robin manner when recv() for listener is called,
+so these queues may be kept in memory for a long time in case of big number of connections
+(note our receive quotas for client stack).</p>
+</div>
+<div class="section" id="you-can-not-monitor-zeromq-inner-queues-for-incoming-outgoing-messages">
+<span id="you-can-not-monitor-zeromq-inner-queues-for-incoming-outgoing-messages"></span><h2>You can not monitor ZeroMQ inner queues for incoming/outgoing messages<a class="headerlink" href="#you-can-not-monitor-zeromq-inner-queues-for-incoming-outgoing-messages" title="Permalink to this headline">¶</a></h2>
+<p>You can not:</p>
+<ul class="simple">
+<li>get the current/max length of the queue</li>
+<li>get the min/avg/max time that messages are kept in the queue</li>
+<li>get the number of drops from the queue (details in ZMQ_HWM section below)</li>
+</ul>
+<p>Just weird!</p>
+</div>
+<div class="section" id="do-not-rely-on-zeromq-high-watermark">
+<span id="do-not-rely-on-zeromq-high-watermark"></span><h2>Do not rely on ZeroMQ high watermark<a class="headerlink" href="#do-not-rely-on-zeromq-high-watermark" title="Permalink to this headline">¶</a></h2>
+<p>From the official ZeroMQ doc:</p>
+<p><em>The high water mark is a hard limit on the maximum number of outstanding messages ØMQ shall
+queue in memory for any single peer that the specified socket is communicating with.</em></p>
+<p><em>If this limit has been reached the socket shall enter an exceptional state and depending on
+the socket type, ØMQ shall take appropriate action such as blocking or dropping sent messages.</em></p>
+<p>But setting the high watermark to <em>N</em> for the listener socket does not guarantee that
+the server will receive <em>N</em> messages from the client and no more even if received messages are
+not read from the queue. Despite the official doc tells that for ZMQ_ROUTER socket type
+the ZMQ_HWM option action is drop, it is proven by our tests that actually messages are not dropped.</p>
+<p>There is corresponding issue on github, and there is an answer by the member of ZMQ project which
+tells that “HWM in zmq is pretty complicated, and can’t really be used to control flow in a fine-grained way.”:</p>
+<p>https://github.com/zeromq/pyzmq/issues/1100#issuecomment-339591427</p>
+<p>Seems like its behaviour depends on messages sizes, but anyway it is not a strict limit you can rely on.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

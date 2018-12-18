@@ -1,0 +1,162 @@
+@startuml
+
+note "Default storage names are in <b><color blue>blue</color></b>" as N1
+
+rectangle "Ledgers" {
+
+    database "Pool Ledger" as PL {
+      storage P1[
+      Transaction Log
+      <color blue>pool_transactions</color>
+      ]
+      storage P2[
+      Merkle Leaves
+      <color blue>pool_merkleLeaves</color>
+      ]
+      storage P3[
+      Merkle Node
+      <color blue>pool_merkleNodes</color>
+      ]
+    }
+    note top of PL
+         - Contains transactions defining the nodes in the pool
+         - It's used by other nodes to connect to each other
+         - It's used by clients to connect to the pool
+    end note
+
+
+    database "Domain Ledger" as DL {
+      storage D1[
+      Transaction Log
+      <color blue>domain_transactions</color>
+      ]
+      storage D2[
+      Merkle Leaves
+      <color blue>domain_merkleLeaves</color>
+      ]
+      storage D3[
+      Merkle Node
+      <color blue>domain_merkleNodes</color>
+      ]
+    }
+    note top of DL
+         - Contains transactions related to the core application logic
+         - Can be extended by applications
+    end note
+
+    database "Config Ledger" as CL {
+      storage C1[
+      Transaction Log
+      <color blue>config_transactions</color>
+      ]
+      storage C2[
+      Merkle Leaves
+      <color blue>config_merkleLeaves</color>
+      ]
+      storage C3[
+      Merkle Node
+      <color blue>config_merkleNodes</color>
+      ]
+    }
+    note right of CL
+      Contains transactions related to the configuration parameters
+      for which the pool needs to agree
+    end note
+
+}
+note top of Ledgers
+    - Ledger is an ordered log of transactions (<b>Transaction Log</b> storage)
+    - Each transaction has a unique monotonically increasing positive integer called sequence number
+    - Ledger is associated with a compact merkle tree (<b>Merkle Leaves</b> and <b>Merkle Nodes</b> storages)
+    - States and Caches can be deterministically re-created from the <b>Transaction Log</b>
+end note
+
+rectangle "States" {
+    database S1[
+    Pool State
+    <color blue>pool_state</color>
+    ]
+    database S2[
+    Domain State
+    <color blue>domain_state</color>
+    ]
+    database S3[
+    Config State
+    <color blue>config_state</color>
+    ]
+}
+note top of States
+    - Each Ledger has a State
+    - State is a resulting view (projection) of the ledger used by Node and Application business logic,
+as well as for read requests
+    - The underlying data structure of state is the Patricia Merkle Trie
+    - It's possible to get the current value (state) for a key, as well as
+    a value from the past (defined by a state root hash)
+end note
+
+rectangle "Other" {
+    database database1 [
+    <b>Node Status: <color blue>node_status_db</color></b>
+
+    Auxiliary storage to persist
+    data needed for consensus algorithm
+    ]
+
+    database database2 [
+    <b>Attribute Storage: <color blue>attr_db</color></b>
+
+    Raw attributes from ATTRIB
+    transaction are stored here,
+    while the ATTRIB transaction
+    in the Domain Ledger contains
+    the hash of the data only
+    ]
+
+    database database3 [
+    <b>BLS Multi-Signature: <color blue>state_signature</color></b>
+
+    Every transaction for the given time
+    (that is every update of the state)
+    is signed (using BLS schema)
+    by all nodes during consensus,
+    and BLS multi-signature is created and
+    stored here for every state root hash.
+
+    It's used together with a State Proof
+    as part of replies to read requests.
+    ]
+}
+
+rectangle "Caches" {
+    database database5 [
+    <b>Request to Transaction: <color blue>seq_no_db</color></b>
+
+    <i>RequestKey (digest) -> transaction seqNo</i> mapping.
+
+    It's used to check if request is already ordered
+    (written to the ledger) and return the data from
+    the ledger for such write requests.
+    ]
+
+    database database4 [
+    <b>Idr Cache: <color blue>idr_cache_db</color></b>
+
+    <i>DID -> verkey/role</i> mapping.
+
+    It's used for efficient validation and
+    getting verkey for a  DID.
+    ]
+
+    database database6 [
+    <b>Timestamp storage: <color blue>state_ts_db</color></b>
+
+    <i>timestamp -> state root hash</i> mapping.
+
+    It's used to get the state root hash
+    for the given timestamp to efficiently
+    get data from the past.
+    ]
+}
+
+
+@enduml

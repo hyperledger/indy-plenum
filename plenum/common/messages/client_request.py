@@ -1,13 +1,14 @@
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
-    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY
+    TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
+    OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
-    ProtocolVersionField, LedgerIdField
+    ProtocolVersionField, LedgerIdField, Base58Field
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -22,7 +23,8 @@ class ClientNodeOperationData(MessageValidator):
         (CLIENT_PORT, NetworkPortField(optional=True)),
         (ALIAS, LimitedLengthStringField(max_length=ALIAS_FIELD_LIMIT)),
         (SERVICES, IterableField(ChooseField(values=(VALIDATOR,)), optional=True)),
-        (BLS_KEY, LimitedLengthStringField(max_length=BLS_KEY_LIMIT, optional=True)),
+        (BLS_KEY, Base58Field(byte_lengths=(128,), optional=True)),
+        (BLS_KEY_PROOF, Base58Field(byte_lengths=(128,), optional=True)),
     )
 
     def _validate_message(self, dct):
@@ -52,7 +54,6 @@ class ClientNYMOperation(MessageValidator):
         # TODO: validate role using ChooseField,
         # do roles list expandable form outer context
     )
-    schema_is_strict = False
 
 
 class ClientGetTxnOperation(MessageValidator):
@@ -66,7 +67,7 @@ class ClientGetTxnOperation(MessageValidator):
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
-        strict = kwargs.get("schema_is_strict", True)
+        strict = kwargs.get("schema_is_strict", OPERATION_SCHEMA_IS_STRICT)
         self.operations = {
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
@@ -102,7 +103,7 @@ class ClientMessageValidator(MessageValidator):
                                   optional=True)),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT,
                                                optional=True)),
-        (f.PROTOCOL_VERSION.nm, ProtocolVersionField(optional=True)),
+        (f.PROTOCOL_VERSION.nm, ProtocolVersionField()),
         (f.SIGS.nm, MapField(IdentifierField(),
                              SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
                              optional=True, nullable=True)),
@@ -114,12 +115,11 @@ class ClientMessageValidator(MessageValidator):
         # TODO: refactor this
         # TODO: this (and all related functionality) can be removed when
         # when fixed problem with transaction serialization (INDY-338)
-        strict = operation_schema_is_strict
         # Adding fields from enabled plugins to schema.
         self.schema = self.schema + tuple(PLUGIN_CLIENT_REQUEST_FIELDS.items())
-        if not strict:
+        if operation_schema_is_strict:
             operation_field_index = 2
-            op = ClientOperationField(schema_is_strict=False)
+            op = ClientOperationField(schema_is_strict=operation_schema_is_strict)
             schema = list(self.schema)
             schema[operation_field_index] = (OPERATION, op)
             self.schema = tuple(schema)

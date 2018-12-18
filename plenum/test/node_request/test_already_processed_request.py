@@ -19,9 +19,9 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
         assert len(counts) == 1
         return counts.pop()
 
-    def get_getReplyFromLedger_call_count():
+    def get_getReplyFromLedgerForRequest_call_count():
         return get_method_call_count(
-            next(iter(txnPoolNodeSet)).getReplyFromLedger)
+            next(iter(txnPoolNodeSet)).getReplyFromLedgerForRequest)
 
     def get_recordAndPropagate_call_count():
         return get_method_call_count(
@@ -30,13 +30,13 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     def get_last_returned_val():
         rvs = []
         for node in txnPoolNodeSet:
-            rv = getAllReturnVals(node, node.getReplyFromLedger)
+            rv = getAllReturnVals(node, node.getReplyFromLedgerForRequest)
             rvs.append(rv[0])
         # All items are same in the list
         assert rvs.count(rvs[0]) == len(txnPoolNodeSet)
         return rvs[0]
 
-    rlc1 = get_getReplyFromLedger_call_count()
+    rlc1 = get_getReplyFromLedgerForRequest_call_count()
     rpc1 = get_recordAndPropagate_call_count()
 
     # Request which will be send twice
@@ -50,24 +50,24 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
         sdk_check_reply(req_res)
     first_req_id = request1[0][0]['reqId']
 
-    rlc2 = get_getReplyFromLedger_call_count()
+    rlc2 = get_getReplyFromLedgerForRequest_call_count()
     rpc2 = get_recordAndPropagate_call_count()
-    assert rlc2 - rlc1 == 1  # getReplyFromLedger was called
+    assert rlc2 - rlc1 == 1  # getReplyFromLedgerForRequest was called
     assert rpc2 - rpc1 == 1  # recordAndPropagate was called
     r1 = get_last_returned_val()
-    assert r1 is None  # getReplyFromLedger returned None since had not seen request
+    assert r1 is None  # getReplyFromLedgerForRequest returned None since had not seen request
 
     # Request which we will send only once
     request2 = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     second_req_id = request2[0][0]['reqId']
 
     assert second_req_id != first_req_id
-    rlc3 = get_getReplyFromLedger_call_count()
+    rlc3 = get_getReplyFromLedgerForRequest_call_count()
     rpc3 = get_recordAndPropagate_call_count()
-    assert rlc3 - rlc2 == 1  # getReplyFromLedger was called again
+    assert rlc3 - rlc2 == 1  # getReplyFromLedgerForRequest was called again
     assert rpc3 - rpc2 == 1  # recordAndPropagate was called again
     r2 = get_last_returned_val()
-    assert r2 is None  # getReplyFromLedger returned None since had not seen request
+    assert r2 is None  # getReplyFromLedgerForRequest returned None since had not seen request
 
     # Reply for the first request, which is going to be sent again
     rep1 = request1[0][1]['result']
@@ -79,12 +79,12 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     third_req_id = request3[0][0]['reqId']
 
     assert third_req_id == first_req_id
-    rlc4 = get_getReplyFromLedger_call_count()
+    rlc4 = get_getReplyFromLedgerForRequest_call_count()
     rpc4 = get_recordAndPropagate_call_count()
-    assert rlc4 - rlc3 == 1  # getReplyFromLedger was called again
+    assert rlc4 - rlc3 == 1  # getReplyFromLedgerForRequest was called again
     assert rpc4 - rpc3 == 0  # recordAndPropagate was not called
     r3 = get_last_returned_val()
-    # getReplyFromLedger did not return None this time since had seen request
+    # getReplyFromLedgerForRequest did not return None this time since had seen request
     assert r3 is not None
     rep3 = request3[0][1]['result']
 

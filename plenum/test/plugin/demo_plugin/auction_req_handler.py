@@ -1,16 +1,16 @@
+from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.exceptions import InvalidClientRequest, \
     UnauthorizedClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn
+from plenum.common.txn_util import get_payload_data
 from plenum.common.types import f
-from plenum.persistence.util import txnsWithSeqNo
-from plenum.server.req_handler import RequestHandler
+from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
     AUCTION_START, GET_BAL, AMOUNT
 
 
-class AuctionReqHandler(RequestHandler):
+class AuctionReqHandler(LedgerRequestHandler):
     write_types = {AUCTION_START, AUCTION_END, PLACE_BID}
     query_types = {GET_BAL, }
 
@@ -64,16 +64,14 @@ class AuctionReqHandler(RequestHandler):
         if operation.get(TXN_TYPE) == PLACE_BID:
             self.auctions[data['id']][req.identifier] = data[AMOUNT]
 
-        txn = reqToTxn(req, cons_time)
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
-        self.updateState(txnsWithSeqNo(start, end, [txn]))
-        return start, txn
+        return super().apply(req, cons_time)
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        # Not doing anything since it is a sample plugin maintaining in memory state
-        pass
+        # Dummy update so that state root is non empty
+        data = get_payload_data(txn)
+        for k, v in data.items():
+            self.state.set(k.encode(), JsonSerializer.dumps(v))

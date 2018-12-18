@@ -4,6 +4,7 @@ import string
 from binascii import unhexlify, hexlify
 
 from libnacl import crypto_box_SECRETKEYBYTES, nacl, crypto_box_PUBLICKEYBYTES
+from common.exceptions import PlenumValueError
 from stp_core.crypto.nacl_wrappers import Signer
 
 # TODO: move it to crypto repo
@@ -17,7 +18,8 @@ def cleanSeed(seed=None):
             if isinstance(seed, str):
                 seed = seed.encode('utf-8')
             bts = bytes(seed)
-            assert len(seed) == 32, 'seed length must be 32 bytes'
+            if len(seed) != 32:
+                raise PlenumValueError('seed', seed, '64-length hexadecimal string or 32-length in bytes representation')
         return bts
 
 

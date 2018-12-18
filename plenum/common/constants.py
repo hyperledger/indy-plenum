@@ -35,6 +35,7 @@ ORDERED = "ORDERED"
 REQKEY = "REQKEY"
 
 INSTANCE_CHANGE = "INSTANCE_CHANGE"
+BACKUP_INSTANCE_FAULTY = "BACKUP_INSTANCE_FAULTY"
 VIEW_CHANGE_DONE = "VIEW_CHANGE_DONE"
 CURRENT_STATE = "CURRENT_STATE"
 
@@ -46,6 +47,8 @@ MESSAGE_REQUEST = 'MESSAGE_REQUEST'
 MESSAGE_RESPONSE = 'MESSAGE_RESPONSE'
 OBSERVED_DATA = 'OBSERVED_DATA'
 BATCH_COMMITTED = 'BATCH_COMMITTED'
+VIEW_CHANGE_START = 'ViewChangeStart'
+VIEW_CHANGE_CONTINUE = 'ViewChangeContinue'
 
 BLACKLIST = "BLACKLIST"
 
@@ -57,6 +60,8 @@ PRIMARY_SELECTION_PREFIX = "PRIMARY SELECTION: "
 BLS_PREFIX = "BLS: "
 OBSERVER_PREFIX = "OBSERVER: "
 
+
+PROPOSED_VIEW_NO = "proposed_view_no"
 NAME = "name"
 VERSION = "version"
 IP = "ip"
@@ -77,6 +82,7 @@ ALIAS = "alias"
 PUBKEY = "pubkey"
 VERKEY = "verkey"
 BLS_KEY = "blskey"
+BLS_KEY_PROOF = "blskey_pop"
 NYM_KEY = "NYM"
 NODE_IP = "node_ip"
 NODE_PORT = "node_port"
@@ -104,6 +110,7 @@ STATE_PROOF = 'state_proof'
 ROOT_HASH = "root_hash"
 MULTI_SIGNATURE = "multi_signature"
 PROOF_NODES = "proof_nodes"
+VALUE = 'value'
 
 MULTI_SIGNATURE_SIGNATURE = 'signature'
 MULTI_SIGNATURE_PARTICIPANTS = 'participants'
@@ -118,6 +125,7 @@ MULTI_SIGNATURE_VALUE_TIMESTAMP = 'timestamp'
 STEWARD = Roles.STEWARD.value
 TRUSTEE = Roles.TRUSTEE.value
 STEWARD_STRING = 'STEWARD'
+TRUSTEE_STRING = 'TRUSTEE'
 
 # TXNs
 NODE = PlenumTransactions.NODE.value
@@ -125,6 +133,29 @@ NYM = PlenumTransactions.NYM.value
 GET_TXN = PlenumTransactions.GET_TXN.value
 
 POOL_TXN_TYPES = {NODE, }
+
+# TXN
+# TODO: manye of these constants will be replaced
+# by constants from Request after Request refactoring
+TXN_PAYLOAD = "txn"
+TXN_PAYLOAD_TYPE = "type"
+TXN_PAYLOAD_PROTOCOL_VERSION = "protocolVersion"
+TXN_PAYLOAD_DATA = "data"
+TXN_PAYLOAD_METADATA = "metadata"
+TXN_PAYLOAD_METADATA_FROM = "from"
+TXN_PAYLOAD_METADATA_REQ_ID = "reqId"
+TXN_PAYLOAD_METADATA_DIGEST = "digest"
+TXN_METADATA = "txnMetadata"
+TXN_METADATA_TIME = "txnTime"
+TXN_METADATA_ID = "txnId"
+TXN_METADATA_SEQ_NO = "seqNo"
+TXN_SIGNATURE = "reqSignature"
+TXN_VERSION = "ver"
+TXN_SIGNATURE_TYPE = "type"
+ED25519 = "ED25519"
+TXN_SIGNATURE_VALUES = "values"
+TXN_SIGNATURE_FROM = "from"
+TXN_SIGNATURE_VALUE = "value"
 
 
 class ClientBootStrategy(IntEnum):
@@ -141,6 +172,13 @@ class StorageType(IntEnum):
 class KeyValueStorageType(IntEnum):
     Leveldb = 1
     Memory = 2
+    Rocksdb = 3
+    ChunkedBinaryFile = 4
+    BinaryFile = 5
+
+
+class PreVCStrategies(IntEnum):
+    VC_START_MSG_STRATEGY = 1
 
 
 @unique
@@ -165,16 +203,22 @@ NODE_HASH_STORE_SUFFIX = "HS"
 HS_FILE = "file"
 HS_MEMORY = "memory"
 HS_LEVELDB = 'leveldb'
+HS_ROCKSDB = 'rocksdb'
+
+LAST_SENT_PRE_PREPARE = 'lastSentPrePrepare'
 
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
 CONFIG_LEDGER_ID = 2
-INVALID_LEDGER_ID = 5908
+
 
 VALID_LEDGER_IDS = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID)
 
-CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.STATE_PROOF_SUPPORT.value
+CURRENT_PROTOCOL_VERSION = PlenumProtocolVersion.TXN_FORMAT_1_0_SUPPORT.value
+
+OPERATION_SCHEMA_IS_STRICT = False
+SCHEMA_IS_STRICT = False
 
 
 class NodeHooks(UniqueSet):
@@ -188,6 +232,12 @@ class NodeHooks(UniqueSet):
     POST_REQUEST_APPLICATION = 8
     PRE_REQUEST_COMMIT = 9
     POST_REQUEST_COMMIT = 10
+    PRE_SEND_REPLY = 11
+    POST_SEND_REPLY = 12
+    POST_BATCH_CREATED = 13
+    POST_BATCH_REJECTED = 14
+    PRE_BATCH_COMMITTED = 15
+    POST_BATCH_COMMITTED = 16
 
 
 class ReplicaHooks(UniqueSet):
@@ -195,9 +245,8 @@ class ReplicaHooks(UniqueSet):
     CREATE_PR = 2
     CREATE_CM = 3
     CREATE_ORD = 4
-    RECV_PPR = 5
-    RECV_PR = 6
-    RECV_CM = 7
-
-
-INVALID_SEQ_NO = -23
+    APPLY_PPR = 5
+    VALIDATE_PR = 6
+    VALIDATE_CM = 7
+    BATCH_CREATED = 8
+    BATCH_REJECTED = 9

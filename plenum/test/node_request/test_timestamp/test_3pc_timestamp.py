@@ -1,13 +1,28 @@
 from collections import defaultdict
 
+import pytest
+
 from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_TIME
 from plenum.test.instances.helper import recvd_prepares
 from plenum.test.node_request.test_timestamp.helper import \
     get_timestamp_suspicion_count, make_clock_faulty
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.common.txn_util import get_txn_time
 
 from plenum.test.helper import sdk_send_random_and_check
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = 2
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
@@ -22,7 +37,7 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
         looper.runFor(1)
 
     for node in txnPoolNodeSet:
-        for r in node.replicas:
+        for r in node.replicas.values():
             rec_prps = defaultdict(list)
             for p in recvd_prepares(r):
                 rec_prps[(p.viewNo, p.ppSeqNo)].append(p)
@@ -41,8 +56,8 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
                 for iv in node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID]:
                     three_pc_key = iv.data
                     for seq_no in range(iv.begin, iv.end):
-                        assert node.domainLedger.getBySeqNo(
-                            seq_no)[TXN_TIME] == pp_coll[three_pc_key].ppTime
+                        assert get_txn_time(node.domainLedger.getBySeqNo(seq_no))\
+                               == pp_coll[three_pc_key].ppTime
 
 
 def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,

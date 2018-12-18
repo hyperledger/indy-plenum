@@ -1,0 +1,244 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Recorder &mdash; Indy Plenum  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Start Nodes" href="start_nodes.html" />
+    <link rel="prev" title="Storage components" href="storage.html" /> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Indy Plenum
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Overview of the system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="catchup.html">Ledger catchup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="request_handling.html">Request handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">Storage components</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Recorder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_nodes.html">Start Nodes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="message_requests.html">Message Requests</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Indy Plenum</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Recorder</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/recorder.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="recorder">
+<span id="recorder"></span><h1>Recorder<a class="headerlink" href="#recorder" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li>The recorder works by recording incoming, outgoing messages, the times at which nodes connected/disconnected, times at which itself stopped and started.</li>
+<li>Each node has 2 recorders, one for each stack. The recorder has a key value database which has the time as the key and value as the message.</li>
+<li>The message has a marker indicating the type of the message. The recorder has a can be queried to return messages in the order and with correct time apart between them.
+eg. if node had 3 messages at 15 sec, 20 sec and 25 sec, the recorder’s <code class="docutils literal notranslate"><span class="pre">get_next</span></code> method will return the first message the first time is called but
+it will not return the next message until 5 seconds have passed; it does not block, but just returns None.</li>
+<li>The recorder records messages coming into <code class="docutils literal notranslate"><span class="pre">verifyAndAppend</span></code> for each stack.</li>
+<li>During the replay, recorders are combined to for a <code class="docutils literal notranslate"><span class="pre">CombinedRecorder</span></code> is used for the replay.</li>
+<li>Also during replay, the times of the <code class="docutils literal notranslate"><span class="pre">Node</span></code> are
+patched to match the actual time of the Node run.</li>
+<li>Also the information about which PRE-PREPARE sent which requests at what time are extracted
+before the replay starts so that during the replay the node sends the same PRE-PREPARES.</li>
+<li>During the replay the node, stops at appropriate intervals at which the original node stopped.</li>
+<li>Also the node calls simulates disconnections from other nodes at the appropriate time.</li>
+<li>During the replay the node sends no outgoing messages neither does it have the recorder attached.</li>
+<li>The replay is supposed to be run as a standalone node, most probably in an IDE so it can be debugged.</li>
+<li>The record and and replay functionality is controlled through the config flag <code class="docutils literal notranslate"><span class="pre">STACK_COMPANION</span></code>.
+It has 3 possible values<ul>
+<li>0 for normal operation</li>
+<li>1 for recorder</li>
+<li>2 during replay</li>
+</ul>
+</li>
+<li>The node is run with the <code class="docutils literal notranslate"><span class="pre">STACK_COMPANION</span></code> set to 1 and the <code class="docutils literal notranslate"><span class="pre">recorder</span></code> directory is created under <code class="docutils literal notranslate"><span class="pre">data/&lt;node</span> <span class="pre">name&gt;</span></code>.
+This directory is either copied or a script in indy-node is used to copy the directories.
+The directories are given to the developer who uses a script in indy-node to replay.</li>
+</ul>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="start_nodes.html" class="btn btn-neutral float-right" title="Start Nodes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="storage.html" class="btn btn-neutral" title="Storage components" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Hyperledger Indy
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+    
+
+  
+
+  <script type="text/javascript" src="_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

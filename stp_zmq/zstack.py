@@ -1,5 +1,7 @@
 import inspect
 
+from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -14,7 +16,9 @@ import sys
 import time
 from binascii import hexlify, unhexlify
 from collections import deque
-from typing import Mapping, Tuple, Any, Union, Optional
+from typing import Mapping, Tuple, Any, Union, Optional, NamedTuple
+
+from common.exceptions import PlenumTypeError, PlenumValueError
 
 # import stp_zmq.asyncio
 import zmq.auth
@@ -23,21 +27,26 @@ from stp_core.crypto.util import isHex, ed25519PkToCurve25519
 from stp_core.network.exceptions import PublicKeyNotFoundOnDisk, VerKeyNotFoundOnDisk
 from stp_zmq.authenticator import MultiZapAuthenticator
 from zmq.utils import z85
+from zmq.utils.monitor import recv_monitor_message
 
 import zmq
 from stp_core.common.log import getlogger
 from stp_core.network.network_interface import NetworkInterface
 from stp_zmq.util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations, createCertsFromKeys
-from stp_zmq.remote import Remote, set_keepalive, set_zmq_internal_queue_length
+from stp_zmq.remote import Remote, set_keepalive, set_zmq_internal_queue_size
 from plenum.common.exceptions import InvalidMessageExceedingSizeException
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 logger = getlogger()
 
 
+Quota = NamedTuple("Quota", [("count", int), ("size", int)])
+
+
 # TODO: Use Async io
-# TODO: There a number of methods related to keys management, they can be moved to some class like KeysManager
+# TODO: There a number of methods related to keys management,
+# they can be moved to some class like KeysManager
 class ZStack(NetworkInterface):
     # Assuming only one listener per stack for now.
 
@@ -54,17 +63,27 @@ class ZStack(NetworkInterface):
     # TODO: This is not implemented, implement this
     messageTimeout = 3
 
+    _RemoteClass = Remote
+
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, onlyListener=False, config=None, msgRejectHandler=None):
+                 seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
+                 create_listener_monitor=False, metrics=NullMetricsCollector(),
+                 mt_incoming_size=None, mt_outgoing_size=None):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
         self.seed = seed
+        self.queue_size = queue_size
         self.config = config or getConfig()
         self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
+        self.metrics = metrics
+        self.mt_incoming_size = mt_incoming_size
+        self.mt_outgoing_size = mt_outgoing_size
+
         self.listenerQuota = self.config.DEFAULT_LISTENER_QUOTA
+        self.listenerSize = self.config.DEFAULT_LISTENER_SIZE
         self.senderQuota = self.config.DEFAULT_SENDER_QUOTA
         self.msgLenVal = MessageLenValidator(self.config.MSG_LEN_LIMIT)
 
@@ -88,6 +107,8 @@ class ZStack(NetworkInterface):
 
         self.ctx = None  # type: Context
         self.listener = None
+        self.create_listener_monitor = create_listener_monitor
+        self.listener_monitor = None
         self.auth = None
 
         # Each remote is identified uniquely by the name
@@ -98,7 +119,6 @@ class ZStack(NetworkInterface):
         # Indicates if this stack will maintain any remotes or will
         # communicate simply to listeners. Used in ClientZStack
         self.onlyListener = onlyListener
-        self.peersWithoutRemotes = set()
 
         self._conns = set()  # type: Set[str]
 
@@ -106,6 +126,10 @@ class ZStack(NetworkInterface):
         self._created = time.perf_counter()
 
         self.last_heartbeat_at = None
+
+        self._stashed_to_disconnected = {}
+        self._stashed_pongs = set()
+        self._received_pings = set()
 
     def __defaultMsgRejectHandler(self, reason: str, frm):
         pass
@@ -138,7 +162,7 @@ class ZStack(NetworkInterface):
             self.remotesByKeys.pop(pkey, None)
             self.verifiers.pop(vkey, None)
         else:
-            logger.debug('No remote named {} present')
+            logger.info('No remote named {} present')
 
     @staticmethod
     def initLocalKeys(name, baseDir, sigseed, override=False):
@@ -146,10 +170,8 @@ class ZStack(NetworkInterface):
         eDir = os.path.join(baseDir, '__eDir')
         os.makedirs(sDir, exist_ok=True)
         os.makedirs(eDir, exist_ok=True)
-        (public_key, secret_key), (verif_key, sig_key) = createEncAndSigKeys(eDir,
-                                                                             sDir,
-                                                                             name,
-                                                                             seed=sigseed)
+        (public_key, secret_key), (verif_key, sig_key) = \
+            createEncAndSigKeys(eDir, sDir, name, seed=sigseed)
 
         homeDir = ZStack.homeDirPath(baseDir, name)
         verifDirPath = ZStack.verifDirPath(homeDir)
@@ -268,9 +290,8 @@ class ZStack(NetworkInterface):
             assert not os.listdir(self.secretKeysDir)
             # Seed should be present
             assert self.seed, 'Keys are not setup for {}'.format(self)
-            logger.info("Signing and Encryption keys were not found for {}. "
-                        "Creating them now".format(self),
-                        extra={"cli": False})
+            logger.display("Signing and Encryption keys were not found for {}. Creating them now".
+                           format(self), extra={"cli": False})
             tdirS = os.path.join(self.homeDir, '__skeys__')
             tdirE = os.path.join(self.homeDir, '__ekeys__')
             os.makedirs(tdirS, exist_ok=True)
@@ -322,12 +343,10 @@ class ZStack(NetworkInterface):
 
     def stop(self):
         if self.opened:
-            logger.info('stack {} closing its listener'.format(self),
-                        extra={"cli": False, "demo": False})
+            logger.display('stack {} closing its listener'.format(self), extra={"cli": False, "demo": False})
             self.close()
         self.teardownAuth()
-        logger.info("stack {} stopped".format(self),
-                    extra={"cli": False, "demo": False})
+        logger.display("stack {} stopped".format(self), extra={"cli": False, "demo": False})
 
     @property
     def opened(self):
@@ -336,6 +355,8 @@ class ZStack(NetworkInterface):
     def open(self):
         # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
+        if self.create_listener_monitor:
+            self.listener_monitor = self.listener.get_monitor_socket()
         # noinspection PyUnresolvedReferences
         # self.poller.register(self.listener, test.POLLIN)
         public, secret = self.selfEncKeys
@@ -344,15 +365,29 @@ class ZStack(NetworkInterface):
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
         logger.debug(
-            '{} will bind its listener at {}'.format(self, self.ha[1]))
+            '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
-        set_zmq_internal_queue_length(self.listener, self.config)
-        self.listener.bind(
-            '{protocol}://*:{port}'.format(
-                port=self.ha[1], protocol=ZMQ_NETWORK_PROTOCOL)
-        )
+        set_zmq_internal_queue_size(self.listener, self.queue_size)
+        # Cycle to deal with "Address already in use" in case of immediate stack restart.
+        bound = False
+        bind_retries = 0
+        while not bound:
+            try:
+                self.listener.bind(
+                    '{protocol}://{ip}:{port}'.format(ip=self.ha[0], port=self.ha[1],
+                                                      protocol=ZMQ_NETWORK_PROTOCOL)
+                )
+                bound = True
+            except zmq.error.ZMQError as zmq_err:
+                bind_retries += 1
+                if bind_retries == 50:
+                    raise zmq_err
+                time.sleep(0.2)
 
     def close(self):
+        if self.listener_monitor is not None:
+            self.listener.disable_monitor()
+            self.listener_monitor = None
         self.listener.unbind(self.listener.LAST_ENDPOINT)
         self.listener.close(linger=0)
         self.listener = None
@@ -393,36 +428,21 @@ class ZStack(NetworkInterface):
         return not self.isRestricted
 
     def isConnectedTo(self, name: str = None, ha: Tuple = None):
-        if self.onlyListener:
-            return self.hasRemote(name)
-        return super().isConnectedTo(name, ha)
+        return not self.onlyListener and super().isConnectedTo(name, ha)
 
     def hasRemote(self, name):
-        if self.onlyListener:
-            if isinstance(name, str):
-                name = name.encode()
-            if name in self.peersWithoutRemotes:
-                return True
-        return super().hasRemote(name)
+        return not self.onlyListener and super().hasRemote(name)
 
     def removeRemoteByName(self, name: str):
-        if self.onlyListener:
-            if name in self.peersWithoutRemotes:
-                self.peersWithoutRemotes.remove(name)
-                return True
-        else:
-            return super().removeRemoteByName(name)
+        return not self.onlyListener and super().removeRemoteByName(name)
 
     def getHa(self, name):
         # Return HA as None when its a `peersWithoutRemote`
         if self.onlyListener:
-            if isinstance(name, str):
-                name = name.encode()
-            if name in self.peersWithoutRemotes:
-                return None
+            return None
         return super().getHa(name)
 
-    async def service(self, limit=None) -> int:
+    async def service(self, limit=None, quota: Optional[Quota] = None) -> int:
         """
         Service `limit` number of received messages in this stack.
 
@@ -431,9 +451,9 @@ class ZStack(NetworkInterface):
         :return: the number of messages processed.
         """
         if self.listener:
-            await self._serviceStack(self.age)
+            await self._serviceStack(self.age, quota)
         else:
-            logger.debug("{} is stopped".format(self))
+            logger.info("{} is stopped".format(self))
 
         r = len(self.rxMsgs)
         if r > 0:
@@ -443,34 +463,34 @@ class ZStack(NetworkInterface):
 
     def _verifyAndAppend(self, msg, ident):
         try:
+            self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
             decoded = msg.decode()
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
             errstr = 'Message will be discarded due to {}'.format(ex)
             frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
-            logger.warning("Got from {} {}".format(frm, errstr))
+            logger.error("Got from {} {}".format(z85_to_friendly(frm), errstr))
             self.msgRejectHandler(errstr, frm)
             return False
         self.rxMsgs.append((decoded, ident))
         return True
 
-    def _receiveFromListener(self, quota) -> int:
+    def _receiveFromListener(self, quota: Quota) -> int:
         """
         Receives messages from listener
         :param quota: number of messages to receive
         :return: number of received messages
         """
-        assert quota
         i = 0
-        while i < quota:
+        incoming_size = 0
+        while i < quota.count and incoming_size < quota.size:
             try:
                 ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
                 if not msg:
                     # Router probing sends empty message on connection
                     continue
+                incoming_size += len(msg)
                 i += 1
-                if self.onlyListener and ident not in self.remotesByKeys:
-                    self.peersWithoutRemotes.add(ident)
                 self._verifyAndAppend(msg, ident)
             except zmq.Again:
                 break
@@ -509,7 +529,7 @@ class ZStack(NetworkInterface):
             totalReceived += i
         return totalReceived
 
-    async def _serviceStack(self, age):
+    async def _serviceStack(self, age, quota: Optional[Quota] = None):
         # TODO: age is unused
 
         # These checks are kept here and not moved to a function since
@@ -520,7 +540,10 @@ class ZStack(NetworkInterface):
                 self.config.HEARTBEAT_FREQ):
             self.send_heartbeats()
 
-        self._receiveFromListener(quota=self.listenerQuota)
+        if quota is None:
+            quota = Quota(count=self.listenerQuota, size=self.listenerSize)
+
+        self._receiveFromListener(quota)
         self._receiveFromRemotes(quotaPerRemote=self.senderQuota)
         return len(self.rxMsgs)
 
@@ -531,16 +554,24 @@ class ZStack(NetworkInterface):
         for num_processed in range(limit):
             if len(self.rxMsgs) == 0:
                 return num_processed
+
             msg, ident = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
+
             if self.handlePingPong(msg, frm, ident):
                 continue
+
+            if not self.onlyListener and ident not in self.remotesByKeys:
+                logger.warning('{} received message from unknown remote {}'
+                               .format(self, z85_to_friendly(ident)))
+                continue
+
             try:
                 msg = self.deserializeMsg(msg)
             except Exception as e:
                 logger.error('Error {} while converting message {} '
-                             'to JSON from {}'.format(e, msg, ident))
+                             'to JSON from {}'.format(e, msg, z85_to_friendly(ident)))
                 continue
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
@@ -562,6 +593,7 @@ class ZStack(NetworkInterface):
         if not name:
             raise ValueError('Remote name should be specified')
 
+        publicKey = None
         if name in self.remotes:
             remote = self.remotes[name]
         else:
@@ -584,7 +616,16 @@ class ZStack(NetworkInterface):
                     extra={"cli": "PLAIN", "tags": ["node-looking"]})
 
         # This should be scheduled as an async task
+
         self.sendPingPong(remote, is_ping=True)
+
+        # re-send previously stashed pings/pongs from unknown remotes
+        logger.trace("{} stashed pongs: {}".format(self.name, str(self._stashed_pongs)))
+        if publicKey in self._stashed_pongs:
+            logger.trace("{} sending stashed pongs to {}".format(self.name, str(z85_to_friendly(publicKey))))
+            self._stashed_pongs.discard(publicKey)
+            self.sendPingPong(name, is_ping=False)
+
         return remote.uid
 
     def reconnectRemote(self, remote):
@@ -595,39 +636,48 @@ class ZStack(NetworkInterface):
         :param remoteName: name of remote
         :return:
         """
-        assert remote
-        logger.debug('{} reconnecting to {}'.format(self, remote))
+        if not isinstance(remote, Remote):
+            raise PlenumTypeError('remote', remote, Remote)
+        logger.info('{} reconnecting to {}'.format(self, remote))
         public, secret = self.selfEncKeys
         remote.disconnect()
         remote.connect(self.ctx, public, secret)
         self.sendPingPong(remote, is_ping=True)
 
     def reconnectRemoteWithName(self, remoteName):
-        assert remoteName
-        assert remoteName in self.remotes
+        if remoteName not in self.remotes:
+            raise PlenumValueError(
+                'remoteName', remoteName,
+                "one of {}".format(self.remotes)
+            )
         self.reconnectRemote(self.remotes[remoteName])
 
-    def disconnectByName(self, name: str):
-        assert name
-        remote = self.remotes.get(name)
+    def disconnectByName(self, remoteName: str):
+        if not remoteName:
+            raise PlenumValueError(
+                'remoteName', remoteName,
+                "non-empty string"
+            )
+        remote = self.remotes.get(remoteName)
         if not remote:
             logger.debug('{} did not find any remote '
                          'by name {} to disconnect'
-                         .format(self, name))
+                         .format(self, remoteName))
             return None
         remote.disconnect()
         return remote
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
-        remote = Remote(name, ha, remoteVerkey, remotePublicKey)
+        if not name:
+            raise PlenumValueError('name', name, 'non-empty')
+        remote = self._RemoteClass(name, ha, remoteVerkey, remotePublicKey, self.queue_size, self.ha[0])
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
         if remoteVerkey:
             self.addVerifier(remoteVerkey)
         else:
-            logger.debug('{} adding a remote {}({}) without a verkey'.
-                         format(self, name, ha))
+            logger.display('{} adding a remote {}({}) without a verkey'.format(self, name, ha))
         return remote
 
     def sendPingPong(self, remote: Union[str, Remote], is_ping=True):
@@ -636,33 +686,51 @@ class ZStack(NetworkInterface):
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
         if r[0] is True:
-            logger.debug('{} {}ed {}'.format(self.name, action, name))
+            logger.debug('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
-            # TODO: This fails the first time as socket is not established,
-            # need to make it retriable
             logger.debug('{} failed to {} {} {}'
-                         .format(self.name, action, name, r[1]),
+                         .format(self.name, action, z85_to_friendly(name), r[1]),
                          extra={"cli": False})
+            # try to re-send pongs later
+            if not is_ping:
+                self._stashed_pongs.add(name)
         elif r[0] is None:
             logger.debug('{} will be sending in batch'.format(self))
         else:
-            logger.warning('{}{} got an unexpected return value {}'
-                           ' while sending'
-                           .format(CONNECTION_PREFIX, self, r))
+            logger.error('{}{} got an unexpected return value {} while sending'.
+                         format(CONNECTION_PREFIX, self, r))
         return r[0]
 
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.debug('{} got ping from {}'.format(self, frm))
+                logger.trace('{} got ping from {}'.format(self, z85_to_friendly(frm)))
                 self.sendPingPong(frm, is_ping=False)
-
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
-                logger.debug('{} got pong from {}'.format(self, frm))
+                    self._resend_to_disconnected(frm, ident)
+                logger.trace('{} got pong from {}'.format(self, z85_to_friendly(frm)))
             return True
         return False
+
+    def _can_resend_to_disconnected(self, to, ident):
+        if to not in self._stashed_to_disconnected:
+            return False
+        if ident not in self.remotesByKeys:
+            return False
+        if not self.remotesByKeys[ident].isConnected:
+            return False
+        return True
+
+    def _resend_to_disconnected(self, to, ident):
+        if not self._can_resend_to_disconnected(to, ident):
+            return
+        logger.trace('{} resending stashed messages to {}'.format(self, z85_to_friendly(to)))
+        msgs = self._stashed_to_disconnected[to]
+        while msgs:
+            msg = msgs.popleft()
+            ZStack.send(self, msg, to)
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all
@@ -683,9 +751,8 @@ class ZStack(NetworkInterface):
                 try:
                     msg = self.prepare_to_send(msg)
                 except InvalidMessageExceedingSizeException as ex:
-                    err_str = '{}Cannot send message. Error {}'.format(
-                        CONNECTION_PREFIX, ex)
-                    logger.error(err_str)
+                    err_str = '{}Cannot send message. Error {}'.format(CONNECTION_PREFIX, ex)
+                    logger.warning(err_str)
                     return False, err_str
                 for uid in self.remotes:
                     res, err = self.transmit(msg, uid, serialized=True)
@@ -701,44 +768,42 @@ class ZStack(NetworkInterface):
         remote = self.remotes.get(uid)
         err_str = None
         if not remote:
-            logger.debug("Remote {} does not exist!".format(uid))
+            logger.debug("Remote {} does not exist!".format(z85_to_friendly(uid)))
             return False, err_str
         socket = remote.socket
         if not socket:
             logger.debug('{} has uninitialised socket '
-                         'for remote {}'.format(self, uid))
+                         'for remote {}'.format(self, z85_to_friendly(uid)))
             return False, err_str
         try:
             if not serialized:
                 msg = self.prepare_to_send(msg)
-            # socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
+
+            logger.trace('{} transmitting message {} to {} by socket {} {}'
+                         .format(self, msg, z85_to_friendly(uid), socket.FD, socket.underlying))
             socket.send(msg, flags=zmq.NOBLOCK)
-            logger.debug('{} transmitting message {} to {}'
-                         .format(self, msg, uid))
-            if not remote.isConnected and msg not in self.healthMessages:
-                logger.debug('Remote {} is not connected - '
-                             'message will not be sent immediately.'
-                             'If this problem does not resolve itself - '
-                             'check your firewall settings'.format(uid))
+
+            if remote.isConnected or msg in self.healthMessages:
+                self.metrics.add_event(self.mt_outgoing_size, len(msg))
+            else:
+                logger.warning('Remote {} is not connected - message will not be sent immediately.'
+                               'If this problem does not resolve itself - check your firewall settings'
+                               .format(z85_to_friendly(uid)))
+                self._stashed_to_disconnected \
+                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
+                    .append(msg)
+
             return True, err_str
         except zmq.Again:
-            logger.debug(
-                '{} could not transmit message to {}'.format(self, uid))
+            logger.warning('{} could not transmit message to {}'.format(self, z85_to_friendly(uid)))
         except InvalidMessageExceedingSizeException as ex:
-            err_str = '{}Cannot transmit message. Error {}'.format(
-                CONNECTION_PREFIX, ex)
-            logger.error(err_str)
+            err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
+            logger.warning(err_str)
         return False, err_str
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
         if isinstance(ident, str):
             ident = ident.encode()
-        if ident not in self.peersWithoutRemotes:
-            logger.debug('{} not sending message {} to {}'.
-                         format(self, msg, ident))
-            logger.debug("This is a temporary workaround for not being able to "
-                         "disconnect a ROUTER's remote")
-            return False, None
         try:
             msg = self.prepare_to_send(msg)
             # noinspection PyUnresolvedReferences
@@ -746,19 +811,18 @@ class ZStack(NetworkInterface):
             #                              flags=zmq.NOBLOCK)
             logger.trace('{} transmitting {} to {} through listener socket'.
                          format(self, msg, ident))
+            self.metrics.add_event(self.mt_outgoing_size, len(msg))
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
-            return True, None
         except zmq.Again:
             return False, None
         except InvalidMessageExceedingSizeException as ex:
-            err_str = '{}Cannot transmit message. Error {}'.format(
-                CONNECTION_PREFIX, ex)
-            logger.error(err_str)
+            err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
+            logger.warning(err_str)
             return False, err_str
         except Exception as e:
-            err_str = '{}{} got error {} while sending through listener to {}'\
+            err_str = '{}{} got error {} while sending through listener to {}' \
                 .format(CONNECTION_PREFIX, self, e, ident)
-            logger.error(err_str)
+            logger.warning(err_str)
             return False, err_str
         return True, None
 
@@ -778,7 +842,7 @@ class ZStack(NetworkInterface):
         msg = json.loads(msg)
         return msg
 
-    def signedMsg(self, msg: bytes, signer: Signer=None):
+    def signedMsg(self, msg: bytes, signer: Signer = None):
         sig = self.signer.signature(msg)
         return msg + sig
 
@@ -897,8 +961,7 @@ class ZStack(NetworkInterface):
         try:
             os.remove(filePath)
         except Exception as ex:
-            logger.debug('{} could delete file {} due to {}'.
-                         format(self, filePath, ex))
+            logger.info('{} could delete file {} due to {}'.format(self, filePath, ex))
 
     def clearLocalRoleKeep(self):
         for d in (self.secretKeysDir, self.sigKeyDir):
@@ -927,6 +990,20 @@ class ZStack(NetworkInterface):
         msg_bytes = self.serializeMsg(msg)
         self.msgLenVal.validate(msg_bytes)
         return msg_bytes
+
+    @staticmethod
+    def get_monitor_events(monitor_socket, non_block=True):
+        events = []
+        # noinspection PyUnresolvedReferences
+        flags = zmq.NOBLOCK if non_block else 0
+        while True:
+            try:
+                # noinspection PyUnresolvedReferences
+                message = recv_monitor_message(monitor_socket, flags)
+                events.append(message)
+            except zmq.Again:
+                break
+        return events
 
 
 class DummyKeep:

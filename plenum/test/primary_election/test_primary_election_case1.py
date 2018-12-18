@@ -9,10 +9,9 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.helper import whitelistNode
 from plenum.test.primary_election.helpers import checkNomination, \
     getSelfNominationByNode, nominationByNode
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+from plenum.test.test_node import checkNodesConnected, \
     ensureElectionsDone
 from plenum.test import waits
-
 
 nodeCount = 4
 whitelist = ['already got nomination',
@@ -24,11 +23,8 @@ delayOfNomination = 5
 
 
 @pytest.fixture()
-def case1Setup(startedNodes: TestNodeSet):
-    nodes = startedNodes
-    nodeNames = nodes.nodeNames
-
-    nodeB = nodes.getNode(nodeNames[1])
+def case1Setup(txnPoolNodeSet):
+    nodeB = txnPoolNodeSet[1]
 
     # Node B delays self nomination so A's nomination reaches everyone
     nodeB.delaySelfNomination(10)
@@ -36,8 +32,8 @@ def case1Setup(startedNodes: TestNodeSet):
     nodeB.nodeIbStasher.delay(delayerMsgTuple(delayOfNomination, Nomination))
 
     # Add node C and node D
-    nodeC = nodes.getNode(nodeNames[2])
-    nodeD = nodes.getNode(nodeNames[3])
+    nodeC = txnPoolNodeSet[2]
+    nodeD = txnPoolNodeSet[3]
 
     # Node C should not try to nominate itself until it gets NOMINATE from B
     nodeC.delaySelfNomination(10)
@@ -51,30 +47,29 @@ def case1Setup(startedNodes: TestNodeSet):
     # multiple nominations from the same node have any impact on
     # the election
     whitelistNode(nodeB.name,
-                  [node for node in nodes if node != nodeB],
+                  [node for node in txnPoolNodeSet if node != nodeB],
                   Suspicions.DUPLICATE_NOM_SENT.code)
 
-    return nodes
+    return txnPoolNodeSet
 
 
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip('Nodes use round robin primary selection')
-def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
+def testPrimaryElectionCase1(case1Setup, looper, txnPoolNodeSet):
     """
     Case 1 - A node making multiple nominations for a particular node. Consider
     4 nodes A, B, C and D. Lets say node B is malicious and is repeatedly
     nominating Node D
     """
-    nodes = keySharedNodes
-    nodeA, nodeB, nodeC, nodeD = [nodes.getNode(nm) for nm in nodes.nodeNames]
+    nodeA, nodeB, nodeC, nodeD = txnPoolNodeSet
 
     # Doesn't matter if nodes reach the ready state or not. Just start them
-    looper.run(checkNodesConnected(nodes))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Node B sends multiple NOMINATE messages for Node D but only after A has
     # nominated itself
     timeout = waits.expectedPoolNominationTimeout(
-        nodeCount=len(keySharedNodes))
+        nodeCount=len(txnPoolNodeSet))
     looper.run(eventually(checkNomination, nodeA, nodeA.name,
                           retryWait=.25, timeout=timeout))
 
@@ -92,13 +87,13 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     for node in [nodeA, nodeC, nodeD]:
         assert [n[0] for n in node.elector.nominations[instId].values()].count(
             Replica.generateName(nodeD.name, instId)) \
-            <= 1
+               <= 1
 
     timeout = waits.expectedPoolElectionTimeout(nodeCount) + delayOfNomination
     primaryReplicas = ensureElectionsDone(looper=looper,
-                                          nodes=nodes, customTimeout=timeout)
+                                          nodes=txnPoolNodeSet, customTimeout=timeout)
 
-    for node in nodes:
+    for node in txnPoolNodeSet:
         logger.debug(
             "{}'s nominations {}".format(node, node.elector.nominations))
     # Node D should not have any primary
