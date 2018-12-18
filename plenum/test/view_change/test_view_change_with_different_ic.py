@@ -48,7 +48,7 @@ def test_view_change_with_different_ic(looper, txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     for node in txnPoolNodeSet:
-        assert node.viewNo == view_no
+        assert node.viewNo > view_no
 
 
 def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
@@ -72,7 +72,7 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
     nodes_to_restart = txnPoolNodeSet[1:3]
 
     # waiting to discard InstanceChange
-    looper.runFor(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL)
+    looper.runFor(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1)
 
     for n in nodes_to_restart:
         n.view_changer.on_master_degradation()
