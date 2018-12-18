@@ -17,15 +17,17 @@ class DatabaseManager():
 
     def get_database(self, lid):
         if lid not in self.databases:
-            raise LogicError('Trying to get nonexistent database')
+            return None
         return self.databases[lid]
 
     def register_new_store(self, label, store):
+        if label in self.stores:
+            raise LogicError('Trying to add already existing store')
         self.stores[label] = store
 
     def get_store(self, label):
         if label not in self.stores:
-            raise LogicError('Trying to get nonexistent store')
+            return None
         return self.stores[label]
 
 
