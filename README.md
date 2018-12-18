@@ -19,9 +19,9 @@ system, whereas Fabric is general purpose.
 
 ## Technical Overview of Indy
 
-Please find the general overview of the system in [Overview of the system](docs/main.md).
+Please find the general overview of the system in [Overview of the system](docs/source/main.md).
 
-More documentation can be found in [docs](docs).
+More documentation can be found in [docs/source](docs/source).
 
 ## Other Documentation
 
