@@ -82,8 +82,9 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
         n.view_changer.on_master_degradation()
 
     def check_ic():
-        assert all(panic_node.view_changer.instanceChanges.has_inst_chng_from(view_no + 1, node.name)
-                   for node in nodes_to_restart)
+        for node in txnPoolNodeSet:
+            assert all(node.view_changer.instanceChanges.has_inst_chng_from(view_no + 1, n.name)
+                       for n in nodes_to_restart)
 
     looper.run(eventually(check_ic))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
