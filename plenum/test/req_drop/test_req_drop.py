@@ -34,11 +34,14 @@ def requests():
 
 @pytest.fixture(scope="function")
 def node(requests):
+    fake_monitor = FakeSomething(requestTracker=FakeSomething(
+        force_req_drop=lambda *args, **kwargs: True))
     return FakeSomething(requests=requests,
-                         propagates_phase_req_timeout=3600,
-                         ordering_phase_req_timeout=3600,
+                         propagates_phase_req_timeout=1,
+                         ordering_phase_req_timeout=1,
                          propagates_phase_req_timeouts=0,
                          ordering_phase_req_timeouts=0,
+                         monitor=fake_monitor,
                          _clean_req_from_verified=lambda *args, **kwargs: True,
                          doneProcessingReq=lambda *args, **kwargs: True)
 
