@@ -224,7 +224,9 @@ class Replicas:
                            'Received {} valid Prepares from {}. '
                            'Received {} valid Commits from {}. '
                            'Transaction contents: {}. '
-                           .format(reqId, duration, replica.primaryName.split(':')[0], prepre_sender,
+                           .format(reqId, duration,
+                                   replica.primaryName.split(':')[0] if replica.primaryName is not None else None,
+                                   prepre_sender,
                                    n_prepares, str_prepares, n_commits, str_commits, content))
 
     def keys(self):
