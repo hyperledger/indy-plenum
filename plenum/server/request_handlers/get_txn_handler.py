@@ -12,8 +12,8 @@ logger = getlogger()
 
 class GetTxnHandler(ReadRequestHandler):
 
-    def __init__(self, node, database_manager: DatabaseManager):
-        super().__init__(node, database_manager)
+    def __init__(self, node, database_manager: DatabaseManager, txn_type):
+        super().__init__(node, database_manager, txn_type)
 
     def get_result(self, request: Request):
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)

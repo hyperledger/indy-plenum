@@ -4,9 +4,10 @@ from plenum.server.request_handlers.handler_interfaces.request_handler import Re
 
 
 class ReadRequestHandler(RequestHandler):
-    def __init__(self, node, database_manager: DatabaseManager):
+    def __init__(self, node, database_manager: DatabaseManager, txn_type):
         self.node = node
         self.database_manager = database_manager
+        self.txn_type = txn_type
 
     def static_validation(self, request: Request):
         pass

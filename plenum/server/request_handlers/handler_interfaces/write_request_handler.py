@@ -32,14 +32,14 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def dynamic_validation(self, req: Request):
+    def dynamic_validation(self, request: Request):
         pass
 
     def apply_request(self, request: Request, batch_ts):
         txn = self._reqToTxn(request)
         txn = append_txn_metadata(txn, txn_id=self.gen_txn_path(txn))
-
         self.ledger.append_txns_metadata([txn], batch_ts)
+
         (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
         self.updateState([txn])
@@ -73,28 +73,6 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
             raise LogicError('requestHandler.applyForce method is called '
                              'for not forced request: {}'.format(req))
 
-    def get_query_response(self, request):
-        raise NotImplementedError
-
     @staticmethod
     def transform_txn_for_ledger(txn):
         return txn
-
-    @staticmethod
-    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None):
-        _, committedTxns = ledger.commitTxns(txnCount)
-        stateRoot = state_roots_serializer.deserialize(stateRoot.encode()) if isinstance(
-            stateRoot, str) else stateRoot
-        # TODO test for that
-        if ledger.root_hash != txnRoot:
-            # Probably the following fail should trigger catchup
-            # TODO add repr / str for Ledger class and dump it here as well
-            raise PlenumValueError(
-                'txnRoot', txnRoot,
-                ("equal to current ledger root hash {}"
-                    .format(ledger.root_hash))
-            )
-        state.commit(rootHash=stateRoot)
-        if ts_store:
-            ts_store.set(ppTime, stateRoot)
-        return committedTxns

@@ -8,12 +8,13 @@ class DomainBatchHandler(BatchRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, DOMAIN_LEDGER_ID)
 
-    def post_apply_batch(self):
+    def post_apply_batch(self, state_root):
         pass
 
     def commit_batch(self, txnCount, stateRoot, txnRoot, ppTime):
-        self._commit(self.ledger, self.state, txnCount, stateRoot, txnRoot)
+        commited_txns = super().commit_batch(txnCount, stateRoot, txnRoot, ppTime)
         self.ts_store.set(ppTime, stateRoot)
+        return commited_txns
 
     def revert_batch(self):
         pass

@@ -27,20 +27,20 @@ class NymHandler(WriteRequestHandler):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, req: Request):
-        origin = req.identifier
+    def dynamic_validation(self, request: Request):
+        origin = request.identifier
         error = None
         if not self.isSteward(self.state,
                               origin, isCommitted=False):
             error = "Only Steward is allowed to do these transactions"
-        if req.operation.get(ROLE) == STEWARD:
+        if request.operation.get(ROLE) == STEWARD:
             if self.stewardThresholdExceeded(self.config):
                 error = "New stewards cannot be added by other stewards " \
                         "as there are already {} stewards in the system". \
                     format(self.config.stewardThreshold)
         if error:
-            raise UnauthorizedClientRequest(req.identifier,
-                                            req.reqId,
+            raise UnauthorizedClientRequest(request.identifier,
+                                            request.reqId,
                                             error)
 
     def apply_request(self, request: Request, batch_ts):
