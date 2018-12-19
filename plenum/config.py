@@ -193,7 +193,7 @@ ViewChangeWindowSize = 60
 
 # A node if finds itself disconnected from primary of the master instance will
 # wait for `ToleratePrimaryDisconnection` before sending a view change message
-ToleratePrimaryDisconnection = 2
+ToleratePrimaryDisconnection = 60
 
 # A node if finds itself disconnected from primary of some backup instance will
 # wait for `TolerateBackupPrimaryDisconnection` before remove its replica
