@@ -22,7 +22,6 @@ class WriteRequestManager(RequestManager):
         self.database_manager = database_manager
         self.request_handlers = {}  # type: Dict[int,List[WriteRequestHandler]]
         self.batch_handlers = {}  # type: Dict[int,List[BatchRequestHandler]]
-
         self.state_serializer = pool_state_serializer
 
     def register_req_handler(self, handler: WriteRequestHandler):
@@ -65,8 +64,10 @@ class WriteRequestManager(RequestManager):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
         if handlers is None:
             raise LogicError
-        for handler in handlers:
+        start, txn = handlers[0].apply_request(request, batch_ts)
+        for handler in handlers[1:]:
             handler.apply_request(request, batch_ts)
+        return start, txn
 
     def apply_forced_request(self, request):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
@@ -89,8 +90,10 @@ class WriteRequestManager(RequestManager):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:
             raise LogicError
+        commited_txns = handlers[0].commit_batch(txn_count, state_root, txn_root, pp_time)
         for handler in handlers:
             handler.commit_batch(txn_count, state_root, txn_root, pp_time)
+        return commited_txns
 
     def revert_batch(self, ledger_id):
         handlers = self.batch_handlers.get(ledger_id, None)

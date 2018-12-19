@@ -30,6 +30,11 @@ class DatabaseManager():
             return None
         return self.stores[label]
 
+    @property
+    def states(self):
+        # TODO: change this. Too inefficient to build dict every time
+        return dict((lid, db.state) for lid, db in self.databases.items())
+
 
 class Database:
     def __init__(self, ledger, state):

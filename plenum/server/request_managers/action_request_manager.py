@@ -9,6 +9,9 @@ class ActionRequestManager(RequestManager):
     def __init__(self):
         self.request_handlers = {}  # type: Dict[int, ActionRequestHandler]
 
+    def static_validation(self, request: Request):
+        pass
+
     def dynamic_validation(self, request: Request):
         pass
 
