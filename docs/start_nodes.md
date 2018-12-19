@@ -1,3 +1,8 @@
+#### Notification
+Please be aware that recommended way of starting a pool is to [use Docker](https://github.com/hyperledger/indy-node/blob/master/environment/docker/pool/README.md).
+
+
+
 #### Initializing Keys
 Each Node needs to have keys initialized
  - ed25519 transport keys (used by ZMQ for Node-to-Node and Node-to-Client communication)
