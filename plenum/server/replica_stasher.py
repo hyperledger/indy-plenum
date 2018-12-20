@@ -33,7 +33,8 @@ class ReplicaStasher:
         elif reason == STASH_WATERMARKS:
             self._stashed_watermarks.append(msg)
         else:
-            raise LogicError("Unknown Stash Type")
+            raise LogicError("Unknown Stash Type '{}' "
+                             "for message {}".format(reason, msg))
 
     def unstash_catchup(self):
         self._do_unstash(self._stashed_catch_up)

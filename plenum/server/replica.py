@@ -34,6 +34,9 @@ from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, 
 from plenum.config import CHK_FREQ
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
+from plenum.server.replica_stasher import ReplicaStasher
+from plenum.server.replica_validator import ReplicaValidator
+from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
@@ -250,6 +253,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.instId = instId
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
+        self.validator = ReplicaValidator(self)
+        self.stasher = ReplicaStasher(self)
 
         self.outBox = deque()
         """
@@ -959,15 +964,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.discard(msg, 'already ordered 3 phase message', self.logger.trace)
             return
 
-        if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
-            if self.can_pp_seq_no_be_in_view(msg.viewNo, msg.ppSeqNo):
-                self.threePhaseRouter.handleSync((msg, senderRep))
-            else:
-                self.discard(msg, 'un-acceptable pp seq no from previous view', self.logger.warning)
+        result, reason = self.validator.validate_3pc_msg(msg)
+        if result == DISCARD:
+            self.discard(msg, "{} discard message {} from {} "
+                              "with the reason: {}".format(self, msg, sender, reason),
+                         self.logger.trace)
+        elif result == PROCESS:
+            self.threePhaseRouter.handleSync((msg, senderRep))
         else:
-            self.logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is not between {} and {}".
-                              format(self, msg, msg.ppSeqNo, self.h, self.H))
-            self.stashOutsideWatermarks((msg, sender))
+            self.logger.debug("{} stashing 3 phase message {} with "
+                              "the reason: {}".format(self, msg, reason))
+            self.stasher.stash((msg, sender), reason)
+            self.stashOutsideWatermarks((msg, sender)) # ?
+
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
