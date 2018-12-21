@@ -21,8 +21,7 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     state control
     """
 
-    def __init__(self, config, database_manager: DatabaseManager, txn_type, ledger_id):
-        self.config = config
+    def __init__(self, database_manager: DatabaseManager, txn_type, ledger_id):
         self.database_manager = database_manager
         self.txn_type = txn_type
         self.ledger_id = ledger_id

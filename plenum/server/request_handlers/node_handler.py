@@ -15,8 +15,8 @@ from plenum.server.request_handlers.nym_handler import NymHandler
 
 class NodeHandler(WriteRequestHandler):
 
-    def __init__(self, config, database_manager: DatabaseManager, bls_crypto_verifier):
-        super().__init__(config, database_manager, NODE, POOL_LEDGER_ID)
+    def __init__(self, database_manager: DatabaseManager, bls_crypto_verifier):
+        super().__init__(database_manager, NODE, POOL_LEDGER_ID)
         self.bls_crypto_verifier = bls_crypto_verifier
         self.state_serializer = pool_state_serializer
 

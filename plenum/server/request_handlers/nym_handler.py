@@ -22,7 +22,8 @@ class NymHandler(WriteRequestHandler):
     stateSerializer = domain_state_serializer
 
     def __init__(self, config, database_manager: DatabaseManager):
-        super().__init__(config, database_manager, NYM, DOMAIN_LEDGER_ID)
+        super().__init__(database_manager, NYM, DOMAIN_LEDGER_ID)
+        self.config = config
 
     def static_validation(self, request: Request):
         pass
