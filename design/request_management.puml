@@ -1,0 +1,76 @@
+@startuml
+class WriteRequestManager{
+  List<WriteRequestHandler>
+  List<BatchRequestHandler>
+}
+
+class ReadRequestManager{
+  List<ReadRequestHandler>
+}
+
+class ActionRequestManager{
+  List<ActionRequestHandler>
+}
+
+class WriteRequestManager{
+static_validation(request: Request)
+dynamic_validation(request: Request)
+apply_request(request: Request, batch_ts)
+commit_batch(txnCount, stateRoot, txnRoot, ppTime)
+revert_batch()
+post_apply_batch(state_root)
+}
+
+class WriteRequestHandler{
+static_validation(request: Request)
+dynamic_validation(request: Request)
+apply_request(request: Request, batch_ts)
+}
+
+class BatchRequestHandler{
+commit_batch(txnCount, stateRoot, txnRoot, ppTime)
+revert_batch()
+post_apply_batch(state_root)
+}
+
+class ReadRequestManager{
+get_result(request: Request)
+}
+
+class ReadRequestHandler{
+get_result(request: Request)
+}
+
+class ActionRequestManager{
+process_action(request: Request)
+}
+
+class ActionRequestHandler{
+process_action(request: Request)
+}
+
+RequestManager <|-- WriteRequestManager
+RequestManager <|-- ReadRequestManager
+RequestManager <|-- ActionRequestManager
+
+BatchRequestHandler <|-- DomainBatchReqHandler
+BatchRequestHandler <|-- PoolBatchReqHandler
+BatchRequestHandler <|-- ConfigBatchReqHandler
+
+WriteRequestManager o-- WriteRequestHandler
+WriteRequestManager o-- BatchRequestHandler
+
+ReadRequestManager o-- ReadRequestHandler
+
+ActionRequestManager o-- ActionRequestHandler
+
+WriteRequestHandler<|-- NymHandler
+WriteRequestHandler<|-- NodeHandler
+WriteRequestHandler<|-- ClamDefHandler
+
+ReadRequestHandler<|-- GetTxnHandler
+ReadRequestHandler<|-- GetNymHandler
+
+ActionRequestHandler <|-- PoolRestartHandler
+ActionRequestHandler <|-- ValidatorInfoHandler
+@enduml
