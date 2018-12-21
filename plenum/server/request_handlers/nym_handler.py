@@ -23,6 +23,7 @@ class NymHandler(WriteRequestHandler):
 
     def __init__(self, config, database_manager: DatabaseManager):
         super().__init__(config, database_manager, NYM, DOMAIN_LEDGER_ID)
+        self._steward_count = 0
 
     def static_validation(self, request: Request):
         pass
@@ -84,14 +85,12 @@ class NymHandler(WriteRequestHandler):
         Note: This is inefficient, a production use case of this function
         should require an efficient storage mechanism
         """
-        # THIS SHOULD NOT BE DONE FOR PRODUCTION
-        return sum(1 for _, txn in self.ledger.getAllTxn() if
-                   (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE) == STEWARD))
+        return self._steward_count
 
     def stewardThresholdExceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
         by other stewards"""
-        return self.countStewards() > config.stewardThreshold
+        return self.countStewards() >= config.stewardThreshold
 
     def updateNym(self, nym, txn, isCommitted=True):
         existingData = self.getNymDetails(self.state, nym,
@@ -114,6 +113,7 @@ class NymHandler(WriteRequestHandler):
             newData[VERKEY] = txn_data[VERKEY]
         newData[F.seqNo.name] = get_seq_no(txn)
         newData[TXN_TIME] = get_txn_time(txn)
+        self._update_steward_count(newData, existingData)
         existingData.update(newData)
         val = self.stateSerializer.serialize(existingData)
         key = self.nym_to_state_key(nym)
@@ -212,3 +212,13 @@ class NymHandler(WriteRequestHandler):
 
         # Do not inline please, it makes debugging easier
         return result
+
+    def _update_steward_count(self, new_data, existing_data=None):
+        if not existing_data:
+            existing_data = {}
+            existing_data.setdefault(ROLE, "")
+        if existing_data[ROLE] == STEWARD and new_data[ROLE] != STEWARD:
+            self._steward_count -= 1
+        elif existing_data[ROLE] != STEWARD and new_data[ROLE] == STEWARD:
+            self._steward_count += 1
+
