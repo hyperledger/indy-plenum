@@ -1,6 +1,7 @@
 from typing import Dict
 
 from common.exceptions import LogicError
+from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL
 from plenum.common.ledger import Ledger
 from state.state import State
 
@@ -34,6 +35,22 @@ class DatabaseManager():
     def states(self):
         # TODO: change this. Too inefficient to build dict every time
         return dict((lid, db.state) for lid, db in self.databases.items())
+
+    @property
+    def bls_store(self):
+        return self.get_store(BLS_LABEL)
+
+    @property
+    def ts_store(self):
+        return self.get_store(TS_LABEL)
+
+    @property
+    def idr_cache(self):
+        return self.get_store(IDR_CACHE_LABEL)
+
+    @property
+    def attribute_store(self):
+        return self.get_store(ATTRIB_LABEL)
 
 
 class Database:
