@@ -10,42 +10,42 @@ class BatchRequestHandler:
         self.database_manager = database_manager
         self.ledger_id = ledger_id
 
-    @abstractmethod
-    def post_apply_batch(self, state_root):
-        pass
-
-    def commit_batch(self, txnCount, stateRoot, txnRoot, ppTime):
+    def commit_batch(self, txn_count, state_root, txn_root, pp_time):
         """
-        :param txnCount: The number of requests to commit (The actual requests
+        :param txn_count: The number of requests to commit (The actual requests
         are picked up from the uncommitted list from the ledger)
-        :param stateRoot: The state trie root after the txns are committed
-        :param txnRoot: The txn merkle root after the txns are committed
+        :param state_root: The state trie root after the txns are committed
+        :param txn_root: The txn merkle root after the txns are committed
 
         :return: list of committed transactions
         """
 
-        return self._commit(self.ledger, self.state, txnCount, stateRoot,
-                            txnRoot)
+        return self._commit(self.ledger, self.state, txn_count, state_root,
+                            txn_root)
 
     @abstractmethod
-    def revert_batch(self):
+    def post_batch_applied(self, state_root):
+        pass
+
+    @abstractmethod
+    def post_batch_rejected(self):
         pass
 
     @staticmethod
-    def _commit(ledger, state, txnCount, stateRoot, txnRoot):
-        _, committedTxns = ledger.commitTxns(txnCount)
-        stateRoot = state_roots_serializer.deserialize(stateRoot.encode()) if isinstance(
-            stateRoot, str) else stateRoot
+    def _commit(ledger, state, txn_count, state_root, txn_root):
+        _, committedTxns = ledger.commitTxns(txn_count)
+        state_root = state_roots_serializer.deserialize(state_root.encode()) if isinstance(
+            state_root, str) else state_root
         # TODO test for that
-        if ledger.root_hash != txnRoot:
+        if ledger.root_hash != txn_root:
             # Probably the following fail should trigger catchup
             # TODO add repr / str for Ledger class and dump it here as well
             raise PlenumValueError(
-                'txnRoot', txnRoot,
+                'txnRoot', txn_root,
                 ("equal to current ledger root hash {}"
                     .format(ledger.root_hash))
             )
-        state.commit(rootHash=stateRoot)
+        state.commit(rootHash=state_root)
         return committedTxns
 
     @property

@@ -8,11 +8,11 @@ class ConfigBatchHandler(BatchRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, CONFIG_LEDGER_ID)
 
-    def post_apply_batch(self, state_root):
+    def commit_batch(self, txn_count, state_root, txn_root, pp_time):
+        return super().commit_batch(txn_count, state_root, txn_root, pp_time)
+
+    def post_batch_applied(self, state_root):
         pass
 
-    def commit_batch(self, txnCount, stateRoot, txnRoot, ppTime):
-        return super().commit_batch(txnCount, stateRoot, txnRoot, ppTime)
-
-    def revert_batch(self):
+    def post_batch_rejected(self):
         pass
