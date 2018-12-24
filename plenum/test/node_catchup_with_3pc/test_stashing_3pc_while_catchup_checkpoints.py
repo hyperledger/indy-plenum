@@ -2,6 +2,7 @@ from logging import getLogger
 
 from plenum.common.startable import Mode
 from plenum.server.node import Node
+from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.delayers import cqDelay, cr_delay, cs_delay, reset_delays_and_process_delayeds, lsDelay, cpDelay
 from plenum.test.pool_transactions.helper import \
@@ -13,16 +14,21 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 
+from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
+
 logger = getLogger()
 
+CHK_FREQ = 5
 
-def test_3pc_while_catchup(tdir, tconf,
-                           looper,
-                           testNodeClass,
-                           txnPoolNodeSet,
-                           sdk_pool_handle,
-                           sdk_wallet_client,
-                           allPluginsPath):
+def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
+                                          looper,
+                                          chkFreqPatched,
+                                          reqs_for_checkpoint,
+                                          testNodeClass,
+                                          txnPoolNodeSet,
+                                          sdk_pool_handle,
+                                          sdk_wallet_client,
+                                          allPluginsPath):
     # Prepare nodes
     lagging_node = txnPoolNodeSet[-1]
     rest_nodes = txnPoolNodeSet[:-1]
@@ -41,7 +47,7 @@ def test_3pc_while_catchup(tdir, tconf,
 
     # Send more requests to active nodes
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 10)
+                              sdk_wallet_client, 1)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Restart stopped node and wait for successful catch up
@@ -68,8 +74,10 @@ def test_3pc_while_catchup(tdir, tconf,
                            timeout=60))
 
             # make sure that more requests are being ordered while catch-up is in progress
+            # stash enough stable checkpoints for starting a catch-up
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                      sdk_wallet_client, 10)
+                                      sdk_wallet_client,
+                                      reqs_for_checkpoint * (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1))
 
             assert lagging_node.mode == Mode.syncing
 
@@ -82,7 +90,15 @@ def test_3pc_while_catchup(tdir, tconf,
         )
         looper.run(
             eventually(
-                lambda: assertExp(lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
+                lambda: assertExp(
+                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
+            )
+        )
+        # check that catch-up was started only once
+        looper.run(
+            eventually(
+                lambda: assertExp(
+                    lagging_node.spylog.count(Node.start_catchup) == 1)
             )
         )
         # check that the node was able to order requests stashed during catch-up

@@ -72,12 +72,6 @@ def test_stash_unknown(replica_stasher, three_pc_msgs):
             replica_stasher.stash(msg, "UnknownStashType")
 
 
-def test_stash_unknown(replica_stasher, three_pc_msgs):
-    for msg in three_pc_msgs:
-        with pytest.raises(LogicError):
-            replica_stasher.stash(msg, "UnknownStashType")
-
-
 def test_unstash_catchup(replica_stasher, stash_all):
     msgs_catchup, msgs_watermarks, msgs_view = stash_all
 
