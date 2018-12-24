@@ -10,15 +10,13 @@ Welcome to Indy Plenum's documentation!
    :maxdepth: 2
 
    main.md
-   start_nodes.md
-   catchup.md
    glossary.md
-   plugins.md
+   diagrams/index.rst
    request_handling.md
    storage.md
-   recorder.md
-   diagrams/index.rst
+   catchup.md
    message_requests.md
+   plugins.md
+   start_nodes.md
+   recorder.md
    misc/zeromq_features.md
-   
-
