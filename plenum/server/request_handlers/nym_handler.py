@@ -27,6 +27,7 @@ class NymHandler(WriteRequestHandler):
     def __init__(self, config, database_manager: DatabaseManager):
         super().__init__(database_manager, NYM, DOMAIN_LEDGER_ID)
         self.config = config
+        self._steward_count = 0
 
     def static_validation(self, request: Request):
         pass
@@ -88,11 +89,7 @@ class NymHandler(WriteRequestHandler):
     def steward_threshold_exceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
         by other stewards"""
-<<<<<<< HEAD
-        return self.count_stewards() > config.stewardThreshold
-=======
-        return self.countStewards() >= config.stewardThreshold
->>>>>>> 83cd535e219f32ec47e254502d51a71f193a7a33
+        return self.count_stewards() >= config.stewardThreshold
 
     def update_nym(self, nym, txn, isCommitted=True):
         existingData = self.getNymDetails(self.state, nym,
@@ -215,4 +212,3 @@ class NymHandler(WriteRequestHandler):
             self._steward_count -= 1
         elif existing_data[ROLE] != STEWARD and new_data[ROLE] == STEWARD:
             self._steward_count += 1
-
