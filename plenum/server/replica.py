@@ -960,10 +960,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         senderRep = self.generateName(sender, self.instId)
 
-        if self.has_already_ordered(msg.viewNo, msg.ppSeqNo):
-            self.discard(msg, 'already ordered 3 phase message', self.logger.trace)
-            return
-
         result, reason = self.validator.validate_3pc_msg(msg)
         if result == DISCARD:
             self.discard(msg, "{} discard message {} from {} "
@@ -974,7 +970,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.logger.debug("{} stashing 3 phase message {} with "
                               "the reason: {}".format(self, msg, reason))
-            self.stasher.stash((msg, sender), reason)
+            self.stasher.stash((msg, sender), result)
             self.stashOutsideWatermarks((msg, sender)) # ?
 
 
