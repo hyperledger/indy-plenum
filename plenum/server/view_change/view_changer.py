@@ -47,7 +47,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             (FutureViewChangeDone, self.process_future_view_vchd_msg)
         )
 
-        self.instanceChanges = InstanceChanges()
+        self.instanceChanges = InstanceChanges(node.config)
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
         # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.
@@ -354,7 +354,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             #  found then change view even if master not degraded
             self._on_verified_instance_change_msg(instChg, frm)
 
-            if self.instanceChanges.hasInstChngFrom(instChg.viewNo, self.name):
+            if self.instanceChanges.has_inst_chng_from(instChg.viewNo, self.name):
                 logger.info("{} received instance change message {} but has already "
                             "sent an instance change message".format(self, instChg))
             elif not self.node.monitor.isMasterDegraded():
@@ -466,8 +466,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def _on_verified_instance_change_msg(self, msg, frm):
         view_no = msg.viewNo
 
-        if not self.instanceChanges.hasInstChngFrom(view_no, frm):
-            self.instanceChanges.addVote(msg, frm)
+        if not self.instanceChanges.has_inst_chng_from(view_no, frm):
+            self.instanceChanges.add_vote(msg, frm)
             if view_no > self.view_no:
                 self.do_view_change_if_possible(view_no)
 
@@ -507,7 +507,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         """
         msg = None
         quorum = self.quorums.view_change.value
-        if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
+        if not self.instanceChanges.has_quorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
         elif not proposedViewNo > self.view_no:
             msg = '{} is in higher view more than {}'.format(

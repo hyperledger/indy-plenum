@@ -9,8 +9,10 @@ from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.client_authn import SimpleAuthNr, CoreAuthNr
 from plenum.server.req_authenticator import ReqAuthenticator
-from plenum.test.helper import sdk_sign_and_submit_op
+from plenum.test.helper import sdk_sign_and_submit_op, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import new_client_request
+from plenum.test.stasher import delay_rules
+from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope='module')
@@ -78,3 +80,34 @@ def test_authentication(looper, pre_reqs, registration,
     core_authnr.addIdr(did,
                        looper.loop.run_until_complete(key_for_did(sdk_pool_handle, wh, did)))
     assert req_authnr.authenticate(json.loads(req)) == {did, }
+
+
+def test_propagate_of_ordered_request_doesnt_stash_requests_in_authenticator(
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+
+    # Universal delayer
+    def stopAll(msg):
+        return 100000
+
+    def check_verified_req_list_is_empty():
+        for node in txnPoolNodeSet:
+            assert len(node.clientAuthNr._verified_reqs) == 0
+
+    # Order one request while cutting off last node
+    lastNode = txnPoolNodeSet[-1]
+    with delay_rules(lastNode.nodeIbStasher, stopAll), \
+         delay_rules(lastNode.clientIbStasher, stopAll):
+        sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                  sdk_pool_handle,
+                                  sdk_wallet_client, 1)
+        old_propagates = [n.spylog.count('processPropagate') for n in txnPoolNodeSet]
+
+    def check_more_propagates_delivered():
+        new_propagates = [n.spylog.count('processPropagate') for n in txnPoolNodeSet]
+        assert all(old < new for old, new in zip(old_propagates, new_propagates))
+
+    # Wait until more propagates are delivered to all nodes
+    looper.run(eventually(check_more_propagates_delivered))
+
+    # Make sure that verified req list will be empty eventually
+    looper.run(eventually(check_verified_req_list_is_empty))

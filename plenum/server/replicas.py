@@ -68,7 +68,8 @@ class Replicas:
                 req_keys.add(req_key)
 
         for req_key in req_keys:
-            replica.requests.free(req_key)
+            if req_key in replica.requests:
+                replica.requests.free(req_key)
 
         self._messages_to_replicas.pop(inst_id, None)
         self._monitor.removeInstance(inst_id)
@@ -154,10 +155,15 @@ class Replicas:
         return all(replica.primaryName is not None
                    for replica in self._replicas.values())
 
-    # TODO unit test
     @property
-    def primaries(self) -> dict:
-        return {r.instId: r.name for r in self._replicas.values()}
+    def primary_name_by_inst_id(self) -> dict:
+        return {r.instId: r.primaryName.split(":", maxsplit=1)[0] if r.primaryName else None
+                for r in self._replicas.values()}
+
+    @property
+    def inst_id_by_primary_name(self) -> dict:
+        return {r.primaryName.split(":", maxsplit=1)[0]: r.instId
+                for r in self._replicas.values() if r.primaryName}
 
     def register_new_ledger(self, ledger_id):
         for replica in self._replicas.values():
@@ -218,7 +224,9 @@ class Replicas:
                            'Received {} valid Prepares from {}. '
                            'Received {} valid Commits from {}. '
                            'Transaction contents: {}. '
-                           .format(reqId, duration, replica.primaryName.split(':')[0], prepre_sender,
+                           .format(reqId, duration,
+                                   replica.primaryName.split(':')[0] if replica.primaryName is not None else None,
+                                   prepre_sender,
                                    n_prepares, str_prepares, n_commits, str_commits, content))
 
     def keys(self):

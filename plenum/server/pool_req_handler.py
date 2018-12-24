@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES, BLS_KEY, BLS_KEY_PROOF
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES, BLS_KEY, BLS_KEY_PROOF, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import UnauthorizedClientRequest, \
     InvalidClientRequest
 from plenum.common.ledger import Ledger
@@ -22,9 +22,9 @@ class PoolRequestHandler(LedgerRequestHandler):
     write_types = {NODE, }
 
     def __init__(self, ledger: Ledger, state: State,
-                 domainState: State, bls_crypto_verifier=None):
+                 states: dict, bls_crypto_verifier=None):
         super().__init__(ledger, state)
-        self.domainState = domainState
+        self.states = states
         self.stateSerializer = pool_state_serializer
         self.bls_crypto_verifier = bls_crypto_verifier
 
@@ -146,7 +146,7 @@ class PoolRequestHandler(LedgerRequestHandler):
 
     def isSteward(self, nym, isCommitted: bool = True):
         return DomainRequestHandler.isSteward(
-            self.domainState, nym, isCommitted)
+            self.states[DOMAIN_LEDGER_ID], nym, isCommitted)
 
     @lru_cache(maxsize=64)
     def isStewardOfNode(self, stewardNym, nodeNym, isCommitted=True):

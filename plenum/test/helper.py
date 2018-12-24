@@ -1,3 +1,4 @@
+from datetime import datetime
 import itertools
 import os
 import random
@@ -1121,3 +1122,11 @@ def init_discarded(value=None):
     if value:
         discarded.append(value)
     return invalid_index_serializer.serialize(discarded, toBytes=False)
+
+
+class MockTimestamp:
+    def __init__(self, value=datetime.utcnow()):
+        self.value = value
+
+    def __call__(self):
+        return self.value
