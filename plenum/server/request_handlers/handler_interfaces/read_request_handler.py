@@ -6,8 +6,7 @@ from plenum.server.request_handlers.handler_interfaces.request_handler import Re
 
 
 class ReadRequestHandler(RequestHandler):
-    def __init__(self, node, database_manager: DatabaseManager, txn_type, ledger_id):
-        self.node = node
+    def __init__(self, database_manager: DatabaseManager, txn_type, ledger_id):
         self.database_manager = database_manager
         self.txn_type = txn_type
         self.ledger_id = ledger_id
