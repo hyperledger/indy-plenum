@@ -2247,6 +2247,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if reqState:
                 if reqState.forwarded and not reqState.executed:
                     self.mark_request_as_executed(reqState.request)
+                    self.requests.ordered_by_replica(reqState.request.key)
                     self.requests.free(reqState.request.key)
                     self.doneProcessingReq(req_key)
                 if not reqState.forwarded:
