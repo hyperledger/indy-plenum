@@ -1889,6 +1889,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 invalid_reqIdr.append(reqIdr)
             else:
                 valid_reqIdr.append(reqIdr)
+            self.requests.ordered_by_replica(reqIdr)
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,

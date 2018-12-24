@@ -2668,7 +2668,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return key in self.requestSender
 
     def doneProcessingReq(self, key):
-        self.requestSender.pop(key)
+        if key in self.requestSender:
+            self.requestSender.pop(key)
 
     def is_sender_known_for_req(self, key):
         return self.requestSender.get(key) is not None
@@ -3837,7 +3838,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             outdated = False
             req_state = self.requests[req_key]
 
-            if req_state.executed and req_state.forwardedTo > 0:
+            if req_state.executed and req_state.unordered_by_replicas_num <= 0:
                 # Means that the request has been processed by all replicas and
                 # it just waits for stable checkpoint to be deleted.
                 continue
