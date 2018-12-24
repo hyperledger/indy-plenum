@@ -84,7 +84,7 @@ class WriteRequestManager(RequestManager):
         if handlers is None:
             raise LogicError
         for handler in handlers:
-            handler.post_apply_batch(state_root)
+            handler.post_batch_applied(state_root)
 
     def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time):
         handlers = self.batch_handlers.get(ledger_id, None)
@@ -95,18 +95,18 @@ class WriteRequestManager(RequestManager):
             handler.commit_batch(txn_count, state_root, txn_root, pp_time)
         return commited_txns
 
-    def revert_batch(self, ledger_id):
+    def post_batch_rejected(self, ledger_id):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:
             raise LogicError
         for handler in handlers:
-            handler.revert_batch()
+            handler.post_batch_rejected()
 
     def update_state(self, txns, isCommitted=False):
         for txn in txns:
             typ = get_type(txn)
             for handler in self.request_handlers[typ]:
-                handler.updateState([txn], isCommitted)
+                handler.update_state([txn], isCommitted)
 
     def transform_txn_for_ledger(self, txn):
         handlers = self.request_handlers.get(get_type(txn), None)

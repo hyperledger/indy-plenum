@@ -22,7 +22,7 @@ class ReadRequestManager(RequestManager):
         if not isinstance(handler, ReadRequestHandler):
             raise LogicError
         type = handler.txn_type
-        self.request_handlers[type] = (handler)
+        self.request_handlers[type] = handler
 
     def get_result(self, request: Request):
         handler = self.request_handlers.get(request.operation[TXN_TYPE], None)

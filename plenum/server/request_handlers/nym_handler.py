@@ -2,14 +2,17 @@ from _sha256 import sha256
 from binascii import hexlify
 
 from common.exceptions import LogicError
-from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer, domain_state_serializer
+from common.serializers.serialization import state_roots_serializer, \
+    proof_nodes_serializer, domain_state_serializer
 from ledger.util import F
-from plenum.common.constants import NYM, ROLE, STEWARD, DOMAIN_LEDGER_ID, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, \
-    TXN_TIME, STATE_PROOF, VERKEY, TARGET_NYM
+from plenum.common.constants import NYM, ROLE, STEWARD, DOMAIN_LEDGER_ID, \
+    ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, TXN_TIME, STATE_PROOF, \
+    VERKEY, TARGET_NYM
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
-from plenum.common.txn_util import get_type, get_payload_data, get_from, get_seq_no, get_txn_time, reqToTxn
+from plenum.common.txn_util import get_type, get_payload_data, get_from, \
+    get_seq_no, get_txn_time, get_request_data
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
@@ -29,26 +32,21 @@ class NymHandler(WriteRequestHandler):
         pass
 
     def dynamic_validation(self, request: Request):
-        origin = request.identifier
+        self._validate_type(request)
+        identifier, req_id, operation = get_request_data(request)
         error = None
         if not self.isSteward(self.state,
-                              origin, isCommitted=False):
+                              identifier, isCommitted=False):
             error = "Only Steward is allowed to do these transactions"
-        if request.operation.get(ROLE) == STEWARD:
-            if self.stewardThresholdExceeded(self.config):
+        if operation.get(ROLE) == STEWARD:
+            if self.steward_threshold_exceeded(self.config):
                 error = "New stewards cannot be added by other stewards " \
                         "as there are already {} stewards in the system". \
                     format(self.config.stewardThreshold)
         if error:
-            raise UnauthorizedClientRequest(request.identifier,
-                                            request.reqId,
+            raise UnauthorizedClientRequest(identifier,
+                                            req_id,
                                             error)
-
-    def apply_request(self, request: Request, batch_ts):
-        super().apply_request(request, batch_ts)
-
-    def revert_request(self, request: Request, batch_ts):
-        super().revert_request(request, batch_ts)
 
     @staticmethod
     def transform_txn_for_ledger(txn):
@@ -59,9 +57,9 @@ class NymHandler(WriteRequestHandler):
         """
         return txn
 
-    def updateState(self, txns, isCommitted=False):
+    def update_state(self, txns, isCommitted=False):
         for txn in txns:
-            self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+            self._update_state_with_single_txn(txn, isCommitted=isCommitted)
 
     def gen_txn_path(self, txn):
         typ = get_type(txn)
@@ -71,15 +69,15 @@ class NymHandler(WriteRequestHandler):
         else:
             raise LogicError
 
-    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
+    def _update_state_with_single_txn(self, txn, isCommitted=False):
         typ = get_type(txn)
         if typ == NYM:
             nym = get_payload_data(txn).get(TARGET_NYM)
-            self.updateNym(nym, txn, isCommitted=isCommitted)
+            self.update_nym(nym, txn, isCommitted=isCommitted)
         else:
             raise LogicError
 
-    def countStewards(self) -> int:
+    def count_stewards(self) -> int:
         """
         Count the number of stewards added to the pool transaction store
         Note: This is inefficient, a production use case of this function
@@ -89,12 +87,12 @@ class NymHandler(WriteRequestHandler):
         return sum(1 for _, txn in self.ledger.getAllTxn() if
                    (get_type(txn) == NYM) and (get_payload_data(txn).get(ROLE) == STEWARD))
 
-    def stewardThresholdExceeded(self, config) -> bool:
+    def steward_threshold_exceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
         by other stewards"""
-        return self.countStewards() > config.stewardThreshold
+        return self.count_stewards() > config.stewardThreshold
 
-    def updateNym(self, nym, txn, isCommitted=True):
+    def update_nym(self, nym, txn, isCommitted=True):
         existingData = self.getNymDetails(self.state, nym,
                                           isCommitted=isCommitted)
         txn_data = get_payload_data(txn)
@@ -121,31 +119,23 @@ class NymHandler(WriteRequestHandler):
         self.state.set(key, val)
         return existingData
 
-    def hasNym(self, nym, isCommitted: bool = True):
+    def has_nym(self, nym, isCommitted: bool = True):
         key = self.nym_to_state_key(nym)
         data = self.state.get(key, isCommitted)
         return bool(data)
 
     @staticmethod
-    def get_role(state, nym, role, isCommitted: bool = True):
+    def get_role(state, nym, isCommitted: bool = True):
         nymData = NymHandler.getNymDetails(state, nym, isCommitted)
         if not nymData:
             return {}
         else:
-            if nymData.get(ROLE) == role:
-                return nymData
-            else:
-                return {}
-
-    @staticmethod
-    def getSteward(state, nym, isCommitted: bool = True):
-        return NymHandler.get_role(state, nym, STEWARD, isCommitted)
+            return nymData.get(ROLE)
 
     @staticmethod
     def isSteward(state, nym, isCommitted: bool = True):
-        return bool(NymHandler.getSteward(state,
-                                          nym,
-                                          isCommitted))
+        role = NymHandler.get_role(state, nym, isCommitted)
+        return role is STEWARD
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):
@@ -174,7 +164,7 @@ class NymHandler(WriteRequestHandler):
         if not with_proof:
             return self.state.get_for_root_hash(root_hash, path), None
 
-        multi_sig = self.bls_store.get(encoded_root_hash)
+        multi_sig = self.database_manager.bls_store.get(encoded_root_hash)
         if not multi_sig:
             # Just return the value and not proof
             try:

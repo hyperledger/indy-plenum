@@ -1,5 +1,5 @@
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
-from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DOMAIN_LEDGER_ID
+from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES
 from plenum.common.request import Request
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
@@ -7,9 +7,7 @@ from plenum.server.request_handlers.handler_interfaces.request_handler import Re
 
 class ReadRequestHandler(RequestHandler):
     def __init__(self, database_manager: DatabaseManager, txn_type, ledger_id):
-        self.database_manager = database_manager
-        self.txn_type = txn_type
-        self.ledger_id = ledger_id
+        super().__init__(database_manager, txn_type, ledger_id)
 
     def static_validation(self, request: Request):
         pass
@@ -35,7 +33,7 @@ class ReadRequestHandler(RequestHandler):
         if not with_proof:
             return self.state.get_for_root_hash(root_hash, path), None
 
-        multi_sig = self.bls_store.get(encoded_root_hash)
+        multi_sig = self.database_manager.bls_store.get(encoded_root_hash)
         if not multi_sig:
             # Just return the value and not proof
             try:
@@ -58,11 +56,3 @@ class ReadRequestHandler(RequestHandler):
                 return value, proof
             except KeyError:
                 return None, None
-
-    @property
-    def state(self):
-        return self.database_manager.get_database(self.ledger_id)
-
-    @property
-    def bls_store(self):
-        return self.database_manager.get_store('bls')

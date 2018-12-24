@@ -2,8 +2,9 @@ from functools import lru_cache
 
 from common.exceptions import LogicError
 from common.serializers.serialization import pool_state_serializer
-from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, BLS_KEY_PROOF, TXN_TYPE, TARGET_NYM, \
-    DOMAIN_LEDGER_ID, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS
+from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
+    BLS_KEY_PROOF, TXN_TYPE, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_from
@@ -21,8 +22,7 @@ class NodeHandler(WriteRequestHandler):
         self.state_serializer = pool_state_serializer
 
     def static_validation(self, request: Request):
-        if request.txn_type != NODE:
-            raise LogicError
+        self._validate_type(request)
         blskey = request.operation.get(DATA).get(BLS_KEY, None)
         blskey_proof = request.operation.get(DATA).get(BLS_KEY_PROOF, None)
         if blskey is None and blskey_proof is None:
@@ -43,6 +43,7 @@ class NodeHandler(WriteRequestHandler):
                                        format(blskey_proof, blskey))
 
     def dynamic_validation(self, request: Request):
+        self._validate_type(request)
         typ = request.operation.get(TXN_TYPE)
         if typ != NODE:
             raise LogicError
@@ -55,16 +56,7 @@ class NodeHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def apply_request(self, request: Request, batch_ts):
-        typ = request.operation.get(TXN_TYPE)
-        if typ != NODE:
-            raise LogicError
-        return super().apply_request(request, batch_ts)
-
-    def revert_request(self, request: Request, batch_ts):
-        pass
-
-    def updateState(self, txns, isCommitted=False):
+    def update_state(self, txns, isCommitted=False):
         for txn in txns:
             nodeNym = get_payload_data(txn).get(TARGET_NYM)
             data = get_payload_data(txn).get(DATA, {})

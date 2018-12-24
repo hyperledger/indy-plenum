@@ -1,4 +1,4 @@
-from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE
+from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN
 from plenum.common.messages.node_messages import RequestNack, Reply
 from plenum.common.request import Request
 from plenum.common.txn_util import get_seq_no
@@ -12,8 +12,8 @@ logger = getlogger()
 
 class GetTxnHandler(ReadRequestHandler):
 
-    def __init__(self, node, database_manager: DatabaseManager, txn_type):
-        super().__init__(database_manager, txn_type)
+    def __init__(self, node, database_manager: DatabaseManager):
+        super().__init__(database_manager, GET_TXN, None)
         self.node = node
 
     def get_result(self, request: Request):
