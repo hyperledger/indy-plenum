@@ -62,4 +62,9 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
 
     @staticmethod
     def transform_txn_for_ledger(txn):
+        """
+        Some transactions need to be updated before they can be stored in the
+        ledger, eg. storing certain payload in another data store and only its
+        hash in the ledger
+        """
         return txn

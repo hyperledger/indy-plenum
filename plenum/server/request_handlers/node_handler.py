@@ -1,9 +1,8 @@
 from functools import lru_cache
 
-from common.exceptions import LogicError
 from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
-    BLS_KEY_PROOF, TXN_TYPE, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
+    BLS_KEY_PROOF, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
@@ -11,15 +10,15 @@ from plenum.common.txn_util import get_payload_data, get_from
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
-from plenum.server.request_handlers.nym_handler import NymHandler
+from plenum.server.request_handlers.utils import is_steward
 
 
 class NodeHandler(WriteRequestHandler):
+    state_serializer = pool_state_serializer
 
     def __init__(self, database_manager: DatabaseManager, bls_crypto_verifier):
         super().__init__(database_manager, NODE, POOL_LEDGER_ID)
         self.bls_crypto_verifier = bls_crypto_verifier
-        self.state_serializer = pool_state_serializer
 
     def static_validation(self, request: Request):
         self._validate_type(request)
@@ -44,75 +43,65 @@ class NodeHandler(WriteRequestHandler):
 
     def dynamic_validation(self, request: Request):
         self._validate_type(request)
-        typ = request.operation.get(TXN_TYPE)
-        if typ != NODE:
-            raise LogicError
-        nodeNym = request.operation.get(TARGET_NYM)
-        if self.getNodeData(nodeNym, isCommitted=False):
-            error = self.authErrorWhileUpdatingNode(request)
+        node_nym = request.operation.get(TARGET_NYM)
+        if self._get_node_data(node_nym, is_committed=False):
+            error = self._auth_error_while_updating_node(request)
         else:
-            error = self.authErrorWhileAddingNode(request)
+            error = self._auth_error_while_adding_node(request)
         if error:
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def update_state(self, txns, isCommitted=False):
+    def update_state(self, txns, is_committed=False):
         for txn in txns:
-            nodeNym = get_payload_data(txn).get(TARGET_NYM)
+            node_nym = get_payload_data(txn).get(TARGET_NYM)
             data = get_payload_data(txn).get(DATA, {})
-            existingData = self.getNodeData(nodeNym, isCommitted=isCommitted)
+            existing_data = self._get_node_data(node_nym, is_committed=is_committed)
             # Node data did not exist in state, so this is a new node txn,
             # hence store the author of the txn (steward of node)
-            if not existingData:
-                existingData[f.IDENTIFIER.nm] = get_from(txn)
-            existingData.update(data)
-            self.updateNodeData(nodeNym, existingData)
+            if not existing_data:
+                existing_data[f.IDENTIFIER.nm] = get_from(txn)
+            existing_data.update(data)
+            self._update_node_data(node_nym, existing_data)
 
-    def authErrorWhileAddingNode(self, request):
+    def _auth_error_while_adding_node(self, request):
         origin = request.identifier
         operation = request.operation
         data = operation.get(DATA, {})
-        error = self.dataErrorWhileValidating(data, skipKeys=False)
+        error = self._data_error_while_validating(data, skip_keys=False)
         if error:
             return error
 
-        isSteward = self.isSteward(origin, isCommitted=False)
-        if not isSteward:
+        is_steward = self._is_steward(origin, is_committed=False)
+        if not is_steward:
             return "{} is not a steward so cannot add a new node".format(
                 origin)
-        if self.stewardHasNode(origin):
+        if self._steward_has_node(origin):
             return "{} already has a node".format(origin)
-        error = self.isNodeDataConflicting(data)
+        error = self._is_node_data_conflicting(data)
         if error:
             return "existing data has conflicts with " \
                    "request data {}. Error: {}".format(operation.get(DATA), error)
 
-    def authErrorWhileUpdatingNode(self, request):
+    def _auth_error_while_updating_node(self, request):
         # Check if steward of the node is updating it and its data does not
         # conflict with any existing node's data
         origin = request.identifier
         operation = request.operation
-        isSteward = self.isSteward(origin, isCommitted=False)
-        if not isSteward:
+        is_steward = self._is_steward(origin, is_committed=False)
+        if not is_steward:
             return "{} is not a steward so cannot update a node".format(origin)
 
-        nodeNym = operation.get(TARGET_NYM)
-        if not self.isStewardOfNode(origin, nodeNym, isCommitted=False):
-            return "{} is not a steward of node {}".format(origin, nodeNym)
+        node_nym = operation.get(TARGET_NYM)
+        if not self._is_steward_of_node(origin, node_nym, is_committed=False):
+            return "{} is not a steward of node {}".format(origin, node_nym)
 
         data = operation.get(DATA, {})
-        return self.dataErrorWhileValidatingUpdate(data, nodeNym)
+        return self._data_error_while_validating_update(data, node_nym)
 
-    def getNodeData(self, nym, isCommitted: bool = True):
+    def _get_node_data(self, nym, is_committed: bool = True):
         key = nym.encode()
-        data = self.state.get(key, isCommitted)
-        if not data:
-            return {}
-        return self.state_serializer.deserialize(data)
-
-    def get_node_data_for_root_hash(self, root_hash, nym):
-        key = nym.encode()
-        data = self.state.get_for_root_hash(root_hash, key)
+        data = self.state.get(key, is_committed)
         if not data:
             return {}
         return self.state_serializer.deserialize(data)
@@ -124,36 +113,35 @@ class NodeHandler(WriteRequestHandler):
             self.state.get_decoded(x)), raw_node_data))
         return nodes
 
-    def updateNodeData(self, nym, data):
+    def _update_node_data(self, nym, data):
         key = nym.encode()
         val = self.state_serializer.serialize(data)
         self.state.set(key, val)
 
-    def isSteward(self, nym, isCommitted: bool = True):
+    def _is_steward(self, nym, is_committed: bool = True):
         domain_state = self.database_manager.get_database(DOMAIN_LEDGER_ID).state
-        return NymHandler.isSteward(
-            domain_state, nym, isCommitted)
+        return is_steward(domain_state, nym, is_committed)
 
     @lru_cache(maxsize=64)
-    def isStewardOfNode(self, stewardNym, nodeNym, isCommitted=True):
-        nodeData = self.getNodeData(nodeNym, isCommitted=isCommitted)
-        return nodeData and nodeData[f.IDENTIFIER.nm] == stewardNym
+    def _is_steward_of_node(self, steward_nym, node_nym, is_committed=True):
+        node_data = self._get_node_data(node_nym, is_committed=is_committed)
+        return node_data and node_data[f.IDENTIFIER.nm] == steward_nym
 
-    def stewardHasNode(self, stewardNym) -> bool:
+    def _steward_has_node(self, steward_nym) -> bool:
         # Cannot use lru_cache since a steward might have a node in future and
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
         for nodeNym, nodeData in self.state.as_dict.items():
             nodeData = self.state_serializer.deserialize(nodeData)
-            if nodeData.get(f.IDENTIFIER.nm) == stewardNym:
+            if nodeData.get(f.IDENTIFIER.nm) == steward_nym:
                 return True
         return False
 
     @staticmethod
-    def dataErrorWhileValidating(data, skipKeys):
-        reqKeys = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS}
-        if not skipKeys and not reqKeys.issubset(set(data.keys())):
-            return 'Missing some of {}'.format(reqKeys)
+    def _data_error_while_validating(data, skip_keys):
+        req_keys = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS}
+        if not skip_keys and not req_keys.issubset(set(data.keys())):
+            return 'Missing some of {}'.format(req_keys)
 
         nip = data.get(NODE_IP, 'nip')
         np = data.get(NODE_PORT, 'np')
@@ -162,18 +150,18 @@ class NodeHandler(WriteRequestHandler):
         if (nip, np) == (cip, cp):
             return 'node and client ha cannot be same'
 
-    def isNodeDataSame(self, nodeNym, newData, isCommitted=True):
-        nodeInfo = self.getNodeData(nodeNym, isCommitted=isCommitted)
-        nodeInfo.pop(f.IDENTIFIER.nm, None)
-        return nodeInfo == newData
+    def _is_node_data_same(self, nodeNym, newData, isCommitted=True):
+        node_info = self._get_node_data(nodeNym, is_committed=isCommitted)
+        node_info.pop(f.IDENTIFIER.nm, None)
+        return node_info == newData
 
-    def isNodeDataConflicting(self, new_data, updating_nym=None):
+    def _is_node_data_conflicting(self, new_data, updating_nym=None):
         # Check if node's ALIAS or IPs or ports conflicts with other nodes,
         # also, the node is not allowed to change its alias.
 
         # Check ALIAS change
         if updating_nym:
-            old_alias = self.getNodeData(updating_nym, isCommitted=False).get(ALIAS)
+            old_alias = self._get_node_data(updating_nym, is_committed=False).get(ALIAS)
             new_alias = new_data.get(ALIAS)
             if old_alias != new_alias:
                 return "Node's alias cannot be changed"
@@ -196,15 +184,15 @@ class NodeHandler(WriteRequestHandler):
                 if same_cli_ha:
                     return "Node's clientstack addresses must be unique"
 
-    def dataErrorWhileValidatingUpdate(self, data, nodeNym):
-        error = self.dataErrorWhileValidating(data, skipKeys=True)
+    def _data_error_while_validating_update(self, data, nodeNym):
+        error = self._data_error_while_validating(data, skip_keys=True)
         if error:
             return error
 
-        if self.isNodeDataSame(nodeNym, data, isCommitted=False):
+        if self._is_node_data_same(nodeNym, data, isCommitted=False):
             return "node already has the same data as requested"
 
-        error = self.isNodeDataConflicting(data, nodeNym)
+        error = self._is_node_data_conflicting(data, nodeNym)
         if error:
             return "existing data has conflicts with " \
                    "request data {}. Error: {}".format(data, error)

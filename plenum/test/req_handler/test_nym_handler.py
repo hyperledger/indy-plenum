@@ -6,6 +6,7 @@ from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, reqToTxn, get_reply_nym
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.nym_handler import NymHandler
+from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward
 from plenum.test.testing_utils import FakeSomething
 from state.state import State
 
@@ -26,7 +27,7 @@ def nym_handler(tconf):
 
 def test_dynamic_validation(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     request = Request(identifier=identifier,
                       operation={TXN_TYPE: NYM,
                                  ROLE: ""})
@@ -35,7 +36,7 @@ def test_dynamic_validation(nym_handler):
 
 def test_dynamic_validation_msg_from_not_steward(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, ""))
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, ""))
     request = Request(identifier=identifier,
                       operation={
                           TXN_TYPE: NYM,ROLE: ""})
@@ -48,7 +49,7 @@ def test_dynamic_validation_msg_from_not_steward(nym_handler):
 
 def test_dynamic_validation_steward_create_steward_before_limit(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     request = Request(identifier=identifier,
                       operation={TXN_TYPE: NYM,
                                  ROLE: STEWARD})
@@ -57,7 +58,7 @@ def test_dynamic_validation_steward_create_steward_before_limit(nym_handler):
 
 def test_dynamic_validation_steward_create_steward_after_limit(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     old_steward_threshold = nym_handler.config.stewardThreshold
     nym_handler.config.stewardThreshold = 1
 
@@ -80,7 +81,7 @@ def test_update_state(nym_handler):
     nym_handler.update_state(txns)
 
     for txn in txns:
-        nym_data = nym_handler.getNymDetails(nym_handler.state, get_reply_nym(txn))
+        nym_data = get_nym_details(nym_handler.state, get_reply_nym(txn))
         assert nym_data[ROLE] == STEWARD
 
 
@@ -89,40 +90,40 @@ def test_update_nym(nym_handler):
     txn1 = _create_nym_txn(identifier, STEWARD)
     txn2 = _create_nym_txn(identifier, "")
 
-    nym_handler.update_nym(identifier, txn1)
-    nym_data = nym_handler.getNymDetails(nym_handler.state, identifier)
+    nym_handler._update_nym(identifier, txn1)
+    nym_data = get_nym_details(nym_handler.state, identifier)
     assert get_payload_data(txn1)[ROLE] == nym_data[ROLE]
 
-    nym_handler.update_nym(identifier, txn2)
-    nym_data = nym_handler.getNymDetails(nym_handler.state, identifier)
+    nym_handler._update_nym(identifier, txn2)
+    nym_data = get_nym_details(nym_handler.state, identifier)
     assert get_payload_data(txn2)[ROLE] == nym_data[ROLE]
 
 
 def test_get_role(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
-    nym_data = nym_handler.get_role(nym_handler.state, identifier, STEWARD)
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_data = get_role(nym_handler.state, identifier, STEWARD)
     assert nym_data == STEWARD
 
 
 def test_get_role_nym_without_role(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, ""))
-    nym_data = nym_handler.get_role(nym_handler.state, identifier, STEWARD)
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, ""))
+    nym_data = get_role(nym_handler.state, identifier, STEWARD)
     assert not nym_data
 
 
 def test_get_role_without_nym_data(nym_handler):
     identifier = "test_identifier"
-    nym_data = nym_handler.get_role(nym_handler.state, identifier, STEWARD)
+    nym_data = get_role(nym_handler.state, identifier, STEWARD)
     assert not nym_data
 
 
 def test_is_steward(nym_handler):
     identifier = "test_identifier"
-    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
-    assert nym_handler.isSteward(nym_handler.state, identifier)
-    assert not nym_handler.isSteward(nym_handler.state, "other_identifier")
+    nym_handler._update_nym(identifier, _create_nym_txn(identifier, STEWARD))
+    assert is_steward(nym_handler.state, identifier)
+    assert not is_steward(nym_handler.state, "other_identifier")
 
 
 def _create_nym_txn(identifier, role, nym="TARGET_NYM"):
