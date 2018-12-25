@@ -707,6 +707,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
+        for replica in self.replicas.values():
+            replica.stasher.unstash_future_view()
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -1717,8 +1719,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: discard or stash messages here instead of doing
         # this in msgHas* methods!!!
         if self.msgHasAcceptableInstId(msg, frm):
-            if self.msgHasAcceptableViewNo(msg, frm):
-                self.replicas.pass_message((msg, frm), msg.instId)
+            self.replicas.pass_message((msg, frm), msg.instId)
 
     def sendToViewChanger(self, msg, frm, from_current_state: bool = False):
         """

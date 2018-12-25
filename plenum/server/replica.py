@@ -1943,7 +1943,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # collections and process stashed messages which now fit between
             # watermarks
             self.caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
-            self.processStashedMsgsForNewWaterMarks()
+            self.stasher.unstash_catchup()
 
     def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
