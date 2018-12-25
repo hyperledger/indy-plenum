@@ -54,6 +54,7 @@ class ValidatorNodeInfoTool:
     GENERAL_DB_NAME_TEMPLATE = '{node_name}_info_db'
     GENERAL_FILE_NAME_TEMPLATE = '{node_name}_info.json'
     ADDITIONAL_FILE_NAME_TEMPLATE = '{node_name}_additional_info.json'
+    VERSION_FILE_NAME_TEMPLATE = '{node_name}_version_info.json'
 
     def __init__(self, node, config=None):
         self._node = node
@@ -62,6 +63,7 @@ class ValidatorNodeInfoTool:
         self._use_db = self._config.VALIDATOR_INFO_USE_DB
         self.__name = self._node.name
         self.__node_info_dir = self._node.node_info_dir
+        self.dump_version_info()
         if self._use_db:
             self._db = KeyValueStorageRocksdbIntKeys(self.__node_info_dir,
                                                      self.GENERAL_DB_NAME_TEMPLATE.format(
@@ -80,6 +82,7 @@ class ValidatorNodeInfoTool:
         pool_info = self.__pool_info
         protocol_info = self.__protocol_info
         node_info = self.__node_info
+        soft_info = self.software_info
 
         if hardware_info:
             general_info.update(hardware_info)
@@ -89,6 +92,8 @@ class ValidatorNodeInfoTool:
             general_info.update(protocol_info)
         if node_info:
             general_info.update(node_info)
+        if soft_info:
+            general_info.update(soft_info)
 
         return general_info
 
@@ -122,23 +127,28 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
-    def __client_ip(self):
+    def client_ip(self):
         return self._node.clientstack.ha.host
 
     @property
     @none_on_fail
-    def __client_port(self):
+    def client_port(self):
         return self._node.clientstack.ha.port
 
     @property
     @none_on_fail
-    def __node_ip(self):
+    def node_ip(self):
         return self._node.nodestack.ha.host
 
     @property
     @none_on_fail
-    def __node_port(self):
+    def node_port(self):
         return self._node.nodestack.ha.port
+
+    @property
+    @none_on_fail
+    def bls_key(self):
+        return self._node.bls_bft.bls_key_register.get_key_by_name(self._node.name)
 
     @property
     @none_on_fail
@@ -172,6 +182,11 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
+    def __config_ledger_size(self):
+        return self._node.configLedger.size
+
+    @property
+    @none_on_fail
     def __uptime(self):
         return int(time.time() - self._node.created)
 
@@ -183,7 +198,10 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __reachable_list(self):
-        return sorted(list(self._node.nodestack.conns) + [self._node.name])
+        inst_by_name = self._node.replicas.inst_id_by_primary_name
+        tupl_list = [(name, inst_by_name.get(name, None))
+                     for name in list(self._node.nodestack.conns) + [self._node.name]]
+        return sorted(tupl_list, key=lambda x: x[0])
 
     @property
     @none_on_fail
@@ -193,7 +211,10 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def __unreachable_list(self):
-        return list(set(self._node.nodestack.remotes.keys()) - self._node.nodestack.conns)
+        inst_by_name = self._node.replicas.inst_id_by_primary_name
+        tupl_list = [(name, inst_by_name.get(name, None)) for name in
+                     list(set(self._node.nodestack.remotes.keys()) - self._node.nodestack.conns)]
+        return sorted(tupl_list, key=lambda x: x[0])
 
     @property
     @none_on_fail
@@ -238,14 +259,12 @@ class ValidatorNodeInfoTool:
             }
         }
 
-    @property
     @none_on_fail
-    def software_info(self):
+    def _generate_software_info(self):
         os_version = self._prepare_for_json(platform.platform())
         installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
         output = self._run_external_cmd("dpkg-query --list | grep indy")
         indy_packages = output.split(os.linesep)
-
         return {
             "Software": {
                 "OS_version": os_version,
@@ -254,6 +273,21 @@ class ValidatorNodeInfoTool:
                 "Indy_packages": self._prepare_for_json(indy_packages),
             }
         }
+
+    @property
+    @none_on_fail
+    def software_info(self):
+        file_name = self.VERSION_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
+        path = os.path.join(self.__node_info_dir, file_name)
+        with open(path, "r") as version_file:
+            version_info = json.load(version_file)
+        return version_info
+
+    def dump_version_info(self):
+        info = self._generate_software_info()
+        file_name = self.VERSION_FILE_NAME_TEMPLATE.format(node_name=self.__name.lower())
+        path = os.path.join(self.__node_info_dir, file_name)
+        self._dump_into_file(path, info)
 
     def _cat_file(self, path_to_file):
         output = self._run_external_cmd("cat {}".format(path_to_file))
@@ -416,6 +450,7 @@ class ValidatorNodeInfoTool:
                 'transaction-count': {
                     'ledger': self.__domain_ledger_size,
                     'pool': self.__pool_ledger_size,
+                    'config': self.__config_ledger_size,
                 },
                 'uptime': self.__uptime,
             })
@@ -498,24 +533,18 @@ class ValidatorNodeInfoTool:
 
         return {
             "Node_info": {
-                "Name": self._prepare_for_json(
-                    self.__alias),
-                "Mode": self._prepare_for_json(
-                    self._node.mode.name),
-                "Client_port": self._prepare_for_json(
-                    self.__client_port),
-                "Client_protocol": self._prepare_for_json(
-                    ZMQ_NETWORK_PROTOCOL),
-                "Node_port": self._prepare_for_json(
-                    self.__node_port),
-                "Node_protocol": self._prepare_for_json(
-                    ZMQ_NETWORK_PROTOCOL),
-                "did": self._prepare_for_json(
-                    self.__did),
-                'verkey': self._prepare_for_json(
-                    self.__verkey),
-                "Metrics": self._prepare_for_json(
-                    self._get_node_metrics()),
+                "Name": self._prepare_for_json(self.__alias),
+                "Mode": self._prepare_for_json(self._node.mode.name),
+                "Client_port": self._prepare_for_json(self.client_port),
+                "Client_ip": self._prepare_for_json(self.client_ip),
+                "Client_protocol": self._prepare_for_json(ZMQ_NETWORK_PROTOCOL),
+                "Node_port": self._prepare_for_json(self.node_port),
+                "Node_ip": self._prepare_for_json(self.node_ip),
+                "Node_protocol": self._prepare_for_json(ZMQ_NETWORK_PROTOCOL),
+                "did": self._prepare_for_json(self.__did),
+                'verkey': self._prepare_for_json(self.__verkey),
+                'BLS_key': self._prepare_for_json(self.bls_key),
+                "Metrics": self._prepare_for_json(self._get_node_metrics()),
                 "Committed_ledger_root_hashes": self._prepare_for_json(
                     committed_ledger_root_hashes),
                 "Committed_state_root_hashes": self._prepare_for_json(
@@ -551,16 +580,16 @@ class ValidatorNodeInfoTool:
                     "Last_txn_3PC_keys": self._prepare_for_json(
                         last_txn_3PC_keys),
                 },
+                "Requests_timeouts": {
+                    "Propagates_phase_req_timeouts": self._prepare_for_json(
+                        self._node.propagates_phase_req_timeouts),
+                    "Ordering_phase_req_timeouts": self._prepare_for_json(
+                        self._node.ordering_phase_req_timeouts)
+                },
                 "Count_of_replicas": self._prepare_for_json(
                     len(self._node.replicas)),
                 "Replicas_status": self._prepare_for_json(
                     self.__replicas_status),
-                "Pool_ledger_size": self._prepare_for_json(
-                    self._get_pool_ledger_size()),
-                "Domain_ledger_size": self._prepare_for_json(
-                    self._get_domain_ledger_size()),
-                "Config_ledger_size": self._prepare_for_json(
-                    self._get_config_ledger_size()),
             }
         }
 
@@ -652,15 +681,6 @@ class ValidatorNodeInfoTool:
             txns.append(txn)
             i += 1
         return txns
-
-    def _get_pool_ledger_size(self):
-        return self._node.poolLedger.size
-
-    def _get_domain_ledger_size(self):
-        return self._node.domainLedger.size
-
-    def _get_config_ledger_size(self):
-        return self._node.configLedger.size
 
     def _dump_into_file(self, file_path, info):
         with open(file_path, 'w') as fd:

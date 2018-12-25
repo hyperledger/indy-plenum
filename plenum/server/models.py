@@ -1,9 +1,13 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Optional, Any
+import time
+from typing import NamedTuple, Set, Optional, Any, Dict, Callable
 
 from plenum.common.messages.node_messages import Prepare, Commit
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str]),
@@ -12,29 +16,29 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 
 class TrackedMsgs(dict):
 
-    def getKey(self, msg):
+    def _get_key(self, msg):
         raise NotImplementedError
 
-    def newVoteMsg(self, msg):
+    def _new_vote_msg(self, msg):
         return ThreePhaseVotes(voters=set(), msg=msg)
 
-    def addMsg(self, msg, voter: str):
-        key = self.getKey(msg)
+    def _add_msg(self, msg, voter: str):
+        key = self._get_key(msg)
         if key not in self:
-            self[key] = self.newVoteMsg(msg)
+            self[key] = self._new_vote_msg(msg)
         self[key].voters.add(voter)
 
-    def hasMsg(self, msg) -> bool:
-        key = self.getKey(msg)
+    def _has_msg(self, msg) -> bool:
+        key = self._get_key(msg)
         return key in self
 
-    def hasVote(self, msg, voter: str) -> bool:
-        key = self.getKey(msg)
+    def _has_vote(self, msg, voter: str) -> bool:
+        key = self._get_key(msg)
         return key in self and voter in self[key].voters
 
-    def hasEnoughVotes(self, msg, count) -> bool:
-        key = self.getKey(msg)
-        return self.hasMsg(msg) and len(self[key].voters) >= count
+    def _has_enough_votes(self, msg, count) -> bool:
+        key = self._get_key(msg)
+        return self._has_msg(msg) and len(self[key].voters) >= count
 
 
 class Prepares(TrackedMsgs):
@@ -46,7 +50,7 @@ class Prepares(TrackedMsgs):
     (viewNo, seqNo) -> (digest, {senders})
     """
 
-    def getKey(self, prepare):
+    def _get_key(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
 
     # noinspection PyMethodMayBeStatic
@@ -58,18 +62,18 @@ class Prepares(TrackedMsgs):
         :param prepare: the PREPARE to add to the list
         :param voter: the name of the node who sent the PREPARE
         """
-        self.addMsg(prepare, voter)
+        self._add_msg(prepare, voter)
 
     # noinspection PyMethodMayBeStatic
     def hasPrepare(self, prepare: Prepare) -> bool:
-        return super().hasMsg(prepare)
+        return super()._has_msg(prepare)
 
     # noinspection PyMethodMayBeStatic
     def hasPrepareFrom(self, prepare: Prepare, voter: str) -> bool:
-        return super().hasVote(prepare, voter)
+        return super()._has_vote(prepare, voter)
 
     def hasQuorum(self, prepare: Prepare, quorum: int) -> bool:
-        return self.hasEnoughVotes(prepare, quorum)
+        return self._has_enough_votes(prepare, quorum)
 
 
 class Commits(TrackedMsgs):
@@ -80,7 +84,7 @@ class Commits(TrackedMsgs):
     replica names in case of multiple protocol instances)
     """
 
-    def getKey(self, commit):
+    def _get_key(self, commit):
         return commit.viewNo, commit.ppSeqNo
 
     # noinspection PyMethodMayBeStatic
@@ -92,18 +96,23 @@ class Commits(TrackedMsgs):
         :param commit: the COMMIT to add to the list
         :param voter: the name of the replica who sent the COMMIT
         """
-        super().addMsg(commit, voter)
+        super()._add_msg(commit, voter)
 
     # noinspection PyMethodMayBeStatic
     def hasCommit(self, commit: Commit) -> bool:
-        return super().hasMsg(commit)
+        return super()._has_msg(commit)
 
     # noinspection PyMethodMayBeStatic
     def hasCommitFrom(self, commit: Commit, voter: str) -> bool:
-        return super().hasVote(commit, voter)
+        return super()._has_vote(commit, voter)
 
     def hasQuorum(self, commit: Commit, quorum: int) -> bool:
-        return self.hasEnoughVotes(commit, quorum)
+        return self._has_enough_votes(commit, quorum)
+
+
+InstanceChangesVotes = NamedTuple("InstanceChangesVotes", [
+    ("voters", Dict[str, int]),
+    ("msg", Optional[Any])])
 
 
 class InstanceChanges(TrackedMsgs):
@@ -116,20 +125,47 @@ class InstanceChanges(TrackedMsgs):
     that can trigger a view change as equal
     """
 
-    def getKey(self, msg):
+    def __init__(self, config, time_provider: Callable = time.perf_counter) -> None:
+        self._outdated_ic_interval = \
+            config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL
+        self._time_provider = time_provider
+        super().__init__()
+
+    def _new_vote_msg(self, msg):
+        return InstanceChangesVotes(voters=dict(), msg=msg)
+
+    def _get_key(self, msg):
         return msg if isinstance(msg, int) else msg.viewNo
 
-    # noinspection PyMethodMayBeStatic
-    def addVote(self, msg: int, voter: str):
-        super().addMsg(msg, voter)
+    def add_vote(self, msg, voter: str):
+        # This method can't use _add_message() because
+        # the voters collection is a dict.
+        key = self._get_key(msg)
+        if key not in self:
+            self[key] = self._new_vote_msg(msg)
+        self[key].voters[voter] = self._time_provider()
 
-    # noinspection PyMethodMayBeStatic
-    def hasView(self, viewNo: int) -> bool:
-        return super().hasMsg(viewNo)
+    def has_view(self, view_no: int) -> bool:
+        self._update_votes(view_no)
+        return super()._has_msg(view_no)
 
-    # noinspection PyMethodMayBeStatic
-    def hasInstChngFrom(self, viewNo: int, voter: str) -> bool:
-        return super().hasVote(viewNo, voter)
+    def has_inst_chng_from(self, view_no: int, voter: str) -> bool:
+        self._update_votes(view_no)
+        return super()._has_vote(view_no, voter)
 
-    def hasQuorum(self, viewNo: int, quorum: int) -> bool:
-        return self.hasEnoughVotes(viewNo, quorum)
+    def has_quorum(self, view_no: int, quorum: int) -> bool:
+        self._update_votes(view_no)
+        return self._has_enough_votes(view_no, quorum)
+
+    def _update_votes(self, view_no: int):
+        if self._outdated_ic_interval <= 0 or view_no not in self:
+            return
+        for voter, vote_time in dict(self[view_no].voters).items():
+            now = self._time_provider()
+            if vote_time < now - self._outdated_ic_interval:
+                logger.info("Discard InstanceChange from {} for ViewNo {} "
+                            "because it is out of date (was received {}sec "
+                            "ago)".format(voter, view_no, int(now - vote_time)))
+                del self[view_no].voters[voter]
+            if not self[view_no].voters:
+                del self[view_no]

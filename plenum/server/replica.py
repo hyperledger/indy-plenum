@@ -923,7 +923,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, key: ReqKey):
-        fin_req = self.requests[key.digest].finalised
+        try:
+            fin_req = self.requests[key.digest].finalised
+        except KeyError:
+            # Means that this request is outdated and is dropped from the main requests queue
+            self.logger.debug('{} reports request {} is ready for 3PC but it has been dropped '
+                              'from requests queue, ignore this request'.format(self, key))
+            return
         queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
         queue.add(key.digest)
         if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
@@ -1076,6 +1082,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                              "then the latest one - ignoring it".format(key))
         elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
             non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
+            for req in non_fin_reqs:
+                if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
+                    self.logger.info("Request digest {} already ordered. Discard {} "
+                                     "from {}".format(req, pre_prepare, sender))
+                    report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+                    return
             self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is

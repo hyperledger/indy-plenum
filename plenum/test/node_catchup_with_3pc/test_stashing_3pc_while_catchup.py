@@ -2,6 +2,7 @@ from logging import getLogger
 
 from plenum.common.startable import Mode
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.delayers import cqDelay, cr_delay, cs_delay, reset_delays_and_process_delayeds, lsDelay, cpDelay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -22,9 +23,6 @@ def test_3pc_while_catchup(tdir, tconf,
                            sdk_pool_handle,
                            sdk_wallet_client,
                            allPluginsPath):
-    """
-    Checks that node can catchup large ledgers
-    """
     # Prepare nodes
     lagging_node = txnPoolNodeSet[-1]
     rest_nodes = txnPoolNodeSet[:-1]
@@ -56,29 +54,36 @@ def test_3pc_while_catchup(tdir, tconf,
                                       )
 
     initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
-    with delay_rules(lagging_node.nodeIbStasher, cr_delay()):
-        looper.add(lagging_node)
-        txnPoolNodeSet[-1] = lagging_node
-        looper.run(checkNodesConnected(txnPoolNodeSet))
+    # delay CurrentState to avoid Primary Propagation (since it will lead to more catch-ups not needed in this test).
+    with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
+        with delay_rules(lagging_node.nodeIbStasher, cr_delay()):
+            looper.add(lagging_node)
+            txnPoolNodeSet[-1] = lagging_node
+            looper.run(checkNodesConnected(txnPoolNodeSet))
 
-        # make sure that more requests are being ordered while catch-up is in progress
+            # wait till we got catchup replies for messages missed while the node was offline,
+            # so that now qwe can order more messages, and they will not be caught up, but stashed
+            looper.run(
+                eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3), retryWait=1,
+                           timeout=60))
+
+            # make sure that more requests are being ordered while catch-up is in progress
+            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                                      sdk_wallet_client, 10)
+
+            assert lagging_node.mode == Mode.syncing
+
+        # check that the catch-up is finished
         looper.run(
-            eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3), retryWait=1,
-                       timeout=60))
-
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, 10)
-
-        assert lagging_node.mode == Mode.syncing
-
-        # make sure that these requests are not caught up again
-        lagging_node.nodeIbStasher.delay(cpDelay())
-
-    # check that the first catch-up is finished
-    looper.run(
-        eventually(lambda: assertExp(lagging_node.spylog.count(Node.allLedgersCaughtUp) > initial_all_ledgers_caught_up),
-                   retryWait=1, timeout=60))
-    looper.run(
-        eventually(lambda: assertExp(lagging_node.mode == Mode.participating), retryWait=1, timeout=60))
-    # check that the node was able to order requests stashed during catch-up
-    waitNodeDataEquality(looper, *txnPoolNodeSet)
+            eventually(
+                lambda: assertExp(lagging_node.mode == Mode.participating), retryWait=1,
+                timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
+            )
+        )
+        looper.run(
+            eventually(
+                lambda: assertExp(lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
+            )
+        )
+        # check that the node was able to order requests stashed during catch-up
+        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)

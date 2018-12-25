@@ -1,12 +1,9 @@
 import pytest
-from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.exceptions import RequestNackedException
 from plenum.test.helper import sdk_get_and_check_replies
 from plenum.common.constants import VALIDATOR
 from plenum.test.pool_transactions.helper import prepare_new_node_data, \
-    prepare_node_request, sdk_sign_and_send_prepared_request, \
-    create_and_start_new_node
-from plenum.test.test_node import TestNode
+    prepare_node_request, sdk_sign_and_send_prepared_request
 
 
 def test_add_node_with_invalid_key_proof(looper,

@@ -40,7 +40,7 @@ def fake_monitor(tconf):
     instances = Instances()
     num_of_replicas = 5
     for i in range(num_of_replicas):
-        throughputs[i] = Monitor.create_throughput_measurement(tconf, start_ts=0)
+        throughputs[i] = Monitor.create_throughput_measurement(tconf)
         instances.add(i)
     monitor = FakeSomething(
         throughputs=throughputs,

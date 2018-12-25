@@ -9,12 +9,9 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
-from plenum.common.request import Request
-from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
-from plenum.server.propagator import Requests
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -282,7 +279,7 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(self):
         pass
 
-    def getDomainReqHandler(self):
+    def init_domain_req_handler(self):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,
@@ -464,6 +461,7 @@ replica_spyables = [
     replica.Replica.processPrepare,
     replica.Replica.processCommit,
     replica.Replica.processCheckpoint,
+    replica.Replica.dispatchThreePhaseMsg,
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,

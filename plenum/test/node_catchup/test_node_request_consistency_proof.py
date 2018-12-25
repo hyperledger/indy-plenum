@@ -47,7 +47,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
         if ledger_id != DOMAIN_LEDGER_ID:
             return origMethod(ledger_id)
 
-        size = self.primaryStorage.size
+        size = self.domainLedger.size
         next_size = next_size + 1 if next_size < size else 1
         print("new size {}".format(next_size))
 
