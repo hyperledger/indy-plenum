@@ -1,6 +1,9 @@
+import functools
+
 import pytest
 
 from plenum.common.startable import Mode
+from plenum.server.node import Node
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, STASH_VIEW, STASH_WATERMARKS, \
@@ -100,6 +103,26 @@ def test_check_previous_view_view_change_no_prep_cert(validator):
                                pp_seq_no=1,
                                inst_id=validator.inst_id):
         assert validator.validate_3pc_msg(msg) == (DISCARD, OLD_VIEW)
+
+
+@pytest.mark.parametrize('mode, result', [
+    (Mode.starting, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.discovering, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.discovered, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.syncing, (STASH_CATCH_UP, CATCHING_UP)),
+    (Mode.synced, (PROCESS, None)),
+    (Mode.participating, (PROCESS, None))
+])
+def test_check_catchup_modes_in_view_change_for_prep_cert(validator, result, mode):
+    pp_seq_no = 10
+    validator.replica.node.view_change_in_progress = True
+    validator.replica.node.mode = mode
+    validator.replica.last_prepared_before_view_change = (validator.view_no - 1,
+                                                          pp_seq_no)
+    for msg in create_3pc_msgs(view_no=validator.view_no - 1,
+                               pp_seq_no=pp_seq_no,
+                               inst_id=validator.inst_id):
+        assert validator.validate_3pc_msg(msg) == result
 
 
 @pytest.mark.parametrize('pp_seq_no, result', [

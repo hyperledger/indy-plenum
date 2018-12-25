@@ -54,7 +54,7 @@ def test_discard_process_three_phase_msg_for_old_view(test_node, looper):
     checkDiscardMsg([replica, ], msg, OLD_VIEW)
 
 
-def test_discard_process_three_phase_msg_for_old_watermarks(test_node, looper):
+def test_discard_process_three_phase_already_ordered_msg(test_node, looper):
     sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
@@ -72,15 +72,12 @@ def test_process_three_phase_msg_with_catchup_stash(test_node, looper):
     inst_id = 0
     replica = test_node.replicas[inst_id]
     old_catchup_stashed_msgs = replica.stasher.num_stashed_catchup
-    old_mode = test_node.mode
     test_node.mode = Mode.syncing  # catchup in process
     view_no = test_node.viewNo
     pp_seq_no = replica.last_ordered_3pc[1] + 1
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
     replica.processThreePhaseMsg(msg, sender)
     assert old_catchup_stashed_msgs + 1 == replica.stasher.num_stashed_catchup
-
-    test_node.mode = old_mode
 
 
 def test_process_three_phase_msg_and_stashed_future_view(test_node, looper):

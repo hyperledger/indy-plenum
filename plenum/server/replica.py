@@ -468,6 +468,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
         self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        self.stasher.unstash_watermarks()
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -977,7 +978,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.debug("{} stashing 3 phase message {} with "
                               "the reason: {}".format(self, msg, reason))
             self.stasher.stash((msg, sender), result)
-            self.stashOutsideWatermarks((msg, sender)) # ?
 
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
@@ -1955,7 +1955,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # collections and process stashed messages which now fit between
             # watermarks
             self.caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
-            self.stasher.unstash_watermarks()
 
     def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
@@ -2018,7 +2017,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
         self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
-        self.processStashedMsgsForNewWaterMarks()
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
@@ -2172,35 +2170,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def stashOutsideWatermarks(self, item: Tuple):
         self.stashingWhileOutsideWaterMarks.append(item)
-
-    def processStashedMsgsForNewWaterMarks(self):
-        # Items from `stashingWhileOutsideWaterMarks` can be re-enqueued back
-        # to this queue, so `stashingWhileOutsideWaterMarks` might never
-        # become empty during the execution of this method resulting
-        # in an infinite loop. So we should consume each item only once
-        # during one call of this method.
-        itemsToConsume = len(self.stashingWhileOutsideWaterMarks)
-
-        # Moreover, the watermarks may be updated again while consuming items
-        # from `stashingWhileOutsideWaterMarks`. So this method may be called
-        # recursively. We should stop iteration in all the outward calls of
-        # this method in case we complete consuming of stashed messages in any
-        # recursive call of this method.
-        self.consumedAllStashedMsgs = False
-
-        while itemsToConsume and not self.consumedAllStashedMsgs:
-            item = self.stashingWhileOutsideWaterMarks.popleft()
-            self.logger.debug("{} processing stashed item {} after new stable "
-                              "checkpoint".format(self, item))
-
-            if isinstance(item, tuple) and len(item) == 2:
-                self.dispatchThreePhaseMsg(*item)
-            else:
-                self.logger.debug("{} cannot process {} "
-                                  "from stashingWhileOutsideWaterMarks".format(self, item))
-            itemsToConsume -= 1
-
-        self.consumedAllStashedMsgs = True
 
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
