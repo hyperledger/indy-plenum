@@ -640,6 +640,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if seq_no is not None:
                 reqs_for_remove.append((key, ledger_id, seq_no))
         for key, ledger_id, seq_no in reqs_for_remove:
+            self.requests.ordered_by_replica(key)
             self.requests.free(key)
             self.requestQueues[int(ledger_id)].discard(key)
         master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
@@ -1889,6 +1890,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 invalid_reqIdr.append(reqIdr)
             else:
                 valid_reqIdr.append(reqIdr)
+            self.requests.ordered_by_replica(reqIdr)
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
