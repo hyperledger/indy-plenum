@@ -26,17 +26,19 @@ def nym_handler(tconf):
 
 def test_dynamic_validation(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     request = Request(identifier=identifier,
-                      operation={ROLE: ""})
+                      operation={TXN_TYPE: NYM,
+                                 ROLE: ""})
     nym_handler.dynamic_validation(request)
 
 
 def test_dynamic_validation_msg_from_not_steward(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, ""))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, ""))
     request = Request(identifier=identifier,
-                      operation={ROLE: ""})
+                      operation={
+                          TXN_TYPE: NYM,ROLE: ""})
 
     with pytest.raises(UnauthorizedClientRequest) as e:
         nym_handler.dynamic_validation(request)
@@ -46,20 +48,22 @@ def test_dynamic_validation_msg_from_not_steward(nym_handler):
 
 def test_dynamic_validation_steward_create_steward_before_limit(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     request = Request(identifier=identifier,
-                      operation={ROLE: STEWARD})
+                      operation={TXN_TYPE: NYM,
+                                 ROLE: STEWARD})
     nym_handler.dynamic_validation(request)
 
 
 def test_dynamic_validation_steward_create_steward_after_limit(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     old_steward_threshold = nym_handler.config.stewardThreshold
     nym_handler.config.stewardThreshold = 1
 
     request = Request(identifier=identifier,
-                      operation={ROLE: STEWARD})
+                      operation={TXN_TYPE: NYM,
+                                 ROLE: STEWARD})
 
     with pytest.raises(UnauthorizedClientRequest) as e:
         nym_handler.dynamic_validation(request)
@@ -73,7 +77,7 @@ def test_update_state(nym_handler):
     txns = []
     for i in range(5):
         txns.append(_create_nym_txn("identifier{}".format(i), STEWARD, str(i)))
-    nym_handler.updateState(txns)
+    nym_handler.update_state(txns)
 
     for txn in txns:
         nym_data = nym_handler.getNymDetails(nym_handler.state, get_reply_nym(txn))
@@ -85,25 +89,25 @@ def test_update_nym(nym_handler):
     txn1 = _create_nym_txn(identifier, STEWARD)
     txn2 = _create_nym_txn(identifier, "")
 
-    nym_handler.updateNym(identifier, txn1)
+    nym_handler.update_nym(identifier, txn1)
     nym_data = nym_handler.getNymDetails(nym_handler.state, identifier)
     assert get_payload_data(txn1)[ROLE] == nym_data[ROLE]
 
-    nym_handler.updateNym(identifier, txn2)
+    nym_handler.update_nym(identifier, txn2)
     nym_data = nym_handler.getNymDetails(nym_handler.state, identifier)
     assert get_payload_data(txn2)[ROLE] == nym_data[ROLE]
 
 
 def test_get_role(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     nym_data = nym_handler.get_role(nym_handler.state, identifier, STEWARD)
-    assert nym_data[ROLE] == STEWARD
+    assert nym_data == STEWARD
 
 
 def test_get_role_nym_without_role(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, ""))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, ""))
     nym_data = nym_handler.get_role(nym_handler.state, identifier, STEWARD)
     assert not nym_data
 
@@ -116,7 +120,7 @@ def test_get_role_without_nym_data(nym_handler):
 
 def test_is_steward(nym_handler):
     identifier = "test_identifier"
-    nym_handler.updateNym(identifier, _create_nym_txn(identifier, STEWARD))
+    nym_handler.update_nym(identifier, _create_nym_txn(identifier, STEWARD))
     assert nym_handler.isSteward(nym_handler.state, identifier)
     assert not nym_handler.isSteward(nym_handler.state, "other_identifier")
 

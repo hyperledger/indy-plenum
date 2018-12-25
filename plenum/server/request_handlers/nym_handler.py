@@ -135,7 +135,7 @@ class NymHandler(WriteRequestHandler):
     @staticmethod
     def isSteward(state, nym, isCommitted: bool = True):
         role = NymHandler.get_role(state, nym, isCommitted)
-        return role is STEWARD
+        return role == STEWARD
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):
