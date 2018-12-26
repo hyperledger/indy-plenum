@@ -159,6 +159,14 @@ class Requests(OrderedDict):
         state.forwardedTo -= 1
         self._clean(state)
 
+    def force_free(self, request_key):
+        state = self.get(request_key)
+        if not state:
+            return
+        if state.finalised:
+            self.finalised_count -= 1
+        self.pop(request_key, None)
+
     def _clean(self, state):
         if state.executed and state.forwardedTo <= 0:
             if state.finalised:
