@@ -252,6 +252,9 @@ Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
 
+UPDATE_STATE_FRESHNESS = True
+STATE_FRESHNESS_WINDOW = 300 # in secs
+
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
 ProcessedBatchMapsToKeep = 1000

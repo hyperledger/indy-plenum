@@ -181,11 +181,12 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
 
 def test_create_3pc_batch_with_empty_requests(replica):
     def patched_stateRootHash(self, ledger_id, to_str=None):
-        return b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
+        return "EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
 
     replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
 
-    assert replica.create3PCBatch(0) is None
+    assert replica.create_3pc_batch(0, is_empty=False) is None
+    assert replica.create_3pc_batch(0, is_empty=True) is not None
 
 
 def test_create_3pc_batch(replica):
@@ -195,11 +196,10 @@ def test_create_3pc_batch(replica):
                                           protocol_version=CURRENT_PROTOCOL_VERSION)
     ledger_id = POOL_LEDGER_ID
     replica.consume_req_queue_for_pre_prepare = \
-        lambda ledger, view_no, pp_seq_no: (requests, [], [],
-                                            replica.get_utc_epoch_for_preprepare(replica.instId, view_no, pp_seq_no))
+        lambda ledger, tm, view_no, pp_seq_no: (requests, [], [])
     replica.stateRootHash = lambda ledger, to_str=False: root_hash[ledger]
 
-    pre_prepare_msg = replica.create3PCBatch(ledger_id)
+    pre_prepare_msg = replica.create_3pc_batch(ledger_id)
 
     assert pre_prepare_msg.poolStateRootHash == root_hash[POOL_LEDGER_ID]
     assert pre_prepare_msg.stateRootHash == root_hash[ledger_id]

@@ -8,7 +8,12 @@ from plenum.test.testing_utils import FakeSomething
 
 
 @pytest.fixture(scope='function', params=[0, 10])
-def replica(tconf, request):
+def view_no(tconf, request):
+    return request.param
+
+
+@pytest.fixture(scope='function')
+def replica(tconf, request, view_no):
     node_stack = FakeSomething(
         name="fake stack",
         connecteds={"Alpha", "Beta", "Gamma", "Delta"}
@@ -16,7 +21,7 @@ def replica(tconf, request):
     node = FakeSomething(
         name="fake node",
         ledger_ids=[0],
-        viewNo=request.param,
+        viewNo=view_no,
         quorums=Quorums(getValueFromModule(request, 'nodeCount', default=4)),
         nodestack=node_stack,
         utc_epoch=lambda *args: get_utc_epoch()

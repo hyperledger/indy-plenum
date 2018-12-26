@@ -22,14 +22,12 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
             key = (view_no, pp_seq_no)
             return self.sent_pps[key][0] if key in self.sent_pps else None
 
-        def consume_req_queue_for_pre_prepare(self, ledger_id, view_no,
+        def consume_req_queue_for_pre_prepare(self, ledger_id, tm, view_no,
                                               pp_seq_no):
             valid_reqs = []
             invalid_reqs = []
             rejects = []
 
-            tm = self.get_utc_epoch_for_preprepare(self.instId, view_no,
-                                                   pp_seq_no)
             if tm is None:
                 # No time for this PRE-PREPARE since a PRE-PREPARE with
                 # (view_no, pp_seq_no) was not sent during normal execution
@@ -69,7 +67,7 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
                 finally:
                     reqs.append(fin_req)
                 idx += 1
-            return reqs, invalid_indices, rejects, tm
+            return reqs, invalid_indices, rejects
 
     class _TestReplicas(replicas_class):
         _replica_class = _TestReplica
