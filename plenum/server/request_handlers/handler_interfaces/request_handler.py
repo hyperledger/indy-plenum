@@ -1,7 +1,9 @@
 from abc import ABCMeta, abstractmethod
+from typing import Dict
 
 from common.exceptions import LogicError
 from plenum.common.request import Request
+from plenum.common.txn_util import get_type
 from plenum.server.database_manager import DatabaseManager
 from stp_core.common.log import getlogger
 
@@ -38,6 +40,10 @@ class RequestHandler(metaclass=ABCMeta):
         return self.database_manager.get_database(self.ledger_id).ledger \
             if self.ledger_id else None
 
-    def _validate_type(self, request: Request):
+    def _validate_request_type(self, request: Request):
         if request.txn_type != self.txn_type:
+            raise LogicError
+
+    def _validate_txn_type(self, txn: Dict):
+        if get_type(txn) != self.txn_type:
             raise LogicError

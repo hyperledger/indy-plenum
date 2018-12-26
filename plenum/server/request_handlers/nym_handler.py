@@ -29,11 +29,11 @@ class NymHandler(WriteRequestHandler):
         pass
 
     def dynamic_validation(self, request: Request):
-        self._validate_type(request)
+        self._validate_request_type(request)
         identifier, req_id, operation = get_request_data(request)
         error = None
         if not is_steward(self.state,
-                          identifier, isCommitted=False):
+                          identifier, is_committed=False):
             error = "Only Steward is allowed to do these transactions"
         if operation.get(ROLE) == STEWARD:
             if self._steward_threshold_exceeded(self.config):
@@ -45,18 +45,15 @@ class NymHandler(WriteRequestHandler):
                                             req_id,
                                             error)
 
-    def update_state(self, txns, isCommitted=False):
-        for txn in txns:
-            nym = get_payload_data(txn).get(TARGET_NYM)
-            self._update_nym(nym, txn, isCommitted)
-
     def gen_txn_path(self, txn):
         nym = get_payload_data(txn).get(TARGET_NYM)
         return hexlify(nym_to_state_key(nym)).decode()
 
-    def _update_nym(self, nym, txn, is_committed=True):
+    def _update_state_with_single_txn(self, txn, is_committed=True):
+        self._validate_txn_type(txn)
+        nym = get_payload_data(txn).get(TARGET_NYM)
         existing_data = get_nym_details(self.state, nym,
-                                        isCommitted=is_committed)
+                                        is_committed=is_committed)
         txn_data = get_payload_data(txn)
         new_data = {}
         if not existing_data:

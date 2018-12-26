@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
 from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES
 from plenum.common.request import Request
@@ -9,16 +11,19 @@ class ReadRequestHandler(RequestHandler):
     def __init__(self, database_manager: DatabaseManager, txn_type, ledger_id):
         super().__init__(database_manager, txn_type, ledger_id)
 
+    @abstractmethod
     def static_validation(self, request: Request):
         pass
 
+    @abstractmethod
     def dynamic_validation(self, request: Request):
         pass
 
+    @abstractmethod
     def get_result(self, request: Request):
         pass
 
-    def get_value_from_state(self, path, head_hash=None, with_proof=False):
+    def _get_value_from_state(self, path, head_hash=None, with_proof=False):
         '''
         Get a value (and proof optionally)for the given path in state trie.
         Does not return the proof is there is no aggregate signature for it.

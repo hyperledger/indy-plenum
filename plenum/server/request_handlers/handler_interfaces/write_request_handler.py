@@ -30,8 +30,8 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
         pass
 
     def apply_request(self, request: Request, batch_ts):
-        self._validate_type(request)
-        txn = self._reqToTxn(request)
+        self._validate_request_type(request)
+        txn = self._req_to_txn(request)
         txn = append_txn_metadata(txn, txn_id=self.gen_txn_path(txn))
         self.ledger.append_txns_metadata([txn], batch_ts)
 
@@ -43,16 +43,22 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     def revert_request(self, request: Request, batch_ts):
         pass
 
-    def update_state(self, txns, isCommitted=False):
+    def update_state(self, txns, is_committed=False):
         """
         Updates current state with a number of committed or
         not committed transactions
         """
+        for txn in txns:
+            self._update_state_with_single_txn(txn, is_committed=is_committed)
+
+    @abstractmethod
+    def _update_state_with_single_txn(self, txn, is_committed=True):
+        pass
 
     def gen_txn_path(self, txn):
         return None
 
-    def _reqToTxn(self, req: Request):
+    def _req_to_txn(self, req: Request):
         return reqToTxn(req)
 
     def apply_forced_request(self, req: Request):

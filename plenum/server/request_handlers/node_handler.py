@@ -21,7 +21,7 @@ class NodeHandler(WriteRequestHandler):
         self.bls_crypto_verifier = bls_crypto_verifier
 
     def static_validation(self, request: Request):
-        self._validate_type(request)
+        self._validate_request_type(request)
         blskey = request.operation.get(DATA).get(BLS_KEY, None)
         blskey_proof = request.operation.get(DATA).get(BLS_KEY_PROOF, None)
         if blskey is None and blskey_proof is None:
@@ -42,7 +42,7 @@ class NodeHandler(WriteRequestHandler):
                                        format(blskey_proof, blskey))
 
     def dynamic_validation(self, request: Request):
-        self._validate_type(request)
+        self._validate_request_type(request)
         node_nym = request.operation.get(TARGET_NYM)
         if self._get_node_data(node_nym, is_committed=False):
             error = self._auth_error_while_updating_node(request)
@@ -52,17 +52,19 @@ class NodeHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def update_state(self, txns, is_committed=False):
-        for txn in txns:
-            node_nym = get_payload_data(txn).get(TARGET_NYM)
-            data = get_payload_data(txn).get(DATA, {})
-            existing_data = self._get_node_data(node_nym, is_committed=is_committed)
-            # Node data did not exist in state, so this is a new node txn,
-            # hence store the author of the txn (steward of node)
-            if not existing_data:
-                existing_data[f.IDENTIFIER.nm] = get_from(txn)
-            existing_data.update(data)
-            self._update_node_data(node_nym, existing_data)
+    def _update_state_with_single_txn(self, txn, is_committed=True):
+        self._validate_txn_type(txn)
+        node_nym = get_payload_data(txn).get(TARGET_NYM)
+        data = get_payload_data(txn).get(DATA, {})
+        existing_data = self._get_node_data(node_nym, is_committed=is_committed)
+        # Node data did not exist in state, so this is a new node txn,
+        # hence store the author of the txn (steward of node)
+        if not existing_data:
+            existing_data[f.IDENTIFIER.nm] = get_from(txn)
+        existing_data.update(data)
+        key = node_nym.encode()
+        val = self.state_serializer.serialize(data)
+        self.state.set(key, val)
 
     def _auth_error_while_adding_node(self, request):
         origin = request.identifier
@@ -112,11 +114,6 @@ class NodeHandler(WriteRequestHandler):
         nodes = list(map(lambda x: self.state_serializer.deserialize(
             self.state.get_decoded(x)), raw_node_data))
         return nodes
-
-    def _update_node_data(self, nym, data):
-        key = nym.encode()
-        val = self.state_serializer.serialize(data)
-        self.state.set(key, val)
 
     def _is_steward(self, nym, is_committed: bool = True):
         domain_state = self.database_manager.get_database(DOMAIN_LEDGER_ID).state
