@@ -899,7 +899,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._cancel(self._check_view_change_completed)
 
-        self.master_replica.on_view_change_done()
+        for replica in self.replicas.values():
+            replica.on_view_change_done()
         last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
@@ -921,8 +922,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for replica in self.replicas.values():
                 replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
-        for replica in self.replicas.values():
-            replica.stasher.unstash_future_view()
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -2284,6 +2283,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
         self.mode = Mode.synced
+        for replica in self.replicas.values():
+            replica.stasher.unstash_catchup()
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic

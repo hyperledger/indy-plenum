@@ -617,6 +617,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.isMaster:
             lst = self.last_prepared_certificate_in_view()
             self.last_prepared_before_view_change = lst
+            print("{}  {}".format(self, lst))
             self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
         # It can be that last_ordered_3pc was set for the previous view, since it's set during catch-up
         # Example: a Node has last_ordered = (1, 300), and then the whole pool except this node restarted
@@ -626,9 +627,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = (self.viewNo, 0)
 
     def on_view_change_done(self):
-        if not self.isMaster:
-            raise LogicError("{} is not a master".format(self))
-        self.last_prepared_before_view_change = None
+        if self.isMaster:
+            self.last_prepared_before_view_change = None
+        self.stasher.unstash_future_view()
 
     def clear_requests_and_fix_last_ordered(self):
         reqs_for_remove = []
@@ -2167,9 +2168,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # as other nodes
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
-
-    def stashOutsideWatermarks(self, item: Tuple):
-        self.stashingWhileOutsideWaterMarks.append(item)
 
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
