@@ -41,6 +41,10 @@ class NodeHandler(WriteRequestHandler):
                                        "for BLS key {}".
                                        format(blskey_proof, blskey))
 
+    def gen_state_key(self, txn):
+        node_nym = get_payload_data(txn).get(TARGET_NYM)
+        return node_nym.encode()
+
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
         node_nym = request.operation.get(TARGET_NYM)
@@ -52,7 +56,7 @@ class NodeHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def _update_state_with_single_txn(self, txn, is_committed=True):
+    def _update_state_with_single_txn(self, txn, is_committed=False):
         self._validate_txn_type(txn)
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         data = get_payload_data(txn).get(DATA, {})
@@ -62,7 +66,7 @@ class NodeHandler(WriteRequestHandler):
         if not existing_data:
             existing_data[f.IDENTIFIER.nm] = get_from(txn)
         existing_data.update(data)
-        key = node_nym.encode()
+        key = self.gen_state_key(txn)
         val = self.state_serializer.serialize(data)
         self.state.set(key, val)
 

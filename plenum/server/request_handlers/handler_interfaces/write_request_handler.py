@@ -32,7 +32,7 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     def apply_request(self, request: Request, batch_ts):
         self._validate_request_type(request)
         txn = self._req_to_txn(request)
-        txn = append_txn_metadata(txn, txn_id=self.gen_txn_path(txn))
+        txn = append_txn_metadata(txn, txn_id=self.gen_state_key(txn))
         self.ledger.append_txns_metadata([txn], batch_ts)
 
         (start, end), _ = self.ledger.appendTxns(
@@ -52,11 +52,12 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
             self._update_state_with_single_txn(txn, is_committed=is_committed)
 
     @abstractmethod
-    def _update_state_with_single_txn(self, txn, is_committed=True):
+    def _update_state_with_single_txn(self, txn, is_committed=False):
         pass
 
-    def gen_txn_path(self, txn):
-        return None
+    @abstractmethod
+    def gen_state_key(self, txn):
+        pass
 
     def _req_to_txn(self, req: Request):
         return reqToTxn(req)

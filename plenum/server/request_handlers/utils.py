@@ -4,12 +4,12 @@ from common.serializers.serialization import domain_state_serializer
 from plenum.common.constants import STEWARD, ROLE
 
 
-def is_steward(state, nym, is_committed: bool = True):
+def is_steward(state, nym, is_committed: bool = False):
     role = get_role(state, nym, is_committed)
     return role == STEWARD
 
 
-def get_role(state, nym, is_committed: bool = True):
+def get_role(state, nym, is_committed: bool = False):
     nymData = get_nym_details(state, nym, is_committed)
     if not nymData:
         return {}
@@ -17,7 +17,7 @@ def get_role(state, nym, is_committed: bool = True):
         return nymData.get(ROLE)
 
 
-def get_nym_details(state, nym, is_committed: bool = True):
+def get_nym_details(state, nym, is_committed: bool = False):
     key = nym_to_state_key(nym)
     data = state.get(key, is_committed)
     if not data:
