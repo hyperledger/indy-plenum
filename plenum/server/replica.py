@@ -236,9 +236,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.inBoxRouter = Router(
             (ReqKey, self.readyFor3PC),
-            (PrePrepare, self.processThreePhaseMsg),
-            (Prepare, self.processThreePhaseMsg),
-            (Commit, self.processThreePhaseMsg),
+            (PrePrepare, self.process_three_phase_msg),
+            (Prepare, self.process_three_phase_msg),
+            (Commit, self.process_three_phase_msg),
             (Checkpoint, self.processCheckpoint),
         )
 
@@ -957,30 +957,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
-
-    def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
-        """
-        Create a three phase request to be handled by the threePhaseRouter.
-
-        :param msg: the ThreePhaseMsg to dispatch
-        :param sender: the name of the node that sent this request
-        """
-        senderRep = self.generateName(sender, self.instId)
-
-        result, reason = self.validator.validate_3pc_msg(msg)
-        if result == DISCARD:
-            self.discard(msg, "{} discard message {} from {} "
-                              "with the reason: {}".format(self, msg, sender, reason),
-                         self.logger.trace)
-        elif result == PROCESS:
-            self.threePhaseRouter.handleSync((msg, senderRep))
-        else:
-            self.logger.debug("{} stashing 3 phase message {} with "
-                              "the reason: {}".format(self, msg, reason))
-            self.stasher.stash((msg, sender), result)
-
-
-    def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
+    def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
         Dispatch the request only if primary has already been decided, otherwise
@@ -990,17 +967,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             COMMIT
         :param sender: name of the node that sent this message
         """
-        self.dispatchThreePhaseMsg(msg, sender)
+        sender = self.generateName(sender, self.instId)
 
-    def can_process_since_view_change_in_progress(self, msg):
-        # Commit msg with 3PC key not greater than last prepared one's
-        r = isinstance(msg, Commit) and \
-            self.last_prepared_before_view_change and \
-            compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
-                             self.last_prepared_before_view_change) >= 0
-        if r:
-            self.logger.debug('{} can process {} since view change is in progress'.format(self, msg))
-        return r
+        result, reason = self.validator.validate_3pc_msg(msg)
+        if result == DISCARD:
+            self.discard(msg, "{} discard message {} from {} "
+                              "with the reason: {}".format(self, msg, sender, reason),
+                         self.logger.trace)
+        elif result == PROCESS:
+            self.threePhaseRouter.handleSync((msg, sender))
+        else:
+            self.logger.debug("{} stashing 3 phase message {} with "
+                              "the reason: {}".format(self, msg, reason))
+            self.stasher.stash((msg, sender), result)
 
     def _process_valid_preprepare(self, pre_prepare, sender):
         # TODO: rename to apply_pre_prepare
@@ -2496,7 +2475,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
             else None
         if stashed_data is None or curr_data == stashed_data:
-            return self.processThreePhaseMsg(msg, sender)
+            return self.process_three_phase_msg(msg, sender)
 
         self.discard(msg, reason='{} does not have expected state {}'.
                      format(THREE_PC_PREFIX, stashed_data),

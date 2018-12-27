@@ -39,7 +39,7 @@ def test_discard_process_three_phase_msg(test_node, looper):
     view_no = test_node.viewNo
     pp_seq_no = 0  # should start with 1
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.processThreePhaseMsg(msg, sender)
+    replica.process_three_phase_msg(msg, sender)
     checkDiscardMsg([replica, ], msg, INCORRECT_PP_SEQ_NO)
 
 
@@ -50,7 +50,7 @@ def test_discard_process_three_phase_msg_for_old_view(test_node, looper):
     view_no = test_node.viewNo - 1
     pp_seq_no = replica.last_ordered_3pc[1] + 1
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.processThreePhaseMsg(msg, sender)
+    replica.process_three_phase_msg(msg, sender)
     checkDiscardMsg([replica, ], msg, OLD_VIEW)
 
 
@@ -63,7 +63,7 @@ def test_discard_process_three_phase_already_ordered_msg(test_node, looper):
     view_no = test_node.viewNo
     pp_seq_no = replica.h
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.processThreePhaseMsg(msg, sender)
+    replica.process_three_phase_msg(msg, sender)
     checkDiscardMsg([replica, ], msg, ALREADY_ORDERED)
 
 
@@ -76,7 +76,7 @@ def test_process_three_phase_msg_with_catchup_stash(test_node, looper):
     view_no = test_node.viewNo
     pp_seq_no = replica.last_ordered_3pc[1] + 1
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.processThreePhaseMsg(msg, sender)
+    replica.process_three_phase_msg(msg, sender)
     assert old_catchup_stashed_msgs + 1 == replica.stasher.num_stashed_catchup
 
 
@@ -88,7 +88,7 @@ def test_process_three_phase_msg_and_stashed_future_view(test_node, looper):
     view_no = test_node.viewNo + 1
     pp_seq_no = replica.last_ordered_3pc[1] + 1
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.processThreePhaseMsg(msg, sender)
+    replica.process_three_phase_msg(msg, sender)
     assert old_stashed_future_view_msgs + 1 == replica.stasher.num_stashed_future_view
 
 
@@ -100,5 +100,5 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(test_node, loop
     view_no = test_node.viewNo
     pp_seq_no = replica.H + 1
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.processThreePhaseMsg(msg, sender)
+    replica.process_three_phase_msg(msg, sender)
     assert old_stashed_watermarks_msgs + 1 == replica.stasher.num_stashed_watermarks
