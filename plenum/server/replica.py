@@ -427,7 +427,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._state_root_serializer = state_roots_serializer
 
         self._freshness_checker = FreshnessChecker(ledger_ids=self.ledger_ids,
-                                                   freshness_timeout=config.STATE_FRESHNESS_WINDOW,
+                                                   freshness_timeout=self.config.STATE_FRESHNESS_WINDOW,
                                                    initial_time=self.get_current_time())
 
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
