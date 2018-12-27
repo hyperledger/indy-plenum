@@ -856,7 +856,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _send_3pc_freshness_batch(self, sent_batches):
         if not self.config.UPDATE_STATE_FRESHNESS:
-            return False
+            return
+
+        if not self.isMaster:
+            return
 
         self._freshness_checker.check_freshness(self.get_current_time())
 

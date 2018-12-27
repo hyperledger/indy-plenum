@@ -8,6 +8,7 @@ from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.helper import freshness, sdk_random_request_objects
 
 from plenum.test.replica.conftest import replica as r
+from plenum.test.testing_utils import FakeSomething
 
 FRESHNESS_TIMEOUT = 60
 
@@ -34,6 +35,8 @@ def replica(r):
     r.isMaster = True
     r.node.requests = Requests()
     r._bls_bft_replica.process_order = lambda *args: None
+    r.node.last_sent_pp_store_helper = FakeSomething()
+    r.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no = lambda *args: None
 
     # re-init FreshnessChecker to use fake timestamps
     set_current_time(r, 0)
@@ -97,6 +100,19 @@ def test_no_freshness_pre_prepare_when_disabled(tconf, replica):
         set_current_time(replica, FRESHNESS_TIMEOUT + 1)
         replica.send_3pc_batch()
         assert len(replica.outBox) == 0
+
+
+def test_no_freshness_pre_prepare_for_non_master(tconf, replica):
+    replica.isMaster = False
+    replica.instId = 1
+    assert len(replica.outBox) == 0
+
+    replica.send_3pc_batch()
+    assert len(replica.outBox) == 0
+
+    set_current_time(replica, FRESHNESS_TIMEOUT + 1)
+    replica.send_3pc_batch()
+    assert len(replica.outBox) == 0
 
 
 def test_freshness_pre_prepare_initially(replica):
