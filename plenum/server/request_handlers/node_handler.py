@@ -56,7 +56,7 @@ class NodeHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def _update_state_with_single_txn(self, txn, is_committed=False):
+    def update_state(self, txn, prev_result, is_committed=False):
         self._validate_txn_type(txn)
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         data = get_payload_data(txn).get(DATA, {})

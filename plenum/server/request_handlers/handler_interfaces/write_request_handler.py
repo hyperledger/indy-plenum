@@ -29,30 +29,27 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     def dynamic_validation(self, request: Request):
         pass
 
-    def apply_request(self, request: Request, batch_ts):
+    def apply_request(self, request: Request, batch_ts, prev_result):
         self._validate_request_type(request)
         txn = self._req_to_txn(request)
         txn = append_txn_metadata(txn, txn_id=self.gen_state_key(txn))
+        # TODO: try to not pass list of one txn if possible
         self.ledger.append_txns_metadata([txn], batch_ts)
 
         (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
-        self.update_state([txn])
-        return start, txn
+        updated_state = self.update_state(txn, prev_result)
+        return start, txn, updated_state
 
     def revert_request(self, request: Request, batch_ts):
         pass
 
-    def update_state(self, txns, is_committed=False):
+    @abstractmethod
+    def update_state(self, txn, prev_result, is_committed=False):
         """
         Updates current state with a number of committed or
         not committed transactions
         """
-        for txn in txns:
-            self._update_state_with_single_txn(txn, is_committed=is_committed)
-
-    @abstractmethod
-    def _update_state_with_single_txn(self, txn, is_committed=False):
         pass
 
     @abstractmethod

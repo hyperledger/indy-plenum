@@ -10,7 +10,7 @@ class BatchRequestHandler:
         self.database_manager = database_manager
         self.ledger_id = ledger_id
 
-    def commit_batch(self, txn_count, state_root, txn_root, pp_time):
+    def commit_batch(self, txn_count, state_root, txn_root, pp_time, prev_result):
         """
         :param txn_count: The number of requests to commit (The actual requests
         are picked up from the uncommitted list from the ledger)

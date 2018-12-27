@@ -49,7 +49,7 @@ class NymHandler(WriteRequestHandler):
         nym = get_payload_data(txn).get(TARGET_NYM)
         return nym_to_state_key(nym)
 
-    def _update_state_with_single_txn(self, txn, is_committed=False):
+    def update_state(self, txn, prev_result, is_committed=False):
         self._validate_txn_type(txn)
         nym = get_payload_data(txn).get(TARGET_NYM)
         existing_data = get_nym_details(self.state, nym,

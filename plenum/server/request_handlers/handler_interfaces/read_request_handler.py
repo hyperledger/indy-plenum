@@ -1,5 +1,6 @@
 from abc import abstractmethod
 
+domain.
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
 from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, TXN_TIME, STATE_PROOF
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
