@@ -1,7 +1,5 @@
 from abc import abstractmethod
 
-from indy_common.state import domain
-
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
 from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, TXN_TIME, STATE_PROOF
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
@@ -9,6 +7,7 @@ from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
+from plenum.server.request_handlers.utils import decode_state_value
 
 
 class ReadRequestHandler(RequestHandler):
@@ -79,7 +78,7 @@ class ReadRequestHandler(RequestHandler):
         head_hash = self.state.committedHeadHash if is_committed else self.state.headHash
         encoded, proof = self._get_value_from_state(path, head_hash, with_proof=with_proof)
         if encoded:
-            value, last_seq_no, last_update_time = domain.decode_state_value(encoded)
+            value, last_seq_no, last_update_time = decode_state_value(encoded)
             return value, last_seq_no, last_update_time, proof
         return None, None, None, proof
 

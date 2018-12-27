@@ -3,6 +3,10 @@ from _sha256 import sha256
 from common.serializers.serialization import domain_state_serializer
 from plenum.common.constants import STEWARD, ROLE
 
+LAST_SEQ_NO = "lsn"
+VALUE = "val"
+LAST_UPDATE_TIME = "lut"
+
 
 def is_steward(state, nym, is_committed: bool = False):
     role = get_role(state, nym, is_committed)
@@ -27,3 +31,11 @@ def get_nym_details(state, nym, is_committed: bool = False):
 
 def nym_to_state_key(nym: str) -> bytes:
     return sha256(nym.encode()).digest()
+
+
+def decode_state_value(ecnoded_value):
+    decoded = domain_state_serializer.deserialize(ecnoded_value)
+    value = decoded.get(VALUE)
+    last_seq_no = decoded.get(LAST_SEQ_NO)
+    last_update_time = decoded.get(LAST_UPDATE_TIME)
+    return value, last_seq_no, last_update_time
