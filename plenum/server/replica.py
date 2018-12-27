@@ -858,9 +858,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.config.UPDATE_STATE_FRESHNESS:
             return False
 
-        self._freshness_checker.check_frehsness(self.get_current_time())
+        self._freshness_checker.check_freshness(self.get_current_time())
 
-        for ledger_id, ts in self._freshness_checker.get_outdated_ledgers():
+        # Update freshness for all outdated ledgers sequentially without any waits
+        # Consider sending every next update in Max3PCBatchWait only
+        while self._freshness_checker.get_outdated_ledgers_count() > 0:
+            ledger_id, ts = self._freshness_checker.pop_next_outdated_ledger()
             if ledger_id in sent_batches:
                 self.logger.debug("Ledger {} is not updated for {} seconds, "
                                   "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
@@ -883,9 +886,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.instId, pre_prepare.ppSeqNo)
         self.trackBatches(pre_prepare, oldStateRootHash)
         return ledger_id
-
-
-
 
 
     def get_current_time(self):
@@ -1932,6 +1932,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 "{} no PrePrepare with a 'key' {} found"
                 .format(self, key)
             )
+
+        self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
+                                                 ts=self.get_current_time())
 
         self.addToOrdered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
