@@ -617,7 +617,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.isMaster:
             lst = self.last_prepared_certificate_in_view()
             self.last_prepared_before_view_change = lst
-            print("{}  {}".format(self, lst))
             self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
         # It can be that last_ordered_3pc was set for the previous view, since it's set during catch-up
         # Example: a Node has last_ordered = (1, 300), and then the whole pool except this node restarted
