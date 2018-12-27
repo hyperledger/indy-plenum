@@ -2271,10 +2271,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             for replica in self.replicas.values():
-                if replica.isMaster:
-                    replica.caught_up_till_3pc(last_caught_up_3PC)
-                else:
-                    replica.catchup_clear_for_backup()
+                replica.on_catch_up_finished(last_caught_up_3PC)
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})
@@ -2283,8 +2280,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
         self.mode = Mode.synced
-        for replica in self.replicas.values():
-            replica.stasher.unstash_catchup()
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic

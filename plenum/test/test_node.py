@@ -12,6 +12,7 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.replica_stasher import ReplicaStasher
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -450,6 +451,17 @@ view_changer_spyables = [
 class TestViewChanger(ViewChanger):
     pass
 
+replica_stasher_spyables = [
+    ReplicaStasher.stash
+]
+
+
+@spyable(methods=view_changer_spyables)
+class TestReplicaStasher(ReplicaStasher):
+    pass
+
+
+
 
 replica_spyables = [
     replica.Replica.sendPrePrepare,
@@ -465,7 +477,6 @@ replica_spyables = [
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,
-    replica.Replica.stashOutsideWatermarks,
     replica.Replica.revert_unordered_batches,
     replica.Replica.revert,
     replica.Replica.can_process_since_view_change_in_progress,

@@ -1955,7 +1955,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # Adjust last_ordered_3pc, shift watermarks, clean operational
             # collections and process stashed messages which now fit between
             # watermarks
-            self.caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
+            self._caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
 
     def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
@@ -2612,7 +2612,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
-    def caught_up_till_3pc(self, last_caught_up_3PC):
+    def on_catch_up_finished(self, last_caught_up_3PC=None):
+        if self.isMaster:
+            if last_caught_up_3PC is None:
+                self.looger.info("{} - on_catch_up_finished needs "
+                                 "last_caught_up_3PC".format(self))
+                return
+            self._caught_up_till_3pc(last_caught_up_3PC)
+        else:
+            self._catchup_clear_for_backup()
+        self.stasher.unstash_catchup()
+
+    def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
@@ -2620,7 +2631,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
-    def catchup_clear_for_backup(self):
+    def _catchup_clear_for_backup(self):
         if not self.isPrimary:
             self.last_ordered_3pc = (self.viewNo, 0)
             self.batches.clear()
