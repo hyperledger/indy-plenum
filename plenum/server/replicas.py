@@ -69,6 +69,7 @@ class Replicas:
 
         for req_key in req_keys:
             if req_key in replica.requests:
+                replica.requests.ordered_by_replica(req_key)
                 replica.requests.free(req_key)
 
         self._messages_to_replicas.pop(inst_id, None)
