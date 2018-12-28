@@ -1,9 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import List
 
-from common.exceptions import PlenumValueError, LogicError
-from common.serializers.serialization import state_roots_serializer
-from plenum.common.constants import TXN_TYPE
+from common.exceptions import LogicError
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
 from stp_core.common.log import getlogger
@@ -21,28 +18,57 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     state control
     """
 
-    def __init__(self, database_manager: DatabaseManager, txn_type):
-        self.database_manager = database_manager
-        self.txn_type = txn_type
+    def __init__(self, database_manager: DatabaseManager, txn_type, ledger_id):
+        super().__init__(database_manager, txn_type, ledger_id)
 
     @abstractmethod
     def static_validation(self, request: Request):
         pass
 
     @abstractmethod
-    def dynamic_validation(self, req: Request):
+    def dynamic_validation(self, request: Request):
         pass
 
-    def apply_request(self, request: Request, batch_ts):
-        txn = self._reqToTxn(request)
-        txn = append_txn_metadata(txn, txn_id=self.gen_txn_path(txn))
+    def apply_request(self, request: Request, batch_ts, prev_result):
+        self._validate_request_type(request)
+        txn = self._req_to_txn(request)
+        txn = append_txn_metadata(txn, txn_id=self.gen_state_key(txn))
+        # TODO: try to not pass list of one txn if possible
+        self.ledger.append_txns_metadata([txn], batch_ts)
 
-        db = self.get_db_by_request(request)
-        db.ledger.append_txns_metadata([txn], batch_ts)
-        (start, end), _ = db.ledger.appendTxns(
+        (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
-        self.updateState([txn])
-        return start, txn
+        updated_state = self.update_state(txn, prev_result)
+        return start, txn, updated_state
 
     def revert_request(self, request: Request, batch_ts):
         pass
+
+    @abstractmethod
+    def update_state(self, txn, prev_result, is_committed=False):
+        """
+        Updates current state with a number of committed or
+        not committed transactions
+        """
+        pass
+
+    @abstractmethod
+    def gen_state_key(self, txn):
+        pass
+
+    def _req_to_txn(self, req: Request):
+        return reqToTxn(req)
+
+    def apply_forced_request(self, req: Request):
+        if not req.isForced():
+            raise LogicError('requestHandler.applyForce method is called '
+                             'for not forced request: {}'.format(req))
+
+    @staticmethod
+    def transform_txn_for_ledger(txn):
+        """
+        Some transactions need to be updated before they can be stored in the
+        ledger, eg. storing certain payload in another data store and only its
+        hash in the ledger
+        """
+        return txn
