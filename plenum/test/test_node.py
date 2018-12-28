@@ -456,7 +456,7 @@ replica_stasher_spyables = [
 ]
 
 
-@spyable(methods=view_changer_spyables)
+@spyable(methods=replica_stasher_spyables)
 class TestReplicaStasher(ReplicaStasher):
     pass
 
@@ -497,6 +497,7 @@ replica_spyables = [
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.stasher = TestReplicaStasher(self)
         # Each TestReplica gets it's own outbox stasher, all of which TestNode
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \

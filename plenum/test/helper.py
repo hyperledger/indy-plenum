@@ -1124,6 +1124,15 @@ def init_discarded(value=None):
     return invalid_index_serializer.serialize(discarded, toBytes=False)
 
 
+def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
+    pre_prepare = 1             # Message from Primary
+    prepares = nodes_count - 2  # Messages from all nodes exclude primary and self node
+    commits = nodes_count - 1   # Messages from all nodes exclude  self node
+    # The primary node receives the same number of messages. Doesn't get pre-prepare,
+    # but gets one more prepare
+    return pre_prepare + prepares + commits
+
+
 class MockTimestamp:
     def __init__(self, value=datetime.utcnow()):
         self.value = value

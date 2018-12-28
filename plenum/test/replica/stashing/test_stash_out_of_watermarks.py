@@ -1,6 +1,6 @@
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
 from plenum.test.delayers import chk_delay, msg_rep_delay
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check, incoming_3pc_msgs_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
@@ -56,10 +56,8 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
                                       sdk_pool_handle,
                                       sdk_wallet_client,
                                       1)
-            # 1 - pre-prepare msg
-            # (len(txnPoolNodeSet) - 2) - prepare msgs
-            # (len(txnPoolNodeSet) - 1) - commit msgs
-            stashed_messages = 1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1)
+
+            stashed_messages = incoming_3pc_msgs_count(len(txnPoolNodeSet))
             assert all(r.stasher.num_stashed_watermarks == old_stashed[inst_id] + stashed_messages
                        for inst_id, r in slow_node.replicas.items())
 

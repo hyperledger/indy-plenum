@@ -65,7 +65,6 @@ def test_catchup_not_triggered_if_another_in_progress(
                                                reqs_for_checkpoint - max_batch_size)
 
         ensure_all_nodes_have_same_data(looper, other_nodes)
-        target_ledger_size = other_nodes[0].domainLedger.size
 
         looper.run(eventually(lambda: assertExp(repaired_node.mode == Mode.syncing),
                               timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet)) +
@@ -105,4 +104,4 @@ def test_catchup_not_triggered_if_another_in_progress(
                           timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))))
     assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
     assert repaired_node.spylog.count(Node.allLedgersCaughtUp) - initial_all_ledgers_caught_up == 1
-    assert repaired_node.domainLedger.size == target_ledger_size
+    assert repaired_node.domainLedger.size == other_nodes[0].domainLedger.size

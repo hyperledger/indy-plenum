@@ -9,7 +9,7 @@ from plenum.server.replica import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.test.replica.helper import create_preprepare
 
 
-@pytest.fixture(scope='function', params=[0])
+@pytest.fixture(scope='function')
 def replica(replica):
     replica.node.requests = Requests()
     replica.isMaster = True
