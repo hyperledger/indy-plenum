@@ -33,6 +33,14 @@ def nym_to_state_key(nym: str) -> bytes:
     return sha256(nym.encode()).digest()
 
 
+def encode_state_value(value, seqNo, txnTime):
+    return domain_state_serializer.serialize({
+        LAST_SEQ_NO: seqNo,
+        LAST_UPDATE_TIME: txnTime,
+        VALUE: value
+    })
+
+
 def decode_state_value(ecnoded_value):
     decoded = domain_state_serializer.deserialize(ecnoded_value)
     value = decoded.get(VALUE)
