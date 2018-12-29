@@ -831,7 +831,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._send_3pc_batches_for_ledgers(sent_batches)
 
         # 2. for every ledger we havne't just sent a 3PC batch check if it's not fresh enough,
-        # and send an empty 3PC batch to update the state is needed
+        # and send an empty 3PC batch to update the state if needed
         self._send_3pc_freshness_batch(sent_batches)
 
         # 3. update ts of last sent 3PC batch
@@ -843,7 +843,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _send_3pc_batches_for_ledgers(self, sent_batches):
         for ledger_id, q in self.requestQueues.items():
-            if  len(q) == 0:
+            if len(q) == 0:
                 continue
 
             queue_full = len(q) >= self.config.Max3PCBatchSize
@@ -877,7 +877,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             sent_batches.add(
                 self._do_send_3pc_batch(ledger_id=ledger_id, is_empty=True))
 
-
     def _do_send_3pc_batch(self, ledger_id, is_empty=False):
         oldStateRootHash = self.stateRootHash(ledger_id, to_str=False)
         pre_prepare = self.create_3pc_batch(ledger_id, is_empty)
@@ -889,7 +888,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.instId, pre_prepare.ppSeqNo)
         self.trackBatches(pre_prepare, oldStateRootHash)
         return ledger_id
-
 
     def get_current_time(self):
         return time.perf_counter()
@@ -1041,7 +1039,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         r = self.dequeue_pre_prepares() if self.node.isParticipating else 0
         r += self.inBoxRouter.handleAllSync(self.inBox, limit)
         r += self.send_3pc_batch() if (self.isPrimary and
-                                     self.node.isParticipating) else 0
+                                       self.node.isParticipating) else 0
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
