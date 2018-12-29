@@ -1,5 +1,7 @@
 from logging import getLogger
 
+import pytest
+
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
@@ -20,6 +22,7 @@ logger = getLogger()
 
 CHK_FREQ = 5
 
+@pytest.mark.skip("in progress")
 def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
                                           looper,
                                           chkFreqPatched,
@@ -72,6 +75,8 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
             looper.run(
                 eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3), retryWait=1,
                            timeout=60))
+
+            assert lagging_node.mode == Mode.syncing
 
             # make sure that more requests are being ordered while catch-up is in progress
             # stash enough stable checkpoints for starting a catch-up

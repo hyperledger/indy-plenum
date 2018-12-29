@@ -239,7 +239,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             (PrePrepare, self.process_three_phase_msg),
             (Prepare, self.process_three_phase_msg),
             (Commit, self.process_three_phase_msg),
-            (Checkpoint, self.processCheckpoint),
+            (Checkpoint, self.process_checkpoint),
         )
 
         self.threePhaseRouter = Replica3PRouter(
@@ -1860,24 +1860,27 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
                           MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
-    def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
+    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
 
         :return: whether processed (True) or stashed (False)
         """
         self.logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
+        result, reason = self.validator.validate_checkpoint_msg(msg)
+        if result == DISCARD:
+            self.discard(msg, "{} discard message {} from {} "
+                              "with the reason: {}".format(self, msg, sender, reason),
+                         self.logger.trace)
+        elif result == PROCESS:
+            self._do_process_checkpoint(msg, sender)
+        else:
+            self.logger.debug("{} stashing checkpoint message {} with "
+                              "the reason: {}".format(self, msg, reason))
+            self.stasher.stash((msg, sender), result)
+
+    def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         seqNoEnd = msg.seqNoEnd
-        if self.is_pp_seq_no_stable(msg):
-            self.discard(msg, reason="Checkpoint already stable", logMethod=self.logger.debug)
-            return True
-
-        if msg.viewNo < self.viewNo:
-            self.discard(msg,
-                         reason="Checkpoint from previous view",
-                         logMethod=self.logger.debug)
-            return True
-
         seqNoStart = msg.seqNoStart
         key = (seqNoStart, seqNoEnd)
 
@@ -2061,11 +2064,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if view_no in self.stashedRecvdCheckpoints \
                     and key in self.stashedRecvdCheckpoints[view_no] \
                     and sender in self.stashedRecvdCheckpoints[view_no][key]:
-                if self.processCheckpoint(
+                if self.process_checkpoint(
                         self.stashedRecvdCheckpoints[view_no][key].pop(sender),
                         sender):
                     consumed += 1
-                # Note that if `processCheckpoint` returned False then the
+                # Note that if `process_checkpoint` returned False then the
                 # checkpoint from `sender` was re-stashed back to
                 # `stashedRecvdCheckpoints`
                 total_processed += 1

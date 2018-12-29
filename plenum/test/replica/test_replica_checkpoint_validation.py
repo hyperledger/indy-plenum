@@ -4,7 +4,7 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, CATCHING_UP, ALREADY_STABLE, \
-    STASH_CATCH_UP
+    STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW
 
 
 @pytest.fixture(scope='function', params=[0, 1])
@@ -100,3 +100,28 @@ def test_check_stable_not_participating(validator, seq_no_end, result):
                      seq_no_start=0,
                      seq_no_end=seq_no_end)
     assert validator.validate_checkpoint_msg(msg) == result
+
+
+def test_check_old_view(validator):
+    msg = checkpoint(view_no=validator.view_no - 1,
+                     inst_id=validator.inst_id,
+                     seq_no_start=0,
+                     seq_no_end=10)
+    assert validator.validate_checkpoint_msg(msg) == (DISCARD, OLD_VIEW)
+
+
+def test_check_future_view(validator):
+    msg = checkpoint(view_no=validator.view_no + 1,
+                     inst_id=validator.inst_id,
+                     seq_no_start=0,
+                     seq_no_end=10)
+    assert validator.validate_checkpoint_msg(msg) == (STASH_VIEW, FUTURE_VIEW)
+
+
+def test_check_view_chnange(validator):
+    validator.replica.node.view_change_in_progress = True
+    msg = checkpoint(view_no=validator.view_no,
+                     inst_id=validator.inst_id,
+                     seq_no_start=0,
+                     seq_no_end=10)
+    assert validator.validate_checkpoint_msg(msg) == (STASH_VIEW, FUTURE_VIEW)

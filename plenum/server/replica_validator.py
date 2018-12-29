@@ -79,6 +79,16 @@ class ReplicaValidator:
         if self.replica.is_pp_seq_no_stable(msg):
             return DISCARD, ALREADY_STABLE
 
+        # 3. Check if from old view
+        if view_no < self.replica.viewNo:
+            return DISCARD, OLD_VIEW
+
+        # 4. Check if from future view
+        if view_no > self.replica.viewNo:
+            return STASH_VIEW, FUTURE_VIEW
+        if view_no == self.replica.viewNo and self.replica.node.view_change_in_progress:
+            return STASH_VIEW, FUTURE_VIEW
+
         # 3. Check if Participating
         if not node.isParticipating:
             return STASH_CATCH_UP, CATCHING_UP
