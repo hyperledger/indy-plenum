@@ -461,8 +461,6 @@ class TestReplicaStasher(ReplicaStasher):
     pass
 
 
-
-
 replica_spyables = [
     replica.Replica.sendPrePrepare,
     replica.Replica._can_process_pre_prepare,

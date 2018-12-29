@@ -2595,7 +2595,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def on_catch_up_finished(self, last_caught_up_3PC=None):
         if self.isMaster:
             if last_caught_up_3PC is None:
-                self.looger.info("{} - on_catch_up_finished needs "
+                self.logger.info("{} - on_catch_up_finished needs "
                                  "last_caught_up_3PC".format(self))
                 return
             self._caught_up_till_3pc(last_caught_up_3PC)

@@ -69,7 +69,7 @@ class ReplicaValidator:
     def validate_checkpoint_msg(self, msg):
         node = self.replica.node
         inst_id = getattr(msg, f.INST_ID.nm, None)
-        view_no = getattr(msg, f.VIEW_NO.nm, None)
+        # view_no = getattr(msg, f.VIEW_NO.nm, None)
 
         # 1. Check INSTANCE_ID
         if inst_id is None or inst_id != self.replica.instId:

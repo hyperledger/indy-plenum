@@ -4,7 +4,7 @@ from plenum.server.replica_validator_enums import OLD_VIEW
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.helper import checkDiscardMsg, init_discarded
+from plenum.test.helper import checkDiscardMsg, init_discarded, create_pre_prepare_no_bls
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkProtocolInstanceSetup, \
@@ -44,20 +44,10 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     _, did = sdk_wallet_client
     primaryRepl = getPrimaryReplica(txnPoolNodeSet)
     inst_id = 0
-    three_pc = PrePrepare(
-        inst_id,
-        viewNo,
-        10,
-        get_utc_epoch(),
-        ["random request digest"],
-        init_discarded(),
-        "random digest",
-        DOMAIN_LEDGER_ID,
-        primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
-        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
-        0,
-        True
-    )
+    three_pc = create_pre_prepare_no_bls(primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
+                                         viewNo,
+                                         pp_seq_no=10,
+                                         inst_id=inst_id)
     sender.send(three_pc, rid_x_node)
     looper.run(eventually(checkDiscardMsg, [new_node.replicas[inst_id], ], three_pc,
                           OLD_VIEW,
