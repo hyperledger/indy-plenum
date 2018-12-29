@@ -472,7 +472,7 @@ replica_spyables = [
     replica.Replica.processPrePrepare,
     replica.Replica.processPrepare,
     replica.Replica.processCommit,
-    replica.Replica.processCheckpoint,
+    replica.Replica.process_checkpoint,
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,
