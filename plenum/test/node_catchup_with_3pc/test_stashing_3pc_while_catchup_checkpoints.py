@@ -73,6 +73,8 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
                 eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3), retryWait=1,
                            timeout=60))
 
+            assert lagging_node.mode == Mode.syncing
+
             # make sure that more requests are being ordered while catch-up is in progress
             # stash enough stable checkpoints for starting a catch-up
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
