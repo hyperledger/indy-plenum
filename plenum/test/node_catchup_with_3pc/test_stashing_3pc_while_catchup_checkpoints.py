@@ -1,5 +1,7 @@
 from logging import getLogger
 
+import pytest
+
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
@@ -20,6 +22,7 @@ logger = getLogger()
 
 CHK_FREQ = 5
 
+@pytest.mark.skip("in progress")
 def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
                                           looper,
                                           chkFreqPatched,
