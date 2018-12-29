@@ -5,10 +5,12 @@ from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LED
 from plenum.common.messages.node_messages import PrePrepare, Ordered
 from plenum.server.propagator import Requests
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.test.helper import freshness, sdk_random_request_objects
+from plenum.test.helper import freshness, sdk_random_request_objects, assertExp
 
 from plenum.test.replica.conftest import replica as r
+from plenum.test.test_node import getPrimaryReplica
 from plenum.test.testing_utils import FakeSomething
+from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 60
 
@@ -198,3 +200,26 @@ def test_freshness_pre_prepare_only_when_no_requests_for_ledger(tconf,
     assert len(replica.outBox) == len(refreshed)
     for refreshed_ledger_id in refreshed:
         check_and_pop_freshness_pre_prepare(replica, refreshed_ledger_id)
+
+
+def test_order_empty_pre_prepare(looper, tconf, txnPoolNodeSet):
+    assert all(node.master_replica.last_ordered_3pc == (0, 0) for node in txnPoolNodeSet)
+    assert all(node.spylog.count(node.processOrdered) == 0 for node in txnPoolNodeSet)
+
+    replica = getPrimaryReplica([txnPoolNodeSet[0]], instId=0)
+    replica._do_send_3pc_batch(ledger_id=POOL_LEDGER_ID, is_empty=True)
+
+    looper.run(eventually(
+        lambda: assertExp(
+            all(
+                node.master_replica.last_ordered_3pc == (0, 1) for node in txnPoolNodeSet
+            )
+        )
+    ))
+    looper.run(eventually(
+        lambda: assertExp(
+            all(
+                node.spylog.count(node.processOrdered) == 1 for node in txnPoolNodeSet
+            )
+        )
+    ))

@@ -188,7 +188,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        sdk_wallet_steward,
                        add_wrong=False,
                        new_bls=None,
-                       new_key_proof=None):
+                       new_key_proof=None,
+                       check_functional=True):
     if add_wrong:
         _, new_blspk, key_proof = create_default_bls_crypto_factory().generate_bls_keys()
     else:
@@ -208,7 +209,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    if check_functional:
+        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 
