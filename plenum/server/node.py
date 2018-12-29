@@ -3858,7 +3858,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.doneProcessingReq(req_key)
                 self.monitor.requestTracker.force_req_drop(req_key)
         for req_key in req_keys_to_drop:
-            self.requests.pop(req_key)
+            self.requests.force_free(req_key)
 
     def is_request_need_quorum(self, msg_dict: dict):
         txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, None) \
