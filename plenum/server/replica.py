@@ -219,7 +219,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                  config=None,
                  isMaster: bool = False,
                  bls_bft_replica: BlsBftReplica = None,
-                 metrics: MetricsCollector = NullMetricsCollector()):
+                 metrics: MetricsCollector = NullMetricsCollector(),
+                 get_current_time=None):
         """
         Create a new replica.
 
@@ -228,6 +229,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param isMaster: is this a replica of the master protocol instance
         """
         HasActionQueue.__init__(self)
+        self.get_current_time = get_current_time or time.perf_counter
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
         self.metrics = metrics
@@ -427,7 +429,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._state_root_serializer = state_roots_serializer
 
         self._freshness_checker = FreshnessChecker(ledger_ids=self.ledger_ids,
-                                                   freshness_timeout=self.config.STATE_FRESHNESS_WINDOW,
+                                                   freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL,
                                                    initial_time=self.get_current_time())
 
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
@@ -852,7 +854,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 continue
 
             sent_batches.add(
-                self._do_send_3pc_batch(ledger_id=ledger_id, is_empty=False))
+                self._do_send_3pc_batch(ledger_id=ledger_id))
 
     def _send_3pc_freshness_batch(self, sent_batches):
         if not self.config.UPDATE_STATE_FRESHNESS:
@@ -875,22 +877,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.info("Ledger {} is not updated for {} seconds, "
                              "so its freshness state is going to be updated now".format(ledger_id, ts))
             sent_batches.add(
-                self._do_send_3pc_batch(ledger_id=ledger_id, is_empty=True))
+                self._do_send_3pc_batch(ledger_id=ledger_id))
 
-    def _do_send_3pc_batch(self, ledger_id, is_empty=False):
+    def _do_send_3pc_batch(self, ledger_id):
         oldStateRootHash = self.stateRootHash(ledger_id, to_str=False)
-        pre_prepare = self.create_3pc_batch(ledger_id, is_empty)
-        if pre_prepare is None:
-            return None
+        pre_prepare = self.create_3pc_batch(ledger_id)
         self.sendPrePrepare(pre_prepare)
         if not self.isMaster:
             self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
                 self.instId, pre_prepare.ppSeqNo)
         self.trackBatches(pre_prepare, oldStateRootHash)
         return ledger_id
-
-    def get_current_time(self):
-        return time.perf_counter()
 
     @staticmethod
     def batchDigest(reqs):
@@ -912,7 +909,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
-    def create_3pc_batch(self, ledger_id, is_empty=False):
+    def create_3pc_batch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
         pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
@@ -929,14 +926,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         tm = self.get_utc_epoch_for_preprepare(self.instId, self.viewNo,
                                                pp_seq_no)
 
-        reqs, invalid_indices, rejects = [], [], []
-        if not is_empty:
-            reqs, invalid_indices, rejects = self.consume_req_queue_for_pre_prepare(
-                ledger_id, tm, self.viewNo, pp_seq_no)
-            if len(reqs) == 0:
-                self.logger.trace('{} not creating a Pre-Prepare for view no {} '
-                                  'seq no {}'.format(self, self.viewNo, pp_seq_no))
-                return
+        reqs, invalid_indices, rejects = self.consume_req_queue_for_pre_prepare(
+            ledger_id, tm, self.viewNo, pp_seq_no)
 
         digest = self.batchDigest(reqs)
         state_root_hash = self.stateRootHash(ledger_id)

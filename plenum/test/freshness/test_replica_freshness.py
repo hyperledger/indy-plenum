@@ -4,8 +4,7 @@ from orderedset._orderedset import OrderedSet
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import PrePrepare, Ordered
 from plenum.server.propagator import Requests
-from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.test.helper import freshness, sdk_random_request_objects, assertExp
+from plenum.test.helper import freshness, sdk_random_request_objects, assertExp, MockTimestamp
 
 from plenum.test.replica.conftest import replica as r
 from plenum.test.test_node import getPrimaryReplica
@@ -29,8 +28,17 @@ def tconf(tconf):
 
 
 @pytest.fixture(scope='function')
+def mock_timestamp():
+    return MockTimestamp(0)
+
+
+@pytest.fixture(scope='function')
+def ledger_ids():
+    return LEDGER_IDS
+
+
+@pytest.fixture(scope='function')
 def replica(r):
-    r.node.ledger_ids = LEDGER_IDS
     r.stateRootHash = lambda ledger_id, to_str=False: "EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMA" + str(ledger_id + 1)
     r.txnRootHash = lambda ledger_id, to_str=False: "AuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMA" + str(ledger_id + 1)
     r.node.onBatchCreated = lambda *args: None
@@ -40,13 +48,7 @@ def replica(r):
     r.node.last_sent_pp_store_helper = FakeSomething()
     r.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no = lambda *args: None
 
-    # re-init FreshnessChecker to use fake timestamps
-    set_current_time(r, 0)
-    r._freshness_checker = FreshnessChecker(ledger_ids=r.ledger_ids,
-                                            freshness_timeout=r.config.STATE_FRESHNESS_WINDOW,
-                                            initial_time=r.get_current_time())
-    r.lastBatchCreated = 0
-    r.last_accepted_pre_prepare_time = 0
+    r.last_accepted_pre_prepare_time = r.get_current_time()
 
     return r
 
@@ -58,7 +60,8 @@ def replica_with_requests(replica):
                 for ledger_id in LEDGER_IDS}
 
     def patched_consume_req_queue_for_pre_prepare(ledger_id, tm, view_no, pp_seq_no):
-        return [[requests[ledger_id]], [], []]
+        reqs = [requests[ledger_id]] if len(replica.requestQueues[ledger_id]) > 0 else []
+        return [reqs, [], []]
 
     replica.consume_req_queue_for_pre_prepare = patched_consume_req_queue_for_pre_prepare
 
@@ -66,7 +69,7 @@ def replica_with_requests(replica):
 
 
 def set_current_time(replica, ts):
-    replica.get_current_time = lambda: ts
+    replica.get_current_time.value = ts
 
 
 def check_and_pop_ordered(replica, ledger_ids):
@@ -207,7 +210,7 @@ def test_order_empty_pre_prepare(looper, tconf, txnPoolNodeSet):
     assert all(node.spylog.count(node.processOrdered) == 0 for node in txnPoolNodeSet)
 
     replica = getPrimaryReplica([txnPoolNodeSet[0]], instId=0)
-    replica._do_send_3pc_batch(ledger_id=POOL_LEDGER_ID, is_empty=True)
+    replica._do_send_3pc_batch(ledger_id=POOL_LEDGER_ID)
 
     looper.run(eventually(
         lambda: assertExp(

@@ -24,7 +24,7 @@ def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     origMethod = pr.create_3pc_batch
     malignedOnce = None
 
-    def badMethod(self, ledgerId, is_empty):
+    def badMethod(self, ledgerId):
         nonlocal malignedOnce
         pp = origMethod(ledgerId)
         if not malignedOnce:

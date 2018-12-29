@@ -1024,12 +1024,12 @@ def max_3pc_batch_limits(tconf, size, wait=10000):
 @contextmanager
 def freshness(tconf, enabled, timeout):
     old_update_state = tconf.UPDATE_STATE_FRESHNESS
-    old_timeout = tconf.STATE_FRESHNESS_WINDOW
+    old_timeout = tconf.STATE_FRESHNESS_UPDATE_INTERVAL
     tconf.UPDATE_STATE_FRESHNESS = enabled
-    tconf.STATE_FRESHNESS_WINDOW = timeout
+    tconf.STATE_FRESHNESS_UPDATE_INTERVAL = timeout
     yield tconf
     tconf.UPDATE_STATE_FRESHNESS = old_update_state
-    tconf.STATE_FRESHNESS_WINDOW = old_timeout
+    tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_timeout
 
 @contextmanager
 def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
