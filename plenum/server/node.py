@@ -899,7 +899,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._cancel(self._check_view_change_completed)
 
-        self.master_replica.on_view_change_done()
+        for replica in self.replicas.values():
+            replica.on_view_change_done()
         last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
@@ -1878,8 +1879,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: discard or stash messages here instead of doing
         # this in msgHas* methods!!!
         if self.msgHasAcceptableInstId(msg, frm):
-            if self.msgHasAcceptableViewNo(msg, frm):
-                self.replicas.pass_message((msg, frm), msg.instId)
+            self.replicas.pass_message((msg, frm), msg.instId)
 
     def sendToViewChanger(self, msg, frm, from_current_state: bool = False):
         """
@@ -2271,10 +2271,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             for replica in self.replicas.values():
-                if replica.isMaster:
-                    replica.caught_up_till_3pc(last_caught_up_3PC)
-                else:
-                    replica.catchup_clear_for_backup()
+                replica.on_catch_up_finished(last_caught_up_3PC)
             logger.info('{}{} caught up till {}'
                         .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                         extra={'cli': True})

@@ -30,8 +30,13 @@ class ReplicaFakeNode(FakeSomething):
         )
 
     @property
+    def is_synced(self) -> bool:
+        return Mode.is_done_syncing(self.mode)
+
+    @property
     def isParticipating(self) -> bool:
         return self.mode == Mode.participating
+
 
 @pytest.fixture(scope='function', params=[0, 10])
 def viewNo(tconf, request):

@@ -41,11 +41,7 @@ class ReplicaValidator:
         if not (self.replica.h < pp_seq_no <= self.replica.H):
             return STASH_WATERMARKS, OUTSIDE_WATERMARKS
 
-        # 5. Check if Participating
-        if not node.isParticipating:
-            return STASH_CATCH_UP, CATCHING_UP
-
-        # 6. Check viewNo
+        # 5. Check viewNo
         if view_no > self.replica.viewNo:
             return STASH_VIEW, FUTURE_VIEW
         if view_no < self.replica.viewNo - 1:
@@ -59,6 +55,14 @@ class ReplicaValidator:
                 return DISCARD, GREATER_PREP_CERT
         if view_no == self.replica.viewNo and node.view_change_in_progress:
             return STASH_VIEW, FUTURE_VIEW
+
+        # If Catchup in View Change finished then process a message
+        if node.is_synced and node.view_change_in_progress:
+            return PROCESS, None
+
+        # 6. Check if Participating
+        if not node.isParticipating:
+            return STASH_CATCH_UP, CATCHING_UP
 
         return PROCESS, None
 

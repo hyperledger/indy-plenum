@@ -34,6 +34,9 @@ from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, 
 from plenum.config import CHK_FREQ
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
+from plenum.server.replica_stasher import ReplicaStasher
+from plenum.server.replica_validator import ReplicaValidator
+from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
@@ -233,9 +236,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self.inBoxRouter = Router(
             (ReqKey, self.readyFor3PC),
-            (PrePrepare, self.processThreePhaseMsg),
-            (Prepare, self.processThreePhaseMsg),
-            (Commit, self.processThreePhaseMsg),
+            (PrePrepare, self.process_three_phase_msg),
+            (Prepare, self.process_three_phase_msg),
+            (Commit, self.process_three_phase_msg),
             (Checkpoint, self.processCheckpoint),
         )
 
@@ -250,6 +253,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.instId = instId
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
+        self.validator = ReplicaValidator(self)
+        self.stasher = ReplicaStasher(self)
 
         self.outBox = deque()
         """
@@ -463,6 +468,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
         self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        self.stasher.unstash_watermarks()
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -620,9 +626,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_ordered_3pc = (self.viewNo, 0)
 
     def on_view_change_done(self):
-        if not self.isMaster:
-            raise LogicError("{} is not a master".format(self))
-        self.last_prepared_before_view_change = None
+        if self.isMaster:
+            self.last_prepared_before_view_change = None
+        self.stasher.unstash_future_view()
 
     def clear_requests_and_fix_last_ordered(self):
         reqs_for_remove = []
@@ -951,31 +957,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
-
-    def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
-        """
-        Create a three phase request to be handled by the threePhaseRouter.
-
-        :param msg: the ThreePhaseMsg to dispatch
-        :param sender: the name of the node that sent this request
-        """
-        senderRep = self.generateName(sender, self.instId)
-
-        if self.has_already_ordered(msg.viewNo, msg.ppSeqNo):
-            self.discard(msg, 'already ordered 3 phase message', self.logger.trace)
-            return
-
-        if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
-            if self.can_pp_seq_no_be_in_view(msg.viewNo, msg.ppSeqNo):
-                self.threePhaseRouter.handleSync((msg, senderRep))
-            else:
-                self.discard(msg, 'un-acceptable pp seq no from previous view', self.logger.warning)
-        else:
-            self.logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is not between {} and {}".
-                              format(self, msg, msg.ppSeqNo, self.h, self.H))
-            self.stashOutsideWatermarks((msg, sender))
-
-    def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
+    def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
         Dispatch the request only if primary has already been decided, otherwise
@@ -985,17 +967,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             COMMIT
         :param sender: name of the node that sent this message
         """
-        self.dispatchThreePhaseMsg(msg, sender)
+        sender = self.generateName(sender, self.instId)
 
-    def can_process_since_view_change_in_progress(self, msg):
-        # Commit msg with 3PC key not greater than last prepared one's
-        r = isinstance(msg, Commit) and \
-            self.last_prepared_before_view_change and \
-            compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
-                             self.last_prepared_before_view_change) >= 0
-        if r:
-            self.logger.debug('{} can process {} since view change is in progress'.format(self, msg))
-        return r
+        result, reason = self.validator.validate_3pc_msg(msg)
+        if result == DISCARD:
+            self.discard(msg, "{} discard message {} from {} "
+                              "with the reason: {}".format(self, msg, sender, reason),
+                         self.logger.trace)
+        elif result == PROCESS:
+            self.threePhaseRouter.handleSync((msg, sender))
+        else:
+            self.logger.debug("{} stashing 3 phase message {} with "
+                              "the reason: {}".format(self, msg, reason))
+            self.stasher.stash((msg, sender), result)
 
     def _process_valid_preprepare(self, pre_prepare, sender):
         # TODO: rename to apply_pre_prepare
@@ -1949,8 +1933,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # Adjust last_ordered_3pc, shift watermarks, clean operational
             # collections and process stashed messages which now fit between
             # watermarks
-            self.caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
-            self.processStashedMsgsForNewWaterMarks()
+            self._caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
 
     def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
@@ -2013,7 +1996,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
         self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
-        self.processStashedMsgsForNewWaterMarks()
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
@@ -2164,38 +2146,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # as other nodes
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
-
-    def stashOutsideWatermarks(self, item: Tuple):
-        self.stashingWhileOutsideWaterMarks.append(item)
-
-    def processStashedMsgsForNewWaterMarks(self):
-        # Items from `stashingWhileOutsideWaterMarks` can be re-enqueued back
-        # to this queue, so `stashingWhileOutsideWaterMarks` might never
-        # become empty during the execution of this method resulting
-        # in an infinite loop. So we should consume each item only once
-        # during one call of this method.
-        itemsToConsume = len(self.stashingWhileOutsideWaterMarks)
-
-        # Moreover, the watermarks may be updated again while consuming items
-        # from `stashingWhileOutsideWaterMarks`. So this method may be called
-        # recursively. We should stop iteration in all the outward calls of
-        # this method in case we complete consuming of stashed messages in any
-        # recursive call of this method.
-        self.consumedAllStashedMsgs = False
-
-        while itemsToConsume and not self.consumedAllStashedMsgs:
-            item = self.stashingWhileOutsideWaterMarks.popleft()
-            self.logger.debug("{} processing stashed item {} after new stable "
-                              "checkpoint".format(self, item))
-
-            if isinstance(item, tuple) and len(item) == 2:
-                self.dispatchThreePhaseMsg(*item)
-            else:
-                self.logger.debug("{} cannot process {} "
-                                  "from stashingWhileOutsideWaterMarks".format(self, item))
-            itemsToConsume -= 1
-
-        self.consumedAllStashedMsgs = True
 
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
@@ -2525,7 +2475,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
             else None
         if stashed_data is None or curr_data == stashed_data:
-            return self.processThreePhaseMsg(msg, sender)
+            return self.process_three_phase_msg(msg, sender)
 
         self.discard(msg, reason='{} does not have expected state {}'.
                      format(THREE_PC_PREFIX, stashed_data),
@@ -2640,7 +2590,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
-    def caught_up_till_3pc(self, last_caught_up_3PC):
+    def on_catch_up_finished(self, last_caught_up_3PC=None):
+        if self.isMaster:
+            if last_caught_up_3PC is None:
+                self.looger.info("{} - on_catch_up_finished needs "
+                                 "last_caught_up_3PC".format(self))
+                return
+            self._caught_up_till_3pc(last_caught_up_3PC)
+        else:
+            self._catchup_clear_for_backup()
+        self.stasher.unstash_catchup()
+
+    def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
@@ -2648,7 +2609,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
-    def catchup_clear_for_backup(self):
+    def _catchup_clear_for_backup(self):
         if not self.isPrimary:
             self.last_ordered_3pc = (self.viewNo, 0)
             self.batches.clear()

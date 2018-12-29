@@ -24,15 +24,15 @@ def forwardedRequest(node: TestNode):
                       TestNode.forward)
 
 def recvdPrePrepareForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId], Replica.dispatchThreePhaseMsg)
+    params = getAllArgs(node.replicas[instId], Replica.process_three_phase_msg)
     return [p for p in params if isinstance(p['msg'], PrePrepare)]
 
 
 def recvdPrepareForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId], Replica.dispatchThreePhaseMsg)
+    params = getAllArgs(node.replicas[instId], Replica.process_three_phase_msg)
     return [p for p in params if isinstance(p['msg'], Prepare)]
 
 
 def recvdCommitForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId], Replica.dispatchThreePhaseMsg)
+    params = getAllArgs(node.replicas[instId], Replica.process_three_phase_msg)
     return [p for p in params if isinstance(p['msg'], Commit)]

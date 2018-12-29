@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import lsDelay
+from plenum.test.delayers import lsDelay, cpDelay, cDelay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
@@ -40,15 +40,10 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
     bad_node = nprs[-1].node
     other_nodes = [n for n in txnPoolNodeSet if n != bad_node]
-    orig_method = bad_node.master_replica.dispatchThreePhaseMsg
+    orig_method = bad_node.master_replica.process_three_phase_msg
 
-    # Bad node does not process any 3 phase messages, equivalent to messages
-    # being lost
-    def bad_method(self, m, s):
-        pass
-
-    bad_node.master_replica.dispatchThreePhaseMsg = types.MethodType(
-        bad_method, bad_node.master_replica)
+    # Bad node does not process any 3 Commit messages, equivalent to messages
+    bad_node.nodeIbStasher.delay(cDelay(1000))
 
     # Delay LEDGER_STAUS on slow node, so that only MESSAGE_REQUEST(LEDGER_STATUS) is sent, and the
     # node catch-ups 2 times.
@@ -89,6 +84,3 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
     assert is_catchup_not_needed_count() > old_count_3
     # The bad_node caught up due to ordering till last prepared certificate
     assert has_ordered_till_last_prepared_certificate_count() > old_count_2
-
-    bad_node.master_replica.dispatchThreePhaseMsg = types.MethodType(
-        orig_method, bad_node.master_replica)

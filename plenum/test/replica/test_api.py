@@ -62,12 +62,6 @@ def pre_prepare(replica, pool_state_root, fake_state_root_hash, fake_multi_sig, 
     return pp
 
 
-def test_view_change_done(replica):
-    with pytest.raises(LogicError) as excinfo:
-        replica.on_view_change_done()
-    assert "is not a master" in str(excinfo.value)
-
-
 def test_is_next_pre_prepare(replica):
     pp_view_no = 2
     pp_seq_no = 1
