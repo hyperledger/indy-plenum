@@ -1,6 +1,7 @@
 from typing import Dict
 
 from common.exceptions import LogicError
+from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL
 from plenum.common.ledger import Ledger
 from state.state import State
 
@@ -17,16 +18,39 @@ class DatabaseManager():
 
     def get_database(self, lid):
         if lid not in self.databases:
-            raise LogicError('Trying to get nonexistent database')
+            return None
         return self.databases[lid]
 
     def register_new_store(self, label, store):
+        if label in self.stores:
+            raise LogicError('Trying to add already existing store')
         self.stores[label] = store
 
     def get_store(self, label):
         if label not in self.stores:
-            raise LogicError('Trying to get nonexistent store')
+            return None
         return self.stores[label]
+
+    @property
+    def states(self):
+        # TODO: change this. Too inefficient to build dict every time
+        return dict((lid, db.state) for lid, db in self.databases.items())
+
+    @property
+    def bls_store(self):
+        return self.get_store(BLS_LABEL)
+
+    @property
+    def ts_store(self):
+        return self.get_store(TS_LABEL)
+
+    @property
+    def idr_cache(self):
+        return self.get_store(IDR_CACHE_LABEL)
+
+    @property
+    def attribute_store(self):
+        return self.get_store(ATTRIB_LABEL)
 
 
 class Database:

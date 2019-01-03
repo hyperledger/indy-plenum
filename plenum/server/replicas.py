@@ -69,6 +69,7 @@ class Replicas:
 
         for req_key in req_keys:
             if req_key in replica.requests:
+                replica.requests.ordered_by_replica(req_key)
                 replica.requests.free(req_key)
 
         self._messages_to_replicas.pop(inst_id, None)
@@ -224,7 +225,9 @@ class Replicas:
                            'Received {} valid Prepares from {}. '
                            'Received {} valid Commits from {}. '
                            'Transaction contents: {}. '
-                           .format(reqId, duration, replica.primaryName.split(':')[0], prepre_sender,
+                           .format(reqId, duration,
+                                   replica.primaryName.split(':')[0] if replica.primaryName is not None else None,
+                                   prepre_sender,
                                    n_prepares, str_prepares, n_commits, str_commits, content))
 
     def keys(self):

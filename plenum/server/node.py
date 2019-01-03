@@ -2247,6 +2247,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if reqState:
                 if reqState.forwarded and not reqState.executed:
                     self.mark_request_as_executed(reqState.request)
+                    self.requests.ordered_by_replica(reqState.request.key)
                     self.requests.free(reqState.request.key)
                     self.doneProcessingReq(req_key)
                 if not reqState.forwarded:
@@ -2668,7 +2669,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return key in self.requestSender
 
     def doneProcessingReq(self, key):
-        self.requestSender.pop(key)
+        if key in self.requestSender:
+            self.requestSender.pop(key)
 
     def is_sender_known_for_req(self, key):
         return self.requestSender.get(key) is not None
@@ -3837,7 +3839,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             outdated = False
             req_state = self.requests[req_key]
 
-            if req_state.executed and req_state.forwardedTo > 0:
+            if req_state.executed and req_state.unordered_by_replicas_num <= 0:
                 # Means that the request has been processed by all replicas and
                 # it just waits for stable checkpoint to be deleted.
                 continue
@@ -3856,7 +3858,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.doneProcessingReq(req_key)
                 self.monitor.requestTracker.force_req_drop(req_key)
         for req_key in req_keys_to_drop:
-            self.requests.pop(req_key)
+            self.requests.force_free(req_key)
 
     def is_request_need_quorum(self, msg_dict: dict):
         txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, None) \
