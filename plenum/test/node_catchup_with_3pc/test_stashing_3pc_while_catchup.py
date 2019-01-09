@@ -3,7 +3,7 @@ from logging import getLogger
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.delayers import cqDelay, cr_delay, cs_delay, reset_delays_and_process_delayeds, lsDelay, cpDelay
+from plenum.test.delayers import cr_delay, cs_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp
@@ -54,6 +54,7 @@ def test_3pc_while_catchup(tdir, tconf,
                                       )
 
     initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
+    assert all(replica.stasher.num_stashed_catchup == 0 for inst_id, replica in lagging_node.replicas.items())
     # delay CurrentState to avoid Primary Propagation (since it will lead to more catch-ups not needed in this test).
     with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
         with delay_rules(lagging_node.nodeIbStasher, cr_delay()):
@@ -72,6 +73,7 @@ def test_3pc_while_catchup(tdir, tconf,
                                       sdk_wallet_client, 10)
 
             assert lagging_node.mode == Mode.syncing
+            assert all(replica.stasher.num_stashed_catchup > 0 for inst_id, replica in lagging_node.replicas.items())
 
         # check that the catch-up is finished
         looper.run(
@@ -82,8 +84,10 @@ def test_3pc_while_catchup(tdir, tconf,
         )
         looper.run(
             eventually(
-                lambda: assertExp(lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
+                lambda: assertExp(
+                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
             )
         )
+        assert all(replica.stasher.num_stashed_catchup == 0 for inst_id, replica in lagging_node.replicas.items())
         # check that the node was able to order requests stashed during catch-up
         waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
