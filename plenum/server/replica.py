@@ -2596,6 +2596,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
     def on_catch_up_finished(self, last_caught_up_3PC=None):
+        self.stasher.unstash_catchup()
+
+        if compare_3PC_keys(self.node.master_last_ordered_3PC,
+                            last_caught_up_3PC) < 0:
+            return
+
         if self.isMaster:
             if last_caught_up_3PC is None:
                 self.logger.info("{} - on_catch_up_finished needs "
@@ -2604,7 +2610,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._caught_up_till_3pc(last_caught_up_3PC)
         else:
             self._catchup_clear_for_backup()
-        self.stasher.unstash_catchup()
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
