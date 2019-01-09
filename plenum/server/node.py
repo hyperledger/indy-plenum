@@ -2274,15 +2274,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         self.mode = Mode.synced
 
-        if True or compare_3PC_keys(self.master_last_ordered_3PC,
-                            last_caught_up_3PC) >= 0:
-            for replica in self.replicas.values():
-                replica.on_catch_up_finished(last_caught_up_3PC)
-            self._process_replica_messages()
+        for replica in self.replicas.values():
+            replica.on_catch_up_finished(last_caught_up_3PC)
+        self._process_replica_messages()
 
-            logger.info('{}{} caught up till {}'
-                        .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
-                        extra={'cli': True})
+        logger.info('{}{} caught up till {}'
+                    .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
+                    extra={'cli': True})
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
