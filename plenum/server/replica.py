@@ -837,13 +837,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._send_3pc_freshness_batch(sent_batches)
 
         # 3. update ts of last sent 3PC batch
-        sent_batches.discard(None)
         if len(sent_batches) > 0:
             self.lastBatchCreated = self.get_current_time()
 
         return len(sent_batches)
 
     def _send_3pc_batches_for_ledgers(self, sent_batches):
+        # TODO: Consider sending every next update in Max3PCBatchWait only
         for ledger_id, q in self.requestQueues.items():
             if len(q) == 0:
                 continue
@@ -866,7 +866,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._freshness_checker.check_freshness(self.get_current_time())
 
         # Update freshness for all outdated ledgers sequentially without any waits
-        # Consider sending every next update in Max3PCBatchWait only
+        # TODO: Consider sending every next update in Max3PCBatchWait only
         while self._freshness_checker.get_outdated_ledgers_count() > 0:
             ledger_id, ts = self._freshness_checker.pop_next_outdated_ledger()
             if ledger_id in sent_batches:

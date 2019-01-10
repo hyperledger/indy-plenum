@@ -3,9 +3,9 @@ from collections import OrderedDict
 
 class FreshnessState():
 
-    def __init__(self, last_updated, last_checked) -> None:
+    def __init__(self, last_updated, last_marked_as_outdated) -> None:
         self.last_updated = last_updated
-        self.last_checked = last_checked
+        self.last_marked_as_outdated = last_marked_as_outdated
 
 
 class FreshnessChecker():
@@ -30,11 +30,11 @@ class FreshnessChecker():
         for ledger_id, freshness_state in self._ledger_freshness.items():
             if ts - freshness_state.last_updated <= self.freshness_timeout:
                 continue
-            if ts - freshness_state.last_checked <= self.freshness_timeout:
+            if ts - freshness_state.last_marked_as_outdated <= self.freshness_timeout:
                 continue
-            self._outdated_ledgers[ledger_id] = ts - freshness_state.last_updated
 
-            freshness_state.last_checked = ts
+            self._outdated_ledgers[ledger_id] = ts - freshness_state.last_updated
+            freshness_state.last_marked_as_outdated = ts
 
         # sort by last update time and then by ledger_id
         self._outdated_ledgers = OrderedDict(

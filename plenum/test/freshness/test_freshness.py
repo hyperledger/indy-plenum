@@ -18,14 +18,9 @@ def tconf(tconf):
 def test_update_bls_multi_sig_by_timeout(looper, tconf, txnPoolNodeSet):
     # 1. Wait for the first freshness update
     looper.run(eventually(
-        lambda: assertExp(
-            all(
-                bls_multi_sig is not None
-                for bls_multi_sig in get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet)
-            )
-        ),
-        timeout=FRESHNESS_TIMEOUT + 5
-    ))
+        check_freshness_updated_for_all, txnPoolNodeSet,
+        timeout=FRESHNESS_TIMEOUT + 5)
+    )
 
     # 2. Wait for the second freshness update
     bls_multi_sigs_after_first_update = get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet)
@@ -45,14 +40,9 @@ def test_update_bls_multi_sig_when_domain_orders(looper, tconf, txnPoolNodeSet,
                                                  ordered_ledger_id, refreshed_ledger_id):
     # 1. Wait for first freshness update
     looper.run(eventually(
-        lambda: assertExp(
-            all(
-                bls_multi_sig is not None
-                for bls_multi_sig in get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet)
-            )
-        ),
-        timeout=FRESHNESS_TIMEOUT + 5
-    ))
+        check_freshness_updated_for_all, txnPoolNodeSet,
+        timeout=FRESHNESS_TIMEOUT + 5)
+    )
     refreshed_bls_multi_sigs_after_first_update = get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
                                                                                      refreshed_ledger_id)
 
@@ -85,6 +75,13 @@ def test_update_bls_multi_sig_when_domain_orders(looper, tconf, txnPoolNodeSet,
                           ))
     assert refreshed_bls_multi_sigs_after_refreshed_update == get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
                                                                                                  refreshed_ledger_id)
+
+
+def check_freshness_updated_for_all(nodes):
+    assert all(
+        bls_multi_sig is not None
+        for bls_multi_sig in get_all_multi_sig_values_for_all_nodes(nodes)
+    )
 
 
 def check_updated_bls_multi_sig_for_all_ledgers(nodes, previous_multi_sigs):
