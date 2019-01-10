@@ -27,14 +27,14 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
     3. Delay Commit on all nodes
     4. Order 1 req
     5. Delay CatchupRep on Node4
-    6. Delay Ledger Status on Nodes1-3
+    6. Delay Ledger Status and ViewChangeDones on Nodes1-3
     7. Start View change on all nodes
     8. Wait until Node4 got 3 stashed CatchupReps
-    9. reset delaying of Commits on all Nodes
+    9. Reset delaying of Commits on all Nodes
     10. Reset Ledger Status on Nodes1-3
-    11. check that 3 nodes finished VC while Node4 is syncing and not finished
-    12. reset CatchupRep on Node
-    13. check that Node4 finished VC, and there was just 1 round of cacth-up (edited)
+    11. Check that 3 nodes finished VC while Node4 is syncing and not finished
+    12. Reset CatchupRep on Node4
+    13. Check that Node4 finished VC, and there was just 1 round of cacth-up (edited)
     """
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
@@ -105,6 +105,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
         assert all(n.master_replica.last_ordered_3pc == (last_ordered[0],
                                                          last_ordered[1] + 2)
                    for n in txnPoolNodeSet)
+        assert slow_node.catchup_rounds_without_txns == 1
 
 
 def _check_nodes_stashed(nodes, old_stashed, new_stashed):
