@@ -2599,7 +2599,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stasher.unstash_catchup()
 
         if compare_3PC_keys(self.node.master_last_ordered_3PC,
-                            last_caught_up_3PC) < 0:
+                            last_caught_up_3PC) <= 0:
             return
 
         if self.isMaster:
