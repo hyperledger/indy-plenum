@@ -58,4 +58,5 @@ def replica(tconf, viewNo, inst_id, request):
         node, instId=inst_id, isMaster=inst_id == 0,
         config=tconf, bls_bft_replica=bls_bft_replica
     )
+    ReplicaFakeNode.master_last_ordered_3PC = replica.last_ordered_3pc
     return replica
