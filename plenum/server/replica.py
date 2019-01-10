@@ -641,6 +641,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.last_prepared_before_view_change = None
 
     def clear_requests_and_fix_last_ordered(self):
+        if self.isMaster:
+            return
         reqs_for_remove = []
         for key in self.requests:
             ledger_id, seq_no = self.node.seqNoDB.get(key)
