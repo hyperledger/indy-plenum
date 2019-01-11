@@ -2274,8 +2274,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         self.mode = Mode.synced
 
+        need_up_and_clear = compare_3PC_keys(self.master_last_ordered_3PC,
+                                             last_caught_up_3PC) > 0
         for replica in self.replicas.values():
-            replica.on_catch_up_finished(last_caught_up_3PC)
+            replica.on_catch_up_finished(last_caught_up_3PC=last_caught_up_3PC,
+                                         need_up_and_clear=need_up_and_clear)
+        # Replica's messages should be processed right after unstashing because the node
+        # may not need a new one catchup. But in case with processing 3pc messages in
+        # next looper iteration, new catchup will have already begun and unstashed 3pc
+        # messages will stash again.
+        # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
         self._process_replica_messages()
 
         logger.info('{}{} caught up till {}'
@@ -2941,7 +2949,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
                                sum_for_values(self.master_replica.stashedRecvdCheckpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
-                               len(self.master_replica.stashingWhileOutsideWaterMarks))
+                               self.master_replica.stasher.num_stashed_watermarks)
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
                                sum_for_values(self.master_replica.requestQueues))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica.batches))
@@ -2987,7 +2995,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
                                sum_for_values_for_backups('stashedRecvdCheckpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
-                               sum_for_backups('stashingWhileOutsideWaterMarks'))
+                               sum(r.stasher.num_stashed_watermarks for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
                                sum_for_values_for_backups('requestQueues'))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups('batches'))

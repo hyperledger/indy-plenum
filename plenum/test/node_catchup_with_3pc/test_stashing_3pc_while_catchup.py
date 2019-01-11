@@ -85,7 +85,7 @@ def test_3pc_while_catchup(tdir, tconf,
         looper.run(
             eventually(
                 lambda: assertExp(
-                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
+                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2)
             )
         )
         assert all(replica.stasher.num_stashed_catchup == 0 for inst_id, replica in lagging_node.replicas.items())

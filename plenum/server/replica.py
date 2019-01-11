@@ -356,9 +356,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # range of the checkpoint and its value again being a mapping between
         # senders and their sent checkpoint
         self.stashedRecvdCheckpoints = {}  # type: Dict[int, Dict[Tuple,
-        # Dict[str, Checkpoint]]]
-
-        self.stashingWhileOutsideWaterMarks = deque()
 
         # Flag being used for preterm exit from the loop in the method
         # `processStashedMsgsForNewWaterMarks`. See that method for details.
@@ -2595,11 +2592,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
-    def on_catch_up_finished(self, last_caught_up_3PC=None):
+    def on_catch_up_finished(self, last_caught_up_3PC=None, need_up_and_clear=True):
         self.stasher.unstash_catchup()
 
-        if compare_3PC_keys(self.node.master_last_ordered_3PC,
-                            last_caught_up_3PC) <= 0:
+        if not need_up_and_clear:
             return
 
         if self.isMaster:
