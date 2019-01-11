@@ -2279,16 +2279,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for replica in self.replicas.values():
             replica.on_catch_up_finished(last_caught_up_3PC=last_caught_up_3PC,
                                          need_up_and_clear=need_up_and_clear)
+        logger.info('{}{} caught up till {}'
+                    .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
+                    extra={'cli': True})
         # Replica's messages should be processed right after unstashing because the node
         # may not need a new one catchup. But in case with processing 3pc messages in
         # next looper iteration, new catchup will have already begun and unstashed 3pc
         # messages will stash again.
         # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
-        self._process_replica_messages()
-
-        logger.info('{}{} caught up till {}'
-                    .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
-                    extra={'cli': True})
+        if self.view_change_in_progress:
+            self._process_replica_messages()
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
