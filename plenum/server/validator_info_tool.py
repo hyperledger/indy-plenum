@@ -649,7 +649,9 @@ class ValidatorNodeInfoTool:
                                                             self._node.config.upgradeLogFile))
             if os.path.exists(path_to_upgrade_log):
                 with open(path_to_upgrade_log, 'r') as upgrade_log:
-                    output = upgrade_log.readlines()
+                    log = upgrade_log.readlines()
+                    log_size = self._config.VALIDATOR_INFO_UPGRADE_LOG_SIZE
+                    output = log if log_size < 0 or log_size > len(log) else log[-log_size:]
         return output
 
     def _get_last_n_from_pool_ledger(self):
