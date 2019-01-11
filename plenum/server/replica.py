@@ -914,6 +914,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
     def create_3pc_batch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
+        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
             self, pp_seq_no, ledger_id,
             self.stateRootHash(ledger_id, to_str=False)))
@@ -933,7 +934,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         digest = self.batchDigest(reqs)
         state_root_hash = self.stateRootHash(ledger_id)
-        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
 
         """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
@@ -1483,11 +1483,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 revert()
                 return PP_APPLY_ROOT_HASH_MISMATCH
 
-            if f.POOL_STATE_ROOT_HASH.nm in pre_prepare and \
-                    pre_prepare.poolStateRootHash != self.stateRootHash(POOL_LEDGER_ID):
-                revert()
-                return PP_CHECK_INCORRECT_POOL_STATE_ROOT
-
             try:
                 self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
             except Exception as ex:
@@ -1537,6 +1532,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.__is_next_pre_prepare(pre_prepare.viewNo,
                                           pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
+
+        if f.POOL_STATE_ROOT_HASH.nm in pre_prepare and \
+                pre_prepare.poolStateRootHash != self.stateRootHash(POOL_LEDGER_ID):
+            return PP_CHECK_INCORRECT_POOL_STATE_ROOT
 
         # BLS multi-sig:
         status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
