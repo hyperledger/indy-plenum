@@ -8,12 +8,16 @@ FRESHNESS_TIMEOUT = 60
 LEDGER_IDS = [POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID]
 LEDGER_COUNT = len(LEDGER_IDS)
 
+NEW_LEDGER_ID = 1000
+
 
 @pytest.fixture()
 def freshness_checker():
-    return FreshnessChecker(initial_time=0,
-                            freshness_timeout=FRESHNESS_TIMEOUT,
-                            ledger_ids=[POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID])
+    fc = FreshnessChecker(freshness_timeout=FRESHNESS_TIMEOUT)
+    for ledger_id in LEDGER_IDS:
+        fc.register_ledger(ledger_id=ledger_id,
+                           initial_time=0)
+    return fc
 
 
 @pytest.mark.parametrize('ts', [
@@ -154,3 +158,20 @@ def test_update_freshness_multiple_ledger(freshness_checker):
     assert freshness_checker.pop_next_outdated_ledger() == (DOMAIN_LEDGER_ID, FRESHNESS_TIMEOUT + 1000 - 10)
     assert freshness_checker.pop_next_outdated_ledger() == (CONFIG_LEDGER_ID, FRESHNESS_TIMEOUT + 1000 - 20)
     assert freshness_checker.pop_next_outdated_ledger() == (POOL_LEDGER_ID, FRESHNESS_TIMEOUT + 1000 - 30)
+
+
+def test_register_new_ledger_zero_initial_time(freshness_checker):
+    freshness_checker.register_ledger(ledger_id=NEW_LEDGER_ID, initial_time=0)
+    freshness_checker.check_freshness(FRESHNESS_TIMEOUT + 1)
+    assert freshness_checker.get_outdated_ledgers_count() == LEDGER_COUNT + 1
+
+
+def test_register_new_ledger_non_zero_initial_time(freshness_checker):
+    freshness_checker.register_ledger(ledger_id=NEW_LEDGER_ID, initial_time=10)
+    freshness_checker.check_freshness(FRESHNESS_TIMEOUT + 1)
+    assert freshness_checker.get_outdated_ledgers_count() == LEDGER_COUNT
+
+    freshness_checker.check_freshness(FRESHNESS_TIMEOUT + 1 + 10)
+    assert freshness_checker.get_outdated_ledgers_count() == LEDGER_COUNT + 1
+    freshness_checker.check_freshness(FRESHNESS_TIMEOUT + 1 + 10 + 1)
+    assert freshness_checker.get_outdated_ledgers_count() == LEDGER_COUNT + 1

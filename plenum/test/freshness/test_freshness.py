@@ -1,9 +1,10 @@
 import pytest
 
-from common.serializers.serialization import state_roots_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.test.bls.helper import sdk_change_bls_key
-from plenum.test.helper import assertExp, freshness, sdk_send_random_and_check
+from plenum.test.freshness.helper import get_multi_sig_values_for_all_nodes, get_all_multi_sig_values_for_all_nodes, \
+    check_updated_bls_multi_sig_for_all_ledgers, check_updated_bls_multi_sig_for_ledger, check_freshness_updated_for_all
+from plenum.test.helper import freshness, sdk_send_random_and_check
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 5
@@ -25,7 +26,7 @@ def test_update_bls_multi_sig_by_timeout(looper, tconf, txnPoolNodeSet):
     # 2. Wait for the second freshness update
     bls_multi_sigs_after_first_update = get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet)
     looper.run(eventually(check_updated_bls_multi_sig_for_all_ledgers,
-                          txnPoolNodeSet, bls_multi_sigs_after_first_update,
+                          txnPoolNodeSet, bls_multi_sigs_after_first_update, FRESHNESS_TIMEOUT,
                           timeout=FRESHNESS_TIMEOUT + 5
                           ))
 
@@ -58,6 +59,7 @@ def test_update_bls_multi_sig_when_domain_orders(looper, tconf, txnPoolNodeSet,
     looper.run(eventually(check_updated_bls_multi_sig_for_ledger,
                           txnPoolNodeSet, refreshed_ledger_id,
                           refreshed_bls_multi_sigs_after_first_update,
+                          FRESHNESS_TIMEOUT,
                           timeout=FRESHNESS_TIMEOUT + 5
                           ))
     ordered_bls_multi_sigs_after_refreshed_update = get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
@@ -71,40 +73,11 @@ def test_update_bls_multi_sig_when_domain_orders(looper, tconf, txnPoolNodeSet,
     looper.run(eventually(check_updated_bls_multi_sig_for_ledger,
                           txnPoolNodeSet, ordered_ledger_id,
                           ordered_bls_multi_sigs_after_refreshed_update,
+                          FRESHNESS_TIMEOUT,
                           timeout=FRESHNESS_TIMEOUT + 5
                           ))
     assert refreshed_bls_multi_sigs_after_refreshed_update == get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
                                                                                                  refreshed_ledger_id)
-
-
-def check_freshness_updated_for_all(nodes):
-    assert all(
-        bls_multi_sig is not None
-        for bls_multi_sig in get_all_multi_sig_values_for_all_nodes(nodes)
-    )
-
-
-def check_updated_bls_multi_sig_for_all_ledgers(nodes, previous_multi_sigs):
-    multi_sigs = get_all_multi_sig_values_for_all_nodes(nodes)
-    for i, (bls_multi_sig, previous_bls_multi_sig) in enumerate(zip(multi_sigs, previous_multi_sigs)):
-        check_updated_bls_multisig_values(i, bls_multi_sig, previous_bls_multi_sig)
-
-
-def check_updated_bls_multi_sig_for_ledger(nodes, ledger_id, previous_multi_sigs):
-    multi_sigs = get_multi_sig_values_for_all_nodes(nodes, ledger_id)
-    for i, (bls_multi_sig, previous_bls_multi_sig) in enumerate(zip(multi_sigs, previous_multi_sigs)):
-        check_updated_bls_multisig_values(i, bls_multi_sig, previous_bls_multi_sig)
-
-
-def check_updated_bls_multisig_values(i, new_value, old_value):
-    assert new_value is not None, \
-        "{}: value is None {}".format(i, new_value)
-    assert new_value.timestamp - old_value.timestamp >= FRESHNESS_TIMEOUT, \
-        "{}: freshness delta is {}".format(i, new_value.timestamp - old_value.timestamp)
-    assert new_value.state_root_hash == old_value.state_root_hash, \
-        "{}: new state root {}, old state root {}".format(i, new_value.state_root_hash, old_value.state_root_hash)
-    assert new_value.txn_root_hash == old_value.txn_root_hash, \
-        "{}: new txn root {}, txn state root {}".format(i, new_value.txn_root_hash, old_value.txn_root_hash)
 
 
 def send_txn(ordered_ledger_id,
@@ -122,24 +95,3 @@ def send_txn(ordered_ledger_id,
                            sdk_pool_handle,
                            sdk_wallet_stewards[3],
                            check_functional=False)
-
-
-def get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet):
-    result = []
-    for node in txnPoolNodeSet:
-        for state in node.states.values():
-            bls_multi_sig = node.bls_bft.bls_store.get(
-                state_roots_serializer.serialize(bytes(state.committedHeadHash))
-            )
-            result.append(bls_multi_sig.value if bls_multi_sig else None)
-    return result
-
-
-def get_multi_sig_values_for_all_nodes(txnPoolNodeSet, ledger_id):
-    result = []
-    for node in txnPoolNodeSet:
-        bls_multi_sig = node.bls_bft.bls_store.get(
-            state_roots_serializer.serialize(bytes(node.states[ledger_id].committedHeadHash))
-        )
-        result.append(bls_multi_sig.value if bls_multi_sig else None)
-    return result

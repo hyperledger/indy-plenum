@@ -379,6 +379,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, OrderedSet]
+
+        self._freshness_checker = FreshnessChecker(freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL)
+
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -428,10 +431,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
-        self._freshness_checker = FreshnessChecker(ledger_ids=self.ledger_ids,
-                                                   freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL,
-                                                   initial_time=self.get_current_time())
-
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
@@ -441,6 +440,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # the request key needs to be removed once its ordered
         if ledger_id not in self.requestQueues:
             self.requestQueues[ledger_id] = OrderedSet()
+        self._freshness_checker.register_ledger(ledger_id=ledger_id,
+                                                initial_time=self.get_current_time())
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:

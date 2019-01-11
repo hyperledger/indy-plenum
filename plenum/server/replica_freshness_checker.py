@@ -11,12 +11,13 @@ class FreshnessState():
 class FreshnessChecker():
 
     def __init__(self,
-                 ledger_ids,
-                 freshness_timeout,
-                 initial_time):
+                 freshness_timeout):
         self.freshness_timeout = freshness_timeout
-        self._ledger_freshness = {ledger_id: FreshnessState(initial_time, initial_time) for ledger_id in ledger_ids}
+        self._ledger_freshness = {}  # Dict[ledger_id -> FreshnessState]
         self._outdated_ledgers = OrderedDict()
+
+    def register_ledger(self, ledger_id, initial_time):
+        self._ledger_freshness[ledger_id] = FreshnessState(initial_time, initial_time)
 
     def check_freshness(self, ts):
         '''
