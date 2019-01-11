@@ -5,7 +5,7 @@ from plenum.common.request import Request
 
 from plenum.common.messages.node_messages import Nomination, Reelection, Primary, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
-    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep
+    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState
 from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
 from plenum.common.util import getCallableName
@@ -123,6 +123,9 @@ def vcd_delay(delay: float = DEFAULT_DELAY):
     # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, ViewChangeDone)
 
+def cs_delay(delay: float = DEFAULT_DELAY):
+    # Delayer of CURRENT_STATE requests
+    return delayerMsgTuple(delay, CurrentState)
 
 def chk_delay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of CHECKPOINT requests

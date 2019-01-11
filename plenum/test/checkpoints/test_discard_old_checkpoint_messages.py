@@ -1,3 +1,4 @@
+from plenum.server.replica_validator_enums import ALREADY_STABLE
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.test.checkpoints.helper import chkChkpoints
@@ -20,4 +21,4 @@ def test_discard_checkpoint_msg_for_stable_checkpoint(chkFreqPatched, looper,
     rep1.send(oldChkpointMsg)
     recvReplicas = [n.replicas[0] for n in txnPoolNodeSet[1:]]
     looper.run(eventually(checkDiscardMsg, recvReplicas, oldChkpointMsg,
-                          "Checkpoint already stable", retryWait=1))
+                          ALREADY_STABLE, retryWait=1))
