@@ -2,14 +2,13 @@ from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test import waits
-from plenum.test.bls.helper import init_discarded
-from plenum.test.helper import chk_all_funcs
+from plenum.test.helper import chk_all_funcs, init_discarded
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
@@ -89,7 +88,8 @@ def checkPrePrepared(looper,
                 primary.stateRootHash(DOMAIN_LEDGER_ID),
                 primary.txnRootHash(DOMAIN_LEDGER_ID),
                 0,
-                True
+                True,
+                primary.stateRootHash(POOL_LEDGER_ID)
             )
 
             passes = 0

@@ -205,11 +205,18 @@ HS_MEMORY = "memory"
 HS_LEVELDB = 'leveldb'
 HS_ROCKSDB = 'rocksdb'
 
+LAST_SENT_PRE_PREPARE = 'lastSentPrePrepare'
+
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
 POOL_LEDGER_ID = 0
 DOMAIN_LEDGER_ID = 1
 CONFIG_LEDGER_ID = 2
 
+# Store labels
+BLS_LABEL = 'bls'
+TS_LABEL = 'ts'
+IDR_CACHE_LABEL = 'idr'
+ATTRIB_LABEL = 'attrib'
 
 VALID_LEDGER_IDS = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID)
 

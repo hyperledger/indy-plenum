@@ -24,6 +24,7 @@ def testKeyShareParty(looper, txnPoolNodeSet, tdir_for_func, tconf_for_func):
                msgAll(txnPoolNodeSet))
     for node in txnPoolNodeSet:
         node.stop()
+        looper.removeProdable(node)
 
 
 # noinspection PyIncorrectDocstring

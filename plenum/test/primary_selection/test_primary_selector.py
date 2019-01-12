@@ -3,6 +3,11 @@ from contextlib import ExitStack
 
 import base58
 import pytest
+from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+
+from plenum.server.propagator import Requests
+
+from plenum.server.node import Node
 
 from plenum.common.metrics_collector import NullMetricsCollector
 from stp_core.types import HA
@@ -33,14 +38,14 @@ class FakeLedger:
 
 # Question: Why doesn't this subclass Node.
 class FakeNode:
-    ledger_ids = [0]
+    ledger_ids = [POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID]
 
     def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
         self.f = 1
         self.replicas = dict()
-        self.requests = []
+        self.requests = Requests()
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
         self.nodeReg = {
@@ -64,6 +69,13 @@ class FakeNode:
         self.view_changer = ViewChanger(self)
         self.elector = PrimarySelector(self)
         self.metrics = NullMetricsCollector()
+
+        # For catchup testing
+        self.catchup_rounds_without_txns = 0
+        self.view_change_in_progress = False
+        self.ledgerManager.last_caught_up_3PC = (0, 0)
+        self.master_last_ordered_3PC = (0, 0)
+        self.seqNoDB = {}
 
     @property
     def viewNo(self):
@@ -103,6 +115,36 @@ class FakeNode:
         pass
 
     def start_catchup(self):
+        pass
+
+    def allLedgersCaughtUp(self):
+        Node.allLedgersCaughtUp(self)
+
+    def _clean_non_forwarded_ordered(self):
+        return Node._clean_non_forwarded_ordered(self)
+
+    def num_txns_caught_up_in_last_catchup(self):
+        return Node.num_txns_caught_up_in_last_catchup(self)
+
+    def mark_request_as_executed(self, request):
+        Node.mark_request_as_executed(self, request)
+
+    def _clean_req_from_verified(self, request):
+        pass
+
+    def doneProcessingReq(self, key):
+        pass
+
+    def processStashedOrderedReqs(self):
+        pass
+
+    def is_catchup_needed(self):
+        return False
+
+    def no_more_catchups_needed(self):
+        pass
+
+    def select_primaries(self):
         pass
 
 
@@ -287,6 +329,7 @@ def test_process_view_change_done(tdir, tconf):
     assert node.view_changer._view_change_done
     # Since the FakeNode does not have setting of mode
     # assert node.is_primary_found()
+    node.view_changer.pre_vc_strategy = None
     node.view_changer.startViewChange(1)
     assert not node.view_changer._view_change_done
 

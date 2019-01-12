@@ -1,6 +1,3 @@
-import base58
-import os
-
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
@@ -8,13 +5,12 @@ from plenum.common.txn_util import get_type, reqToTxn
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
-from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer, invalid_index_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
+from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
+from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
-from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
-from plenum.common.util import get_utc_epoch, randomString, hexToFriendly
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.common.util import hexToFriendly
+from plenum.test.helper import sdk_send_random_and_check, create_commit_bls_sig
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
@@ -22,10 +18,6 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node, \
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-
-def generate_state_root():
-    return base58.b58encode(os.urandom(32)).decode("utf-8")
 
 
 def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
@@ -99,81 +91,6 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
         return None
 
     return creator._calculate_multi_sig(key, pre_prepare)
-
-
-def init_discarded(value=None):
-    """init discarded field with value and return message like representation"""
-    discarded = []
-    if value:
-        discarded.append(value)
-    return invalid_index_serializer.serialize(discarded, toBytes=False)
-
-
-def create_pre_prepare_params(state_root,
-                              ledger_id=DOMAIN_LEDGER_ID,
-                              txn_root=None,
-                              timestamp=None,
-                              bls_multi_sig=None):
-    params = [0,
-              0,
-              0,
-              timestamp or get_utc_epoch(),
-              ["random request digest"],
-              init_discarded(0),
-              "random digest",
-              ledger_id,
-              state_root,
-              txn_root or '1' * 32,
-              0,
-              True]
-    if bls_multi_sig:
-        params.append(bls_multi_sig.as_list())
-    return params
-
-
-def create_pre_prepare_no_bls(state_root):
-    params = create_pre_prepare_params(state_root=state_root)
-    return PrePrepare(*params)
-
-
-def create_commit_params(view_no, pp_seq_no):
-    return [0, view_no, pp_seq_no]
-
-
-def create_commit_no_bls_sig(req_key):
-    view_no, pp_seq_no = req_key
-    params = create_commit_params(view_no, pp_seq_no)
-    return Commit(*params)
-
-
-def create_commit_with_bls_sig(req_key, bls_sig):
-    view_no, pp_seq_no = req_key
-    params = create_commit_params(view_no, pp_seq_no)
-    params.append(bls_sig)
-    return Commit(*params)
-
-
-def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
-    view_no, pp_seq_no = req_key
-    params = create_commit_params(view_no, pp_seq_no)
-    params = bls_bft.update_commit(params, pre_prepare)
-    return Commit(*params)
-
-
-def create_prepare_params(view_no, pp_seq_no, state_root):
-    return [0,
-            view_no,
-            pp_seq_no,
-            get_utc_epoch(),
-            "random digest",
-            state_root,
-            '1' * 32]
-
-
-def create_prepare(req_key, state_root):
-    view_no, pp_seq_no = req_key
-    params = create_prepare_params(view_no, pp_seq_no, state_root)
-    return Prepare(*params)
 
 
 def sdk_change_bls_key(looper, txnPoolNodeSet,

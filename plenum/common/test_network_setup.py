@@ -23,7 +23,7 @@ from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 from stp_core.common.util import adict
 
 
-CLIENT_CONNECTIONS_LIMIT = 15360
+CLIENT_CONNECTIONS_LIMIT = 500
 
 
 class TestNetworkSetup:
@@ -88,14 +88,10 @@ class TestNetworkSetup:
 
         config.NETWORK_NAME = network
 
-        if _localNodes:
-            config_helper = config_helper_class(config, chroot=chroot)
-            os.makedirs(config_helper.genesis_dir, exist_ok=True)
-            genesis_dir = config_helper.genesis_dir
-            keys_dir = config_helper.keys_dir
-        else:
-            genesis_dir = cls.setup_clibase_dir(config, network)
-            keys_dir = os.path.join(genesis_dir, "keys")
+        config_helper = config_helper_class(config, chroot=chroot)
+        os.makedirs(config_helper.genesis_dir, exist_ok=True)
+        genesis_dir = config_helper.genesis_dir
+        keys_dir = config_helper.keys_dir
 
         poolLedger = cls.init_pool_ledger(appendToLedgers, genesis_dir, config)
         domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
@@ -184,13 +180,6 @@ class TestNetworkSetup:
         return config.domainTransactionsFile
 
     @classmethod
-    def setup_clibase_dir(cls, config, network_name):
-        cli_base_net = os.path.join(os.path.expanduser(config.CLI_NETWORK_DIR), network_name)
-        if not os.path.exists(cli_base_net):
-            os.makedirs(cli_base_net, exist_ok=True)
-        return cli_base_net
-
-    @classmethod
     def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder,
                            config_helper_class=PConfigHelper, node_config_helper_class=PNodeConfigHelper,
                            chroot: str=None):
@@ -255,12 +244,6 @@ class TestNetworkSetup:
             cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,
                                        steward_defs, node_defs, client_defs, n_num, nodeParamsFileName,
                                        config_helper_class, node_config_helper_class)
-
-        # delete unnecessary key dir in client folder
-        key_dir = cls.setup_clibase_dir(config, args.network)
-        key_dir = os.path.join(key_dir, "keys")
-        if os.path.isdir(key_dir):
-            shutil.rmtree(key_dir, ignore_errors=True)
 
     @staticmethod
     def _bootstrapArgsTypeNodeCount(nodesStrArg):

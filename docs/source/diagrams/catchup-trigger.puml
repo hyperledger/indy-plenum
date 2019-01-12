@@ -1,0 +1,329 @@
+@startuml
+!pragma teoz true
+hide footbox
+
+participant "Node1:0" as Node1
+participant "Node2:0" as Node2
+participant "Node3:0" as Node3
+participant "Node4:0" as Node4
+
+note over Node1, Node4
+    This diagram demonstrates checkpoint-based trigger of catch-up and resumption of checkpoints stabilization
+    after catch-up. Note that catch-up can be triggered by lag in checkpoints   <b>on master non-primary replica only</b>.
+    So master protocol instance is shown in this example. Node1:0 is primary. LOG_SIZE = 300 and CHK_FREQ = 100.
+end note
+
+Node1 -> Node1: Set watermarks to\n(0, 300)
+& Node2 -> Node2: Set watermarks to\n(0, 300)
+& Node3 -> Node3: Set watermarks to\n(0, 300)
+& Node4 -> Node4: Set watermarks to\n(0, 300)
+
+Node1 -> Node1: Order 3PCBatch(1)\nand add it to <b>created</b>\nCheckpointState(1 - 100)
+& Node2 -> Node2: Order 3PCBatch(1)\nand add it to <b>created</b>\nCheckpointState(1 - 100)
+& Node3 -> Node3: Order 3PCBatch(1)\nand add it to <b>created</b>\nCheckpointState(1 - 100)
+& Node4 -> Node4: Order 3PCBatch(1)\nand add it to <b>created</b>\nCheckpointState(1 - 100)
+
+Node1 -> Node1: Order 3PCBatch(2)\nand add it to existing\nCheckpointState(1 - 100)
+& Node2 -> Node2: Order 3PCBatch(2)\nand add it to existing\nCheckpointState(1 - 100)
+& Node3 -> Node3: Order 3PCBatch(2)\nand add it to existing\nCheckpointState(1 - 100)
+& Node4 -> Node4: Order 3PCBatch(2)\nand add it to existing\nCheckpointState(1 - 100)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(100)\nand add it to existing\nCheckpointState(1 - 100)
+& Node2 -> Node2: Order 3PCBatch(100)\nand add it to existing\nCheckpointState(1 - 100)
+& Node3 -> Node3: Order 3PCBatch(100)\nand add it to existing\nCheckpointState(1 - 100)
+& Node4 -> Node4: Order 3PCBatch(100)\nand add it to existing\nCheckpointState(1 - 100)
+
+Node1 -> Node1: Finalize CheckpointState(1 - 100)
+& Node2 -> Node2: Finalize CheckpointState(1 - 100)
+& Node3 -> Node3: Finalize CheckpointState(1 - 100)
+& Node4 -> Node4: Finalize CheckpointState(1 - 100)
+
+Node1 ->> Node2: CHECKPOINT(1 - 100)
+Node1 ->> Node3: CHECKPOINT(1 - 100)
+Node1 ->> Node4: CHECKPOINT(1 - 100)
+
+Node2 ->> Node1: CHECKPOINT(1 - 100)
+Node2 ->> Node3: CHECKPOINT(1 - 100)
+Node2 ->> Node4: CHECKPOINT(1 - 100)
+
+Node3 ->> Node1: CHECKPOINT(1 - 100)
+Node3 ->> Node2: CHECKPOINT(1 - 100)
+Node3 ->> Node4: CHECKPOINT(1 - 100)
+
+Node4 ->> Node1: CHECKPOINT(1 - 100)
+Node4 ->> Node2: CHECKPOINT(1 - 100)
+Node4 ->> Node3: CHECKPOINT(1 - 100)
+
+group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node1 -> Node1: Stabilize\nCheckpointState(1 - 100)
+    Node1 -> Node1: Shift watermarks to\n(100, 400)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node2 -> Node2: Stabilize\nCheckpointState(1 - 100)
+    Node2 -> Node2: Shift watermarks to\n(100, 400)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node3 -> Node3: Stabilize\nCheckpointState(1 - 100)
+    Node3 -> Node3: Shift watermarks to\n(100, 400)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node4 -> Node4: Stabilize\nCheckpointState(1 - 100)
+    Node4 -> Node4: Shift watermarks to\n(100, 400)
+end group
+
+Node1 -> Node1: Order 3PCBatch(101)\nand add it to <b>created</b>\nCheckpointState(101 - 200)
+& Node2 -> Node2: Order 3PCBatch(101)\nand add it to <b>created</b>\nCheckpointState(101 - 200)
+& Node3 -> Node3: Order 3PCBatch(101)\nand add it to <b>created</b>\nCheckpointState(101 - 200)
+& Node4 -> Node4: Order 3PCBatch(101)\nand add it to <b>created</b>\nCheckpointState(101 - 200)
+
+Node1 -> Node1: Order 3PCBatch(102)\nand add it to existing\nCheckpointState(101 - 200)
+& Node2 -> Node2: Order 3PCBatch(102)\nand add it to existing\nCheckpointState(101 - 200)
+& Node3 -> Node3: Order 3PCBatch(102)\nand add it to existing\nCheckpointState(101 - 200)
+& Node4 -> Node4: Order 3PCBatch(102)\nand add it to existing\nCheckpointState(101 - 200)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(143)\nand add it to existing\nCheckpointState(101 - 200)
+& Node2 -> Node2: Order 3PCBatch(143)\nand add it to existing\nCheckpointState(101 - 200)
+& Node3 -> Node3: Order 3PCBatch(143)\nand add it to existing\nCheckpointState(101 - 200)
+& Node4 -> Node4: Order 3PCBatch(143)\nand add it to existing\nCheckpointState(101 - 200)
+
+Node1 -> Node1: Order 3PCBatch(144)\nand add it to existing\nCheckpointState(101 - 200)
+& Node2 -> Node2: Order 3PCBatch(144)\nand add it to existing\nCheckpointState(101 - 200)
+& Node3 -> Node3: Order 3PCBatch(144)\nand add it to existing\nCheckpointState(101 - 200)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(200)\nand add it to existing\nCheckpointState(101 - 200)
+& Node2 -> Node2: Order 3PCBatch(200)\nand add it to existing\nCheckpointState(101 - 200)
+& Node3 -> Node3: Order 3PCBatch(200)\nand add it to existing\nCheckpointState(101 - 200)
+
+Node1 -> Node1: Finalize CheckpointState(101 - 200)
+& Node2 -> Node2: Finalize CheckpointState(101 - 200)
+& Node3 -> Node3: Finalize CheckpointState(101 - 200)
+
+Node1 ->> Node2: CHECKPOINT(101 - 200)
+Node1 ->> Node3: CHECKPOINT(101 - 200)
+Node1 ->> Node4: CHECKPOINT(101 - 200)
+
+Node2 ->> Node1: CHECKPOINT(101 - 200)
+Node2 ->> Node3: CHECKPOINT(101 - 200)
+Node2 ->> Node4: CHECKPOINT(101 - 200)
+
+Node3 ->> Node1: CHECKPOINT(101 - 200)
+Node3 ->> Node2: CHECKPOINT(101 - 200)
+Node3 ->> Node4: CHECKPOINT(101 - 200)
+
+group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node1 -> Node1: Stabilize\nCheckpointState(101 - 200)
+    Node1 -> Node1: Shift watermarks to\n(200, 500)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node2 -> Node2: Stabilize\nCheckpointState(101 - 200)
+    Node2 -> Node2: Shift watermarks to\n(200, 500)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node3 -> Node3: Stabilize\nCheckpointState(101 - 200)
+    Node3 -> Node3: Shift watermarks to\n(200, 500)
+end group
+& Node4 -> Node4: <color red><b>Stash CHECKPOINTs(101 - 200)
+
+Node1 -> Node1: Order 3PCBatch(201)\nand add it to <b>created</b>\nCheckpointState(201 - 300)
+& Node2 -> Node2: Order 3PCBatch(201)\nand add it to <b>created</b>\nCheckpointState(201 - 300)
+& Node3 -> Node3: Order 3PCBatch(201)\nand add it to <b>created</b>\nCheckpointState(201 - 300)
+
+Node1 -> Node1: Order 3PCBatch(202)\nand add it to existing\nCheckpointState(201 - 300)
+& Node2 -> Node2: Order 3PCBatch(202)\nand add it to existing\nCheckpointState(201 - 300)
+& Node3 -> Node3: Order 3PCBatch(202)\nand add it to existing\nCheckpointState(201 - 300)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(300)\nand add it to existing\nCheckpointState(201 - 300)
+& Node2 -> Node2: Order 3PCBatch(300)\nand add it to existing\nCheckpointState(201 - 300)
+& Node3 -> Node3: Order 3PCBatch(300)\nand add it to existing\nCheckpointState(201 - 300)
+
+Node1 -> Node1: Finalize CheckpointState(201 - 300)
+& Node2 -> Node2: Finalize CheckpointState(201 - 300)
+& Node3 -> Node3: Finalize CheckpointState(201 - 300)
+
+Node1 ->> Node2: CHECKPOINT(201 - 300)
+Node1 ->> Node3: CHECKPOINT(201 - 300)
+Node1 ->> Node4: CHECKPOINT(201 - 300)
+
+Node2 ->> Node1: CHECKPOINT(201 - 300)
+Node2 ->> Node3: CHECKPOINT(201 - 300)
+Node2 ->> Node4: CHECKPOINT(201 - 300)
+
+Node3 ->> Node1: CHECKPOINT(201 - 300)
+Node3 ->> Node2: CHECKPOINT(201 - 300)
+Node3 ->> Node4: CHECKPOINT(201 - 300)
+
+group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node1 -> Node1: Stabilize\nCheckpointState(201 - 300)
+    Node1 -> Node1: Shift watermarks to\n(300, 600)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node2 -> Node2: Stabilize\nCheckpointState(201 - 300)
+    Node2 -> Node2: Shift watermarks to\n(300, 600)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node3 -> Node3: Stabilize\nCheckpointState(201 - 300)
+    Node3 -> Node3: Shift watermarks to\n(300, 600)
+end group
+& Node4 -> Node4: <color red><b>Stash CHECKPOINTs(201 - 300)
+
+note right of Node4
+    When  <b>master non-primary replica</b> gathers <b>2</b> generations
+    of quorumed stashed CHECKPOINTs, it triggers catch-up.
+    Quorum of CHECKPOINTs in each generation is   <b>n-f-1</b>
+    (2 in this example). Before starting catch-up, replica shifts
+    watermarks ahead of last quorumed stashed CHECKPOINT.
+end note
+
+Node4 -> Node4: Shift watermarks to (300, 600)
+
+Node4 -> Node4: <color green><b>Start catch-up
+
+Node1 -> Node1: Order 3PCBatch(301)\nand add it to <b>created</b>\nCheckpointState(301 - 400)
+& Node2 -> Node2: Order 3PCBatch(301)\nand add it to <b>created</b>\nCheckpointState(301 - 400)
+& Node3 -> Node3: Order 3PCBatch(301)\nand add it to <b>created</b>\nCheckpointState(301 - 400)
+
+Node1 -> Node1: Order 3PCBatch(302)\nand add it to existing\nCheckpointState(301 - 400)
+& Node2 -> Node2: Order 3PCBatch(302)\nand add it to existing\nCheckpointState(301 - 400)
+& Node3 -> Node3: Order 3PCBatch(302)\nand add it to existing\nCheckpointState(301 - 400)
+
+Node4 -> Node4: <color green><b>Complete catch-up with\n<color green><b>last_caught_up_3PC[1] == 302
+
+Node4 -> Node4: <color green><b>Remove stashed CHECKPOINTs(101 - 200)\n<color green><b>and stashed CHECKPOINTs(201 - 300)
+
+Node4 -> Node4: Shift watermarks to (302, 602)
+
+Node1 -> Node1: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(301 - 400)
+& Node2 -> Node2: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(301 - 400)
+& Node3 -> Node3: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(301 - 400)
+& Node4 -> Node4: Order 3PCBatch(303)\nand add it to <color red><b>created</b></color>\nCheckpointState(<color red><b>303</b></color> - 400)
+
+Node1 -> Node1: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(301 - 400)
+& Node2 -> Node2: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(301 - 400)
+& Node3 -> Node3: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(301 - 400)
+& Node4 -> Node4: Order 3PCBatch(303)\nand add it to existing\nCheckpointState(<color red><b>303</b></color> - 400)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(400)\nand add it to existing\nCheckpointState(301 - 400)
+& Node2 -> Node2: Order 3PCBatch(400)\nand add it to existing\nCheckpointState(301 - 400)
+& Node3 -> Node3: Order 3PCBatch(400)\nand add it to existing\nCheckpointState(301 - 400)
+& Node4 -> Node4: Order 3PCBatch(400)\nand add it to existing\nCheckpointState(<color red><b>303</b></color> - 400)
+
+Node1 -> Node1: Finalize CheckpointState(301 - 400)
+& Node2 -> Node2: Finalize CheckpointState(301 - 400)
+& Node3 -> Node3: Finalize CheckpointState(301 - 400)
+
+note right of Node4
+    Node4:0 does not finalize CheckpointState(303 - 400)
+    because it does not contain 100  <i>(CHK_FREQ)</i> digests
+    of 3PC batches
+end note
+
+Node1 ->> Node2: CHECKPOINT(301 - 400)
+Node1 ->> Node3: CHECKPOINT(301 - 400)
+Node1 ->> Node4: CHECKPOINT(301 - 400)
+
+Node2 ->> Node1: CHECKPOINT(301 - 400)
+Node2 ->> Node3: CHECKPOINT(301 - 400)
+Node2 ->> Node4: CHECKPOINT(301 - 400)
+
+Node3 ->> Node1: CHECKPOINT(301 - 400)
+Node3 ->> Node2: CHECKPOINT(301 - 400)
+Node3 ->> Node4: CHECKPOINT(301 - 400)
+
+group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node1 -> Node1: Stabilize\nCheckpointState(301 - 400)
+    Node1 -> Node1: Shift watermarks to\n(400, 700)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node2 -> Node2: Stabilize\nCheckpointState(301 - 400)
+    Node2 -> Node2: Shift watermarks to\n(400, 700)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node3 -> Node3: Stabilize\nCheckpointState(301 - 400)
+    Node3 -> Node3: Shift watermarks to\n(400, 700)
+end group
+& Node4 -> Node4: <color red><b>Stash CHECKPOINTs(301 - 400)
+
+note right of Node4
+    Node4:0 stashes CHECKPOINTs(301 - 400) because
+    it does not have CheckpointState(301 - 400).
+end note
+
+Node1 -> Node1: Order 3PCBatch(401)\nand add it to <b>created</b>\nCheckpointState(401 - 500)
+& Node2 -> Node2: Order 3PCBatch(401)\nand add it to <b>created</b>\nCheckpointState(401 - 500)
+& Node3 -> Node3: Order 3PCBatch(401)\nand add it to <b>created</b>\nCheckpointState(401 - 500)
+& Node4 -> Node4: Order 3PCBatch(401)\nand add it to <b>created</b>\nCheckpointState(401 - 500)
+
+Node1 -> Node1: Order 3PCBatch(402)\nand add it to existing\nCheckpointState(401 - 500)
+& Node2 -> Node2: Order 3PCBatch(402)\nand add it to existing\nCheckpointState(401 - 500)
+& Node3 -> Node3: Order 3PCBatch(402)\nand add it to existing\nCheckpointState(401 - 500)
+& Node4 -> Node4: Order 3PCBatch(402)\nand add it to existing\nCheckpointState(401 - 500)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(500)\nand add it to existing\nCheckpointState(401 - 500)
+& Node2 -> Node2: Order 3PCBatch(500)\nand add it to existing\nCheckpointState(401 - 500)
+& Node3 -> Node3: Order 3PCBatch(500)\nand add it to existing\nCheckpointState(401 - 500)
+& Node4 -> Node4: Order 3PCBatch(500)\nand add it to existing\nCheckpointState(401 - 500)
+
+Node1 -> Node1: Finalize CheckpointState(401 - 500)
+& Node2 -> Node2: Finalize CheckpointState(401 - 500)
+& Node3 -> Node3: Finalize CheckpointState(401 - 500)
+& Node4 -> Node4: Finalize CheckpointState(401 - 500)
+
+Node1 ->> Node2: CHECKPOINT(401 - 500)
+Node1 ->> Node3: CHECKPOINT(401 - 500)
+Node1 ->> Node4: CHECKPOINT(401 - 500)
+
+Node2 ->> Node1: CHECKPOINT(401 - 500)
+Node2 ->> Node3: CHECKPOINT(401 - 500)
+Node2 ->> Node4: CHECKPOINT(401 - 500)
+
+Node3 ->> Node1: CHECKPOINT(401 - 500)
+Node3 ->> Node2: CHECKPOINT(401 - 500)
+Node3 ->> Node4: CHECKPOINT(401 - 500)
+
+Node4 ->> Node1: CHECKPOINT(401 - 500)
+Node4 ->> Node2: CHECKPOINT(401 - 500)
+Node4 ->> Node3: CHECKPOINT(401 - 500)
+
+group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node1 -> Node1: Stabilize\nCheckpointState(401 - 500)
+    Node1 -> Node1: Shift watermarks to\n(500, 800)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node2 -> Node2: Stabilize\nCheckpointState(401 - 500)
+    Node2 -> Node2: Shift watermarks to\n(500, 800)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node3 -> Node3: Stabilize\nCheckpointState(401 - 500)
+    Node3 -> Node3: Shift watermarks to\n(500, 800)
+end group
+& group On gathering n-f-1\nsame digests\nfrom other replicas\n(2 in this example)
+    Node4 -> Node4: Stabilize\nCheckpointState(401 - 500)
+    Node4 -> Node4: <color green><b>Remove stashed\n<color green><b>CHECKPOINTs(301 - 400)
+    Node4 -> Node4: Shift watermarks to\n(500, 800)
+end group
+
+@enduml

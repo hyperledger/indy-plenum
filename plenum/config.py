@@ -43,6 +43,8 @@ stateSignatureDbName = 'state_signature'
 # request id to sequence numbers
 seqNoDbName = 'seq_no_db'
 
+nodeStatusDbName = 'node_status_db'
+
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {
@@ -55,6 +57,7 @@ domainStateStorage = KeyValueStorageType.Rocksdb
 poolStateStorage = KeyValueStorageType.Rocksdb
 configStateStorage = KeyValueStorageType.Rocksdb
 reqIdToTxnStorage = KeyValueStorageType.Rocksdb
+nodeStatusStorage = KeyValueStorageType.Rocksdb
 
 stateSignatureStorage = KeyValueStorageType.Rocksdb
 
@@ -91,6 +94,9 @@ rocksdb_transactions_config = rocksdb_default_config.copy()
 rocksdb_seq_no_db_config = rocksdb_default_config.copy()
 # Change seq_no_db config here if you fully understand what's going on
 
+rocksdb_node_status_db_config = rocksdb_default_config.copy()
+# Change node_status_db config here if you fully understand what's going on
+
 rocksdb_state_signature_config = rocksdb_default_config.copy()
 # Change state_signature config here if you fully understand what's going on
 
@@ -106,6 +112,7 @@ db_merkle_nodes_config = rocksdb_merkle_nodes_config
 db_state_config = rocksdb_state_config
 db_transactions_config = rocksdb_transactions_config
 db_seq_no_db_config = rocksdb_seq_no_db_config
+db_node_status_db_config = rocksdb_node_status_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
 
@@ -186,7 +193,7 @@ ViewChangeWindowSize = 60
 
 # A node if finds itself disconnected from primary of the master instance will
 # wait for `ToleratePrimaryDisconnection` before sending a view change message
-ToleratePrimaryDisconnection = 2
+ToleratePrimaryDisconnection = 60
 
 # A node if finds itself disconnected from primary of some backup instance will
 # wait for `TolerateBackupPrimaryDisconnection` before remove its replica
@@ -273,7 +280,7 @@ CLIENT_MAX_RETRY_REPLY = 5
 # mechanism uses clients connections tracking.
 TRACK_CONNECTED_CLIENTS_NUM_ENABLED = True
 CLIENT_STACK_RESTART_ENABLED = True
-MAX_CONNECTED_CLIENTS_NUM = 10000
+MAX_CONNECTED_CLIENTS_NUM = 400
 MIN_STACK_RESTART_TIMEOUT = 1800  # seconds
 STACK_POSTRESTART_WAIT_TIME = 2  # seconds
 MAX_STACK_RESTART_TIME_DEVIATION = 300  # seconds
@@ -347,6 +354,7 @@ ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
 VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True
 
 VALIDATOR_INFO_USE_DB = False
+VALIDATOR_INFO_UPGRADE_LOG_SIZE = 10
 
 # Strategies for removing replicas. Available values:
 # - None - don't remove replicas
@@ -355,4 +363,18 @@ VALIDATOR_INFO_USE_DB = False
 REPLICAS_REMOVING_WITH_DEGRADATION = "quorum"
 REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = "local"
 
+# Number of seconds between GC statistics report in log (0 to turn off)
+GC_STATS_REPORT_INTERVAL = 0
+
+# Enable PreViewChange strategy
+PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
+# Quota multiplier for PreViewChange strategy
 EXTENDED_QUOTA_MULTIPLIER_BEFORE_VC = 10
+
+OUTDATED_REQS_CHECK_ENABLED = True
+OUTDATED_REQS_CHECK_INTERVAL = 600  # seconds
+PROPAGATES_PHASE_REQ_TIMEOUT = 36000  # seconds
+ORDERING_PHASE_REQ_TIMEOUT = 72000  # seconds
+
+# Timeout factor after which an InstanceChange message are removed (0 to turn off)
+OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 7200  # seconds

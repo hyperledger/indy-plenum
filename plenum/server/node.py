@@ -1,8 +1,9 @@
 import json
 import os
+import random
 import time
 from binascii import unhexlify
-from collections import deque
+from collections import deque, defaultdict
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
@@ -18,8 +19,8 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
-from plenum.server.quota_control import QuotaControl, StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica import Replica
+from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
+from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -56,8 +57,8 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
+    Primary, RequestAck, RequestNack, Reject, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
     ObservedData, FutureViewChangeDone, BackupInstanceFaulty
@@ -86,6 +87,7 @@ from plenum.recorder.recorder import add_start_time, add_stop_time
 
 from plenum.client.wallet import Wallet
 
+from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
@@ -112,12 +114,77 @@ from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions, Suspicion
+from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
 logger = getlogger()
+
+
+class GcObject:
+    def __init__(self, obj):
+        self.obj = obj
+        self.referents = [id(ref) for ref in gc.get_referents(obj)]
+        self.referrers = set()
+
+
+class GcObjectTree:
+    def __init__(self):
+        self.objects = {id(obj): GcObject(obj) for obj in gc.get_objects()}
+        for obj_id, obj in self.objects.items():
+            for ref_id in obj.referents:
+                if ref_id in self.objects:
+                    self.objects[ref_id].referrers.add(obj_id)
+
+    def report_top_obj_types(self, num=50):
+        stats = defaultdict(int)
+        for obj in self.objects.values():
+            stats[type(obj.obj)] += 1
+        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:num]:
+            logger.info("    {}: {}".format(k, v))
+
+    def report_top_collections(self, num=10):
+        fat_objects = [(o.obj, len(o.referents)) for o in self.objects.values()]
+        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:num]
+
+        logger.info("Top big collections tracked by garbage collector:")
+        for obj, count in fat_objects:
+            logger.info("    {}: {}".format(type(obj), count))
+            self.report_collection_owners(obj)
+            self.report_collection_items(obj)
+
+    def report_collection_owners(self, obj):
+        referrers = {ref_id for ref_id in self.objects[id(obj)].referrers if ref_id in self.objects}
+        for _ in range(3):
+            self.add_super_referrerrs(referrers)
+        referrers = {type(self.objects[ref_id].obj) for ref_id in referrers}
+
+        logger.info("        Referrers:")
+        for v in referrers:
+            logger.info("            {}".format(v))
+
+    def add_super_referrerrs(self, referrers):
+        for ref_id in list(referrers):
+            for sup_ref_id in self.objects[ref_id].referrers:
+                if sup_ref_id in self.objects:
+                    referrers.add(sup_ref_id)
+
+    def report_collection_items(self, obj):
+        if not isinstance(obj, Iterable):
+            return
+        tmp_list = list(obj)
+        samples = random.sample(tmp_list, 3)
+
+        logger.info("        Samples:")
+        for k in samples:
+            if isinstance(obj, Dict):
+                logger.info("            {} : {}".format(repr(k), repr(obj[k])))
+            else:
+                logger.info("            {}".format(repr(k)))
+
+    def cleanup(self):
+        del self.objects
 
 
 class GcTimeTracker:
@@ -128,6 +195,16 @@ class GcTimeTracker:
 
     def _gc_callback(self, action, info):
         gen = info['generation']
+
+        collected = info.get('collected', 0)
+        if collected > 0:
+            self._metrics.add_event(MetricsName.GC_TOTAL_COLLECTED_OBJECTS, collected)
+            self._metrics.add_event(MetricsName.GC_GEN0_COLLECTED_OBJECTS + gen, collected)
+
+        uncollectable = info.get('uncollectable', 0)
+        if uncollectable > 0:
+            self._metrics.add_event(MetricsName.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
+
         if action == 'start':
             self._timestamps[gen] = time.perf_counter()
         else:
@@ -157,10 +234,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __init__(self,
                  name: str,
-                 clientAuthNr: ClientAuthNr=None,
-                 ha: HA=None,
-                 cliname: str=None,
-                 cliha: HA=None,
+                 clientAuthNr: ClientAuthNr = None,
+                 ha: HA = None,
+                 cliname: str = None,
+                 cliha: HA = None,
                  config_helper=None,
                  ledger_dir: str = None,
                  keys_dir: str = None,
@@ -180,35 +257,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
-        self.created = time.time()
-        self.name = name
-        self.last_prod_started = None
-        self.config = config or getConfig()
-
-        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
-
-        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
-        self.keys_dir = keys_dir or self.config_helper.keys_dir
-        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
-        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
-        self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
-
-        if self.config.STACK_COMPANION == 1:
-            add_start_time(self.ledger_dir, self.utc_epoch())
-
-        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
-
-        HasFileStorage.__init__(self, self.ledger_dir)
-        self.ensureKeysAreSetup()
-        self.opVerifiers = self.getPluginsByType(pluginPaths,
-                                                 PLUGIN_TYPE_VERIFICATION)
-        self.reqProcessors = self.getPluginsByType(pluginPaths,
-                                                   PLUGIN_TYPE_PROCESSING)
-
+        self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
+                                  genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
-        self.requestExecuter = {}   # type: Dict[int, Callable]
+        self.requestExecuter = {}  # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
         if self.config.METRICS_COLLECTOR_TYPE is not None:
@@ -218,24 +272,49 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.states = {}  # type: Dict[int, State]
 
-        self.primaryStorage = storage or self.getPrimaryStorage()
+        # Pool ledger init
+        self._poolLedger = self.init_pool_ledger()
+        self.register_state(POOL_LEDGER_ID, self.init_pool_state())
+        self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
+        self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
+        self.upload_pool_state()
 
-        # This is storage for storing map: timestamp/state.headHash
-        # Now it used in domainLedger
-        self.stateTsDbStorage = None
-
-        self.register_state(DOMAIN_LEDGER_ID, self.loadDomainState())
-
-        self.initPoolManager(ha, cliname, cliha)
+        # Pool manager init
+        HasPoolManager.__init__(self, self._poolLedger,
+                                self.states[POOL_LEDGER_ID],
+                                self.get_req_handler(POOL_LEDGER_ID),
+                                ha, cliname, cliha)
+        self.nodeReg = self.poolManager.nodeReg
+        self.cliNodeReg = self.poolManager.cliNodeReg
 
         # init BLS after pool manager!
         # init before domain req handler!
         self.bls_bft = self._create_bls_bft()
 
-        self.register_req_handler(self.getDomainReqHandler(), DOMAIN_LEDGER_ID)
-        self.register_executer(DOMAIN_LEDGER_ID, self.executeDomainTxns)
+        # This is storage for storing map: timestamp/state.headHash
+        # Now it used in domainLedger
+        self.stateTsDbStorage = None
 
-        self.initDomainState()
+        # Domain ledger init
+        self._domainLedger = storage or self.init_domain_ledger()
+        self.register_state(DOMAIN_LEDGER_ID, self.init_domain_state())
+        self.register_req_handler(self.init_domain_req_handler(), DOMAIN_LEDGER_ID)
+        self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
+        self.upload_domain_state()
+
+        # Config ledger init
+        self._configLedger = self.init_config_ledger()
+        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        self.register_req_handler(self.init_config_req_handler(), CONFIG_LEDGER_ID)
+        self.upload_config_state()
+
+        # Number of read requests the node has processed
+        self.total_read_request_number = 0
+        self._info_tool = self._info_tool_class(self)
+
+        # Action req handler
+        self.actionReqHandler = self.init_action_req_handler()
+        self.register_req_handler(self.actionReqHandler)
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -244,33 +323,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = None  # type: Optional[Mode]
         self.poolManager.reqHandler.bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
-        self.register_req_handler(self.poolManager.reqHandler, POOL_LEDGER_ID)
 
-        self.nodeReg = self.poolManager.nodeReg
-
-        kwargs = dict(stackParams=self.poolManager.nstack,
-                      msgHandler=self.handleOneNodeMsg,
-                      registry=self.nodeReg,
-                      metrics=self.metrics)
-        cls = self.nodeStackClass
-        kwargs.update(seed=seed)
-        # noinspection PyCallingNonCallable
-        self.nodestack = cls(**kwargs)
-        self.nodestack.onConnsChanged = self.onConnsChanged
-
-        kwargs = dict(
-            stackParams=self.poolManager.cstack,
-            msgHandler=self.handleOneClientMsg,
-            # TODO, Reject is used when dynamic validation fails, use Reqnack
-            msgRejectHandler=self.reject_client_msg_handler,
-            metrics=self.metrics)
-        cls = self.clientStackClass
-        kwargs.update(seed=seed)
-
-        # noinspection PyCallingNonCallable
-        self.clientstack = cls(**kwargs)
-
-        self.cliNodeReg = self.poolManager.cliNodeReg
+        self.network_stacks_init(seed)
 
         HasActionQueue.__init__(self)
 
@@ -305,18 +359,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._elector = None  # type: PrimaryDecider
 
         self.instances = Instances()
-        # QUESTION: Why does the monitor need blacklister?
-        self.monitor = Monitor(self.name,
-                               Delta=self.config.DELTA,
-                               Lambda=self.config.LAMBDA,
-                               Omega=self.config.OMEGA,
-                               instances=self.instances,
-                               nodestack=self.nodestack,
-                               blacklister=self.nodeBlacklister,
-                               nodeInfo=self.nodeInfo,
-                               notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
-                               pluginPaths=pluginPaths,
-                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
+
+        self.monitor_init(pluginPaths)
 
         self.replicas = self.create_replicas()
 
@@ -335,9 +379,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Requests that are to be given to the view_changer by the node
         self.msgsToViewChanger = deque()
 
-        if self.poolLedger:
-            self.register_state(POOL_LEDGER_ID, self.poolManager.state)
-
         self.ledgerManager = self.get_new_ledger_manager()
 
         # do it after all states and BLS stores are created
@@ -350,6 +391,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
+        self.propagates_phase_req_timeout = self.config.PROPAGATES_PHASE_REQ_TIMEOUT
+        self.propagates_phase_req_timeouts = 0
+        self.ordering_phase_req_timeout = self.config.ORDERING_PHASE_REQ_TIMEOUT
+        self.ordering_phase_req_timeouts = 0
+
+        if self.config.OUTDATED_REQS_CHECK_ENABLED:
+            self.startRepeating(self.check_outdated_reqs, self.config.OUTDATED_REQS_CHECK_INTERVAL)
+
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.startRepeating(self.checkNodeRequestSpike,
@@ -357,67 +406,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             .notifierEventTriggeringConfig[
                                 'nodeRequestSpike']['freq'])
 
-        self.startRepeating(self.flush_metrics, config.METRICS_FLUSH_INTERVAL)
+        self.startRepeating(self.flush_metrics, self.config.METRICS_FLUSH_INTERVAL)
 
-        # BE CAREFUL HERE
-        # This controls which message types are excluded from signature
-        # verification. Expressly prohibited from being in this is
-        # ClientRequest and Propagation, which both require client
-        # signature verification
-        self.authnWhitelist = (
-            Nomination,
-            Primary,
-            Reelection,
-            Batch,
-            ViewChangeDone,
-            PrePrepare,
-            Prepare,
-            Checkpoint,
-            Commit,
-            InstanceChange,
-            LedgerStatus,
-            ConsistencyProof,
-            CatchupReq,
-            CatchupRep,
-            ThreePCState,
-            MessageReq,
-            MessageRep,
-            CurrentState,
-            ObservedData,
-            BackupInstanceFaulty
-        )
+        if config.GC_STATS_REPORT_INTERVAL > 0:
+            self.startRepeating(self.report_gc_stats, config.GC_STATS_REPORT_INTERVAL)
+
+        self.white_list_init()
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        self.requestSender = {}  # Dict[Tuple[str, int], str]
+        self.requestSender = {}  # Dict[str, str]
         self.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(self)
 
-        # CurrentState
-        self.nodeMsgRouter = Router(
-            (Propagate, self.processPropagate),
-            (InstanceChange, self.sendToViewChanger),
-            (ViewChangeDone, self.sendToViewChanger),
-            (MessageReq, self.process_message_req),
-            (MessageRep, self.process_message_rep),
-            (PrePrepare, self.sendToReplica),
-            (Prepare, self.sendToReplica),
-            (Commit, self.sendToReplica),
-            (Checkpoint, self.sendToReplica),
-            (ThreePCState, self.sendToReplica),
-            (LedgerStatus, self.ledgerManager.processLedgerStatus),
-            (ConsistencyProof, self.ledgerManager.processConsistencyProof),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
-            (CatchupRep, self.ledgerManager.processCatchupRep),
-            (CurrentState, self.process_current_state_message),
-            (ObservedData, self.send_to_observer),
-            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
-        )
-
-        self.clientMsgRouter = Router(
-            (Request, self.processRequest),
-            (LedgerStatus, self.ledgerManager.processLedgerStatus),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
-        )
+        self.routers_init()
 
         # Quotas control
         node_quota = Quota(count=config.NODE_TO_NODE_STACK_QUOTA,
@@ -452,6 +453,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
+        self.nodeStatusDB = self.loadNodeStatusDB()
+
+        self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
 
         # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
         # the key is the ledger id and value is an interval tree with each
@@ -466,13 +470,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
 
-        # Number of read requests the node has processed
-        self.total_read_request_number = 0
-        self._info_tool = self._info_tool_class(self)
-
         self._last_performance_check_data = {}
-
-        self.init_config_ledger_and_req_handler()
 
         self.init_ledger_manager()
 
@@ -481,9 +479,297 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable = Observable()
         self._observer = NodeObserver(self)
 
-    def init_config_ledger_and_req_handler(self):
-        self.configLedger = self.getConfigLedger()
-        self.init_config_state()
+    def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
+                             genesis_dir, plugins_dir, node_info_dir, pluginPaths):
+        self.created = time.time()
+        self.name = name
+        self.last_prod_started = None
+        self.config = config or getConfig()
+
+        self.config_helper = config_helper or PNodeConfigHelper(self.name, self.config)
+
+        self.ledger_dir = ledger_dir or self.config_helper.ledger_dir
+        self.keys_dir = keys_dir or self.config_helper.keys_dir
+        self.genesis_dir = genesis_dir or self.config_helper.genesis_dir
+        self.plugins_dir = plugins_dir or self.config_helper.plugins_dir
+        self.node_info_dir = node_info_dir or self.config_helper.node_info_dir
+
+        if self.config.STACK_COMPANION == 1:
+            add_start_time(self.ledger_dir, self.utc_epoch())
+
+        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
+
+        HasFileStorage.__init__(self, self.ledger_dir)
+        self.ensureKeysAreSetup()
+        self.opVerifiers = self.getPluginsByType(pluginPaths,
+                                                 PLUGIN_TYPE_VERIFICATION)
+        self.reqProcessors = self.getPluginsByType(pluginPaths,
+                                                   PLUGIN_TYPE_PROCESSING)
+
+    def network_stacks_init(self, seed):
+        kwargs = dict(stackParams=self.poolManager.nstack,
+                      msgHandler=self.handleOneNodeMsg,
+                      registry=self.nodeReg,
+                      metrics=self.metrics)
+        cls = self.nodeStackClass
+        kwargs.update(seed=seed)
+        # noinspection PyCallingNonCallable
+        self.nodestack = cls(**kwargs)
+        self.nodestack.onConnsChanged = self.onConnsChanged
+
+        kwargs = dict(
+            stackParams=self.poolManager.cstack,
+            msgHandler=self.handleOneClientMsg,
+            # TODO, Reject is used when dynamic validation fails, use Reqnack
+            msgRejectHandler=self.reject_client_msg_handler,
+            metrics=self.metrics)
+        cls = self.clientStackClass
+        kwargs.update(seed=seed)
+
+        # noinspection PyCallingNonCallable
+        self.clientstack = cls(**kwargs)
+
+    def monitor_init(self, pluginPaths):
+        # QUESTION: Why does the monitor need blacklister?
+        self.monitor = Monitor(self.name,
+                               Delta=self.config.DELTA,
+                               Lambda=self.config.LAMBDA,
+                               Omega=self.config.OMEGA,
+                               instances=self.instances,
+                               nodestack=self.nodestack,
+                               blacklister=self.nodeBlacklister,
+                               nodeInfo=self.nodeInfo,
+                               notifierEventTriggeringConfig=self.config.notifierEventTriggeringConfig,
+                               pluginPaths=pluginPaths,
+                               notifierEventsEnabled=self.config.SpikeEventsEnabled)
+
+    def white_list_init(self):
+        # BE CAREFUL HERE
+        # This controls which message types are excluded from signature
+        # verification. Expressly prohibited from being in this is
+        # ClientRequest and Propagation, which both require client
+        # signature verification
+        self.authnWhitelist = (
+            Nomination,
+            Primary,
+            Reelection,
+            Batch,
+            ViewChangeDone,
+            PrePrepare,
+            Prepare,
+            Checkpoint,
+            Commit,
+            InstanceChange,
+            LedgerStatus,
+            ConsistencyProof,
+            CatchupReq,
+            CatchupRep,
+            MessageReq,
+            MessageRep,
+            CurrentState,
+            ObservedData,
+            BackupInstanceFaulty
+        )
+
+    def routers_init(self):
+        # CurrentState
+        self.nodeMsgRouter = Router(
+            (Propagate, self.processPropagate),
+            (InstanceChange, self.sendToViewChanger),
+            (ViewChangeDone, self.sendToViewChanger),
+            (MessageReq, self.process_message_req),
+            (MessageRep, self.process_message_rep),
+            (PrePrepare, self.sendToReplica),
+            (Prepare, self.sendToReplica),
+            (Commit, self.sendToReplica),
+            (Checkpoint, self.sendToReplica),
+            (LedgerStatus, self.ledgerManager.processLedgerStatus),
+            (ConsistencyProof, self.ledgerManager.processConsistencyProof),
+            (CatchupReq, self.ledgerManager.processCatchupReq),
+            (CatchupRep, self.ledgerManager.processCatchupRep),
+            (CurrentState, self.process_current_state_message),
+            (ObservedData, self.send_to_observer),
+            (BackupInstanceFaulty, self.backup_instance_faulty_processor.process_backup_instance_faulty_msg)
+        )
+
+        self.clientMsgRouter = Router(
+            (Request, self.processRequest),
+            (LedgerStatus, self.ledgerManager.processLedgerStatus),
+            (CatchupReq, self.ledgerManager.processCatchupReq),
+        )
+
+    # LEDGERS
+    @property
+    def poolLedger(self):
+        return self._poolLedger
+
+    @property
+    def domainLedger(self):
+        return self._domainLedger
+
+    @property
+    def configLedger(self):
+        return self._configLedger
+
+    def init_pool_ledger(self):
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+            self.genesis_dir, self.config.poolTransactionsFile)
+        tree = CompactMerkleTree(hashStore=self.getHashStore('pool'))
+        return Ledger(tree,
+                      dataDir=self.dataLocation,
+                      fileName=self.config.poolTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability,
+                      genesis_txn_initiator=genesis_txn_initiator)
+
+    def init_domain_ledger(self):
+        """
+        This is usually an implementation of Ledger
+        """
+        if self.config.primaryStorage is None:
+            # TODO: add a place for initialization of all ledgers, so it's
+            # clear what ledgers we have and how they are initialized
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
+                self.genesis_dir, self.config.domainTransactionsFile)
+            tree = CompactMerkleTree(hashStore=self.getHashStore('domain'))
+            return Ledger(tree,
+                          dataDir=self.dataLocation,
+                          fileName=self.config.domainTransactionsFile,
+                          ensureDurability=self.config.EnsureLedgerDurability,
+                          genesis_txn_initiator=genesis_txn_initiator)
+        else:
+            # TODO: we need to rethink this functionality
+            return initStorage(self.config.primaryStorage,
+                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
+                               dataDir=self.dataLocation,
+                               config=self.config)
+
+    def init_config_ledger(self):
+        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
+                      dataDir=self.dataLocation,
+                      fileName=self.config.configTransactionsFile,
+                      ensureDurability=self.config.EnsureLedgerDurability)
+
+    # STATES
+    def init_pool_state(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.poolStateStorage,
+                self.dataLocation,
+                self.config.poolStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def init_domain_state(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.domainStateStorage,
+                self.dataLocation,
+                self.config.domainStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    def init_config_state(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.configStateStorage,
+                self.dataLocation,
+                self.config.configStateDbName,
+                db_config=self.config.db_state_config)
+        )
+
+    # REQ_HANDLERS
+    def init_pool_req_handler(self):
+        return PoolRequestHandler(self.poolLedger,
+                                  self.states[POOL_LEDGER_ID],
+                                  self.states)
+
+    def init_domain_req_handler(self):
+        return DomainRequestHandler(self.domainLedger,
+                                    self.states[DOMAIN_LEDGER_ID],
+                                    self.config,
+                                    self.reqProcessors,
+                                    self.bls_bft.bls_store,
+                                    self.getStateTsDbStorage())
+
+    def init_config_req_handler(self):
+        return ConfigReqHandler(self.configLedger,
+                                self.states[CONFIG_LEDGER_ID])
+
+    def init_action_req_handler(self):
+        return ActionReqHandler()
+
+    # EXECUTERS
+    def default_executer(self, ledger_id, pp_time, reqs_keys,
+                         state_root, txn_root):
+        return self.commitAndSendReplies(ledger_id,
+                                         pp_time, reqs_keys, state_root, txn_root)
+
+    def execute_pool_txns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
+        """
+        Execute a transaction that involves consensus pool management, like
+        adding a node, client or a steward.
+
+        :param ppTime: PrePrepare request time
+        :param reqs_keys: requests keys to be committed
+        """
+        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
+                                               reqs_keys,
+                                               stateRoot, txnRoot)
+        for txn in committed_txns:
+            self.poolManager.onPoolMembershipChange(txn)
+        return committed_txns
+
+    def execute_domain_txns(self, ppTime, reqs: List[Request], stateRoot,
+                            txnRoot) -> List:
+        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
+                                               stateRoot, txnRoot)
+
+        # Refactor: This is only needed for plenum as some old style tests
+        # require authentication based on an in-memory map. This would be
+        # removed later when we migrate old-style tests
+        for txn in committed_txns:
+            if get_type(txn) == NYM:
+                self.addNewRole(txn)
+
+        return committed_txns
+
+    # STATES INIT
+    def init_state_from_ledger(self, state: State, ledger: Ledger, reqHandler):
+        """
+        If the trie is empty then initialize it by applying
+        txns from ledger.
+        """
+        if state.isEmpty:
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
+            for seq_no, txn in ledger.getAllTxn():
+                txn = self.update_txn_with_extra_data(txn)
+                reqHandler.updateState([txn, ], isCommitted=True)
+                state.commit(rootHash=state.headHash)
+
+    def upload_pool_state(self):
+        self.init_state_from_ledger(self.states[POOL_LEDGER_ID],
+                                    self.poolLedger, self.get_req_handler(POOL_LEDGER_ID))
+        logger.info(
+            "{} initialized pool state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
+
+    def upload_domain_state(self):
+        self.init_state_from_ledger(self.states[DOMAIN_LEDGER_ID],
+                                    self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
+        logger.info(
+            "{} initialized domain state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
+
+    def upload_config_state(self):
+        self.init_state_from_ledger(self.states[CONFIG_LEDGER_ID],
+                                    self.configLedger, self.get_req_handler(CONFIG_LEDGER_ID))
+        logger.info(
+            "{} initialized config state: state root {}".format(
+                self, state_roots_serializer.serialize(
+                    bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     @property
     def viewNo(self):
@@ -496,14 +782,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        return (False if self.view_changer is None else
-                self.view_changer.view_change_in_progress)
-
-    def init_config_state(self):
-        self.register_state(CONFIG_LEDGER_ID, self.loadConfigState())
-        self.setup_config_req_handler()
-        self.setup_action_req_handler()
-        self.initConfigState()
+        return False if self.view_changer is None \
+            else self.view_changer.view_change_in_progress
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -513,44 +793,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
-
-    def setup_config_req_handler(self):
-        self.configReqHandler = self.getConfigReqHandler()
-        self.register_req_handler(self.configReqHandler, CONFIG_LEDGER_ID)
-
-    def setup_action_req_handler(self):
-        self.actionReqHandler = self.get_action_req_handler()
-        self.register_req_handler(self.actionReqHandler)
-
-    def getConfigLedger(self):
-        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
-                      dataDir=self.dataLocation,
-                      fileName=self.config.configTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability)
-
-    def loadConfigState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.configStateStorage,
-                self.dataLocation,
-                self.config.configStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
-    def initConfigState(self):
-        self.initStateFromLedger(self.states[CONFIG_LEDGER_ID],
-                                 self.configLedger, self.configReqHandler)
-        logger.info(
-            "{} initialized config state: state root {}"
-            .format(self, state_roots_serializer.serialize(
-                bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
-
-    def getConfigReqHandler(self):
-        return ConfigReqHandler(self.configLedger,
-                                self.states[CONFIG_LEDGER_ID])
-
-    def get_action_req_handler(self):
-        return ActionReqHandler()
 
     def prePoolLedgerCatchup(self, **kwargs):
         self.mode = Mode.discovering
@@ -652,15 +894,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
                 "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primaries)
+                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
             )
 
         self._cancel(self._check_view_change_completed)
 
-        self.master_replica.on_view_change_done()
+        for replica in self.replicas.values():
+            replica.on_view_change_done()
+        last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
                 replica.on_propagate_primary_done()
+            if self.view_changer.previous_view_no == 0:
+                last_sent_pp_seq_no_restored = \
+                    self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.last_completed_view_no = self.view_changer.view_no
         # Remove already ordered requests from requests list after view change
         # If view change happen when one half of nodes ordered on master
@@ -691,19 +940,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return get_utc_epoch()
 
-    def initPoolManager(self, ha, cliname, cliha):
-        HasPoolManager.__init__(self, ha, cliname, cliha)
-
     def __repr__(self):
         return self.name
-
-    def getDomainReqHandler(self):
-        return DomainRequestHandler(self.domainLedger,
-                                    self.states[DOMAIN_LEDGER_ID],
-                                    self.config,
-                                    self.reqProcessors,
-                                    self.bls_bft.bls_store,
-                                    self.getStateTsDbStorage())
 
     def getStateTsDbStorage(self):
         if self.stateTsDbStorage is None:
@@ -724,6 +962,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.config.seqNoDbName,
                 db_config=self.config.db_seq_no_db_config)
         )
+
+    def loadNodeStatusDB(self):
+        return initKeyValueStorage(self.config.nodeStatusStorage,
+                                   self.dataLocation,
+                                   self.config.nodeStatusDbName,
+                                   db_config=self.config.db_node_status_db_config)
 
     def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
@@ -759,16 +1003,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self, self.f, self.totalNodes,
                 self.allNodeNames, self.requiredNumberOfInstances,
                 self.minimumNodes, self.quorums))
-
-    @property
-    def poolLedger(self):
-        return self.poolManager.ledger \
-            if isinstance(self.poolManager, TxnPoolManager) \
-            else None
-
-    @property
-    def domainLedger(self):
-        return self.primaryStorage
 
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
@@ -821,29 +1055,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def clientStackClass(self) -> NetworkInterface:
         return clientStackClass
-
-    def getPrimaryStorage(self):
-        """
-        This is usually an implementation of Ledger
-        """
-        if self.config.primaryStorage is None:
-            # TODO: add a place for initialization of all ledgers, so it's
-            # clear what ledgers we have and how they are initialized
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.genesis_dir, self.config.domainTransactionsFile)
-            return Ledger(
-                CompactMerkleTree(
-                    hashStore=self.getHashStore('domain')),
-                dataDir=self.dataLocation,
-                fileName=self.config.domainTransactionsFile,
-                ensureDurability=self.config.EnsureLedgerDurability,
-                genesis_txn_initiator=genesis_txn_initiator)
-        else:
-            # TODO: we need to rethink this functionality
-            return initStorage(self.config.primaryStorage,
-                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
-                               dataDir=self.dataLocation,
-                               config=self.config)
 
     def _add_pool_ledger(self):
         if isinstance(self.poolManager, TxnPoolManager):
@@ -922,15 +1133,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return executer
         else:
             return partial(self.default_executer, ledger_id)
-
-    def loadDomainState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.domainStateStorage,
-                self.dataLocation,
-                self.config.domainStateDbName,
-                db_config=self.config.db_state_config)
-        )
 
     def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
@@ -1109,6 +1311,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        if self.nodeStatusDB:
+            self.nodeStatusDB.close()
         if self.bls_bft.bls_store:
             self.bls_bft.bls_store.close()
         if self.stateTsDbStorage:
@@ -1130,7 +1334,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer = None
 
     @async_measure_time(MetricsName.NODE_PROD_TIME)
-    async def prod(self, limit: int=None) -> int:
+    async def prod(self, limit: int = None) -> int:
         """.opened
         This function is executed by the node each time it gets its share of
         CPU time from the event loop.
@@ -1179,6 +1383,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the sum of messages successfully processed
         """
+        return self._process_replica_messages(limit)
+
+    def _process_replica_messages(self, limit=None):
         inbox_processed = self.replicas.service_inboxes(limit)
         outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
@@ -1241,7 +1448,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = await self._observable.serviceQueues(limit)
         return o + i
 
-    def _service_observable_out_box(self, limit: int=None) -> int:
+    def _service_observable_out_box(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the observable's outBox.
 
@@ -1511,7 +1718,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
-    def service_replicas_outbox(self, limit: int=None) -> int:
+    def service_replicas_outbox(self, limit: int = None) -> int:
         """
         Process `limit` number of replica messages
         """
@@ -1544,7 +1751,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              "know how to handle it".format(message))
         return num_processed
 
-    def serviceViewChangerOutBox(self, limit: int=None) -> int:
+    def serviceViewChangerOutBox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -1561,7 +1768,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(msg))
         return msgCount
 
-    async def serviceViewChangerInbox(self, limit: int=None) -> int:
+    async def serviceViewChangerInbox(self, limit: int = None) -> int:
         """
         Service at most `limit` number of messages from the view_changer's outBox.
 
@@ -1632,7 +1839,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def _is_initial_propagate_primary(self):
+    def _is_initial_view_change_now(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
     def msgHasAcceptableViewNo(self, msg, frm, from_current_state: bool = False) -> bool:
@@ -1652,13 +1859,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
             self.discard(msg, "Proposed viewNo {} less, then current {}"
                          .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or self._is_initial_propagate_primary():
+        elif (view_no > self.viewNo) or self._is_initial_view_change_now():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
             if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, is_initial_propagate_primary=from_current_state)
+                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg, from_current_state=from_current_state)
                 self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
@@ -1675,8 +1882,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: discard or stash messages here instead of doing
         # this in msgHas* methods!!!
         if self.msgHasAcceptableInstId(msg, frm):
-            if self.msgHasAcceptableViewNo(msg, frm):
-                self.replicas.pass_message((msg, frm), msg.instId)
+            self.replicas.pass_message((msg, frm), msg.instId)
 
     def sendToViewChanger(self, msg, frm, from_current_state: bool = False):
         """
@@ -1768,7 +1974,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} processing a batch {}".format(self, msg))
             with self.metrics.measure_time(MetricsName.UNPACK_BATCH_TIME):
                 for m in msg.messages:
-                    m = self.nodestack.deserializeMsg(m)
+                    try:
+                        m = self.nodestack.deserializeMsg(m)
+                    except Exception as ex:
+                        logger.warning("Got error {} while processing {} message".format(ex, m))
+                        continue
                     self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
@@ -1916,17 +2126,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a client message
         :param frm: the name of the client that sent this `msg`
         """
-        if self.view_changer.view_change_in_progress:
 
-            msg_dict = msg if isinstance(msg, dict) else msg.as_dict
-            self.discard(msg_dict,
-                         reason="view change in progress",
-                         logMethod=logger.debug)
-            self.send_nack_to_client((idr_from_req_data(msg_dict),
-                                      msg_dict.get(f.REQ_ID.nm, None)),
-                                     "Client request is discarded since view "
-                                     "change is in progress", frm)
-            return
         if isinstance(msg, Batch):
             for m in msg.messages:
                 # This check is done since Client uses NodeStack (which can
@@ -1939,6 +2139,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 m = self.clientstack.deserializeMsg(m)
                 self.handleOneClientMsg((m, frm))
         else:
+            msg_dict = msg.as_dict if isinstance(msg, Request) else msg
+            if isinstance(msg_dict, dict):
+                if self.view_changer.view_change_in_progress and self.is_request_need_quorum(msg_dict):
+                    self.discard(msg_dict,
+                                 reason="view change in progress",
+                                 logMethod=logger.debug)
+                    self.send_nack_to_client((idr_from_req_data(msg_dict),
+                                              msg_dict.get(f.REQ_ID.nm, None)),
+                                             "Client request is discarded since view "
+                                             "change is in progress", frm)
+                    return
             self.postToClientInBox(msg, frm)
 
     def postToClientInBox(self, msg, frm):
@@ -2027,12 +2238,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         self.updateSeqNoMap([txn], ledger_id)
-        self._clear_req_key_for_txn(ledger_id, txn)
+        self._clear_request_for_txn(ledger_id, txn)
 
-    def _clear_req_key_for_txn(self, ledger_id, txn):
+    def _clear_request_for_txn(self, ledger_id, txn):
         req_key = get_digest(txn)
         if req_key is not None:
             self.master_replica.discard_req_key(ledger_id, req_key)
+            reqState = self.requests.get(req_key, None)
+            if reqState:
+                if reqState.forwarded and not reqState.executed:
+                    self.mark_request_as_executed(reqState.request)
+                    self.requests.ordered_by_replica(reqState.request.key)
+                    self.requests.free(reqState.request.key)
+                    self.doneProcessingReq(req_key)
+                if not reqState.forwarded:
+                    self.requests.pop(req_key, None)
+                    self._clean_req_from_verified(reqState.request)
+                    self.doneProcessingReq(req_key)
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         if ledgerId == POOL_LEDGER_ID:
@@ -2050,21 +2272,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.num_txns_caught_up_in_last_catchup() == 0:
             self.catchup_rounds_without_txns += 1
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
-        if compare_3PC_keys(self.master_last_ordered_3PC,
-                            last_caught_up_3PC) > 0:
-            for replica in self.replicas.values():
-                if replica.isMaster:
-                    replica.caught_up_till_3pc(last_caught_up_3PC)
-                else:
-                    replica.catchup_clear_for_backup()
-            logger.info('{}{} caught up till {}'
-                        .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
-                        extra={'cli': True})
+        self.mode = Mode.synced
+
+        need_up_and_clear = compare_3PC_keys(self.master_last_ordered_3PC,
+                                             last_caught_up_3PC) > 0
+        for replica in self.replicas.values():
+            replica.on_catch_up_finished(last_caught_up_3PC=last_caught_up_3PC,
+                                         need_up_and_clear=need_up_and_clear)
+        logger.info('{}{} caught up till {}'
+                    .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
+                    extra={'cli': True})
+        # Replica's messages should be processed right after unstashing because the node
+        # may not need a new one catchup. But in case with processing 3pc messages in
+        # next looper iteration, new catchup will have already begun and unstashed 3pc
+        # messages will stash again.
+        # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
+        if self.view_change_in_progress:
+            self._process_replica_messages()
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
-        self.mode = Mode.synced
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic
@@ -2176,6 +2404,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
+        if self.ledgerManager.last_caught_up_3PC == (0, 0):
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
         self.view_changer.on_catchup_complete()
         # TODO: need to think of a better way
         # If the node was not participating but has now found a primary,
@@ -2267,7 +2497,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
         requests = []
         for req_key in request_ids:
-            req = self.requests[req_key].finalised
+            if req_key in self.requests:
+                req = self.requests[req_key].finalised
+            else:
+                logger.warning("Could not apply stashed requests due to non-existent requests")
+                return
             _, seq_no = self.seqNoDB.get(req.digest)
             if seq_no is None:
                 requests.append(req)
@@ -2413,6 +2647,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not self.isProcessingReq(request.key):
             ledger_id, seq_no = self.seqNoDB.get(request.key)
             if ledger_id is not None and seq_no is not None:
+                self._clean_req_from_verified(request)
                 logger.debug("{} ignoring propagated request {} "
                              "since it has been already ordered"
                              .format(self.name, msg))
@@ -2441,7 +2676,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return key in self.requestSender
 
     def doneProcessingReq(self, key):
-        self.requestSender.pop(key)
+        if key in self.requestSender:
+            self.requestSender.pop(key)
 
     def is_sender_known_for_req(self, key):
         return self.requestSender.get(key) is not None
@@ -2478,7 +2714,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if txn is None:
             logger.debug(
                 "{} can not handle GET_TXN request: ledger doesn't "
-                "have txn with seqNo={}". format(self, str(seq_no)))
+                "have txn with seqNo={}".format(self, str(seq_no)))
 
         result = {
             f.IDENTIFIER.nm: request.identifier,
@@ -2507,14 +2743,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            'does not exist'.format(self, ordered.instId))
             return False
 
-        valid_reqs = [self.requests[request_id].finalised
-                      for request_id in ordered.valid_reqIdr
-                      if request_id in self.requests and
-                      self.requests[request_id].finalised]
-        invalid_reqs = [self.requests[request_id].finalised
-                        for request_id in ordered.invalid_reqIdr
-                        if request_id in self.requests and
-                        self.requests[request_id].finalised]
         if ordered.instId != self.instances.masterId:
             # Requests from backup replicas are not executed
             logger.trace("{} got ordered requests from backup replica {}"
@@ -2529,12 +2757,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
 
-        if len(valid_reqs) != len(ordered.valid_reqIdr):
-            logger.warning('{} did not find {} finalized '
-                           'requests, but still ordered'
-                           .format(self, len(ordered.valid_reqIdr) - len(valid_reqs)))
-            return False
-
         logger.debug("{} executing Ordered batch {} {} of {} requests"
                      .format(self.name,
                              ordered.viewNo,
@@ -2544,8 +2766,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.executeBatch(ordered.viewNo,
                           ordered.ppSeqNo,
                           ordered.ppTime,
-                          valid_reqs,
-                          invalid_reqs,
+                          ordered.valid_reqIdr,
+                          ordered.invalid_reqIdr,
                           ordered.ledgerId,
                           ordered.stateRootHash,
                           ordered.txnRootHash)
@@ -2611,6 +2833,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return False
 
+    def report_gc_stats(self):
+        obj_tree = GcObjectTree()
+        obj_tree.report_top_obj_types()
+        obj_tree.report_top_collections()
+        obj_tree.cleanup()
+
     def flush_metrics(self):
         # Flush accumulated should always be done to avoid numeric overflow in accumulators
         self.metrics.flush_accumulated()
@@ -2629,6 +2857,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MONITOR_REQUEST_QUEUE_SIZE, len(self.monitor.requestTracker))
         self.metrics.add_event(MetricsName.MONITOR_UNORDERED_REQUEST_QUEUE_SIZE,
                                len(self.monitor.requestTracker.unordered()))
+        self.metrics.add_event(MetricsName.PROPAGATES_PHASE_REQ_TIMEOUTS, self.propagates_phase_req_timeouts)
+        self.metrics.add_event(MetricsName.ORDERING_PHASE_REQ_TIMEOUTS, self.ordering_phase_req_timeouts)
+
+        if self.view_changer is not None:
+            self.metrics.add_event(MetricsName.CURRENT_VIEW, self.viewNo)
+            self.metrics.add_event(MetricsName.VIEW_CHANGE_IN_PROGRESS, int(self.view_changer.view_change_in_progress))
+
+        self.metrics.add_event(MetricsName.NODE_STATUS, int(self.mode) if self.mode is not None else 0)
+        self.metrics.add_event(MetricsName.CONNECTED_NODES_NUM, self.connectedNodeCount)
+        self.metrics.add_event(MetricsName.BLACKLISTED_NODES_NUM, len(self.blacklistedNodes))
+        self.metrics.add_event(MetricsName.REPLICA_COUNT, self.replicas.num_replicas)
+
+        self.metrics.add_event(MetricsName.POOL_LEDGER_SIZE, self.poolLedger.size)
+        self.metrics.add_event(MetricsName.DOMAIN_LEDGER_SIZE, self.domainLedger.size)
+        self.metrics.add_event(MetricsName.CONFIG_LEDGER_SIZE, self.configLedger.size)
+
+        self.metrics.add_event(MetricsName.POOL_LEDGER_UNCOMMITTED_SIZE, len(self.poolLedger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.DOMAIN_LEDGER_UNCOMMITTED_SIZE, len(self.domainLedger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.CONFIG_LEDGER_UNCOMMITTED_SIZE, len(self.configLedger.uncommittedTxns))
 
         # Collections metrics
         def sum_for_values(obj):
@@ -2664,8 +2911,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
             self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
 
-        self.metrics.add_event(MetricsName.MONITOR_ORDERED_REQUESTS_IN_LAST, len(self.monitor.orderedRequestsInLast))
-
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
@@ -2685,8 +2930,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_MASTER, len(self.master_replica.outBox))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_MASTER, len(self.master_replica.inBox))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_MASTER, len(self.master_replica.inBoxStash))
-        self.metrics.add_event(MetricsName.REPLICA_POST_ELECTION_MSGS_MASTER,
-                               len(self.master_replica.postElectionMsgs))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_MASTER,
                                len(self.master_replica.prePreparesPendingFinReqs))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_MASTER,
@@ -2699,7 +2942,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica.prePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica.prepares))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica.commits))
-        self.metrics.add_event(MetricsName.REPLICA_ORDERED_MASTER, len(self.master_replica.ordered))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
@@ -2707,7 +2949,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
                                sum_for_values(self.master_replica.stashedRecvdCheckpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
-                               len(self.master_replica.stashingWhileOutsideWaterMarks))
+                               self.master_replica.stasher.num_stashed_watermarks)
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
                                sum_for_values(self.master_replica.requestQueues))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica.batches))
@@ -2734,7 +2976,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_BACKUP, sum_for_backups('inBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_BACKUP, sum_for_backups('inBoxStash'))
-        self.metrics.add_event(MetricsName.REPLICA_POST_ELECTION_MSGS_BACKUP, sum_for_backups('postElectionMsgs'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_BACKUP,
                                sum_for_backups('prePreparesPendingFinReqs'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_BACKUP,
@@ -2747,7 +2988,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP, sum_for_backups('prePrepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP, sum_for_backups('prepares'))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP, sum_for_backups('commits'))
-        self.metrics.add_event(MetricsName.REPLICA_ORDERED_BACKUP, sum_for_backups('ordered'))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
                                sum_for_values_for_backups('stashed_out_of_order_commits'))
@@ -2755,7 +2995,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
                                sum_for_values_for_backups('stashedRecvdCheckpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
-                               sum_for_backups('stashingWhileOutsideWaterMarks'))
+                               sum(r.stasher.num_stashed_watermarks for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
                                sum_for_values_for_backups('requestQueues'))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups('batches'))
@@ -2788,7 +3028,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         store_rocksdb_metrics(MetricsName.STORAGE_POOL_STATE_READERS, self.states.get(0)._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_DOMAIN_STATE_READERS, self.states.get(1)._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_CONFIG_STATE_READERS, self.states.get(2)._kv)
-        store_rocksdb_metrics(MetricsName.STORAGE_POOL_MANAGER_READERS, self.poolManager.state._kv)
         store_rocksdb_metrics(MetricsName.STORAGE_BLS_BFT_READERS, self.bls_bft.bls_store._kvs)
         store_rocksdb_metrics(MetricsName.STORAGE_SEQ_NO_READERS, self.seqNoDB._keyValueStorage)
         if self.config.METRICS_COLLECTOR_TYPE == 'kv':
@@ -2936,7 +3175,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule_view_change()
 
-    def select_primaries(self, nodeReg: Dict[str, HA]=None):
+    def select_primaries(self, nodeReg: Dict[str, HA] = None):
         primaries = set()
         primary_rank = None
         '''
@@ -3072,27 +3311,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
-                     valid_reqs: List[Request], invalid_reqs: List[Request],
+                     valid_reqs_keys: List, invalid_reqs_keys: List,
                      ledger_id, state_root, txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param view_no: the view number (See glossary)
         :param pp_time: the time at which PRE-PREPARE was sent
-        :param valid_reqs: list of valid client REQUESTs
-        :param valid_reqs: list of invalid client REQUESTs
+        :param valid_reqs: list of valid client requests keys
+        :param valid_reqs: list of invalid client requests keys
         """
-        for req in valid_reqs:
-            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, request=req,
+        for req_key in valid_reqs_keys:
+            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
 
         self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=pp_time, reqs=valid_reqs, state_root=state_root,
+                          pp_time=pp_time, reqs_keys=valid_reqs_keys, state_root=state_root,
                           txn_root=txn_root)
 
         try:
-            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs,
+            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs_keys,
                                                          state_root, txn_root)
         except Exception as exc:
             logger.error(
@@ -3100,13 +3339,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
                     self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [req.digest for req in valid_reqs]
+                    txn_root, [req_idr for req_idr in valid_reqs_keys]
                 )
             )
             raise
 
-        for request in valid_reqs + invalid_reqs:
-            self.mark_request_as_executed(request)
+        for req_key in valid_reqs_keys + invalid_reqs_keys:
+            if req_key in self.requests:
+                self.mark_request_as_executed(self.requests[req_key].request)
+            else:
+                # Means that this request is dropped from the main requests queue due to timeout,
+                # but anyway it is ordered and executed normally
+                logger.debug('{} normally executed request {} which object has been dropped '
+                             'from the requests queue'.format(self, req_key))
+                pass
 
         # TODO is it possible to get len(committedTxns) != len(valid_reqs)
         # someday
@@ -3116,7 +3362,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
                      format(self, view_no, pp_seq_no, ledger_id, state_root,
-                            txn_root, [req.digest for req in valid_reqs]))
+                            txn_root, [key for key in valid_reqs_keys]))
 
         for txn in committedTxns:
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
@@ -3130,14 +3376,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                              ledger_id,
                                              view_no, pp_seq_no)
 
-        batch_committed_msg = BatchCommitted([req.as_dict for req in valid_reqs],
-                                             ledger_id,
-                                             pp_time,
-                                             state_root,
-                                             txn_root,
-                                             first_txn_seq_no,
-                                             last_txn_seq_no)
-        self._observable.append_input(batch_committed_msg, self.name)
+        reqs = []
+        reqs_list_built = True
+        for req_key in valid_reqs_keys:
+            if req_key in self.requests:
+                reqs.append(self.requests[req_key].request.as_dict)
+            else:
+                logger.warning("Could not build requests list for observers due to non-existent requests")
+                reqs_list_built = False
+                break
+
+        if reqs_list_built:
+            batch_committed_msg = BatchCommitted(reqs,
+                                                 ledger_id,
+                                                 pp_time,
+                                                 state_root,
+                                                 txn_root,
+                                                 first_txn_seq_no,
+                                                 last_txn_seq_no)
+            self._observable.append_input(batch_committed_msg, self.name)
 
     def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,
                                         ledger_id, view_no, pp_seq_no):
@@ -3161,11 +3418,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
                                   for txn in committedTxns)
 
-    def commitAndSendReplies(self, ledger_id, ppTime, reqs: List[Request],
+    def commitAndSendReplies(self, ledger_id, ppTime, reqs_keys,
                              stateRoot, txnRoot) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
         reqHandler = self.get_req_handler(ledger_id)
-        committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
+        committedTxns = reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
         self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
                           pp_time=ppTime, committed_txns=committedTxns,
                           state_root=stateRoot, txn_root=txnRoot)
@@ -3181,25 +3438,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def hook_post_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
-
-    def default_executer(self, ledger_id, pp_time, reqs: List[Request],
-                         state_root, txn_root):
-        return self.commitAndSendReplies(ledger_id,
-                                         pp_time, reqs, state_root, txn_root)
-
-    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
-                          txnRoot) -> List:
-        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
-                                               stateRoot, txnRoot)
-
-        # Refactor: This is only needed for plenum as some old style tests
-        # require authentication based on an in-memory map. This would be
-        # removed later when we migrate old-style tests
-        for txn in committed_txns:
-            if get_type(txn) == NYM:
-                self.addNewRole(txn)
-
-        return committed_txns
 
     def onBatchCreated(self, ledger_id, state_root):
         """
@@ -3274,27 +3512,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.clientAuthNr.core_authenticator.addIdr(identifier,
                                                             verkey=v.verkey,
                                                             role=role)
-
-    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
-        """
-        If the trie is empty then initialize it by applying
-        txns from ledger.
-        """
-        if state.isEmpty:
-            logger.info('{} found state to be empty, recreating from '
-                        'ledger'.format(self))
-            for seq_no, txn in ledger.getAllTxn():
-                txn = self.update_txn_with_extra_data(txn)
-                reqHandler.updateState([txn, ], isCommitted=True)
-                state.commit(rootHash=state.headHash)
-
-    def initDomainState(self):
-        self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
-                                 self.domainLedger, self.get_req_handler(DOMAIN_LEDGER_ID))
-        logger.info(
-            "{} initialized domain state: state root {}"
-            .format(self, state_roots_serializer.serialize(
-                bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
 
     def addGenesisNyms(self):
         # THIS SHOULD NOT BE DONE FOR PRODUCTION
@@ -3610,8 +3827,48 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_observers(self, observer_policy_type: ObserverSyncPolicyType):
         return self._observable.get_observers(observer_policy_type)
 
-    def mark_request_as_executed(self, request: Request):
-        self.requests.mark_as_executed(request)
+    def _clean_req_from_verified(self, request: Request):
         authenticator = self.authNr(request.as_dict)
         if isinstance(authenticator, ReqAuthenticator):
             authenticator.clean_from_verified(request.key)
+
+    def mark_request_as_executed(self, request: Request):
+        self.requests.mark_as_executed(request)
+        self._clean_req_from_verified(request)
+
+    def check_outdated_reqs(self):
+        cur_ts = time.perf_counter()
+        req_keys_to_drop = []
+        for req_key in self.requests:
+            outdated = False
+            req_state = self.requests[req_key]
+
+            if req_state.executed and req_state.unordered_by_replicas_num <= 0:
+                # Means that the request has been processed by all replicas and
+                # it just waits for stable checkpoint to be deleted.
+                continue
+
+            if req_state.added_ts is not None and \
+                    cur_ts - req_state.added_ts > self.propagates_phase_req_timeout:
+                outdated = True
+                self.propagates_phase_req_timeouts += 1
+            if req_state.finalised_ts is not None and \
+                    cur_ts - req_state.finalised_ts > self.ordering_phase_req_timeout:
+                outdated = True
+                self.ordering_phase_req_timeouts += 1
+            if outdated:
+                req_keys_to_drop.append(req_key)
+                self._clean_req_from_verified(req_state.request)
+                self.doneProcessingReq(req_key)
+                self.monitor.requestTracker.force_req_drop(req_key)
+        for req_key in req_keys_to_drop:
+            self.requests.force_free(req_key)
+
+    def is_request_need_quorum(self, msg_dict: dict):
+        txn_type = msg_dict.get(OPERATION).get(TXN_TYPE, None) \
+            if OPERATION in msg_dict \
+            else None
+
+        return txn_type and not (txn_type == GET_TXN or
+                                 self.is_action(txn_type) or
+                                 self.is_query(txn_type))

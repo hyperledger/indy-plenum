@@ -3,15 +3,12 @@ from typing import Iterable, List
 
 from plenum.common.request import Request
 
-from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
-    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
-    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
+    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState
 from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
 from plenum.common.util import getCallableName
-from plenum.test.test_client import TestClient
 
 DEFAULT_DELAY = 600
 
@@ -126,6 +123,9 @@ def vcd_delay(delay: float = DEFAULT_DELAY):
     # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, ViewChangeDone)
 
+def cs_delay(delay: float = DEFAULT_DELAY):
+    # Delayer of CURRENT_STATE requests
+    return delayerMsgTuple(delay, CurrentState)
 
 def chk_delay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of CHECKPOINT requests
@@ -193,8 +193,6 @@ def delay(what, frm, to, howlong):
             if isinstance(t, TestNode):
                 if isinstance(f, TestNode):
                     stasher = t.nodeIbStasher
-                elif isinstance(f, TestClient):
-                    stasher = t.clientIbStasher
                 else:
                     raise TypeError(
                         "from type {} for {} not supported".format(type(f),

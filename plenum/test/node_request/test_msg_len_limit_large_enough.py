@@ -6,7 +6,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.request import Request
 from plenum.common.util import get_utc_epoch
 from plenum.server.replica import Replica
-from plenum.test.bls.helper import init_discarded
+from plenum.test.helper import init_discarded
 from state.trie.pruning_trie import BLANK_ROOT
 from stp_zmq.zstack import ZStack
 

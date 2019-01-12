@@ -2,12 +2,10 @@ import pytest
 from plenum.common.constants import VALIDATOR
 
 from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import hexToFriendly
 from plenum.test import waits
 from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
 from stp_core.network.port_dispenser import genHa
@@ -21,7 +19,7 @@ def looper(txnPoolNodesLooper):
     yield txnPoolNodesLooper
 
 
-def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
+def changeNodeHa(looper, txnPoolNodeSet,
                  tconf, shouldBePrimary, tdir,
                  sdk_pool_handle, sdk_wallet_stewards,
                  sdk_wallet_client):

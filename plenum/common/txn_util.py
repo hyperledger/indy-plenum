@@ -287,3 +287,7 @@ def add_sigs_to_txn(txn, sigs, sig_type=ED25519):
         }
         for frm, sign in sigs
     ]
+
+
+def get_request_data(request: Request):
+    return request.identifier, request.reqId, request.operation

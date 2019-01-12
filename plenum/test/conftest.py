@@ -29,11 +29,10 @@ import pip
 import pytest
 import plenum.config as plenum_config
 import plenum.server.general_config.ubuntu_platform_config as platform_config
-from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
+from plenum.test.pool_transactions.helper import sdk_add_new_nym
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
@@ -60,8 +59,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
-from plenum.test.test_client import genTestClient, TestClient
-from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
+from plenum.test.test_node import TestNode, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg, getPrimaryReplica, \
     getNonPrimaryReplicas
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
@@ -230,7 +228,8 @@ overriddenConfigValues = {
     },
     "VIEW_CHANGE_TIMEOUT": 60,
     "MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE": 15,
-    "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60
+    "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60,
+    "ToleratePrimaryDisconnection": 2
 }
 
 
@@ -342,26 +341,6 @@ def tdir_for_func(tmpdir_factory):
     return tempdir
 
 
-def _client_tdir(temp_dir):
-    path = os.path.join(temp_dir, "home", "testuser")
-    os.makedirs(path)
-    return path
-
-
-@pytest.fixture(scope='module')
-def client_tdir(tdir):
-    tempdir = _client_tdir(tdir)
-    logger.debug("module-level client temporary directory: {}".format(tempdir))
-    return tempdir
-
-
-@pytest.fixture(scope='function')
-def client_tdir_for_func(tdir_for_func):
-    tempdir = _client_tdir(tdir_for_func)
-    logger.debug("function-level client temporary directory: {}".format(tempdir))
-    return tempdir
-
-
 def _general_conf_tdir(tmp_dir):
     general_config_dir = os.path.join(tmp_dir, GENERAL_CONFIG_DIR)
     os.makedirs(general_config_dir)
@@ -402,6 +381,7 @@ def _tconf(general_config):
     config.db_state_config = config.rocksdb_default_config.copy()
     config.db_transactions_config = config.rocksdb_default_config.copy()
     config.db_seq_no_db_config = config.rocksdb_default_config.copy()
+    config.db_node_status_db_config = config.rocksdb_default_config.copy()
     config.db_state_signature_config = config.rocksdb_default_config.copy()
     config.db_state_ts_db_config = config.rocksdb_default_config.copy()
 
@@ -451,41 +431,6 @@ def delayed_perf_chk(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         node.delayCheckPerformance(d)
     return d
-
-
-@pytest.fixture(scope="module")
-def stewardWallet(stewardAndWallet1):
-    return stewardAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
-def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithClientPoolTxns, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              client_tdir)
-    yield client, wallet
-    client.stop()
-
-
-@pytest.fixture(scope="module")
-def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
-                      tdirWithClientPoolTxns, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              client_tdir)
-    yield client, wallet
-    client.stop()
-
-
-@pytest.fixture(scope="module")
-def client1(looper, clientAndWallet1):
-    client = clientAndWallet1[0]
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    return client
-
-
-@pytest.fixture(scope="module")
-def wallet1(clientAndWallet1):
-    return clientAndWallet1[1]
 
 
 @pytest.fixture(scope="module")
@@ -722,26 +667,6 @@ def tdirWithPoolTxns(config_helper_class, poolTxnData, tdir, tconf):
 
 
 @pytest.fixture(scope="module")
-def client_ledger_dir(client_tdir):
-    return client_tdir
-
-
-@pytest.fixture(scope="module")
-def tdirWithClientPoolTxns(poolTxnData, client_ledger_dir):
-    import getpass
-    logging.debug("current user when creating new pool txn file for client: {}".
-                  format(getpass.getuser()))
-
-    ledger = create_genesis_txn_init_ledger(client_ledger_dir, plenum_config.poolTransactionsFile)
-
-    for item in poolTxnData["txns"]:
-        if get_type(item) == NODE:
-            ledger.add(item)
-    ledger.stop()
-    return client_ledger_dir
-
-
-@pytest.fixture(scope="module")
 def domainTxnOrderedFields():
     return getTxnOrderedFields()
 
@@ -794,37 +719,8 @@ def trustee_data(poolTxnData):
 
 
 @pytest.fixture(scope="module")
-def stewards_and_wallets(looper, txnPoolNodeSet, pool_txn_stewards_data,
-                         tdirWithClientPoolTxns):
-    clients_and_wallets = []
-    for pool_txn_steward_data in pool_txn_stewards_data:
-        steward_client, steward_wallet = buildPoolClientAndWallet(pool_txn_steward_data,
-                                                                  tdirWithClientPoolTxns)
-        looper.add(steward_client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
-                                                      *txnPoolNodeSet)
-        clients_and_wallets.append((steward_client, steward_wallet))
-
-    yield clients_and_wallets
-
-    for (client, wallet) in clients_and_wallets:
-        client.stop()
-
-
-@pytest.fixture(scope="module")
-def poolTxnClient(tdirWithClientPoolTxns, txnPoolNodeSet):
-    return genTestClient(txnPoolNodeSet, tmpdir=tdirWithClientPoolTxns,
-                         usePoolLedger=True)
-
-
-@pytest.fixture(scope="module")
 def testNodeClass(patchPluginManager):
     return TestNode
-
-
-@pytest.fixture(scope="module")
-def testClientClass():
-    return TestClient
 
 
 @pytest.yield_fixture(scope="module")
@@ -874,7 +770,7 @@ def txnPoolNodeSet(node_config_helper_class,
         yield nodes
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def txnPoolNodeSetNotStarted(node_config_helper_class,
                              patchPluginManager,
                              txnPoolNodesLooper,
@@ -1199,3 +1095,22 @@ def one_replica_and_others_in_backup_instance(
         return primary, non_primaries
     else:
         return non_primaries[0], [primary] + non_primaries[1:]
+
+
+@pytest.fixture(scope='function')
+def test_node(tdirWithPoolTxns,
+              tdirWithDomainTxns,
+              poolTxnNodeNames,
+              tdirWithNodeKeepInited,
+              tdir,
+              tconf,
+              allPluginsPath):
+    node_name = poolTxnNodeNames[0]
+    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
+    node = TestNode(
+        node_name,
+        config_helper=config_helper,
+        config=tconf,
+        pluginPaths=allPluginsPath)
+    yield node
+    node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state

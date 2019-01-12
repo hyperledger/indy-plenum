@@ -137,7 +137,6 @@ class Propagate(MessageBase):
 
 
 class PrePrepare(MessageBase):
-    typename = PREPREPARE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
@@ -152,11 +151,14 @@ class PrePrepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.SUB_SEQ_NO.nm, NonNegativeNumberField()),
         (f.FINAL.nm, BooleanField()),
+        (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
+                                                    nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
+    typename = PREPREPARE
 
 
 class Prepare(MessageBase):
@@ -195,15 +197,6 @@ class Checkpoint(MessageBase):
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
-    )
-
-
-class ThreePCState(MessageBase):
-    typename = THREE_PC_STATE
-    schema = (
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.MSGS.nm, IterableField(ClientMessageValidator(
-            operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
     )
 
 
@@ -428,9 +421,9 @@ class FutureViewChangeDone:
     Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
     In particular, it's sent when CURRENT_STATE (with primary propagation) is processed.
     """
-    def __init__(self, vcd_msg: ViewChangeDone, is_initial_propagate_primary: bool) -> None:
+    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
         self.vcd_msg = vcd_msg
-        self.is_initial_propagate_primary = is_initial_propagate_primary
+        self.from_current_state = from_current_state
 
 
 class ViewChangeStartMessage(MessageBase):

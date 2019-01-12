@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
+from numbers import Number
 from random import choice, uniform, gauss, random, randint
-from typing import List
+from typing import List, Union
 
 from plenum.common.metrics_collector import MetricsName, MetricsEvent, MetricsCollector
 from plenum.common.value_accumulator import ValueAccumulator
@@ -35,12 +36,24 @@ def generate_events(num: int, min_ts=None) -> List[MetricsEvent]:
     return result
 
 
-class MockTimestamp:
-    def __init__(self, value=datetime.utcnow()):
-        self.value = value
+class MockEvent:
+    def __init__(self, name, count, sum):
+        self.name = name
+        self.count = count
+        self.sum = sum
 
-    def __call__(self):
-        return self.value
+    def __eq__(self, other):
+        if not isinstance(other, MockEvent):
+            return False
+        if self.name != other.name:
+            return False
+        if self.count != other.count:
+            return False
+        return self.sum == other.sum
+
+    @property
+    def avg(self):
+        return self.sum / self.count
 
 
 class MockMetricsCollector(MetricsCollector):
@@ -48,7 +61,8 @@ class MockMetricsCollector(MetricsCollector):
         super().__init__()
         self.events = []
 
-    def store_event(self, name: MetricsName, value: float):
-        if isinstance(value, ValueAccumulator):
-            value = value.sum
-        self.events.append((name, value))
+    def store_event(self, name: MetricsName, value: Union[Number, ValueAccumulator]):
+        if isinstance(value, Number):
+            self.events.append(MockEvent(name, 1, value))
+        else:
+            self.events.append(MockEvent(name, value.count, value.sum))

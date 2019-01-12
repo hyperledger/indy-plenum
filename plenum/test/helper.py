@@ -1,3 +1,4 @@
+from datetime import datetime
 import itertools
 import os
 import random
@@ -11,8 +12,11 @@ from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
+import base58
 import pytest
 from indy.pool import set_protocol_version
+
+from common.serializers.serialization import invalid_index_serializer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
@@ -22,7 +26,6 @@ from indy.ledger import sign_and_submit_request, sign_request, submit_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
-from plenum.client.client import Client
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
     CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
@@ -54,68 +57,6 @@ logger = getlogger()
 def ordinal(n):
     return "%d%s" % (
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
-
-
-def check_sufficient_replies_received(client: Client,
-                                      identifier,
-                                      request_id):
-    reply, _ = client.getReply(identifier, request_id)
-    full_request_id = "({}:{})".format(identifier, request_id)
-    if reply is not None:
-        logger.debug("got confirmed reply for {}: {}"
-                     .format(full_request_id, reply))
-        return reply
-    all_replies = getRepliesFromClientInbox(client.inBox, request_id)
-    logger.debug("there are {} replies for request {}, "
-                 "but expected at-least {}, "
-                 "or one with valid proof: "
-                 .format(len(all_replies),
-                         full_request_id,
-                         client.quorums.reply.value,
-                         all_replies))
-    raise AssertionError("There is no proved reply and no "
-                         "quorum achieved for request {}"
-                         .format(full_request_id))
-
-
-# TODO: delete after removal from node
-def waitForSufficientRepliesForRequests(looper,
-                                        client,
-                                        *,  # To force usage of names
-                                        requests,
-                                        customTimeoutPerReq=None,
-                                        add_delay_to_timeout: float = 0,
-                                        override_timeout_limit=False,
-                                        total_timeout=None):
-    """
-    Checks number of replies for given requests of specific client and
-    raises exception if quorum not reached at least for one
-
-    :requests: list of requests; mutually exclusive with 'requestIds'
-    :requestIds:  list of request ids; mutually exclusive with 'requests'
-    :returns: nothing
-    """
-    node_count = len(client.nodeReg)
-    if not total_timeout:
-        timeout_per_request = customTimeoutPerReq or \
-                              waits.expectedTransactionExecutionTime(node_count)
-        timeout_per_request += add_delay_to_timeout
-        # here we try to take into account what timeout for execution
-        # N request - total_timeout should be in
-        # timeout_per_request < total_timeout < timeout_per_request * N
-        # we cannot just take (timeout_per_request * N) because it is so huge.
-        # (for timeout_per_request=5 and N=10, total_timeout=50sec)
-        # lets start with some simple formula:
-        total_timeout = (1 + len(requests) / 10) * timeout_per_request
-    coros = [partial(check_sufficient_replies_received,
-                     client,
-                     request.identifier,
-                     request.reqId)
-             for request in requests]
-    chk_all_funcs(looper, coros,
-                  retry_wait=1,
-                  timeout=total_timeout,
-                  override_eventually_timeout=override_timeout_limit)
 
 
 def send_reqs_batches_and_get_suff_replies(
@@ -172,11 +113,6 @@ def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):
 
 
 # noinspection PyIncorrectDocstring
-
-
-def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
-    return [item[0] for item in replica.postElectionMsgs if
-            isinstance(item[0], requestType)]
 
 
 def assertLength(collection: Iterable[Any], expectedLength: int):
@@ -634,7 +570,7 @@ def nodeByName(nodes, name):
     raise Exception("Node with the name '{}' has not been found.".format(name))
 
 
-def send_pre_prepare(view_no, pp_seq_no, wallet, nodes,
+def send_pre_prepare(view_no, pp_seq_no, nodes,
                      state_root=None, txn_root=None):
     pre_prepare = PrePrepare(
         0,
@@ -962,14 +898,17 @@ def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_w
     if num_batches == 1:
         return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
 
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
+
     sdk_replies = []
     for _ in range(num_batches - 1):
-        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
-                                                     num_reqs // num_batches, **kwargs))
-    rem = num_reqs % num_batches
-    if rem == 0:
-        rem = num_reqs // num_batches
-    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, rem, **kwargs))
+        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                     sdk_pool, sdk_wallet,
+                                                     reqs_in_batch, **kwargs))
+    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                 sdk_pool, sdk_wallet,
+                                                 reqs_in_last_batch, **kwargs))
     return sdk_replies
 
 
@@ -979,15 +918,19 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
         raise BaseException(
             'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
     if num_batches == 1:
-        req = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
+        sdk_reqs = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
         looper.runFor(timeout)
-        return req
+        return sdk_reqs
+
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
 
     sdk_reqs = []
     for _ in range(num_batches - 1):
-        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet,
-                                                 num_reqs // num_batches))
+        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_batch))
         looper.runFor(timeout)
+    sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_last_batch))
+    looper.runFor(timeout)
     return sdk_reqs
 
 
@@ -1075,3 +1018,124 @@ def max_3pc_batch_limits(tconf, size, wait=10000):
     yield tconf
     tconf.Max3PCBatchSize = old_size
     tconf.Max3PCBatchWait = old_wait
+
+@contextmanager
+def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
+    old_timeout = tconf.ACC_MONITOR_TIMEOUT
+    old_delta = tconf.ACC_MONITOR_TXN_DELTA_K
+    old_acc_monitor_enabled = tconf.ACC_MONITOR_ENABLED
+
+    tconf.ACC_MONITOR_TIMEOUT = acc_monitor_timeout
+    tconf.ACC_MONITOR_TXN_DELTA_K = acc_monitor_delta
+    tconf.ACC_MONITOR_ENABLED = acc_monitor_enabled
+    yield tconf
+
+    tconf.ACC_MONITOR_TIMEOUT = old_timeout
+    tconf.ACC_MONITOR_TXN_DELTA_K = old_delta
+    tconf.ACC_MONITOR_ENABLED = old_acc_monitor_enabled
+
+
+def create_pre_prepare_params(state_root,
+                              ledger_id=DOMAIN_LEDGER_ID,
+                              txn_root=None,
+                              timestamp=None,
+                              bls_multi_sig=None,
+                              view_no=0,
+                              pool_state_root=None,
+                              pp_seq_no=0,
+                              inst_id=0):
+    params = [inst_id,
+              view_no,
+              pp_seq_no,
+              timestamp or get_utc_epoch(),
+              ["random request digest"],
+              init_discarded(0),
+              "random digest",
+              ledger_id,
+              state_root,
+              txn_root or '1' * 32,
+              0,
+              True]
+    if pool_state_root is not None:
+        params.append(pool_state_root)
+    if bls_multi_sig:
+        params.append(bls_multi_sig.as_list())
+    return params
+
+
+def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0):
+    params = create_pre_prepare_params(state_root=state_root,
+                                       view_no=view_no,
+                                       pool_state_root=pool_state_root,
+                                       pp_seq_no=pp_seq_no,
+                                       inst_id=inst_id)
+    return PrePrepare(*params)
+
+
+def create_commit_params(view_no, pp_seq_no, inst_id=0):
+    return [inst_id, view_no, pp_seq_no]
+
+
+def create_commit_no_bls_sig(req_key, inst_id=0):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no, inst_id=inst_id)
+    return Commit(*params)
+
+
+def create_commit_with_bls_sig(req_key, bls_sig):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params.append(bls_sig)
+    return Commit(*params)
+
+
+def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params = bls_bft.update_commit(params, pre_prepare)
+    return Commit(*params)
+
+
+def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
+    return [inst_id,
+            view_no,
+            pp_seq_no,
+            get_utc_epoch(),
+            "random digest",
+            state_root,
+            '1' * 32]
+
+
+def create_prepare(req_key, state_root, inst_id=0):
+    view_no, pp_seq_no = req_key
+    params = create_prepare_params(view_no, pp_seq_no, state_root, inst_id=inst_id)
+    return Prepare(*params)
+
+
+def generate_state_root():
+    return base58.b58encode(os.urandom(32)).decode("utf-8")
+
+
+def init_discarded(value=None):
+    """init discarded field with value and return message like representation"""
+    discarded = []
+    if value:
+        discarded.append(value)
+    return invalid_index_serializer.serialize(discarded, toBytes=False)
+
+
+def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
+    pre_prepare = 1             # Message from Primary
+    prepares = nodes_count - 2  # Messages from all nodes exclude primary and self node
+    commits = nodes_count - 1   # Messages from all nodes exclude  self node
+    # The primary node receives the same number of messages. Doesn't get pre-prepare,
+    # but gets one more prepare
+    return pre_prepare + prepares + commits
+
+
+class MockTimestamp:
+    def __init__(self, value=datetime.utcnow()):
+        self.value = value
+
+    def __call__(self):
+        return self.value

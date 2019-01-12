@@ -3,7 +3,7 @@ import pytest
 from crypto.bls.bls_multi_signature import MultiSignatureValue, MultiSignature
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import get_utc_epoch
-from plenum.test.bls.helper import generate_state_root
+from plenum.test.helper import generate_state_root
 
 participants = ["Node1", "Node2", "Node3"]
 signature = "somefakesignaturesomefakesignaturesomefakesignature"

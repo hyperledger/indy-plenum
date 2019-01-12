@@ -3,6 +3,7 @@ import pytest
 
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import get_utc_epoch
 
 num = 0
@@ -10,7 +11,7 @@ num = 0
 
 @pytest.fixture(scope="function")
 def domain_req_handler(txnPoolNodeSet):
-    return txnPoolNodeSet[0].getDomainReqHandler()
+    return txnPoolNodeSet[0].get_req_handler(DOMAIN_LEDGER_ID)
 
 
 @pytest.fixture(scope="function")

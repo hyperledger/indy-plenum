@@ -1,3 +1,5 @@
+import time
+
 from collections import OrderedDict, defaultdict
 
 from typing import Union
@@ -28,6 +30,9 @@ class ReqState:
         self.propagates = {}
         self.finalised = None
         self.executed = False
+        self.added_ts = time.perf_counter()
+        self.finalised_ts = None
+        self.unordered_by_replicas_num = 0
 
     def req_with_acceptable_quorum(self, quorum: Quorum):
         digests = defaultdict(set)
@@ -45,6 +50,8 @@ class ReqState:
         # here we construct the parent from child it is rather implicit that
         # `finalised` contains not the same type than `propagates` has
         self.finalised = Request.fromState(req.__getstate__())
+        self.added_ts = None
+        self.finalised_ts = time.perf_counter()
 
 
 class Requests(OrderedDict):
@@ -75,6 +82,15 @@ class Requests(OrderedDict):
         """
         return self[req.key].forwarded
 
+    def ordered_by_replica(self, request_key):
+        """
+        Should be called by each replica when request is ordered or replica is removed.
+        """
+        state = self.get(request_key)
+        if not state:
+            return
+        state.unordered_by_replicas_num -= 1
+
     def mark_as_forwarded(self, req: Request, to: int):
         """
         Works together with 'mark_as_executed' and 'free' methods.
@@ -85,6 +101,7 @@ class Requests(OrderedDict):
         """
         self[req.key].forwarded = True
         self[req.key].forwardedTo = to
+        self[req.key].unordered_by_replicas_num = to
 
     def add_propagate(self, req: Request, sender: str):
         """
@@ -141,6 +158,14 @@ class Requests(OrderedDict):
             return
         state.forwardedTo -= 1
         self._clean(state)
+
+    def force_free(self, request_key):
+        state = self.get(request_key)
+        if not state:
+            return
+        if state.finalised:
+            self.finalised_count -= 1
+        self.pop(request_key, None)
 
     def _clean(self, state):
         if state.executed and state.forwardedTo <= 0:
