@@ -151,10 +151,10 @@ class NodeHandler(WriteRequestHandler):
         if (nip, np) == (cip, cp):
             return 'node and client ha cannot be same'
 
-    def _is_node_data_same(self, nodeNym, newData, isCommitted=True):
-        node_info = self._get_node_data(nodeNym, is_committed=isCommitted)
+    def _is_node_data_same(self, node_nym, new_data, is_committed=True):
+        node_info = self._get_node_data(node_nym, is_committed=is_committed)
         node_info.pop(f.IDENTIFIER.nm, None)
-        return node_info == newData
+        return node_info == new_data
 
     def _is_node_data_conflicting(self, new_data, updating_nym=None):
         # Check if node's ALIAS or IPs or ports conflicts with other nodes,
@@ -185,15 +185,15 @@ class NodeHandler(WriteRequestHandler):
                 if same_cli_ha:
                     return "Node's clientstack addresses must be unique"
 
-    def _data_error_while_validating_update(self, data, nodeNym):
+    def _data_error_while_validating_update(self, data, node_nym):
         error = self._data_error_while_validating(data, skip_keys=True)
         if error:
             return error
 
-        if self._is_node_data_same(nodeNym, data, isCommitted=False):
+        if self._is_node_data_same(node_nym, data, is_committed=False):
             return "node already has the same data as requested"
 
-        error = self._is_node_data_conflicting(data, nodeNym)
+        error = self._is_node_data_conflicting(data, node_nym)
         if error:
             return "existing data has conflicts with " \
                    "request data {}. Error: {}".format(data, error)
