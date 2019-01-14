@@ -187,10 +187,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if nodeNym not in self._ordered_node_services:
             if VALIDATOR in txn_data[DATA].get(SERVICES, []):
                 self.addNewNodeAndConnect(txn_data)
+            self._set_node_services_in_cash(nodeNym, txn_data[DATA].get(SERVICES, []))
         else:
             _updateNode(txn_data)
-
-        self._set_node_services_in_cash(nodeNym, txn_data[DATA].get(SERVICES, []))
+            self._set_node_services_in_cash(nodeNym, txn_data[DATA].get(SERVICES, None))
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]

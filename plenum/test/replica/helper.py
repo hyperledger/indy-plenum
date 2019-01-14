@@ -25,5 +25,5 @@ def create_preprepare(replica, sdk_wallet_steward, req_count):
         replica.requests.add(req)
         replica.requests.set_finalised(req)
     replica.last_accepted_pre_prepare_time = int(time.time())
-    pp = replica.create3PCBatch(DOMAIN_LEDGER_ID)
+    pp = replica.create_3pc_batch(DOMAIN_LEDGER_ID)
     return reqs, pp
