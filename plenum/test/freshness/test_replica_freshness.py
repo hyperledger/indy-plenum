@@ -17,7 +17,7 @@ LEDGER_IDS = [POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID]
 
 
 @pytest.fixture(scope='function', params=[0])
-def view_no(tconf, request):
+def viewNo(tconf, request):
     return request.param
 
 
@@ -35,6 +35,11 @@ def mock_timestamp():
 @pytest.fixture(scope='function')
 def ledger_ids():
     return LEDGER_IDS
+
+
+@pytest.fixture(scope='function', params=[0])
+def inst_id(request):
+    return request.param
 
 
 @pytest.fixture(scope='function')
