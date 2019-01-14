@@ -11,9 +11,8 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
-from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls, create_pre_prepare_params, \
-    generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params, create_pre_prepare_no_bls, \
+    create_prepare, generate_state_root
 from stp_zmq.zstack import ZStack
 
 nodeCount = 4
@@ -37,7 +36,6 @@ def fake_node(tdir, tconf):
 
 @pytest.fixture(scope="function")
 def fake_replica(replica):
-    replica.node.isParticipating = True
     replica.nonFinalisedReqs = lambda a: []
     replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
     replica._bls_bft_replica.update_prepare = lambda a, b: a
@@ -63,12 +61,6 @@ def pre_prepare(replica, pool_state_root, fake_state_root_hash, fake_multi_sig, 
         setattr(pre_prepare, f.BLS_MULTI_SIG.nm, fake_multi_sig)
 
     return pp
-
-
-def test_view_change_done(replica):
-    with pytest.raises(LogicError) as excinfo:
-        replica.on_view_change_done()
-    assert "is not a master" in str(excinfo.value)
 
 
 def test_is_next_pre_prepare(replica):

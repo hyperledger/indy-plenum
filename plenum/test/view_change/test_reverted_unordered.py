@@ -82,8 +82,9 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
     def chk2():
-        # slow_node orders all requests as others have
-        assert last_ordered[0] == slow_node.master_last_ordered_3PC
+        # slow_node stashed commits
+        assert slow_node.master_replica.stasher.num_stashed_catchup == \
+               sent_batches * (len(txnPoolNodeSet) - 1)
 
     looper.run(eventually(chk2, retryWait=1))
 
@@ -96,10 +97,8 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     ensureElectionsDone(looper, txnPoolNodeSet)
 
     def chk3():
-        # slow_node processed stashed Ordered requests successfully
-        rv = getAllReturnVals(slow_node,
-                              slow_node.processStashedOrderedReqs)
-        assert sent_batches in rv
+        # slow_node processed stashed messages successfully
+        assert slow_node.master_replica.stasher.num_stashed_catchup == 0
 
     looper.run(eventually(chk3, retryWait=1))
 

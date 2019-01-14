@@ -12,6 +12,7 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.replica_stasher import ReplicaStasher
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -348,7 +349,8 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.process_current_state_message,
                  Node.transmitToClient,
                  Node.has_ordered_till_last_prepared_certificate,
-                 Node.on_inconsistent_3pc_state
+                 Node.on_inconsistent_3pc_state,
+                 Node.apply_stashed_reqs
                  ]
 
 
@@ -449,6 +451,15 @@ view_changer_spyables = [
 class TestViewChanger(ViewChanger):
     pass
 
+replica_stasher_spyables = [
+    ReplicaStasher.stash
+]
+
+
+@spyable(methods=replica_stasher_spyables)
+class TestReplicaStasher(ReplicaStasher):
+    pass
+
 
 replica_spyables = [
     replica.Replica.sendPrePrepare,
@@ -459,16 +470,13 @@ replica_spyables = [
     replica.Replica.processPrePrepare,
     replica.Replica.processPrepare,
     replica.Replica.processCommit,
-    replica.Replica.processCheckpoint,
-    replica.Replica.dispatchThreePhaseMsg,
+    replica.Replica.process_checkpoint,
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,
-    replica.Replica.stashOutsideWatermarks,
     replica.Replica.revert_unordered_batches,
     replica.Replica.revert,
-    replica.Replica.can_process_since_view_change_in_progress,
-    replica.Replica.processThreePhaseMsg,
+    replica.Replica.process_three_phase_msg,
     replica.Replica._request_pre_prepare,
     replica.Replica._request_pre_prepare_for_prepare,
     replica.Replica._request_prepare,
@@ -487,6 +495,7 @@ replica_spyables = [
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.stasher = TestReplicaStasher(self)
         # Each TestReplica gets it's own outbox stasher, all of which TestNode
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \

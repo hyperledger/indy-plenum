@@ -7,8 +7,7 @@ from plenum.common.messages.fields import IterableField, \
     LedgerIdField, NonNegativeNumberField, MerkleRootField, TimestampField
 from plenum.common.messages.node_messages import BatchCommitted
 from plenum.common.util import get_utc_epoch
-from plenum.test.bls.helper import generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, generate_state_root
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("requests", IterableField),

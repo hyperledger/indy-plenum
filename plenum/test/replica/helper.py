@@ -5,10 +5,7 @@ from plenum.test.helper import sdk_random_request_objects
 
 
 def emulate_catchup(replica, ppSeqNo=100):
-    if replica.isMaster:
-        replica.caught_up_till_3pc((replica.viewNo, ppSeqNo))
-    else:
-        replica.catchup_clear_for_backup()
+    replica.on_catch_up_finished((replica.viewNo, ppSeqNo))
 
 
 def emulate_select_primaries(replica):

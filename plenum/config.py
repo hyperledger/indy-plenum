@@ -357,6 +357,7 @@ ACC_MONITOR_INPUT_RATE_REACTION_HALF_TIME = 300
 VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True
 
 VALIDATOR_INFO_USE_DB = False
+VALIDATOR_INFO_UPGRADE_LOG_SIZE = 10
 
 # Strategies for removing replicas. Available values:
 # - None - don't remove replicas
