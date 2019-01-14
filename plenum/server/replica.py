@@ -829,12 +829,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMaster:
             return
 
-        self._freshness_checker.check_freshness(self.get_current_time())
-
         # Update freshness for all outdated ledgers sequentially without any waits
         # TODO: Consider sending every next update in Max3PCBatchWait only
-        while self._freshness_checker.get_outdated_ledgers_count() > 0:
-            ledger_id, ts = self._freshness_checker.pop_next_outdated_ledger()
+        outdated_ledgers = self._freshness_checker.check_freshness(self.get_current_time())
+        for ledger_id, ts in outdated_ledgers.items():
             if ledger_id in sent_batches:
                 self.logger.debug("Ledger {} is not updated for {} seconds, "
                                   "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
