@@ -1,3 +1,8 @@
+from contextlib import contextmanager
+
+import base58
+import os
+
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
@@ -18,6 +23,23 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node, \
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+
+@contextmanager
+def update_validate_bls_signature_without_key_proof(txnPoolNodeSet, value):
+    default_param = {}
+    for n in txnPoolNodeSet:
+        config = n.bls_bft.bls_key_register._pool_manager.config
+        default_param[n.name] = config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF
+        config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = value
+    yield value
+    for n in txnPoolNodeSet:
+        n.bls_bft.bls_key_register._pool_manager. \
+            config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = default_param[n.name]
+
+
+def generate_state_root():
+    return base58.b58encode(os.urandom(32)).decode("utf-8")
 
 
 def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
@@ -99,7 +121,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        sdk_wallet_steward,
                        add_wrong=False,
                        new_bls=None,
-                       new_key_proof=None):
+                       new_key_proof=None,
+                       check_functional=True):
     if add_wrong:
         _, new_blspk, key_proof = create_default_bls_crypto_factory().generate_bls_keys()
     else:
@@ -119,7 +142,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    if check_functional:
+        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 
@@ -183,6 +207,7 @@ def validate_proof_for_read(result, req):
                                             proof_nodes,
                                             serialized=True)
     return valid
+
 
 def validate_proof_for_write(result):
     """
@@ -250,6 +275,26 @@ def validate_multi_signature(state_proof, txnPoolNodeSet):
     return _multi_sig_verifier.verify_multi_sig(signature,
                                                 value,
                                                 public_keys)
+
+
+def update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet):
+    node = txnPoolNodeSet[node_index]
+    sdk_wallet_steward = sdk_wallet_stewards[node_index]
+    new_blspk, key_proof = init_bls_keys(node.keys_dir, node.name)
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    sdk_send_update_node(looper, sdk_wallet_steward,
+                         sdk_pool_handle,
+                         node_dest, node.name,
+                         None, None,
+                         None, None,
+                         bls_key=new_blspk,
+                         services=None,
+                         key_proof=None)
+    poolSetExceptOne = list(txnPoolNodeSet)
+    poolSetExceptOne.remove(node)
+    waitNodeDataEquality(looper, node, *poolSetExceptOne)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return new_blspk
 
 
 def _create_multi_sig_verifier() -> BlsCryptoVerifier:

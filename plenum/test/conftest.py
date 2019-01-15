@@ -229,7 +229,9 @@ overriddenConfigValues = {
     "VIEW_CHANGE_TIMEOUT": 60,
     "MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE": 15,
     "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60,
-    "ToleratePrimaryDisconnection": 2
+    "ToleratePrimaryDisconnection": 2,
+    "UPDATE_STATE_FRESHNESS": True,
+
 }
 
 
