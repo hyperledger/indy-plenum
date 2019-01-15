@@ -2598,10 +2598,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 compare_3PC_keys(master_last_ordered_3PC,
                                  last_caught_up_3PC) > 0:
             if self.isMaster:
-                if last_caught_up_3PC is None:
-                    self.logger.info("{} - on_catch_up_finished needs "
-                                     "last_caught_up_3PC".format(self))
-                    return
                 self._caught_up_till_3pc(last_caught_up_3PC)
             else:
                 self._catchup_clear_for_backup()

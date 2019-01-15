@@ -9,7 +9,7 @@ from plenum.test import waits
 from plenum.test.delayers import cqDelay, cr_delay, cs_delay, reset_delays_and_process_delayeds, lsDelay, cpDelay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check, assertExp
+from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
@@ -22,12 +22,11 @@ logger = getLogger()
 
 CHK_FREQ = 5
 
+
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_btch_sz = tconf.Max3PCBatchSize
-    tconf.Max3PCBatchSize = 1
-    yield tconf
-    tconf.Max3PCBatchSize = old_btch_sz
+    with max_3pc_batch_limits(tconf, size=1) as tconf:
+        yield tconf
 
 
 def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
