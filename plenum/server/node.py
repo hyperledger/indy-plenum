@@ -2274,11 +2274,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         self.mode = Mode.synced
 
-        need_up_and_clear = compare_3PC_keys(self.master_last_ordered_3PC,
-                                             last_caught_up_3PC) > 0
         for replica in self.replicas.values():
             replica.on_catch_up_finished(last_caught_up_3PC=last_caught_up_3PC,
-                                         need_up_and_clear=need_up_and_clear)
+                                         master_last_ordered_3PC=self.master_last_ordered_3PC)
         logger.info('{}{} caught up till {}'
                     .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                     extra={'cli': True})

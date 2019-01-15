@@ -22,7 +22,14 @@ logger = getLogger()
 
 CHK_FREQ = 5
 
-@pytest.mark.skip("in progress")
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_btch_sz = tconf.Max3PCBatchSize
+    tconf.Max3PCBatchSize = 1
+    yield tconf
+    tconf.Max3PCBatchSize = old_btch_sz
+
+
 def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
                                           looper,
                                           chkFreqPatched,
