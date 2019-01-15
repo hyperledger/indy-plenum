@@ -22,7 +22,7 @@ class FreshnessChecker():
         '''
         Get all ledger IDs for which
           A) not updated for more than Freshness Timeout
-          B) hasn't been checked (this method is called) for more than than Freshness Timeout
+          B) hasn't been attempted to update (returned from this method) for more than Freshness Timeout
         Should be called whenever we need to decide if ledgers need to be updated.
 
         :param ts: the current time check the freshness against
