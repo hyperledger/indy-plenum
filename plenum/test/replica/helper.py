@@ -5,7 +5,8 @@ from plenum.test.helper import sdk_random_request_objects
 
 
 def emulate_catchup(replica, ppSeqNo=100):
-    replica.on_catch_up_finished((replica.viewNo, ppSeqNo))
+    replica.on_catch_up_finished(last_caught_up_3PC=(replica.viewNo, ppSeqNo),
+                                 master_last_ordered_3PC=replica.last_ordered_3pc)
 
 
 def emulate_select_primaries(replica):
