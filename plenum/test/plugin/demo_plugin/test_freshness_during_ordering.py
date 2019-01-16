@@ -25,7 +25,7 @@ def test_update_bls_multi_sig_when_auction_ledger_orders(looper, tconf, txnPoolN
 
     # 2. Wait for first freshness update
     looper.run(eventually(
-        check_freshness_updated_for_ledger, txnPoolNodeSet, AUCTION_LEDGER_ID,
+        check_freshness_updated_for_ledger, txnPoolNodeSet, DOMAIN_LEDGER_ID,
         timeout=3 * FRESHNESS_TIMEOUT)
     )
     domain_multi_sigs_after_first_update = get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
