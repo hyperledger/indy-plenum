@@ -20,9 +20,9 @@ def nym_handler(tconf):
     state.txn_list = {}
     state.get = lambda key, isCommitted: state.txn_list.get(key, None)
     state.set = lambda key, value: state.txn_list.update({key: value})
-    data_manager.register_new_database(handler.ledger_id,
-                                       FakeSomething(),
-                                       state)
+    data_manager.register_database(handler.ledger_id,
+                                   FakeSomething(),
+                                   state)
     return handler
 
 
