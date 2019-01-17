@@ -89,20 +89,20 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, db_manager, write_manager, ha=None, cliname=None, cliha=None):
-        self.poolManager = TxnPoolManager(self, db_manager, write_manager,
+    def __init__(self, db_manager, node_handler, ha=None, cliname=None, cliha=None):
+        self.poolManager = TxnPoolManager(self, db_manager, node_handler,
                                           ha=ha, cliname=cliname, cliha=cliha)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
-    def __init__(self, node, db_manager, write_manager, ha=None, cliname=None, cliha=None):
+    def __init__(self, node, db_manager, node_handler, ha=None, cliname=None, cliha=None):
         self.node = node
         self.name = node.name
         self.config = node.config
         self.genesis_dir = node.genesis_dir
         self.keys_dir = node.keys_dir
         self.db_manager = db_manager
-        self.write_manager = write_manager
+        self.node_handler = node_handler
         self._id = None
 
         TxnStackManager.__init__(
@@ -290,7 +290,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         else:
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
-                node_info = self.write_manager.get_node_data(nodeNym)
+                node_info = self.node_handler.get_node_data(nodeNym)
                 self.node.nodeReg[nodeName] = HA(node_info[NODE_IP],
                                                  node_info[NODE_PORT])
                 self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(node_info[CLIENT_IP],

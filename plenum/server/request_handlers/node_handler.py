@@ -20,11 +20,6 @@ class NodeHandler(WriteRequestHandler):
         super().__init__(database_manager, NODE, POOL_LEDGER_ID)
         self.bls_crypto_verifier = bls_crypto_verifier
 
-    def __init__(self, config, database_manager: DatabaseManager, bls_crypto_verifier):
-        super().__init__(config, database_manager, NODE, POOL_LEDGER_ID)
-        self.bls_crypto_verifier = bls_crypto_verifier
-        self.state_serializer = pool_state_serializer
-
     def static_validation(self, request: Request):
         self._validate_request_type(request)
         blskey = request.operation.get(DATA).get(BLS_KEY, None)
@@ -53,7 +48,7 @@ class NodeHandler(WriteRequestHandler):
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
         node_nym = request.operation.get(TARGET_NYM)
-        if self._get_node_data(node_nym, is_committed=False):
+        if self.get_node_data(node_nym, is_committed=False):
             error = self._auth_error_while_updating_node(request)
         else:
             error = self._auth_error_while_adding_node(request)
@@ -65,7 +60,7 @@ class NodeHandler(WriteRequestHandler):
         self._validate_txn_type(txn)
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         data = get_payload_data(txn).get(DATA, {})
-        existing_data = self._get_node_data(node_nym, is_committed=is_committed)
+        existing_data = self.get_node_data(node_nym, is_committed=is_committed)
         # Node data did not exist in state, so this is a new node txn,
         # hence store the author of the txn (steward of node)
         if not existing_data:
@@ -110,7 +105,7 @@ class NodeHandler(WriteRequestHandler):
         data = operation.get(DATA, {})
         return self._data_error_while_validating_update(data, node_nym)
 
-    def _get_node_data(self, nym, is_committed: bool = True):
+    def get_node_data(self, nym, is_committed: bool = True):
         key = nym.encode()
         data = self.state.get(key, is_committed)
         if not data:
@@ -130,7 +125,7 @@ class NodeHandler(WriteRequestHandler):
 
     @lru_cache(maxsize=64)
     def _is_steward_of_node(self, steward_nym, node_nym, is_committed=True):
-        node_data = self._get_node_data(node_nym, is_committed=is_committed)
+        node_data = self.get_node_data(node_nym, is_committed=is_committed)
         return node_data and node_data[f.IDENTIFIER.nm] == steward_nym
 
     def _steward_has_node(self, steward_nym) -> bool:
@@ -157,7 +152,7 @@ class NodeHandler(WriteRequestHandler):
             return 'node and client ha cannot be same'
 
     def _is_node_data_same(self, nodeNym, newData, isCommitted=True):
-        node_info = self._get_node_data(nodeNym, is_committed=isCommitted)
+        node_info = self.get_node_data(nodeNym, is_committed=isCommitted)
         node_info.pop(f.IDENTIFIER.nm, None)
         return node_info == newData
 
@@ -167,7 +162,7 @@ class NodeHandler(WriteRequestHandler):
 
         # Check ALIAS change
         if updating_nym:
-            old_alias = self._get_node_data(updating_nym, is_committed=False).get(ALIAS)
+            old_alias = self.get_node_data(updating_nym, is_committed=False).get(ALIAS)
             new_alias = new_data.get(ALIAS)
             if old_alias != new_alias:
                 return "Node's alias cannot be changed"

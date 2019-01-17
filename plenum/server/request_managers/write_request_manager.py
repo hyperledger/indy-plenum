@@ -3,13 +3,11 @@ from typing import Dict, List
 from common.exceptions import LogicError
 from common.serializers.serialization import pool_state_serializer
 
-from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID
+from plenum.common.constants import TXN_TYPE
 
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
-from plenum.server.database_manager import DatabaseManager
-from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_managers.request_manager import RequestManager
 from stp_core.common.log import getlogger
@@ -18,8 +16,7 @@ logger = getlogger()
 
 
 class WriteRequestManager(RequestManager):
-    def __init__(self, database_manager: DatabaseManager):
-        self.database_manager = database_manager
+    def __init__(self):
         self.request_handlers = {}  # type: Dict[int,List[WriteRequestHandler]]
         self.batch_handlers = {}  # type: Dict[int,List[BatchRequestHandler]]
         self.state_serializer = pool_state_serializer
@@ -115,21 +112,3 @@ class WriteRequestManager(RequestManager):
         if handlers is None:
             raise LogicError
         return handlers[0].transform_txn_for_ledger(txn)
-
-    @property
-    def pool_state(self):
-        return self.database_manager.get_database(POOL_LEDGER_ID).state
-
-    def get_node_data(self, nym, isCommitted: bool = True):
-        key = nym.encode()
-        data = self.pool_state.get(key, isCommitted)
-        if not data:
-            return {}
-        return self.state_serializer.deserialize(data)
-
-    def get_all_node_data_for_root_hash(self, root_hash):
-        leaves = self.pool_state.get_all_leaves_for_root_hash(root_hash)
-        raw_node_data = leaves.values()
-        nodes = list(map(lambda x: self.state_serializer.deserialize(
-            self.pool_state.get_decoded(x)), raw_node_data))
-        return nodes

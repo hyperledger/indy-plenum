@@ -269,6 +269,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
+
+        # Executers calls commit methods. Executers are usually used to
+        # change state of node's modules with data contained in committed txns
         self.request_executer = {}  # type: Dict[int, Callable]
 
         self.metrics = self._createMetricsCollector()
@@ -277,10 +280,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
+        # Module which contain all ledgers, states and storages
         self.db_manager = DatabaseManager()
-        self.write_manager = WriteRequestManager(self.db_manager)
+
+        # Modules which handle write, read and action requests
+        self.write_manager = WriteRequestManager()
         self.read_manager = ReadRequestManager()
         self.action_manager = ActionRequestManager()
+
         self.txn_type_to_req_manager = {}
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
 

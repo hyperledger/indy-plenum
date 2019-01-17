@@ -30,7 +30,7 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
 
     def _load_keys_for_root(self, pool_state_root_hash):
         self._current_bls_keys = {}
-        for data in self._pool_manager.write_manager.get_all_node_data_for_root_hash(
+        for data in self._pool_manager.node_handler.get_all_node_data_for_root_hash(
                 pool_state_root_hash):
             node_name = data[ALIAS]
             if BLS_KEY in data:
