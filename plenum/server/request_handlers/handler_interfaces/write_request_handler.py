@@ -32,14 +32,14 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     def apply_request(self, request: Request, batch_ts, prev_result):
         self._validate_request_type(request)
         txn = self._req_to_txn(request)
-        txn = append_txn_metadata(txn, txn_id=self.gen_state_key(txn))
-        # TODO: try to not pass list of one txn if possible
-        self.ledger.append_txns_metadata([txn], batch_ts)
 
-        (start, end), _ = self.ledger.appendTxns(
-            [self.transform_txn_for_ledger(txn)])
+        txn = append_txn_metadata(txn, txn_id=self.gen_state_key(txn))
+        self.ledger.append_metadata(txn, batch_ts)
+
+        seq_no, _ = self.ledger.append_txn(
+            self.transform_txn_for_ledger(txn))
         updated_state = self.update_state(txn, prev_result)
-        return start, txn, updated_state
+        return seq_no, txn, updated_state
 
     def revert_request(self, request: Request, batch_ts):
         pass

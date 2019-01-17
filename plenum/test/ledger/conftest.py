@@ -23,6 +23,7 @@ def ledger_with_batches_appended(ledger,
                                  looper, sdk_wallet_client):
     for i in range(NUM_BATCHES):
         txns = create_txns(looper, sdk_wallet_client)
-        ledger.append_txns_metadata(txns)
-        ledger.appendTxns(txns)
+        for txn in txns:
+            ledger.append_metadata(txn)
+            ledger.append_txn(txn)
     return ledger

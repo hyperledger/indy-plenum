@@ -1,7 +1,7 @@
 from copy import copy
 from typing import List, Tuple
 
-from common.exceptions import PlenumValueError
+from common.exceptions import PlenumValueError, LogicError
 from ledger.ledger import Ledger as _Ledger
 from ledger.util import F
 from plenum.common.txn_util import append_txn_metadata, get_seq_no
@@ -23,50 +23,42 @@ class Ledger(_Ledger):
     def uncommitted_size(self) -> int:
         return self.size + len(self.uncommittedTxns)
 
-    def append_txns_metadata(self, txns: List, txn_time=None):
+    def append_metadata(self, txn, txn_time=None):
         if txn_time is not None:
             # All transactions have the same time since all these
             # transactions belong to the same 3PC batch
-            for txn in txns:
-                append_txn_metadata(txn, txn_time=txn_time)
-        self._append_seq_no(txns, self.seqNo + len(self.uncommittedTxns))
+            append_txn_metadata(txn, txn_time=txn_time)
+        seq_no = self.seqNo + len(self.uncommittedTxns) + 1
+        append_txn_metadata(txn, seq_no=seq_no)
 
-    def appendTxns(self, txns: List):
+    def append_txn(self, txn):
         # These transactions are not yet committed so they do not go to
         # the ledger
-        _no_seq_no_txns = [txn for txn in txns if get_seq_no(txn) is None]
-        if _no_seq_no_txns:
+        if not txn:
+            raise LogicError("Cannot append empty txn")
+        if get_seq_no(txn) is None:
             raise PlenumValueError(
-                'txns', txns,
-                ("all txns should have defined seq_no, undefined in {}"
-                 .format(_no_seq_no_txns))
+                'txn', txn,
+                ("txn should have defined seq_no")
             )
+        if self.uncommittedTree is None:
+            self.uncommittedTree = copy(self.tree)
 
-        uncommittedSize = self.size + len(self.uncommittedTxns)
-        self.uncommittedTree = self.treeWithAppliedTxns(txns,
-                                                        self.uncommittedTree)
+        s = self.serialize_for_tree(txn)
+        self.uncommittedTree.append(s)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
-        self.uncommittedTxns.extend(txns)
-        if txns:
-            return (uncommittedSize + 1, uncommittedSize + len(txns)), txns
-        else:
-            return (uncommittedSize, uncommittedSize), txns
+        self.uncommittedTxns.append(txn)
+        seq_no = self.size + len(self.uncommittedTxns)
+
+        return seq_no, txn
 
     def add(self, txn):
         if get_seq_no(txn) is None:
-            self._append_seq_no([txn], self.seqNo)
+            append_txn_metadata(txn, seq_no=self.seqNo + 1)
         merkle_info = super().add(txn)
         # seqNo is part of the transaction itself, so no need to duplicate it here
         merkle_info.pop(F.seqNo.name, None)
         return merkle_info
-
-    def _append_seq_no(self, txns, start_seq_no):
-        # TODO: Fix name `start_seq_no`, it is misleading. The seq no start from `start_seq_no`+1
-        seq_no = start_seq_no
-        for txn in txns:
-            seq_no += 1
-            append_txn_metadata(txn, seq_no=seq_no)
-        return txns
 
     def commitTxns(self, count: int) -> Tuple[Tuple[int, int], List]:
         """

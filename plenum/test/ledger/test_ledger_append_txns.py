@@ -12,12 +12,14 @@ def test_ledger_appendTxns_args(ledger, looper, sdk_wallet_client):
     # None seq_no
     txns[0][TXN_METADATA][TXN_METADATA_SEQ_NO] = None
     with pytest.raises(PlenumValueError):
-        ledger.appendTxns(txns)
+        for txn in txns:
+            ledger.append_txn(txn)
 
     # missed seq_no
     del txns[0][TXN_METADATA][TXN_METADATA_SEQ_NO]
     with pytest.raises(PlenumValueError):
-        ledger.appendTxns(txns)
+        for txn in txns:
+            ledger.append_txn(txn)
 
 
 def test_append_txns_does_not_changed_committed(ledger_with_batches_appended):

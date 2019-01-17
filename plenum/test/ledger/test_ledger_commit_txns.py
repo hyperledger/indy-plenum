@@ -16,13 +16,15 @@ def test_commit_empty(ledger):
 def test_commit_txns(ledger,
                      looper, sdk_wallet_client):
     txns1 = create_txns(looper, sdk_wallet_client)
-    ledger.append_txns_metadata(txns1)
-    ledger.appendTxns(txns1)
+    for txn in txns1:
+        ledger.append_metadata(txn)
+        ledger.append_txn(txn)
     root1 = ledger.uncommittedRootHash
 
     txns2 = create_txns(looper, sdk_wallet_client)
-    ledger.append_txns_metadata(txns2)
-    ledger.appendTxns(txns2)
+    for txn in txns2:
+        ledger.append_metadata(txn)
+        ledger.append_txn(txn)
     root2 = ledger.uncommittedRootHash
 
     initial_seq_no = ledger.seqNo
