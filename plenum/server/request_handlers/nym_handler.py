@@ -5,6 +5,7 @@ from ledger.util import F
 from plenum.common.constants import NYM, ROLE, STEWARD, DOMAIN_LEDGER_ID, \
     TXN_TIME, VERKEY, TARGET_NYM
 from plenum.common.exceptions import UnauthorizedClientRequest
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_from, \
     get_seq_no, get_txn_time, get_request_data

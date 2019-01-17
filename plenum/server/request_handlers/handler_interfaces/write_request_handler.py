@@ -40,6 +40,13 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
             self.transform_txn_for_ledger(txn))
         updated_state = self.update_state(txn, prev_result)
         return seq_no, txn, updated_state
+    @property
+    def state(self):
+        return self.database_manager.get_database(self.ledger_id).state
+
+    @property
+    def ledger(self):
+        return self.database_manager.get_database(self.ledger_id).ledger
 
     def revert_request(self, request: Request, batch_ts):
         pass

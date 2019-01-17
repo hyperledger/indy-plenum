@@ -20,6 +20,11 @@ class NodeHandler(WriteRequestHandler):
         super().__init__(database_manager, NODE, POOL_LEDGER_ID)
         self.bls_crypto_verifier = bls_crypto_verifier
 
+    def __init__(self, config, database_manager: DatabaseManager, bls_crypto_verifier):
+        super().__init__(config, database_manager, NODE, POOL_LEDGER_ID)
+        self.bls_crypto_verifier = bls_crypto_verifier
+        self.state_serializer = pool_state_serializer
+
     def static_validation(self, request: Request):
         self._validate_request_type(request)
         blskey = request.operation.get(DATA).get(BLS_KEY, None)

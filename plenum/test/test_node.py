@@ -8,11 +8,17 @@ from itertools import combinations
 from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
+from common.exceptions import LogicError
 from crypto.bls.bls_bft import BlsBft
+from plenum.common.request import Request
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+<<<<<<< HEAD
 from plenum.server.replica_stasher import ReplicaStasher
+=======
+from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
+>>>>>>> indy_1856_5
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -92,6 +98,45 @@ class TestDomainRequestHandler(DomainRequestHandler):
         return None
 
 
+class BuyHandler(WriteRequestHandler):
+
+    def static_validation(self, request: Request):
+        pass
+
+    def dynamic_validation(self, request: Request):
+        pass
+
+    def get_query_response(self, request):
+        pass
+
+    def updateState(self, txns, isCommitted=False):
+        for txn in txns:
+            self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
+        typ = get_type(txn)
+        if typ == 'buy':
+            key, value = self.prepare_buy_for_state(txn)
+            self.state.set(key, value)
+            logger.trace('{} after adding to state, headhash is {}'.
+                         format(self, self.state.headHash))
+        else:
+            raise LogicError
+
+    @staticmethod
+    def prepare_buy_for_state(txn):
+        from common.serializers.serialization import domain_state_serializer
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
+        key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
+        return key, value
+
+    @staticmethod
+    def prepare_buy_key(identifier, req_id):
+        return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
+
+
 NodeRef = TypeVar('NodeRef', Node, str)
 
 
@@ -99,6 +144,12 @@ NodeRef = TypeVar('NodeRef', Node, str)
 # noinspection PyShadowingNames
 class TestNodeCore(StackedTester):
     def __init__(self, *args, **kwargs):
+        # Register buy handler
+        h = BuyHandler(self.config, self.db_manager, 'buy', DOMAIN_LEDGER_ID)
+        self.txn_type_to_req_manager[h.txn_type] = h
+        self.txn_type_to_ledger_id[h.txn_type] = DOMAIN_LEDGER_ID
+        self.write_manager.register_req_handler(h)
+
         self.nodeMsgRouter.routes[TestMsg] = self.eatTestMsg
         self.nodeIbStasher = Stasher(self.nodeInBox,
                                      "nodeInBoxStasher~" + self.name)
@@ -279,13 +330,6 @@ class TestNodeCore(StackedTester):
 
     def ensureKeysAreSetup(self):
         pass
-
-    def init_domain_req_handler(self):
-        return TestDomainRequestHandler(self.domainLedger,
-                                        self.states[DOMAIN_LEDGER_ID],
-                                        self.config, self.reqProcessors,
-                                        self.bls_bft.bls_store,
-                                        self.getStateTsDbStorage())
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
@@ -507,8 +551,8 @@ class TestReplicas(Replicas):
 
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
         return self.__class__._replica_class(self._node, instance_id,
-                                                self._config, is_master,
-                                                bls_bft, self._metrics)
+                                             self._config, is_master,
+                                             bls_bft, self._metrics)
 
 
 # TODO: probably delete when remove from node
@@ -966,7 +1010,7 @@ def timeThis(func, *args, **kwargs):
 def instances(nodes: Sequence[Node],
               instances: Sequence[int] = None) -> Dict[int, List[replica.Replica]]:
     instances = (range(getRequiredInstances(len(nodes)))
-                 if instances is None else instances)
+    if instances is None else instances)
     for n in nodes:
         assert len(n.replicas) == len(instances)
     return {i: [n.replicas[i] for n in nodes] for i in instances}
