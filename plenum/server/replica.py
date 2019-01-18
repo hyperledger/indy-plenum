@@ -1875,6 +1875,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.debug("{} stashing checkpoint message {} with "
                               "the reason: {}".format(self, msg, reason))
             self.stasher.stash((msg, sender), result)
+            return False
+        return True
 
     def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         seqNoEnd = msg.seqNoEnd
@@ -2195,14 +2197,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set = None):
         if nonFinReqs:
-            self.logger.debug("Queueing pre-prepares due to unavailability of finalised "
-                              "requests. PrePrepare {} from {}".format(ppMsg, sender))
+            self.logger.info("Queueing pre-prepares due to unavailability of finalised "
+                             "requests. PrePrepare {} from {}".format(ppMsg, sender))
             self.prePreparesPendingFinReqs.append((ppMsg, sender, nonFinReqs))
         else:
             # Possible exploit, an malicious party can send an invalid
             # pre-prepare and over-write the correct one?
-            self.logger.debug("Queueing pre-prepares due to unavailability of previous pre-prepares. {} from {}".
-                              format(ppMsg, sender))
+            self.logger.info("Queueing pre-prepares due to unavailability of previous pre-prepares. {} from {}".
+                             format(ppMsg, sender))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (
                 ppMsg, sender)
 
@@ -2239,12 +2241,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.discard(pp, "Pre-Prepare from a previous view",
                              self.logger.debug)
                 continue
+            self.logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
             self.threePhaseRouter.handleSync((pp, sender))
             r += 1
         return r
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
-        self.logger.debug("{} queueing prepare due to unavailability of PRE-PREPARE. "
+        self.logger.info("{} queueing prepare due to unavailability of PRE-PREPARE. "
                           "Prepare {} from {}".format(self, pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
@@ -2264,15 +2267,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             while self.preparesWaitingForPrePrepare[key]:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
-                self.logger.debug("{} popping stashed PREPARE{}".format(self, key))
+                self.logger.info("{} popping stashed PREPARE{}".format(self, key))
                 self.threePhaseRouter.handleSync((prepare, sender))
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
-            self.logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
+            self.logger.info("{} processed {} PREPAREs waiting for PRE-PREPARE for"
                               " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def enqueue_commit(self, request: Commit, sender: str):
-        self.logger.debug("Queueing commit due to unavailability of PREPARE. "
+        self.logger.info("Queueing commit due to unavailability of PREPARE. "
                           "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
         if key not in self.commitsWaitingForPrepare:
@@ -2283,7 +2286,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
             if not self.has_prepared(key):
-                self.logger.debug('{} has not prepared {}, will dequeue the '
+                self.logger.info('{} has not prepared {}, will dequeue the '
                                   'COMMITs later'.format(self, key))
                 return
             i = 0
@@ -2291,12 +2294,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             while self.commitsWaitingForPrepare[key]:
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
-                self.logger.debug("{} popping stashed COMMIT{}".format(self, key))
+                self.logger.info("{} popping stashed COMMIT{}".format(self, key))
                 self.threePhaseRouter.handleSync((commit, sender))
 
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
-            self.logger.debug("{} processed {} COMMITs waiting for PREPARE for"
+            self.logger.info("{} processed {} COMMITs waiting for PREPARE for"
                               " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
