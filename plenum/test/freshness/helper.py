@@ -2,23 +2,27 @@ from common.serializers.serialization import state_roots_serializer
 
 
 def check_freshness_updated_for_all(nodes):
-    assert all(
-        (bls_multi_sig is not None) and (ledger_id == bls_multi_sig.ledger_id)
-        for ledger_id, bls_multi_sig in get_all_multi_sig_values_for_all_nodes(nodes)
-    )
+    for ledger_id, bls_multi_sig in get_all_multi_sig_values_for_all_nodes(nodes):
+        assert bls_multi_sig is not None, \
+            "bls_multi_sig is None for ledger {}".format(ledger_id)
+        assert ledger_id == bls_multi_sig.ledger_id, \
+            "expected ledger {}, got {}".format(ledger_id, bls_multi_sig.ledger_id)
 
 
 def check_freshness_updated_for_ledger(nodes, ledger_id):
-    assert all(
-        (bls_multi_sig is not None) and (ledger_id == bls_multi_sig.ledger_id)
-        for bls_multi_sig in get_multi_sig_values_for_all_nodes(nodes, ledger_id)
-    )
+    for bls_multi_sig in get_multi_sig_values_for_all_nodes(nodes, ledger_id):
+        assert bls_multi_sig is not None, \
+            "bls_multi_sig is None for ledger {}".format(ledger_id)
+        assert ledger_id == bls_multi_sig.ledger_id, \
+            "expected ledger {}, got {}".format(ledger_id, bls_multi_sig.ledger_id)
 
 
 def get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet):
     result = []
     for node in txnPoolNodeSet:
         for ledger_id, state in node.states.items():
+            # TODO: Is it expected that in case of identical states (for example both empty)
+            # this can mix ledgers up?
             bls_multi_sig = node.bls_bft.bls_store.get(
                 state_roots_serializer.serialize(bytes(state.committedHeadHash))
             )
