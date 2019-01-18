@@ -34,6 +34,7 @@ from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, 
 from plenum.config import CHK_FREQ
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
+from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
@@ -221,7 +222,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                  config=None,
                  isMaster: bool = False,
                  bls_bft_replica: BlsBftReplica = None,
-                 metrics: MetricsCollector = NullMetricsCollector()):
+                 metrics: MetricsCollector = NullMetricsCollector(),
+                 get_current_time=None):
         """
         Create a new replica.
 
@@ -230,6 +232,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param isMaster: is this a replica of the master protocol instance
         """
         HasActionQueue.__init__(self)
+        self.get_current_time = get_current_time or time.perf_counter
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
         self.metrics = metrics
@@ -370,6 +373,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, OrderedSet]
+
+        self._freshness_checker = FreshnessChecker(freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL)
+
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -377,7 +383,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Tuple[int, float, bytes]]
 
         # TODO: Need to have a timer for each ledger
-        self.lastBatchCreated = time.perf_counter()
+        self.lastBatchCreated = self.get_current_time()
 
         # self.lastOrderedPPSeqNo = 0
         # Three phase key for the last ordered batch
@@ -428,6 +434,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # the request key needs to be removed once its ordered
         if ledger_id not in self.requestQueues:
             self.requestQueues[ledger_id] = OrderedSet()
+        self._freshness_checker.register_ledger(ledger_id=ledger_id,
+                                                initial_time=self.get_current_time())
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -628,6 +636,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stasher.unstash_future_view()
 
     def clear_requests_and_fix_last_ordered(self):
+        if self.isMaster:
+            return
         reqs_for_remove = []
         for key in self.requests:
             ledger_id, seq_no = self.node.seqNoDB.get(key)
@@ -782,27 +792,66 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
-    def send3PCBatch(self):
-        r = 0
-        for lid, q in self.requestQueues.items():
-            # TODO: make the condition more apparent
-            if len(q) >= self.config.Max3PCBatchSize or \
-                    (self.lastBatchCreated + self.config.Max3PCBatchWait < time.perf_counter() and
-                     len(q) > 0):
-                oldStateRootHash = self.stateRootHash(lid, to_str=False)
-                ppReq = self.create3PCBatch(lid)
-                if ppReq is None:
-                    continue
-                self.sendPrePrepare(ppReq)
-                if not self.isMaster:
-                    self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
-                        self.instId, ppReq.ppSeqNo)
-                self.trackBatches(ppReq, oldStateRootHash)
-                r += 1
+    def send_3pc_batch(self):
+        sent_batches = set()
 
-        if r > 0:
-            self.lastBatchCreated = time.perf_counter()
-        return r
+        # 1. send 3PC batches with requests for every ledger
+        self._send_3pc_batches_for_ledgers(sent_batches)
+
+        # 2. for every ledger we havne't just sent a 3PC batch check if it's not fresh enough,
+        # and send an empty 3PC batch to update the state if needed
+        self._send_3pc_freshness_batch(sent_batches)
+
+        # 3. update ts of last sent 3PC batch
+        if len(sent_batches) > 0:
+            self.lastBatchCreated = self.get_current_time()
+
+        return len(sent_batches)
+
+    def _send_3pc_batches_for_ledgers(self, sent_batches):
+        # TODO: Consider sending every next update in Max3PCBatchWait only
+        for ledger_id, q in self.requestQueues.items():
+            if len(q) == 0:
+                continue
+
+            queue_full = len(q) >= self.config.Max3PCBatchSize
+            timeout = self.lastBatchCreated + self.config.Max3PCBatchWait < self.get_current_time()
+            if not queue_full and not timeout:
+                continue
+
+            sent_batches.add(
+                self._do_send_3pc_batch(ledger_id=ledger_id))
+
+    def _send_3pc_freshness_batch(self, sent_batches):
+        if not self.config.UPDATE_STATE_FRESHNESS:
+            return
+
+        if not self.isMaster:
+            return
+
+        # Update freshness for all outdated ledgers sequentially without any waits
+        # TODO: Consider sending every next update in Max3PCBatchWait only
+        outdated_ledgers = self._freshness_checker.check_freshness(self.get_current_time())
+        for ledger_id, ts in outdated_ledgers.items():
+            if ledger_id in sent_batches:
+                self.logger.debug("Ledger {} is not updated for {} seconds, "
+                                  "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
+                continue
+
+            self.logger.info("Ledger {} is not updated for {} seconds, "
+                             "so its freshness state is going to be updated now".format(ledger_id, ts))
+            sent_batches.add(
+                self._do_send_3pc_batch(ledger_id=ledger_id))
+
+    def _do_send_3pc_batch(self, ledger_id):
+        oldStateRootHash = self.stateRootHash(ledger_id, to_str=False)
+        pre_prepare = self.create_3pc_batch(ledger_id)
+        self.sendPrePrepare(pre_prepare)
+        if not self.isMaster:
+            self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                self.instId, pre_prepare.ppSeqNo)
+        self.trackBatches(pre_prepare, oldStateRootHash)
+        return ledger_id
 
     @staticmethod
     def batchDigest(reqs):
@@ -824,7 +873,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
                           MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
-    def create3PCBatch(self, ledger_id):
+    def create_3pc_batch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
         pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
@@ -836,16 +885,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
 
-        reqs, invalid_indices, rejects, tm = self.consume_req_queue_for_pre_prepare(
-            ledger_id, self.viewNo,
-            pp_seq_no)
-        if len(reqs) == 0:
-            self.logger.trace('{} not creating a Pre-Prepare for view no {} '
-                              'seq no {}'.format(self, self.viewNo, pp_seq_no))
-            return
+        # DO NOT REMOVE `view_no` argument, used while replay
+        # tm = self.utc_epoch
+        tm = self.get_utc_epoch_for_preprepare(self.instId, self.viewNo,
+                                               pp_seq_no)
+
+        reqs, invalid_indices, rejects = self.consume_req_queue_for_pre_prepare(
+            ledger_id, tm, self.viewNo, pp_seq_no)
 
         digest = self.batchDigest(reqs)
-
         state_root_hash = self.stateRootHash(ledger_id)
 
         """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
@@ -884,11 +932,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     ledger_id, to_str=False))
         return pre_prepare
 
-    def consume_req_queue_for_pre_prepare(self, ledger_id, view_no, pp_seq_no):
-        # DO NOT REMOVE `view_no` argument, used while replay
-        # tm = self.utc_epoch
-        tm = self.get_utc_epoch_for_preprepare(self.instId, view_no,
-                                               pp_seq_no)
+    def consume_req_queue_for_pre_prepare(self, ledger_id, tm,
+                                          view_no, pp_seq_no):
         reqs = []
         rejects = []
         invalid_indices = []
@@ -913,7 +958,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
 
-        return reqs, invalid_indices, rejects, tm
+        return reqs, invalid_indices, rejects
 
     @measure_replica_time(MetricsName.SEND_PREPREPARE_TIME,
                           MetricsName.BACKUP_SEND_PREPREPARE_TIME)
@@ -948,8 +993,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO should handle SuspiciousNode here
         r = self.dequeue_pre_prepares() if self.node.isParticipating else 0
         r += self.inBoxRouter.handleAllSync(self.inBox, limit)
-        r += self.send3PCBatch() if (self.isPrimary and
-                                     self.node.isParticipating) else 0
+        r += self.send_3pc_batch() if (self.isPrimary and
+                                       self.node.isParticipating) else 0
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
@@ -1182,7 +1227,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           MetricsName.BACKUP_SEND_PREPARE_TIME)
     def doPrepare(self, pp: PrePrepare):
         self.logger.debug("{} Sending PREPARE{} at {}".format(
-            self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
+            self, (pp.viewNo, pp.ppSeqNo), self.get_current_time()))
         params = [self.instId,
                   pp.viewNo,
                   pp.ppSeqNo,
@@ -1210,7 +1255,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param p: the prepare message
         """
         key_3pc = (p.viewNo, p.ppSeqNo)
-        self.logger.debug("{} Sending COMMIT{} at {}".format(self, key_3pc, time.perf_counter()))
+        self.logger.debug("{} Sending COMMIT{} at {}".format(self, key_3pc, self.get_current_time()))
 
         params = [
             self.instId, p.viewNo, p.ppSeqNo
@@ -1793,6 +1838,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 "{} no PrePrepare with a 'key' {} found"
                 .format(self, key)
             )
+
+        self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
+                                                 ts=self.get_current_time())
 
         self.addToOrdered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
