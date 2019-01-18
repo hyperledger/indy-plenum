@@ -95,10 +95,11 @@ def test_req_drop_on_preprepare_phase_on_non_primary_and_then_ordered(
 
     def check_propagates_requested():
         # Node should have received delayed PrePrepare
-        assert len(recvdPrePrepareForInstId(lagged_node, 0)) == 1
+        assert len(recvdPrePrepareForInstId(lagged_node, 0)) >= 1
         # Check that PROPAGATEs are requested by both replicas as PrePrepare has been
         # received for request that was dropped.
-        assert len(getAllArgs(lagged_node, TestNode.request_propagates)) == 2
+        tmp = getAllArgs(lagged_node, TestNode.request_propagates)
+        assert len(tmp) == 2
 
     timeout = howlong
     looper.run(eventually(check_propagates_requested, retryWait=.5, timeout=timeout))
