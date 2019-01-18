@@ -2295,9 +2295,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return r
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
-        self.logger.info("{} queueing prepare due to unavailability of PRE-PREPARE. "
-                         "Prepare {} from {}".format(self, pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
+        self.logger.info("{} queueing prepare due to unavailability of PRE-PREPARE. "
+                         "Prepare {} for key {} from {}".format(self, pMsg, key, sender))
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
@@ -2323,9 +2323,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                              " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def enqueue_commit(self, request: Commit, sender: str):
-        self.logger.info("Queueing commit due to unavailability of PREPARE. "
-                         "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
+        self.logger.info("Queueing commit due to unavailability of PREPARE. "
+                         "Request {} with key {} from {}".format(request, key, sender))
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
