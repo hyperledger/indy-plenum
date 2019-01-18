@@ -2290,7 +2290,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                              self.logger.debug)
                 continue
             self.logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
-            self.threePhaseRouter.handleSync((pp, sender))
+            self.process_three_phase_msg((pp, sender))
             r += 1
         return r
 
@@ -2316,7 +2316,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
                 self.logger.info("{} popping stashed PREPARE{}".format(self, key))
-                self.threePhaseRouter.handleSync((prepare, sender))
+                self.process_three_phase_msg((prepare, sender))
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
             self.logger.info("{} processed {} PREPAREs waiting for PRE-PREPARE for"
@@ -2343,7 +2343,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
                 self.logger.info("{} popping stashed COMMIT{}".format(self, key))
-                self.threePhaseRouter.handleSync((commit, sender))
+                self.process_three_phase_msg((commit, sender))
 
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
