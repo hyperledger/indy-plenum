@@ -85,7 +85,7 @@ def check_update_bls_multi_sig_during_ordering(looper, txnPoolNodeSet,
                                                                                      refreshed_ledger_id)
 
     # 2. order txns
-    looper.runFor(1)  # delay update
+    looper.runFor(2)  # delay update
     send_txn(ordered_ledger_id,
              looper, txnPoolNodeSet,
              sdk_pool_handle, sdk_wallet_stewards)
