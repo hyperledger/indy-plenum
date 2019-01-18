@@ -2757,3 +2757,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                       "".format(last_timestamp))
                     return last_timestamp
         return None
+
+    def get_ledgers_last_update_time(self)->dict:
+        if self._freshness_checker:
+            return self._freshness_checker.get_last_update_time()

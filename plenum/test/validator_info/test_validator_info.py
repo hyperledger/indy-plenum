@@ -127,6 +127,10 @@ def test_node_info_section(info, node):
     assert len(info['Node_info']['Catchup_status']['Last_txn_3PC_keys']) == 3
     assert info['Node_info']['Catchup_status']['Ledger_statuses']
     assert len(info['Node_info']['Catchup_status']['Ledger_statuses']) == 3
+    for idx, ls in info['Node_info']['Catchup_status']['Ledger_statuses'].items():
+        assert 'Sync_status' in ls
+        assert 'Last_updated_time' in ls
+        assert 'Has_write_consensus' in ls
     assert info['Node_info']['Catchup_status']['Number_txns_in_catchup']
     # TODO uncomment this, when this field would be implemented
     # assert info['Node_info']['Catchup_status']['Received_LedgerStatus']

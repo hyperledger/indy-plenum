@@ -514,7 +514,7 @@ class ValidatorNodeInfoTool:
         committed_state_root_hashes = {}
         uncommitted_state_root_hashes = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
+            ledger_statuses[idx]={'Sync_status': self._prepare_for_json(linfo.state.name)}
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
             num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
             last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
@@ -530,6 +530,12 @@ class ValidatorNodeInfoTool:
         for l_id, req_handler in self._node.ledger_to_req_handler.items():
             committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.committedHeadHash))
             uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
+
+        ledger_freshnesses = self._get_ledgers_updated_time() or {}
+        for idx, updated_time in ledger_freshnesses.items():
+            ledger_statuses[idx]['Last_updated_time'] = self._prepare_for_json(updated_time)
+            ledger_statuses[idx]['Has_write_consensus'] = self._prepare_for_json(
+                self._is_updated_time_acceptable(updated_time))
 
         return {
             "Node_info": {
@@ -736,3 +742,10 @@ class ValidatorNodeInfoTool:
                     "total_count": len(stops),
                 }
         return res
+
+    def _get_ledgers_updated_time(self)->dict:
+        return self._node.master_replica.get_ledgers_last_update_time()
+
+    def _is_updated_time_acceptable(self, updated_time):
+        current_time = self._node.master_replica.get_current_time()
+        return current_time - updated_time <= 2 * self._node.config.STATE_FRESHNESS_UPDATE_INTERVAL
