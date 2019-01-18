@@ -2296,7 +2296,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
         self.logger.info("{} queueing prepare due to unavailability of PRE-PREPARE. "
-                          "Prepare {} from {}".format(self, pMsg, sender))
+                         "Prepare {} from {}".format(self, pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
@@ -2320,11 +2320,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
             self.logger.info("{} processed {} PREPAREs waiting for PRE-PREPARE for"
-                              " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
+                             " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def enqueue_commit(self, request: Commit, sender: str):
         self.logger.info("Queueing commit due to unavailability of PREPARE. "
-                          "Request {} from {}".format(request, sender))
+                         "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
@@ -2335,7 +2335,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if key in self.commitsWaitingForPrepare:
             if not self.has_prepared(key):
                 self.logger.info('{} has not prepared {}, will dequeue the '
-                                  'COMMITs later'.format(self, key))
+                                 'COMMITs later'.format(self, key))
                 return
             i = 0
             # Keys of pending prepares that will be processed below
@@ -2348,7 +2348,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
             self.logger.info("{} processed {} COMMITs waiting for PREPARE for"
-                              " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
+                             " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
