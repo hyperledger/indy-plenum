@@ -4,9 +4,9 @@ from plenum.test.plugin.demo_plugin.test_plugin_request_handling import successf
 
 
 def send_auction_txn(looper,
-                     sdk_pool_handle, sdk_wallet_stewards):
+                     sdk_pool_handle, sdk_wallet_steward):
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'abc'}
     }
-    successful_op(looper, op, sdk_wallet_stewards, sdk_pool_handle)
+    successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)

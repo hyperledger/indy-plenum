@@ -72,8 +72,7 @@ def check_updated_bls_multisig_values(ledger_id, new_value, old_value, freshness
 
 
 def check_update_bls_multi_sig_during_ordering(looper, txnPoolNodeSet,
-                                               sdk_pool_handle,
-                                               sdk_wallet_stewards,
+                                               send_txn_func,
                                                freshness_timeout,
                                                ordered_ledger_id, refreshed_ledger_id):
     # 1. Wait for first freshness update
@@ -85,10 +84,8 @@ def check_update_bls_multi_sig_during_ordering(looper, txnPoolNodeSet,
                                                                                      refreshed_ledger_id)
 
     # 2. order txns
-    looper.runFor(2)  # delay update
-    send_txn(ordered_ledger_id,
-             looper, txnPoolNodeSet,
-             sdk_pool_handle, sdk_wallet_stewards)
+    looper.runFor(3)  # delay update
+    send_txn_func()
 
     # 3. Wait for the second freshness update.
     #  It's expected for the ledger we don't have any ordered requests only
@@ -115,20 +112,3 @@ def check_update_bls_multi_sig_during_ordering(looper, txnPoolNodeSet,
                           ))
     assert refreshed_bls_multi_sigs_after_refreshed_update == get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
                                                                                                  refreshed_ledger_id)
-
-
-def send_txn(ordered_ledger_id,
-             looper,
-             txnPoolNodeSet,
-             sdk_pool_handle, sdk_wallet_stewards):
-    if ordered_ledger_id == POOL_LEDGER_ID:
-        sdk_change_bls_key(looper, txnPoolNodeSet,
-                           txnPoolNodeSet[3],
-                           sdk_pool_handle,
-                           sdk_wallet_stewards[3],
-                           check_functional=False)
-    else:
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_stewards[3],
-                                  1)
