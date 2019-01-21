@@ -435,7 +435,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if ledger_id not in self.requestQueues:
             self.requestQueues[ledger_id] = OrderedSet()
         self._freshness_checker.register_ledger(ledger_id=ledger_id,
-                                                initial_time=self.get_current_time())
+                                                initial_time=self.utc_epoch)
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -1840,7 +1840,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
-                                                 ts=self.get_current_time())
+                                                 ts=pp.ppTime)
 
         self.addToOrdered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
