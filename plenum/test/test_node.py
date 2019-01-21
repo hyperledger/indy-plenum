@@ -13,12 +13,11 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.common.request import Request
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.domain_req_handler import DomainRequestHandler
-<<<<<<< HEAD
 from plenum.server.replica_stasher import ReplicaStasher
-=======
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
->>>>>>> indy_1856_5
+from plenum.test.constants import BUY, GET_BUY
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -56,7 +55,8 @@ from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
 from plenum.common.config_helper import PNodeConfigHelper
 from hashlib import sha256
-from plenum.common.messages.node_messages import Reply
+from plenum.test.buy_handler import BuyHandler
+from plenum.test.get_buy_handler import GetBuyHandler
 
 logger = getlogger()
 
@@ -98,45 +98,6 @@ class TestDomainRequestHandler(DomainRequestHandler):
         return None
 
 
-class BuyHandler(WriteRequestHandler):
-
-    def static_validation(self, request: Request):
-        pass
-
-    def dynamic_validation(self, request: Request):
-        pass
-
-    def get_query_response(self, request):
-        pass
-
-    def updateState(self, txns, isCommitted=False):
-        for txn in txns:
-            self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
-
-    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        typ = get_type(txn)
-        if typ == 'buy':
-            key, value = self.prepare_buy_for_state(txn)
-            self.state.set(key, value)
-            logger.trace('{} after adding to state, headhash is {}'.
-                         format(self, self.state.headHash))
-        else:
-            raise LogicError
-
-    @staticmethod
-    def prepare_buy_for_state(txn):
-        from common.serializers.serialization import domain_state_serializer
-        identifier = get_from(txn)
-        req_id = get_req_id(txn)
-        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
-        key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
-        return key, value
-
-    @staticmethod
-    def prepare_buy_key(identifier, req_id):
-        return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
-
-
 NodeRef = TypeVar('NodeRef', Node, str)
 
 
@@ -145,10 +106,15 @@ NodeRef = TypeVar('NodeRef', Node, str)
 class TestNodeCore(StackedTester):
     def __init__(self, *args, **kwargs):
         # Register buy handler
-        h = BuyHandler(self.config, self.db_manager, 'buy', DOMAIN_LEDGER_ID)
-        self.txn_type_to_req_manager[h.txn_type] = h
+        h = BuyHandler(self.db_manager)
+        self.txn_type_to_req_manager[h.txn_type] = self.write_manager
         self.txn_type_to_ledger_id[h.txn_type] = DOMAIN_LEDGER_ID
         self.write_manager.register_req_handler(h)
+
+        h = GetBuyHandler(self.db_manager)
+        self.txn_type_to_req_manager[h.txn_type] = self.read_manager
+        self.txn_type_to_ledger_id[h.txn_type] = DOMAIN_LEDGER_ID
+        self.read_manager.register_req_handler(h)
 
         self.nodeMsgRouter.routes[TestMsg] = self.eatTestMsg
         self.nodeIbStasher = Stasher(self.nodeInBox,
@@ -335,26 +301,6 @@ class TestNodeCore(StackedTester):
         state = self.getState(DOMAIN_LEDGER_ID)
         return TestCoreAuthnr(state=state)
 
-    def processRequest(self, request, frm):
-        if request.operation[TXN_TYPE] == 'get_buy':
-            self.send_ack_to_client(request.key, frm)
-
-            identifier = request.identifier
-            req_id = request.reqId
-            req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-            buy_key = req_handler.prepare_buy_key(identifier, req_id)
-            result = req_handler.state.get(buy_key)
-
-            res = {
-                f.IDENTIFIER.nm: identifier,
-                f.REQ_ID.nm: req_id,
-                "buy": result
-            }
-
-            self.transmitToClient(Reply(res), frm)
-        else:
-            super().processRequest(request, frm)
-
 
 node_spyables = [Node.handleOneNodeMsg,
                  Node.handleInvalidClientMsg,
@@ -435,11 +381,12 @@ class TestNode(TestNodeCore, Node):
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         committedTxns = list(committedTxns)
-        req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
+        buy_handler = self.write_manager.get_main_req_handler(BUY)
+        get_buy_handler = self.read_manager.request_handlers[GET_BUY]
         for txn in committedTxns:
-            if get_type(txn) == "buy":
-                key, value = req_handler.prepare_buy_for_state(txn)
-                _, proof = req_handler.get_value_from_state(key, with_proof=True)
+            if get_type(txn) == BUY:
+                key = buy_handler.gen_state_key(txn)
+                _, proof = get_buy_handler._get_value_from_state(key, with_proof=True)
                 if proof:
                     txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
@@ -494,6 +441,7 @@ view_changer_spyables = [
 @spyable(methods=view_changer_spyables)
 class TestViewChanger(ViewChanger):
     pass
+
 
 replica_stasher_spyables = [
     ReplicaStasher.stash

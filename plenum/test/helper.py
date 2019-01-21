@@ -38,6 +38,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.test import waits
+from plenum.test.constants import BUY
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
@@ -129,7 +130,7 @@ def assertEquality(observed: Any, expected: Any, details=None):
 
 def randomOperation():
     return {
-        "type": "buy",
+        "type": BUY,
         "amount": random.randint(10, 100000)
     }
 
