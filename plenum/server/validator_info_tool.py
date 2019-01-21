@@ -515,7 +515,7 @@ class ValidatorNodeInfoTool:
         committed_state_root_hashes = {}
         uncommitted_state_root_hashes = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            ledger_statuses[idx]={'Sync_status': self._prepare_for_json(linfo.state.name)}
+            ledger_statuses[idx] = {'Sync_status': self._prepare_for_json(linfo.state.name)}
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
             num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
             last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
