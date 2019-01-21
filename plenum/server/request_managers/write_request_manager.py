@@ -41,6 +41,10 @@ class WriteRequestManager(RequestManager):
     def remove_batch_handler(self, ledger_id):
         del self.batch_handlers[ledger_id]
 
+    def get_main_req_handler(self, txn_type):
+        return self.request_handlers[txn_type][0] if \
+            txn_type in self.request_handlers and len(self.request_handlers[txn_type]) else None
+
     # WriteRequestHandler methods
     def static_validation(self, request: Request):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
@@ -62,7 +66,7 @@ class WriteRequestManager(RequestManager):
             raise LogicError
         updated_state = None
         for handler in handlers:
-            updated_state = handler.update_state([txn], updated_state, isCommitted)
+            updated_state = handler.update_state(txn, updated_state, isCommitted)
 
     def apply_request(self, request, batch_ts):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
@@ -97,7 +101,7 @@ class WriteRequestManager(RequestManager):
             raise LogicError
         prev_result = commited_txns = handlers[0].commit_batch(txn_count, state_root, txn_root, pp_time, None)
         for handler in handlers[1:]:
-            handler.commit_batch(txn_count, state_root, txn_root, pp_time, prev_result)
+            prev_result = handler.commit_batch(txn_count, state_root, txn_root, pp_time, prev_result)
         return commited_txns
 
     def post_batch_rejected(self, ledger_id):

@@ -16,6 +16,12 @@ class GetTxnHandler(ReadRequestHandler):
         super().__init__(database_manager, GET_TXN, None)
         self.node = node
 
+    def static_validation(self, request: Request):
+        pass
+
+    def dynamic_validation(self, request: Request):
+        pass
+
     def get_result(self, request: Request):
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
         db = self.database_manager.get_database(ledger_id)

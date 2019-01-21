@@ -30,6 +30,7 @@ from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.request_handlers.nym_handler import NymHandler
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
+from plenum.server.request_managers.request_manager import RequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from state.pruning_state import PruningState
 from state.state import State
@@ -54,7 +55,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, NODE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -288,73 +289,74 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.read_manager = ReadRequestManager()
         self.action_manager = ActionRequestManager()
 
-        self.txn_type_to_req_manager = {}
+        self.txn_type_to_req_manager = {}  # type: Dict[str, RequestManager]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
 
         # Pool ledger init
         self.db_manager.register_database(POOL_LEDGER_ID,
-                                              self.init_pool_ledger(),
-                                              self.init_pool_state())
+                                          self.init_pool_ledger(),
+                                          self.init_pool_state())
         self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
         bh = PoolBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(bh)
 
-        # Pool manager init
-        HasPoolManager.__init__(self, self.db_manager,
-                                self.write_manager,
-                                ha, cliname, cliha)
-        self.nodeReg = self.poolManager.nodeReg
-        self.cliNodeReg = self.poolManager.cliNodeReg
-
-        # init BLS after pool manager!
-        # init before domain req handler!
-        self.bls_bft = self._create_bls_bft()
-
-        # Register node handler
-        h = NodeHandler(self.config, self.db_manager,
-                        self.bls_bft.bls_crypto_verifier)
-        self.txn_type_to_req_manager[h.txn_type] = h
-        self.txn_type_to_ledger_id[h.txn_type] = POOL_LEDGER_ID
-        self.write_manager.register_req_handler(h)
-
-        # Register get_txn handler
-        h = GetTxnHandler(self, self.db_manager)
-        self.txn_type_to_req_manager[h.txn_type] = h
-        self.txn_type_to_ledger_id[h.txn_type] = POOL_LEDGER_ID
-        self.read_manager.register_req_handler(h)
-
-        # This is storage for storing map: timestamp/state.headHash
-        # Now it used in domainLedger
-        self.db_manager.register_store('ts', self.init_state_ts_db_storage())
-
         # Domain ledger init
         self.db_manager.register_database(DOMAIN_LEDGER_ID,
-                                              storage or self.init_domain_ledger(),
-                                              self.init_domain_state())
+                                          storage or self.init_domain_ledger(),
+                                          self.init_domain_state())
         self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
         bh = DomainBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(bh)
 
-        # Register nym handler
-        h = NymHandler(self.config, self.db_manager)
-        self.txn_type_to_req_manager[h.txn_type] = h
-        self.txn_type_to_ledger_id[h.txn_type] = DOMAIN_LEDGER_ID
-        self.write_manager.register_req_handler(h)
+        # This is storage that used in domain ledger
+        # It stores map: timestamp -> state.headHash
+        self.db_manager.register_store('ts', self.init_state_ts_db_storage())
 
         # Config ledger init
         self.db_manager.register_database(CONFIG_LEDGER_ID,
-                                              self.init_config_ledger(),
-                                              self.init_config_state())
+                                          self.init_config_ledger(),
+                                          self.init_config_state())
         bh = ConfigBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(bh)
+
+        # init before node_handler
+        self.bls_bft = self._create_bls_bft()
+        self.db_manager.register_store('bls', self.bls_bft.bls_store)
+
+        # Register node txn handler
+        h = NodeHandler(self.db_manager,
+                        self.bls_bft.bls_crypto_verifier)
+        self.txn_type_to_req_manager[h.txn_type] = self.write_manager
+        self.txn_type_to_ledger_id[h.txn_type] = POOL_LEDGER_ID
+        self.write_manager.register_req_handler(h)
+
+        # Register nym txn handler
+        h = NymHandler(self.config, self.db_manager)
+        self.txn_type_to_req_manager[h.txn_type] = self.write_manager
+        self.txn_type_to_ledger_id[h.txn_type] = DOMAIN_LEDGER_ID
+        self.write_manager.register_req_handler(h)
+
+        # Register get_txn handler
+        h = GetTxnHandler(self, self.db_manager)
+        self.txn_type_to_req_manager[h.txn_type] = self.read_manager
+        self.txn_type_to_ledger_id[h.txn_type] = None
+        self.read_manager.register_req_handler(h)
+
+        # Upload state from ledger if state is empty
+        self.upload_pool_state()
+        self.upload_domain_state()
+        self.upload_config_state()
+
+        # Pool manager init
+        HasPoolManager.__init__(self, self.db_manager,
+                                self.write_manager.get_main_req_handler(NODE),
+                                ha, cliname, cliha)
+        self.nodeReg = self.poolManager.nodeReg
+        self.cliNodeReg = self.poolManager.cliNodeReg
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
         self._info_tool = self._info_tool_class(self)
-
-        self.upload_pool_state()
-        self.upload_domain_state()
-        self.upload_config_state()
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -744,17 +746,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.commitAndSendReplies(ledger_id,
                                          pp_time, reqs_keys, state_root, txn_root)
 
-    def execute_pool_txns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
+    def execute_pool_txns(self, pp_time, reqs_keys, state_root, txn_root) -> List:
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
 
-        :param ppTime: PrePrepare request time
+        :param pp_time: PrePrepare request time
         :param reqs_keys: requests keys to be committed
         """
-        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
+        committed_txns = self.default_executer(POOL_LEDGER_ID, pp_time,
                                                reqs_keys,
-                                               stateRoot, txnRoot)
+                                               state_root, txn_root)
         for txn in committed_txns:
             self.poolManager.onPoolMembershipChange(txn)
         return committed_txns
@@ -784,7 +786,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         'ledger'.format(self))
             for seq_no, txn in ledger.getAllTxn():
                 txn = self.update_txn_with_extra_data(txn)
-                self.write_manager.update_state([txn], isCommitted=True)
+                self.write_manager.update_state(txn, isCommitted=True)
                 state.commit(rootHash=state.headHash)
 
     def upload_pool_state(self):
