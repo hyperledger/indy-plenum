@@ -2600,7 +2600,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
                 stashed_pp[key] = (pp, sender, True)
-                self.threePhaseRouter.handleSync((pp, sender))
+                self.process_three_phase_msg(pp, sender)
                 return True
         return False
 
