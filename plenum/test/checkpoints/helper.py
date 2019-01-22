@@ -20,3 +20,9 @@ def checkRequestCounts(nodes, req_count, batches_count):
             assertEquality(len(r.commits), batches_count)
             assertEquality(len(r.prepares), batches_count)
             assertEquality(len(r.batches), batches_count)
+
+
+def check_stashed_chekpoints(node, count):
+    assert count == sum(len(ckps)
+                        for ckps_for_view in node.master_replica.stashedRecvdCheckpoints.values()
+                        for ckps in ckps_for_view.values())

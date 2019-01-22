@@ -51,9 +51,9 @@ class BatchRequestHandler:
     @property
     def state(self):
         return self.database_manager.get_database(self.ledger_id).state \
-            if self.ledger_id else None
+            if self.ledger_id is not None else None
 
     @property
     def ledger(self):
         return self.database_manager.get_database(self.ledger_id).ledger \
-            if self.ledger_id else None
+            if self.ledger_id is not None else None
