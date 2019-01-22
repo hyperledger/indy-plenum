@@ -75,6 +75,7 @@ def replica_with_requests(replica):
 
 def set_current_time(replica, ts):
     replica.get_current_time.value = ts
+    replica.get_time_for_3pc_batch.value = ts
 
 
 def check_and_pop_ordered(replica, ledger_ids):
