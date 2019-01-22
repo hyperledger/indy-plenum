@@ -2963,6 +2963,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_MASTER, len(self.master_replica.aqStash))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_MASTER, len(self.master_replica.repeatingActions))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_MASTER, len(self.master_replica.scheduled))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_MASTER,
+                               self.master_replica.stasher.num_stashed_catchup)
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_MASTER,
+                               self.master_replica.stasher.num_stashed_future_view)
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_MASTER,
+                               self.master_replica.stasher.num_stashed_watermarks)
 
         def sum_for_backups(field):
             return sum(len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
@@ -3007,6 +3013,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_BACKUP, sum_for_backups('aqStash'))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
+
+        # Stashed msgs
+        def sum_stashed_for_backups(field):
+            return sum(getattr(r.stasher, field)
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_BACKUP,
+                               sum_stashed_for_backups('num_stashed_catchup'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_BACKUP,
+                               sum_stashed_for_backups('num_stashed_future_view'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_BACKUP,
+                               sum_stashed_for_backups('num_stashed_watermarks'))
 
         def store_rocksdb_metrics(name, storage):
             if not hasattr(storage, '_db'):
