@@ -127,15 +127,15 @@ def test_node_info_section(info, node):
     assert len(info['Node_info']['Catchup_status']['Last_txn_3PC_keys']) == 3
     assert info['Node_info']['Catchup_status']['Ledger_statuses']
     assert len(info['Node_info']['Catchup_status']['Ledger_statuses']) == 3
-    for idx, ls in info['Node_info']['Catchup_status']['Ledger_statuses'].items():
-        assert 'Sync_status' in ls
-        assert 'Last_updated_time' in ls
-        assert 'Has_write_consensus' in ls
     assert info['Node_info']['Catchup_status']['Number_txns_in_catchup']
     # TODO uncomment this, when this field would be implemented
     # assert info['Node_info']['Catchup_status']['Received_LedgerStatus']
     assert info['Node_info']['Catchup_status']['Waiting_consistency_proof_msgs']
     assert len(info['Node_info']['Catchup_status']['Waiting_consistency_proof_msgs']) == 3
+    assert "Freshness_status" in info['Node_info']
+    for idx, fs in info['Node_info']['Freshness_status'].items():
+        assert 'Last_updated_time' in fs
+        assert 'Has_write_consensus' in fs
     assert info['Node_info']['Count_of_replicas']
     # TODO uncomment this, when this field would be implemented
     # assert info['Node_info']['Last N pool ledger txns']

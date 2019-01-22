@@ -514,8 +514,9 @@ class ValidatorNodeInfoTool:
         uncommitted_ledger_txns = {}
         committed_state_root_hashes = {}
         uncommitted_state_root_hashes = {}
+        freshness_status = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            ledger_statuses[idx] = {'Sync_status': self._prepare_for_json(linfo.state.name)}
+            ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
             num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
             last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
@@ -534,9 +535,9 @@ class ValidatorNodeInfoTool:
 
         ledger_freshnesses = self._get_ledgers_updated_time() or {}
         for idx, updated_ts in ledger_freshnesses.items():
-            ledger_statuses[idx]['Last_updated_time'] = self._prepare_for_json(
-                get_datetime_from_ts(updated_ts))
-            ledger_statuses[idx]['Has_write_consensus'] = self._prepare_for_json(
+            freshness_status.setdefault(idx, {}).update({'Last_updated_time': self._prepare_for_json(
+                get_datetime_from_ts(updated_ts))})
+            freshness_status[idx]['Has_write_consensus'] = self._prepare_for_json(
                 self._is_updated_time_acceptable(updated_ts))
 
         return {
@@ -588,6 +589,7 @@ class ValidatorNodeInfoTool:
                     "Last_txn_3PC_keys": self._prepare_for_json(
                         last_txn_3PC_keys),
                 },
+                "Freshness_status": self._prepare_for_json(freshness_status),
                 "Requests_timeouts": {
                     "Propagates_phase_req_timeouts": self._prepare_for_json(
                         self._node.propagates_phase_req_timeouts),
@@ -750,4 +752,5 @@ class ValidatorNodeInfoTool:
 
     def _is_updated_time_acceptable(self, updated_time):
         current_time = self._node.utc_epoch()
-        return current_time - updated_time <= 2 * self._node.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        return current_time - updated_time <= self._node.config.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT *\
+            self._node.config.STATE_FRESHNESS_UPDATE_INTERVAL
