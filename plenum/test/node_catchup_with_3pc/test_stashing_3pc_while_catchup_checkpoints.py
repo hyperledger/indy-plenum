@@ -88,7 +88,11 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
             # stash enough stable checkpoints for starting a catch-up
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                       sdk_wallet_client,
-                                      reqs_for_checkpoint * (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1))
+                                      reqs_for_checkpoint * (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) + 1)
+            looper.run(
+                eventually(
+                    lambda: lagging_node.master_replica.spylog.count(
+                        Replica.process_checkpoint) == len(rest_nodes) * 2))
 
             assert lagging_node.mode == Mode.syncing
 
