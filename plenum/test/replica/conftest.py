@@ -58,6 +58,11 @@ def inst_id(request):
     return request.param
 
 
+@pytest.fixture(scope="function")
+def mock_timestamp():
+    return get_utc_epoch
+
+
 @pytest.fixture(scope='function')
 def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, request):
     node = ReplicaFakeNode(viewNo=viewNo,

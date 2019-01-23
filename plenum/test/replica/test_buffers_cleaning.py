@@ -1,3 +1,4 @@
+from plenum.common.util import get_utc_epoch
 from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
 
@@ -9,6 +10,7 @@ def test_ordered_cleaning(tconf):
         name="fake node",
         ledger_ids=[0],
         viewNo=global_view_no,
+        utc_epoch=get_utc_epoch,
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -37,6 +39,7 @@ def test_primary_names_cleaning(tconf):
         name="fake node",
         ledger_ids=[0],
         viewNo=0,
+        utc_epoch=get_utc_epoch,
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
