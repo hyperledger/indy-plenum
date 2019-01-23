@@ -1,9 +1,11 @@
 from plenum.test.helper import assertEquality
 
 
-def chkChkpoints(nodes, total: int, stableIndex: int = None):
+def chkChkpoints(nodes, total: int, stableIndex: int = None, replicaIndex = None):
     for node in nodes:
-        for r in node.replicas.values():
+        for i, r in enumerate(node.replicas.values()):
+            if replicaIndex is not None and i != replicaIndex:
+                continue
             assert len(r.checkpoints) == total, '{} checkpoints {}, whereas total {}'. \
                 format(r, len(r.checkpoints), total)
             if stableIndex is not None:
@@ -23,6 +25,7 @@ def checkRequestCounts(nodes, req_count, batches_count):
 
 
 def check_stashed_chekpoints(node, count):
-    assert count == sum(len(ckps)
+    c = sum(len(ckps)
                         for ckps_for_view in node.master_replica.stashedRecvdCheckpoints.values()
                         for ckps in ckps_for_view.values())
+    assert count == c, "{} != {}".format(count, c)

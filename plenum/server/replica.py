@@ -1932,6 +1932,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (seqNoStart, seqNoEnd)
 
         if key not in self.checkpoints or not self.checkpoints[key].digest:
+            self._remove_stashed_checkpoints(self.last_ordered_3pc)
             self.stashCheckpoint(msg, sender)
             self.__start_catchup_if_needed()
             return False
