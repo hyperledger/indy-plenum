@@ -223,7 +223,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                  isMaster: bool = False,
                  bls_bft_replica: BlsBftReplica = None,
                  metrics: MetricsCollector = NullMetricsCollector(),
-                 get_current_time=None):
+                 get_current_time=None,
+                 get_time_for_3pc_batch=None):
         """
         Create a new replica.
 
@@ -233,6 +234,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         HasActionQueue.__init__(self)
         self.get_current_time = get_current_time or time.perf_counter
+        self.get_time_for_3pc_batch = get_time_for_3pc_batch or node.utc_epoch
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
         self.metrics = metrics
@@ -523,7 +525,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     # This is to enable replaying, inst_id, view_no and pp_seq_no are used
     # while replaying
     def get_utc_epoch_for_preprepare(self, inst_id, view_no, pp_seq_no):
-        tm = self.utc_epoch
+        tm = self.get_time_for_3pc_batch()
         if self.last_accepted_pre_prepare_time and \
                 tm < self.last_accepted_pre_prepare_time:
             tm = self.last_accepted_pre_prepare_time
@@ -2764,6 +2766,3 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def get_ledgers_last_update_time(self)->dict:
         if self._freshness_checker:
             return self._freshness_checker.get_last_update_time()
-
-    def get_time_for_3pc_batch(self)->int:
-        return self.utc_epoch

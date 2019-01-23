@@ -70,10 +70,8 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, request):
     replica = Replica(
         node, instId=inst_id, isMaster=inst_id == 0,
         config=tconf, bls_bft_replica=bls_bft_replica,
-        get_current_time=mock_timestamp
+        get_current_time=mock_timestamp,
+        get_time_for_3pc_batch=mock_timestamp
     )
-    replica.get_time_for_3pc_batch = mock_timestamp
-    for ledger_id in replica.ledger_ids:
-        replica.register_ledger(ledger_id)
     ReplicaFakeNode.master_last_ordered_3PC = replica.last_ordered_3pc
     return replica
