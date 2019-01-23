@@ -57,6 +57,12 @@ def ledger_ids():
 def inst_id(request):
     return request.param
 
+
+@pytest.fixture(scope="function")
+def mock_timestamp():
+    return get_utc_epoch
+
+
 @pytest.fixture(scope='function')
 def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, request):
     node = ReplicaFakeNode(viewNo=viewNo,
@@ -69,7 +75,8 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, request):
     replica = Replica(
         node, instId=inst_id, isMaster=inst_id == 0,
         config=tconf, bls_bft_replica=bls_bft_replica,
-        get_current_time=mock_timestamp
+        get_current_time=mock_timestamp,
+        get_time_for_3pc_batch=mock_timestamp
     )
     ReplicaFakeNode.master_last_ordered_3PC = replica.last_ordered_3pc
     return replica

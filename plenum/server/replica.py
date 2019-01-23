@@ -223,7 +223,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                  isMaster: bool = False,
                  bls_bft_replica: BlsBftReplica = None,
                  metrics: MetricsCollector = NullMetricsCollector(),
-                 get_current_time=None):
+                 get_current_time=None,
+                 get_time_for_3pc_batch=None):
         """
         Create a new replica.
 
@@ -233,6 +234,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         HasActionQueue.__init__(self)
         self.get_current_time = get_current_time or time.perf_counter
+        self.get_time_for_3pc_batch = get_time_for_3pc_batch or node.utc_epoch
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
         self.metrics = metrics
@@ -435,7 +437,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if ledger_id not in self.requestQueues:
             self.requestQueues[ledger_id] = OrderedSet()
         self._freshness_checker.register_ledger(ledger_id=ledger_id,
-                                                initial_time=self.get_current_time())
+                                                initial_time=self.get_time_for_3pc_batch())
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -523,7 +525,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     # This is to enable replaying, inst_id, view_no and pp_seq_no are used
     # while replaying
     def get_utc_epoch_for_preprepare(self, inst_id, view_no, pp_seq_no):
-        tm = self.utc_epoch
+        tm = self.get_time_for_3pc_batch()
         if self.last_accepted_pre_prepare_time and \
                 tm < self.last_accepted_pre_prepare_time:
             tm = self.last_accepted_pre_prepare_time
@@ -831,7 +833,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Update freshness for all outdated ledgers sequentially without any waits
         # TODO: Consider sending every next update in Max3PCBatchWait only
-        outdated_ledgers = self._freshness_checker.check_freshness(self.get_current_time())
+        outdated_ledgers = self._freshness_checker.check_freshness(self.get_time_for_3pc_batch())
         for ledger_id, ts in outdated_ledgers.items():
             if ledger_id in sent_batches:
                 self.logger.debug("Ledger {} is not updated for {} seconds, "
@@ -1840,7 +1842,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             )
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
-                                                 ts=self.get_current_time())
+                                                 ts=pp.ppTime)
 
         self.addToOrdered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
@@ -2760,3 +2762,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                       "".format(last_timestamp))
                     return last_timestamp
         return None
+
+    def get_ledgers_last_update_time(self)->dict:
+        if self._freshness_checker:
+            return self._freshness_checker.get_last_update_time()

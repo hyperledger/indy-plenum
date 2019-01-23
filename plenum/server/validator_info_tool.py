@@ -13,6 +13,7 @@ import datetime
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from plenum.common.config_util import getConfig
+from plenum.common.util import get_datetime_from_ts
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 from stp_core.common.log import getlogger
@@ -513,6 +514,7 @@ class ValidatorNodeInfoTool:
         uncommitted_ledger_txns = {}
         committed_state_root_hashes = {}
         uncommitted_state_root_hashes = {}
+        freshness_status = {}
         for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
             ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
             waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
@@ -530,6 +532,13 @@ class ValidatorNodeInfoTool:
         for l_id, req_handler in self._node.ledger_to_req_handler.items():
             committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.committedHeadHash))
             uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
+
+        ledger_freshnesses = self._get_ledgers_updated_time() or {}
+        for idx, updated_ts in ledger_freshnesses.items():
+            freshness_status.setdefault(idx, {}).update({'Last_updated_time': self._prepare_for_json(
+                get_datetime_from_ts(updated_ts))})
+            freshness_status[idx]['Has_write_consensus'] = self._prepare_for_json(
+                self._is_updated_time_acceptable(updated_ts))
 
         return {
             "Node_info": {
@@ -580,6 +589,7 @@ class ValidatorNodeInfoTool:
                     "Last_txn_3PC_keys": self._prepare_for_json(
                         last_txn_3PC_keys),
                 },
+                "Freshness_status": self._prepare_for_json(freshness_status),
                 "Requests_timeouts": {
                     "Propagates_phase_req_timeouts": self._prepare_for_json(
                         self._node.propagates_phase_req_timeouts),
@@ -736,3 +746,11 @@ class ValidatorNodeInfoTool:
                     "total_count": len(stops),
                 }
         return res
+
+    def _get_ledgers_updated_time(self)->dict:
+        return self._node.master_replica.get_ledgers_last_update_time()
+
+    def _is_updated_time_acceptable(self, updated_time):
+        current_time = self._node.utc_epoch()
+        return current_time - updated_time <= self._node.config.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT *\
+            self._node.config.STATE_FRESHNESS_UPDATE_INTERVAL

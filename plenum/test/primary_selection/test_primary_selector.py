@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import base58
 import pytest
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.util import get_utc_epoch
 
 from plenum.server.propagator import Requests
 
@@ -146,6 +147,9 @@ class FakeNode:
 
     def select_primaries(self):
         pass
+
+    def utc_epoch(self):
+        return get_utc_epoch()
 
 
 def test_has_view_change_quorum_number(tconf, tdir):
