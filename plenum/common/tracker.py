@@ -13,12 +13,12 @@ class Tracker:
         un_committed_state = ()
 
         if state_root != "":
-            un_committed_state = un_committed_state + (state_root,)
+            un_committed_state += (state_root,)
         else:
             raise logger.error("Empty state root given")
 
         if ledger_size > 0:
-            un_committed_state = un_committed_state + (state_root,)
+            un_committed_state += (ledger_size,)
         else:
             raise logger.error("Incorrect size of ledger given")
 
