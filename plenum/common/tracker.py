@@ -27,7 +27,7 @@ class Tracker:
     def reject_batch(self):
         # what is the output of a one variable  array from this
 
-        if len(self.un_committed) != 0 :
+        if len(self.un_committed) != 0:
             self.un_committed = self.un_committed[:-1]
         else:
             raise logger.error("No items to revert in Tracker")
