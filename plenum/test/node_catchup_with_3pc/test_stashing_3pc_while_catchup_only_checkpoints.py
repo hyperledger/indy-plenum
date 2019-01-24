@@ -96,7 +96,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
             # make sure that more requests are being ordered while catch-up is in progress
             # stash enough stable checkpoints for starting a catch-up
-            num_reqs = reqs_for_checkpoint * (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1)
+            num_checkpoints = Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
+            num_reqs = reqs_for_checkpoint * num_checkpoints + 1
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                       sdk_wallet_client,
                                       num_reqs)
@@ -111,7 +112,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
             # lagging node is catching up and stashing all checkpoints
             looper.run(
                 eventually(
-                    lambda: assertExp(get_stashed_checkpoints(lagging_node) == 2 * len(rest_nodes)),
+                    lambda: assertExp(get_stashed_checkpoints(lagging_node) == num_checkpoints * len(rest_nodes)),
                     timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
                 )
             )

@@ -1,18 +1,21 @@
 from plenum.test.helper import assertEquality
 
 
-def chkChkpoints(nodes, total: int, stableIndex: int = None, replicaIndex = None):
+def chkChkpoints(nodes, total: int, stableIndex: int = None):
+    for i in range(nodes[0].replicas.num_replicas):
+        chk_chkpoints_for_instance(nodes, i, total, stableIndex)
+
+
+def chk_chkpoints_for_instance(nodes, inst_id, total: int, stableIndex: int = None):
     for node in nodes:
-        for i, r in enumerate(node.replicas.values()):
-            if replicaIndex is not None and i != replicaIndex:
-                continue
-            assert len(r.checkpoints) == total, '{} checkpoints {}, whereas total {}'. \
-                format(r, len(r.checkpoints), total)
-            if stableIndex is not None:
-                assert r.checkpoints.values()[stableIndex].isStable, r.name
-            else:
-                for state in r.checkpoints.values():
-                    assert not state.isStable
+        r = node.replicas.values()[inst_id]
+        assert len(r.checkpoints) == total, '{} checkpoints {}, whereas total {}'. \
+            format(r, len(r.checkpoints), total)
+        if stableIndex is not None:
+            assert r.checkpoints.values()[stableIndex].isStable, r.name
+        else:
+            for state in r.checkpoints.values():
+                assert not state.isStable
 
 
 def checkRequestCounts(nodes, req_count, batches_count):
@@ -26,6 +29,6 @@ def checkRequestCounts(nodes, req_count, batches_count):
 
 def check_stashed_chekpoints(node, count):
     c = sum(len(ckps)
-                        for ckps_for_view in node.master_replica.stashedRecvdCheckpoints.values()
-                        for ckps in ckps_for_view.values())
+            for ckps_for_view in node.master_replica.stashedRecvdCheckpoints.values()
+            for ckps in ckps_for_view.values())
     assert count == c, "{} != {}".format(count, c)

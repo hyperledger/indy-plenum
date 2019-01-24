@@ -7,7 +7,7 @@ from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
-from plenum.test.checkpoints.helper import chkChkpoints
+from plenum.test.checkpoints.helper import chkChkpoints, chk_chkpoints_for_instance
 from plenum.test.delayers import cr_delay, cs_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -96,7 +96,8 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
 
             # make sure that more requests are being ordered while catch-up is in progress
             # stash enough stable checkpoints for starting a catch-up
-            num_reqs = reqs_for_checkpoint * (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1)
+            num_checkpoints = Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
+            num_reqs = reqs_for_checkpoint * num_checkpoints + 1
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                       sdk_wallet_client,
                                       num_reqs)
@@ -112,7 +113,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
             assert lagging_node.mode == Mode.syncing
             looper.run(
                 eventually(
-                    lambda: assertExp(get_stashed_checkpoints(lagging_node) == 2 * len(rest_nodes)),
+                    lambda: assertExp(get_stashed_checkpoints(lagging_node) == num_checkpoints * len(rest_nodes)),
                     timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
                 )
             )
@@ -124,7 +125,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
         )
 
         # check that checkpoint is stabilized for master
-        looper.run(eventually(chkChkpoints, [lagging_node], 2, 0, 0))
+        looper.run(eventually(chk_chkpoints_for_instance, [lagging_node], 0, 2, 0))
 
         # check that the catch-up is finished
         looper.run(
