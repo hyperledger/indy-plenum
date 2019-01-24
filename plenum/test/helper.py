@@ -473,6 +473,21 @@ def check_last_ordered_3pc(node1, node2):
     return master_replica_1.last_ordered_3pc
 
 
+def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
+    for n in nodes:
+        for r in n.replicas.values():
+            assert r.last_ordered_3pc == last_ordered_3pc, \
+                "{} != {}".format(r.last_ordered_3pc,
+                                  last_ordered_3pc)
+
+
+def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
+    for n in nodes:
+        assert n.master_replica.last_ordered_3pc == last_ordered_3pc, \
+            "{} != {}".format(n.master_replica.last_ordered_3pc,
+                              last_ordered_3pc)
+
+
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
 
@@ -1019,6 +1034,7 @@ def max_3pc_batch_limits(tconf, size, wait=10000):
     tconf.Max3PCBatchSize = old_size
     tconf.Max3PCBatchWait = old_wait
 
+
 @contextmanager
 def freshness(tconf, enabled, timeout):
     old_update_state = tconf.UPDATE_STATE_FRESHNESS
@@ -1028,6 +1044,7 @@ def freshness(tconf, enabled, timeout):
     yield tconf
     tconf.UPDATE_STATE_FRESHNESS = old_update_state
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_timeout
+
 
 @contextmanager
 def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
@@ -1135,9 +1152,9 @@ def init_discarded(value=None):
 
 
 def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
-    pre_prepare = 1             # Message from Primary
+    pre_prepare = 1  # Message from Primary
     prepares = nodes_count - 2  # Messages from all nodes exclude primary and self node
-    commits = nodes_count - 1   # Messages from all nodes exclude  self node
+    commits = nodes_count - 1  # Messages from all nodes exclude  self node
     # The primary node receives the same number of messages. Doesn't get pre-prepare,
     # but gets one more prepare
     return pre_prepare + prepares + commits
