@@ -2,7 +2,7 @@ from plenum.test.helper import assertEquality
 
 
 def chkChkpoints(nodes, total: int, stableIndex: int = None):
-    for i in range(nodes[0].replicas.num_replicas):
+    for i in nodes[0].replicas.keys():
         chk_chkpoints_for_instance(nodes, i, total, stableIndex)
 
 
