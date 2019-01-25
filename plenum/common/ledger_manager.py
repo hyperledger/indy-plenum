@@ -164,7 +164,7 @@ class LedgerManager(HasActionQueue):
 
     def request_txns_if_needed(self, ledgerId):
         ledgerInfo = self.ledgerRegistry.get(ledgerId)
-        missing, num_missing = LedgerManager._missing_txns(ledgerInfo)
+        missing, num_missing = self._missing_txns(ledgerInfo)
         if not missing:
             # `catchupReplyTimer` might not be None
             ledgerInfo.catchupReplyTimer = None
@@ -178,8 +178,8 @@ class LedgerManager(HasActionQueue):
 
         logger.info("{} requesting {} missing transactions after timeout".format(self, num_missing))
         eligible_nodes = [n
-                         for n in self.nodes_to_request_txns_from
-                         if n not in self.wait_catchup_rep_from]
+                          for n in self.nodes_to_request_txns_from
+                          if n not in self.wait_catchup_rep_from]
 
         if not eligible_nodes:
             # TODO: What if all nodes are blacklisted so `eligibleNodes`
@@ -1102,7 +1102,6 @@ class LedgerManager(HasActionQueue):
     def send_catchup_req(self, msg: CatchupReq, to: str):
         self.wait_catchup_rep_from.add(to)
         self.sendTo(msg, to)
-
 
     @property
     def nodestack(self):
