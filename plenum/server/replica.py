@@ -2245,8 +2245,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set = None):
         if nonFinReqs:
-            self.logger.info("Queueing pre-prepares due to unavailability of finalised "
-                             "requests. PrePrepare {} from {}".format(ppMsg, sender))
+            self.logger.info("{} - Queueing pre-prepares due to unavailability of finalised "
+                             "requests. PrePrepare {} from {}".format(self, ppMsg, sender))
             self.prePreparesPendingFinReqs.append((ppMsg, sender, nonFinReqs))
         else:
             # Possible exploit, an malicious party can send an invalid
@@ -2324,8 +2324,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def enqueue_commit(self, request: Commit, sender: str):
         key = (request.viewNo, request.ppSeqNo)
-        self.logger.info("Queueing commit due to unavailability of PREPARE. "
-                         "Request {} with key {} from {}".format(request, key, sender))
+        self.logger.info("{} - Queueing commit due to unavailability of PREPARE. "
+                         "Request {} with key {} from {}".format(self, request, key, sender))
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
