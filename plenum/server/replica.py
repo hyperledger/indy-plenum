@@ -1839,8 +1839,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return max_3PC_key(keys) if keys else None
 
     def has_prepared(self, key):
-        return self.getPrePrepare(*key) and self.prepares.hasQuorum(
-            ThreePhaseKey(*key), self.quorums.prepare.value)
+        return self.getPrePrepare(*key)
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
