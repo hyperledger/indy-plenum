@@ -5,7 +5,7 @@ from common.exceptions import PlenumValueError, LogicError
 logger = getlogger()
 
 
-class Tracker:
+class LedgerUncommittedTracker:
 
     def __init__(self):
         self.un_committed = deque()
@@ -30,10 +30,11 @@ class Tracker:
 
         self.un_committed.append(un_committed_state)
 
-    def reject_batch(self):
-        # what is the output of a one variable  array from this
+    def commit_batch(self):
+        return self.un_committed.popleft()
 
+    def reject_batch(self):
         if len(self.un_committed) != 0:
-            self.un_committed = self.un_committed[:-1]
+            return self.un_committed
         else:
-            raise LogicError("No items to revert in Tracker")
+            raise LogicError("No items to return")

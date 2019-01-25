@@ -2,7 +2,7 @@ import pytest
 import random
 
 from plenum.common.util import randomString
-from plenum.common.tracker import Tracker
+from plenum.common.ledger_uncommitted_tracker import LedgerUncommittedTracker
 from common.exceptions import PlenumValueError, LogicError
 
 
@@ -13,8 +13,11 @@ def state_root():
 
 @pytest.fixture()
 def make_tracker():
-    return Tracker()
+    return LedgerUncommittedTracker()
 
+@pytest.fixture()
+def fill_tracker():
+    [make_tracker.apply_batch(state_root, i)for i in range(0,9)]
 
 def test_error_with_no_state_root_track_uncommitted(make_tracker):
     with pytest.raises(PlenumValueError):
@@ -29,3 +32,6 @@ def test_error_with_invalid_ledger_size(make_tracker, state_root):
 def test_error_with_revert_empty_tracker(make_tracker):
     with pytest.raises(LogicError):
         make_tracker.reject_batch()
+
+def test_build_uncommitted_and_reject_batch:
+
