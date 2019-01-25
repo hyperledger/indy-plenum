@@ -1663,16 +1663,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :return: True if `request` is valid, False otherwise
         """
         key = (commit.viewNo, commit.ppSeqNo)
-        ppReq = self.getPrePrepare(*key)
-        if not ppReq:
+        if not self.has_prepared(key):
             self.enqueue_commit(commit, sender)
-            return False
-
-        # TODO: Fix problem that can occur with a primary and non-primary(s)
-        # colluding and the honest nodes being slow
-        if ((key not in self.prepares and key not in self.sentPrePrepares) and
-                (key not in self.preparesWaitingForPrePrepare)):
-            self.logger.error("{} rejecting COMMIT{} due to lack of prepares".format(self, key))
             return False
 
         if self.commits.hasCommitFrom(commit, sender):
@@ -1837,6 +1829,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.prepares.hasQuorum(ThreePhaseKey(*key), quorum):
                 keys.append(key)
         return max_3PC_key(keys) if keys else None
+
+    def has_prepared(self, key):
+        if not self.getPrePrepare(*key):
+            return False
+        if ((key not in self.prepares and key not in self.sentPrePrepares) and
+                (key not in self.preparesWaitingForPrePrepare)):
+            return False
+        return True
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -2348,7 +2348,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def dequeue_commits(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
-            if not self.getPrePrepare(*key):
+            if not self.has_prepared(key):
                 self.logger.debug('{} has not pre-prepared {}, will dequeue the '
                                   'COMMITs later'.format(self, key))
                 return
