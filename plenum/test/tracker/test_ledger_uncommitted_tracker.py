@@ -15,9 +15,6 @@ def state_root():
 def make_tracker():
     return LedgerUncommittedTracker()
 
-@pytest.fixture()
-def fill_tracker():
-    [make_tracker.apply_batch(state_root, i)for i in range(0,9)]
 
 def test_error_with_no_state_root_track_uncommitted(make_tracker):
     with pytest.raises(PlenumValueError):
@@ -33,5 +30,9 @@ def test_error_with_revert_empty_tracker(make_tracker):
     with pytest.raises(LogicError):
         make_tracker.reject_batch()
 
-def test_build_uncommitted_and_reject_batch:
 
+def test_build_uncommitted_and_reject_batch(make_tracker):
+    test_tuple = ("test_root", 1000)
+    make_tracker.apply_batch("test_root", 1000)
+    [make_tracker.apply_batch(state_root, i + 1) for i in range(0, 9)]
+    assert make_tracker.commit_batch() == test_tuple
