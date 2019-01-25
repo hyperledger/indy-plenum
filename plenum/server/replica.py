@@ -1118,10 +1118,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.warning(
                 "{} found requests in the incoming pp, of {} ledger, that are not finalized. "
                 "{} of them don't have propagates: {}."
-                "{} of them don't have enought propagates: {}."
-                    .format(self, pre_prepare.ledgerId,
-                            len(absents), absent_str,
-                            len(non_fin), non_fin_str))
+                "{} of them don't have enought propagates: {}.".format(self, pre_prepare.ledgerId,
+                                                                       len(absents), absent_str,
+                                                                       len(non_fin), non_fin_str))
             bad_reqs = absents | non_fin
             for req in bad_reqs:
                 if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
