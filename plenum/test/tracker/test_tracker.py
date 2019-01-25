@@ -3,6 +3,7 @@ import random
 
 from plenum.common.util import randomString
 from plenum.common.tracker import Tracker
+from common.exceptions import PlenumValueError, LogicError
 
 
 @pytest.fixture()
@@ -16,20 +17,15 @@ def make_tracker():
 
 
 def test_error_with_no_state_root_track_uncommitted(make_tracker):
-    with pytest.raises(AttributeError):
-        make_tracker.track("", 12)
+    with pytest.raises(PlenumValueError):
+        make_tracker.apply_batch("", 12)
 
 
 def test_error_with_invalid_ledger_size(make_tracker, state_root):
-    with pytest.raises(AttributeError):
-        make_tracker.track(state_root, random.randint(-99, 0))
-
-
-def test_error_with_only_one_size_tuple(make_tracker):
-    with pytest.raises(AttributeError):
-        make_tracker.track(state_root, random.randint(1, 99))
+    with pytest.raises(PlenumValueError):
+        make_tracker.apply_batch(state_root, random.randint(-99, 0))
 
 
 def test_error_with_revert_empty_tracker(make_tracker):
-    with pytest.raises(AttributeError):
+    with pytest.raises(LogicError):
         make_tracker.reject_batch()
