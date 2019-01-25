@@ -23,6 +23,11 @@ def test_3pc_while_catchup(tdir, tconf,
                            sdk_pool_handle,
                            sdk_wallet_client,
                            allPluginsPath):
+    '''
+    Tests that requests being ordered during catch-up are stashed and re-applied
+    when catch-up is finished
+    '''
+
     # Prepare nodes
     lagging_node = txnPoolNodeSet[-1]
     rest_nodes = txnPoolNodeSet[:-1]

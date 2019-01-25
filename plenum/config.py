@@ -381,3 +381,6 @@ ORDERING_PHASE_REQ_TIMEOUT = 72000  # seconds
 
 # Timeout factor after which an InstanceChange message are removed (0 to turn off)
 OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 7200  # seconds
+
+# It's count of freshness updates for checking Has_write_consensus in validator-info
+ACCEPTABLE_FRESHNESS_INTERVALS_COUNT = 2

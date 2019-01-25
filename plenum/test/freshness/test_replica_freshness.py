@@ -12,6 +12,7 @@ from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 60
+OLDEST_TS = 1499906903
 
 LEDGER_IDS = [POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID]
 
@@ -29,7 +30,7 @@ def tconf(tconf):
 
 @pytest.fixture(scope='function')
 def mock_timestamp():
-    return MockTimestamp(0)
+    return MockTimestamp(OLDEST_TS)
 
 
 @pytest.fixture(scope='function')
@@ -53,7 +54,7 @@ def replica(r):
     r.node.last_sent_pp_store_helper = FakeSomething()
     r.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no = lambda *args: None
 
-    r.last_accepted_pre_prepare_time = r.get_current_time()
+    r.last_accepted_pre_prepare_time = r.get_time_for_3pc_batch()
 
     return r
 
@@ -74,7 +75,8 @@ def replica_with_requests(replica):
 
 
 def set_current_time(replica, ts):
-    replica.get_current_time.value = ts
+    replica.get_current_time.value = OLDEST_TS + ts
+    replica.get_time_for_3pc_batch.value = OLDEST_TS + ts
 
 
 def check_and_pop_ordered(replica, ledger_ids):

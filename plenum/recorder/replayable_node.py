@@ -73,7 +73,7 @@ def create_replayable_node_class(replica_class, replicas_class, node_class):
         _replica_class = _TestReplica
 
     class ReplayableNode(node_class):
-        _time_diff = None
+        _time_diff = 0
 
         def utc_epoch(self) -> int:
             """
