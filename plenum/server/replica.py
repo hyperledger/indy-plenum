@@ -1838,9 +1838,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 keys.append(key)
         return max_3PC_key(keys) if keys else None
 
-    def has_prepared(self, key):
-        return self.getPrePrepare(*key)
-
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
         self.logger.debug("{} ordering COMMIT {}".format(self, key))
@@ -2351,8 +2348,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def dequeue_commits(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
-            if not self.has_prepared(key):
-                self.logger.debug('{} has not prepared {}, will dequeue the '
+            if not self.getPrePrepare(*key):
+                self.logger.debug('{} has not pre-prepared {}, will dequeue the '
                                   'COMMITs later'.format(self, key))
                 return
             i = 0
