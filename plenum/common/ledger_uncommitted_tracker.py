@@ -35,6 +35,6 @@ class LedgerUncommittedTracker:
 
     def reject_batch(self):
         if len(self.un_committed) != 0:
-            return self.un_committed
+            return self.un_committed.pop()
         else:
             raise LogicError("No items to return")
