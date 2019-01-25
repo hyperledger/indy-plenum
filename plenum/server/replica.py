@@ -1105,20 +1105,37 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.info("PRE-PREPARE {} has ppSeqNo lower "
                              "then the latest one - ignoring it".format(key))
         elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
-            non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
-            for req in non_fin_reqs:
+            absents = set()
+            non_fin = set()
+            for key in pre_prepare.reqIdr:
+                if key not in self.requests:
+                    absents.add(key)
+                elif not self.requests[key].finalised:
+                    non_fin.add(key)
+            absent_str = ', '.join(str(key) for key in absents)
+            non_fin_str = ', '.join(
+                '{} ({})'.format(str(key), str(len(self.requests[key].propagates))) for key in non_fin)
+            self.logger.warning(
+                "{} found requests in the incoming pp, of {} ledger, that are not finalized. "
+                "{} of them don't have propagates: {}."
+                "{} of them don't have enought propagates: {}."
+                    .format(self, pre_prepare.ledgerId,
+                            len(absents), absent_str,
+                            len(non_fin), non_fin_str))
+            bad_reqs = absents | non_fin
+            for req in bad_reqs:
                 if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
                     self.logger.info("Request digest {} already ordered. Discard {} "
                                      "from {}".format(req, pre_prepare, sender))
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
                     return
-            self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
+            self.enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is
             # present and sufficient PREPAREs and PRE-PREPARE are present,
             # then the digest can be compared but this is expensive as the
             # PREPARE and PRE-PREPARE contain a combined digest
-            self.node.request_propagates(non_fin_reqs)
+            self.node.request_propagates(bad_reqs)
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
@@ -1823,8 +1840,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return max_3PC_key(keys) if keys else None
 
     def has_prepared(self, key):
-        return self.getPrePrepare(*key) and self.prepares.hasQuorum(
-            ThreePhaseKey(*key), self.quorums.prepare.value)
+        return self.getPrePrepare(*key)
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -2299,8 +2315,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
         key = (pMsg.viewNo, pMsg.ppSeqNo)
-        self.logger.info("{} queueing prepare due to unavailability of PRE-PREPARE. "
-                         "Prepare {} for key {} from {}".format(self, pMsg, key, sender))
+        # self.logger.info("{} queueing prepare due to unavailability of PRE-PREPARE. "
+        #                  "Prepare {} for key {} from {}".format(self, pMsg, key, sender))
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
@@ -2318,17 +2334,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             while self.preparesWaitingForPrePrepare[key]:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
-                self.logger.info("{} popping stashed PREPARE{}".format(self, key))
+                # self.logger.info("{} popping stashed PREPARE{}".format(self, key))
                 self.process_three_phase_msg(prepare, sender)
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
-            self.logger.info("{} processed {} PREPAREs waiting for PRE-PREPARE for"
-                             " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
+            # self.logger.info("{} processed {} PREPAREs waiting for PRE-PREPARE for"
+            #                  " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def enqueue_commit(self, request: Commit, sender: str):
         key = (request.viewNo, request.ppSeqNo)
-        self.logger.info("Queueing commit due to unavailability of PREPARE. "
-                         "Request {} with key {} from {}".format(request, key, sender))
+        # self.logger.info("Queueing commit due to unavailability of PREPARE. "
+        #                  "Request {} with key {} from {}".format(request, key, sender))
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
@@ -2337,21 +2353,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
             if not self.has_prepared(key):
-                self.logger.info('{} has not prepared {}, will dequeue the '
-                                 'COMMITs later'.format(self, key))
+                # self.logger.info('{} has not prepared {}, will dequeue the '
+                #                  'COMMITs later'.format(self, key))
                 return
             i = 0
             # Keys of pending prepares that will be processed below
             while self.commitsWaitingForPrepare[key]:
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
-                self.logger.info("{} popping stashed COMMIT{}".format(self, key))
+                # self.logger.info("{} popping stashed COMMIT{}".format(self, key))
                 self.process_three_phase_msg(commit, sender)
 
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
-            self.logger.info("{} processed {} COMMITs waiting for PREPARE for"
-                             " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
+            # self.logger.info("{} processed {} COMMITs waiting for PREPARE for"
+            #                  " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
