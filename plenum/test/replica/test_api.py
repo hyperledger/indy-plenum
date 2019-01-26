@@ -263,7 +263,7 @@ def test_process_pre_prepare_with_not_final_request(fake_node):
     replica = fake_node.replicas[0]
 
     pp = create_pre_prepare_no_bls(replica.stateRootHash(DOMAIN_LEDGER_ID))
-    replica.nonFinalisedReqs = lambda a: pp.reqIdr
+    replica.nonFinalisedReqs = lambda a: set(pp.reqIdr)
 
     def reportSuspiciousNodeEx(ex):
         assert False, ex
@@ -271,12 +271,12 @@ def test_process_pre_prepare_with_not_final_request(fake_node):
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
     def request_propagates(reqs):
-        assert reqs == pp.reqIdr
+        assert reqs == set(pp.reqIdr)
 
     replica.node.request_propagates = request_propagates
 
     replica.processPrePrepare(pp, replica.primaryName)
-    assert (pp, replica.primaryName, pp.reqIdr) in replica.prePreparesPendingFinReqs
+    assert (pp, replica.primaryName, set(pp.reqIdr)) in replica.prePreparesPendingFinReqs
 
 
 def test_process_pre_prepare_with_ordered_request(fake_node):
