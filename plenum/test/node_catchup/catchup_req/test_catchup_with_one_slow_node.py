@@ -26,7 +26,7 @@ def test_catchup_with_one_slow_node(tdir, tconf,
     1. Stop the node Delta
     2. Order 9 txns. In sending CatchupReq in a first round every
     node [Alpha, Beta, Gamma] will receive request for 3 txns.
-    3. Delay CatchupRep messages on Alpha
+    3. Delay CatchupReq messages on Alpha
     4. Start Delta
     5. Check that all nodes have equality data.
     6. Check that Delta re-ask CatchupRep only once.
@@ -61,7 +61,8 @@ def test_catchup_with_one_slow_node(tdir, tconf,
                                       allPluginsPath,
                                       start=False,
                                       )
-    logsAbout, _ = logsearch(msgs=['requesting .* missing transactions after timeout'])
+    log_re_ask, _ = logsearch(msgs=['requesting .* missing transactions after timeout'])
+    old_re_ask_count = len(log_re_ask)
 
     # Delay CatchupRep messages on Alpha
     with delay_rules(rest_nodes[0].nodeIbStasher, cqDelay()):
@@ -69,5 +70,5 @@ def test_catchup_with_one_slow_node(tdir, tconf,
         txnPoolNodeSet[-1] = lagging_node
         looper.run(checkNodesConnected(txnPoolNodeSet))
 
-        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=240)
-        assert len(logsAbout) == 1
+        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=120)
+        assert len(log_re_ask) - old_re_ask_count == 1

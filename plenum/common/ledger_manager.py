@@ -180,6 +180,7 @@ class LedgerManager(HasActionQueue):
         eligible_nodes = [n
                           for n in self.nodes_to_request_txns_from
                           if n not in self.wait_catchup_rep_from]
+        self.wait_catchup_rep_from.clear()
 
         if not eligible_nodes:
             # TODO: What if all nodes are blacklisted so `eligibleNodes`

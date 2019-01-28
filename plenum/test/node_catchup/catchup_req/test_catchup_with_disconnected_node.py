@@ -64,23 +64,13 @@ def test_catchup_with_disconnected_node(tdir, tconf,
     logs_request_txns, _ = logsearch(msgs=['requesting .* missing transactions after timeout'])
     logs_catchup_req, _ = logsearch(
         msgs=['{} sending message CATCHUP_REQ.*{}'.format(restarted_node.name, lagging_node.name)])
+    old_request_txns = len(logs_request_txns)
+    old_catchup_req = len(logs_catchup_req)
 
     looper.add(restarted_node)
     txnPoolNodeSet[-1] = restarted_node
     looper.run(checkNodesConnected([*rest_nodes[:-1], restarted_node]))
 
-    waitNodeDataEquality(looper, *[*rest_nodes[:-1], restarted_node], customTimeout=240)
-    assert len(logs_catchup_req) <= 1
-    assert len(logs_request_txns) <= 1
-
-    # Restart Delta and wait for successful catch up
-    lagging_node = start_stopped_node(lagging_node,
-                                      looper,
-                                      tconf,
-                                      tdir,
-                                      allPluginsPath,
-                                      start=False,
-                                      )
-    looper.add(lagging_node)
-    txnPoolNodeSet[-2] = lagging_node
-    looper.run(checkNodesConnected(txnPoolNodeSet))
+    waitNodeDataEquality(looper, *[*rest_nodes[:-1], restarted_node], customTimeout=120)
+    assert len(logs_catchup_req) - old_catchup_req <= 1
+    assert len(logs_request_txns) - old_request_txns <= 1
