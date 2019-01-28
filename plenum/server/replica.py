@@ -2344,7 +2344,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def enqueue_commit(self, request: Commit, sender: str):
         key = (request.viewNo, request.ppSeqNo)
         self.logger.debug("{} - Queueing commit due to unavailability of PREPARE. "
-                         "Request {} with key {} from {}".format(self, request, key, sender))
+                          "Request {} with key {} from {}".format(self, request, key, sender))
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
