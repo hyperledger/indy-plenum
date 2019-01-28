@@ -11,30 +11,17 @@ class LedgerUncommittedTracker:
         self.un_committed = deque()
 
     def apply_batch(self, state_root, ledger_size):
+        if state_root is None:
+            raise PlenumValueError
+        if (ledger_size is None) or ledger_size <= 0:
+            raise PlenumValueError
 
-        un_committed_state = ()
-
-        if state_root != "":
-            un_committed_state += (state_root,)
-        else:
-            raise PlenumValueError('state_root',
-                                   state_root,
-                                   "No state root given")
-
-        if ledger_size > 0:
-            un_committed_state += (ledger_size,)
-        else:
-            raise PlenumValueError('ledger_size',
-                                   ledger_size,
-                                   "Incorrect size of ledger given")
-
-        self.un_committed.append(un_committed_state)
+        self.un_committed.append((state_root, ledger_size))
 
     def commit_batch(self):
         return self.un_committed.popleft()
 
     def reject_batch(self):
-        if len(self.un_committed) != 0:
-            return self.un_committed.pop()
-        else:
-            raise LogicError("No items to return")
+        if len(self.un_committed) == 0:
+            raise LogicError
+        self.un_committed.pop()
