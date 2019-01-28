@@ -32,18 +32,18 @@ def test_error_with_revert_empty_tracker(make_tracker):
 
 
 def test_apply_batch_success(make_tracker, state_root):
-    assert make_tracker.apply_batch(state_root, random.randint(-99, 0))
+    make_tracker.apply_batch(state_root, random.randint(1, 100))
 
 
 def test_commit_batch_success(make_tracker, state_root):
     test_tuple = ("test_root", 1000)
     make_tracker.apply_batch(test_tuple[0], test_tuple[1])
-    [make_tracker.apply_batch(state_root, i + 1) for i in range(0, 9)]
+    [make_tracker.apply_batch(state_root, i + 1) for i in range(1, 9)]
     assert make_tracker.commit_batch() == test_tuple
 
 
 def test_reject_batch_success(make_tracker):
     test_tuple = ("test_root", 1000)
-    [make_tracker.apply_batch(state_root, i + 1) for i in range(0, 9)]
+    [make_tracker.apply_batch(state_root, i + 1) for i in range(1, 9)]
     make_tracker.apply_batch("test_root", 1000)
     assert make_tracker.reject_batch() == test_tuple
