@@ -177,9 +177,12 @@ class LedgerManager(HasActionQueue):
         catchUpReplies = ledgerInfo.receivedCatchUpReplies
 
         logger.info("{} requesting {} missing transactions after timeout".format(self, num_missing))
+        eligible_nodes = self.nodes_to_request_txns_from
         eligible_nodes = [n
-                          for n in self.nodes_to_request_txns_from
-                          if n not in self.wait_catchup_rep_from]
+                          for n in eligible_nodes
+                          if n not in self.wait_catchup_rep_from] \
+            if not self.wait_catchup_rep_from.issuperset(eligible_nodes) \
+            else eligible_nodes
         self.wait_catchup_rep_from.clear()
 
         if not eligible_nodes:
