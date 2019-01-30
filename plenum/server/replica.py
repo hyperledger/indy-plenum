@@ -259,7 +259,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
         self.validator = ReplicaValidator(self)
-        self.stasher = ReplicaStasher(self, self.config.REPLICA_STASH_LIMIT)
+        self.stasher = ReplicaStasher(self)
 
         self.outBox = deque()
         """
