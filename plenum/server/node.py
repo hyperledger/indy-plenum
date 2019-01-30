@@ -58,7 +58,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
     Primary, RequestAck, RequestNack, Reject, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, Reply, InstanceChange, LedgerStatus, \
+    Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     CurrentState, MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
     ObservedData, FutureViewChangeDone, BackupInstanceFaulty
@@ -564,7 +564,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             ConsistencyProof,
             CatchupReq,
             CatchupRep,
-            ThreePCState,
             MessageReq,
             MessageRep,
             CurrentState,
@@ -584,7 +583,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (Prepare, self.sendToReplica),
             (Commit, self.sendToReplica),
             (Checkpoint, self.sendToReplica),
-            (ThreePCState, self.sendToReplica),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
@@ -901,7 +899,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._cancel(self._check_view_change_completed)
 
-        self.master_replica.on_view_change_done()
+        for replica in self.replicas.values():
+            replica.on_view_change_done()
         last_sent_pp_seq_no_restored = False
         if self.view_changer.propagate_primary:  # TODO VCH
             for replica in self.replicas.values():
@@ -1384,6 +1383,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the maximum number of messages to process
         :return: the sum of messages successfully processed
         """
+        return self._process_replica_messages(limit)
+
+    def _process_replica_messages(self, limit=None):
         inbox_processed = self.replicas.service_inboxes(limit)
         outbox_processed = self.service_replicas_outbox(limit)
         return outbox_processed + inbox_processed
@@ -1880,8 +1882,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: discard or stash messages here instead of doing
         # this in msgHas* methods!!!
         if self.msgHasAcceptableInstId(msg, frm):
-            if self.msgHasAcceptableViewNo(msg, frm):
-                self.replicas.pass_message((msg, frm), msg.instId)
+            self.replicas.pass_message((msg, frm), msg.instId)
 
     def sendToViewChanger(self, msg, frm, from_current_state: bool = False):
         """
@@ -2271,21 +2272,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.num_txns_caught_up_in_last_catchup() == 0:
             self.catchup_rounds_without_txns += 1
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
-        if compare_3PC_keys(self.master_last_ordered_3PC,
-                            last_caught_up_3PC) > 0:
-            for replica in self.replicas.values():
-                if replica.isMaster:
-                    replica.caught_up_till_3pc(last_caught_up_3PC)
-                else:
-                    replica.catchup_clear_for_backup()
-            logger.info('{}{} caught up till {}'
-                        .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
-                        extra={'cli': True})
+        master_last_ordered_3PC = self.master_last_ordered_3PC
+        self.mode = Mode.synced
+        for replica in self.replicas.values():
+            replica.on_catch_up_finished(last_caught_up_3PC,
+                                         master_last_ordered_3PC)
+        logger.info('{}{} caught up till {}'
+                    .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
+                    extra={'cli': True})
+        # Replica's messages should be processed right after unstashing because the node
+        # may not need a new one catchup. But in case with processing 3pc messages in
+        # next looper iteration, new catchup will have already begun and unstashed 3pc
+        # messages will stash again.
+        # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
+        if self.view_change_in_progress:
+            self._process_replica_messages()
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
         self.processStashedOrderedReqs()
-        self.mode = Mode.synced
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic
@@ -2923,8 +2928,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_MASTER, len(self.master_replica.outBox))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_MASTER, len(self.master_replica.inBox))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_MASTER, len(self.master_replica.inBoxStash))
-        self.metrics.add_event(MetricsName.REPLICA_POST_ELECTION_MSGS_MASTER,
-                               len(self.master_replica.postElectionMsgs))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_MASTER,
                                len(self.master_replica.prePreparesPendingFinReqs))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_MASTER,
@@ -2944,7 +2947,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
                                sum_for_values(self.master_replica.stashedRecvdCheckpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
-                               len(self.master_replica.stashingWhileOutsideWaterMarks))
+                               self.master_replica.stasher.num_stashed_watermarks)
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
                                sum_for_values(self.master_replica.requestQueues))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica.batches))
@@ -2960,6 +2963,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_MASTER, len(self.master_replica.aqStash))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_MASTER, len(self.master_replica.repeatingActions))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_MASTER, len(self.master_replica.scheduled))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_MASTER,
+                               self.master_replica.stasher.num_stashed_catchup)
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_MASTER,
+                               self.master_replica.stasher.num_stashed_future_view)
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_MASTER,
+                               self.master_replica.stasher.num_stashed_watermarks)
 
         def sum_for_backups(field):
             return sum(len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
@@ -2971,7 +2980,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_BACKUP, sum_for_backups('inBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_BACKUP, sum_for_backups('inBoxStash'))
-        self.metrics.add_event(MetricsName.REPLICA_POST_ELECTION_MSGS_BACKUP, sum_for_backups('postElectionMsgs'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_BACKUP,
                                sum_for_backups('prePreparesPendingFinReqs'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_BACKUP,
@@ -2991,7 +2999,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
                                sum_for_values_for_backups('stashedRecvdCheckpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
-                               sum_for_backups('stashingWhileOutsideWaterMarks'))
+                               sum(r.stasher.num_stashed_watermarks for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
                                sum_for_values_for_backups('requestQueues'))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups('batches'))
@@ -3005,6 +3013,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_BACKUP, sum_for_backups('aqStash'))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
+
+        # Stashed msgs
+        def sum_stashed_for_backups(field):
+            return sum(getattr(r.stasher, field)
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_BACKUP,
+                               sum_stashed_for_backups('num_stashed_catchup'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_BACKUP,
+                               sum_stashed_for_backups('num_stashed_future_view'))
+        self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_BACKUP,
+                               sum_stashed_for_backups('num_stashed_watermarks'))
 
         def store_rocksdb_metrics(name, storage):
             if not hasattr(storage, '_db'):

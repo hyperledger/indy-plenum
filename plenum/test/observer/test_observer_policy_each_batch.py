@@ -7,8 +7,7 @@ from plenum.common.constants import BATCH, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VE
 from plenum.common.messages.node_messages import BatchCommitted, ObservedData
 from plenum.common.util import get_utc_epoch
 from plenum.server.observer.observer_sync_policy_each_batch import ObserverSyncPolicyEachBatch
-from plenum.test.bls.helper import generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, generate_state_root
 
 
 def create_observed_data(seq_no_start=1, seq_no_end=5):

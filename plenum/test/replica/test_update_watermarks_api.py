@@ -51,7 +51,7 @@ def test_propagate_primary_non_Master_watermarks_not_maxsize_if_is_primary(repli
 def test_catchup_clear_for_backup(replica):
     replica._primaryName = None
     replica.isMaster = False
-    replica.catchup_clear_for_backup()
+    replica._catchup_clear_for_backup()
     assert replica.last_ordered_3pc == (replica.viewNo, 0)
     assert replica.h == 0
     assert replica.H == sys.maxsize

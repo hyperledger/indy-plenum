@@ -11,12 +11,12 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
-from plenum.test.bls.helper import create_prepare, create_pre_prepare_no_bls, create_pre_prepare_params, \
-    generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params, create_pre_prepare_no_bls, \
+    create_prepare, generate_state_root
 from stp_zmq.zstack import ZStack
 
 nodeCount = 4
+
 
 @pytest.fixture()
 def fake_node(tdir, tconf):
@@ -36,7 +36,6 @@ def fake_node(tdir, tconf):
 
 @pytest.fixture(scope="function")
 def fake_replica(replica):
-    replica.node.isParticipating = True
     replica.nonFinalisedReqs = lambda a: []
     replica._bls_bft_replica.validate_pre_prepare = lambda a, b: None
     replica._bls_bft_replica.update_prepare = lambda a, b: a
@@ -62,12 +61,6 @@ def pre_prepare(replica, pool_state_root, fake_state_root_hash, fake_multi_sig, 
         setattr(pre_prepare, f.BLS_MULTI_SIG.nm, fake_multi_sig)
 
     return pp
-
-
-def test_view_change_done(replica):
-    with pytest.raises(LogicError) as excinfo:
-        replica.on_view_change_done()
-    assert "is not a master" in str(excinfo.value)
 
 
 def test_is_next_pre_prepare(replica):
@@ -181,11 +174,13 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(replica):
 
 def test_create_3pc_batch_with_empty_requests(replica):
     def patched_stateRootHash(self, ledger_id, to_str=None):
-        return b"EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
+        return "EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMAZ"
 
     replica.stateRootHash = types.MethodType(patched_stateRootHash, replica)
+    pp = replica.create_3pc_batch(0)
 
-    assert replica.create3PCBatch(0) is None
+    assert pp is not None
+    assert pp.reqIdr == []
 
 
 def test_create_3pc_batch(replica):
@@ -195,11 +190,10 @@ def test_create_3pc_batch(replica):
                                           protocol_version=CURRENT_PROTOCOL_VERSION)
     ledger_id = POOL_LEDGER_ID
     replica.consume_req_queue_for_pre_prepare = \
-        lambda ledger, view_no, pp_seq_no: (requests, [], [],
-                                            replica.get_utc_epoch_for_preprepare(replica.instId, view_no, pp_seq_no))
+        lambda ledger, tm, view_no, pp_seq_no: (requests, [], [])
     replica.stateRootHash = lambda ledger, to_str=False: root_hash[ledger]
 
-    pre_prepare_msg = replica.create3PCBatch(ledger_id)
+    pre_prepare_msg = replica.create_3pc_batch(ledger_id)
 
     assert pre_prepare_msg.poolStateRootHash == root_hash[POOL_LEDGER_ID]
     assert pre_prepare_msg.stateRootHash == root_hash[ledger_id]
@@ -255,6 +249,7 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(fake_replica):
 
     def reportSuspiciousNodeEx(ex):
         assert Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code == ex.code
+
     fake_replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
     pp = create_pre_prepare_no_bls(state_roots[DOMAIN_LEDGER_ID],
@@ -263,24 +258,25 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(fake_replica):
     fake_replica.processPrePrepare(pp, fake_replica.primaryName)
 
 
-
 def test_process_pre_prepare_with_not_final_request(fake_node):
     fake_node.seqNoDB = FakeSomething(get=lambda req: (None, None))
     replica = fake_node.replicas[0]
 
     pp = create_pre_prepare_no_bls(replica.stateRootHash(DOMAIN_LEDGER_ID))
-    replica.nonFinalisedReqs = lambda a: pp.reqIdr
+    replica.nonFinalisedReqs = lambda a: set(pp.reqIdr)
 
     def reportSuspiciousNodeEx(ex):
         assert False, ex
+
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
     def request_propagates(reqs):
-        assert reqs == pp.reqIdr
+        assert reqs == set(pp.reqIdr)
+
     replica.node.request_propagates = request_propagates
 
     replica.processPrePrepare(pp, replica.primaryName)
-    assert (pp, replica.primaryName, pp.reqIdr) in replica.prePreparesPendingFinReqs
+    assert (pp, replica.primaryName, set(pp.reqIdr)) in replica.prePreparesPendingFinReqs
 
 
 def test_process_pre_prepare_with_ordered_request(fake_node):
@@ -292,10 +288,12 @@ def test_process_pre_prepare_with_ordered_request(fake_node):
 
     def reportSuspiciousNodeEx(ex):
         assert ex.code == Suspicions.PPR_WITH_ORDERED_REQUEST.code
+
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
     def request_propagates(reqs):
         assert False, "Requested propagates for: {}".format(reqs)
+
     replica.node.request_propagates = request_propagates
 
     replica.processPrePrepare(pp, replica.primaryName)

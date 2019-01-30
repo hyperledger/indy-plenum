@@ -65,7 +65,13 @@ Create one more ledger (let’s call it Audit), and for each ordered batch make
 a record in it containing:
 - `viewNo` and `ppSeqNo` of last ordered batch
 - dictionary with key `ledger_id` and value `seq_no`
-  - (Optional) Value can also include ledger and state root hash after applying batch
+  - (optional) value can also include ledger and state root hash after applying batch
+- (optional) BLS value(s)
+  - it should contain at least timestamp and some root hashes
+  - simplest option is one BLS value per ledger (which matches current implementation)
+  - better option is one BLS value for all ledgers, so all state root hashes are signed simultaneusly
+  - another option is to have common state root hash across all ledgers
+- (optional) BLS multisignature(s) of _previous_ BLS value(s)
 
 Also each PREPREPARE should include Audit ledger root hash, so that we can be sure
 that Audit ledger is equal across all valid nodes.
@@ -154,3 +160,10 @@ requirement (restore 3PC state). Nevertheless, this doesn't seem as a big proble
   per year
 - which gives a little bit over 12 Mb overhead per year if pool doesn't order anything
 - and if state gets updated every 5 minutes this overhead becomes just 2.5 Mb per year
+
+Also audit ledger looks like good place for storing BLS multisignatures of state root
+hashes, which will provide possibility to audit signatures of every batch committed.
+Main options look like:
+- sign state hashes of each ledger and store all them (actually matches current implementation)
+- sign value that contains state hashes of all ledgers
+- implement common state hash root and sign it
