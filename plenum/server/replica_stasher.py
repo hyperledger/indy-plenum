@@ -6,7 +6,7 @@ from stp_core.common.log import getlogger
 
 
 class ReplicaStasher:
-    MAX_STASHED = 100000
+    MAX_STASHED = 10000
 
     def __init__(self, replica, max_stashed=MAX_STASHED) -> None:
         self.replica = replica
