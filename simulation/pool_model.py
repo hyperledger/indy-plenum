@@ -1,7 +1,7 @@
-from collections import defaultdict
-from typing import NamedTuple, Set, Tuple, List, Optional
+from typing import NamedTuple, Set, List, Optional
 
 from node_model import Quorum, NodeModel, NetworkEvent
+from pool_connections import PoolConnections
 from sim_event_stream import SimEvent, ErrorEvent
 from sim_model import SimModel
 
@@ -10,35 +10,19 @@ OutageEvent = NamedTuple('OutageEvent', [('node_id', int), ('disconnected_ids', 
 CorruptEvent = NamedTuple('CorruptEvent', [('node_id', int)])
 
 
-class PoolConnections:
-    def __init__(self):
-        self._disconnected_till = defaultdict(int)
-
-    def are_connected(self, ts: int, node_ids: Tuple[int, int]):
-        node_ids = self._normalize_ids(node_ids)
-        return ts >= self._disconnected_till[node_ids]
-
-    def disconnect_till(self, ts: int, node_ids: Tuple[int, int]):
-        node_ids = self._normalize_ids(node_ids)
-        ts = max(ts, self._disconnected_till[node_ids])
-        self._disconnected_till[node_ids] = ts
-
-    @staticmethod
-    def _normalize_ids(ids: Tuple[int, int]):
-        if ids[0] > ids[1]:
-            return (ids[1], ids[0])
-        return ids
-
-
 class PoolModel(SimModel):
     def __init__(self, node_count):
         self._message_delay = 1
         self._quorum = Quorum(node_count)
-        self._nodes = {id: NodeModel(id, self._quorum) for id in range(1, node_count + 1)}
         self._connections = PoolConnections()
+        self._nodes = {id: NodeModel(id, self._quorum, self._connections)
+                       for id in range(1, node_count + 1)}
 
     def process(self, draw, event: SimEvent, is_stable: bool) -> List[SimEvent]:
         result = []
+
+        for node in self._nodes.values():
+            node.update_ts(event.timestamp)
 
         if isinstance(event.payload, RestartEvent):
             result.extend(self.process_restart(event.timestamp, event.payload))

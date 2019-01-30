@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import NamedTuple, List, Any
 
+from pool_connections import PoolConnections
+
 
 class Quorum:
     def __init__(self, node_count: int):
@@ -18,15 +20,17 @@ NetworkEvent = NamedTuple('NetworkEvent', [('src', int), ('dst', int), ('payload
 
 
 class NodeModel:
-    def __init__(self, node_id: int, quorum: Quorum):
+    def __init__(self, node_id: int, quorum: Quorum, connections: PoolConnections):
         self._id = node_id
         self._quorum = quorum
+        self._ts = 0
         self._view_no = 0
         self._view_change_in_progress = False
         self._corrupted_id = None
         self._instance_change_id = 0
         self._instance_change = defaultdict(set)
         self._view_change_done = defaultdict(set)
+        self._connections = connections
 
     @property
     def id(self):
@@ -42,7 +46,7 @@ class NodeModel:
 
     @property
     def primary_id(self):
-        return 1 + self.view_no % self._quorum.N
+        return self._primary_id(self.view_no)
 
     @property
     def is_primary(self):
@@ -51,6 +55,19 @@ class NodeModel:
     @property
     def is_corrupted(self):
         return self._corrupted_id == self.id
+
+    def need_view_change(self, view_no=None):
+        if view_no is None:
+            view_no = self.view_no
+        primary_id = self._primary_id(view_no)
+        if primary_id == self._corrupted_id:
+            return True
+        if not self._connections.are_connected(self._ts, (self.id, primary_id)):
+            return True
+        return False
+
+    def update_ts(self, ts: int):
+        self._ts = ts
 
     def restart(self):
         self._instance_change.clear()
@@ -62,11 +79,11 @@ class NodeModel:
             return []
         return self._send_instance_change()
 
-    def corrupt(self, id) -> List[NetworkEvent]:
-        self._corrupted_id = id
-        if self._corrupted_id == self.primary_id:
-            return self._send_instance_change()
-        return []
+    def corrupt(self, node_id: int) -> List[NetworkEvent]:
+        self._corrupted_id = node_id
+        if not self.need_view_change():
+            return []
+        return self._send_instance_change()
 
     def process(self, message: NetworkEvent) -> List[NetworkEvent]:
         result = []
@@ -77,8 +94,15 @@ class NodeModel:
         return result
 
     def process_instance_change(self, src: int, message: InstanceChange) -> List[NetworkEvent]:
-        # if message.id < self._instance_change_id - 1:
-        #     return []
+        result = []
+
+        if message.id < self._instance_change_id - 1:
+            return result
+
+        if message.id > self._instance_change_id - 1 and self.need_view_change(message.view_no - 1):
+            self._instance_change_id = message.id
+            result.extend(self._send_instance_change(message.view_no))
+
         self._instance_change[message].add(src)
         for k, v in self._instance_change.items():
             if k.view_no != self.view_no + 1:
@@ -88,8 +112,10 @@ class NodeModel:
             self._view_no += 1
             self._view_change_in_progress = True
             self._instance_change_id = 0
-            return self._broadcast(ViewChangeDone(view_no=self.view_no))
-        return []
+            result.extend(self._broadcast(ViewChangeDone(view_no=self.view_no)))
+            return result
+
+        return result
 
     def process_view_change_done(self, src: int, message: ViewChangeDone) -> List[NetworkEvent]:
         self._view_change_done[message.view_no].add(src)
@@ -100,13 +126,18 @@ class NodeModel:
                 return self._send_instance_change()
         return []
 
-    def _send_instance_change(self) -> List[NetworkEvent]:
+    def _send_instance_change(self, view_no=None) -> List[NetworkEvent]:
         if self.is_corrupted:
             return []
-        result = self._broadcast(InstanceChange(view_no=self.view_no + 1, id=self._instance_change_id))
+        if view_no is None:
+            view_no = self.view_no + 1
+        result = self._broadcast(InstanceChange(view_no=view_no, id=self._instance_change_id))
         self._instance_change_id += 1
         return result
 
     def _broadcast(self, payload) -> List[NetworkEvent]:
         return [NetworkEvent(src=self.id, dst=id, payload=payload)
                 for id in range(1, self._quorum.N + 1)]
+
+    def _primary_id(self, view_no):
+        return 1 + view_no % self._quorum.N
