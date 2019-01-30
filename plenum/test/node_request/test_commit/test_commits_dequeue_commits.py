@@ -13,13 +13,9 @@ def test_dequeue_and_validate_commits(looper, txnPoolNodeSet,
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     delay = 50
     with delay_rules(slow_node.nodeIbStasher,
-                     ppDelay(delay),
+                     pDelay(delay),
                      msg_rep_delay(delay, [PREPARE, PREPREPARE])):
         with delay_rules(slow_node.nodeIbStasher, ppDelay(delay)):
-            slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
-            slow_node.nodeIbStasher.delay(pDelay(delay, 0))
-            slow_node.nodeIbStasher.delay(msg_rep_delay(delay, [PREPARE,
-                                                                PREPREPARE]))
 
             sdk_send_batches_of_random_and_check(looper,
                                                  txnPoolNodeSet,
