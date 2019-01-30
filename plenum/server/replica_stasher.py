@@ -5,14 +5,22 @@ from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMAR
 from stp_core.common.log import getlogger
 
 
-class ReplicaStasher:
-    MAX_STASHED = 100000
+class StashDeque(deque):
 
-    def __init__(self, replica, max_stashed=MAX_STASHED) -> None:
+    def append(self, x):
+        if self.maxlen is None or len(self) < self.maxlen:
+            super().append(x)
+
+
+class ReplicaStasher:
+
+    def __init__(self, replica, max_stashed=None) -> None:
         self.replica = replica
-        self._stashed_watermarks = deque(maxlen=max_stashed)
-        self._stashed_future_view = deque(maxlen=max_stashed)
-        self._stashed_catch_up = deque(maxlen=max_stashed)
+        if max_stashed is None:
+            max_stashed = replica.config.REPLICA_STASH_LIMIT
+        self._stashed_watermarks = StashDeque(maxlen=max_stashed)
+        self._stashed_future_view = StashDeque(maxlen=max_stashed)
+        self._stashed_catch_up = StashDeque(maxlen=max_stashed)
         self.logger = getlogger()
 
     @property
