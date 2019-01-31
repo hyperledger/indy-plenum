@@ -46,7 +46,9 @@ def fake_replica(replica):
     return replica
 
 
-@pytest.fixture(scope="function", params=[generate_state_root(), None])
+@pytest.fixture(scope="function",
+                params=[generate_state_root(), None],
+                ids=lambda x: 'None' if x is None else 'not_None')
 def pool_state_root(request):
     return request.param
 

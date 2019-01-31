@@ -384,3 +384,6 @@ OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = 7200  # seconds
 
 # It's count of freshness updates for checking Has_write_consensus in validator-info
 ACCEPTABLE_FRESHNESS_INTERVALS_COUNT = 2
+
+# Limit for numbers of 3pc and checkpoint messages stashed in replica
+REPLICA_STASH_LIMIT = 100000

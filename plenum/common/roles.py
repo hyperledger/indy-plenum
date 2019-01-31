@@ -7,6 +7,7 @@ class Roles(Enum):
     #  because that would break backwards compatibility with the ledger
     # Also the numeric constants CANNOT collide with roles in dependent
     # components.
+    IDENTITY_OWNER = None
     TRUSTEE = "0"
     STEWARD = "2"
 
