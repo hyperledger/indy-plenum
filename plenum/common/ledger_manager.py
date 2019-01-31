@@ -60,6 +60,10 @@ class LedgerManager(HasActionQueue):
         # will be applied when they are received through the catchup process
         self.last_caught_up_3PC = (0, 0)
 
+        # Nodes are added in this set when the current node sent a CatchupReq
+        # for them and waits a CatchupRep message.
+        self.wait_catchup_rep_from = set()
+
     def __repr__(self):
         return self.owner.name
 
@@ -173,9 +177,15 @@ class LedgerManager(HasActionQueue):
         catchUpReplies = ledgerInfo.receivedCatchUpReplies
 
         logger.info("{} requesting {} missing transactions after timeout".format(self, num_missing))
-        eligibleNodes = self.nodes_to_request_txns_from
+        eligible_nodes = self.nodes_to_request_txns_from
+        eligible_nodes = [n
+                          for n in eligible_nodes
+                          if n not in self.wait_catchup_rep_from] \
+            if not self.wait_catchup_rep_from.issuperset(eligible_nodes) \
+            else eligible_nodes
+        self.wait_catchup_rep_from.clear()
 
-        if not eligibleNodes:
+        if not eligible_nodes:
             # TODO: What if all nodes are blacklisted so `eligibleNodes`
             # is empty? It will lead to divide by 0. This should not happen
             #  but its happening.
@@ -189,8 +199,8 @@ class LedgerManager(HasActionQueue):
         # the same nodes. This is done to avoid scenario where a node
         # does not reply at all.
         # TODO: Need some way to detect nodes that are not responding.
-        shuffle(eligibleNodes)
-        batchSize = math.ceil(num_missing / len(eligibleNodes))
+        shuffle(eligible_nodes)
+        batchSize = math.ceil(num_missing / len(eligible_nodes))
         cReqs = []
         lastSeenSeqNo = ledger.size
         leftMissing = num_missing
@@ -239,10 +249,10 @@ class LedgerManager(HasActionQueue):
                              .format(CATCH_UP_PREFIX, self, leftMissing,
                                      start, end, lastSeenSeqNo))
 
-        numElgNodes = len(eligibleNodes)
+        numElgNodes = len(eligible_nodes)
         for i, req in enumerate(cReqs):
-            nodeName = eligibleNodes[i % numElgNodes]
-            self.sendTo(req, nodeName)
+            nodeName = eligible_nodes[i % numElgNodes]
+            self.send_catchup_req(req, nodeName)
 
         ledgerInfo.catchupReplyTimer = time.perf_counter()
         timeout = int(self._getCatchupTimeout(len(cReqs), batchSize))
@@ -483,6 +493,8 @@ class LedgerManager(HasActionQueue):
     @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
+        if frm in self.wait_catchup_rep_from:
+            self.wait_catchup_rep_from.remove(frm)
 
         txns = self.canProcessCatchupReply(rep)
         txnsNum = len(txns) if txns else 0
@@ -832,7 +844,7 @@ class LedgerManager(HasActionQueue):
             if eligible_nodes:
                 reqs = self.getCatchupReqs(p)
                 for (req, to) in zip(reqs, eligible_nodes):
-                    self.sendTo(req, to)
+                    self.send_catchup_req(req, to)
                 if reqs:
                     ledgerInfo.catchupReplyTimer = time.perf_counter()
                     batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
@@ -862,6 +874,8 @@ class LedgerManager(HasActionQueue):
         if last_3PC is not None \
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
+
+        self.wait_catchup_rep_from.clear()
 
         if self.postCatchupClbk:
             self.postCatchupClbk(ledgerId, last_3PC)
@@ -1089,6 +1103,10 @@ class LedgerManager(HasActionQueue):
         else:
             self.sendToNodes(msg, [to, ])
 
+    def send_catchup_req(self, msg: CatchupReq, to: str):
+        self.wait_catchup_rep_from.add(to)
+        self.sendTo(msg, to)
+
     @property
     def nodestack(self):
         return self.owner.nodestack
@@ -1117,7 +1135,10 @@ class LedgerManager(HasActionQueue):
 
     @property
     def nodes_to_request_txns_from(self):
-        return [nm for nm in self.nodestack.registry
+        nodes_list = self.nodestack.connecteds \
+            if self.nodestack.connecteds \
+            else self.nodestack.registry
+        return [nm for nm in nodes_list
                 if nm not in self.blacklistedNodes and nm != self.nodestack.name]
 
     def _make_split_for_catchup_rep(self, ledger, initial_seq_no):

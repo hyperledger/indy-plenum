@@ -59,7 +59,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
     # check, that there is no any stashed "outside watermark" messages.
     for r in new_node.replicas.values():
-        assert len(r.stashingWhileOutsideWaterMarks) == 0
+        assert r.stasher.num_stashed_watermarks == 0
 
     """Force view change and check, that all backup replicas setup H as a default
     (not propagate primary logic)"""

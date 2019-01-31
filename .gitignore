@@ -93,7 +93,7 @@ docs/source/api_docs/
 *.log
 
 # Sphinx documentation
-docs/_build/
+_build/
 
 # PyBuilder
 target/
@@ -103,3 +103,5 @@ target/
 
 # Hidden files
 .*
+
+

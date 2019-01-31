@@ -42,7 +42,7 @@ def testNonPrimarySendsAPrePrepare(looper, txnPoolNodeSet, setup, propagated1):
 
     def sendPrePrepareFromNonPrimary():
         firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
-        ppReq = firstNpr.create3PCBatch(DOMAIN_LEDGER_ID)
+        ppReq = firstNpr.create_3pc_batch(DOMAIN_LEDGER_ID)
         firstNpr.sendPrePrepare(ppReq)
         return ppReq
 

@@ -28,7 +28,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         self.metrics = metrics
 
     def _can_process_ledger(self, ledger_id):
-        return ledger_id != POOL_LEDGER_ID
+        # enable BLS for all ledgers
+        return True
 
     # ----VALIDATE----
 
