@@ -36,8 +36,8 @@ class ReplicaStasher:
         return len(self._stashed_watermarks)
 
     def stash(self, msg, reason):
-        self.logger.info("{} stash message '{}' "
-                         "with reason {}".format(self.replica, msg, reason))
+        self.logger.trace("{} stash message '{}' "
+                          "with reason {}".format(self.replica, msg, reason))
         if reason == STASH_CATCH_UP:
             self._stashed_catch_up.append(msg)
         elif reason == STASH_VIEW:
