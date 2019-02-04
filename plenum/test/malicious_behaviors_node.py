@@ -3,7 +3,7 @@ import types
 import common.error
 
 from functools import partial
-from typing import Any
+from typing import Any, Callable
 
 from plenum.server.router import Router
 from plenum.common.types import f
@@ -58,6 +58,23 @@ def dont_send_prepare_and_commit_to(nodes, ignore_node_name):
         node.ignore_node_name = ignore_node_name
         node.old_send = types.MethodType(Node.send, node)
         node.send = types.MethodType(dont_send_prepare_commit, node)
+
+
+def dont_send_propagate(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, (Propagate)):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def dont_send_messages_to(nodes, ignore_node_name, send_func: Callable):
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(send_func, node)
 
 
 def reset_sending(nodes):

@@ -488,6 +488,7 @@ replica_spyables = [
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
     replica.Replica.markCheckPointStable,
+    replica.Replica.request_propagates_if_needed,
 ]
 
 

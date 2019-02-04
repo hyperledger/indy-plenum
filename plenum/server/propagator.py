@@ -319,7 +319,15 @@ class Propagator:
         i = 0
         for digest in req_keys:
             if digest not in self.requested_propagates_for:
-                self.request_msg(PROPAGATE, {f.DIGEST.nm: digest})
+                if digest not in self.requests:
+                    # Request from all nodes
+                    self.request_msg(PROPAGATE, {f.DIGEST.nm: digest})
+                else:
+                    # Request from nodes that didn't send
+                    send_to = [conn for conn in self.nodestack.connecteds if
+                               conn not in self.requests[digest].propagates.keys()]
+                    self.request_msg(PROPAGATE, {f.DIGEST.nm: digest}, frm=send_to)
+
                 self._add_to_recently_requested(digest)
                 i += 1
             else:
