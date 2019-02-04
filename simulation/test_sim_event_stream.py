@@ -15,9 +15,9 @@ def some_sim_events(draw):
     max_interval = draw(st.integers(min_value=min_interval, max_value=100))
     start_ts = draw(st.integers(min_value=-1000, max_value=1000))
     return min_size, max_size, min_interval, max_interval, start_ts, \
-           draw(sim_events(some_event(), min_size=min_size, max_size=max_size,
-                           min_interval=min_interval, max_interval=max_interval,
-                           start_ts=start_ts))
+        draw(sim_events(some_event(), min_size=min_size, max_size=max_size,
+                        min_interval=min_interval, max_interval=max_interval,
+                        start_ts=start_ts))
 
 
 @given(params_and_events=some_sim_events())
@@ -36,6 +36,7 @@ def test_sim_events(params_and_events):
     # Intervals between events should be in defined interval with some tolerance
     assert all(min_interval <= b.timestamp - a.timestamp <= max_interval
                for a, b in zip(events, events[1:]))
+
 
 @st.composite
 def random_event_stream(draw):
