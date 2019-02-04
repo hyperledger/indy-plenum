@@ -70,7 +70,7 @@ class NodeModel:
         self._ts = ts
 
     def restart(self):
-        self._instance_change.clear()
+        # self._instance_change.clear()
         self._view_change_done.clear()
         self._instance_change_id = 0  # Comment to simulate persistence
 
@@ -95,6 +95,9 @@ class NodeModel:
 
     def process_instance_change(self, src: int, message: InstanceChange) -> List[NetworkEvent]:
         result = []
+
+        if message.view_no <= self.view_no:
+            return result
 
         if message.id < self._instance_change_id - 1:
             return result
@@ -132,7 +135,7 @@ class NodeModel:
         if view_no is None:
             view_no = self.view_no + 1
         result = self._broadcast(InstanceChange(view_no=view_no, id=self._instance_change_id))
-        self._instance_change_id += 1
+        # self._instance_change_id += 1
         return result
 
     def _broadcast(self, payload) -> List[NetworkEvent]:
