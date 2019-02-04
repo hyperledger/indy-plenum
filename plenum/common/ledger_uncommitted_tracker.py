@@ -7,11 +7,17 @@ logger = getlogger()
 
 class LedgerUncommittedTracker:
 
-    def __init__(self):
+    def __init__(self, last_committed_hash, ledger_size):
         self.un_committed = deque()
-        self.last_committed = None
+        self.last_committed = (last_committed_hash, ledger_size)
 
     def apply_batch(self, state_root, ledger_size):
+        """
+
+        :param state_root: uncommitted state root
+        :param ledger_size: ledger size, after committing (future ledger size)
+        :return:
+        """
 
         if not state_root:
             raise PlenumValueError('state_root',
@@ -25,12 +31,23 @@ class LedgerUncommittedTracker:
 
         self.un_committed.append((state_root, ledger_size))
 
-    def commit_batch(self):
-        if len(self.un_committed) == 1:
-            self.last_committed = None
-        return self.un_committed.popleft()
+    def commit_batch(self, state_root, ledger_size):
+        """
+
+        :param state_root: committed state root
+        :param ledger_size: committed ledger size
+        :return: tuple of next committed state and count of committed transactions
+        """
+        _, last_committed_size = self.last_committed
+        self.last_committed = (state_root, ledger_size)
+        uncommitted_hash, uncommitted_size = self.un_committed.popleft()
+        return uncommitted_hash, uncommitted_size - last_committed_size
 
     def reject_batch(self):
+        """
+        Return hash reverting for and calculate count of reverted txns
+        :return: root_hash, for reverting to (needed in revertToHead method) and count of reverted txns
+        """
         prev_size = 0
         if len(self.un_committed) == 0:
             raise LogicError("No items to return")
