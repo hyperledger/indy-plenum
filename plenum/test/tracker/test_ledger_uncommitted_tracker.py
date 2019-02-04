@@ -16,6 +16,30 @@ def make_tracker():
     return LedgerUncommittedTracker()
 
 
+def test_reject_batch_errors_when_no_uncommitted(make_tracker):
+    with pytest.raises(LogicError):
+        make_tracker.reject_batch()
+
+
+def test_last_committed_is_equal_when_one_item_uncommitted(make_tracker, state_root):
+    make_tracker.last_committed = ("this_is_a_fake_state_root", 10)
+    last_committed_hash, last_committed_size = make_tracker.last_committed
+    make_tracker.apply_batch(state_root, 5)
+    _, last_uncommitted_size = make_tracker.un_committed[-1]
+    test_tuple = (last_committed_hash, last_uncommitted_size - last_committed_size)
+    assert test_tuple == make_tracker.reject_batch()
+
+
+def test_last_committed_is_equal_when_multiple_items_uncommitted(make_tracker):
+    make_tracker.last_committed = ("this_is_a_fake_state_root", 10)
+    for i in range(10, 45, 5):
+        make_tracker.apply_batch(randomString(32).encode(), i)
+    _, pop_size = make_tracker.un_committed[-1]
+    hash_after_pop, size_after_pop = make_tracker.un_committed[-2]
+    test_tuple = (hash_after_pop, pop_size - size_after_pop)
+    assert test_tuple == make_tracker.reject_batch()
+
+
 def test_error_with_no_state_root_track_uncommitted(make_tracker):
     with pytest.raises(PlenumValueError):
         make_tracker.apply_batch("", 12)
