@@ -10,12 +10,15 @@ from plenum.test.node_request.helper import sdk_ensure_pool_functional
 def tconf(tconf):
     oldMax3PCBatchSize = tconf.Max3PCBatchSize
     oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    oldPropagateRequestDelay = tconf.PROPAGATE_REQUEST_DELAY
     tconf.Max3PCBatchSize = 5
     tconf.Max3PCBatchWait = 2
+    tconf.PROPAGATE_REQUEST_DELAY = 0
     yield tconf
 
     tconf.Max3PCBatchSize = oldMax3PCBatchSize
     tconf.Max3PCBatchWait = oldMax3PCBatchWait
+    tconf.PROPAGATE_REQUEST_DELAY = oldPropagateRequestDelay
 
 
 @pytest.fixture(scope='function', params=['client_requests',

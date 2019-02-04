@@ -1,6 +1,7 @@
 import time
 from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
+from functools import partial
 from hashlib import sha256
 from typing import List, Dict, Optional, Any, Set, Tuple, Callable
 
@@ -1134,7 +1135,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # present and sufficient PREPAREs and PRE-PREPARE are present,
             # then the digest can be compared but this is expensive as the
             # PREPARE and PRE-PREPARE contain a combined digest
-            self.node.request_propagates(bad_reqs)
+            self._schedule(partial(self.request_propagates_if_needed, bad_reqs, pre_prepare),
+                           self.config.PROPAGATE_REQUEST_DELAY)
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
@@ -2776,6 +2778,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     return last_timestamp
         return None
 
-    def get_ledgers_last_update_time(self)->dict:
+    def get_ledgers_last_update_time(self) -> dict:
         if self._freshness_checker:
             return self._freshness_checker.get_last_update_time()
+
+    def request_propagates_if_needed(self, bad_reqs, pre_prepare):
+        if any(pre_prepare is pended[0] for pended in self.prePreparesPendingFinReqs):
+            self.node.request_propagates(bad_reqs)
