@@ -29,10 +29,10 @@ def test_node_request_propagates_with_delay(looper, setup, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               sent_reqs)
-    looper.runFor(delay / 2)
-    assert get_count(
-        faulty_node, faulty_node.processPropagate) == old_count_recv_ppg
+    # "delay / 4" let us avoid intermittent cases
+    looper.runFor(delay / 2 + delay / 4)
+    assert get_count(faulty_node, faulty_node.processPropagate) == old_count_recv_ppg
 
-    looper.runFor(delay / 2)
-    assert get_count(
-        faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
+    looper.runFor(delay / 2 + delay / 4)
+    propagates_count = len(txnPoolNodeSet) - 1
+    assert get_count(faulty_node, faulty_node.processPropagate) == old_count_recv_ppg + sent_reqs * propagates_count
