@@ -13,8 +13,8 @@ def setup(txnPoolNodeSet):
     return faulty_node
 
 
-def test_node_request_propagates(looper, setup, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle, tconf):
+def test_node_request_propagates_with_delay(looper, setup, txnPoolNodeSet,
+                                            sdk_wallet_client, sdk_pool_handle, tconf):
     """
     One of node lacks sufficient propagates
     """
