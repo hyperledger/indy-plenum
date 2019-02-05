@@ -133,3 +133,7 @@ def check_uncommitteds_equal(nodes):
     assert check_if_all_equal_in_list(t_roots)
     assert check_if_all_equal_in_list(s_roots)
     return t_roots[0], s_roots[0]
+
+
+def node_caughtup(node, old_count):
+    assert node.spylog.count(node.allLedgersCaughtUp) > old_count

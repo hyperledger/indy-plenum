@@ -496,6 +496,15 @@ def get_utc_epoch() -> int:
     return int(get_utc_datetime().timestamp())
 
 
+def get_datetime_from_ts(ts):
+    """
+
+    :param ts: timestamp
+    :return: datetime in UTC
+    """
+    return datetime.fromtimestamp(ts, dateutil.tz.tzutc())
+
+
 def lxor(a, b):
     # Logical xor of 2 items, return true when one of them is truthy and
     # one of them falsy

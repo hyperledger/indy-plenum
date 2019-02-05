@@ -25,7 +25,7 @@ def test_primary_selection_non_genesis_node(sdk_one_node_added, looper,
 @pytest.fixture(scope='module')
 def two_more_nodes_added(sdk_one_node_added, looper, txnPoolNodeSet,
                          sdk_pool_handle, sdk_wallet_steward,
-                         tdir, client_tdir, tconf, allPluginsPath):
+                         tdir, tconf, allPluginsPath):
     # check_accepted_view_change_sent(one_node_added, txnPoolNodeSet)
 
     new_nodes = sdk_add_2_nodes(looper, txnPoolNodeSet, sdk_pool_handle,

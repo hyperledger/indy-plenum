@@ -31,16 +31,16 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
     lagging_node.nodeIbStasher.delay(vcd_delay(delay_ic))
     logger.debug('{} will delay its view change'.format(lagging_node))
 
-    def chk_fut_view(view_no, is_empty):
-        length = len(lagging_node.msgsForFutureViews.get(view_no, ()))
+    def chk_fut_view(is_empty):
+        num_stashed = lagging_node.master_replica.stasher.num_stashed_future_view
         if is_empty:
-            assert length == 0
+            assert num_stashed == 0
         else:
-            assert length > 0
-        return length
+            assert num_stashed > 0
+        return num_stashed
 
     # No messages queued for future view
-    chk_fut_view(old_view_no + 1, is_empty=True)
+    chk_fut_view(is_empty=True)
     logger.debug('{} does not have any messages for future views'
                  .format(lagging_node))
 
@@ -52,7 +52,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
     # send more requests that will be queued for the lagged node
     reqs = sdk_send_random_requests(looper, sdk_pool_handle,
                                     sdk_wallet_client, 5)
-    l = looper.run(eventually(chk_fut_view, old_view_no + 1, False,
+    l = looper.run(eventually(chk_fut_view, False,
                               retryWait=1))
     logger.debug('{} has {} messages for future views'
                  .format(lagging_node, l))
@@ -62,7 +62,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
     lagging_node.reset_delays_and_process_delayeds()
 
     # Eventually no messages queued for future view
-    looper.run(eventually(chk_fut_view, old_view_no + 1, True,
+    looper.run(eventually(chk_fut_view, True,
                           retryWait=1, timeout=delay_ic + 10))
     logger.debug('{} exhausted pending messages for future views'
                  .format(lagging_node))

@@ -200,15 +200,6 @@ class Checkpoint(MessageBase):
     )
 
 
-class ThreePCState(MessageBase):
-    typename = THREE_PC_STATE
-    schema = (
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.MSGS.nm, IterableField(ClientMessageValidator(
-            operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
-    )
-
-
 # TODO implement actual rules
 class CheckpointState(MessageBase):
     typename = CHECKPOINT_STATE

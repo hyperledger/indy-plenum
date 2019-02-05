@@ -9,8 +9,7 @@ CHK_FREQ = 5
 def test_upper_bound_of_checkpoint_after_catchup_is_divisible_by_chk_freq(
         chkFreqPatched, looper, txnPoolNodeSet,
         sdk_pool_handle, sdk_wallet_steward, sdk_wallet_client, tdir,
-        client_tdir, tconf,
-        allPluginsPath):
+        tconf, allPluginsPath):
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 4)
 

@@ -7,8 +7,7 @@ from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     PrePrepare, Prepare, Propagate, Commit
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
-from plenum.test.bls.helper import init_discarded
-from plenum.test.helper import countDiscarded
+from plenum.test.helper import countDiscarded, init_discarded
 from stp_core.loop.eventually import eventually
 
 invalid_type_discard_log = "unknown value 'invalid_type'"

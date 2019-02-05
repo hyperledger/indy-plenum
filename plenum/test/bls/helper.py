@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import base58
 import os
 
@@ -8,13 +10,12 @@ from plenum.common.txn_util import get_type, reqToTxn
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from state.pruning_state import PruningState
-from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer, invalid_index_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, TXN_TYPE, MULTI_SIGNATURE, \
+from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
+from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
-from plenum.common.messages.node_messages import Commit, Prepare, PrePrepare
-from plenum.common.util import get_utc_epoch, randomString, hexToFriendly
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.common.util import hexToFriendly
+from plenum.test.helper import sdk_send_random_and_check, create_commit_bls_sig
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
@@ -22,6 +23,19 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node, \
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+
+@contextmanager
+def update_validate_bls_signature_without_key_proof(txnPoolNodeSet, value):
+    default_param = {}
+    for n in txnPoolNodeSet:
+        config = n.bls_bft.bls_key_register._pool_manager.config
+        default_param[n.name] = config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF
+        config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = value
+    yield value
+    for n in txnPoolNodeSet:
+        n.bls_bft.bls_key_register._pool_manager. \
+            config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = default_param[n.name]
 
 
 def generate_state_root():
@@ -101,94 +115,14 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     return creator._calculate_multi_sig(key, pre_prepare)
 
 
-def init_discarded(value=None):
-    """init discarded field with value and return message like representation"""
-    discarded = []
-    if value:
-        discarded.append(value)
-    return invalid_index_serializer.serialize(discarded, toBytes=False)
-
-
-def create_pre_prepare_params(state_root,
-                              ledger_id=DOMAIN_LEDGER_ID,
-                              txn_root=None,
-                              timestamp=None,
-                              bls_multi_sig=None,
-                              view_no=0,
-                              pool_state_root=None):
-    params = [0,
-              view_no,
-              0,
-              timestamp or get_utc_epoch(),
-              ["random request digest"],
-              init_discarded(0),
-              "random digest",
-              ledger_id,
-              state_root,
-              txn_root or '1' * 32,
-              0,
-              True]
-    if pool_state_root is not None:
-        params.append(pool_state_root)
-    if bls_multi_sig:
-        params.append(bls_multi_sig.as_list())
-    return params
-
-
-def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None):
-    params = create_pre_prepare_params(state_root=state_root,
-                                       view_no=view_no,
-                                       pool_state_root=pool_state_root)
-    return PrePrepare(*params)
-
-
-def create_commit_params(view_no, pp_seq_no):
-    return [0, view_no, pp_seq_no]
-
-
-def create_commit_no_bls_sig(req_key):
-    view_no, pp_seq_no = req_key
-    params = create_commit_params(view_no, pp_seq_no)
-    return Commit(*params)
-
-
-def create_commit_with_bls_sig(req_key, bls_sig):
-    view_no, pp_seq_no = req_key
-    params = create_commit_params(view_no, pp_seq_no)
-    params.append(bls_sig)
-    return Commit(*params)
-
-
-def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
-    view_no, pp_seq_no = req_key
-    params = create_commit_params(view_no, pp_seq_no)
-    params = bls_bft.update_commit(params, pre_prepare)
-    return Commit(*params)
-
-
-def create_prepare_params(view_no, pp_seq_no, state_root):
-    return [0,
-            view_no,
-            pp_seq_no,
-            get_utc_epoch(),
-            "random digest",
-            state_root,
-            '1' * 32]
-
-
-def create_prepare(req_key, state_root):
-    view_no, pp_seq_no = req_key
-    params = create_prepare_params(view_no, pp_seq_no, state_root)
-    return Prepare(*params)
-
-
 def sdk_change_bls_key(looper, txnPoolNodeSet,
                        node,
                        sdk_pool_handle,
                        sdk_wallet_steward,
                        add_wrong=False,
                        new_bls=None,
-                       new_key_proof=None):
+                       new_key_proof=None,
+                       check_functional=True):
     if add_wrong:
         _, new_blspk, key_proof = create_default_bls_crypto_factory().generate_bls_keys()
     else:
@@ -208,7 +142,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    if check_functional:
+        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 
@@ -272,6 +207,7 @@ def validate_proof_for_read(result, req):
                                             proof_nodes,
                                             serialized=True)
     return valid
+
 
 def validate_proof_for_write(result):
     """
@@ -339,6 +275,26 @@ def validate_multi_signature(state_proof, txnPoolNodeSet):
     return _multi_sig_verifier.verify_multi_sig(signature,
                                                 value,
                                                 public_keys)
+
+
+def update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet):
+    node = txnPoolNodeSet[node_index]
+    sdk_wallet_steward = sdk_wallet_stewards[node_index]
+    new_blspk, key_proof = init_bls_keys(node.keys_dir, node.name)
+    node_dest = hexToFriendly(node.nodestack.verhex)
+    sdk_send_update_node(looper, sdk_wallet_steward,
+                         sdk_pool_handle,
+                         node_dest, node.name,
+                         None, None,
+                         None, None,
+                         bls_key=new_blspk,
+                         services=None,
+                         key_proof=None)
+    poolSetExceptOne = list(txnPoolNodeSet)
+    poolSetExceptOne.remove(node)
+    waitNodeDataEquality(looper, node, *poolSetExceptOne)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return new_blspk
 
 
 def _create_multi_sig_verifier() -> BlsCryptoVerifier:

@@ -12,8 +12,11 @@ from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
 
+import base58
 import pytest
 from indy.pool import set_protocol_version
+
+from common.serializers.serialization import invalid_index_serializer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
@@ -110,11 +113,6 @@ def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):
 
 
 # noinspection PyIncorrectDocstring
-
-
-def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
-    return [item[0] for item in replica.postElectionMsgs if
-            isinstance(item[0], requestType)]
 
 
 def assertLength(collection: Iterable[Any], expectedLength: int):
@@ -473,6 +471,21 @@ def check_last_ordered_3pc(node1, node2):
         "{} != {}".format(master_replica_1.last_ordered_3pc,
                           master_replica_2.last_ordered_3pc)
     return master_replica_1.last_ordered_3pc
+
+
+def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
+    for n in nodes:
+        for r in n.replicas.values():
+            assert r.last_ordered_3pc == last_ordered_3pc, \
+                "{} != {}".format(r.last_ordered_3pc,
+                                  last_ordered_3pc)
+
+
+def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
+    for n in nodes:
+        assert n.master_replica.last_ordered_3pc == last_ordered_3pc, \
+            "{} != {}".format(n.master_replica.last_ordered_3pc,
+                              last_ordered_3pc)
 
 
 def randomText(size):
@@ -1021,6 +1034,18 @@ def max_3pc_batch_limits(tconf, size, wait=10000):
     tconf.Max3PCBatchSize = old_size
     tconf.Max3PCBatchWait = old_wait
 
+
+@contextmanager
+def freshness(tconf, enabled, timeout):
+    old_update_state = tconf.UPDATE_STATE_FRESHNESS
+    old_timeout = tconf.STATE_FRESHNESS_UPDATE_INTERVAL
+    tconf.UPDATE_STATE_FRESHNESS = enabled
+    tconf.STATE_FRESHNESS_UPDATE_INTERVAL = timeout
+    yield tconf
+    tconf.UPDATE_STATE_FRESHNESS = old_update_state
+    tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_timeout
+
+
 @contextmanager
 def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
     old_timeout = tconf.ACC_MONITOR_TIMEOUT
@@ -1035,6 +1060,104 @@ def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_moni
     tconf.ACC_MONITOR_TIMEOUT = old_timeout
     tconf.ACC_MONITOR_TXN_DELTA_K = old_delta
     tconf.ACC_MONITOR_ENABLED = old_acc_monitor_enabled
+
+
+def create_pre_prepare_params(state_root,
+                              ledger_id=DOMAIN_LEDGER_ID,
+                              txn_root=None,
+                              timestamp=None,
+                              bls_multi_sig=None,
+                              view_no=0,
+                              pool_state_root=None,
+                              pp_seq_no=0,
+                              inst_id=0):
+    params = [inst_id,
+              view_no,
+              pp_seq_no,
+              timestamp or get_utc_epoch(),
+              ["random request digest"],
+              init_discarded(0),
+              "random digest",
+              ledger_id,
+              state_root,
+              txn_root or '1' * 32,
+              0,
+              True]
+    if pool_state_root is not None:
+        params.append(pool_state_root)
+    if bls_multi_sig:
+        params.append(bls_multi_sig.as_list())
+    return params
+
+
+def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0):
+    params = create_pre_prepare_params(state_root=state_root,
+                                       view_no=view_no,
+                                       pool_state_root=pool_state_root,
+                                       pp_seq_no=pp_seq_no,
+                                       inst_id=inst_id)
+    return PrePrepare(*params)
+
+
+def create_commit_params(view_no, pp_seq_no, inst_id=0):
+    return [inst_id, view_no, pp_seq_no]
+
+
+def create_commit_no_bls_sig(req_key, inst_id=0):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no, inst_id=inst_id)
+    return Commit(*params)
+
+
+def create_commit_with_bls_sig(req_key, bls_sig):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params.append(bls_sig)
+    return Commit(*params)
+
+
+def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params = bls_bft.update_commit(params, pre_prepare)
+    return Commit(*params)
+
+
+def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
+    return [inst_id,
+            view_no,
+            pp_seq_no,
+            get_utc_epoch(),
+            "random digest",
+            state_root,
+            '1' * 32]
+
+
+def create_prepare(req_key, state_root, inst_id=0):
+    view_no, pp_seq_no = req_key
+    params = create_prepare_params(view_no, pp_seq_no, state_root, inst_id=inst_id)
+    return Prepare(*params)
+
+
+def generate_state_root():
+    return base58.b58encode(os.urandom(32)).decode("utf-8")
+
+
+def init_discarded(value=None):
+    """init discarded field with value and return message like representation"""
+    discarded = []
+    if value:
+        discarded.append(value)
+    return invalid_index_serializer.serialize(discarded, toBytes=False)
+
+
+def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
+    pre_prepare = 1  # Message from Primary
+    prepares = nodes_count - 2  # Messages from all nodes exclude primary and self node
+    commits = nodes_count - 1  # Messages from all nodes exclude  self node
+    # The primary node receives the same number of messages. Doesn't get pre-prepare,
+    # but gets one more prepare
+    return pre_prepare + prepares + commits
 
 
 class MockTimestamp:

@@ -1,4 +1,7 @@
 import pytest
+
+from plenum.common.config_helper import PNodeConfigHelper
+from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
 
 from plenum.common.metrics_collector import MetricsName
@@ -7,20 +10,12 @@ from plenum.test.helper import sdk_send_random_and_check
 
 from plenum.common.txn_util import get_type, get_payload_data
 
-from plenum.common.constants import TARGET_NYM, NODE, CLIENT_STACK_SUFFIX, DATA, ALIAS, SERVICES
+from plenum.common.constants import TARGET_NYM, NODE, \
+    CLIENT_STACK_SUFFIX, DATA, ALIAS, SERVICES, VALIDATOR, TXN_PAYLOAD
 from plenum.test.pool_transactions.helper import demote_node
 
 nodeCount = 7
 nodes_wth_bls = 0
-
-
-@pytest.fixture()
-def pool_node_txns(poolTxnData):
-    node_txns = []
-    for txn in poolTxnData["txns"]:
-        if get_type(txn) == NODE:
-            node_txns.append(txn)
-    return node_txns
 
 
 def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,

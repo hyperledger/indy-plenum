@@ -22,7 +22,7 @@ from stp_core.types import HA
 
 
 class NewTestNode(TestNode):
-    def getConfigReqHandler(self):
+    def init_config_req_handler(self):
         return TestConfigReqHandler(self.configLedger,
                                     self.states[CONFIG_LEDGER_ID])
 

@@ -229,7 +229,9 @@ overriddenConfigValues = {
     "VIEW_CHANGE_TIMEOUT": 60,
     "MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE": 15,
     "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60,
-    "ToleratePrimaryDisconnection": 2
+    "ToleratePrimaryDisconnection": 2,
+    "UPDATE_STATE_FRESHNESS": True,
+
 }
 
 
@@ -338,26 +340,6 @@ def tdir(tmpdir_factory):
 def tdir_for_func(tmpdir_factory):
     tempdir = _tdir(tmpdir_factory)
     logging.debug("function-level temporary directory: {}".format(tempdir))
-    return tempdir
-
-
-def _client_tdir(temp_dir):
-    path = os.path.join(temp_dir, "home", "testuser")
-    os.makedirs(path)
-    return path
-
-
-@pytest.fixture(scope='module')
-def client_tdir(tdir):
-    tempdir = _client_tdir(tdir)
-    logger.debug("module-level client temporary directory: {}".format(tempdir))
-    return tempdir
-
-
-@pytest.fixture(scope='function')
-def client_tdir_for_func(tdir_for_func):
-    tempdir = _client_tdir(tdir_for_func)
-    logger.debug("function-level client temporary directory: {}".format(tempdir))
     return tempdir
 
 
@@ -684,26 +666,6 @@ def tdirWithPoolTxns(config_helper_class, poolTxnData, tdir, tconf):
             ledger.add(item)
     ledger.stop()
     return config_helper.genesis_dir
-
-
-@pytest.fixture(scope="module")
-def client_ledger_dir(client_tdir):
-    return client_tdir
-
-
-@pytest.fixture(scope="module")
-def tdirWithClientPoolTxns(poolTxnData, client_ledger_dir):
-    import getpass
-    logging.debug("current user when creating new pool txn file for client: {}".
-                  format(getpass.getuser()))
-
-    ledger = create_genesis_txn_init_ledger(client_ledger_dir, plenum_config.poolTransactionsFile)
-
-    for item in poolTxnData["txns"]:
-        if get_type(item) == NODE:
-            ledger.add(item)
-    ledger.stop()
-    return client_ledger_dir
 
 
 @pytest.fixture(scope="module")

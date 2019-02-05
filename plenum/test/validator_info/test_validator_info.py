@@ -132,6 +132,10 @@ def test_node_info_section(info, node):
     # assert info['Node_info']['Catchup_status']['Received_LedgerStatus']
     assert info['Node_info']['Catchup_status']['Waiting_consistency_proof_msgs']
     assert len(info['Node_info']['Catchup_status']['Waiting_consistency_proof_msgs']) == 3
+    assert "Freshness_status" in info['Node_info']
+    for idx, fs in info['Node_info']['Freshness_status'].items():
+        assert 'Last_updated_time' in fs
+        assert 'Has_write_consensus' in fs
     assert info['Node_info']['Count_of_replicas']
     # TODO uncomment this, when this field would be implemented
     # assert info['Node_info']['Last N pool ledger txns']
@@ -151,6 +155,9 @@ def test_node_info_section(info, node):
     assert 'View_No'        in info['Node_info']['View_change_status']
     assert 'Last_complete_view_no' in info['Node_info']['View_change_status']
     assert 'Last_view_change_started_at' in info['Node_info']['View_change_status']
+    assert info['Node_info']['Requests_timeouts']
+    assert 'Propagates_phase_req_timeouts' in info['Node_info']['Requests_timeouts']
+    assert 'Ordering_phase_req_timeouts' in info['Node_info']['Requests_timeouts']
 
 
 def test_pool_info_section(info):

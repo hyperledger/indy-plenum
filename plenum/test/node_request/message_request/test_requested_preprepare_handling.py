@@ -49,7 +49,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
                              slow_master_replica.process_requested_pre_prepare)
 
     count_pr_tpc = get_count(slow_master_replica,
-                             slow_master_replica.processThreePhaseMsg)
+                             slow_master_replica.process_three_phase_msg)
 
     primary_node.sendToNodes(MessageRep(**{
         f.MSG_TYPE.nm: PREPREPARE,
@@ -69,6 +69,6 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
             slow_master_replica.process_requested_pre_prepare) > count_pr_req
         assert get_count(
             slow_master_replica,
-            slow_master_replica.processThreePhaseMsg) == count_pr_tpc
+            slow_master_replica.process_three_phase_msg) == count_pr_tpc
 
     looper.run(eventually(chk, retryWait=1))
