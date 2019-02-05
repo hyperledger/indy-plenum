@@ -47,6 +47,8 @@ class Replicas:
                                description),
                        extra={"tags": ["node-replica"]})
 
+        self._monitor.reset()
+
     def remove_replica(self, inst_id: int):
         if inst_id not in self._replicas:
             return
