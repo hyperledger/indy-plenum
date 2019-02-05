@@ -22,7 +22,8 @@ logger = getlogger()
 
 def start_stopped_node(stopped_node, looper, tconf,
                        tdir, allPluginsPath,
-                       delay_instance_change_msgs=True):
+                       delay_instance_change_msgs=True,
+                       start=True):
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
@@ -32,7 +33,8 @@ def start_stopped_node(stopped_node, looper, tconf,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
-    looper.add(restarted_node)
+    if start:
+        looper.add(restarted_node)
     return restarted_node
 
 

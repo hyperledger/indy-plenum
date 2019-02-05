@@ -1,3 +1,4 @@
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.txn_util import get_req_id, get_from, get_txn_time, get_payload_data
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -31,7 +32,7 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
-    req_handler = node_to_disconnect.getDomainReqHandler()
+    req_handler = node_to_disconnect.get_req_handler(DOMAIN_LEDGER_ID)
     for reply in sdk_replies:
         key = req_handler.prepare_buy_key(get_from(reply[1]['result']),
                                            get_req_id(reply[1]['result']))

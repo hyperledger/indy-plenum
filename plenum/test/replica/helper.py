@@ -5,10 +5,8 @@ from plenum.test.helper import sdk_random_request_objects
 
 
 def emulate_catchup(replica, ppSeqNo=100):
-    if replica.isMaster:
-        replica.caught_up_till_3pc((replica.viewNo, ppSeqNo))
-    else:
-        replica.catchup_clear_for_backup()
+    replica.on_catch_up_finished(last_caught_up_3PC=(replica.viewNo, ppSeqNo),
+                                 master_last_ordered_3PC=replica.last_ordered_3pc)
 
 
 def emulate_select_primaries(replica):
@@ -25,5 +23,5 @@ def create_preprepare(replica, sdk_wallet_steward, req_count):
         replica.requests.add(req)
         replica.requests.set_finalised(req)
     replica.last_accepted_pre_prepare_time = int(time.time())
-    pp = replica.create3PCBatch(DOMAIN_LEDGER_ID)
+    pp = replica.create_3pc_batch(DOMAIN_LEDGER_ID)
     return reqs, pp

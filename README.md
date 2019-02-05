@@ -19,9 +19,11 @@ system, whereas Fabric is general purpose.
 
 ## Technical Overview of Indy Plenum
 
-Please find the general overview of the system in [Overview of the system](docs/main.md).
+Refer to our documentation site at https://indy.readthedocs.io/projects/plenum/en/latest/index.html for the most current documentation and walkthroughs. 
 
-Plenum's consensus protocol which is based on [RBFT](https://pakupaku.me/plaublin/rbft/5000a297.pdf) is described in [consensus protocol diagram](docs/diagrams/consensus-protocol.png).
+Please find the general overview of the system in [Overview of the system](docs/source/main.md).
+
+Plenum's consensus protocol which is based on [RBFT](https://pakupaku.me/plaublin/rbft/5000a297.pdf) is described in [consensus protocol diagram](docs/source/diagrams/consensus-protocol.png).
 
 More documentation can be found in [docs](docs).
 

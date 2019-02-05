@@ -111,8 +111,8 @@ def test_metrics_collector_measures_time():
         with mc.measure_time(TIMING_METRIC_NAME):
             time.sleep(TIMING_FUNC_DURATION)
 
-    # We want at least 0.5 ms precision and no more than 1 ms overhead
-    check_precision(mc, f, minimum_precision=0.0005, maximum_overhead=0.001)
+    # We want at least 1 ms precision and no more than 1 ms overhead
+    check_precision(mc, f, minimum_precision=0.001, maximum_overhead=0.001)
 
 
 def test_measure_time_decorator():
@@ -128,10 +128,10 @@ def test_measure_time_decorator():
             time.sleep(TIMING_FUNC_DURATION)
             return self.data + a + b
 
-    # We want at least 0.5 ms precision and no more than 1 ms overhead
+    # We want at least 1 ms precision and no more than 1 ms overhead
     e = Example(mc)
     check_precision(mc, lambda: e.slow_add(1, 3),
-                    minimum_precision=0.0005, maximum_overhead=0.001)
+                    minimum_precision=0.001, maximum_overhead=0.001)
 
     # Check that decorated function works correctly
     e = Example(mc)

@@ -9,7 +9,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
     sdk_add_new_steward_and_node, sdk_pool_refresh, \
-    update_node_data_and_reconnect
+    update_node_data_and_reconnect, demote_node
 from plenum.test.test_node import checkNodesConnected
 
 from stp_core.common.log import getlogger
@@ -64,7 +64,7 @@ def testNodePortChanged(looper, txnPoolNodeSet,
                         sdk_node_theta_added,
                         tdir, tconf):
     """
-    An running node's port is changed
+    A running node's port is changed
     """
     new_steward_wallet, new_node = sdk_node_theta_added
 

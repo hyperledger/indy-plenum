@@ -83,6 +83,8 @@ class RequestTimeTracker:
         self._unordered.add(key)
 
     def order(self, instId, key, timestamp):
+        if key not in self._requests:
+            return 0
         req = self._requests[key]
         tto = timestamp - req.timestamp
         req.order(instId)
@@ -94,8 +96,9 @@ class RequestTimeTracker:
         return tto
 
     def handle(self, key):
-        self._requests[key].handled = True
-        self._handled_unordered.add(key)
+        if key in self._requests:
+            self._requests[key].handled = True
+            self._handled_unordered.add(key)
 
     def reset(self):
         self._requests.clear()
@@ -118,12 +121,16 @@ class RequestTimeTracker:
     def remove_instance(self, instId):
         for req in self._requests.values():
             req.remove_instance(instId)
-        reqs_to_del = [key for key, req in self._requests.items() if req.is_ordered_by_all]
-        for req in reqs_to_del:
-            del self._requests[req]
-            self._unordered.discard(req)
-            self._handled_unordered.discard(req)
+        keys_to_del = [key for key, req in self._requests.items() if req.is_ordered_by_all]
+        for key in keys_to_del:
+            self.force_req_drop(key)
         self.instances_ids.remove(instId)
+
+    def force_req_drop(self, key):
+        if key in self._requests:
+            del self._requests[key]
+        self._unordered.discard(key)
+        self._handled_unordered.discard(key)
 
 
 class Monitor(HasActionQueue, PluginLoaderHelper):
@@ -193,8 +200,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.totalRequests = 0
 
         self.started = datetime.utcnow().isoformat()
-
-        self.orderedRequestsInLast = []
 
         # attention: handlers will work over unordered request only once
         self.unordered_requests_handlers = []  # type: List[Callable]
@@ -368,12 +373,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                             .format(key, self.name, instId, now - started))
             duration = self.requestTracker.order(instId, key, now)
             self.throughputs[instId].add_request(now)
-            if byMaster:
-                # TODO for now, view_change procedure can take more that 15 minutes
-                # (5 minutes for catchup and 10 minutes for primary's answer).
-                # Therefore, view_change triggering by max latency is not indicative now.
-                # self.masterReqLatencies[key] = duration
-                self.orderedRequestsInLast.append(now)
 
             if key in requests:
                 identifier = requests[key].request.identifier

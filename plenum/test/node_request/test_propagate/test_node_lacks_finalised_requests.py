@@ -1,5 +1,6 @@
 import pytest
 from plenum.test.delayers import ppgDelay, req_delay
+from plenum.test.node_request.test_propagate.helper import sum_of_request_propagates
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.helper import sdk_send_random_and_check
@@ -39,7 +40,7 @@ def setup(request, txnPoolNodeSet):
 
 
 def test_node_request_propagates(looper, setup, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle):
+                                 sdk_wallet_client, sdk_pool_handle, tconf):
     """
     One of node lacks sufficient propagates
     """
@@ -47,14 +48,13 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
 
     old_count_recv_ppg = get_count(faulty_node, faulty_node.processPropagate)
     old_count_recv_req = get_count(faulty_node, faulty_node.processRequest)
-    old_count_request_propagates = get_count(
-        faulty_node, faulty_node.request_propagates)
 
     def sum_of_sent_batches():
         return faulty_node.replicas[0].lastPrePrepareSeqNo + \
                faulty_node.replicas[1].lastPrePrepareSeqNo
 
     old_sum_of_sent_batches = sum_of_sent_batches()
+    old_count_request_propagates = sum_of_request_propagates(faulty_node)
 
     sent_reqs = 5
     sdk_send_random_and_check(looper,
@@ -62,6 +62,7 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               sent_reqs)
+    looper.runFor(tconf.PROPAGATE_REQUEST_DELAY)
 
     assert get_count(
         faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
@@ -75,18 +76,9 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     # Attempt to request PROPAGATEs was made as many number of times as the
     # number of sent batches in both replicas since both replicas
     # independently request PROPAGATEs
-    assert get_count(faulty_node, faulty_node.request_propagates) - \
+    assert sum_of_request_propagates(faulty_node) - \
            old_count_request_propagates == (sum_of_sent_batches() -
                                             old_sum_of_sent_batches)
-
-    requested_propagate_counts = getAllReturnVals(
-        faulty_node, faulty_node.request_propagates)
-
-    # The last attempt to request PROPAGATEs was not successful
-    assert requested_propagate_counts[0] == 0
-    # The first attempt to request PROPAGATEs was successful as PROPAGATEs
-    # were requested for all nodes
-    assert requested_propagate_counts[1] == sent_reqs
 
     faulty_node.nodeIbStasher.reset_delays_and_process_delayeds()
     sdk_ensure_pool_functional(looper,
