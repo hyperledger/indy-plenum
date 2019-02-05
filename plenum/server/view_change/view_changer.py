@@ -91,6 +91,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if force_view_change_freq > 0:
             self.startRepeating(self.on_master_degradation, force_view_change_freq)
 
+        # Start periodic freshness check
+        self.state_freshness_update_interval = node.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        if self.state_freshness_update_interval > 0:
+            self.startRepeating(self.check_freshness, self.state_freshness_update_interval)
+
     def __repr__(self):
         return "{}".format(self.name)
 
@@ -224,6 +229,13 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                        "view change since performance of master instance degraded".format(self, view_no))
         self.sendInstanceChange(view_no)
         self.do_view_change_if_possible(view_no)
+
+    def check_freshness(self):
+        if self.is_state_not_fresh_enough():
+            proposed_view_no = self.view_no
+            if not self.view_change_in_progress:
+                proposed_view_no += 1
+            self.sendInstanceChange(proposed_view_no, Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
 
     def send_instance_change_if_needed(self, proposed_view_no, reason):
         can, whyNot = self._canViewChange(proposed_view_no)
@@ -718,3 +730,10 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         return \
             self.node.primaries_disconnection_times[self.node.master_replica.instId] and self.node.master_primary_name and \
             self.node.master_primary_name not in self.node.nodestack.conns
+
+    def is_state_not_fresh_enough(self):
+        replica = self.node.master_replica
+        timestamps = replica.get_ledgers_last_update_time().values()
+        oldest_timestamp = min(timestamps)
+        time_elapsed = replica.get_current_time() - oldest_timestamp
+        return time_elapsed > 1.2 * self.state_freshness_update_interval

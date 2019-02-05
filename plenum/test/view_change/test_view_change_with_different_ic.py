@@ -17,7 +17,6 @@ def tconf(tconf):
     tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL = old_interval
 
 
-@pytest.mark.skip("INDY-1911")
 def test_view_change_with_different_ic(looper, txnPoolNodeSet,
                                        sdk_pool_handle,
                                        sdk_wallet_client,
