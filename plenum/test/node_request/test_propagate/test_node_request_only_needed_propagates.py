@@ -1,4 +1,5 @@
 import pytest
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from plenum.server.quorums import Quorum
 from plenum.test.helper import sdk_send_random_and_check
@@ -38,10 +39,12 @@ def test_node_request_only_needed_propagates(looper, setup, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               sent_reqs)
-    looper.runFor(delay)
-    assert get_count(
-        faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
+    looper.runFor(delay * 1.5)
+    propagates_count = len(txnPoolNodeSet) - 1
+    assert get_count(faulty_node, faulty_node.processPropagate) == old_count_recv_ppg + sent_reqs * propagates_count
 
     assert get_count(txnPoolNodeSet[0], txnPoolNodeSet[0].process_message_req) == old_count_prop_req_alpha
-    assert get_count(txnPoolNodeSet[1], txnPoolNodeSet[1].process_message_req) > old_count_prop_req_beta
-    assert get_count(txnPoolNodeSet[2], txnPoolNodeSet[2].process_message_req) > old_count_prop_req_gamma
+    assert get_count(txnPoolNodeSet[1], txnPoolNodeSet[1].process_message_req) == old_count_prop_req_beta + sent_reqs
+    assert get_count(txnPoolNodeSet[2], txnPoolNodeSet[2].process_message_req) == old_count_prop_req_gamma + sent_reqs
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
