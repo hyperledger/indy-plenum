@@ -413,7 +413,7 @@ def test_process_backup_instance_faulty_msg_quorum_for_different_replicas(backup
 def test_quorum_collection(tdir):
     node = FakeNode(tdir)
     proc = BackupInstanceFaultyProcessor(node)
-    backup_faulty = BackupInstanceFaulty(0, [1], Suspicions.BACKUP_PRIMARY_DEGRADED)
+    backup_faulty = BackupInstanceFaulty(0, [1], Suspicions.BACKUP_PRIMARY_DEGRADED.code)
     proc.process_backup_instance_faulty_msg(backup_faulty, 'someone')
 
     assert len(proc.backup_instances_faulty[1].keys()) == 1
