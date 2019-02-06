@@ -47,6 +47,7 @@ class Replicas:
                                description),
                        extra={"tags": ["node-replica"]})
 
+        logger.info('reset monitor due to replica addition')
         self._monitor.reset()
 
     def remove_replica(self, inst_id: int):
