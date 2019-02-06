@@ -117,8 +117,8 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # After achieving stable checkpoint, behind_node start ordering
-    sdk_send_batches_of_random(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
+    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                                         delta, delta)
 
     # Pool is working
     looper.run(eventually(nodes_last_ordered_equal, *behind_nodes, master_node))

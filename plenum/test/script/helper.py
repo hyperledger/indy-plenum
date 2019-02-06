@@ -19,7 +19,7 @@ def looper(txnPoolNodesLooper):
     yield txnPoolNodesLooper
 
 
-def changeNodeHa(looper, txnPoolNodeSet, tdirWithClientPoolTxns,
+def changeNodeHa(looper, txnPoolNodeSet,
                  tconf, shouldBePrimary, tdir,
                  sdk_pool_handle, sdk_wallet_stewards,
                  sdk_wallet_client):

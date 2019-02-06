@@ -10,7 +10,7 @@ from plenum.test.replica.helper import create_preprepare
 
 
 @pytest.fixture(scope='function', params=[0])
-def replica(replica):
+def fake_replica(replica):
     replica.node.requests = Requests()
     replica.isMaster = True
     replica.node.replica = replica
@@ -23,13 +23,13 @@ def replica(replica):
     return replica
 
 
-def test_suspicious_on_wrong_sub_seq_no(replica, sdk_wallet_steward):
-    reqs, pp = create_preprepare(replica, sdk_wallet_steward, 10)
+def test_suspicious_on_wrong_sub_seq_no(fake_replica, sdk_wallet_steward):
+    reqs, pp = create_preprepare(fake_replica, sdk_wallet_steward, 10)
     pp.sub_seq_no = 1
-    assert PP_SUB_SEQ_NO_WRONG == replica._apply_pre_prepare(pp, 'SomeNode')
+    assert PP_SUB_SEQ_NO_WRONG == fake_replica._apply_pre_prepare(pp, 'SomeNode')
 
 
-def test_suspicious_on_not_final(replica, sdk_wallet_steward):
-    reqs, pp = create_preprepare(replica, sdk_wallet_steward, 10)
+def test_suspicious_on_not_final(fake_replica, sdk_wallet_steward):
+    reqs, pp = create_preprepare(fake_replica, sdk_wallet_steward, 10)
     pp.final = False
-    assert PP_NOT_FINAL == replica._apply_pre_prepare(pp, 'SomeNode')
+    assert PP_NOT_FINAL == fake_replica._apply_pre_prepare(pp, 'SomeNode')

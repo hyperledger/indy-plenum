@@ -17,7 +17,7 @@ REQ_COUNT = 10
 
 
 @pytest.fixture(scope='function', params=[0])
-def replica(replica):
+def fake_replica(replica):
     replica.node.requests = Requests()
     replica.isMaster = True
     replica.node.replica = replica
@@ -37,6 +37,6 @@ def randomDynamicValidation(self, req):
                                              "not valid req")
 
 
-def test_order_reqIdr(replica, sdk_wallet_steward):
-    reqs, pp = create_preprepare(replica, sdk_wallet_steward, REQ_COUNT)
+def test_order_reqIdr(fake_replica, sdk_wallet_steward):
+    reqs, pp = create_preprepare(fake_replica, sdk_wallet_steward, REQ_COUNT)
     assert pp.reqIdr == [res.key for res in reqs]
