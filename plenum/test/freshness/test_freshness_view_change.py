@@ -21,28 +21,28 @@ def tconf(tconf):
 def test_view_changer_state_is_fresh_enough_when_all_update_times_are_within_timeout(tconf, txnPoolNodeSet, monkeypatch):
     node = txnPoolNodeSet[0]
 
-    monkeypatch.setattr(node.master_replica, 'get_current_time',
+    monkeypatch.setattr(node.master_replica, 'get_time_for_3pc_batch',
                         lambda: 16)
     monkeypatch.setattr(node.master_replica, 'get_ledgers_last_update_time',
                         lambda: OrderedDict([(0, 11), (2, 13), (1, 15)]))
 
-    assert not node.view_changer.is_state_not_fresh_enough()
+    assert node.view_changer.is_state_fresh_enough()
 
 
 def test_view_changer_state_is_not_fresh_enough_when_any_update_time_is_too_old(tconf, txnPoolNodeSet, monkeypatch):
     node = txnPoolNodeSet[0]
 
-    monkeypatch.setattr(node.master_replica, 'get_current_time',
+    monkeypatch.setattr(node.master_replica, 'get_time_for_3pc_batch',
                         lambda: 16)
     monkeypatch.setattr(node.master_replica, 'get_ledgers_last_update_time',
                         lambda: OrderedDict([(0, 5), (2, 10), (1, 15)]))
 
-    assert not node.view_changer.is_state_not_fresh_enough()
+    assert not node.view_changer.is_state_fresh_enough()
 
 
 def test_new_node_view_changer_state_is_fresh_enough(tconf, txnPoolNodeSet):
     node = txnPoolNodeSet[0]
-    assert not node.view_changer.is_state_not_fresh_enough()
+    assert node.view_changer.is_state_fresh_enough()
 
 
 def test_view_change_doesnt_happen_if_pool_is_left_alone(looper, tconf, txnPoolNodeSet,
@@ -73,8 +73,11 @@ def test_view_change_happens_if_ordering_is_halted(looper, tconf, txnPoolNodeSet
     with delay_rules(stashers, ppDelay()):
         looper.run(eventually(check_next_view, timeout=FRESHNESS_TIMEOUT * 3))
 
-    for node in txnPoolNodeSet:
-        ic = node.view_changer.spylog.getAll('sendInstanceChange')
-        assert len(ic) > 0
+    def has_freshness_instance_change(node):
+        all_instance_changes = node.view_changer.spylog.getAll('sendInstanceChange')
+        freshness_instance_changes = sum(1 for ic in all_instance_changes
+                                      if ic.params['suspicion'].code == 43)
+        return freshness_instance_changes > 0
+    assert sum(1 for node in txnPoolNodeSet if has_freshness_instance_change(node)) >= 3
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

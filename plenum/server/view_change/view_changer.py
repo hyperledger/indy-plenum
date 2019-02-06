@@ -231,11 +231,14 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.do_view_change_if_possible(view_no)
 
     def check_freshness(self):
-        if self.is_state_not_fresh_enough():
-            proposed_view_no = self.view_no
-            if not self.view_change_in_progress:
-                proposed_view_no += 1
-            self.sendInstanceChange(proposed_view_no, Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
+        if self.is_state_fresh_enough():
+            logger.debug("{} not sending instance change because found state to be fresh enough".format(self))
+            return
+
+        proposed_view_no = self.view_no
+        if not self.view_change_in_progress:
+            proposed_view_no += 1
+        self.sendInstanceChange(proposed_view_no, Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
 
     def send_instance_change_if_needed(self, proposed_view_no, reason):
         can, whyNot = self._canViewChange(proposed_view_no)
@@ -731,9 +734,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self.node.primaries_disconnection_times[self.node.master_replica.instId] and self.node.master_primary_name and \
             self.node.master_primary_name not in self.node.nodestack.conns
 
-    def is_state_not_fresh_enough(self):
+    def is_state_fresh_enough(self):
         replica = self.node.master_replica
         timestamps = replica.get_ledgers_last_update_time().values()
         oldest_timestamp = min(timestamps)
-        time_elapsed = replica.get_current_time() - oldest_timestamp
-        return time_elapsed > 1.2 * self.state_freshness_update_interval
+        time_elapsed = replica.get_time_for_3pc_batch() - oldest_timestamp
+        return time_elapsed < 1.2 * self.state_freshness_update_interval
