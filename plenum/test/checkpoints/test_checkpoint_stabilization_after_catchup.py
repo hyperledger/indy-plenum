@@ -63,11 +63,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         assert replica.checkpoints[6, 10].digest is None
         assert replica.checkpoints[6, 10].isStable is False
 
-        assert len(replica.stashedRecvdCheckpoints) == 1
-        assert 0 in replica.stashedRecvdCheckpoints
-        assert len(replica.stashedRecvdCheckpoints[0]) == 1
-        assert (1, 5) in replica.stashedRecvdCheckpoints[0]
-        assert len(replica.stashedRecvdCheckpoints[0][(1, 5)]) == 4
+        # nothing is stashed since it's ordered during catch-up
+        assert len(replica.stashedRecvdCheckpoints) == 0
 
         assert replica.h == 2
         assert replica.H == 17

@@ -1,6 +1,5 @@
 import pytest
 
-from plenum.test.bls.helper import init_discarded
 from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -11,7 +10,7 @@ from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent, sdk_send_random_requests, \
-    sdk_json_to_request_object, sdk_get_replies
+    sdk_json_to_request_object, sdk_get_replies, init_discarded
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',

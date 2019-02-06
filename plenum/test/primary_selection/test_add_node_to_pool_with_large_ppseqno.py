@@ -28,7 +28,7 @@ def _set_ppseqno(nodes, new_ppsn):
 
 @pytest.mark.parametrize('do_view_change', [0, 1])
 def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, sdk_pool_handle,
-                                                        sdk_wallet_steward, tdir, client_tdir, allPluginsPath):
+                                                        sdk_wallet_steward, tdir, allPluginsPath):
     """
     Adding a node to the pool while ppSeqNo is big caused a node to stash all the
     requests because of incorrect watermarks limits set.

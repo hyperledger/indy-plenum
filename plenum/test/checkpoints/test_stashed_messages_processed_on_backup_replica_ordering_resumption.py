@@ -1,7 +1,7 @@
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_requests, assertExp
+from plenum.test.helper import sdk_send_random_requests, assertExp, incoming_3pc_msgs_count
 from stp_core.loop.eventually import eventually
 
 nodeCount = 4
@@ -15,7 +15,8 @@ LOG_SIZE = 2 * CHK_FREQ
 def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
         looper, chkFreqPatched, reqs_for_checkpoint,
         one_replica_and_others_in_backup_instance,
-        sdk_pool_handle, sdk_wallet_client, view_change_done):
+        sdk_pool_handle, sdk_wallet_client, view_change_done,
+        txnPoolNodeSet):
     """
     Verifies resumption of ordering 3PC-batches on a backup replica
     on detection of a lag in checkpoints in case it is detected after
@@ -68,7 +69,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that there are no 3PC-messages stashed
     # as laying outside of the watermarks
-    assert not slow_replica.stashingWhileOutsideWaterMarks
+    assert slow_replica.stasher.num_stashed_watermarks == 0
 
     # Send a request for which the batch will be outside of the watermarks
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
@@ -87,7 +88,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that now there are 3PC-messages stashed
     # as laying outside of the watermarks
-    assert slow_replica.stashingWhileOutsideWaterMarks
+    assert slow_replica.stasher.num_stashed_watermarks == incoming_3pc_msgs_count(len(txnPoolNodeSet))
 
     # Receive belated Checkpoints
     slow_replica.node.nodeIbStasher.reset_delays_and_process_delayeds()
@@ -109,7 +110,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that now there are no 3PC-messages stashed
     # as laying outside of the watermarks
-    assert not slow_replica.stashingWhileOutsideWaterMarks
+    assert slow_replica.stasher.num_stashed_watermarks == 0
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)

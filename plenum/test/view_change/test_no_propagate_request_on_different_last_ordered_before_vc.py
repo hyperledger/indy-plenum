@@ -12,13 +12,18 @@ from stp_core.loop.eventually import eventually
 
 def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(looper, txnPoolNodeSet,
                                                   sdk_pool_handle, sdk_wallet_client):
-    ''' Send random request and do view change then fast_nodes (1, 4 - without
-    primary backup replicas) are already ordered transaction on master and some backup replica
-    and slow_nodes are not on backup replica. Wait ordering on slow_nodes.'''
+    '''
+    1. Send random request
+    2. Make 3 node on backup instance slow in getting commits
+    3. Send random reuest
+    4. do view change
+    5. reset delays
+    => we expect that all nodes and all instances have the same last ordered
+    '''
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     slow_instance = 1
-    slow_nodes = txnPoolNodeSet[1:3]
+    slow_nodes = txnPoolNodeSet[1:4]
     fast_nodes = [n for n in txnPoolNodeSet if n not in slow_nodes]
     nodes_stashers = [n.nodeIbStasher for n in slow_nodes]
     old_last_ordered = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc
@@ -64,11 +69,14 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
 def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, txnPoolNodeSet,
                                                   sdk_pool_handle, sdk_wallet_client):
-    ''' Send random request and do view change then fast_nodes (2,3 - with
-    primary backup replica) will have prepare or send preprepare on backup
-    replicas and slow_nodes are have not and transaction will ordered on all
-    master replicas. Check last ordered after view change and after another
-    one request.'''
+    '''
+    1. Send random request
+    2. Make 3 node on backup instance slow in getting prepares
+    3. Send random request
+    4. do view change
+    5. reset delays
+    => we expect that all nodes and all instances have the same last ordered
+    '''
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     slow_instance = 1
@@ -174,4 +182,4 @@ def check_last_ordered(nodes: [Node],
     if last_ordered is None:
         last_ordered = nodes[0].replicas[instId].last_ordered_3pc
     for node in nodes:
-        assert node.replicas[instId].last_ordered_3pc == last_ordered
+        assert node.replicas[instId].last_ordered_3pc == last_ordered, "Node {}, instance {}".format(node.name, instId)

@@ -155,3 +155,109 @@ def test_request_tracker_performs_garbage_collection_on_remove_instance(req_trac
     assert digest not in req_tracker
     assert digest not in req_tracker.unordered()
     assert digest not in req_tracker.handled_unordered()
+
+
+def test_force_req_drop_not_started(req_tracker):
+    digest = "digest"
+
+    req_tracker.force_req_drop(digest)
+
+
+def test_force_req_drop_started(req_tracker):
+    digest = "digest"
+    now = 1.0
+    req_tracker.start(digest, now)
+
+    assert digest in req_tracker
+    assert digest in req_tracker.unordered()
+    assert digest in [digest for digest, _ in req_tracker.unhandled_unordered()]
+
+    req_tracker.force_req_drop(digest)
+
+    assert digest not in req_tracker
+    assert digest not in req_tracker.unordered()
+    assert digest not in [digest for digest, _ in req_tracker.unhandled_unordered()]
+    assert digest not in req_tracker.handled_unordered()
+
+
+def test_force_req_drop_handled(req_tracker):
+    digest = "digest"
+    now = 1.0
+
+    req_tracker.start(digest, now)
+    req_tracker.handle(digest)
+
+    assert digest in req_tracker
+    assert digest in req_tracker.unordered()
+    assert digest not in [digest for digest, _ in req_tracker.unhandled_unordered()]
+    assert digest in req_tracker.handled_unordered()
+
+    req_tracker.force_req_drop(digest)
+
+    assert digest not in req_tracker
+    assert digest not in req_tracker.unordered()
+    assert digest not in [digest for digest, _ in req_tracker.unhandled_unordered()]
+    assert digest not in req_tracker.handled_unordered()
+
+
+def test_force_req_drop_between_ordered_master(req_tracker):
+    digest = "digest"
+    start_ts = 1.0
+    now = 3.0
+
+    req_tracker.start(digest, start_ts)
+
+    tto = req_tracker.order(0, digest, now)
+    assert tto == 2.0
+
+    assert digest not in req_tracker.unordered()
+
+    req_tracker.force_req_drop(digest)
+
+    assert digest not in req_tracker
+    assert digest not in req_tracker.unordered()
+    assert digest not in [digest for digest, _ in req_tracker.unhandled_unordered()]
+    assert digest not in req_tracker.handled_unordered()
+
+    tto = req_tracker.order(1, digest, now)
+    assert tto == 0.0
+
+
+def test_force_req_drop_between_ordered_backup(req_tracker):
+    digest = "digest"
+    start_ts = 1.0
+    now = 3.0
+
+    req_tracker.start(digest, start_ts)
+
+    tto = req_tracker.order(1, digest, now)
+    assert tto == 2.0
+
+    assert digest in req_tracker.unordered()
+
+    req_tracker.force_req_drop(digest)
+
+    assert digest not in req_tracker
+    assert digest not in req_tracker.unordered()
+    assert digest not in [digest for digest, _ in req_tracker.unhandled_unordered()]
+    assert digest not in req_tracker.handled_unordered()
+
+    tto = req_tracker.order(2, digest, now)
+    assert tto == 0.0
+
+
+def test_force_req_drop_before_handle(req_tracker):
+    digest = "digest"
+    now = 1.0
+
+    req_tracker.start(digest, now)
+
+    req_tracker.force_req_drop(digest)
+
+    assert digest not in req_tracker
+    assert digest not in req_tracker.unordered()
+    assert digest not in [digest for digest, _ in req_tracker.unhandled_unordered()]
+    assert digest not in req_tracker.handled_unordered()
+
+    req_tracker.handle(digest)
+    assert digest not in req_tracker.handled_unordered()

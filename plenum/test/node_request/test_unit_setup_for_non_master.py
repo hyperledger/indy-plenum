@@ -5,8 +5,7 @@ import time
 
 from plenum.common.messages.node_messages import PrePrepare, Prepare
 from plenum.common.util import compare_3PC_keys
-from plenum.test.bls.helper import init_discarded
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, init_discarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import getNonPrimaryReplicas, checkNodesConnected
