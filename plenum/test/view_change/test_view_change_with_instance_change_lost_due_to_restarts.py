@@ -4,11 +4,8 @@ from plenum.test.helper import freshness, waitForViewChange
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone
-from stp_core.common.log import getlogger
 
 FRESHNESS_TIMEOUT = 20
-
-logger = getlogger()
 
 
 @pytest.fixture(scope="module")

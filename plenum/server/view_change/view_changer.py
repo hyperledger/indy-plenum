@@ -221,23 +221,13 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     # EXTERNAL EVENTS
 
     def on_master_degradation(self):
-        """
-        """
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} and trying to start "
-                       "view change since performance of master instance degraded".format(self, view_no))
-        self.sendInstanceChange(view_no)
-        self.do_view_change_if_possible(view_no)
+        self.propose_view_change()
 
     def check_freshness(self):
         if self.is_state_fresh_enough():
             logger.debug("{} not sending instance change because found state to be fresh enough".format(self))
             return
-
-        proposed_view_no = self.view_no
-        if not self.view_change_in_progress:
-            proposed_view_no += 1
-        self.sendInstanceChange(proposed_view_no, Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
+        self.propose_view_change(Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
 
     def send_instance_change_if_needed(self, proposed_view_no, reason):
         can, whyNot = self._canViewChange(proposed_view_no)
@@ -262,11 +252,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self.instance_change_rounds = 0
 
     def on_primary_loss(self):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} and trying "
-                       "to start view change since primary was lost".format(self, view_no))
-        self.sendInstanceChange(view_no,
-                                Suspicions.PRIMARY_DISCONNECTED)
+        view_no = self.propose_view_change(Suspicions.PRIMARY_DISCONNECTED)
         if self.instance_change_action:
             # It's an action, scheduled for previous instanceChange round
             logger.info("Stop previous instance change resending schedule")
@@ -277,7 +263,6 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                                               Suspicions.PRIMARY_DISCONNECTED)
         self._schedule(self.instance_change_action,
                        seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
-        self.do_view_change_if_possible(view_no)
 
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):
@@ -727,6 +712,13 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             logger.info('{} has no ViewChangeDone message to send for view {}'.
                         format(self, self.view_no))
         return messages
+
+    def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
+        proposed_view_no = self.view_no
+        if not self.view_change_in_progress or suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT:
+            proposed_view_no += 1
+        self.sendInstanceChange(proposed_view_no, suspicion)
+        return proposed_view_no
 
     def is_primary_disconnected(self):
         return \
