@@ -428,6 +428,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
+        # Did we log a message about getting request while absence of primary
+        self.warned_no_primary = False
+
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
@@ -582,6 +585,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param value: the value to set isPrimary to
         """
+        if value is not None:
+            self.warned_no_primary = False
         self.primaryNames[self.viewNo] = value
         self.compact_primary_names()
         if value != self._primaryName:
@@ -979,10 +984,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
         queue.add(key.digest)
-        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
+        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD and not self.warned_no_primary:
             self.logger.warning('{} is getting requests but still does not have '
                                 'a primary so the replica will not process the request '
                                 'until a primary is chosen'.format(self))
+            self.warned_no_primary = True
 
     @measure_replica_time(MetricsName.SERVICE_REPLICA_QUEUES_TIME,
                           MetricsName.SERVICE_BACKUP_REPLICAS_QUEUES_TIME)
