@@ -2,7 +2,6 @@ from collections import OrderedDict
 
 import pytest
 
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import freshness
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
