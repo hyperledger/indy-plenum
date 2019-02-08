@@ -266,25 +266,13 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} "
-                       "since primary is about to be disconnected".format(self, view_no))
-        self.sendInstanceChange(
-            view_no, Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
+        self.propose_view_change(Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
     def on_suspicious_primary(self, suspicion: Suspicions):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} since primary "
-                       "seems suspicious, reason {}".format(self, view_no, suspicion.reason))
-        self.sendInstanceChange(view_no, suspicion)
-        # TODO why we don't try to start view change here
+        self.propose_view_change(suspicion)
 
     def on_view_change_not_completed_in_time(self):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} since "
-                       "view change to view {} is not completed in time".format(self, view_no, self.view_no))
-        self.sendInstanceChange(view_no,
-                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+        self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
 
     def on_catchup_complete(self):
         if self.node.is_synced and self.node.master_replica.isPrimary is None and \
