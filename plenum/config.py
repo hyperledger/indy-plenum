@@ -24,11 +24,13 @@ USER_CONFIG_FILE = 'indy_config.py'
 pool_transactions_file_base = 'pool_transactions'
 domain_transactions_file_base = 'domain_transactions'
 config_transactions_file_base = 'config_transactions'
+audit_transactions_file_base = 'audit_transactions'
 genesis_file_suffix = '_genesis'
 
 poolTransactionsFile = pool_transactions_file_base
 domainTransactionsFile = domain_transactions_file_base
 configTransactionsFile = config_transactions_file_base
+auditTransactionsFile = audit_transactions_file_base
 
 stateTsStorage = KeyValueStorageType.Rocksdb
 
