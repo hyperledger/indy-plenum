@@ -3,6 +3,7 @@
 
 
 
+
 * [Plenum Byzantine Fault Tolerant Protocol](#plenum-byzantine-fault-tolerant-protocol)
 * [Technical Overview of Indy Plenum](#technical-overview-of-indy-plenum)
 * [Other Documentation](#other-documentation)
