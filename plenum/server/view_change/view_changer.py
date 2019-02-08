@@ -703,7 +703,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
         proposed_view_no = self.view_no
-        if not self.view_change_in_progress or suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT:
+        # TODO: For some reason not incrementing view_no in most cases leads to lots of failing/flaky tests
+        # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
+        if suspicion != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self.view_change_in_progress:
             proposed_view_no += 1
         self.sendInstanceChange(proposed_view_no, suspicion)
         return proposed_view_no
