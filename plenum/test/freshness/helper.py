@@ -109,3 +109,10 @@ def check_update_bls_multi_sig_during_ordering(looper, txnPoolNodeSet,
                           ))
     assert refreshed_bls_multi_sigs_after_refreshed_update == get_multi_sig_values_for_all_nodes(txnPoolNodeSet,
                                                                                                  refreshed_ledger_id)
+
+
+def has_freshness_instance_change(node, count=1):
+    all_instance_changes = node.view_changer.spylog.getAll('sendInstanceChange')
+    freshness_instance_changes = sum(1 for ic in all_instance_changes
+                                     if ic.params['suspicion'].code == 43)
+    return freshness_instance_changes >= count
