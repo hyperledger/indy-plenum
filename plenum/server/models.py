@@ -38,7 +38,7 @@ class TrackedMsgs(dict):
 
     def _votes_count(self, msg) -> int:
         key = self._get_key(msg)
-        if not key in self:
+        if key not in self:
             return 0
         return len(self[key].voters)
 
