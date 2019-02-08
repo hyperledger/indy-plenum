@@ -36,9 +36,14 @@ class TrackedMsgs(dict):
         key = self._get_key(msg)
         return key in self and voter in self[key].voters
 
-    def _has_enough_votes(self, msg, count) -> bool:
+    def _votes_count(self, msg) -> int:
         key = self._get_key(msg)
-        return self._has_msg(msg) and len(self[key].voters) >= count
+        if not key in self:
+            return 0
+        return len(self[key].voters)
+
+    def _has_enough_votes(self, msg, count) -> bool:
+        return self._votes_count(msg) >= count
 
 
 class Prepares(TrackedMsgs):
