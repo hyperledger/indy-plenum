@@ -23,7 +23,8 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
     2. Restart nodes_to_restart (Beta, Gamma).
     3. Wait OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL sec.
     4. nodes_to_restart send InstanceChanges for all nodes.
-    5. Ensure elections done.
+    5. View change doesn't happen since old InstanceChange from panic_node was discarded due to timeout.
+    5. Ensure elections done
     """
     nodes_to_restart = txnPoolNodeSet[1:3]
     panic_node = txnPoolNodeSet[-1]
