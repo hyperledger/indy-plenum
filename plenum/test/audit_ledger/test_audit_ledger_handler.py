@@ -41,6 +41,16 @@ def initial_config_size(db_manager, master_replica):
     return db_manager.get_ledger(CONFIG_LEDGER_ID).size
 
 
+def do_apply_audit_txn(alh,
+                       master_replica,
+                       txns_count, ledger_id,
+                       view_no, pp_sq_no, txn_time):
+    db_manager = alh.database_manager
+    set_3pc_batch(master_replica, view_no, pp_sq_no)
+    add_txns(db_manager, ledger_id, txns_count, txn_time)
+    alh.post_batch_applied(ledger_id, db_manager.get_state(ledger_id).headHash, txn_time)
+
+
 def check_apply_audit_txn(alh,
                           master_replica,
                           txns_count, ledger_id,
@@ -48,15 +58,15 @@ def check_apply_audit_txn(alh,
                           pool_size, domain_size, config_size,
                           last_pool_seqno, last_domain_seqno, last_config_seqno):
     db_manager = alh.database_manager
-    set_3pc_batch(master_replica, view_no, pp_sq_no)
-    add_txns(db_manager, ledger_id, txns_count, txn_time)
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
 
-    alh.post_batch_applied(ledger_id, db_manager.get_state(ledger_id).headHash, txn_time)
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=txns_count, ledger_id=ledger_id,
+                       view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time)
 
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
-    assert size_before == alh.ledger.size
+    assert alh.ledger.size == size_before
 
     txn = alh.ledger.get_uncommitted_txns()[-1]
     check_audit_txn(txn=txn,
@@ -161,96 +171,267 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
                           last_pool_seqno=None, last_domain_seqno=5, last_config_seqno=3)
 
 
-def test_reject_batch(alh):
+def test_reject_batch(alh, master_replica, db_manager,
+                      initial_domain_size, initial_pool_size, initial_config_size):
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
 
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_1", 1000)
-    alh.post_batch_applied(POOL_LEDGER_ID, "some_state_root_2", 1000)
-    alh.post_batch_applied(CONFIG_LEDGER_ID, "some_state_root_3", 1000)
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_4", 1000)
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=5, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=3, pp_sq_no=37, txn_time=11112)
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=6, ledger_id=POOL_LEDGER_ID,
+                       view_no=3, pp_sq_no=38, txn_time=11113)
+    txn_root_hash_2 = db_manager.get_ledger(POOL_LEDGER_ID).uncommittedRootHash
+    state_root_hash_2 = db_manager.get_state(POOL_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=7, ledger_id=CONFIG_LEDGER_ID,
+                       view_no=3, pp_sq_no=39, txn_time=11114)
+    txn_root_hash_3 = db_manager.get_ledger(CONFIG_LEDGER_ID).uncommittedRootHash
+    state_root_hash_3 = db_manager.get_state(CONFIG_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=8, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=3, pp_sq_no=40, txn_time=11115)
+
     assert alh.ledger.uncommitted_size == uncommited_size_before + 4
     assert alh.ledger.size == size_before
 
     alh.post_batch_rejected()
     assert alh.ledger.uncommitted_size == uncommited_size_before + 3
     assert alh.ledger.size == size_before
+    check_audit_txn(txn=alh.ledger.get_last_txn(),
+                    view_no=3, pp_seq_no=39,
+                    seq_no=3, txn_time=11114,
+                    ledger_id=CONFIG_LEDGER_ID,
+                    txn_root=txn_root_hash_3,
+                    state_root=state_root_hash_3,
+                    pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 5,
+                    config_size=initial_config_size + 7,
+                    last_pool_seqno=2,
+                    last_domain_seqno=1,
+                    last_config_seqno=None)
 
     alh.post_batch_rejected()
     assert alh.ledger.uncommitted_size == uncommited_size_before + 2
     assert alh.ledger.size == size_before
+    check_audit_txn(txn=alh.ledger.get_last_txn(),
+                    view_no=3, pp_seq_no=38,
+                    seq_no=2, txn_time=11113,
+                    ledger_id=POOL_LEDGER_ID,
+                    txn_root=txn_root_hash_2,
+                    state_root=state_root_hash_2,
+                    pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 5,
+                    config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=1,
+                    last_config_seqno=None)
 
     alh.post_batch_rejected()
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before
+    check_audit_txn(txn=alh.ledger.get_last_txn(),
+                    view_no=3, pp_seq_no=37,
+                    seq_no=1, txn_time=11112,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=txn_root_hash_1,
+                    state_root=state_root_hash_1,
+                    pool_size=initial_pool_size, domain_size=initial_domain_size + 5, config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=None,
+                    last_config_seqno=None)
 
     alh.post_batch_rejected()
     assert alh.ledger.uncommitted_size == uncommited_size_before
     assert alh.ledger.size == size_before
+    assert alh.ledger.get_last_txn() is None
 
     alh.post_batch_rejected()
     assert alh.ledger.uncommitted_size == uncommited_size_before
     assert alh.ledger.size == size_before
+    assert alh.ledger.get_last_txn() is None
 
 
-def test_commit_one_batch(alh):
+def test_commit_one_batch(alh, master_replica, db_manager,
+                          initial_domain_size, initial_pool_size, initial_config_size):
     size_before = alh.ledger.size
-
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_1", 11111)
-    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111, None)
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=3, pp_sq_no=35, txn_time=11111)
+    txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
 
     assert alh.ledger.uncommitted_size == alh.ledger.size
     assert alh.ledger.size == size_before + 1
-    txn = alh.ledger.get_last_txn()
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=3, pp_seq_no=35,
+                    seq_no=1, txn_time=11111,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=txn_root_hash,
+                    state_root=state_root_hash,
+                    pool_size=initial_pool_size, domain_size=initial_domain_size + 7, config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=None,
+                    last_config_seqno=None)
 
 
-
-def test_commit_multiple_batches(alh):
+def test_commit_and_revert_batches(alh, master_replica, db_manager,
+                                   initial_domain_size, initial_pool_size, initial_config_size):
     size_before = alh.ledger.size
+    initial_seq_no = alh.ledger.size
 
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_1", 11111)
-    alh.post_batch_applied(POOL_LEDGER_ID, "some_state_root_2", 11112)
-    alh.post_batch_applied(CONFIG_LEDGER_ID, "some_state_root_3", 11112)
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_4", 11112)
+    # apply 2 batches
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=3, pp_sq_no=35, txn_time=11111)
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
 
-    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111, None)
-    assert alh.ledger.uncommitted_size == 3 + alh.ledger.size
-    assert alh.ledger.size == size_before + 1
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=15, ledger_id=POOL_LEDGER_ID,
+                       view_no=3, pp_sq_no=36, txn_time=11112)
 
-    alh.commit_batch(5, "some_state_root_2", "some_txn_root_2", 11112, None)
-    assert alh.ledger.uncommitted_size == 2 + alh.ledger.size
-    assert alh.ledger.size == size_before + 2
-
-    alh.commit_batch(5, "some_state_root_3", "some_txn_root_3", 11112, None)
-    assert alh.ledger.uncommitted_size == 1 + alh.ledger.size
-    assert alh.ledger.size == size_before + 3
-
-    alh.commit_batch(5, "some_state_root_4", "some_txn_root_4", 11112, None)
-    assert alh.ledger.uncommitted_size == alh.ledger.size
-    assert alh.ledger.size == size_before + 4
-
-    alh.commit_batch(15, "some_state_root_5", "some_txn_root_5", 11112, None)
-    assert alh.ledger.uncommitted_size == alh.ledger.size
-    assert alh.ledger.size == size_before + 4
-
-
-def test_commit_and_revert_multiple_batches(alh):
-    size_before = alh.ledger.size
-
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_1", 11112)
-    alh.post_batch_applied(POOL_LEDGER_ID, "some_state_root_2", 11113)
+    # reject 2d batch
     alh.post_batch_rejected()
-    alh.commit_batch(5, "some_state_root_1", "some_txn_root_1", 11112)
-    assert alh.ledger.size == size_before + 1
+    assert alh.ledger.uncommitted_size == alh.ledger.size + 1
+    assert alh.ledger.size == size_before
 
-    alh.post_batch_applied(CONFIG_LEDGER_ID, "some_state_root_3", 11114)
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_4", 11115)
-    alh.post_batch_rejected()
-    alh.post_batch_applied(DOMAIN_LEDGER_ID, "some_state_root_5", 11116)
-    alh.commit_batch(10, "some_state_root_3", "some_txn_root_3", 11114)
+    # commit 1st batch
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
+    assert alh.ledger.uncommitted_size == alh.ledger.size
+    assert alh.ledger.size == size_before + 1
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=3, pp_seq_no=35,
+                    seq_no=initial_seq_no + 1, txn_time=11111,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=txn_root_hash_1,
+                    state_root=state_root_hash_1,
+                    pool_size=initial_pool_size, domain_size=initial_domain_size + 7, config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=None,
+                    last_config_seqno=None)
+
+
+def test_commit_multiple_batches(alh, master_replica, db_manager,
+                                 initial_domain_size, initial_pool_size, initial_config_size):
+    size_before = alh.ledger.size
+    initial_seq_no = alh.ledger.size
+    # apply 5 3PC batches
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=3, pp_sq_no=35, txn_time=11111)
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=15, ledger_id=POOL_LEDGER_ID,
+                       view_no=3, pp_sq_no=36, txn_time=11112)
+    txn_root_hash_2 = db_manager.get_ledger(POOL_LEDGER_ID).uncommittedRootHash
+    state_root_hash_2 = db_manager.get_state(POOL_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=5, ledger_id=CONFIG_LEDGER_ID,
+                       view_no=3, pp_sq_no=37, txn_time=11112)
+    txn_root_hash_3 = db_manager.get_ledger(CONFIG_LEDGER_ID).uncommittedRootHash
+    state_root_hash_3 = db_manager.get_state(CONFIG_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=4, pp_sq_no=1, txn_time=11115)
+    txn_root_hash_4 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    state_root_hash_4 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh, master_replica,
+                       txns_count=20, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=4, pp_sq_no=2, txn_time=11119)
+    txn_root_hash_5 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    state_root_hash_5 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+
+    assert alh.ledger.uncommitted_size == alh.ledger.size + 5
+
+    # commit 1st batch
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
+    assert alh.ledger.uncommitted_size == alh.ledger.size + 4
+    assert alh.ledger.size == size_before + 1
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=3, pp_seq_no=35,
+                    seq_no=initial_seq_no + 1, txn_time=11111,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=txn_root_hash_1,
+                    state_root=state_root_hash_1,
+                    pool_size=initial_pool_size, domain_size=initial_domain_size + 7, config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=None,
+                    last_config_seqno=None)
+
+    # commit 2d batch
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
+    assert alh.ledger.uncommitted_size == alh.ledger.size + 3
     assert alh.ledger.size == size_before + 2
-    alh.commit_batch(5, "some_state_root_5", "some_txn_root_5", 11116)
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=3, pp_seq_no=36,
+                    seq_no=initial_seq_no + 2, txn_time=11112,
+                    ledger_id=POOL_LEDGER_ID,
+                    txn_root=txn_root_hash_2,
+                    state_root=state_root_hash_2,
+                    pool_size=initial_pool_size + 15, domain_size=initial_domain_size + 7,
+                    config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=initial_seq_no + 1,
+                    last_config_seqno=None)
+
+    # commit 3d batch
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
+    assert alh.ledger.uncommitted_size == alh.ledger.size + 2
     assert alh.ledger.size == size_before + 3
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=3, pp_seq_no=37,
+                    seq_no=initial_seq_no + 3, txn_time=11112,
+                    ledger_id=CONFIG_LEDGER_ID,
+                    txn_root=txn_root_hash_3,
+                    state_root=state_root_hash_3,
+                    pool_size=initial_pool_size + 15, domain_size=initial_domain_size + 7,
+                    config_size=initial_config_size + 5,
+                    last_pool_seqno=initial_seq_no + 2,
+                    last_domain_seqno=initial_seq_no + 1,
+                    last_config_seqno=None)
+
+    # commit 4th batch
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
+    assert alh.ledger.uncommitted_size == alh.ledger.size + 1
+    assert alh.ledger.size == size_before + 4
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=4, pp_seq_no=1,
+                    seq_no=initial_seq_no + 4, txn_time=11115,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=txn_root_hash_4,
+                    state_root=state_root_hash_4,
+                    pool_size=initial_pool_size + 15, domain_size=initial_domain_size + 7 + 10,
+                    config_size=initial_config_size + 5,
+                    last_pool_seqno=initial_seq_no + 2,
+                    last_domain_seqno=None,
+                    last_config_seqno=initial_seq_no + 3)
+
+    # commit 5th batch
+    alh.commit_batch(10, "some_state_root_1", "some_txn_root_1", 11111)
+    assert alh.ledger.uncommitted_size == alh.ledger.size
+    assert alh.ledger.size == size_before + 5
+    check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
+                    view_no=4, pp_seq_no=2,
+                    seq_no=initial_seq_no + 5, txn_time=11119,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=txn_root_hash_5,
+                    state_root=state_root_hash_5,
+                    pool_size=initial_pool_size + 15, domain_size=initial_domain_size + 7 + 10 + 20,
+                    config_size=initial_config_size + 5,
+                    last_pool_seqno=initial_seq_no + 2,
+                    last_domain_seqno=None,
+                    last_config_seqno=initial_seq_no + 3)
 
 
 def add_txns(db_manager, ledger_id, count, txn_time):

@@ -1,7 +1,8 @@
+from ledger.ledger import Ledger
 from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT
 from plenum.common.transactions import PlenumTransactions
-from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.database_manager import DatabaseManager
 
@@ -32,8 +33,9 @@ class AuditBatchHandler(BatchRequestHandler):
 
             # 1. ledger is changed in this batch => root_hash
             if lid == ledger_id:
-                txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = self.database_manager.get_ledger(
-                    ledger_id).uncommittedRootHash
+                txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = Ledger.hashToStr(
+                    self.database_manager.get_ledger(ledger_id).uncommittedRootHash
+                )
 
             # 2. This ledger is never audited, so do not add the key
             elif last_audit_txn_data is None or str(lid) not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
@@ -47,11 +49,13 @@ class AuditBatchHandler(BatchRequestHandler):
             elif last_audit_txn_data:
                 txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = get_seq_no(last_audit_txn)
 
-        txn[AUDIT_TXN_STATE_ROOT][str(ledger_id)] = self.database_manager.get_state(ledger_id).headHash
+        txn[AUDIT_TXN_STATE_ROOT][str(ledger_id)] = Ledger.hashToStr(
+            self.database_manager.get_state(ledger_id).headHash
+        )
 
         return txn
 
-    def post_batch_applied(self, ledger_id, state_root, pp_time, prev_result = None):
+    def post_batch_applied(self, ledger_id, state_root, pp_time, prev_result=None):
         # 1. prepare AUDIT txn
         txn_data = self._create_audit_txn_data(ledger_id, self.ledger.get_last_txn())
         txn = init_empty_txn(txn_type=PlenumTransactions.AUDIT.value)
@@ -67,7 +71,7 @@ class AuditBatchHandler(BatchRequestHandler):
         # Audit ledger always has 1 txn per 3PC batch
         self.ledger.discardTxns(1)
 
-    def commit_batch(self, txn_count, state_root, txn_root, pp_time, prev_result= None):
+    def commit_batch(self, txn_count, state_root, txn_root, pp_time, prev_result=None):
         # Audit ledger always has 1 txn per 3PC batch
         _, committedTxns = self.ledger.commitTxns(1)
         return committedTxns

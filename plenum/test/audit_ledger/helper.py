@@ -1,4 +1,6 @@
-from plenum.common.util import SortedDict
+from common.serializers.json_serializer import JsonSerializer
+from ledger.ledger import Ledger
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
 
 def check_audit_txn(txn,
@@ -14,12 +16,13 @@ def check_audit_txn(txn,
         expectedLedgerRoots["0"] = last_pool_seqno
     if last_config_seqno:
         expectedLedgerRoots["2"] = last_config_seqno
-    expectedLedgerRoots[str(ledger_id)] = txn_root
+    expectedLedgerRoots[str(ledger_id)] = Ledger.hashToStr(txn_root)
 
     expected = {
         "reqSignature": {},
         "txn": {
             "data": {
+                "ledgerRoot": expectedLedgerRoots,
                 "ver": "1",
                 "viewNo": view_no,
                 "ppSeqNo": pp_seq_no,
@@ -28,11 +31,8 @@ def check_audit_txn(txn,
                     "1": domain_size,
                     "2": config_size
                 },
-
-                "ledgerRoot": expectedLedgerRoots,
-
                 "stateRoot": {
-                    str(ledger_id): state_root,
+                    str(ledger_id): Ledger.hashToStr(state_root),
                 }
 
             },
@@ -45,6 +45,9 @@ def check_audit_txn(txn,
             "seqNo": seq_no,
             "txnTime": txn_time
         },
+
         "ver": "1"
     }
-    assert SortedDict(expected) == SortedDict(txn)
+    txn = JsonSerializer().serialize(txn)
+    expected = JsonSerializer().serialize(expected)
+    assert expected == txn
