@@ -932,7 +932,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.outBox.extend(rejects)
             self.node.onBatchCreated(
                 ledger_id, self.stateRootHash(
-                    ledger_id, to_str=False))
+                    ledger_id, to_str=False),
+                tm)
         return pre_prepare
 
     def consume_req_queue_for_pre_prepare(self, ledger_id, tm,

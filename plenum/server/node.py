@@ -18,6 +18,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
@@ -481,6 +482,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
+
+        self.db_manager = DatabaseManager()
+        for ledger_id in self.ledger_ids:
+            self.db_manager.register_new_database(lid=ledger_id,
+                                                  ledger=self.getLedger(ledger_id),
+                                                  state=self.getState(ledger_id))
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -2533,7 +2540,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for req in requests:
             self.applyReq(req, cons_time)
         state_root = self.stateRootHash(ledger_id, isCommitted=False)
-        self.onBatchCreated(ledger_id, state_root)
+        self.onBatchCreated(ledger_id, state_root, cons_time)
 
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
@@ -3479,7 +3486,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def hook_post_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
-    def onBatchCreated(self, ledger_id, state_root):
+    def onBatchCreated(self, ledger_id, state_root, txn_time):
         """
         A batch of requests has been created and has been applied but
         committed to ledger and state.
@@ -3489,9 +3496,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if ledger_id == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(state_root)
+                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(state_root, txn_time)
         elif self.get_req_handler(ledger_id):
-            self.get_req_handler(ledger_id).onBatchCreated(state_root)
+            self.get_req_handler(ledger_id).onBatchCreated(state_root, txn_time)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)

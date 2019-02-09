@@ -71,7 +71,7 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
             raise LogicError('requestHandler.applyForce method is called '
                              'for not forced request: {}'.format(req))
 
-    def onBatchCreated(self, state_root):
+    def onBatchCreated(self, state_root, txn_time):
         pass
 
     def onBatchRejected(self):

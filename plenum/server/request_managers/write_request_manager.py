@@ -9,7 +9,6 @@ from plenum.common.request import Request
 from plenum.common.txn_util import get_type
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_managers.request_manager import RequestManager
 from stp_core.common.log import getlogger
@@ -87,13 +86,17 @@ class WriteRequestManager(RequestManager):
         pass
 
     # BatchRequestHandler methods
-    def post_apply_batch(self, ledger_id, state_root):
+    # TODO: pass PrePrepare here
+    def post_apply_batch(self, ledger_id, state_root, pp_time):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:
             raise LogicError
-        for handler in handlers:
-            handler.post_batch_applied(state_root)
+        prev_result = handlers[0].post_batch_applied(ledger_id, state_root, pp_time, None)
+        for handler in handlers[1:]:
+            prev_result = handler.post_batch_applied(ledger_id, state_root, pp_time, prev_result)
 
+    # TODO: no need to pass all these arguments explicitly here
+    # we can use LedgerUncommittedTracker to get this values
     def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:

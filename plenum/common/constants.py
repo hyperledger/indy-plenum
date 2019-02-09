@@ -105,6 +105,13 @@ TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
 
+AUDIT_TXN_VIEW_NO = "viewNo"
+AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
+AUDIT_TXN_LEDGERS_SIZE = "ledgerSize"
+AUDIT_TXN_LEDGER_ROOT = "ledgerRoot"
+AUDIT_TXN_STATE_ROOT = "stateRoot"
+
+
 # State proof fields
 STATE_PROOF = 'state_proof'
 ROOT_HASH = "root_hash"
