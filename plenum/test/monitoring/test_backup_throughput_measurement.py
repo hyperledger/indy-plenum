@@ -35,8 +35,8 @@ def tconf(tconf):
     tconf.throughput_measurement_params = old_throughput_measurement_params
 
 
-def test_monitor_reset_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
-                                              sdk_wallet_steward, tdir, tconf, allPluginsPath):
+def test_backup_throughput_measurement(looper, sdk_pool_handle, txnPoolNodeSet,
+                                       sdk_wallet_steward, tdir, tconf, allPluginsPath):
     # 8 nodes, so f == 2 and replicas == 3
     looper.runFor(tconf.throughput_measurement_params['window_size'] *
                   tconf.throughput_measurement_params['min_cnt'])
@@ -51,15 +51,12 @@ def test_monitor_reset_after_replica_addition(looper, sdk_pool_handle, txnPoolNo
         looper.removeProdable(node)
         node.stop()
 
-    sdk_pool_refresh(looper, sdk_pool_handle)
-
     # Send more txns so that master replica got more throughput
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, int(2 / tconf.DELTA))
 
-    looper.runFor(5)
-
     def chk():
         assert len(txnPoolNodeSet[0].monitor.areBackupsDegraded()) == 2
 
-    looper.run(eventually(chk, retryWait=1, timeout=tconf.PerfCheckFreq * 2))
+    looper.run(eventually(chk, retryWait=1,
+                          timeout=int(tconf.throughput_measurement_params['window_size'] + 2)))
