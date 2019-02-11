@@ -82,6 +82,8 @@ class Suspicions:
                                                    "incorrect pool state root hash")
     PPR_WITH_ORDERED_REQUEST = Suspicion(42, "Pre-Prepare message has already ordered requests")
 
+    STATE_SIGS_ARE_NOT_UPDATED = Suspicion(43, "State signatures are not updated for too long")
+
     @classmethod
     def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(

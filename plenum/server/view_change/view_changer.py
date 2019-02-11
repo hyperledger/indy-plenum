@@ -7,7 +7,6 @@ from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
-from common.exceptions import PlenumValueError
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
@@ -90,6 +89,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         force_view_change_freq = node.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
             self.startRepeating(self.on_master_degradation, force_view_change_freq)
+
+        # Start periodic freshness check
+        self.state_freshness_update_interval = node.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        if self.state_freshness_update_interval > 0:
+            self.startRepeating(self.check_freshness, self.state_freshness_update_interval)
 
     def __repr__(self):
         return "{}".format(self.name)
@@ -217,13 +221,13 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     # EXTERNAL EVENTS
 
     def on_master_degradation(self):
-        """
-        """
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} and trying to start "
-                       "view change since performance of master instance degraded".format(self, view_no))
-        self.sendInstanceChange(view_no)
-        self.do_view_change_if_possible(view_no)
+        self.propose_view_change()
+
+    def check_freshness(self):
+        if self.is_state_fresh_enough():
+            logger.debug("{} not sending instance change because found state to be fresh enough".format(self))
+            return
+        self.propose_view_change(Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
 
     def send_instance_change_if_needed(self, proposed_view_no, reason):
         can, whyNot = self._canViewChange(proposed_view_no)
@@ -248,11 +252,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self.instance_change_rounds = 0
 
     def on_primary_loss(self):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} and trying "
-                       "to start view change since primary was lost".format(self, view_no))
-        self.sendInstanceChange(view_no,
-                                Suspicions.PRIMARY_DISCONNECTED)
+        view_no = self.propose_view_change(Suspicions.PRIMARY_DISCONNECTED)
         if self.instance_change_action:
             # It's an action, scheduled for previous instanceChange round
             logger.info("Stop previous instance change resending schedule")
@@ -263,29 +263,16 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                                               Suspicions.PRIMARY_DISCONNECTED)
         self._schedule(self.instance_change_action,
                        seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
-        self.do_view_change_if_possible(view_no)
 
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} "
-                       "since primary is about to be disconnected".format(self, view_no))
-        self.sendInstanceChange(
-            view_no, Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
+        self.propose_view_change(Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
     def on_suspicious_primary(self, suspicion: Suspicions):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} since primary "
-                       "seems suspicious, reason {}".format(self, view_no, suspicion.reason))
-        self.sendInstanceChange(view_no, suspicion)
-        # TODO why we don't try to start view change here
+        self.propose_view_change(suspicion)
 
     def on_view_change_not_completed_in_time(self):
-        view_no = self.view_no + 1
-        logger.display("{} sending instance with view_no = {} since "
-                       "view change to view {} is not completed in time".format(self, view_no, self.view_no))
-        self.sendInstanceChange(view_no,
-                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+        self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
 
     def on_catchup_complete(self):
         if self.node.is_synced and self.node.master_replica.isPrimary is None and \
@@ -714,7 +701,23 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                         format(self, self.view_no))
         return messages
 
+    def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
+        proposed_view_no = self.view_no
+        # TODO: For some reason not incrementing view_no in most cases leads to lots of failing/flaky tests
+        # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
+        if suspicion != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self.view_change_in_progress:
+            proposed_view_no += 1
+        self.sendInstanceChange(proposed_view_no, suspicion)
+        return proposed_view_no
+
     def is_primary_disconnected(self):
         return \
             self.node.primaries_disconnection_times[self.node.master_replica.instId] and self.node.master_primary_name and \
             self.node.master_primary_name not in self.node.nodestack.conns
+
+    def is_state_fresh_enough(self):
+        replica = self.node.master_replica
+        timestamps = replica.get_ledgers_last_update_time().values()
+        oldest_timestamp = min(timestamps)
+        time_elapsed = replica.get_time_for_3pc_batch() - oldest_timestamp
+        return time_elapsed < 1.2 * self.state_freshness_update_interval
