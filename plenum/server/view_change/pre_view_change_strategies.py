@@ -32,6 +32,10 @@ class PreViewChangeStrategy(metaclass=ABCMeta):
     def on_view_change_continued(obj, msg):
         raise NotImplementedError()
 
+    @abstractmethod
+    def on_strategy_complete(self):
+        raise NotImplementedError()
+
 
 class VCStartMsgStrategy(PreViewChangeStrategy):
     """Strategy logic:
@@ -59,6 +63,9 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             nodeInBox = self.view_changer.node.nodeInBox
             nodeInBox.append((vcs_msg, self.view_changer.node.name))
             self.is_preparing = True
+
+    def on_strategy_complete(self):
+        self.is_preparing = False
 
     @staticmethod
     async def _process_node_inbox_3PC(node):
@@ -115,12 +122,12 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
         node_msg_router = self.node.nodeMsgRouter
         replica_msg_router = self.replica.inBoxRouter
 
-        if VIEW_CHANGE_START not in node_msg_router.routes:
+        if ViewChangeStartMessage not in node_msg_router.routes:
             processor = partial(VCStartMsgStrategy.on_view_change_started,
                                 self.node)
             node_msg_router.add((ViewChangeStartMessage, processor))
 
-        if VIEW_CHANGE_CONTINUE not in replica_msg_router.routes:
+        if ViewChangeContinueMessage not in replica_msg_router.routes:
             processor = partial(VCStartMsgStrategy.on_view_change_continued,
                                 self.replica)
             replica_msg_router.add((ViewChangeContinueMessage, processor))

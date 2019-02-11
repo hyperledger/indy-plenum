@@ -528,6 +528,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if self.pre_vc_strategy and (not self.propagate_primary) and (not continue_vc):
             self.pre_vc_strategy.prepare_view_change(proposed_view_no)
             return
+        elif self.pre_vc_strategy:
+            self.pre_vc_strategy.on_strategy_complete()
+
         self.previous_view_no = self.view_no
         self.view_no = proposed_view_no
         self.view_change_in_progress = True
