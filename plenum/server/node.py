@@ -116,7 +116,7 @@ from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.server.view_change.view_changer import ViewChanger
+from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -214,6 +214,42 @@ class GcTimeTracker:
             elapsed = time.perf_counter() - start
             self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
             self._timestamps[gen] = None
+
+
+class ViewChangerNodeDataProvider(ViewChangerDataProvider):
+    def __init__(self, node):
+        self._node = node
+
+    def name(self) -> str:
+        return self._node.name
+
+    def config(self) -> object:
+        return self._node.config
+
+    def quorums(self) -> Quorums:
+        return self._node.quorums
+
+    def has_pool_ledger(self) -> bool:
+        return self._node.poolLedger is not None
+
+    def ledger_summary(self) -> List[Tuple[int, int, str]]:
+        return self._node.ledger_summary
+
+    def next_primary_name(self):
+        return self._node.elector._next_primary_node_name_for_master()
+
+    def is_primary_disconnected(self) -> bool:
+        return \
+            self._node.primaries_disconnection_times[self._node.master_replica.instId] \
+            and self._node.master_primary_name \
+            and self._node.master_primary_name not in self._node.nodestack.conns
+
+    def state_freshness(self) -> float:
+        replica = self._node.master_replica
+        timestamps = replica.get_ledgers_last_update_time().values()
+        oldest_timestamp = min(timestamps)
+        return replica.get_time_for_3pc_batch() - oldest_timestamp
+
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -1249,7 +1285,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer:
             return self.view_changer
         else:
-            return ViewChanger(self)
+            return ViewChanger(ViewChangerNodeDataProvider(self))
 
     def newPrimaryDecider(self):
         if self.primaryDecider:

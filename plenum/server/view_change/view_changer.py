@@ -1,8 +1,10 @@
+from abc import ABC, abstractmethod
 from collections import deque
 from typing import List, Optional, Tuple
 from functools import partial
 
 from plenum.common.startable import Mode
+from plenum.server.quorums import Quorums
 from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
@@ -10,9 +12,8 @@ from stp_core.ratchet import Ratchet
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone, \
-    BackupInstanceFaulty
-from plenum.common.util import mostCommonElement, SortedDict
+from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
+from plenum.common.util import mostCommonElement
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.has_action_queue import HasActionQueue
@@ -26,10 +27,44 @@ logger = getlogger()
 # TODO logging
 
 
+class ViewChangerDataProvider(ABC):
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @abstractmethod
+    def config(self) -> object:
+        pass
+
+    @abstractmethod
+    def quorums(self) -> Quorums:
+        pass
+
+    @abstractmethod
+    def has_pool_ledger(self) -> bool:
+        pass
+
+    @abstractmethod
+    def ledger_summary(self) -> List[Tuple[int, int, str]]:
+        pass
+
+    @abstractmethod
+    def next_primary_name(self):
+        pass
+
+    @abstractmethod
+    def is_primary_disconnected(self) -> bool:
+        pass
+
+    @abstractmethod
+    def state_freshness(self) -> float:
+        pass
+
+
 class ViewChanger(HasActionQueue, MessageProcessor):
 
-    def __init__(self, node):
-        self.node = node
+    def __init__(self, provider: ViewChangerDataProvider):
+        self.provider = provider
 
         self._view_no = 0  # type: int
 
@@ -46,7 +81,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             (FutureViewChangeDone, self.process_future_view_vchd_msg)
         )
 
-        self.instanceChanges = InstanceChanges(node.config)
+        self.instanceChanges = InstanceChanges(self.config)
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
         # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.
@@ -86,12 +121,12 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.last_completed_view_no = 0
 
         # Force periodic view change if enabled in config
-        force_view_change_freq = node.config.ForceViewChangeFreq
+        force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
             self.startRepeating(self.on_master_degradation, force_view_change_freq)
 
         # Start periodic freshness check
-        self.state_freshness_update_interval = node.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        self.state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if self.state_freshness_update_interval > 0:
             self.startRepeating(self.check_freshness, self.state_freshness_update_interval)
 
@@ -110,23 +145,23 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self._view_no = value
 
     @property
-    def name(self):
-        return self.node.name
+    def name(self) -> str:
+        return self.provider.name()
 
     @property
-    def config(self):
-        return self.node.config
+    def config(self) -> object:
+        return self.provider.config()
 
     @property
-    def quorums(self):
-        return self.node.quorums
+    def quorums(self) -> Quorums:
+        return self.provider.quorums()
 
     @property
-    def view_change_in_progress(self):
+    def view_change_in_progress(self) -> bool:
         return self._view_change_in_progress
 
     @view_change_in_progress.setter
-    def view_change_in_progress(self, value):
+    def view_change_in_progress(self, value: bool):
         self._view_change_in_progress = value
 
     @property
@@ -134,10 +169,10 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # TODO: re-factor this, separate this two states (selection of a new
         # primary and propagation of existing one)
         if not self.view_change_in_progress:
-            return self.node.quorums.propagate_primary.value
+            return self.quorums.propagate_primary.value
         if self.propagate_primary:
-            return self.node.quorums.propagate_primary.value
-        return self.node.quorums.view_change_done.value
+            return self.quorums.propagate_primary.value
+        return self.quorums.view_change_done.value
 
     @property
     def _hasViewChangeQuorum(self):
@@ -159,7 +194,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     @property
     def _is_propagated_view_change_completed(self):
         if not self._propagated_view_change_completed and \
-                self.node.poolLedger is not None and \
+                self.provider.has_pool_ledger() and \
                 self.propagate_primary:
 
             accepted = self.get_sufficient_same_view_change_done_messages()
@@ -169,7 +204,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                                 accepted[1]))
                 self_pool_ledger_i = \
                     next(filter(lambda x: x[0] == POOL_LEDGER_ID,
-                                self.node.ledger_summary))
+                                self.provider.ledger_summary()))
                 logger.info("{} Primary selection has been already completed "
                             "on pool ledger info = {}, primary {}, self pool ledger info {}".
                             format(self, accepted_pool_ledger_i, accepted[0], self_pool_ledger_i))
@@ -180,12 +215,12 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     @property
     def has_view_change_from_primary(self) -> bool:
         if not self._has_view_change_from_primary:
-            next_primary_name = self.node.elector._next_primary_node_name_for_master()
+            next_primary_name = self.provider.next_primary_name()
 
             if next_primary_name not in self._view_change_done:
                 logger.info("{} has not received ViewChangeDone from the next "
                             "primary {} (view_no: {}, totalNodes: {})".
-                            format(self.name, next_primary_name, self.view_no, self.node.totalNodes))
+                            format(self.name, next_primary_name, self.view_no, self.quorums.n))
             else:
                 logger.info('{} received ViewChangeDone from primary {}'.format(self, next_primary_name))
                 self._has_view_change_from_primary = True
@@ -209,7 +244,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         # view change quorum
         _, accepted_ledger_summary = self.get_sufficient_same_view_change_done_messages()
         for (ledgerId, own_ledger_size, _), (_, accepted_ledger_size, _) in \
-                zip(self.node.ledger_summary, accepted_ledger_summary):
+                zip(self.provider.ledger_summary(), accepted_ledger_summary):
             if own_ledger_size < accepted_ledger_size:
                 logger.info("{} ledger {} sizes are differ: own {} accepted {}".
                             format(self, ledgerId, own_ledger_size, accepted_ledger_size))
@@ -443,7 +478,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     # noinspection PyAttributeOutsideInit
     def initInsChngThrottling(self):
-        windowSize = self.node.config.ViewChangeWindowSize
+        windowSize = self.config.ViewChangeWindowSize
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
         self.insChngThrottler = Throttler(windowSize, ratchet.get)
 
@@ -654,7 +689,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
         """
-        expected_primary = self.node.elector._next_primary_node_name_for_master()
+        expected_primary = self.provider.next_primary_name()
         if new_primary != expected_primary:
             logger.error("{}{} expected next primary to be {}, but majority "
                          "declared {} instead for view {}"
@@ -670,8 +705,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         """
         Sends ViewChangeDone message to other protocol participants
         """
-        new_primary_name = self.node.elector._next_primary_node_name_for_master()
-        ledger_summary = self.node.ledger_summary
+        new_primary_name = self.provider.next_primary_name()
+        ledger_summary = self.provider.ledger_summary()
         message = ViewChangeDone(self.view_no,
                                  new_primary_name,
                                  ledger_summary)
@@ -713,14 +748,5 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.sendInstanceChange(proposed_view_no, suspicion)
         return proposed_view_no
 
-    def is_primary_disconnected(self):
-        return \
-            self.node.primaries_disconnection_times[self.node.master_replica.instId] and self.node.master_primary_name and \
-            self.node.master_primary_name not in self.node.nodestack.conns
-
     def is_state_fresh_enough(self):
-        replica = self.node.master_replica
-        timestamps = replica.get_ledgers_last_update_time().values()
-        oldest_timestamp = min(timestamps)
-        time_elapsed = replica.get_time_for_3pc_batch() - oldest_timestamp
-        return time_elapsed < 1.2 * self.state_freshness_update_interval
+        return self.provider.state_freshness() < 1.2 * self.state_freshness_update_interval
