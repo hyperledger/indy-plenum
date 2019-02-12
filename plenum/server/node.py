@@ -236,6 +236,9 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def ledger_summary(self) -> List[Tuple[int, int, str]]:
         return self._node.ledger_summary
 
+    def node_registry(self, size):
+        return self._node.poolManager.getNodeRegistry(size)
+
     def is_node_synced(self) -> bool:
         return self._node.is_synced
 
@@ -260,11 +263,20 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
             and self._node.master_primary_name \
             and self._node.master_primary_name not in self._node.nodestack.conns
 
+    def is_master_degraded(self) -> bool:
+        return self._node.monitor.isMasterDegraded()
+
+    def pretty_metrics(self) -> str:
+        return self._node.monitor.prettymetrics
+
     def state_freshness(self) -> float:
         replica = self._node.master_replica
         timestamps = replica.get_ledgers_last_update_time().values()
         oldest_timestamp = min(timestamps)
         return replica.get_time_for_3pc_batch() - oldest_timestamp
+
+    def connected_nodes(self) -> Set[str]:
+        return self._node.nodestack.connecteds
 
     def notify_view_change_start(self):
         self._node.on_view_change_start()
@@ -272,8 +284,17 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def notify_view_change_complete(self):
         self._node.on_view_change_complete()
 
+    def notify_initial_propose_view_change(self):
+        self._node.schedule_initial_propose_view_change()
+
     def start_catchup(self):
         self._node.start_catchup()
+
+    def restore_backup_replicas(self):
+        self._node.backup_instance_faulty_processor.restore_replicas()
+
+    def select_primaries(self, node_reg):
+        self._node.select_primaries(node_reg)
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)

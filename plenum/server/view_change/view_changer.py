@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from plenum.common.startable import Mode
@@ -50,6 +50,10 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
+    def node_registry(self, size):
+        pass
+
+    @abstractmethod
     def is_node_synced(self) -> bool:
         pass
 
@@ -78,7 +82,19 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
+    def is_master_degraded(self) -> bool:
+        pass
+
+    @abstractmethod
+    def pretty_metrics(self) -> str:
+        pass
+
+    @abstractmethod
     def state_freshness(self) -> float:
+        pass
+
+    @abstractmethod
+    def connected_nodes(self) -> Set[str]:
         pass
 
     @abstractmethod
@@ -90,7 +106,19 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
+    def notify_initial_propose_view_change(self):
+        pass
+
+    @abstractmethod
     def start_catchup(self):
+        pass
+
+    @abstractmethod
+    def restore_backup_replicas(self):
+        pass
+
+    @abstractmethod
+    def select_primaries(self, node_reg):
         pass
 
     @abstractmethod
@@ -371,7 +399,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             # This is the first Propagate Primary,
             # so we need to make sure that we connected to the real primary for the proposed view
             # see test_view_change_after_back_to_quorum_with_disconnected_primary
-            self.node.schedule_initial_propose_view_change()
+            self.provider.notify_initial_propose_view_change()
 
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = {}
@@ -387,12 +415,12 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :param instChg: the instance change request
         :param frm: the name of the node that sent this `msg`
         """
-        if frm not in self.node.nodestack.connecteds:
+        if frm not in self.provider.connected_nodes():
             self.provider.discard(
                 instChg,
                 "received instance change request: {} from {} "
                 "which is not in connected list: {}".
-                format(instChg, frm, self.node.nodestack.connecteds), logger.info)
+                format(instChg, frm, self.provider.connected_nodes()), logger.info)
             return
 
         logger.info("{} received instance change request: {} from {}".format(self, instChg, frm))
@@ -417,7 +445,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             if self.instanceChanges.has_inst_chng_from(instChg.viewNo, self.name):
                 logger.info("{} received instance change message {} but has already "
                             "sent an instance change message".format(self, instChg))
-            elif not self.node.monitor.isMasterDegraded():
+            elif not self.provider.is_master_degraded():
                 logger.info("{} received instance change message {} but did not "
                             "find the master to be slow".format(self, instChg))
             else:
@@ -505,7 +533,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                     suspicion.reason))
             logger.info("{}{} metrics for monitor: {}"
                         .format(MONITORING_PREFIX, self,
-                                self.node.monitor.prettymetrics))
+                                self.provider.pretty_metrics()))
             msg = self._create_instance_change_msg(view_no, suspicion.code)
             self.send(msg)
             # record instance change vote for self and try to change the view
@@ -657,18 +685,19 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         logger.info("{} starting selection".format(self))
 
-        nodeReg = None
+        node_reg = None
         # in case of already completed view change
         # use node registry actual for the moment when it happened
         if self._is_propagated_view_change_completed:
             assert self._accepted_view_change_done_message is not None
             ledger_summary = self._accepted_view_change_done_message[1]
             pool_ledger_size = ledger_summary[POOL_LEDGER_ID][1]
-            nodeReg = self.node.poolManager.getNodeRegistry(pool_ledger_size)
-        if self.view_change_in_progress:
-            self.node.backup_instance_faulty_processor.restore_replicas()
+            node_reg = self.provider.node_registry(pool_ledger_size)
 
-        self.node.select_primaries(nodeReg)
+        if self.view_change_in_progress:
+            self.provider.restore_backup_replicas()
+
+        self.provider.select_primaries(node_reg)
 
         if self.view_change_in_progress:
             self.view_change_in_progress = False
