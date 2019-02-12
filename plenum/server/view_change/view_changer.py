@@ -91,9 +91,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self.startRepeating(self.on_master_degradation, force_view_change_freq)
 
         # Start periodic freshness check
-        self.state_freshness_update_interval = node.config.STATE_FRESHNESS_UPDATE_INTERVAL
-        if self.state_freshness_update_interval > 0:
-            self.startRepeating(self.check_freshness, self.state_freshness_update_interval)
+        state_freshness_update_interval = node.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        if state_freshness_update_interval > 0:
+            self.startRepeating(self.check_freshness, state_freshness_update_interval)
 
     def __repr__(self):
         return "{}".format(self.name)
@@ -723,4 +723,5 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         timestamps = replica.get_ledgers_last_update_time().values()
         oldest_timestamp = min(timestamps)
         time_elapsed = replica.get_time_for_3pc_batch() - oldest_timestamp
-        return time_elapsed < 1.2 * self.state_freshness_update_interval
+        threshold = self.config.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT * self.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        return time_elapsed < threshold
