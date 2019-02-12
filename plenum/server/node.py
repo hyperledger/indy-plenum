@@ -299,6 +299,9 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
 
+    def node_inbox(self) -> deque:
+        return self._node.nodeInBox
+
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):

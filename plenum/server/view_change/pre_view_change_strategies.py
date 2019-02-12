@@ -51,8 +51,7 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stashedNodeInBox = deque()
-        self.node = self.view_changer.node
-        self.replica = self.node.master_replica
+        self.provider = self.view_changer.provider
         self.is_preparing = False
 
     def prepare_view_change(self, proposed_view_no: int):
@@ -60,7 +59,7 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             logger.info("VCStartMsgStrategy: Starting prepare_view_change process")
             self._set_req_handlers()
             vcs_msg = ViewChangeStartMessage(proposed_view_no)
-            nodeInBox = self.view_changer.node.nodeInBox
+            nodeInBox = self.provider.node_inbox()
             nodeInBox.append((vcs_msg, self.view_changer.node.name))
             self.is_preparing = True
 
@@ -119,9 +118,9 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             strategy.is_preparing = False
 
     def unstash_messages(self):
-        self.replica.logger.info("VCStartMsgStrategy: unstash all not 3PC msgs to nodeInBox queue")
+        logger.info("VCStartMsgStrategy: unstash all not 3PC msgs to nodeInBox queue")
         while self.stashedNodeInBox:
-            self.replica.node.nodeInBox.appendleft(self.stashedNodeInBox.pop())
+            self.provider.node_inbox().appendleft(self.stashedNodeInBox.pop())
 
     def _set_req_handlers(self):
         node_msg_router = self.node.nodeMsgRouter

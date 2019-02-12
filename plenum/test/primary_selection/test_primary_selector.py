@@ -8,7 +8,7 @@ from plenum.common.util import get_utc_epoch
 
 from plenum.server.propagator import Requests
 
-from plenum.server.node import Node
+from plenum.server.node import Node, ViewChangerNodeDataProvider
 
 from plenum.common.metrics_collector import NullMetricsCollector
 from stp_core.types import HA
@@ -22,7 +22,6 @@ from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.config_util import getConfigOnce
 from plenum.test.helper import create_new_test_node
-from plenum.test.test_node import TestNode
 
 whitelist = ['but majority declared']
 
@@ -67,7 +66,7 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.view_changer = ViewChanger(self)
+        self.view_changer = ViewChanger(ViewChangerNodeDataProvider(self))
         self.elector = PrimarySelector(self)
         self.metrics = NullMetricsCollector()
 

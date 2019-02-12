@@ -32,7 +32,7 @@ from stp_core.common.util import adict
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
-from plenum.server.node import Node
+from plenum.server.node import Node, ViewChangerNodeDataProvider
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
@@ -171,7 +171,7 @@ class TestNodeCore(StackedTester):
     def newViewChanger(self):
         vchCls = self.view_changer if self.view_changer is not None else \
             TestViewChanger
-        return vchCls(self)
+        return vchCls(ViewChangerNodeDataProvider(self))
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
