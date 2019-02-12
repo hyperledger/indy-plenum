@@ -235,8 +235,11 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def ledger_summary(self) -> List[Tuple[int, int, str]]:
         return self._node.ledger_summary
 
-    def next_primary_name(self):
+    def next_primary_name(self) -> str:
         return self._node.elector._next_primary_node_name_for_master()
+
+    def current_primary_name(self) -> str:
+        return self._node.master_primary_name
 
     def is_primary_disconnected(self) -> bool:
         return \
@@ -250,6 +253,14 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         oldest_timestamp = min(timestamps)
         return replica.get_time_for_3pc_batch() - oldest_timestamp
 
+    def notify_view_change_start(self):
+        self._node.on_view_change_start()
+
+    def notify_view_change_complete(self):
+        self._node.on_view_change_complete()
+
+    def start_catchup(self):
+        self._node.start_catchup()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,

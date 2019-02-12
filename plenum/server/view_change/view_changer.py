@@ -49,7 +49,11 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def next_primary_name(self):
+    def next_primary_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def current_primary_name(self) -> str:
         pass
 
     @abstractmethod
@@ -58,6 +62,18 @@ class ViewChangerDataProvider(ABC):
 
     @abstractmethod
     def state_freshness(self) -> float:
+        pass
+
+    @abstractmethod
+    def notify_view_change_start(self):
+        pass
+
+    @abstractmethod
+    def notify_view_change_complete(self):
+        pass
+
+    @abstractmethod
+    def start_catchup(self):
         pass
 
 
@@ -556,14 +572,14 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.previous_view_no = self.view_no
         self.view_no = proposed_view_no
         self.view_change_in_progress = True
-        self.previous_master_primary = self.node.master_primary_name
+        self.previous_master_primary = self.provider.current_primary_name()
         self.set_defaults()
         self._process_vcd_for_future_view()
 
         self.initInsChngThrottling()
 
-        self.node.on_view_change_start()
-        self.node.start_catchup()
+        self.provider.notify_view_change_start()
+        self.provider.start_catchup()
 
     def _process_vcd_for_future_view(self):
         # make sure that all received VCD messages for future view
@@ -614,7 +630,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         if self.is_behind_for_view:
             logger.info('{} is synced and has an acceptable view change quorum '
                         'but is behind the accepted state'.format(self))
-            self.node.start_catchup()
+            self.provider.start_catchup()
             return
 
         logger.info("{} starting selection".format(self))
@@ -634,7 +650,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         if self.view_change_in_progress:
             self.view_change_in_progress = False
-            self.node.on_view_change_complete()
+            self.provider.notify_view_change_complete()
             # when we had INSTANCE_CHANGE message, they added into instanceChanges
             # by msg.view_no. When view change was occured and view_no is changed,
             # then we should delete all INSTANCE_CHANGE messages with current (already changed)

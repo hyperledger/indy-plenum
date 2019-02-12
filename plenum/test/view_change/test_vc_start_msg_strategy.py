@@ -8,7 +8,7 @@ from plenum.common.constants import PreVCStrategies
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
 from plenum.common.util import get_utc_epoch
-from plenum.server.node import Node
+from plenum.server.node import Node, ViewChangerNodeDataProvider
 from plenum.server.router import Router
 from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
 from plenum.server.view_change.view_changer import ViewChanger
@@ -42,7 +42,7 @@ def view_changer(tconf):
                          ))
     node.metrics = functools.partial(Node._createMetricsCollector, node)()
     node.process_one_node_message = functools.partial(Node.process_one_node_message, node)
-    view_changer = ViewChanger(node)
+    view_changer = ViewChanger(ViewChangerNodeDataProvider(node))
     node.view_changer = view_changer
     node.viewNo = view_changer.view_no
     node.master_replica.node = node
@@ -167,7 +167,7 @@ def tconf(tconf):
 
 def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
     node = create_node_and_not_start
-    node.view_changer = ViewChanger(node)
+    node.view_changer = ViewChanger(ViewChangerNodeDataProvider(node))
     node.view_changer.view_no = 0
     """pre_view_change stage"""
     node.view_changer.startViewChange(1)

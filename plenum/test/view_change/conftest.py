@@ -4,7 +4,7 @@ from collections import deque
 import pytest
 
 from plenum.common.util import get_utc_epoch
-from plenum.server.node import Node
+from plenum.server.node import Node, ViewChangerNodeDataProvider
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.conftest import getValueFromModule
@@ -60,7 +60,7 @@ def fake_view_changer(request, tconf):
         master_primary_name='Alpha',
         master_replica=FakeSomething(instId=0)
     )
-    view_changer = ViewChanger(node)
+    view_changer = ViewChanger(ViewChangerNodeDataProvider(node))
     return view_changer
 
 
