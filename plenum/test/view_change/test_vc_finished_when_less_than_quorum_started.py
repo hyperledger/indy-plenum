@@ -1,20 +1,15 @@
-import time
 
-import pytest
-
-from plenum.test import waits
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, \
-    reconnect_node_and_ensure_connected
-from plenum.test.test_node import ensureElectionsDone, getRequiredInstances, checkNodesConnected, TestViewChanger
-from plenum.test.view_change.helper import ensure_view_change, start_stopped_node
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, TestViewChanger
+from plenum.test.view_change.helper import start_stopped_node
+from stp_core.loop.eventually import eventually
 
 
-def test_vc_finished_when_less_than_quorum_started(
-        looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle, tconf, tdir, allPluginsPath):
-
-    checkViewNoForNodes(txnPoolNodeSet, 0)
+def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
+                                                   sdk_wallet_client, sdk_pool_handle,
+                                                   tconf, tdir, allPluginsPath):
 
     alpha, beta, gamma, delta = txnPoolNodeSet
 
@@ -41,6 +36,8 @@ def test_vc_finished_when_less_than_quorum_started(
     # Delta and Gamma send InstanceChange for all nodes.
     for node in [gamma, delta]:
         node.view_changer.on_master_degradation()
+    looper.run(
+        eventually(lambda: assertExp(delta.view_change_in_progress)))
 
     ensureElectionsDone(looper, txnPoolNodeSet)
 
