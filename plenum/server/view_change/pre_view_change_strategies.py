@@ -32,6 +32,10 @@ class PreViewChangeStrategy(metaclass=ABCMeta):
     def on_view_change_continued(obj, msg):
         raise NotImplementedError()
 
+    @abstractmethod
+    def on_strategy_complete(self):
+        raise NotImplementedError()
+
 
 class VCStartMsgStrategy(PreViewChangeStrategy):
     """Strategy logic:
@@ -59,6 +63,11 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             nodeInBox = self.view_changer.node.nodeInBox
             nodeInBox.append((vcs_msg, self.view_changer.node.name))
             self.is_preparing = True
+
+    def on_strategy_complete(self):
+        logger.info("VCStartMsgStrategy: on_strategy_complete - View Change can be started")
+        self.unstash_messages()
+        self.is_preparing = False
 
     @staticmethod
     async def _process_node_inbox_3PC(node):
@@ -104,23 +113,26 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             Return stashed not 3PC msgs to nodeInBox queue and start ViewChange
             Critical assumption: All 3PC msgs passed from node already processed
             """
-            replica.logger.info("VCStartMsgStrategy: unstash all not 3PC msgs to nodeInBox queue")
-            while strategy.stashedNodeInBox:
-                replica.node.nodeInBox.appendleft(strategy.stashedNodeInBox.pop())
+            strategy.unstash_messages()
             replica.logger.info("VCStartMsgStrategy: continue view_change procedure in a normal way")
             replica.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
             strategy.is_preparing = False
+
+    def unstash_messages(self):
+        self.replica.logger.info("VCStartMsgStrategy: unstash all not 3PC msgs to nodeInBox queue")
+        while self.stashedNodeInBox:
+            self.replica.node.nodeInBox.appendleft(self.stashedNodeInBox.pop())
 
     def _set_req_handlers(self):
         node_msg_router = self.node.nodeMsgRouter
         replica_msg_router = self.replica.inBoxRouter
 
-        if VIEW_CHANGE_START not in node_msg_router.routes:
+        if ViewChangeStartMessage not in node_msg_router.routes:
             processor = partial(VCStartMsgStrategy.on_view_change_started,
                                 self.node)
             node_msg_router.add((ViewChangeStartMessage, processor))
 
-        if VIEW_CHANGE_CONTINUE not in replica_msg_router.routes:
+        if ViewChangeContinueMessage not in replica_msg_router.routes:
             processor = partial(VCStartMsgStrategy.on_view_change_continued,
                                 self.replica)
             replica_msg_router.add((ViewChangeContinueMessage, processor))
