@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from collections import deque
 from typing import List, Optional, Tuple
@@ -49,11 +50,27 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
+    def is_node_synced(self) -> bool:
+        pass
+
+    @abstractmethod
+    def node_mode(self) -> Mode:
+        pass
+
+    @abstractmethod
     def next_primary_name(self) -> str:
         pass
 
     @abstractmethod
     def current_primary_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def has_primary(self) -> bool:
+        pass
+
+    @abstractmethod
+    def is_primary(self) -> Optional[bool]:
         pass
 
     @abstractmethod
@@ -74,6 +91,10 @@ class ViewChangerDataProvider(ABC):
 
     @abstractmethod
     def start_catchup(self):
+        pass
+
+    @abstractmethod
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
 
@@ -326,8 +347,9 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
 
     def on_catchup_complete(self):
-        if self.node.is_synced and self.node.master_replica.isPrimary is None and \
-                not self._is_propagated_view_change_completed:
+        if self.provider.is_node_synced() \
+                and self.provider.is_primary() is None \
+                and not self._is_propagated_view_change_completed:
             self._send_view_change_done_message()
 
         self._start_selection()
@@ -366,7 +388,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :param frm: the name of the node that sent this `msg`
         """
         if frm not in self.node.nodestack.connecteds:
-            self.node.discard(
+            self.provider.discard(
                 instChg,
                 "received instance change request: {} from {} "
                 "which is not in connected list: {}".
@@ -377,11 +399,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
-            self.node.discard(
+            self.provider.discard(
                 instChg, "{}field view_no has incorrect type: {}".
                 format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
         elif instChg.viewNo <= self.view_no:
-            self.node.discard(
+            self.provider.discard(
                 instChg,
                 "Received instance change request with view no {} "
                 "which is not more than its view no {}".
@@ -415,26 +437,26 @@ class ViewChanger(HasActionQueue, MessageProcessor):
                     format(self.name, sender, msg))
         view_no = msg.viewNo
         if self.view_no != view_no:
-            self.discard(msg, '{} got Primary from {} for view no {} '
-                              'whereas current view no is {}'.
-                         format(self, sender, view_no, self.view_no),
-                         logMethod=logger.info)
+            self.provider.discard(msg, '{} got Primary from {} for view no {} '
+                                  'whereas current view no is {}'.
+                                  format(self, sender, view_no, self.view_no),
+                                  logMethod=logger.info)
             return False
 
         new_primary_name = msg.name
         if new_primary_name == self.previous_master_primary:
-            self.discard(msg, '{} got Primary from {} for {} who was primary of '
-                              'master in previous view too'.
-                         format(self, sender, new_primary_name),
-                         logMethod=logger.info)
+            self.provider.discard(msg, '{} got Primary from {} for {} who was primary of '
+                                  'master in previous view too'.
+                                  format(self, sender, new_primary_name),
+                                  logMethod=logger.info)
             return False
 
         # Since a node can send ViewChangeDone more than one time
         self._on_verified_view_change_done_msg(msg, sender)
         # TODO why do we check that after the message tracking
-        if self.node.master_replica.hasPrimary:
-            self.discard(msg, "it already decided primary which is {}".
-                         format(self.node.master_replica.primaryName), logger.info)
+        if self.provider.has_primary():
+            self.provider.discard(msg, "it already decided primary which is {}".
+                                  format(self.provider.current_primary_name()), logger.info)
             return False
 
         self._start_selection()
@@ -456,7 +478,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         :return: the number of messages successfully processed
         """
         # do not start any view changes until catch-up is finished!
-        if not Mode.is_done_syncing(self.node.mode):
+        if not Mode.is_done_syncing(self.provider.node_mode()):
             return 0
         return await self.inBoxRouter.handleAll(self.inBox, limit)
 
@@ -611,8 +633,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
         error = None
 
-        if not self.node.is_synced:
-            error = "mode is {}".format(self.node.mode)
+        if not self.provider.is_node_synced():
+            error = "mode is {}".format(self.provider.node_mode())
         elif not self.has_acceptable_view_change_quorum:
             error = "has no view change quorum or no message from next primary"
         else:

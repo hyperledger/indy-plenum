@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import time
@@ -235,11 +236,23 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def ledger_summary(self) -> List[Tuple[int, int, str]]:
         return self._node.ledger_summary
 
+    def is_node_synced(self) -> bool:
+        return self._node.is_synced
+
+    def node_mode(self) -> Mode:
+        return self._node.mode
+
     def next_primary_name(self) -> str:
         return self._node.elector._next_primary_node_name_for_master()
 
     def current_primary_name(self) -> str:
         return self._node.master_primary_name
+
+    def has_primary(self) -> bool:
+        return self._node.master_replica.hasPrimary
+
+    def is_primary(self):
+        return self._node.master_replica.isPrimary
 
     def is_primary_disconnected(self) -> bool:
         return \
@@ -261,6 +274,9 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
 
     def start_catchup(self):
         self._node.start_catchup()
+
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
+        self._node.discard(msg, reason, logMethod, cliOutput)
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
