@@ -75,3 +75,17 @@ def test_commit_batch_success(make_tracker,
     make_tracker.apply_batch(test_root, test_ledger_size)
     assert make_tracker.commit_batch(state_root, test_ledger_size) == \
         (test_root, test_ledger_size - init_ledger_size)
+
+
+def test_not_remove_last_committed_after_reject_last_batch(make_tracker):
+    test_ledger_size = 1000
+    test_root = "test_root"
+    make_tracker.apply_batch(test_root, test_ledger_size)
+    make_tracker.reject_batch()
+    assert make_tracker.last_committed is not None
+
+
+def test_apply_batch_with_zero_ledger_size(make_tracker):
+    test_ledger_size = 0
+    test_root = "test_root"
+    make_tracker.apply_batch(test_root, test_ledger_size)

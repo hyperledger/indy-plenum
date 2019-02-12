@@ -24,7 +24,7 @@ class LedgerUncommittedTracker:
                                    state_root,
                                    "No state root given")
 
-        if ledger_size <= 0:
+        if ledger_size < 0:
             raise PlenumValueError('ledger_size',
                                    ledger_size,
                                    "Incorrect size of ledger")
@@ -55,7 +55,6 @@ class LedgerUncommittedTracker:
             _, prev_size = self.un_committed.pop()
         if len(self.un_committed) == 0:
             committed_hash, committed_size = self.last_committed
-            self.last_committed = None
             return committed_hash, prev_size - committed_size
         else:
             lhash, lsize = self.un_committed[-1]
