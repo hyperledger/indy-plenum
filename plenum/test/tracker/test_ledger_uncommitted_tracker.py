@@ -73,8 +73,13 @@ def test_commit_batch_success(make_tracker,
     test_ledger_size = 1000
     test_root = "test_root"
     make_tracker.apply_batch(test_root, test_ledger_size)
-    assert make_tracker.commit_batch(state_root, test_ledger_size) == \
-        (test_root, test_ledger_size - init_ledger_size)
+    make_tracker.commit_batch()
+    assert make_tracker.last_committed == (test_root, test_ledger_size)
+
+
+def test_raise_error_if_commit_without_un_committed(make_tracker):
+    with pytest.raises(PlenumValueError, match="commit_batch was called, but there is no tracked uncommitted states"):
+        make_tracker.commit_batch()
 
 
 def test_not_remove_last_committed_after_reject_last_batch(make_tracker):

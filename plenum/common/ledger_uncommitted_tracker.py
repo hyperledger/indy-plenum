@@ -31,17 +31,19 @@ class LedgerUncommittedTracker:
 
         self.un_committed.append((state_root, ledger_size))
 
-    def commit_batch(self, state_root, ledger_size):
+    def commit_batch(self):
         """
 
         :param state_root: committed state root
         :param ledger_size: committed ledger size
         :return: tuple of next committed state and count of committed transactions
         """
-        _, last_committed_size = self.last_committed
-        self.last_committed = (state_root, ledger_size)
+        if len(self.un_committed) == 0:
+            raise PlenumValueError("un_committed",
+                                   self.un_committed,
+                                   "commit_batch was called, but there is no tracked uncommitted states")
         uncommitted_hash, uncommitted_size = self.un_committed.popleft()
-        return uncommitted_hash, uncommitted_size - last_committed_size
+        self.last_committed = (uncommitted_hash, uncommitted_size)
 
     def reject_batch(self):
         """
