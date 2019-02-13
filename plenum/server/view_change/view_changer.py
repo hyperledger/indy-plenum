@@ -125,10 +125,6 @@ class ViewChangerDataProvider(ABC):
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
-    @abstractmethod
-    def node_inbox(self) -> deque:
-        pass
-
 
 class ViewChanger(HasActionQueue, MessageProcessor):
 
