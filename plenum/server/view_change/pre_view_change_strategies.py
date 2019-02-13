@@ -61,7 +61,7 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             self._set_req_handlers()
             vcs_msg = ViewChangeStartMessage(proposed_view_no)
             nodeInBox = self.node.nodeInBox
-            nodeInBox.append((vcs_msg, self.view_changer.node.name))
+            nodeInBox.append((vcs_msg, self.node.name))
             self.is_preparing = True
 
     def on_strategy_complete(self):
