@@ -188,7 +188,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             self.startRepeating(self.on_master_degradation, force_view_change_freq)
 
         # Start periodic freshness check
-        state_freshness_update_interval = node.config.STATE_FRESHNESS_UPDATE_INTERVAL
+        state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if state_freshness_update_interval > 0:
             self.startRepeating(self.check_freshness, state_freshness_update_interval)
 

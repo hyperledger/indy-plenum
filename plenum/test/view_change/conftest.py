@@ -61,6 +61,8 @@ def fake_view_changer(request, tconf):
         master_replica=FakeSomething(instId=0)
     )
     view_changer = ViewChanger(ViewChangerNodeDataProvider(node))
+    # TODO: This is a hack, do something better
+    view_changer.node = node
     return view_changer
 
 
