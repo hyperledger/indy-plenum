@@ -6,7 +6,6 @@ from functools import partial
 
 from plenum.common.startable import Mode
 from plenum.server.quorums import Quorums
-from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
@@ -130,13 +129,11 @@ class ViewChanger(HasActionQueue, MessageProcessor):
 
     def __init__(self, provider: ViewChangerDataProvider):
         self.provider = provider
+        self.pre_vc_strategy = None
 
         self._view_no = 0  # type: int
 
         HasActionQueue.__init__(self)
-        self.pre_vc_strategy = None
-        if hasattr(self.config, 'PRE_VC_STRATEGY'):
-            self.pre_vc_strategy = preVCStrategies.get(self.config.PRE_VC_STRATEGY)(self)
 
         self.inBox = deque()
         self.outBox = deque()

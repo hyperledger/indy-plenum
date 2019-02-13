@@ -15,8 +15,9 @@ logger = getlogger()
 class PreViewChangeStrategy(metaclass=ABCMeta):
     """Abstract class for routines before starting viewChange procedure"""
 
-    def __init__(self, view_changer):
+    def __init__(self, view_changer, node):
         self.view_changer = view_changer
+        self.node = node
 
     @abstractmethod
     def prepare_view_change(self, proposed_view_no: int):
@@ -51,7 +52,6 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stashedNodeInBox = deque()
-        self.node = self.view_changer.node
         self.replica = self.node.master_replica
         self.is_preparing = False
 

@@ -22,6 +22,7 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -1333,7 +1334,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer:
             return self.view_changer
         else:
-            return ViewChanger(ViewChangerNodeDataProvider(self))
+            vc = ViewChanger(ViewChangerNodeDataProvider(self))
+            if hasattr(self.config, 'PRE_VC_STRATEGY'):
+                vc.pre_vc_strategy = preVCStrategies.get(self.config.PRE_VC_STRATEGY)(vc, self)
+            return vc
 
     def newPrimaryDecider(self):
         if self.primaryDecider:
