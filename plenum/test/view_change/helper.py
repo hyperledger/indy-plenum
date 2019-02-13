@@ -11,7 +11,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode, checkNodesConnected
+    TestNode, checkNodesConnected, TestViewChanger
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -353,7 +353,7 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
 
 
 def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
-                 allPluginsPath):
+                 allPluginsPath, wait_node_data_equality=True):
     idx = txnPoolNodeSet.index(node_to_disconnect)
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
@@ -363,6 +363,16 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
     # add node_to_disconnect to pool
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)
+    node_to_disconnect.view_changer = TestViewChanger(node_to_disconnect)
+
     txnPoolNodeSet[idx] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    if wait_node_data_equality:
+        waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+
+
+def nodes_received_ic(nodes, frm, view_no=1):
+    for n in nodes:
+        print(n.view_changer.instanceChanges)
+        assert n.view_changer.instanceChanges.has_inst_chng_from(view_no,
+                                                                 frm.name)
