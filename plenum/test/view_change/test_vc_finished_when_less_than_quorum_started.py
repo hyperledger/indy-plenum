@@ -43,7 +43,7 @@ def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
-    # Delta and Gamma send InstanceChange for all nodes.
+    # Alpha and Gamma send InstanceChange for all nodes.
     for node in [gamma, alpha]:
         node.view_changer.on_master_degradation()
 

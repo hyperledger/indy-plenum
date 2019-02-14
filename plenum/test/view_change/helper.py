@@ -373,6 +373,5 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
 
 def nodes_received_ic(nodes, frm, view_no=1):
     for n in nodes:
-        print(n.view_changer.instanceChanges)
         assert n.view_changer.instanceChanges.has_inst_chng_from(view_no,
                                                                  frm.name)

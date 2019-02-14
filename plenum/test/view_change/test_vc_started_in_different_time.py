@@ -27,7 +27,7 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
             eventually(nodes_received_ic, txnPoolNodeSet, node, 1))
 
     # Restart Alpha, Beta, Gamma
-    for i, node in enumerate([alpha, beta, gamma]):
+    for node in [alpha, beta, gamma]:
         restart_node(looper, txnPoolNodeSet, node, tconf, tdir, allPluginsPath)
     alpha, beta, gamma, delta = txnPoolNodeSet
 
@@ -48,13 +48,11 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
                      allPluginsPath, wait_node_data_equality=False)
     alpha, beta, gamma, delta = txnPoolNodeSet
 
-    # Alpha, Beta send InstanceChange for all nodes.
+    # Alpha, Gamma send InstanceChange for all nodes.
     for node in [alpha, gamma]:
         node.view_changer.on_master_degradation()
         looper.run(
             eventually(nodes_received_ic, [alpha, beta, gamma], node, 1))
-
-    print(gamma.view_changer.instanceChanges)
 
     # Check that Gamma started View Change
     looper.run(
