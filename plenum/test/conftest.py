@@ -32,7 +32,7 @@ import plenum.server.general_config.ubuntu_platform_config as platform_config
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
-from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_pool_refresh
+from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_pool_refresh, sdk_add_new_steward_and_node
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
@@ -49,13 +49,13 @@ from plenum.common.constants import DATA, NODE, ALIAS, CLIENT_PORT, \
     STEWARD, VALIDATOR, BLS_KEY, TRUSTEE, BLS_KEY_PROOF
 from plenum.common.txn_util import getTxnOrderedFields, get_payload_data, get_type
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances
+from plenum.common.util import getNoInstances, randomString
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies, sdk_set_protocol_version
+    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -1116,6 +1116,26 @@ def test_node(tdirWithPoolTxns,
         pluginPaths=allPluginsPath)
     yield node
     node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state
+
+
+@pytest.yield_fixture("module")
+def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
+                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    new_steward_name = randomString()
+    new_node_name = "Epsilon"
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True,
+        do_post_node_creation=do_post_node_creation)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture("module")
