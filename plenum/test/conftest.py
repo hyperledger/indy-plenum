@@ -32,7 +32,9 @@ import plenum.server.general_config.ubuntu_platform_config as platform_config
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
+from plenum.test.node_catchup.helper import waitNodeDataEquality, check_last_3pc_master
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_pool_refresh, sdk_add_new_steward_and_node
+from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
@@ -1147,3 +1149,32 @@ def sdk_node_set_with_node_added_after_some_txns(
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
     return looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+
+
+@pytest.fixture("module")
+def sdk_new_node_caught_up(txnPoolNodeSet,
+                           sdk_node_set_with_node_added_after_some_txns):
+    looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+    check_last_3pc_master(new_node, txnPoolNodeSet[:4])
+
+    # Check if catchup done once
+    catchup_done_once = True
+    for li in new_node.ledgerManager.ledgerRegistry.values():
+        catchup_done_once = catchup_done_once and (li.num_txns_caught_up > 0)
+
+    if not catchup_done_once:
+        # It might be the case that node has to do catchup again, in that case
+        # check the return value of `num_txns_caught_up_in_last_catchup` to be
+        # greater than 0
+
+        assert max(
+            getAllReturnVals(
+                new_node,
+                new_node.num_txns_caught_up_in_last_catchup)) > 0
+
+    for li in new_node.ledgerManager.ledgerRegistry.values():
+        assert not li.receivedCatchUpReplies
+        assert not li.recvdCatchupRepliesFrm
+
+    return new_node

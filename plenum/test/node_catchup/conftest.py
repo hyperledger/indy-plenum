@@ -40,35 +40,6 @@ def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_
     yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
-@pytest.fixture("module")
-def sdk_new_node_caught_up(txnPoolNodeSet,
-                           sdk_node_set_with_node_added_after_some_txns):
-    looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
-    check_last_3pc_master(new_node, txnPoolNodeSet[:4])
-
-    # Check if catchup done once
-    catchup_done_once = True
-    for li in new_node.ledgerManager.ledgerRegistry.values():
-        catchup_done_once = catchup_done_once and (li.num_txns_caught_up > 0)
-
-    if not catchup_done_once:
-        # It might be the case that node has to do catchup again, in that case
-        # check the return value of `num_txns_caught_up_in_last_catchup` to be
-        # greater than 0
-
-        assert max(
-            getAllReturnVals(
-                new_node,
-                new_node.num_txns_caught_up_in_last_catchup)) > 0
-
-    for li in new_node.ledgerManager.ledgerRegistry.values():
-        assert not li.receivedCatchUpReplies
-        assert not li.recvdCatchupRepliesFrm
-
-    return new_node
-
-
 @pytest.yield_fixture("module")
 def poolAfterSomeTxns(
         looper,
