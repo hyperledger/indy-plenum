@@ -2,7 +2,6 @@ import logging
 from typing import Tuple, List, Set
 
 from plenum.common.startable import Mode
-from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
@@ -91,7 +90,7 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         self._node.discard(msg, reason, logMethod, cliOutput)
 
 
-def create_view_changer(node: Node, vchCls = ViewChanger):
+def create_view_changer(node, vchCls=ViewChanger):
     vc = vchCls(ViewChangerNodeDataProvider(node))
 
     if hasattr(node.config, 'PRE_VC_STRATEGY'):
