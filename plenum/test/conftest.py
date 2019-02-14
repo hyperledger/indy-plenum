@@ -32,7 +32,7 @@ import plenum.server.general_config.ubuntu_platform_config as platform_config
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
-from plenum.test.pool_transactions.helper import sdk_add_new_nym
+from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_pool_refresh
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
@@ -1116,3 +1116,14 @@ def test_node(tdirWithPoolTxns,
         pluginPaths=allPluginsPath)
     yield node
     node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state
+
+
+@pytest.fixture("module")
+def sdk_node_set_with_node_added_after_some_txns(
+        txnPoolNodeSet, sdk_node_created_after_some_txns):
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_created_after_some_txns
+    txnPoolNodeSet.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return looper, new_node, sdk_pool_handle, new_steward_wallet_handle

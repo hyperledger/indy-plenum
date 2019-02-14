@@ -172,7 +172,10 @@ class TestNodeCore(StackedTester):
     def newViewChanger(self):
         vchCls = self.view_changer if self.view_changer is not None else \
             TestViewChanger
-        return create_view_changer(self, vchCls)
+        view_changer = create_view_changer(self, vchCls)
+        # TODO: This is a hack for tests compatibility, do something better
+        view_changer.node = self
+        return view_changer
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):

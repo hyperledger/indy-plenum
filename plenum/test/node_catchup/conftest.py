@@ -61,17 +61,6 @@ def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_
 
 
 @pytest.fixture("module")
-def sdk_node_set_with_node_added_after_some_txns(
-        txnPoolNodeSet, sdk_node_created_after_some_txns):
-    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
-        sdk_node_created_after_some_txns
-    txnPoolNodeSet.append(new_node)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    return looper, new_node, sdk_pool_handle, new_steward_wallet_handle
-
-
-@pytest.fixture("module")
 def sdk_new_node_caught_up(txnPoolNodeSet,
                            sdk_node_set_with_node_added_after_some_txns):
     looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
