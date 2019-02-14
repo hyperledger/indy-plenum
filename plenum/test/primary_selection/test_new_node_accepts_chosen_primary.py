@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.server.node import ViewChangerNodeDataProvider
+from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.common.log import getlogger
 
 from plenum.test.helper import sdk_send_random_and_check
@@ -30,7 +30,7 @@ class TestViewChangerWithAdjustedViewNo(TestViewChanger):
 
 class TestNodeWithAdjustedViewNo(TestNode):
     def newViewChanger(self):
-        return TestViewChangerWithAdjustedViewNo(ViewChangerNodeDataProvider(self))
+        return create_view_changer(self, TestViewChangerWithAdjustedViewNo)
 
 
 @pytest.fixture(scope="module")

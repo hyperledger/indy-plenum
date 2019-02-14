@@ -7,8 +7,9 @@ import pytest
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
 from plenum.common.util import get_utc_epoch
-from plenum.server.node import Node, ViewChangerNodeDataProvider
+from plenum.server.node import Node
 from plenum.server.router import Router
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.testing_utils import FakeSomething
@@ -46,7 +47,7 @@ def fake_node(tconf):
 
 @pytest.fixture(scope="function")
 def view_changer(fake_node):
-    view_changer = ViewChanger(ViewChangerNodeDataProvider(fake_node))
+    view_changer = create_view_changer(fake_node)
     fake_node.view_changer = view_changer
     fake_node.viewNo = view_changer.view_no
     fake_node.master_replica.node = fake_node
