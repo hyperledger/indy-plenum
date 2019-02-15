@@ -10,7 +10,8 @@ from plenum.test.testing_utils import FakeSomething
 @pytest.fixture(scope='function')
 def test_node(test_node):
     test_node.view_changer = FakeSomething(view_change_in_progress=True,
-                                           view_no=1)
+                                           view_no=1,
+                                           instance_change_provider=None)
     test_node.init_config_req_handler = lambda: TestConfigReqHandler(test_node.configLedger,
                                                                      test_node.states[CONFIG_LEDGER_ID])
     test_node.register_req_handler(test_node.init_config_req_handler(), CONFIG_LEDGER_ID)

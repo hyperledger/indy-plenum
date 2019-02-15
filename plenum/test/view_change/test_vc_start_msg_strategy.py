@@ -21,6 +21,7 @@ from stp_zmq.zstack import Quota
 @pytest.fixture(scope="function")
 def view_changer(tconf):
     node = FakeSomething(config=tconf,
+                         instance_change_db=None,
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       logger=FakeSomething(

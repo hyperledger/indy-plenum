@@ -44,7 +44,7 @@ stateSignatureDbName = 'state_signature'
 seqNoDbName = 'seq_no_db'
 
 nodeStatusDbName = 'node_status_db'
-instanceChangeDbName = 'node_status_db'
+instanceChangeDbName = 'instance_change_db'
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
@@ -120,6 +120,7 @@ db_seq_no_db_config = rocksdb_seq_no_db_config
 db_node_status_db_config = rocksdb_node_status_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
+db_instance_change_config = rocksdb_instance_change_db_config
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,

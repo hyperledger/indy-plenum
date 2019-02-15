@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 from contextlib import ExitStack
 
@@ -67,6 +68,7 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
+        self.instance_change_db = None
         self.view_changer = ViewChanger(self)
         self.elector = PrimarySelector(self)
         self.metrics = NullMetricsCollector()

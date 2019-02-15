@@ -459,11 +459,10 @@ class ValidatorNodeInfoTool:
 
     def _get_ic_queue(self):
         ic_queue = {}
-        for view_no, queue in self._node.view_changer.instanceChanges.items():
-            ics = {}
-            ics["Vouters"] = self._prepare_for_json(list(queue.voters))
-            ics["Message"] = self._prepare_for_json(queue.msg)
-            ic_queue[view_no] = self._prepare_for_json(ics)
+        for view_no, votes in self._node.view_changer.instance_change_provider.items():
+            ics = {voter: {"reason": vote.reason}
+                   for voter, vote in votes.items()}
+            ic_queue[view_no]["Voters"] = self._prepare_for_json(ics)
         return ic_queue
 
     def __get_start_vc_ts(self):

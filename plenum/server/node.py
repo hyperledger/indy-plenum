@@ -454,6 +454,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
         self.nodeStatusDB = self.loadNodeStatusDB()
+        self.instance_change_db = self._load_instance_change_db()
 
         self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
 
@@ -969,6 +970,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                    self.config.nodeStatusDbName,
                                    db_config=self.config.db_node_status_db_config)
 
+    def _load_instance_change_db(self):
+        return initKeyValueStorage(self.config.instanceChangeStorage,
+                                   self.dataLocation,
+                                   self.config.instanceChangeDbName,
+                                   db_config=self.config.db_instance_change_config)
+
     def _createMetricsCollector(self):
         if self.config.METRICS_COLLECTOR_TYPE is None:
             return NullMetricsCollector()
@@ -1195,6 +1202,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for ledger in self.ledgers:
                 ledger.start(loop)
 
+            if self.instance_change_db and self.instance_change_db.closed:
+                self.instance_change_db.open()
+
             self.nodestack.start()
             self.clientstack.start()
 
@@ -1282,7 +1292,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             add_stop_time(self.ledger_dir, self.utc_epoch())
 
         self.logstats()
-
         self.reset()
 
         # Stop the ledgers
@@ -1317,6 +1326,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.bls_bft.bls_store.close()
         if self.stateTsDbStorage:
             self.stateTsDbStorage.close()
+        if self.instance_change_db:
+            self.instance_change_db.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})

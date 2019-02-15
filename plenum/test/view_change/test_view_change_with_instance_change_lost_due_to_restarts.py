@@ -34,7 +34,8 @@ def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNo
 
     def check_ic_delivery():
         for node in txnPoolNodeSet:
-            assert node.view_changer.instanceChanges._votes_count(current_view_no + 1) == 2
+            assert current_view_no + 1 in node.view_changer.instance_change_provider._cache
+            assert len(node.view_changer.instance_change_provider._cache[current_view_no + 1]) == 2
     looper.run(eventually(check_ic_delivery))
 
     restart_nodes(looper, txnPoolNodeSet, other_nodes, tconf, tdir, allPluginsPath, start_one_by_one=False)

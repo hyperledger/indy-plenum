@@ -169,9 +169,8 @@ class TestNodeCore(StackedTester):
         return pdCls(self)
 
     def newViewChanger(self):
-        vchCls = self.view_changer if self.view_changer is not None else \
-            TestViewChanger
-        return vchCls(self)
+        return self.view_changer if self.view_changer is not None \
+            else TestViewChanger(self)
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -363,11 +362,13 @@ class TestNode(TestNodeCore, Node):
         self.ClientStackClass = clientStackClass
 
         Node.__init__(self, *args, **kwargs)
+        self.view_changer = TestViewChanger(self)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
 
         # Txns of all clients, each txn is a tuple like (from, to, amount)
+
         self.txns = []  # type: List[Tuple]
 
     @property

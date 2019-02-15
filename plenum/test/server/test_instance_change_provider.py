@@ -14,19 +14,27 @@ from storage.helper import initKeyValueStorage
 
 @pytest.fixture(scope="function")
 def time_provider():
-    return MockTimestamp(sys.maxsize)
+    return MockTimestamp(0)
 
 
 @pytest.fixture(scope="function")
-def instance_change_provider(tconf, time_provider):
-    return create_instance_change(tconf, time_provider)
-
-
-def create_instance_change(tconf, time_provider):
+def instance_change_db(tconf):
     data_location = tconf.GENERAL_CONFIG_DIR + "/instance_change_db"
     if not os.path.isdir(data_location):
         os.makedirs(data_location)
-    return InstanceChangeProvider(tconf, data_location, time_provider)
+    instance_change_db = initKeyValueStorage(tconf.instanceChangeStorage,
+                                             data_location,
+                                             tconf.instanceChangeDbName,
+                                             db_config=tconf.db_instance_change_config)
+    yield instance_change_db
+    instance_change_db.drop()
+
+
+@pytest.fixture(scope="function")
+def instance_change_provider(tconf, instance_change_db, time_provider):
+    return InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                                  instance_change_db,
+                                  time_provider)
 
 
 def test_add_first_vote(instance_change_provider):
@@ -91,11 +99,11 @@ def test_too_old_messages_dont_count_towards_quorum(instance_change_provider,
     msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
 
     instance_change_provider.add_vote(msg, frm1)
-    time_provider.value += (tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL/2)
+    time_provider.value += (tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL / 2)
     instance_change_provider.add_vote(msg, frm2)
     assert instance_change_provider.has_quorum(view_no, quorum)
 
-    time_provider.value += (tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL/2) + 1
+    time_provider.value += (tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL / 2) + 1
     assert not instance_change_provider.has_quorum(view_no, quorum)
 
     assert not instance_change_provider.has_inst_chng_from(view_no, frm1)
@@ -109,19 +117,11 @@ def test_instance_changes_has_quorum_when_enough_distinct_votes_are_added(instan
     assert not instance_change_provider.has_quorum(view_no, quorum)
     for i in range(quorum):
         instance_change_provider.add_vote(InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code),
-                                  "Node{}".format(i))
+                                          "Node{}".format(i))
     assert instance_change_provider.has_quorum(view_no, quorum)
 
 
-def test_update_instance_changes_in_db(instance_change_provider):
-    frm = "Node1"
-    view_no = 1
-    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
-    instance_change_provider.close_db()
-    assert instance_change_provider._instance_change_db.closed()
-
-
-def test_update_instance_changes_in_db(instance_change_provider, tconf, time_provider):
+def test_update_instance_changes_in_db(instance_change_provider, tconf, instance_change_db, time_provider):
     frm = "Node1"
     view_no = 1
     msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
@@ -131,9 +131,13 @@ def test_update_instance_changes_in_db(instance_change_provider, tconf, time_pro
     instance_change_provider.add_vote(msg, frm)
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
-    instance_change_provider.close_db()
 
-    new_instance_change_provider = create_instance_change(tconf, time_provider)
+    instance_change_provider._instance_change_db.close()
+    assert instance_change_provider._instance_change_db.closed
+    instance_change_provider._instance_change_db.open()
+
+    new_instance_change_provider = InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                                                          instance_change_db, time_provider)
     assert new_instance_change_provider.has_view(view_no)
     assert new_instance_change_provider.has_inst_chng_from(view_no, frm)
 

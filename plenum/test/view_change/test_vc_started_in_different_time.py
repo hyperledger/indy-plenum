@@ -34,10 +34,6 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
     # Send InstanceChange from Beta for all nodes
     beta.view_changer.on_master_degradation()
 
-    # Check that Delta started View Change
-    looper.run(
-        eventually(lambda: assertExp(delta.view_change_in_progress)))
-
     # Ensure that pool is still functional
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
@@ -51,12 +47,6 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
     # Alpha, Gamma send InstanceChange for all nodes.
     for node in [alpha, gamma]:
         node.view_changer.on_master_degradation()
-        looper.run(
-            eventually(nodes_received_ic, [alpha, beta, gamma], node, 1))
-
-    # Check that Gamma started View Change
-    looper.run(
-        eventually(lambda: assertExp(gamma.view_change_in_progress)))
 
     # Ensure that pool is still functional
     sdk_send_random_and_check(looper, txnPoolNodeSet,
