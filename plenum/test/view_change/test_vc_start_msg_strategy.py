@@ -9,7 +9,7 @@ from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewCha
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.router import Router
-from plenum.server.view_change.node_view_changer import create_view_changer
+from plenum.server.view_change.node_view_changer import create_view_changer, ViewChangerNodeDataProvider
 from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.testing_utils import FakeSomething

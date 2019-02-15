@@ -55,7 +55,7 @@ def fake_view_changer(request, tconf):
         utc_epoch=lambda *args: get_utc_epoch(),
         config=tconf,
         monitor=monitor,
-        discard=lambda a, b, c: print(b),
+        discard=lambda a, b, c, d: print(b),
         primaries_disconnection_times=[None] * getRequiredInstances(node_count),
         master_primary_name='Alpha',
         master_replica=FakeSomething(instId=0)
