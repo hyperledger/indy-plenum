@@ -3530,7 +3530,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        self.audit_handler.post_batch_rejected()
+        self.audit_handler.post_batch_rejected(ledger_id)
 
         self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
