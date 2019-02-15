@@ -14,7 +14,6 @@ from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement
-from plenum.common.message_processor import MessageProcessor
 from plenum.server.models import InstanceChanges
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.suspicion_codes import Suspicions
@@ -125,7 +124,7 @@ class ViewChangerDataProvider(ABC):
         pass
 
 
-class ViewChanger(HasActionQueue, MessageProcessor):
+class ViewChanger(HasActionQueue):
 
     def __init__(self, provider: ViewChangerDataProvider):
         self.provider = provider
@@ -330,7 +329,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         can, whyNot = self._canViewChange(proposed_view_no)
         # if scheduled action will be awakened after view change completed,
         # then this action must be stopped also.
-        if not can and self.view_no < proposed_view_no and self.is_primary_disconnected():
+        if not can and self.view_no < proposed_view_no and self.provider.is_primary_disconnected():
             # Resend the same instance change message if we are not archive
             # InstanceChange quorum
             logger.info("Resend instance change message to all recipients")
