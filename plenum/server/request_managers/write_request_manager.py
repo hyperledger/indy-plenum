@@ -101,9 +101,9 @@ class WriteRequestManager(RequestManager):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:
             raise LogicError
-        prev_result = commited_txns = handlers[0].commit_batch(txn_count, state_root, txn_root, pp_time, None)
+        prev_result = commited_txns = handlers[0].commit_batch(ledger_id, txn_count, state_root, txn_root, pp_time, None)
         for handler in handlers[1:]:
-            handler.commit_batch(txn_count, state_root, txn_root, pp_time, prev_result)
+            handler.commit_batch(ledger_id, txn_count, state_root, txn_root, pp_time, prev_result)
         return commited_txns
 
     def post_batch_rejected(self, ledger_id):
@@ -111,7 +111,7 @@ class WriteRequestManager(RequestManager):
         if handlers is None:
             raise LogicError
         for handler in handlers:
-            handler.post_batch_rejected()
+            handler.post_batch_rejected(ledger_id)
 
     def transform_txn_for_ledger(self, txn):
         handlers = self.request_handlers.get(get_type(txn), None)

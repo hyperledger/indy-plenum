@@ -18,6 +18,7 @@ from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
+from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
@@ -488,6 +489,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.db_manager.register_new_database(lid=ledger_id,
                                                   ledger=self.getLedger(ledger_id),
                                                   state=self.getState(ledger_id))
+        self.audit_handler = AuditBatchHandler(self.db_manager, self.master_replica)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -3391,6 +3393,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
+        self.audit_handler.commit_batch(ledger_id=ledger_id,
+                                        txn_count=len(valid_reqs_keys),
+                                        state_root=state_root,
+                                        txn_root=txn_root,
+                                        pp_time=pp_time)
+
         for req_key in valid_reqs_keys + invalid_reqs_keys:
             if req_key in self.requests:
                 self.mark_request_as_executed(self.requests[req_key].request)
@@ -3501,6 +3509,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.get_req_handler(ledger_id).onBatchCreated(state_root, txn_time)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+
+        self.audit_handler.post_batch_applied(ledger_id, state_root, txn_time)
+
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
 
     def onBatchRejected(self, ledger_id):
@@ -3518,6 +3529,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.get_req_handler(ledger_id).onBatchRejected()
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+
+        self.audit_handler.post_batch_rejected()
+
         self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):

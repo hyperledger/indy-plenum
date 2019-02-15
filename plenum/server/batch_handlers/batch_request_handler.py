@@ -10,7 +10,7 @@ class BatchRequestHandler:
         self.database_manager = database_manager
         self.ledger_id = ledger_id
 
-    def commit_batch(self, txn_count, state_root, txn_root, pp_time, prev_result = None):
+    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_result = None):
         """
         :param txn_count: The number of requests to commit (The actual requests
         are picked up from the uncommitted list from the ledger)
@@ -28,7 +28,7 @@ class BatchRequestHandler:
         pass
 
     @abstractmethod
-    def post_batch_rejected(self):
+    def post_batch_rejected(self, ledger_id):
         pass
 
     @staticmethod

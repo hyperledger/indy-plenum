@@ -452,6 +452,8 @@ def checkAllLedgersEqual(*ledgers):
 
 
 def checkStateEquality(state1, state2):
+    if state1 is None:
+        return state2 is None
     assertEquality(state1.as_dict, state2.as_dict)
     assertEquality(state1.committedHeadHash, state2.committedHeadHash)
     assertEquality(state1.committedHead, state2.committedHead)
