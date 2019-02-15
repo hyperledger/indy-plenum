@@ -3804,8 +3804,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def transform_txn_for_ledger(self, txn):
         txn_type = get_type(txn)
-        return self.get_req_handler(txn_type=txn_type). \
-            transform_txn_for_ledger(txn)
+        req_handler = self.get_req_handler(txn_type=txn_type)
+        if not req_handler:
+            return txn
+        return req_handler.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self
