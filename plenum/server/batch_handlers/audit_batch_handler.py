@@ -18,7 +18,7 @@ class AuditBatchHandler(BatchRequestHandler):
         txn = {
             TXN_VERSION: "1",
             AUDIT_TXN_VIEW_NO: self._master_replica.viewNo,
-            AUDIT_TXN_PP_SEQ_NO: self._master_replica.lastPrePrepareSeqNo,
+            AUDIT_TXN_PP_SEQ_NO: self._master_replica.lastPrePrepareSeqNo + 1,
             AUDIT_TXN_LEDGERS_SIZE: {},
             AUDIT_TXN_LEDGER_ROOT: {},
             AUDIT_TXN_STATE_ROOT: {}

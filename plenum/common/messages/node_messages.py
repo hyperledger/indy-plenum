@@ -153,6 +153,8 @@ class PrePrepare(MessageBase):
         (f.FINAL.nm, BooleanField()),
         (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
                                                     nullable=True)),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
+                                                   nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
