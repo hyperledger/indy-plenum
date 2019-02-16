@@ -93,7 +93,7 @@ class WriteRequestManager(RequestManager):
             raise LogicError
         prev_handler_result = handlers[0].post_batch_applied(three_pc_batch, None)
         for handler in handlers[1:]:
-            prev_result = handler.post_batch_applied(three_pc_batch, prev_handler_result)
+            prev_handler_result = handler.post_batch_applied(three_pc_batch, prev_handler_result)
 
     # TODO: no need to pass all these arguments explicitly here
     # we can use LedgerUncommittedTracker to get this values

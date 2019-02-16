@@ -1430,10 +1430,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return reqs, invalid_indices, rejects
 
     def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
-                                      reqs,  invalid_indices, invalid_from_pp) -> Optional[int]:
+                                      reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
-
 
         digest = self.batchDigest(reqs)
         if digest != pre_prepare.digest:

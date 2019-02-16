@@ -44,12 +44,12 @@ class DatabaseManager():
     @property
     def states(self):
         # TODO: change this. Too inefficient to build dict every time
-        return dict((lid, db.state) for lid, db in self.databases.items())
+        return {lid: db.state for lid, db in self.databases.items()}
 
     @property
     def ledgers(self):
         # TODO: change this. Too inefficient to build dict every time
-        return dict((lid, db.ledger) for lid, db in self.databases.items())
+        return {lid: db.ledger for lid, db in self.databases.items()}
 
     @property
     def bls_store(self):
