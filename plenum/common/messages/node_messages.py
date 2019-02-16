@@ -123,6 +123,7 @@ class Ordered(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -390,7 +391,8 @@ class BatchCommitted(MessageBase):
         (f.STATE_ROOT.nm, MerkleRootField()),
         (f.TXN_ROOT.nm, MerkleRootField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-        (f.SEQ_NO_END.nm, NonNegativeNumberField())
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
     )
 
 

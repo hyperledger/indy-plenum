@@ -1901,7 +1901,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.ppTime,
                           pp.ledgerId,
                           pp.stateRootHash,
-                          pp.txnRootHash)
+                          pp.txnRootHash,
+                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered

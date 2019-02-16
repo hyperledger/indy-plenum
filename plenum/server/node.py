@@ -2805,7 +2805,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           ordered.invalid_reqIdr,
                           ordered.ledgerId,
                           ordered.stateRootHash,
-                          ordered.txnRootHash)
+                          ordered.txnRootHash,
+                          ordered.auditTxnRootHash)
 
         with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
             self.monitor.requestOrdered(ordered.valid_reqIdr + ordered.invalid_reqIdr,
@@ -3365,7 +3366,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
                      valid_reqs_keys: List, invalid_reqs_keys: List,
-                     ledger_id, state_root, txn_root) -> None:
+                     ledger_id, state_root, txn_root, audit_txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
@@ -3449,7 +3450,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  state_root,
                                                  txn_root,
                                                  first_txn_seq_no,
-                                                 last_txn_seq_no)
+                                                 last_txn_seq_no,
+                                                 audit_txn_root)
             self._observable.append_input(batch_committed_msg, self.name)
 
     def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,

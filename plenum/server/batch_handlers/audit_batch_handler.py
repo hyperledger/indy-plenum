@@ -60,6 +60,11 @@ class AuditBatchHandler(BatchRequestHandler):
             txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = get_seq_no(last_audit_txn)
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        # if PRE-PREPARE doesn't have audit txn (probably old code) - do nothing
+        # TODO: remove this check after all nodes support audit ledger
+        if not three_pc_batch.has_audit_txn:
+            return
+
         # 1. prepare AUDIT txn
         txn_data = self._create_audit_txn_data(three_pc_batch, self.ledger.get_last_txn())
         txn = init_empty_txn(txn_type=PlenumTransactions.AUDIT.value)

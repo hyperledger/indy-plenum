@@ -18,7 +18,8 @@ def alh(db_manager):
 
 def do_apply_audit_txn(alh,
                        txns_count, ledger_id,
-                       view_no, pp_sq_no, txn_time):
+                       view_no, pp_sq_no, txn_time,
+                       has_audit_txn=True):
     db_manager = alh.database_manager
     add_txns(db_manager, ledger_id, txns_count, txn_time)
     three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
@@ -27,7 +28,8 @@ def do_apply_audit_txn(alh,
                                   pp_seq_no=pp_sq_no,
                                   pp_time=txn_time,
                                   state_root=db_manager.get_state(ledger_id).headHash,
-                                  txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash)
+                                  txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
+                                  has_audit_txn=has_audit_txn)
     alh.post_batch_applied(three_pc_batch)
 
 
@@ -404,6 +406,64 @@ def test_commit_multiple_batches(alh, db_manager,
                     last_pool_seqno=initial_seq_no + 2,
                     last_domain_seqno=None,
                     last_config_seqno=initial_seq_no + 3)
+
+
+def test_audit_not_applied_if_pre_prepare_doesnt_have_audit(alh):
+    size_before = alh.ledger.size
+    uncommited_size_before = alh.ledger.uncommitted_size
+
+    do_apply_audit_txn(alh,
+                       txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=0, pp_sq_no=1, txn_time=10000,
+                       has_audit_txn=False)
+
+    assert alh.ledger.uncommitted_size == uncommited_size_before
+    assert alh.ledger.size == size_before
+    assert alh.ledger.size == alh.ledger.uncommitted_size
+
+
+def test_audit_not_committed_if_pre_prepare_doesnt_have_audit(alh, db_manager):
+    size_before = alh.ledger.size
+    uncommited_size_before = alh.ledger.uncommitted_size
+
+    do_apply_audit_txn(alh,
+                       txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=0, pp_sq_no=1, txn_time=10000,
+                       has_audit_txn=False)
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
+    state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+
+    do_apply_audit_txn(alh,
+                       txns_count=15, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=0, pp_sq_no=2, txn_time=10000,
+                       has_audit_txn=True)
+
+    # commit the first batch without audit txns
+    alh.commit_batch(DOMAIN_LEDGER_ID, 10, state_root_hash_1, txn_root_hash_1, 10000)
+
+    assert alh.ledger.uncommitted_size == uncommited_size_before
+    assert alh.ledger.size == size_before
+    assert alh.ledger.size == alh.ledger.uncommitted_size
+
+
+def test_audit_not_reverted_if_pre_prepare_doesnt_have_audit(alh, db_manager):
+    do_apply_audit_txn(alh,
+                       txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=0, pp_sq_no=1, txn_time=10000,
+                       has_audit_txn=True)
+    size_after_1st = alh.ledger.size
+    uncommited_size_after_1st = alh.ledger.uncommitted_size
+
+    do_apply_audit_txn(alh,
+                       txns_count=15, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=0, pp_sq_no=2, txn_time=10000,
+                       has_audit_txn=False)
+
+    # revert the 2d batch without audit
+    alh.post_batch_rejected(DOMAIN_LEDGER_ID)
+
+    assert alh.ledger.uncommitted_size == uncommited_size_after_1st
+    assert alh.ledger.size == size_after_1st
 
 
 def add_txns(db_manager, ledger_id, count, txn_time):

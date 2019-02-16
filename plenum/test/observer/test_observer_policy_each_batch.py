@@ -23,7 +23,8 @@ def create_observed_data(seq_no_start=1, seq_no_end=5):
                          generate_state_root(),
                          generate_state_root(),
                          seq_no_start,
-                         seq_no_end)
+                         seq_no_end,
+                         generate_state_root())
     return ObservedData(BATCH, msg)
 
 

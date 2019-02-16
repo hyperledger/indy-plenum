@@ -8,7 +8,8 @@ class ThreePcBatch:
                  ledger_id,
                  inst_id, view_no, pp_seq_no,
                  pp_time,
-                 state_root, txn_root) -> None:
+                 state_root, txn_root,
+                 has_audit_txn = True) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
         self.view_no = view_no
@@ -16,6 +17,7 @@ class ThreePcBatch:
         self.pp_time = pp_time
         self.state_root = state_root
         self.txn_root = txn_root
+        self.has_audit_txn = has_audit_txn
 
     @staticmethod
     def from_pre_prepare(pre_prepare, state_root, txn_root):
@@ -26,7 +28,8 @@ class ThreePcBatch:
                             pp_time=pre_prepare.ppTime,
                             # do not trust PrePrepare's root hashes and use the current replica's ones
                             state_root=state_root,
-                            txn_root=txn_root)
+                            txn_root=txn_root,
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare)
 
     @staticmethod
     def from_ordered(ordered):
@@ -36,7 +39,8 @@ class ThreePcBatch:
                             pp_seq_no=ordered.ppSeqNo,
                             pp_time=ordered.ppTime,
                             state_root=Ledger.strToHash(ordered.stateRootHash),
-                            txn_root=Ledger.strToHash(ordered.txnRootHash))
+                            txn_root=Ledger.strToHash(ordered.txnRootHash),
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered)
 
     @staticmethod
     def from_batch_committed_dict(batch_comitted):
@@ -46,4 +50,5 @@ class ThreePcBatch:
                             pp_seq_no=batch_comitted[f.PP_SEQ_NO.nm],
                             pp_time=batch_comitted[f.PP_TIME.nm],
                             state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
-                            txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]))
+                            txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]),
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted)
