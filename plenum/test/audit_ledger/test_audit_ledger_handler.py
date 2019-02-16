@@ -432,4 +432,4 @@ def add_txns(db_manager, ledger_id, count, txn_time):
 def set_3pc_batch(master_replica, view_no, pp_seq_no):
     # TODO: PrePrepare needs to be passed to batch handlers explicitly
     master_replica.node.viewNo = view_no
-    master_replica._lastPrePrepareSeqNo = pp_seq_no
+    master_replica._lastPrePrepareSeqNo = pp_seq_no - 1
