@@ -5,7 +5,7 @@ from plenum.common.constants import ClientBootStrategy, HS_ROCKSDB, \
     KeyValueStorageType, PreVCStrategies
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy
+from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy, MedianMediumStrategy
 from plenum.common.latency_measurements import EMALatencyMeasurementForAllClient
 
 walletsDir = 'wallets'
@@ -146,6 +146,7 @@ LatencyGraphDuration = 240
 # Throughput strategy
 throughput_measurement_class = RevivalSpikeResistantEMAThroughputMeasurement
 throughput_averaging_strategy_class = MedianLowStrategy
+backup_throughput_averaging_strategy_class = MedianMediumStrategy
 throughput_measurement_params = {
     'window_size': 15,
     'min_cnt': 16

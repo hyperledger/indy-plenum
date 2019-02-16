@@ -84,6 +84,8 @@ class Suspicions:
     PPR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(43, "Pre-Prepare message has "
                                                   "incorrect audit ledger transaction root hash")
 
+    STATE_SIGS_ARE_NOT_UPDATED = Suspicion(43, "State signatures are not updated for too long")
+
     @classmethod
     def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(

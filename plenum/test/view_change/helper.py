@@ -350,3 +350,19 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
                          customTimeout=timeout)
     sdk_pool_refresh(looper, sdk_pool_handle)
     return new_node
+
+
+def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
+                 allPluginsPath):
+    idx = txnPoolNodeSet.index(node_to_disconnect)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            node_to_disconnect)
+    looper.removeProdable(name=node_to_disconnect.name)
+
+    # add node_to_disconnect to pool
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
+    txnPoolNodeSet[idx] = node_to_disconnect
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)

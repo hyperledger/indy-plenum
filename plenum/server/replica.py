@@ -430,6 +430,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
+        # Did we log a message about getting request while absence of primary
+        self.warned_no_primary = False
+
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
@@ -581,6 +584,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param value: the value to set isPrimary to
         """
+        if value is not None:
+            self.warned_no_primary = False
         self.primaryNames[self.viewNo] = value
         self.compact_primary_names()
         if value != self._primaryName:
@@ -986,10 +991,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
         queue.add(key.digest)
-        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
+        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD and not self.warned_no_primary:
             self.logger.warning('{} is getting requests but still does not have '
                                 'a primary so the replica will not process the request '
                                 'until a primary is chosen'.format(self))
+            self.warned_no_primary = True
 
     @measure_replica_time(MetricsName.SERVICE_REPLICA_QUEUES_TIME,
                           MetricsName.SERVICE_BACKUP_REPLICAS_QUEUES_TIME)
@@ -1161,13 +1167,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     non_fin.add(key)
             absent_str = ', '.join(str(key) for key in absents)
             non_fin_str = ', '.join(
-                '{} ({})'.format(str(key), str(len(self.requests[key].propagates))) for key in non_fin)
+                '{} ({} : {})'.format(str(key),
+                                      str(len(self.requests[key].propagates)),
+                                      ', '.join(self.requests[key].propagates.keys())) for key in non_fin)
             self.logger.warning(
                 "{} found requests in the incoming pp, of {} ledger, that are not finalized. "
                 "{} of them don't have propagates: {}."
-                "{} of them don't have enought propagates: {}.".format(self, pre_prepare.ledgerId,
-                                                                       len(absents), absent_str,
-                                                                       len(non_fin), non_fin_str))
+                "{} of them don't have enough propagates: {}.".format(self, pre_prepare.ledgerId,
+                                                                      len(absents), absent_str,
+                                                                      len(non_fin), non_fin_str))
             bad_reqs = absents | non_fin
             for req in bad_reqs:
                 if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
@@ -2362,8 +2370,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.process_three_phase_msg(prepare, sender)
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
-            self.logger.info("{} processed {} PREPAREs waiting for PRE-PREPARE for"
-                             " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
+            self.logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
+                              " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def enqueue_commit(self, request: Commit, sender: str):
         key = (request.viewNo, request.ppSeqNo)
@@ -2390,8 +2398,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
-            self.logger.info("{} processed {} COMMITs waiting for PREPARE for"
-                             " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
+            self.logger.debug("{} processed {} COMMITs waiting for PREPARE for"
+                              " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)

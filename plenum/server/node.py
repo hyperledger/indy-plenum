@@ -24,6 +24,7 @@ from plenum.server.database_manager import DatabaseManager
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.view_change.node_view_changer import create_view_changer
 from state.pruning_state import PruningState
 from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -1287,7 +1288,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer:
             return self.view_changer
         else:
-            return ViewChanger(self)
+            return create_view_changer(self)
 
     def newPrimaryDecider(self):
         if self.primaryDecider:
