@@ -1,5 +1,6 @@
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import BatchCommitted
+from plenum.common.types import f
 
 
 class ThreePcBatch:
@@ -38,11 +39,11 @@ class ThreePcBatch:
                             txn_root=Ledger.strToHash(ordered.txnRootHash))
 
     @staticmethod
-    def from_batch_committed(batch_comitted: BatchCommitted):
-        return ThreePcBatch(ledger_id=batch_comitted.ledgerId,
-                            inst_id=batch_comitted.instId,
-                            view_no=batch_comitted.viewNo,
-                            pp_seq_no=batch_comitted.ppSeqNo,
-                            pp_time=batch_comitted.ppTime,
-                            state_root=Ledger.strToHash(batch_comitted.stateRootHash),
-                            txn_root=Ledger.strToHash(batch_comitted.txnRootHash))
+    def from_batch_committed_dict(batch_comitted):
+        return ThreePcBatch(ledger_id=batch_comitted[f.LEDGER_ID.nm],
+                            inst_id=batch_comitted[f.INST_ID.nm],
+                            view_no=batch_comitted[f.VIEW_NO.nm],
+                            pp_seq_no=batch_comitted[f.PP_SEQ_NO.nm],
+                            pp_time=batch_comitted[f.PP_TIME.nm],
+                            state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
+                            txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]))

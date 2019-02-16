@@ -2545,7 +2545,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def apply_reqs(self, requests, three_pc_batch: ThreePcBatch):
         for req in requests:
-            self.applyReq(req, three_pc_batch.ppTime)
+            self.applyReq(req, three_pc_batch.pp_time)
         self.onBatchCreated(three_pc_batch)
 
     def handle_request_if_forced(self, request: Request):
@@ -3397,12 +3397,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
-        self.audit_handler.commit_batch(ledger_id=ledger_id,
-                                        txn_count=len(valid_reqs_keys),
-                                        state_root=state_root,
-                                        txn_root=txn_root,
-                                        pp_time=pp_time)
-
         for req_key in valid_reqs_keys + invalid_reqs_keys:
             if req_key in self.requests:
                 self.mark_request_as_executed(self.requests[req_key].request)
@@ -3485,6 +3479,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace('{} going to commit and send replies to client'.format(self))
         reqHandler = self.get_req_handler(ledger_id)
         committedTxns = reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
+        self.audit_handler.commit_batch(ledger_id=ledger_id,
+                                        txn_count=len(reqs_keys),
+                                        state_root=stateRoot,
+                                        txn_root=txnRoot,
+                                        pp_time=ppTime)
         self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
                           pp_time=ppTime, committed_txns=committedTxns,
                           state_root=stateRoot, txn_root=txnRoot)
