@@ -33,6 +33,7 @@ from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
 from plenum.config import CHK_FREQ
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -451,11 +452,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMaster:
             return None
         ledger = self.node.getLedger(ledger_str)
-        h = ledger.uncommittedRootHash
-        # If no uncommittedHash since this is the beginning of the tree
-        # or no transactions affecting the ledger were made after the
-        # last changes were committed
-        root = h if h else ledger.tree.root_hash
+        root = ledger.uncommitted_root_hash
         if to_str:
             root = ledger.hashToStr(root)
         return root
@@ -898,10 +895,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         reqs, invalid_indices, rejects = self.consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.viewNo, pp_seq_no)
         if self.isMaster:
-            self.node.onBatchCreated(
-                ledger_id, self.stateRootHash(
-                    ledger_id, to_str=False),
-                tm)
+            three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
+                                          inst_id=self.instId,
+                                          view_no=self.viewNo,
+                                          pp_seq_no=pp_seq_no,
+                                          pp_time=tm,
+                                          state_root=self.stateRootHash(ledger_id, to_str=False),
+                                          txn_root=self.txnRootHash(ledger_id, to_str=False))
+            self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
         state_root_hash = self.stateRootHash(ledger_id)
@@ -1418,8 +1419,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # 2. call callback for the applied batch
         if self.isMaster:
-            state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-            self.node.onBatchCreated(pre_prepare.ledgerId, state_root, pre_prepare.ppTime)
+            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
+                                                           state_root=self.stateRootHash(pre_prepare.ledgerId,
+                                                                                         to_str=False),
+                                                           txn_root=self.txnRootHash(pre_prepare.ledgerId,
+                                                                                     to_str=False)
+                                                           )
+            self.node.onBatchCreated(three_pc_batch)
 
         return reqs, invalid_indices, rejects
 

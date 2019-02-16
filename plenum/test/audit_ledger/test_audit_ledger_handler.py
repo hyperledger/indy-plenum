@@ -4,35 +4,34 @@ from common.serializers.serialization import domain_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.common.txn_util import do_req_to_txn
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.test.audit_ledger.helper import check_audit_txn
 
 
-@pytest.fixture(scope="module")
-def master_replica(txnPoolNodeSet):
-    return txnPoolNodeSet[0].master_replica
-
-
 @pytest.fixture(scope="function")
-def alh(db_manager, master_replica):
-    audit_ledger_handler = AuditBatchHandler(db_manager, master_replica)
+def alh(db_manager):
+    audit_ledger_handler = AuditBatchHandler(db_manager)
     yield audit_ledger_handler
     for db in db_manager.databases.values():
         db.reset()
-    set_3pc_batch(master_replica, 0, 0)
 
 
 def do_apply_audit_txn(alh,
-                       master_replica,
                        txns_count, ledger_id,
                        view_no, pp_sq_no, txn_time):
     db_manager = alh.database_manager
-    set_3pc_batch(master_replica, view_no, pp_sq_no)
     add_txns(db_manager, ledger_id, txns_count, txn_time)
-    alh.post_batch_applied(ledger_id, db_manager.get_state(ledger_id).headHash, txn_time)
+    three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
+                                  inst_id=0,
+                                  view_no=view_no,
+                                  pp_seq_no=pp_sq_no,
+                                  pp_time=txn_time,
+                                  state_root=db_manager.get_state(ledger_id).headHash,
+                                  txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash)
+    alh.post_batch_applied(three_pc_batch)
 
 
 def check_apply_audit_txn(alh,
-                          master_replica,
                           txns_count, ledger_id,
                           view_no, pp_sq_no, txn_time, seq_no,
                           pool_size, domain_size, config_size,
@@ -41,7 +40,7 @@ def check_apply_audit_txn(alh,
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=txns_count, ledger_id=ledger_id,
                        view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time)
 
@@ -53,7 +52,7 @@ def check_apply_audit_txn(alh,
                     view_no=view_no, pp_seq_no=pp_sq_no,
                     seq_no=seq_no, txn_time=txn_time,
                     ledger_id=ledger_id,
-                    txn_root=db_manager.get_ledger(ledger_id).uncommittedRootHash,
+                    txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
                     state_root=db_manager.get_state(ledger_id).headHash,
                     pool_size=pool_size, domain_size=domain_size, config_size=config_size,
                     last_pool_seqno=last_pool_seqno,
@@ -61,10 +60,9 @@ def check_apply_audit_txn(alh,
                     last_config_seqno=last_config_seqno)
 
 
-def test_apply_audit_ledger_txn_pool_ledger(alh, master_replica,
+def test_apply_audit_ledger_txn_pool_ledger(alh,
                                             initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=10, ledger_id=POOL_LEDGER_ID,
                           view_no=1, pp_sq_no=10, txn_time=10000, seq_no=1,
                           pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
@@ -72,10 +70,9 @@ def test_apply_audit_ledger_txn_pool_ledger(alh, master_replica,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None)
 
 
-def test_apply_audit_ledger_txn_domain_ledger(alh, master_replica,
+def test_apply_audit_ledger_txn_domain_ledger(alh,
                                               initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=15, ledger_id=DOMAIN_LEDGER_ID,
                           view_no=1, pp_sq_no=12, txn_time=10006, seq_no=1,
                           pool_size=initial_pool_size, domain_size=initial_domain_size + 15,
@@ -83,10 +80,9 @@ def test_apply_audit_ledger_txn_domain_ledger(alh, master_replica,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None)
 
 
-def test_apply_audit_ledger_txn_config_ledger(alh, master_replica,
+def test_apply_audit_ledger_txn_config_ledger(alh,
                                               initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=20, ledger_id=CONFIG_LEDGER_ID,
                           view_no=1, pp_sq_no=15, txn_time=10008, seq_no=1,
                           pool_size=initial_pool_size, domain_size=initial_domain_size,
@@ -94,11 +90,10 @@ def test_apply_audit_ledger_txn_config_ledger(alh, master_replica,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None)
 
 
-def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
+def test_apply_audit_ledger_txn_multi_ledger(alh,
                                              initial_domain_size, initial_pool_size, initial_config_size):
     # 1. add domain txn
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
                           view_no=2, pp_sq_no=5, txn_time=500, seq_no=1,
                           pool_size=initial_pool_size, domain_size=initial_domain_size + 10,
@@ -107,7 +102,6 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
 
     # 2. add pool txn
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=6, ledger_id=POOL_LEDGER_ID,
                           view_no=2, pp_sq_no=6, txn_time=502, seq_no=2,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 10,
@@ -116,7 +110,6 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
 
     # 3. add config txn
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=8, ledger_id=CONFIG_LEDGER_ID,
                           view_no=2, pp_sq_no=7, txn_time=502, seq_no=3,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 10,
@@ -125,7 +118,6 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
 
     # 4. add domain txn
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=2, ledger_id=DOMAIN_LEDGER_ID,
                           view_no=2, pp_sq_no=8, txn_time=550, seq_no=4,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 12,
@@ -134,7 +126,6 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
 
     # 5. add domain txn
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
                           view_no=2, pp_sq_no=9, txn_time=551, seq_no=5,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 19,
@@ -143,7 +134,6 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
 
     # 6. add pool txn
     check_apply_audit_txn(alh=alh,
-                          master_replica=master_replica,
                           txns_count=5, ledger_id=POOL_LEDGER_ID,
                           view_no=2, pp_sq_no=10, txn_time=551, seq_no=6,
                           pool_size=initial_pool_size + 11, domain_size=initial_domain_size + 19,
@@ -151,30 +141,30 @@ def test_apply_audit_ledger_txn_multi_ledger(alh, master_replica,
                           last_pool_seqno=None, last_domain_seqno=5, last_config_seqno=3)
 
 
-def test_reject_batch(alh, master_replica, db_manager,
+def test_reject_batch(alh, db_manager,
                       initial_domain_size, initial_pool_size, initial_config_size):
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=5, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=37, txn_time=11112)
-    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=6, ledger_id=POOL_LEDGER_ID,
                        view_no=3, pp_sq_no=38, txn_time=11113)
-    txn_root_hash_2 = db_manager.get_ledger(POOL_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_2 = db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash
     state_root_hash_2 = db_manager.get_state(POOL_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=7, ledger_id=CONFIG_LEDGER_ID,
                        view_no=3, pp_sq_no=39, txn_time=11114)
-    txn_root_hash_3 = db_manager.get_ledger(CONFIG_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_3 = db_manager.get_ledger(CONFIG_LEDGER_ID).uncommitted_root_hash
     state_root_hash_3 = db_manager.get_state(CONFIG_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=8, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=40, txn_time=11115)
 
@@ -236,14 +226,14 @@ def test_reject_batch(alh, master_replica, db_manager,
     assert alh.ledger.get_last_txn() is None
 
 
-def test_commit_one_batch(alh, master_replica, db_manager,
+def test_commit_one_batch(alh, db_manager,
                           initial_domain_size, initial_pool_size, initial_config_size,
                           initial_seq_no):
     size_before = alh.ledger.size
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=35, txn_time=11111)
-    txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
     alh.commit_batch(DOMAIN_LEDGER_ID, 7, state_root_hash, txn_root_hash, 11111)
 
@@ -261,19 +251,19 @@ def test_commit_one_batch(alh, master_replica, db_manager,
                     last_config_seqno=None)
 
 
-def test_apply_revert_commit(alh, master_replica, db_manager,
+def test_apply_revert_commit(alh, db_manager,
                              initial_domain_size, initial_pool_size, initial_config_size,
                              initial_seq_no):
     size_before = alh.ledger.size
 
     # apply 2 batches
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=35, txn_time=11111)
-    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=15, ledger_id=POOL_LEDGER_ID,
                        view_no=3, pp_sq_no=36, txn_time=11112)
 
@@ -298,40 +288,40 @@ def test_apply_revert_commit(alh, master_replica, db_manager,
                     last_config_seqno=None)
 
 
-def test_commit_multiple_batches(alh, master_replica, db_manager,
+def test_commit_multiple_batches(alh, db_manager,
                                  initial_domain_size, initial_pool_size, initial_config_size,
                                  initial_seq_no):
     size_before = alh.ledger.size
 
     # apply 5 3PC batches
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=35, txn_time=11111)
-    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=15, ledger_id=POOL_LEDGER_ID,
                        view_no=3, pp_sq_no=36, txn_time=11112)
-    txn_root_hash_2 = db_manager.get_ledger(POOL_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_2 = db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash
     state_root_hash_2 = db_manager.get_state(POOL_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=5, ledger_id=CONFIG_LEDGER_ID,
                        view_no=3, pp_sq_no=37, txn_time=11112)
-    txn_root_hash_3 = db_manager.get_ledger(CONFIG_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_3 = db_manager.get_ledger(CONFIG_LEDGER_ID).uncommitted_root_hash
     state_root_hash_3 = db_manager.get_state(CONFIG_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=4, pp_sq_no=1, txn_time=11115)
-    txn_root_hash_4 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_4 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash_4 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
 
-    do_apply_audit_txn(alh, master_replica,
+    do_apply_audit_txn(alh,
                        txns_count=20, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=4, pp_sq_no=2, txn_time=11119)
-    txn_root_hash_5 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommittedRootHash
+    txn_root_hash_5 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash_5 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
 
     assert alh.ledger.uncommitted_size == alh.ledger.size + 5
@@ -427,9 +417,3 @@ def add_txns(db_manager, ledger_id, count, txn_time):
     for i, txn in enumerate(txns):
         state.set(bytes(ledger_id + i),
                   domain_state_serializer.serialize(txn))
-
-
-def set_3pc_batch(master_replica, view_no, pp_seq_no):
-    # TODO: PrePrepare needs to be passed to batch handlers explicitly
-    master_replica.node.viewNo = view_no
-    master_replica._lastPrePrepareSeqNo = pp_seq_no - 1

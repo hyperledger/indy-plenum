@@ -383,6 +383,9 @@ class BatchCommitted(MessageBase):
          IterableField(ClientMessageValidator(
              operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
         (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
         (f.TXN_ROOT.nm, MerkleRootField()),

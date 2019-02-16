@@ -4,21 +4,21 @@ from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
 
 
 class AuditBatchHandler(BatchRequestHandler):
 
-    def __init__(self, database_manager: DatabaseManager, master_replica):
+    def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, AUDIT_LEDGER_ID)
-        self._master_replica = master_replica
 
-    def _create_audit_txn_data(self, ledger_id, last_audit_txn):
+    def _create_audit_txn_data(self, three_pc_batch, last_audit_txn):
         # 1. general format and (view_no, pp_seq_no)
         txn = {
             TXN_VERSION: "1",
-            AUDIT_TXN_VIEW_NO: self._master_replica.viewNo,
-            AUDIT_TXN_PP_SEQ_NO: self._master_replica.lastPrePrepareSeqNo + 1,
+            AUDIT_TXN_VIEW_NO: three_pc_batch.view_no,
+            AUDIT_TXN_PP_SEQ_NO: three_pc_batch.pp_seq_no,
             AUDIT_TXN_LEDGERS_SIZE: {},
             AUDIT_TXN_LEDGER_ROOT: {},
             AUDIT_TXN_STATE_ROOT: {}
@@ -32,23 +32,20 @@ class AuditBatchHandler(BatchRequestHandler):
 
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
-            self.__fill_ledger_root_hash(txn, ledger_id, lid, last_audit_txn)
+            self.__fill_ledger_root_hash(txn, three_pc_batch, lid, last_audit_txn)
 
         # 4. state root hash
-        txn[AUDIT_TXN_STATE_ROOT][str(ledger_id)] = Ledger.hashToStr(
-            self.database_manager.get_state(ledger_id).headHash
-        )
+        txn[AUDIT_TXN_STATE_ROOT][str(three_pc_batch.ledger_id)] = Ledger.hashToStr(three_pc_batch.state_root)
 
         return txn
 
-    def __fill_ledger_root_hash(self, txn, target_ledger_id, lid, last_audit_txn):
+    def __fill_ledger_root_hash(self, txn, three_pc_batch, lid, last_audit_txn):
+        target_ledger_id = three_pc_batch.ledger_id
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
 
         # 1. ledger is changed in this batch => root_hash
         if lid == target_ledger_id:
-            ledger = self.database_manager.get_ledger(target_ledger_id)
-            root_hash = ledger.uncommittedRootHash or ledger.tree.root_hash
-            txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = Ledger.hashToStr(root_hash)
+            txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = Ledger.hashToStr(three_pc_batch.txn_root)
 
         # 2. This ledger is never audited, so do not add the key
         elif last_audit_txn_data is None or str(lid) not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
@@ -62,19 +59,19 @@ class AuditBatchHandler(BatchRequestHandler):
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = get_seq_no(last_audit_txn)
 
-    def post_batch_applied(self, ledger_id, state_root, pp_time, prev_result=None):
+    def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         # 1. prepare AUDIT txn
-        txn_data = self._create_audit_txn_data(ledger_id, self.ledger.get_last_txn())
+        txn_data = self._create_audit_txn_data(three_pc_batch, self.ledger.get_last_txn())
         txn = init_empty_txn(txn_type=PlenumTransactions.AUDIT.value)
         txn = set_payload_data(txn, txn_data)
 
         # 2. Append txn metadata
-        self.ledger.append_txns_metadata([txn], pp_time)
+        self.ledger.append_txns_metadata([txn], three_pc_batch.pp_time)
 
         # 3. Add to the Ledger
         self.ledger.appendTxns([txn])
 
-    def post_batch_rejected(self, ledger_id):
+    def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         # Audit ledger always has 1 txn per 3PC batch
         self.ledger.discardTxns(1)
 

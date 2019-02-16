@@ -8,8 +8,8 @@ class ConfigBatchHandler(BatchRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, CONFIG_LEDGER_ID)
 
-    def post_batch_applied(self, ledger_id, state_root, pp_time, prev_result=None):
+    def post_batch_applied(self, three_pc_batch, prev_handler_result=None):
         pass
 
-    def post_batch_rejected(self, ledger_id):
+    def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         pass

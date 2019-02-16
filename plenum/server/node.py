@@ -19,6 +19,7 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time, MetricsCollector
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
@@ -491,7 +492,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.db_manager.register_new_database(lid=ledger_id,
                                                   ledger=self.getLedger(ledger_id),
                                                   state=self.getState(ledger_id))
-        self.audit_handler = AuditBatchHandler(self.db_manager, self.master_replica)
+        self.audit_handler = AuditBatchHandler(self.db_manager)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -1055,7 +1056,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledger = ledgerInfo.ledger
         if isCommitted:
             return ledger.root_hash
-        return ledger.uncommittedRootHash or ledger.root_hash
+        return ledger.uncommitted_root_hash
 
     def stateRootHash(self, ledgerId, isCommitted=True):
         state = self.states.get(ledgerId)
@@ -2527,7 +2528,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
 
-    def apply_stashed_reqs(self, request_ids, cons_time: int, ledger_id):
+    def apply_stashed_reqs(self, ordered):
+        request_ids = ordered.valid_reqIdr
         requests = []
         for req_key in request_ids:
             if req_key in self.requests:
@@ -2538,13 +2540,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             _, seq_no = self.seqNoDB.get(req.digest)
             if seq_no is None:
                 requests.append(req)
-        self.apply_reqs(requests, cons_time, ledger_id)
+        three_pc_batch = ThreePcBatch.from_ordered(ordered)
+        self.apply_reqs(requests, three_pc_batch)
 
-    def apply_reqs(self, requests, cons_time: int, ledger_id):
+    def apply_reqs(self, requests, three_pc_batch: ThreePcBatch):
         for req in requests:
-            self.applyReq(req, cons_time)
-        state_root = self.stateRootHash(ledger_id, isCommitted=False)
-        self.onBatchCreated(ledger_id, state_root, cons_time)
+            self.applyReq(req, three_pc_batch.ppTime)
+        self.onBatchCreated(three_pc_batch)
 
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
@@ -3446,6 +3448,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if reqs_list_built:
             batch_committed_msg = BatchCommitted(reqs,
                                                  ledger_id,
+                                                 0,
+                                                 view_no,
+                                                 pp_seq_no,
                                                  pp_time,
                                                  state_root,
                                                  txn_root,
@@ -3496,7 +3501,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def hook_post_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
-    def onBatchCreated(self, ledger_id, state_root, txn_time):
+    def onBatchCreated(self, three_pc_batch: ThreePcBatch):
         """
         A batch of requests has been created and has been applied but
         committed to ledger and state.
@@ -3504,17 +3509,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param state_root: state root after the batch creation
         :return:
         """
+        ledger_id = three_pc_batch.ledger_id
         if ledger_id == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(state_root, txn_time)
+                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(three_pc_batch.state_root, three_pc_batch.pp_time)
         elif self.get_req_handler(ledger_id):
-            self.get_req_handler(ledger_id).onBatchCreated(state_root, txn_time)
+            self.get_req_handler(ledger_id).onBatchCreated(three_pc_batch.state_root, three_pc_batch.pp_time)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        self.audit_handler.post_batch_applied(ledger_id, state_root, txn_time)
+        self.audit_handler.post_batch_applied(three_pc_batch)
 
-        self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, state_root)
+        self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
 
     def onBatchRejected(self, ledger_id):
         """
@@ -3609,9 +3615,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     '{} applying stashed Ordered msg {}'.format(self, msg))
                 # Since the PRE-PREPAREs ans PREPAREs corresponding to these
                 # stashed ordered requests was not processed.
-                self.apply_stashed_reqs(msg.valid_reqIdr,
-                                        msg.ppTime,
-                                        msg.ledgerId)
+                self.apply_stashed_reqs(msg)
 
             self.processOrdered(msg)
             i += 1
