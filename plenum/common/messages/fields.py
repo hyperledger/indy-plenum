@@ -536,6 +536,12 @@ class VersionField(LimitedLengthStringField):
         super().__init__(**kwargs)
         self._comp_num = components_number
 
+    def _parts_validation(self, parts):
+        for p in parts:
+            if not p.isdigit():
+                return "version component should contain only digits"
+        return None
+
     def _specific_validation(self, val):
         lim_str_err = super()._specific_validation(val)
         if lim_str_err:
@@ -544,10 +550,7 @@ class VersionField(LimitedLengthStringField):
         if len(parts) not in self._comp_num:
             return "version consists of {} components, but it should contain {}".format(
                 len(parts), self._comp_num)
-        for p in parts:
-            if not p.isdigit():
-                return "version component should contain only digits"
-        return None
+        return self._parts_validation(parts)
 
 
 class TxnSeqNoField(FieldBase):
