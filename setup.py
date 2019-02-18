@@ -13,32 +13,36 @@ if sys.version_info < (3, 5):
     print("NOTE: Installation failed. Run setup.py using python3")
     sys.exit(1)
 
-here = os.path.abspath(os.path.dirname(__file__))
+try:
+    here = os.path.abspath(os.path.dirname(__file__))
+except NameError:
+    # it can be the case when we are being run as script or frozen
+    here = os.path.abspath(os.path.dirname(sys.argv[0]))
 
-md = {}
+metadata = {}
 with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
-    exec(f.read(), md)
+    exec(f.read(), metadata)
 
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.8', 'pytest-asyncio==0.8.0']
 
 setup(
     name='indy-plenum-dev',  # TODO refers to metadata as well
-    version=md['__version__'],
-    author=md['__author__'],
-    author_email=md['__author_email__'],
-    maintainer=md['__maintainer__'],
-    maintainer_email=md['__maintainer_email__'],
-    url=md['__url__'],
-    description=md['__description__'],
-    long_description=md['__long_description__'],
-    download_url=md['__download_url__'],
-    license=md['__license__'],
+    version=metadata['__version__'],
+    author=metadata['__author__'],
+    author_email=metadata['__author_email__'],
+    maintainer=metadata['__maintainer__'],
+    maintainer_email=metadata['__maintainer_email__'],
+    url=metadata['__url__'],
+    description=metadata['__description__'],
+    long_description=metadata['__long_description__'],
+    download_url=metadata['__download_url__'],
+    license=metadata['__license__'],
 
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],
     package_data={
-        '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
+        '': ['*.txt', '*.metadata', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
     install_requires=['jsonpickle==0.9.6', 'ujson==1.33',

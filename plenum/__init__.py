@@ -18,6 +18,13 @@ import plenum.server.plugin     # noqa: E402
 
 from plenum.common.config_util import getConfigOnce   # noqa: E402
 
+from .__metadata__ import (
+__title__, __version_info__, __version__, __author__, __author_email__, __maintainer__,
+__maintainer_email__, __url__, __description__, __long_description__, __download_url__,
+__license__
+)
+
+
 PLUGIN_LEDGER_IDS = set()
 PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
@@ -71,9 +78,6 @@ def setup_plugins():
 
 
 setup_plugins()
-
-
-from .__metadata__ import *  # noqa
 
 from plenum.common.jsonpickle_util import setUpJsonpickle   # noqa: E402
 setUpJsonpickle()
