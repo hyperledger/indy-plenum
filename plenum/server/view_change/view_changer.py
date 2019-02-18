@@ -11,11 +11,9 @@ from stp_core.ratchet import Ratchet
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone, \
-    BackupInstanceFaulty
-from plenum.common.util import mostCommonElement, SortedDict
+from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
+from plenum.common.util import mostCommonElement
 from plenum.common.message_processor import MessageProcessor
-from plenum.server.models import InstanceChanges
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
