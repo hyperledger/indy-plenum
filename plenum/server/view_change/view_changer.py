@@ -47,8 +47,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             (FutureViewChangeDone, self.process_future_view_vchd_msg)
         )
 
-        self.instance_change_provider = InstanceChangeProvider(node.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                                                               node.instance_change_db)
+        self.instance_changes = InstanceChangeProvider(node.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                                                       node.instance_change_db)
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
         # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.
@@ -343,7 +343,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             #  found then change view even if master not degraded
             self._on_verified_instance_change_msg(instChg, frm)
 
-            if self.instance_change_provider.has_inst_chng_from(instChg.viewNo, self.name):
+            if self.instance_changes.has_inst_chng_from(instChg.viewNo, self.name):
                 logger.info("{} received instance change message {} but has already "
                             "sent an instance change message".format(self, instChg))
             elif not self.node.monitor.isMasterDegraded():
@@ -455,8 +455,8 @@ class ViewChanger(HasActionQueue, MessageProcessor):
     def _on_verified_instance_change_msg(self, msg, frm):
         view_no = msg.viewNo
 
-        if not self.instance_change_provider.has_inst_chng_from(view_no, frm):
-            self.instance_change_provider.add_vote(msg, frm)
+        if not self.instance_changes.has_inst_chng_from(view_no, frm):
+            self.instance_changes.add_vote(msg, frm)
             if view_no > self.view_no:
                 self.do_view_change_if_possible(view_no)
 
@@ -496,7 +496,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         """
         msg = None
         quorum = self.quorums.view_change.value
-        if not self.instance_change_provider.has_quorum(proposedViewNo, quorum):
+        if not self.instance_changes.has_quorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
         elif not proposedViewNo > self.view_no:
             msg = '{} is in higher view more than {}'.format(
@@ -607,7 +607,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
             # then we should delete all INSTANCE_CHANGE messages with current (already changed)
             # view_no (which used in corresponded INSTANCE_CHANGE messages)
             # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
-            self.instance_change_provider.remove_view(self.view_no)
+            self.instance_changes.remove_view(self.view_no)
             self.previous_view_no = None
             self.previous_master_primary = None
             self.propagate_primary = False

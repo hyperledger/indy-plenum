@@ -69,7 +69,7 @@ class InstanceChangeProvider:
                 self._instance_change_db.remove(str(view_no))
 
     def items(self):
-        return dict(self._cache).items()
+        return self._cache.items()
 
     def _update_votes(self, view_no: int):
         if self._outdated_ic_interval <= 0 or view_no not in self._cache:
