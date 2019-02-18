@@ -93,10 +93,8 @@ class InstanceChangeProvider:
         if not value:
             self._instance_change_db.remove(view_no)
             return
-        serialized_value = \
-            instance_change_db_serializer.serialize(value)
-        if serialized_value:
-            self._instance_change_db.put(str(view_no), serialized_value)
+        serialized_value = instance_change_db_serializer.serialize(value)
+        self._instance_change_db.put(str(view_no), serialized_value)
 
     def _fill_cache_by_db(self):
         if not self._instance_change_db:
