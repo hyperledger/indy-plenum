@@ -1,15 +1,13 @@
 import os
-import sys
-
 import pytest as pytest
-from plenum.server.models import InstanceChanges
 
+from common.serializers.serialization import instance_change_db_serializer
 from plenum.test.helper import MockTimestamp
-
 from plenum.common.messages.node_messages import InstanceChange
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
 from storage.helper import initKeyValueStorage
+from plenum.test.logging.conftest import logsearch
 
 
 @pytest.fixture(scope="function")
@@ -142,12 +140,55 @@ def test_update_instance_changes_in_db(instance_change_provider, tconf, instance
     assert new_instance_change_provider.has_inst_chng_from(view_no, frm)
 
 
+def test_fail_update_instance_changes_from_db(instance_change_provider, tconf,
+                                              instance_change_db, time_provider,
+                                            logsearch):
+    # test updating cache with view without votes
+    instance_change_db.iterator = lambda include_value=True: {
+        "3": instance_change_db_serializer.serialize(None)}.items()
+    provider = InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                                      instance_change_db, time_provider)
+    assert not provider.has_view(3)
+
+    # test updating cache with Vote with incorrect timestamp format
+    instance_change_db.iterator = lambda include_value=True: {
+        "3": instance_change_db_serializer.serialize({"voter": ["a", 10.4]})}.items()
+    logs, _ = logsearch(
+        msgs=["InstanceChangeProvider: timestamp in Vote .* : .* - .* must "
+              "be of float or int type"])
+    InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                           instance_change_db, time_provider)
+    assert logs
+
+    # test updating cache with Vote with incorrect reason format
+    instance_change_db.iterator = lambda include_value=True: {
+        "3": instance_change_db_serializer.serialize({"voter": [5, 10.4]})}.items()
+    logs, _ = logsearch(
+        msgs=["InstanceChangeProvider: reason in Vote .* : .* - .* must "
+              "be of int type"])
+    InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                           instance_change_db, time_provider)
+    assert logs
+
+    # test updating cache with incorrect view_no format
+    instance_change_db.iterator = lambda include_value=True: {
+        "a": instance_change_db_serializer.serialize({"voter": [5, 25]})}.items()
+    logs, _ = logsearch(
+        msgs=["InstanceChangeProvider: view_no='.*' "
+              "must be of int type"])
+    InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                           instance_change_db, time_provider)
+    assert logs
+
+
 def test_remove_view(instance_change_provider):
     frm = "Node1"
     view_no = 2
 
-    instance_change_provider.add_vote(InstanceChange(view_no - 1, Suspicions.PRIMARY_DEGRADED.code), frm)
-    instance_change_provider.add_vote(InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code), frm)
+    instance_change_provider.add_vote(InstanceChange(view_no - 1,
+                                                     Suspicions.PRIMARY_DEGRADED.code), frm)
+    instance_change_provider.add_vote(InstanceChange(view_no,
+                                                     Suspicions.PRIMARY_DEGRADED.code), frm)
 
     assert instance_change_provider.has_view(view_no - 1)
     assert instance_change_provider.has_view(view_no)

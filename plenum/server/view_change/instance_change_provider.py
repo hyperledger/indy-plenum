@@ -3,7 +3,6 @@ from typing import NamedTuple, Callable
 
 from common.serializers.serialization import instance_change_db_serializer
 from plenum.common.messages.node_messages import InstanceChange
-from storage.helper import initKeyValueStorage
 from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
 
@@ -79,7 +78,7 @@ class InstanceChangeProvider:
         for voter, vote in dict(self._cache[view_no]).items():
             now = self._time_provider()
             if vote.timestamp < now - self._outdated_ic_interval:
-                logger.info("Discard InstanceChange from {} for ViewNo {} "
+                logger.info("InstanceChangeProvider: Discard InstanceChange from {} for ViewNo {} "
                             "because it is out of date (was received {}sec "
                             "ago)".format(voter, view_no, int(now - vote.timestamp)))
                 self._cache.remove_vote(view_no, voter)
@@ -90,20 +89,30 @@ class InstanceChangeProvider:
     def _update_db_from_cache(self, view_no):
         if not self._instance_change_db:
             return
-        # value_as_dict = pp_key._asdict()
         serialized_value = \
             instance_change_db_serializer.serialize(self._cache.get(view_no, None))
-        self._instance_change_db.put(str(view_no), serialized_value)
+        if serialized_value:
+            self._instance_change_db.put(str(view_no), serialized_value)
 
     def _fill_cache_by_db(self):
         if not self._instance_change_db:
             return
         for view_no, serialized_votes in self._instance_change_db.iterator(include_value=True):
+            if not view_no.isdigit():
+                logger.warning("InstanceChangeProvider: view_no='{}' "
+                               "must be of int type".format(view_no))
+                break
             votes_as_dict = instance_change_db_serializer.deserialize(serialized_votes)
+            if not votes_as_dict:
+                break
             for voter, vote_dict in votes_as_dict.items():
                 vote = Vote(*vote_dict)
                 if not isinstance(vote.timestamp, (float, int)):
-                    raise TypeError("timestamp in Vote must be of float type")
+                    logger.warning("InstanceChangeProvider: timestamp in Vote (view_no={} : {} - {}) must "
+                                   "be of float or int type".format(view_no, voter, vote_dict))
+                    break
                 if not isinstance(vote.reason, int):
-                    raise TypeError("reason in Vote must be of int type")
+                    logger.warning("InstanceChangeProvider: reason in Vote (view_no={} : {} - {}) must "
+                                   "be of int type".format(view_no, voter, vote_dict))
+                    break
                 self._cache.add(int(view_no), voter, vote)
