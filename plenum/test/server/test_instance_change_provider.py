@@ -47,6 +47,7 @@ def test_add_first_vote(instance_change_provider):
 
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
+    assert view_no in instance_change_provider._instance_change_db
 
 
 def test_old_ic_discard(instance_change_provider, tconf, time_provider):
@@ -85,6 +86,8 @@ def test_equal_votes_dont_accumulate_when_added(instance_change_provider,
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
     assert not instance_change_provider.has_quorum(view_no, quorum)
+    instance_changes_db = instance_change_provider._instance_change_db.get(view_no)
+    assert len(instance_change_db_serializer.deserialize(instance_changes_db)) == 1
 
 
 def test_too_old_messages_dont_count_towards_quorum(instance_change_provider,
@@ -106,6 +109,8 @@ def test_too_old_messages_dont_count_towards_quorum(instance_change_provider,
 
     assert not instance_change_provider.has_inst_chng_from(view_no, frm1)
     assert instance_change_provider.has_inst_chng_from(view_no, frm2)
+    instance_changes_db = instance_change_provider._instance_change_db.get(view_no)
+    assert len(instance_change_db_serializer.deserialize(instance_changes_db)) == 1
 
 
 def test_instance_changes_has_quorum_when_enough_distinct_votes_are_added(instance_change_provider):
@@ -126,9 +131,12 @@ def test_update_instance_changes_in_db(instance_change_provider, tconf, instance
 
     assert not instance_change_provider.has_view(view_no)
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
+    assert view_no not in instance_change_provider._instance_change_db
+
     instance_change_provider.add_vote(msg, frm)
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
+    assert view_no in instance_change_provider._instance_change_db
 
     instance_change_provider._instance_change_db.close()
     assert instance_change_provider._instance_change_db.closed
@@ -194,6 +202,7 @@ def test_remove_view(instance_change_provider):
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no - 1, frm)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
+    assert view_no in instance_change_provider._instance_change_db
 
     instance_change_provider.remove_view(view_no)
 
@@ -201,3 +210,4 @@ def test_remove_view(instance_change_provider):
     assert not instance_change_provider.has_view(view_no)
     assert not instance_change_provider.has_inst_chng_from(view_no - 1, frm)
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
+    assert view_no not in instance_change_provider._instance_change_db

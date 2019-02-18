@@ -75,7 +75,7 @@ class InstanceChangeProvider:
         if self._outdated_ic_interval <= 0 or view_no not in self._cache:
             return
         db_need_update = False
-        for voter, vote in dict(self._cache[view_no]).items():
+        for voter, vote in self._cache[view_no].copy().items():
             now = self._time_provider()
             if vote.timestamp < now - self._outdated_ic_interval:
                 logger.info("InstanceChangeProvider: Discard InstanceChange from {} for ViewNo {} "
@@ -89,19 +89,27 @@ class InstanceChangeProvider:
     def _update_db_from_cache(self, view_no):
         if not self._instance_change_db:
             return
+        value = self._cache.get(view_no, None)
+        if not value:
+            self._instance_change_db.remove(view_no)
+            return
         serialized_value = \
-            instance_change_db_serializer.serialize(self._cache.get(view_no, None))
+            instance_change_db_serializer.serialize(value)
         if serialized_value:
             self._instance_change_db.put(str(view_no), serialized_value)
 
     def _fill_cache_by_db(self):
         if not self._instance_change_db:
             return
-        for view_no, serialized_votes in self._instance_change_db.iterator(include_value=True):
-            if not view_no.isdigit():
-                logger.warning("InstanceChangeProvider: view_no='{}' "
-                               "must be of int type".format(view_no))
+        for view_no_str, serialized_votes in self._instance_change_db.iterator(include_value=True):
+            if serialized_votes is None:
                 break
+            if not view_no_str.isdigit():
+                logger.warning("InstanceChangeProvider: view_no='{}' "
+                               "must be of int type".format(view_no_str))
+                break
+            else:
+                view_no = int(view_no_str)
             votes_as_dict = instance_change_db_serializer.deserialize(serialized_votes)
             if not votes_as_dict:
                 break
@@ -115,4 +123,4 @@ class InstanceChangeProvider:
                     logger.warning("InstanceChangeProvider: reason in Vote (view_no={} : {} - {}) must "
                                    "be of int type".format(view_no, voter, vote_dict))
                     break
-                self._cache.add(int(view_no), voter, vote)
+                self._cache.add(view_no, voter, vote)
