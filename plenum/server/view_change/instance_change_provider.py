@@ -108,8 +108,7 @@ class InstanceChangeProvider:
                 logger.warning("InstanceChangeProvider: view_no='{}' "
                                "must be of int type".format(view_no_str))
                 break
-            else:
-                view_no = int(view_no_str)
+            view_no = int(view_no_str)
             votes_as_dict = instance_change_db_serializer.deserialize(serialized_votes)
             if not votes_as_dict:
                 break
