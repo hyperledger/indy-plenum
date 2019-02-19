@@ -486,6 +486,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.db_manager = DatabaseManager()
         for ledger_id in self.ledger_ids:
+            if ledger_id not in self.ledgerManager.ledgerRegistry:
+                break
             self.db_manager.register_new_database(lid=ledger_id,
                                                   ledger=self.getLedger(ledger_id),
                                                   state=self.getState(ledger_id))
