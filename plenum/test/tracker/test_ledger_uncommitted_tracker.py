@@ -94,3 +94,10 @@ def test_apply_batch_with_zero_ledger_size(make_tracker):
     test_ledger_size = 0
     test_root = "test_root"
     make_tracker.apply_batch(test_root, test_ledger_size)
+
+
+def test_set_last_committed(make_tracker):
+    test_tuple = ('some_state_root', 42)
+    assert make_tracker.last_committed != test_tuple
+    make_tracker.set_last_committed(*test_tuple)
+    assert make_tracker.last_committed == test_tuple
