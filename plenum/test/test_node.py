@@ -366,7 +366,7 @@ class TestNode(TestNodeCore, Node):
         self.ClientStackClass = clientStackClass
 
         Node.__init__(self, *args, **kwargs)
-        self.view_changer = TestViewChanger(ViewChangerNodeDataProvider(self))
+        self.view_changer = create_view_changer(self, TestViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
