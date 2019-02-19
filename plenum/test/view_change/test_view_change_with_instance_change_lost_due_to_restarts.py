@@ -34,11 +34,14 @@ def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNo
 
     def check_ic_delivery():
         for node in txnPoolNodeSet:
-            assert current_view_no + 1 in node.view_changer.instance_changes._cache
-            assert len(node.view_changer.instance_changes._cache[current_view_no + 1]) == 2
+            assert all(node.view_changer.instance_changes.
+                       has_inst_chng_from(current_view_no + 1, sender.name)
+                       for sender in some_nodes)
     looper.run(eventually(check_ic_delivery))
 
-    restart_nodes(looper, txnPoolNodeSet, other_nodes, tconf, tdir, allPluginsPath, start_one_by_one=False)
+    restart_nodes(looper, txnPoolNodeSet,
+                  other_nodes, tconf, tdir, allPluginsPath,
+                  start_one_by_one=False)
 
     last_node = txnPoolNodeSet[-1]
     last_node.view_changer.on_master_degradation()
