@@ -5,8 +5,6 @@ from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     waitNodeDataEquality
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 
-from plenum.test.node_catchup.conftest import sdk_node_created_after_some_txns, \
-    sdk_node_set_with_node_added_after_some_txns, sdk_new_node_caught_up
 from plenum.test.plugin.demo_plugin.constants import AUCTION_END, PLACE_BID, \
     AMOUNT, AUCTION_START
 from plenum.test.plugin.demo_plugin.test_plugin_request_handling import \

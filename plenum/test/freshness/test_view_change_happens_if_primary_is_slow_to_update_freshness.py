@@ -18,7 +18,7 @@ def test_view_change_happens_if_primary_is_slow_to_update_freshness(looper, tcon
                                                                     sdk_wallet_client, sdk_pool_handle,
                                                                     monkeypatch):
     monkeypatch.setattr(txnPoolNodeSet[0].master_replica._freshness_checker,
-                        'freshness_timeout', 2 * FRESHNESS_TIMEOUT)
+                        'freshness_timeout', 3 * FRESHNESS_TIMEOUT)
 
     current_view_no = txnPoolNodeSet[0].viewNo
     for node in txnPoolNodeSet:

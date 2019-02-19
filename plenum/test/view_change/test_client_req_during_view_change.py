@@ -35,7 +35,7 @@ def test_client_get_request_not_discard_in_view_change_with_dict(test_node):
         assert received_msg == msg
     test_node.postToClientInBox = post_to_client_in_box
 
-    def discard(received_msg, reason, logLevel):
+    def discard(received_msg, reason, logMethod, cliOutput):
         assert False, "Message {} was discard with '{}'".format(received_msg, reason)
     test_node.discard = discard
 
@@ -51,7 +51,7 @@ def test_client_read_request_not_discard_in_view_change_with_dict(test_node):
         assert received_msg == msg
     test_node.postToClientInBox = post_to_client_in_box
 
-    def discard(received_msg, reason, logLevel):
+    def discard(received_msg, reason, logMethod, cliOutput):
         assert False, "Message {} was discard with '{}'".format(received_msg, reason)
     test_node.discard = discard
 

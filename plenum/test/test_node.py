@@ -33,6 +33,7 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
@@ -169,8 +170,12 @@ class TestNodeCore(StackedTester):
         return pdCls(self)
 
     def newViewChanger(self):
-        return self.view_changer if self.view_changer is not None \
-            else TestViewChanger(self)
+        vchCls = self.view_changer if self.view_changer is not None else \
+            TestViewChanger
+        view_changer = create_view_changer(self, vchCls)
+        # TODO: This is a hack for tests compatibility, do something better
+        view_changer.node = self
+        return view_changer
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -368,7 +373,6 @@ class TestNode(TestNodeCore, Node):
         self.balances = {}  # type: Dict[str, int]
 
         # Txns of all clients, each txn is a tuple like (from, to, amount)
-
         self.txns = []  # type: List[Tuple]
 
     @property

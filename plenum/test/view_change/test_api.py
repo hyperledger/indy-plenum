@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.server.quorums import Quorums
-from plenum.server.view_change.view_changer import ViewChanger
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -17,5 +17,5 @@ def view_changer():
         config=config,
         quorums=Quorums(7)
     )
-    view_changer = ViewChanger(node)
+    view_changer = create_view_changer(node)
     return view_changer
