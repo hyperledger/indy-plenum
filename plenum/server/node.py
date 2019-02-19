@@ -2894,7 +2894,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.NODE_REQUESTED_PROPAGATES_FOR, len(self.requested_propagates_for))
 
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_ACTION_QUEUE, self.view_changer._timer.queue_size())
+        self.metrics.add_event(MetricsName.TIMER_QUEUE_SIZE, self.timer.queue_size())
+
         self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_NEXT_VIEW_INDICATIONS,
