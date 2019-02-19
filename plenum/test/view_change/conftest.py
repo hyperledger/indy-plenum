@@ -59,7 +59,7 @@ def fake_view_changer(request, tconf):
         primaries_disconnection_times=[None] * getRequiredInstances(node_count),
         master_primary_name='Alpha',
         master_replica=FakeSomething(instId=0),
-        instance_change_db=None
+        nodeStatusDB=None
     )
     view_changer = create_view_changer(node)
     # TODO: This is a hack for tests compatibility, do something better

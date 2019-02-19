@@ -1,6 +1,7 @@
 import types
 
 from plenum.common.util import randomString
+from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
@@ -363,7 +364,7 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
     # add node_to_disconnect to pool
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)
-    node_to_disconnect.view_changer = TestViewChanger(node_to_disconnect)
+    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, TestViewChanger)
 
     txnPoolNodeSet[idx] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))

@@ -21,7 +21,7 @@ from stp_zmq.zstack import Quota
 @pytest.fixture(scope="function")
 def fake_node(tconf):
     node = FakeSomething(config=tconf,
-                         instance_change_db=None,
+                         nodeStatusDB=None,
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       logger=FakeSomething(
