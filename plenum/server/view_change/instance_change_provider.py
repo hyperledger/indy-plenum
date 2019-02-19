@@ -106,6 +106,8 @@ class InstanceChangeProvider:
         for view_no_db, serialized_votes in self._node_status_db.iterator(include_value=True):
             if serialized_votes is None:
                 break
+            if isinstance(view_no_db, bytes):
+                view_no_db = view_no_db.decode()
             view_no_str = view_no_db.replace(self.db_prefix, "")
             if not view_no_str.isdigit():
                 logger.warning("InstanceChangeProvider: view_no='{}' "
