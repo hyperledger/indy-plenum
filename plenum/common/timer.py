@@ -21,10 +21,13 @@ class Timer(TimerInterface):
         self._timestamps = []
         self._callbacks = []
 
-    def service(self):
+    def service(self) -> int:
+        count = 0
         while len(self._timestamps) and self._timestamps[0] <= self._get_current_time():
             callback = self._pop_callback()
             callback()
+            count += 1
+        return count
 
     def schedule(self, delay: float, callback: Callable):
         timestamp = self._get_current_time() + delay
@@ -43,10 +46,10 @@ class Timer(TimerInterface):
 
 
 class RepeatingTimer:
-    def __init__(self, interval: int, callback: Callable, active: bool = True, timer: TimerInterface = Timer()):
+    def __init__(self, timer: TimerInterface, interval: int, callback: Callable, active: bool = True):
+        self._timer = timer
         self._interval = interval
         self._callback = callback
-        self._timer = timer
         self._active = False
         if active:
             self.start()

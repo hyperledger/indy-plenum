@@ -220,7 +220,7 @@ def test_repeating_timer_is_started_active():
     ts = MockTimestamp(0)
     timer = Timer(ts)
     cb = Callback()
-    repeating_timer = RepeatingTimer(period, cb, timer=timer)
+    repeating_timer = RepeatingTimer(timer, period, cb)
     assert cb.call_count == 0
 
     ts.value += 3
@@ -244,7 +244,7 @@ def test_repeating_timer_can_be_stopped():
     ts = MockTimestamp(0)
     timer = Timer(ts)
     cb = Callback()
-    repeating_timer = RepeatingTimer(5, cb, timer=timer)
+    repeating_timer = RepeatingTimer(timer, 5, cb)
 
     assert cb.call_count == 0
 
@@ -270,7 +270,7 @@ def test_repeating_timer_can_be_started_inactive():
     ts = MockTimestamp(0)
     timer = Timer(ts)
     cb = Callback()
-    repeating_timer = RepeatingTimer(5, cb, active=False, timer=timer)
+    repeating_timer = RepeatingTimer(timer, 5, cb, active=False)
 
     assert cb.call_count == 0
 
@@ -295,7 +295,7 @@ def test_repeating_timer_can_be_stopped_and_started():
     ts = MockTimestamp(0)
     timer = Timer(ts)
     cb = Callback()
-    repeating_timer = RepeatingTimer(5, cb, timer=timer)
+    repeating_timer = RepeatingTimer(timer, 5, cb)
 
     assert cb.call_count == 0
 
@@ -330,7 +330,7 @@ def test_repeating_timer_doesnt_repeat_too_much():
     ts = MockTimestamp(0)
     timer = Timer(ts)
     cb = Callback()
-    repeating_timer = RepeatingTimer(5, cb, timer=timer)
+    repeating_timer = RepeatingTimer(timer, 5, cb)
 
     ts.value += 12
     timer.service()
@@ -346,8 +346,8 @@ def test_multiple_repeating_timers_can_work_together():
     timer = Timer(ts)
     cb1 = Callback()
     cb2 = Callback()
-    timer1 = RepeatingTimer(5, cb1, timer=timer)
-    timer2 = RepeatingTimer(2, cb2, timer=timer)
+    timer1 = RepeatingTimer(timer, 5, cb1)
+    timer2 = RepeatingTimer(timer, 2, cb2)
 
     ts.value += 3
     timer.service()

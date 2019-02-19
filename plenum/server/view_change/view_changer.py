@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from plenum.common.startable import Mode
+from plenum.common.timer import Timer, RepeatingTimer
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
@@ -124,15 +125,15 @@ class ViewChangerDataProvider(ABC):
         pass
 
 
-class ViewChanger(HasActionQueue):
+class ViewChanger():
 
-    def __init__(self, provider: ViewChangerDataProvider):
+    # TODO: Replace Timer type annotation with TimerInterface
+    def __init__(self, provider: ViewChangerDataProvider, timer: Timer = Timer()):
         self.provider = provider
+        self._timer = timer
         self.pre_vc_strategy = None
 
         self._view_no = 0  # type: int
-
-        HasActionQueue.__init__(self)
 
         self.inBox = deque()
         self.outBox = deque()
@@ -184,15 +185,19 @@ class ViewChanger(HasActionQueue):
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
-            self.startRepeating(self.on_master_degradation, force_view_change_freq)
+            self._timer_master_degradation = RepeatingTimer(timer, force_view_change_freq, self.on_master_degradation)
 
         # Start periodic freshness check
         state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if state_freshness_update_interval > 0:
-            self.startRepeating(self.check_freshness, state_freshness_update_interval)
+            self._timer_check_freshness = RepeatingTimer(timer, state_freshness_update_interval, self.check_freshness)
 
     def __repr__(self):
         return "{}".format(self.name)
+
+    # TODO: External timer should be serviced externally
+    def _serviceActions(self) -> int:
+        return self._timer.service()
 
     # PROPERTIES
 
@@ -334,8 +339,8 @@ class ViewChanger(HasActionQueue):
             # InstanceChange quorum
             logger.info("Resend instance change message to all recipients")
             self.sendInstanceChange(proposed_view_no, reason)
-            self._schedule(action=self.instance_change_action,
-                           seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+            self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+                                 self.instance_change_action)
             logger.info("Count of rounds without quorum of "
                         "instance change messages: {}".format(self.instance_change_rounds))
             self.instance_change_rounds += 1
@@ -343,7 +348,7 @@ class ViewChanger(HasActionQueue):
             # ViewChange procedure was started, therefore stop scheduling
             # resending instanceChange messages
             logger.info("Stop scheduling instance change resending")
-            self._cancel(action=self.instance_change_action)
+            self._timer.cancel(self.instance_change_action)
             self.instance_change_action = None
             self.instance_change_rounds = 0
 
@@ -352,13 +357,13 @@ class ViewChanger(HasActionQueue):
         if self.instance_change_action:
             # It's an action, scheduled for previous instanceChange round
             logger.info("Stop previous instance change resending schedule")
-            self._cancel(action=self.instance_change_action)
+            self._timer.cancel(self.instance_change_action)
             self.instance_change_rounds = 0
         self.instance_change_action = partial(self.send_instance_change_if_needed,
                                               view_no,
                                               Suspicions.PRIMARY_DISCONNECTED)
-        self._schedule(self.instance_change_action,
-                       seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+        self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+                             self.instance_change_action)
 
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):
