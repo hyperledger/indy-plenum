@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from indy.did import create_and_store_my_did
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
@@ -12,6 +13,7 @@ from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 nodeCount = 7
 
 
+@pytest.mark.skip(reason='INDY-1720')
 def test_promotion_leads_to_primary_inconsistency(looper,
                                                   txnPoolNodeSet,
                                                   tdir,
@@ -78,6 +80,7 @@ def test_promotion_leads_to_primary_inconsistency(looper,
     assert all(node.replicas.primary_name_by_inst_id ==
                node_1.replicas.primary_name_by_inst_id
                for node in txnPoolNodeSet if node is not node_3)
-    assert all(node.replicas.primary_name_by_inst_id !=
-               node_3.replicas.primary_name_by_inst_id
-               for node in txnPoolNodeSet if node is not node_3)
+    # Fails
+    assert all(node.replicas.primary_name_by_inst_id ==
+               node_1.replicas.primary_name_by_inst_id
+               for node in txnPoolNodeSet)
