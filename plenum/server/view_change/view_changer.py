@@ -7,6 +7,7 @@ from functools import partial
 from plenum.common.startable import Mode
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
+from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
@@ -123,6 +124,11 @@ class ViewChangerDataProvider(ABC):
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
+    @property
+    @abstractmethod
+    def node_status_db(self) -> KeyValueStorage:
+        pass
+
 
 class ViewChanger(HasActionQueue):
 
@@ -143,7 +149,7 @@ class ViewChanger(HasActionQueue):
         )
 
         self.instance_changes = InstanceChangeProvider(self.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                                                       node_status_db=node.nodeStatusDB)
+                                                       node_status_db=self.provider.node_status_db)
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
         # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.

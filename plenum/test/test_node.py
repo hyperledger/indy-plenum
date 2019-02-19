@@ -33,7 +33,7 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
-from plenum.server.view_change.node_view_changer import create_view_changer
+from plenum.server.view_change.node_view_changer import create_view_changer, ViewChangerNodeDataProvider
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
@@ -170,9 +170,8 @@ class TestNodeCore(StackedTester):
         return pdCls(self)
 
     def newViewChanger(self):
-        vchCls = self.view_changer if self.view_changer is not None else \
-            TestViewChanger
-        view_changer = create_view_changer(self, vchCls)
+        view_changer = self.view_changer if self.view_changer is not None \
+            else create_view_changer(self, vchCls)
         # TODO: This is a hack for tests compatibility, do something better
         view_changer.node = self
         return view_changer
@@ -367,7 +366,7 @@ class TestNode(TestNodeCore, Node):
         self.ClientStackClass = clientStackClass
 
         Node.__init__(self, *args, **kwargs)
-        self.view_changer = TestViewChanger(self)
+        self.view_changer = TestViewChanger(ViewChangerNodeDataProvider(self))
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
