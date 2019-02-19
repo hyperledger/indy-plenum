@@ -44,7 +44,6 @@ stateSignatureDbName = 'state_signature'
 seqNoDbName = 'seq_no_db'
 
 nodeStatusDbName = 'node_status_db'
-instanceChangeDbName = 'instance_change_db'
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
@@ -59,7 +58,6 @@ poolStateStorage = KeyValueStorageType.Rocksdb
 configStateStorage = KeyValueStorageType.Rocksdb
 reqIdToTxnStorage = KeyValueStorageType.Rocksdb
 nodeStatusStorage = KeyValueStorageType.Rocksdb
-instanceChangeStorage = KeyValueStorageType.Rocksdb
 
 stateSignatureStorage = KeyValueStorageType.Rocksdb
 
@@ -99,9 +97,6 @@ rocksdb_seq_no_db_config = rocksdb_default_config.copy()
 rocksdb_node_status_db_config = rocksdb_default_config.copy()
 # Change node_status_db config here if you fully understand what's going on
 
-rocksdb_instance_change_db_config = rocksdb_default_config.copy()
-# Change instance_change_db config here if you fully understand what's going on
-
 rocksdb_state_signature_config = rocksdb_default_config.copy()
 # Change state_signature config here if you fully understand what's going on
 
@@ -120,7 +115,6 @@ db_seq_no_db_config = rocksdb_seq_no_db_config
 db_node_status_db_config = rocksdb_node_status_db_config
 db_state_signature_config = rocksdb_state_signature_config
 db_state_ts_db_config = rocksdb_state_ts_db_config
-db_instance_change_config = rocksdb_instance_change_db_config
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,

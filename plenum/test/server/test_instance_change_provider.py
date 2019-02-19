@@ -1,7 +1,7 @@
 import os
 import pytest as pytest
 
-from common.serializers.serialization import instance_change_db_serializer
+from common.serializers.serialization import node_status_db_serializer
 from plenum.test.helper import MockTimestamp
 from plenum.common.messages.node_messages import InstanceChange
 from plenum.server.suspicion_codes import Suspicions
@@ -16,22 +16,22 @@ def time_provider():
 
 
 @pytest.fixture(scope="function")
-def instance_change_db(tconf):
-    data_location = tconf.GENERAL_CONFIG_DIR + "/instance_change_db"
+def node_status_db(tconf):
+    data_location = tconf.GENERAL_CONFIG_DIR + "/node_status_db"
     if not os.path.isdir(data_location):
         os.makedirs(data_location)
-    instance_change_db = initKeyValueStorage(tconf.instanceChangeStorage,
-                                             data_location,
-                                             tconf.instanceChangeDbName,
-                                             db_config=tconf.db_instance_change_config)
-    yield instance_change_db
-    instance_change_db.drop()
+    node_status_db = initKeyValueStorage(tconf.nodeStatusStorage,
+                                         data_location,
+                                         tconf.nodeStatusDbName,
+                                         db_config=tconf.db_node_status_db_config)
+    yield node_status_db
+    node_status_db.drop()
 
 
 @pytest.fixture(scope="function")
-def instance_change_provider(tconf, instance_change_db, time_provider):
+def instance_change_provider(tconf, node_status_db, time_provider):
     return InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                                  instance_change_db,
+                                  node_status_db,
                                   time_provider)
 
 
@@ -47,7 +47,7 @@ def test_add_first_vote(instance_change_provider):
 
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
-    assert view_no in instance_change_provider._instance_change_db
+    assert _is_view_in_db(view_no, instance_change_provider)
 
 
 def test_old_ic_discard(instance_change_provider, tconf, time_provider):
@@ -86,8 +86,9 @@ def test_equal_votes_dont_accumulate_when_added(instance_change_provider,
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
     assert not instance_change_provider.has_quorum(view_no, quorum)
-    instance_changes_db = instance_change_provider._instance_change_db.get(view_no)
-    assert len(instance_change_db_serializer.deserialize(instance_changes_db)) == 1
+    instance_changes_db = instance_change_provider._node_status_db.get(
+        instance_change_provider.generate_db_key(view_no))
+    assert len(node_status_db_serializer.deserialize(instance_changes_db)) == 1
 
 
 def test_too_old_messages_dont_count_towards_quorum(instance_change_provider,
@@ -109,8 +110,9 @@ def test_too_old_messages_dont_count_towards_quorum(instance_change_provider,
 
     assert not instance_change_provider.has_inst_chng_from(view_no, frm1)
     assert instance_change_provider.has_inst_chng_from(view_no, frm2)
-    instance_changes_db = instance_change_provider._instance_change_db.get(view_no)
-    assert len(instance_change_db_serializer.deserialize(instance_changes_db)) == 1
+    instance_changes_db = instance_change_provider._node_status_db.get(
+        instance_change_provider.generate_db_key(view_no))
+    assert len(node_status_db_serializer.deserialize(instance_changes_db)) == 1
 
 
 def test_instance_changes_has_quorum_when_enough_distinct_votes_are_added(instance_change_provider):
@@ -124,68 +126,68 @@ def test_instance_changes_has_quorum_when_enough_distinct_votes_are_added(instan
     assert instance_change_provider.has_quorum(view_no, quorum)
 
 
-def test_update_instance_changes_in_db(instance_change_provider, tconf, instance_change_db, time_provider):
+def test_update_instance_changes_in_db(instance_change_provider, tconf, node_status_db, time_provider):
     frm = "Node1"
     view_no = 1
     msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
 
     assert not instance_change_provider.has_view(view_no)
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
-    assert view_no not in instance_change_provider._instance_change_db
+    assert not _is_view_in_db(view_no, instance_change_provider)
 
     instance_change_provider.add_vote(msg, frm)
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
-    assert view_no in instance_change_provider._instance_change_db
+    assert _is_view_in_db(view_no, instance_change_provider)
 
-    instance_change_provider._instance_change_db.close()
-    assert instance_change_provider._instance_change_db.closed
-    instance_change_provider._instance_change_db.open()
+    instance_change_provider._node_status_db.close()
+    assert instance_change_provider._node_status_db.closed
+    instance_change_provider._node_status_db.open()
 
     new_instance_change_provider = InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                                                          instance_change_db, time_provider)
+                                                          node_status_db, time_provider)
     assert new_instance_change_provider.has_view(view_no)
     assert new_instance_change_provider.has_inst_chng_from(view_no, frm)
 
 
 def test_fail_update_instance_changes_from_db(instance_change_provider, tconf,
-                                              instance_change_db, time_provider,
-                                            logsearch):
+                                              node_status_db, time_provider,
+                                              logsearch):
     # test updating cache with view without votes
-    instance_change_db.iterator = lambda include_value=True: {
-        "3": instance_change_db_serializer.serialize(None)}.items()
+    node_status_db.iterator = lambda include_value=True: {
+        "3": node_status_db_serializer.serialize(None)}.items()
     provider = InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                                      instance_change_db, time_provider)
+                                      node_status_db, time_provider)
     assert not provider.has_view(3)
 
     # test updating cache with Vote with incorrect timestamp format
-    instance_change_db.iterator = lambda include_value=True: {
-        "3": instance_change_db_serializer.serialize({"voter": ["a", 10.4]})}.items()
+    node_status_db.iterator = lambda include_value=True: {
+        "3": node_status_db_serializer.serialize({"voter": ["a", 10.4]})}.items()
     logs, _ = logsearch(
         msgs=["InstanceChangeProvider: timestamp in Vote .* : .* - .* must "
               "be of float or int type"])
     InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                           instance_change_db, time_provider)
+                           node_status_db, time_provider)
     assert logs
 
     # test updating cache with Vote with incorrect reason format
-    instance_change_db.iterator = lambda include_value=True: {
-        "3": instance_change_db_serializer.serialize({"voter": [5, 10.4]})}.items()
+    node_status_db.iterator = lambda include_value=True: {
+        "3": node_status_db_serializer.serialize({"voter": [5, 10.4]})}.items()
     logs, _ = logsearch(
         msgs=["InstanceChangeProvider: reason in Vote .* : .* - .* must "
               "be of int type"])
     InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                           instance_change_db, time_provider)
+                           node_status_db, time_provider)
     assert logs
 
     # test updating cache with incorrect view_no format
-    instance_change_db.iterator = lambda include_value=True: {
-        "a": instance_change_db_serializer.serialize({"voter": [5, 25]})}.items()
+    node_status_db.iterator = lambda include_value=True: {
+        "a": node_status_db_serializer.serialize({"voter": [5, 25]})}.items()
     logs, _ = logsearch(
         msgs=["InstanceChangeProvider: view_no='.*' "
               "must be of int type"])
     InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                           instance_change_db, time_provider)
+                           node_status_db, time_provider)
     assert logs
 
 
@@ -202,7 +204,7 @@ def test_remove_view(instance_change_provider):
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no - 1, frm)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
-    assert view_no in instance_change_provider._instance_change_db
+    assert _is_view_in_db(view_no, instance_change_provider)
 
     instance_change_provider.remove_view(view_no)
 
@@ -210,4 +212,8 @@ def test_remove_view(instance_change_provider):
     assert not instance_change_provider.has_view(view_no)
     assert not instance_change_provider.has_inst_chng_from(view_no - 1, frm)
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
-    assert view_no not in instance_change_provider._instance_change_db
+    assert not _is_view_in_db(view_no, instance_change_provider)
+
+
+def _is_view_in_db(view_no, instance_change_provider):
+    return instance_change_provider.generate_db_key(view_no) in instance_change_provider._node_status_db

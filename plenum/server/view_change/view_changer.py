@@ -46,7 +46,7 @@ class ViewChanger(HasActionQueue, MessageProcessor):
         )
 
         self.instance_changes = InstanceChangeProvider(node.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
-                                                       node.instance_change_db)
+                                                       node_status_db=node.nodeStatusDB)
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
         # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.
