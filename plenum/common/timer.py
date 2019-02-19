@@ -24,13 +24,10 @@ class Timer(TimerInterface):
     def queue_size(self):
         return len(self._callbacks)
 
-    def service(self) -> int:
-        count = 0
+    def service(self):
         while len(self._timestamps) and self._timestamps[0] <= self._get_current_time():
             callback = self._pop_callback()
             callback()
-            count += 1
-        return count
 
     def schedule(self, delay: float, callback: Callable):
         timestamp = self._get_current_time() + delay

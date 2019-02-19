@@ -92,8 +92,7 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
 
 
 def create_view_changer(node, vchCls=ViewChanger):
-    timer = Timer()
-    vc = vchCls(ViewChangerNodeDataProvider(node), timer)
+    vc = vchCls(ViewChangerNodeDataProvider(node), node.timer)
 
     if hasattr(node.config, 'PRE_VC_STRATEGY'):
         vc.pre_vc_strategy = preVCStrategies.get(node.config.PRE_VC_STRATEGY)(vc, node)

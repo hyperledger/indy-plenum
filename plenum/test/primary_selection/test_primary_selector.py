@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import base58
 import pytest
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.timer import Timer
 from plenum.common.util import get_utc_epoch
 
 from plenum.server.propagator import Requests
@@ -43,6 +44,7 @@ class FakeNode:
     def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
+        self.timer = Timer()
         self.f = 1
         self.replicas = dict()
         self.requests = Requests()

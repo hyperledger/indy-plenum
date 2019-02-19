@@ -31,7 +31,7 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
     times = 5
     for _ in range(times):
         looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
-        fake_view_changer._serviceActions()
+        fake_view_changer.node.timer.service()
 
     # As long as primary would be disconnected, view_changer
     # would continue to send INSTANCE_CHANGE_MESSAGE
@@ -43,7 +43,7 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
 
     for _ in range(times):
         looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
-        fake_view_changer._serviceActions()
+        fake_view_changer.node.timer.service()
         # Instance change counter dropped because primary
         # reconnected and we do not send INSTANCE_CHANGE anymore
         assert fake_view_changer.instance_change_rounds == 0

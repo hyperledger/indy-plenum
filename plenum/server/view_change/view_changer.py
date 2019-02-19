@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from plenum.common.startable import Mode
-from plenum.common.timer import Timer, RepeatingTimer
+from plenum.common.timer import TimerInterface, RepeatingTimer
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
@@ -16,7 +16,6 @@ from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement
 from plenum.server.models import InstanceChanges
-from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
 
@@ -127,8 +126,7 @@ class ViewChangerDataProvider(ABC):
 
 class ViewChanger():
 
-    # TODO: Replace Timer type annotation with TimerInterface
-    def __init__(self, provider: ViewChangerDataProvider, timer: Timer):
+    def __init__(self, provider: ViewChangerDataProvider, timer: TimerInterface):
         self.provider = provider
         self._timer = timer
         self.pre_vc_strategy = None
@@ -198,10 +196,6 @@ class ViewChanger():
 
     def __repr__(self):
         return "{}".format(self.name)
-
-    # TODO: External timer should be serviced externally
-    def _serviceActions(self) -> int:
-        return self._timer.service()
 
     # PROPERTIES
 
