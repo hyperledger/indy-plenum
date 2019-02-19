@@ -1,7 +1,9 @@
 from collections import defaultdict
 from typing import NamedTuple, List, Any
 
+from plenum.common.timer import Timer
 from plenum.server.quorums import Quorums
+from plenum.simulation.node_model_view_changer import create_view_changer
 from plenum.simulation.pool_connections import PoolConnections
 
 Connect = NamedTuple('Connect', [])
@@ -23,6 +25,8 @@ class NodeModel:
         self._instance_change = defaultdict(set)
         self._view_change_done = defaultdict(set)
         self._connections = connections
+        self._timer = Timer(lambda: self._ts)
+        self._view_changer = create_view_changer(self)
 
     @property
     def id(self):
@@ -30,7 +34,7 @@ class NodeModel:
 
     @property
     def view_no(self):
-        return self._view_no
+        return self._view_changer.view_no
 
     @property
     def is_participating(self):
@@ -60,6 +64,7 @@ class NodeModel:
 
     def update_ts(self, ts: int):
         self._ts = ts
+        self._timer.service()
 
     def restart(self):
         # self._instance_change.clear()

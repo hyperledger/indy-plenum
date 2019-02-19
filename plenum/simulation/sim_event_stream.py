@@ -3,7 +3,7 @@ from math import inf
 
 from hypothesis import strategies as st
 from hypothesis.strategies import composite
-from typing import NamedTuple, Any, List, Optional, Set, Union, Iterable
+from typing import NamedTuple, Any, List, Optional, Set, Union, Iterable, Callable
 
 ErrorEvent = NamedTuple("ErrorEvent", [("reason", str)])
 AnyEvent = Union[ErrorEvent, Any]
@@ -33,6 +33,12 @@ class SimEventStream(ABC):
     @abstractmethod
     def peek(self) -> Optional[SimEvent]:
         pass
+
+    def pop(self, draw) -> Optional[SimEvent]:
+        result = self.peek()
+        if result is not None:
+            self.advance(draw)
+        return result
 
 
 @composite
@@ -71,6 +77,11 @@ class ListEventStream(SimEventStream):
     def extend(self, events):
         self._events.extend(events)
         self._events.sort(key=lambda ev: ev.timestamp)
+
+    def remove_all(self, predicate: Callable):
+        indexes = [i for i, ev in enumerate(self._events) if predicate(ev)]
+        for i in reversed(indexes):
+            del self._events[i]
 
     @property
     def events(self):
