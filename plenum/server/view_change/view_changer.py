@@ -128,9 +128,9 @@ class ViewChangerDataProvider(ABC):
 class ViewChanger():
 
     # TODO: Replace Timer type annotation with TimerInterface
-    def __init__(self, provider: ViewChangerDataProvider, timer: Timer = Timer()):
+    def __init__(self, provider: ViewChangerDataProvider, timer: Timer):
         self.provider = provider
-        self._timer = timer
+        self._timer = Timer()
         self.pre_vc_strategy = None
 
         self._view_no = 0  # type: int
@@ -185,12 +185,16 @@ class ViewChanger():
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
-            self._timer_master_degradation = RepeatingTimer(timer, force_view_change_freq, self.on_master_degradation)
+            self._timer_master_degradation = RepeatingTimer(self._timer,
+                                                            force_view_change_freq,
+                                                            self.on_master_degradation)
 
         # Start periodic freshness check
         state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if state_freshness_update_interval > 0:
-            self._timer_check_freshness = RepeatingTimer(timer, state_freshness_update_interval, self.check_freshness)
+            self._timer_check_freshness = RepeatingTimer(self._timer,
+                                                         state_freshness_update_interval,
+                                                         self.check_freshness)
 
     def __repr__(self):
         return "{}".format(self.name)
