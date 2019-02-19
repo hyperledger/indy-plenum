@@ -171,7 +171,7 @@ class TestNodeCore(StackedTester):
 
     def newViewChanger(self):
         view_changer = self.view_changer if self.view_changer is not None \
-            else create_view_changer(self, vchCls)
+            else create_view_changer(self, TestViewChanger)
         # TODO: This is a hack for tests compatibility, do something better
         view_changer.node = self
         return view_changer
