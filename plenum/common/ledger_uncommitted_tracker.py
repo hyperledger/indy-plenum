@@ -9,7 +9,7 @@ class LedgerUncommittedTracker:
 
     def __init__(self, last_committed_hash, ledger_size):
         self.un_committed = deque()
-        self.last_committed = (last_committed_hash, ledger_size)
+        self.set_last_committed(last_committed_hash, ledger_size)
 
     def apply_batch(self, state_root, ledger_size):
         """
@@ -61,3 +61,6 @@ class LedgerUncommittedTracker:
         else:
             lhash, lsize = self.un_committed[-1]
             return lhash, prev_size - lsize
+
+    def set_last_committed(self, state_root, ledger_size):
+        self.last_committed = (state_root, ledger_size)
