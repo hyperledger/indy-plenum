@@ -21,6 +21,9 @@ class Timer(TimerInterface):
         self._timestamps = []
         self._callbacks = []
 
+    def queue_size(self):
+        return len(self._callbacks)
+
     def service(self) -> int:
         count = 0
         while len(self._timestamps) and self._timestamps[0] <= self._get_current_time():
