@@ -130,7 +130,7 @@ class ViewChanger():
     # TODO: Replace Timer type annotation with TimerInterface
     def __init__(self, provider: ViewChangerDataProvider, timer: Timer):
         self.provider = provider
-        self._timer = Timer()
+        self._timer = timer
         self.pre_vc_strategy = None
 
         self._view_no = 0  # type: int
