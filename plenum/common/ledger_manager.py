@@ -1145,6 +1145,10 @@ class LedgerManager(HasActionQueue):
 
         def _split(message):
             txns = list(message.txns.items())
+            if len(message.txns) < 2:
+                logger.warning("CatchupRep has {} txn(s). This is not enough "
+                               "to split. Message: {}".format(len(message.txns), message))
+                return None
             divider = len(message.txns) // 2
             left = txns[:divider]
             left_last_seq_no = left[-1][0]
