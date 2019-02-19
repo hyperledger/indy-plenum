@@ -35,7 +35,7 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
         1
     )
     node.view_changer = node.newViewChanger()
-    node.view_changer.pre_vc_strategy = VCStartMsgStrategy(node.view_changer)
+    node.view_changer.pre_vc_strategy = VCStartMsgStrategy(node.view_changer, node)
     node.view_changer.view_no = 0
     node.master_replica.primaryName = 'Alpha'
     """Initiate view_change procedure"""
