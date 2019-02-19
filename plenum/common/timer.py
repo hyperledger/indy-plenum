@@ -16,7 +16,7 @@ class TimerInterface(ABC):
 
 
 class Timer(TimerInterface):
-    def __init__(self, get_current_time = time.perf_counter):
+    def __init__(self, get_current_time=time.perf_counter):
         self._get_current_time = get_current_time
         self._timestamps = []
         self._callbacks = []
