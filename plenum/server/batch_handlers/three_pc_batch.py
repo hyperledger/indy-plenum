@@ -9,7 +9,7 @@ class ThreePcBatch:
                  pp_time,
                  valid_txn_count,
                  state_root, txn_root,
-                 has_audit_txn = True) -> None:
+                 has_audit_txn=True) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
         self.view_no = view_no
@@ -31,7 +31,7 @@ class ThreePcBatch:
                             valid_txn_count=valid_txn_count,
                             state_root=state_root,
                             txn_root=txn_root,
-                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare)
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None)
 
     @staticmethod
     def from_ordered(ordered):
@@ -43,7 +43,7 @@ class ThreePcBatch:
                             valid_txn_count=len(ordered.valid_reqIdr),
                             state_root=Ledger.strToHash(ordered.stateRootHash),
                             txn_root=Ledger.strToHash(ordered.txnRootHash),
-                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered)
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None)
 
     @staticmethod
     def from_batch_committed_dict(batch_comitted):
@@ -55,4 +55,5 @@ class ThreePcBatch:
                             valid_txn_count=batch_comitted[f.SEQ_NO_END.nm] - batch_comitted[f.SEQ_NO_START.nm] + 1,
                             state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
                             txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]),
-                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted)
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
+                                f.AUDIT_TXN_ROOT_HASH.nm] is not None)
