@@ -48,6 +48,21 @@ class BatchRequestHandler:
         state.commit(rootHash=state_root)
         return committedTxns
 
+    def _check_consistency_after_commit(self, txn_root, state_root=None):
+        if self.ledger.root_hash != txn_root:
+            raise PlenumValueError(
+                'txnRoot', txn_root,
+                ("equal to current ledger root hash {}"
+                 .format(self.ledger.root_hash))
+            )
+        if state_root is not None and self.state is not None:
+            if self.state.committedHeadHash != state_root:
+                raise PlenumValueError(
+                    'stateRoot', state_root,
+                    ("equal to current state root hash {}"
+                     .format(self.state.committedHeadHash))
+                )
+
     @property
     def state(self):
         return self.database_manager.get_database(self.ledger_id).state \

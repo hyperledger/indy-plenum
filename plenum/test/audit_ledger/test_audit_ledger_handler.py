@@ -223,11 +223,6 @@ def test_reject_batch(alh, db_manager,
     assert alh.ledger.size == size_before
     assert alh.ledger.get_last_txn() is None
 
-    alh.post_batch_rejected(DOMAIN_LEDGER_ID)
-    assert alh.ledger.uncommitted_size == uncommited_size_before
-    assert alh.ledger.size == size_before
-    assert alh.ledger.get_last_txn() is None
-
 
 def test_commit_one_batch(alh, db_manager,
                           initial_domain_size, initial_pool_size, initial_config_size,
@@ -423,7 +418,6 @@ def test_audit_not_applied_if_pre_prepare_doesnt_have_audit(alh):
     assert alh.ledger.size == alh.ledger.uncommitted_size
 
 
-@pytest.mark.skip()
 def test_audit_not_committed_if_pre_prepare_doesnt_have_audit(alh, db_manager):
     size_before = alh.ledger.size
     uncommited_size_before = alh.ledger.uncommitted_size
@@ -443,12 +437,10 @@ def test_audit_not_committed_if_pre_prepare_doesnt_have_audit(alh, db_manager):
     # commit the first batch without audit txns
     alh.commit_batch(DOMAIN_LEDGER_ID, 10, state_root_hash_1, txn_root_hash_1, 10000)
 
-    assert alh.ledger.uncommitted_size == uncommited_size_before
+    assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before
-    assert alh.ledger.size == alh.ledger.uncommitted_size
 
 
-@pytest.mark.skip()
 def test_audit_not_reverted_if_pre_prepare_doesnt_have_audit(alh, db_manager):
     do_apply_audit_txn(alh,
                        txns_count=10, ledger_id=DOMAIN_LEDGER_ID,

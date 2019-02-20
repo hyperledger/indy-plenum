@@ -16,6 +16,36 @@ class AuditBatchHandler(BatchRequestHandler):
         # TODO: move it to BatchRequestHandler
         self.tracker = LedgerUncommittedTracker(None, self.ledger.size)
 
+    def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        self._add_to_ledger(three_pc_batch)
+        self.tracker.apply_batch(None, self.ledger.uncommitted_size)
+
+    def post_batch_rejected(self, ledger_id, prev_handler_result=None):
+        _, txn_count = self.tracker.reject_batch()
+        self.ledger.discardTxns(txn_count)
+
+    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_result=None):
+        _, txns_count = self.tracker.commit_batch()
+        _, committedTxns = self.ledger.commitTxns(txns_count)
+        return committedTxns
+
+    def _add_to_ledger(self, three_pc_batch: ThreePcBatch):
+        # if PRE-PREPARE doesn't have audit txn (probably old code) - do nothing
+        # TODO: remove this check after all nodes support audit ledger
+        if not three_pc_batch.has_audit_txn:
+            return
+
+        # 1. prepare AUDIT txn
+        txn_data = self._create_audit_txn_data(three_pc_batch, self.ledger.get_last_txn())
+        txn = init_empty_txn(txn_type=PlenumTransactions.AUDIT.value)
+        txn = set_payload_data(txn, txn_data)
+
+        # 2. Append txn metadata
+        self.ledger.append_txns_metadata([txn], three_pc_batch.pp_time)
+
+        # 3. Add to the Ledger
+        self.ledger.appendTxns([txn])
+
     def _create_audit_txn_data(self, three_pc_batch, last_audit_txn):
         # 1. general format and (view_no, pp_seq_no)
         txn = {
@@ -61,29 +91,3 @@ class AuditBatchHandler(BatchRequestHandler):
         # 4. ledger is changed in last batch but not changed now => seq_no of last audit txn
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = get_seq_no(last_audit_txn)
-
-    def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
-        # if PRE-PREPARE doesn't have audit txn (probably old code) - do nothing
-        # TODO: remove this check after all nodes support audit ledger
-        if not three_pc_batch.has_audit_txn:
-            return
-
-        # 1. prepare AUDIT txn
-        txn_data = self._create_audit_txn_data(three_pc_batch, self.ledger.get_last_txn())
-        txn = init_empty_txn(txn_type=PlenumTransactions.AUDIT.value)
-        txn = set_payload_data(txn, txn_data)
-
-        # 2. Append txn metadata
-        self.ledger.append_txns_metadata([txn], three_pc_batch.pp_time)
-
-        # 3. Add to the Ledger
-        self.ledger.appendTxns([txn])
-
-    def post_batch_rejected(self, ledger_id, prev_handler_result=None):
-        # Audit ledger always has 1 txn per 3PC batch
-        self.ledger.discardTxns(1)
-
-    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_result=None):
-        # Audit ledger always has 1 txn per 3PC batch
-        _, committedTxns = self.ledger.commitTxns(1)
-        return committedTxns
