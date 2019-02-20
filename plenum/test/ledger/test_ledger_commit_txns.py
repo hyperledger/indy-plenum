@@ -1,7 +1,7 @@
 from plenum.test.ledger.conftest import create_txns, TXNS_IN_BATCH
 
 
-def test_commit_empty(ledger):
+def test_commit_empty(ledger, inital_root_hash):
     initial_seq_no = ledger.seqNo
     initial_size = ledger.size
     initial_root = ledger.root_hash
@@ -11,7 +11,7 @@ def test_commit_empty(ledger):
     assert len(committed_txns) == 0
     assert ledger.size == initial_size
     assert ledger.root_hash == initial_root
-    assert ledger.uncommitted_root_hash == initial_root
+    assert ledger.uncommitted_root_hash == inital_root_hash
 
 
 def test_commit_txns(ledger,

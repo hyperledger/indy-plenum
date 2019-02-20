@@ -105,11 +105,11 @@ def test_apply_reject_commit(tracker,
 def test_revert_all_and_apply_commit(tracker,
                                      init_committed_root,
                                      init_ledger_size):
-    tracker.apply_batch("test_root_1", 1000)
-    tracker.apply_batch("test_root_2", 1600)
+    tracker.apply_batch("test_root_1", init_ledger_size + 1000)
+    tracker.apply_batch("test_root_2", init_ledger_size + 1600)
 
     assert ("test_root_1", 600) == tracker.reject_batch()
-    assert ("init_committed_root", 1000) == tracker.reject_batch()
+    assert (init_committed_root, 1000) == tracker.reject_batch()
 
     tracker.apply_batch("test_root_3", 100)
     tracker.apply_batch("test_root_4", 300)

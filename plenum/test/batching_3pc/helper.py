@@ -64,11 +64,14 @@ def add_txns_to_ledger_before_order(replica, reqs):
         canOrder, _ = self.canOrder(commit)
         node = replica.node
         if not replica.added and canOrder:
-
+            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             ledger_manager = node.ledgerManager
             ledger_id = DOMAIN_LEDGER_ID
             ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
             ledgerInfo = ledger_manager.getLedgerInfoByType(ledger_id)
+
+            # simulate audit ledger catchup
+            node.audit_handler.commit_batch(ledger_id, len(reqs), pp.stateRootHash, pp.txnRootHash, pp.ppTime)
 
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)

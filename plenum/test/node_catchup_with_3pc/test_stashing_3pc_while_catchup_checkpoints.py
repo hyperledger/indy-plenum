@@ -2,6 +2,7 @@ from logging import getLogger
 
 import pytest
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.server.node import Node
@@ -81,7 +82,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
     # delay CurrentState to avoid Primary Propagation (since it will lead to more catch-ups not needed in this test).
     with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
-        with delay_rules(lagging_node.nodeIbStasher, cr_delay()):
+        with delay_rules(lagging_node.nodeIbStasher, cr_delay(ledger_filter=DOMAIN_LEDGER_ID)):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -150,7 +151,8 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
         )
 
         # check that the node was able to order requests stashed during catch-up
-        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
+        # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering durinf catch-up
+        waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check='check_audit', customTimeout=5)
 
 
 def get_stashed_checkpoints(node):

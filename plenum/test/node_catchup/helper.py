@@ -3,6 +3,7 @@ from functools import partial
 
 import pytest
 
+from plenum.common.constants import AUDIT_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
     Checkpoint
 from plenum.common.util import check_if_all_equal_in_list
@@ -29,6 +30,7 @@ def checkNodeDataForEquality(node: TestNode,
                                second_node.getState(ledger_id))
 
     # Checks for node's ledgers and state's to be equal
+    check_audit_ledger = not exclude_from_check or ('check_audit' not in exclude_from_check)
     for n in otherNodes:
         if exclude_from_check and 'check_last_ordered_3pc' not in exclude_from_check:
             check_last_ordered_3pc(node, n)
@@ -41,6 +43,8 @@ def checkNodeDataForEquality(node: TestNode,
             logger.debug("Excluding check_seqno_db_equality check")
 
         for ledger_id in n.ledgerManager.ledgerRegistry:
+            if not check_audit_ledger and ledger_id == AUDIT_LEDGER_ID:
+                continue
             chk_ledger_and_state(node, n, ledger_id)
 
 
