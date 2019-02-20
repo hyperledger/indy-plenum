@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from bisect import bisect_right
-from typing import Callable
+from typing import Callable, NamedTuple
 
 import time
+
+from sortedcontainers import SortedListWithKey
 
 
 class TimerService(ABC):
@@ -16,33 +17,27 @@ class TimerService(ABC):
 
 
 class QueueTimer(TimerService):
+    TimerEvent = NamedTuple('TimerEvent', [('timestamp', float), ('callback', Callable)])
+
     def __init__(self, get_current_time=time.perf_counter):
         self._get_current_time = get_current_time
-        self._timestamps = []
-        self._callbacks = []
+        self._events = SortedListWithKey(key=lambda v: v.timestamp)
 
     def queue_size(self):
         return len(self._callbacks)
 
     def service(self):
-        while len(self._timestamps) and self._timestamps[0] <= self._get_current_time():
-            callback = self._pop_callback()
-            callback()
+        while len(self._events) and self._events[0].timestamp <= self._get_current_time():
+            self._events.pop(0).callback()
 
     def schedule(self, delay: float, callback: Callable):
         timestamp = self._get_current_time() + delay
-        i = bisect_right(self._timestamps, timestamp)
-        self._timestamps.insert(i, timestamp)
-        self._callbacks.insert(i, callback)
+        self._events.add(self.TimerEvent(timestamp=timestamp, callback=callback))
 
     def cancel(self, callback: Callable):
-        indexes = [i for i, cb in enumerate(self._callbacks) if cb == callback]
+        indexes = [i for i, ev in enumerate(self._events) if ev.callback == callback]
         for i in reversed(indexes):
-            self._pop_callback(i)
-
-    def _pop_callback(self, index: int = 0) -> Callable:
-        del self._timestamps[index]
-        return self._callbacks.pop(index)
+            del self._events[i]
 
 
 class RepeatingTimer:
