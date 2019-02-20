@@ -183,16 +183,12 @@ class ViewChanger():
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
-            self._timer_master_degradation = RepeatingTimer(self._timer,
-                                                            force_view_change_freq,
-                                                            self.on_master_degradation)
+            RepeatingTimer(self._timer, force_view_change_freq, self.on_master_degradation)
 
         # Start periodic freshness check
         state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if state_freshness_update_interval > 0:
-            self._timer_check_freshness = RepeatingTimer(self._timer,
-                                                         state_freshness_update_interval,
-                                                         self.check_freshness)
+            RepeatingTimer(self._timer, state_freshness_update_interval, self.check_freshness)
 
     def __repr__(self):
         return "{}".format(self.name)

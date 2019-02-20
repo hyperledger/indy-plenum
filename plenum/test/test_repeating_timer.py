@@ -13,7 +13,7 @@ class Callback:
 def test_repeating_timer_is_started_active():
     timer = MockTimer()
     cb = Callback()
-    repeating_timer = RepeatingTimer(timer, 5, cb)
+    RepeatingTimer(timer, 5, cb)
     assert cb.call_count == 0
 
     timer.advance(3)
@@ -32,7 +32,7 @@ def test_repeating_timer_is_started_active():
 def test_repeating_timer_triggers_callback_on_time():
     timer = MockTimer()
     cb = Callback()
-    repeating_timer = RepeatingTimer(timer, 5, cb)
+    RepeatingTimer(timer, 5, cb)
     assert cb.call_count == 0
 
     timer.advance(5)
@@ -66,7 +66,7 @@ def test_repeating_timer_can_be_stopped():
 def test_repeating_timer_can_be_started_inactive():
     timer = MockTimer()
     cb = Callback()
-    repeating_timer = RepeatingTimer(timer, 5, cb, active=False)
+    RepeatingTimer(timer, 5, cb, active=False)
 
     assert cb.call_count == 0
 
@@ -114,7 +114,7 @@ def test_repeating_timer_can_be_stopped_and_started():
 def test_repeating_timer_doesnt_repeat_too_much():
     timer = MockTimer()
     cb = Callback()
-    repeating_timer = RepeatingTimer(timer, 5, cb)
+    RepeatingTimer(timer, 5, cb)
 
     timer.advance(12)
     assert cb.call_count == 1
@@ -127,8 +127,8 @@ def test_multiple_repeating_timers_can_work_together():
     timer = MockTimer()
     cb1 = Callback()
     cb2 = Callback()
-    timer1 = RepeatingTimer(timer, 5, cb1)
-    timer2 = RepeatingTimer(timer, 2, cb2)
+    RepeatingTimer(timer, 5, cb1)
+    RepeatingTimer(timer, 2, cb2)
 
     timer.advance(3)
     assert cb1.call_count == 0
