@@ -905,6 +905,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           view_no=self.viewNo,
                                           pp_seq_no=pp_seq_no,
                                           pp_time=tm,
+                                          valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
                                           txn_root=self.txnRootHash(ledger_id, to_str=False))
             self.node.onBatchCreated(three_pc_batch)

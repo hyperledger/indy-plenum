@@ -12,11 +12,15 @@ from plenum.test.helper import sdk_random_request_objects, generate_state_root
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("requests", IterableField),
     ("ledgerId", LedgerIdField),
+    ("instId", NonNegativeNumberField),
+    ("viewNo", NonNegativeNumberField),
+    ("ppSeqNo", NonNegativeNumberField),
     ("ppTime", TimestampField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
     ("seqNoStart", NonNegativeNumberField),
-    ("seqNoEnd", NonNegativeNumberField)
+    ("seqNoEnd", NonNegativeNumberField),
+    ("auditTxnRootHash", MerkleRootField)
 ])
 
 

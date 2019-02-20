@@ -15,8 +15,16 @@ def create_txns(looper, sdk_wallet_client, count=TXNS_IN_BATCH):
 
 @pytest.fixture(scope='module')
 def ledger(txnPoolNodeSet):
-    return txnPoolNodeSet[0].ledgers[DOMAIN_LEDGER_ID]
+    return txnPoolNodeSet[0].getLedger(DOMAIN_LEDGER_ID)
 
+
+@pytest.fixture(scope='module')
+def inital_size(ledger):
+    return ledger.size
+
+@pytest.fixture(scope='module')
+def inital_root_hash(ledger):
+    return ledger.tree.root_hash
 
 @pytest.fixture(scope='module')
 def ledger_with_batches_appended(ledger,

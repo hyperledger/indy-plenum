@@ -19,11 +19,6 @@ class LedgerUncommittedTracker:
         :return:
         """
 
-        if not state_root:
-            raise PlenumValueError('state_root',
-                                   state_root,
-                                   "No state root given")
-
         if ledger_size < 0:
             raise PlenumValueError('ledger_size',
                                    ledger_size,

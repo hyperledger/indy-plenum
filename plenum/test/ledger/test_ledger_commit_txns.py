@@ -11,6 +11,7 @@ def test_commit_empty(ledger):
     assert len(committed_txns) == 0
     assert ledger.size == initial_size
     assert ledger.root_hash == initial_root
+    assert ledger.uncommitted_root_hash == initial_root
 
 
 def test_commit_txns(ledger,
@@ -38,6 +39,7 @@ def test_commit_txns(ledger,
     assert ledger.size == initial_size + TXNS_IN_BATCH
     assert len(ledger.uncommittedTxns) == TXNS_IN_BATCH
     assert ledger.uncommittedRootHash == root2
+    assert ledger.uncommitted_root_hash == root2
     assert ledger.tree.root_hash == root1
 
     # commit second batch
@@ -49,4 +51,5 @@ def test_commit_txns(ledger,
     assert ledger.size == initial_size + 2 * TXNS_IN_BATCH
     assert len(ledger.uncommittedTxns) == 0
     assert ledger.uncommittedRootHash is None
+    assert ledger.uncommitted_root_hash == root2
     assert ledger.tree.root_hash == root2

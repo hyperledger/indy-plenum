@@ -1,6 +1,7 @@
 from ledger.ledger import Ledger
 from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT
+from plenum.common.ledger_uncommitted_tracker import LedgerUncommittedTracker
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
@@ -12,6 +13,8 @@ class AuditBatchHandler(BatchRequestHandler):
 
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, AUDIT_LEDGER_ID)
+        # TODO: move it to BatchRequestHandler
+        self.tracker = LedgerUncommittedTracker(None, self.ledger.size)
 
     def _create_audit_txn_data(self, three_pc_batch, last_audit_txn):
         # 1. general format and (view_no, pp_seq_no)
