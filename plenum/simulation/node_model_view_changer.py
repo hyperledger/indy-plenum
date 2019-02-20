@@ -85,6 +85,10 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
+    @property
+    def node_status_db(self):
+        return None
+
 
 def create_view_changer(node):
     return ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer)

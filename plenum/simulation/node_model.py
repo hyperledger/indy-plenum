@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import NamedTuple, List, Any
 
-from plenum.common.timer import Timer
+from plenum.common.timer import TimerService
 from plenum.server.quorums import Quorums
 from plenum.simulation.node_model_view_changer import create_view_changer
 from plenum.simulation.pool_connections import PoolConnections
@@ -14,7 +14,7 @@ NetworkEvent = NamedTuple('NetworkEvent', [('src', int), ('dst', int), ('payload
 
 
 class NodeModel:
-    def __init__(self, node_id: int, quorum: Quorums, connections: PoolConnections):
+    def __init__(self, node_id: int, quorum: Quorums, timer: TimerService, connections: PoolConnections):
         self._id = node_id
         self._quorum = quorum
         self._ts = 0
@@ -24,8 +24,8 @@ class NodeModel:
         self._instance_change_id = 0
         self._instance_change = defaultdict(set)
         self._view_change_done = defaultdict(set)
+        self._timer = timer
         self._connections = connections
-        self._timer = Timer(lambda: self._ts)
         self._view_changer = create_view_changer(self)
 
     @property

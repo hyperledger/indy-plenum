@@ -34,6 +34,10 @@ class SimEventStream(ABC):
     def peek(self) -> Optional[SimEvent]:
         pass
 
+    @abstractmethod
+    def sort(self):
+        pass
+
     def pop(self, draw) -> Optional[SimEvent]:
         result = self.peek()
         if result is not None:
@@ -69,6 +73,9 @@ class RandomEventStream(SimEventStream):
     def peek(self) -> Optional[SimEvent]:
         return self._next_event
 
+    def sort(self):
+        pass
+
 
 class ListEventStream(SimEventStream):
     def __init__(self, events: Iterable[SimEvent] = ()):
@@ -94,6 +101,9 @@ class ListEventStream(SimEventStream):
         if len(self._events) > 0:
             return self._events[0]
 
+    def sort(self):
+        pass
+
 
 class CompositeEventStream(SimEventStream):
     def __init__(self, *args):
@@ -106,6 +116,9 @@ class CompositeEventStream(SimEventStream):
 
     def peek(self) -> Optional[SimEvent]:
         return self._streams[0].peek()
+
+    def sort(self):
+        self._sort_streams()
 
     def _sort_streams(self):
         self._streams.sort(key=lambda s: self._stream_key(s))

@@ -126,7 +126,7 @@ class ViewChangerDataProvider(ABC):
 
     @property
     @abstractmethod
-    def node_status_db(self) -> KeyValueStorage:
+    def node_status_db(self) -> Optional[KeyValueStorage]:
         pass
 
 

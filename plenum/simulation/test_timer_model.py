@@ -1,5 +1,6 @@
 from plenum.common.timer import RepeatingTimer
-from plenum.simulation.timer_model import TimerModel, process_model
+from plenum.simulation.sim_model import process_model
+from plenum.simulation.timer_model import TimerModel
 
 from hypothesis import strategies as st, given
 

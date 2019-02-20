@@ -1,11 +1,10 @@
-from typing import List
-
 from hypothesis import given
 from hypothesis import strategies as st
 
 from plenum.simulation.helper import some_events, MAX_EVENTS_SIZE, check_event_stream_invariants, some_event
-from plenum.simulation.sim_event_stream import ListEventStream, sim_event_stream, SimEvent, ErrorEvent
-from plenum.simulation.sim_model import ModelEventStream, SimModel
+from plenum.simulation.sim_event_stream import ListEventStream, sim_event_stream, SimEvent, ErrorEvent, \
+    CompositeEventStream
+from plenum.simulation.sim_model import SimModel, process_model, ModelWithExternalEvents
 
 
 @st.composite
@@ -14,19 +13,23 @@ def model_event_stream(draw, model_factory):
     input_b = draw(some_events(max_size=MAX_EVENTS_SIZE // 2))
     stream_a = ListEventStream(input_a)
     stream_b = ListEventStream(input_b)
+    stream = CompositeEventStream(stream_a, stream_b)
     model = model_factory()
-    stream = ModelEventStream(draw, model, stream_a, stream_b)
-    events = draw(sim_event_stream(stream, max_size=MAX_EVENTS_SIZE))
+    model_with_events = ModelWithExternalEvents(model, stream)
+    events = process_model(draw, model_with_events, max_size=MAX_EVENTS_SIZE)
     return input_a, input_b, events, model
 
 
 class PassiveModel(SimModel):
     def __init__(self):
         self.processed_events = []
+        self._outbox = ListEventStream()
 
-    def process(self, draw, event: SimEvent, is_stable: bool) -> List[SimEvent]:
+    def process(self, draw, event: SimEvent):
         self.processed_events.append(event)
-        return []
+
+    def outbox(self):
+        return self._outbox
 
 
 @given(inputs_events_model=model_event_stream(PassiveModel))
@@ -47,13 +50,16 @@ class RandomErrorModel(SimModel):
         self.processed_events = []
         self._events = st.one_of(st.just(ErrorEvent(reason="random")),
                                  some_event())
+        self._outbox = ListEventStream()
 
-    def process(self, draw, event: SimEvent, is_stable: bool) -> List[SimEvent]:
+    def process(self, draw, event: SimEvent):
         self.processed_events.append(event)
         ts = event.timestamp
-        delays = draw(st.lists(elements=st.integers(min_value=0, max_value=1000)))
-        events = [SimEvent(timestamp=ts + delay, payload=draw(self._events)) for delay in delays]
-        return events
+        delays = draw(st.lists(elements=st.integers(min_value=1, max_value=1000)))
+        self._outbox.extend(SimEvent(timestamp=ts + delay, payload=draw(self._events)) for delay in delays)
+
+    def outbox(self):
+        return self._outbox
 
 
 @given(inputs_events_model=model_event_stream(RandomErrorModel))
