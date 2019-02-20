@@ -24,7 +24,7 @@ class QueueTimer(TimerService):
         self._events = SortedListWithKey(key=lambda v: v.timestamp)
 
     def queue_size(self):
-        return len(self._callbacks)
+        return len(self._events)
 
     def service(self):
         while len(self._events) and self._events[0].timestamp <= self._get_current_time():
