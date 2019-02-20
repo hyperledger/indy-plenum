@@ -112,19 +112,22 @@ class ListEventStream(SimEventStream):
 class CompositeEventStream(SimEventStream):
     def __init__(self, *args):
         self._streams = [s for s in args]
-        self._sort_streams()
+        self.sort()
+
+    def add_stream(self, stream):
+        self._streams.append(stream)
+        self.sort()
 
     def advance(self, draw):
         self._streams[0].advance(draw)
-        self._sort_streams()
+        self.sort()
 
     def peek(self) -> Optional[SimEvent]:
         return self._streams[0].peek()
 
     def sort(self):
-        self._sort_streams()
-
-    def _sort_streams(self):
+        for stream in self._streams:
+            stream.sort()
         self._streams.sort(key=lambda s: self._stream_key(s))
 
     @staticmethod
