@@ -23,6 +23,10 @@ class Ledger(_Ledger):
     def uncommitted_size(self) -> int:
         return self.size + len(self.uncommittedTxns)
 
+    @property
+    def uncommitted_root_hash(self):
+        return self.uncommittedRootHash if self.uncommittedRootHash else self.tree.root_hash
+
     def append_txns_metadata(self, txns: List, txn_time=None):
         if txn_time is not None:
             # All transactions have the same time since all these

@@ -1,14 +1,9 @@
-import pytest
-from orderedset._orderedset import OrderedSet
+from plenum.common.constants import CONFIG_LEDGER_ID
+from plenum.common.messages.node_messages import Ordered
+from plenum.test.helper import freshness, assertExp
 
-from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
-from plenum.common.messages.node_messages import PrePrepare, Ordered
-from plenum.server.propagator import Requests
-from plenum.test.helper import freshness, sdk_random_request_objects, assertExp, MockTimestamp
-
-from plenum.test.replica.conftest import replica as r
+from plenum.test.replica.conftest import *
 from plenum.test.test_node import getPrimaryReplica
-from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 60
@@ -44,23 +39,7 @@ def inst_id(request):
 
 
 @pytest.fixture(scope='function')
-def replica(r):
-    r.stateRootHash = lambda ledger_id, to_str=False: "EuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMA" + str(ledger_id + 1)
-    r.txnRootHash = lambda ledger_id, to_str=False: "AuDgqga9DNr4bjH57Rdq6BRtvCN1PV9UX5Mpnm9gbMA" + str(ledger_id + 1)
-    r.node.onBatchCreated = lambda *args: None
-    r.isMaster = True
-    r.node.requests = Requests()
-    r._bls_bft_replica.process_order = lambda *args: None
-    r.node.last_sent_pp_store_helper = FakeSomething()
-    r.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no = lambda *args: None
-
-    r.last_accepted_pre_prepare_time = r.get_time_for_3pc_batch()
-
-    return r
-
-
-@pytest.fixture(scope='function')
-def replica_with_requests(replica):
+def replica_with_valid_requests(replica):
     requests = {ledger_id: sdk_random_request_objects(1, identifier="did",
                                                       protocol_version=CURRENT_PROTOCOL_VERSION)[0]
                 for ledger_id in LEDGER_IDS}
@@ -184,9 +163,9 @@ def test_freshness_pre_prepare_not_resend_before_next_timeout(replica):
     ([POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID], [])
 ])
 def test_freshness_pre_prepare_only_when_no_requests_for_ledger(tconf,
-                                                                replica_with_requests,
+                                                                replica_with_valid_requests,
                                                                 ordered, refreshed):
-    replica, requests = replica_with_requests
+    replica, requests = replica_with_valid_requests
     for ordered_ledger_id in ordered:
         replica.requestQueues[ordered_ledger_id] = OrderedSet([requests[ordered_ledger_id].key])
 

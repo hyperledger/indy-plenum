@@ -2,7 +2,7 @@ from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
-from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
@@ -89,7 +89,8 @@ def checkPrePrepared(looper,
                 primary.txnRootHash(DOMAIN_LEDGER_ID),
                 0,
                 True,
-                primary.stateRootHash(POOL_LEDGER_ID)
+                primary.stateRootHash(POOL_LEDGER_ID),
+                primary.txnRootHash(AUDIT_LEDGER_ID)
             )
 
             passes = 0

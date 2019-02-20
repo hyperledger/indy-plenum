@@ -78,6 +78,9 @@ class FakeNode:
         self.master_last_ordered_3PC = (0, 0)
         self.seqNoDB = {}
 
+        # callbacks
+        self.onBatchCreated = lambda self, *args, **kwargs: True
+
     @property
     def viewNo(self):
         return None if self.view_changer is None else self.view_changer.view_no

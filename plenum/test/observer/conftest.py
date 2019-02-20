@@ -63,6 +63,9 @@ def fake_msg_batch_committed():
             sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     return BatchCommitted(reqs,
                           DOMAIN_LEDGER_ID,
+                          0,
+                          0,
+                          1,
                           get_utc_epoch(),
                           generate_state_root(),
                           generate_state_root(),
