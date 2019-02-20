@@ -3,7 +3,7 @@ import pytest
 from plenum.test.node_request.helper import nodes_last_ordered_equal
 from stp_core.loop.eventually import eventually
 
-from plenum.test.helper import sdk_send_batches_of_random_and_check, sdk_send_batches_of_random
+from plenum.test.helper import sdk_send_batches_of_random_and_check, sdk_send_batches_of_random, sdk_get_reply
 from plenum.test.malicious_behaviors_node import dont_send_prepare_and_commit_to, reset_sending
 
 from plenum.test.checkpoints.conftest import chkFreqPatched
@@ -117,8 +117,12 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # After achieving stable checkpoint, behind_node start ordering
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
-                                         delta, delta)
+    reqs = sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                                      delta, delta)
 
     # Pool is working
-    looper.run(eventually(nodes_last_ordered_equal, *behind_nodes, master_node))
+    looper.run(eventually(nodes_last_ordered_equal, *behind_nodes, master_node, timeout=60))
+
+    # Finish request gracefully
+    for req in reqs:
+        sdk_get_reply(looper, req)
