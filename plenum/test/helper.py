@@ -1095,8 +1095,7 @@ def create_pre_prepare_params(state_root,
               True]
     if pool_state_root is not None:
         params.append(pool_state_root)
-    if audit_txn_root is not None:
-        params.append(audit_txn_root)
+    params.append(audit_txn_root or generate_state_root())
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params

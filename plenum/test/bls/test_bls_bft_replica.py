@@ -281,19 +281,6 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
-def test_validate_commit_signature_without_pool_state_root(bls_bft_replicas, multi_signature, ledger_id):
-    key = (0, 0)
-    params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash, ledger_id=ledger_id)
-    pre_prepare = PrePrepare(*params)
-    setattr(pre_prepare, f.BLS_MULTI_SIG.nm, multi_signature)
-    for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare)
-        for verifier_bls_bft in bls_bft_replicas:
-            assert verifier_bls_bft.validate_commit(commit,
-                                                    sender_bls_bft.node_id,
-                                                    pre_prepare) is None
-
-
 def test_validate_commit_incorrect_value(bls_bft_replicas, pre_prepare_incorrect, pre_prepare_no_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
