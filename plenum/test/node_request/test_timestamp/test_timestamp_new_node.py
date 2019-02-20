@@ -8,9 +8,6 @@ from plenum.test.helper import sdk_send_random_and_check
 txnCount = 20
 Max3PCBatchSize = 4
 
-from plenum.test.node_catchup.conftest import sdk_node_created_after_some_txns
-from plenum.test.batching_3pc.conftest import tconf
-
 # lot of requests will be sent
 TestRunningTimeLimitSec = 200
 

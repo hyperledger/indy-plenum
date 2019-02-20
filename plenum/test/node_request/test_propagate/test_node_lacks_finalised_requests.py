@@ -56,7 +56,7 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     old_sum_of_sent_batches = sum_of_sent_batches()
     old_count_request_propagates = sum_of_request_propagates(faulty_node)
 
-    sent_reqs = 5
+    sent_reqs = 1
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
