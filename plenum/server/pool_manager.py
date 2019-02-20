@@ -168,7 +168,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeName = txn_data[DATA][ALIAS]
         nodeNym = txn_data[TARGET_NYM]
 
-        self._set_node_ids_in_cash(nodeNym, nodeName)
+        self._set_node_ids_in_cache(nodeNym, nodeName)
 
         def _updateNode(txn_data):
             if SERVICES in txn_data[DATA]:
@@ -187,10 +187,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if nodeNym not in self._ordered_node_services:
             if VALIDATOR in txn_data[DATA].get(SERVICES, []):
                 self.addNewNodeAndConnect(txn_data)
-            self._set_node_services_in_cash(nodeNym, txn_data[DATA].get(SERVICES, []))
+            self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, []))
         else:
             _updateNode(txn_data)
-            self._set_node_services_in_cash(nodeNym, txn_data[DATA].get(SERVICES, None))
+            self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, None))
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
@@ -362,12 +362,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         for _, txn in self.ledger.getAllTxn():
             if get_type(txn) == NODE:
                 txn_data = get_payload_data(txn)
-                self._set_node_ids_in_cash(txn_data[TARGET_NYM],
-                                           txn_data[DATA][ALIAS])
-                self._set_node_services_in_cash(txn_data[TARGET_NYM],
-                                                txn_data[DATA].get(SERVICES, None))
+                self._set_node_ids_in_cache(txn_data[TARGET_NYM],
+                                            txn_data[DATA][ALIAS])
+                self._set_node_services_in_cache(txn_data[TARGET_NYM],
+                                                 txn_data[DATA].get(SERVICES, None))
 
-    def _set_node_ids_in_cash(self, node_nym, node_name):
+    def _set_node_ids_in_cache(self, node_nym, node_name):
         curName = self._ordered_node_ids.get(node_nym)
         if curName is None:
             self._ordered_node_ids[node_nym] = node_name
@@ -380,7 +380,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             logger.error(msg)
             raise LogicError(msg)
 
-    def _set_node_services_in_cash(self, node_nym, node_services):
+    def _set_node_services_in_cache(self, node_nym, node_services):
         if node_services is not None:
             self._ordered_node_services[node_nym] = node_services
 

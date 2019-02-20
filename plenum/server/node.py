@@ -1198,6 +1198,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for ledger in self.ledgers:
                 ledger.start(loop)
 
+            if self.nodeStatusDB and self.nodeStatusDB.closed:
+                self.nodeStatusDB.open()
+
             self.nodestack.start()
             self.clientstack.start()
 
@@ -1285,7 +1288,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             add_stop_time(self.ledger_dir, self.utc_epoch())
 
         self.logstats()
-
         self.reset()
 
         # Stop the ledgers

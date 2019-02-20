@@ -6,6 +6,7 @@ from plenum.common.timer import QueueTimer
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
+from storage.kv_store import KeyValueStorage
 
 
 class ViewChangerNodeDataProvider(ViewChangerDataProvider):
@@ -89,6 +90,10 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
+
+    @property
+    def node_status_db(self) -> KeyValueStorage:
+        return self._node.nodeStatusDB
 
 
 def create_view_changer(node, vchCls=ViewChanger):

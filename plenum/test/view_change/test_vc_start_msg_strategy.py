@@ -22,6 +22,7 @@ from stp_zmq.zstack import Quota
 def fake_node(tconf):
     node = FakeSomething(config=tconf,
                          timer=QueueTimer(),
+                         nodeStatusDB=None,
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       logger=FakeSomething(

@@ -56,6 +56,7 @@ class FakeNode:
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
+        self.nodeStatusDB = None
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
