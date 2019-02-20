@@ -11,10 +11,9 @@ class Callback:
 
 
 def test_repeating_timer_is_started_active():
-    period = 5
     timer = MockTimer()
     cb = Callback()
-    repeating_timer = RepeatingTimer(timer, period, cb)
+    repeating_timer = RepeatingTimer(timer, 5, cb)
     assert cb.call_count == 0
 
     timer.advance(3)
@@ -27,6 +26,19 @@ def test_repeating_timer_is_started_active():
     assert cb.call_count == 1
 
     timer.advance(3)
+    assert cb.call_count == 2
+
+
+def test_repeating_timer_triggers_callback_on_time():
+    timer = MockTimer()
+    cb = Callback()
+    repeating_timer = RepeatingTimer(timer, 5, cb)
+    assert cb.call_count == 0
+
+    timer.advance(5)
+    assert cb.call_count == 1
+
+    timer.advance(5)
     assert cb.call_count == 2
 
 

@@ -37,6 +37,19 @@ def test_timer_can_schedule_callback():
     assert cb.call_count == 1
 
 
+def test_timer_triggers_callback_on_time():
+    ts = MockTimestamp(0)
+    timer = QueueTimer(ts)
+    cb = Callback()
+
+    timer.schedule(5, cb)
+    assert cb.call_count == 0
+
+    ts.value += 5
+    timer.service()
+    assert cb.call_count == 1
+
+
 def test_timer_can_schedule_callback_after_first_call():
     ts = MockTimestamp(0)
     timer = QueueTimer(ts)
