@@ -830,7 +830,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = Mode.syncing
 
     def preAuditLedgerCatchup(self, **kwargs):
-        self.mode = Mode.syncing
+        self.mode = Mode.discovering
 
     def postConfigLedgerCaughtUp(self, **kwargs):
         pass

@@ -1,6 +1,7 @@
 from logging import getLogger
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.test import waits
@@ -71,7 +72,7 @@ def test_3pc_while_catchup(tdir, tconf,
             # wait till we got catchup replies for messages missed while the node was offline,
             # so that now we can order more messages, and they will not be caught up, but stashed
             looper.run(
-                eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3), retryWait=1,
+                eventually(lambda: assertExp(lagging_node.nodeIbStasher.num_of_stashed(CatchupRep) >= 3), retryWait=1,
                            timeout=60))
 
             # make sure that more requests are being ordered while catch-up is in progress

@@ -2,15 +2,14 @@ from logging import getLogger
 
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.node_messages import Checkpoint
+from plenum.common.messages.node_messages import Checkpoint, LedgerStatus
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cs_delay, lsDelay, \
-    ppDelay, pDelay, cDelay
+    ppDelay, pDelay, cDelay, msg_rep_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
@@ -34,7 +33,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip()
 def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
                                                looper,
                                                chkFreqPatched,
@@ -91,7 +89,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
     # delay CurrentState to avoid Primary Propagation (since it will lead to more catch-ups not needed in this test).
     with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
-        with delay_rules(lagging_node.nodeIbStasher, lsDelay()):
+        with delay_rules(lagging_node.nodeIbStasher, lsDelay(), msg_rep_delay()):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -99,8 +97,10 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
             # wait till we got ledger statuses for messages missed while the node was offline,
             # so that now we can order more messages, and they will not be caught up, but stashed
             looper.run(
-                eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 6), retryWait=1,
+                eventually(lambda: assertExp(lagging_node.nodeIbStasher.num_of_stashed(LedgerStatus) >= 3), retryWait=1,
                            timeout=60))
+
+            assert lagging_node.mode != Mode.participating
 
             # make sure that more requests are being ordered while catch-up is in progress
             # stash enough stable checkpoints for starting a catch-up
@@ -117,14 +117,14 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
             # all good nodes stabilized checkpoint
             looper.run(eventually(chkChkpoints, rest_nodes, 2, 0))
 
-            assert get_stashed_checkpoints(lagging_node) == num_checkpoints * len(rest_nodes)
+            assert lagging_node.mode != Mode.participating
             # lagging node is catching up and stashing all checkpoints
-            # looper.run(
-            #     eventually(
-            #         lambda: assertExp(get_stashed_checkpoints(lagging_node) == num_checkpoints * len(rest_nodes)),
-            #         timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
-            #     )
-            # )
+            looper.run(
+                eventually(
+                    lambda: assertExp(get_stashed_checkpoints(lagging_node) == num_checkpoints * len(rest_nodes)),
+                    timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
+                )
+            )
 
         # check that last_ordered is set
         looper.run(

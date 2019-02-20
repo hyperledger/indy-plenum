@@ -3,7 +3,7 @@ from logging import getLogger
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.node_messages import Checkpoint
+from plenum.common.messages.node_messages import Checkpoint, CatchupRep
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
@@ -90,7 +90,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
             # wait till we got catchup replies for messages missed while the node was offline,
             # so that now qwe can order more messages, and they will not be caught up, but stashed
             looper.run(
-                eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3), retryWait=1,
+                eventually(lambda: assertExp(lagging_node.nodeIbStasher.num_of_stashed(CatchupRep) >= 3), retryWait=1,
                            timeout=60))
 
             assert lagging_node.mode == Mode.syncing

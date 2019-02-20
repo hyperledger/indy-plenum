@@ -48,8 +48,8 @@ class Stasher:
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
                     logger.info("{} stashing message {} for "
-                                 "{} seconds".
-                                 format(self.name, rx, secondsToDelay))
+                                "{} seconds".
+                                format(self.name, rx, secondsToDelay))
                     self.delayeds.append(StasherDelayed(item=rx, timestamp=age + secondsToDelay, rule=tester.__name__))
                     self.queue.remove(rx)
 
@@ -129,6 +129,10 @@ class Stasher:
         """
         self.resetDelays(*names)
         self.force_unstash(*names)
+
+    def num_of_stashed(self, msg_type):
+        a = sum(1 for stashed in self.delayeds if isinstance(stashed.item[0], msg_type))
+        return a
 
 
 def _make_stashers(stasher, *delayers):
