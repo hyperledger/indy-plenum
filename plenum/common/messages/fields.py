@@ -13,7 +13,7 @@ from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -532,9 +532,13 @@ class SerializedValueField(FieldBase):
 class VersionField(LimitedLengthStringField):
     _base_types = (str,)
 
-    def __init__(self, components_number=(3,), **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, components_number=(3,), max_length=VERSION_FIELD_LIMIT, **kwargs):
+        super().__init__(max_length=max_length, **kwargs)
         self._comp_num = components_number
+
+    def _split_into_parts(self, val, parts):
+        parts += val.split(".")
+        return None
 
     def _parts_validation(self, parts):
         for p in parts:
@@ -543,13 +547,19 @@ class VersionField(LimitedLengthStringField):
         return None
 
     def _specific_validation(self, val):
-        lim_str_err = super()._specific_validation(val)
-        if lim_str_err:
-            return lim_str_err
-        parts = val.split(".")
+        err = super()._specific_validation(val)
+        if err:
+            return err
+
+        parts = []
+        err = self._split_into_parts(val, parts)
+        if err:
+            return err
+
         if len(parts) not in self._comp_num:
             return "version consists of {} components, but it should contain {}".format(
                 len(parts), self._comp_num)
+
         return self._parts_validation(parts)
 
 
