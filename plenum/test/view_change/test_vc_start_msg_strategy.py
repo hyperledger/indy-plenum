@@ -6,7 +6,7 @@ import pytest
 
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
-from plenum.common.timer import Timer
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.router import Router
@@ -21,7 +21,7 @@ from stp_zmq.zstack import Quota
 @pytest.fixture(scope="function")
 def fake_node(tconf):
     node = FakeSomething(config=tconf,
-                         timer=Timer(),
+                         timer=QueueTimer(),
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       logger=FakeSomething(

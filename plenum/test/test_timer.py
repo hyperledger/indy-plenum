@@ -1,4 +1,4 @@
-from plenum.common.timer import Timer
+from plenum.common.timer import QueueTimer
 from plenum.test.helper import MockTimestamp
 
 
@@ -12,7 +12,7 @@ class Callback:
 
 def test_timer_can_schedule_callback():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(5, cb)
@@ -39,7 +39,7 @@ def test_timer_can_schedule_callback():
 
 def test_timer_can_schedule_callback_after_first_call():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(5, cb)
@@ -55,7 +55,7 @@ def test_timer_can_schedule_callback_after_first_call():
 
 def test_timer_can_schedule_callback_twice():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(3, cb)
@@ -72,7 +72,7 @@ def test_timer_can_schedule_callback_twice():
 
 def test_timer_can_schedule_and_process_callback_twice():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(3, cb)
@@ -85,7 +85,7 @@ def test_timer_can_schedule_and_process_callback_twice():
 
 def test_timer_can_schedule_same_callback_on_same_time_twice():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(5, cb)
@@ -98,7 +98,7 @@ def test_timer_can_schedule_same_callback_on_same_time_twice():
 
 def test_timer_can_schedule_different_callbacks_on_same_time_twice():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb1 = Callback()
     cb2 = Callback()
 
@@ -113,7 +113,7 @@ def test_timer_can_schedule_different_callbacks_on_same_time_twice():
 
 def test_timer_can_schedule_different_callbacks():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb1 = Callback()
     cb2 = Callback()
 
@@ -133,7 +133,7 @@ def test_timer_can_schedule_different_callbacks():
 
 def test_timer_can_schedule_and_simultaneously_process_different_callbacks():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb1 = Callback()
     cb2 = Callback()
 
@@ -148,7 +148,7 @@ def test_timer_can_schedule_and_simultaneously_process_different_callbacks():
 
 def test_timer_can_cancel_callback():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(5, cb)
@@ -166,7 +166,7 @@ def test_timer_can_cancel_callback():
 
 def test_timer_cancel_callback_doesnt_crash_for_nonexistant_callback():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     # This shouldn't crash
@@ -184,7 +184,7 @@ def test_timer_cancel_callback_doesnt_crash_for_nonexistant_callback():
 
 def test_timer_can_cancel_callback_without_touching_other_callbacks():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb1 = Callback()
     cb2 = Callback()
     cb3 = Callback()
@@ -203,7 +203,7 @@ def test_timer_can_cancel_callback_without_touching_other_callbacks():
 
 def test_timer_cancels_all_instances_of_callback():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
 
     timer.schedule(5, cb)

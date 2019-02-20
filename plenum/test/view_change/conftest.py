@@ -3,7 +3,7 @@ from collections import deque
 
 import pytest
 
-from plenum.common.timer import Timer
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
@@ -50,7 +50,7 @@ def fake_view_changer(request, tconf):
     )
     node = FakeSomething(
         name="SomeNode",
-        timer=Timer(),
+        timer=QueueTimer(),
         viewNo=request.param,
         quorums=Quorums(getValueFromModule(request, 'nodeCount', default=node_count)),
         nodestack=node_stack,

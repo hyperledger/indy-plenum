@@ -5,7 +5,7 @@ from typing import Callable
 import time
 
 
-class TimerInterface(ABC):
+class TimerService(ABC):
     @abstractmethod
     def schedule(self, delay: int, callback: Callable):
         pass
@@ -15,7 +15,7 @@ class TimerInterface(ABC):
         pass
 
 
-class Timer(TimerInterface):
+class QueueTimer(TimerService):
     def __init__(self, get_current_time=time.perf_counter):
         self._get_current_time = get_current_time
         self._timestamps = []
@@ -46,7 +46,7 @@ class Timer(TimerInterface):
 
 
 class RepeatingTimer:
-    def __init__(self, timer: TimerInterface, interval: int, callback: Callable, active: bool = True):
+    def __init__(self, timer: TimerService, interval: int, callback: Callable, active: bool = True):
         self._timer = timer
         self._interval = interval
         self._callback = callback
@@ -58,16 +58,16 @@ class RepeatingTimer:
         if self._active:
             return
         self._active = True
-        self._timer.schedule(self._interval, self._repeatable_callback)
+        self._timer.schedule(self._interval, self._repeating_callback)
 
     def stop(self):
         if not self._active:
             return
         self._active = False
-        self._timer.cancel(self._repeatable_callback)
+        self._timer.cancel(self._repeating_callback)
 
-    def _repeatable_callback(self):
+    def _repeating_callback(self):
         if not self._active:
             return
         self._callback()
-        self._timer.schedule(self._interval, self._repeatable_callback)
+        self._timer.schedule(self._interval, self._repeating_callback)

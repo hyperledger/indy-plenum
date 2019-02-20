@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from plenum.common.startable import Mode
-from plenum.common.timer import TimerInterface, RepeatingTimer
+from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
@@ -126,7 +126,7 @@ class ViewChangerDataProvider(ABC):
 
 class ViewChanger():
 
-    def __init__(self, provider: ViewChangerDataProvider, timer: TimerInterface):
+    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
         self.provider = provider
         self._timer = timer
         self.pre_vc_strategy = None

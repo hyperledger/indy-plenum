@@ -1,4 +1,4 @@
-from plenum.common.timer import Timer, RepeatingTimer
+from plenum.common.timer import QueueTimer, RepeatingTimer
 from plenum.test.helper import MockTimestamp
 
 
@@ -13,7 +13,7 @@ class Callback:
 def test_repeating_timer_is_started_active():
     period = 5
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
     repeating_timer = RepeatingTimer(timer, period, cb)
     assert cb.call_count == 0
@@ -37,7 +37,7 @@ def test_repeating_timer_is_started_active():
 
 def test_repeating_timer_can_be_stopped():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
     repeating_timer = RepeatingTimer(timer, 5, cb)
 
@@ -63,7 +63,7 @@ def test_repeating_timer_can_be_stopped():
 
 def test_repeating_timer_can_be_started_inactive():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
     repeating_timer = RepeatingTimer(timer, 5, cb, active=False)
 
@@ -88,7 +88,7 @@ def test_repeating_timer_can_be_started_inactive():
 
 def test_repeating_timer_can_be_stopped_and_started():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
     repeating_timer = RepeatingTimer(timer, 5, cb)
 
@@ -123,7 +123,7 @@ def test_repeating_timer_can_be_stopped_and_started():
 
 def test_repeating_timer_doesnt_repeat_too_much():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb = Callback()
     repeating_timer = RepeatingTimer(timer, 5, cb)
 
@@ -138,7 +138,7 @@ def test_repeating_timer_doesnt_repeat_too_much():
 
 def test_multiple_repeating_timers_can_work_together():
     ts = MockTimestamp(0)
-    timer = Timer(ts)
+    timer = QueueTimer(ts)
     cb1 = Callback()
     cb2 = Callback()
     timer1 = RepeatingTimer(timer, 5, cb1)

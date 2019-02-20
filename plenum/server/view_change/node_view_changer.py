@@ -2,7 +2,7 @@ import logging
 from typing import Tuple, List, Set
 
 from plenum.common.startable import Mode
-from plenum.common.timer import Timer
+from plenum.common.timer import QueueTimer
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
