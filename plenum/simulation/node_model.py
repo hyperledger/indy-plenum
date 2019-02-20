@@ -64,10 +64,9 @@ class NodeModel:
 
     def update_ts(self, ts: int):
         self._ts = ts
-        self._timer.service()
 
     def restart(self):
-        # self._instance_change.clear()
+        self._instance_change.clear()
         self._view_change_done.clear()
         self._instance_change_id = 0  # Comment to simulate persistence
 

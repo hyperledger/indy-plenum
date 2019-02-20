@@ -22,9 +22,10 @@ class TimerModel(SimModel, TimerService):
         return self._outbox
 
     def schedule(self, delay: float, callback: Callable):
-        self._outbox.extend([SimEvent(timestamp=self._ts + delay,
-                                      payload=self.TimerEvent(callback=callback))])
+        self._outbox.add(SimEvent(timestamp=self._ts + delay,
+                                  payload=self.TimerEvent(callback=callback)))
 
     def cancel(self, callback: Callable):
         self._outbox.remove_all(lambda ev:
-                                isinstance(ev.payload, self.TimerEvent) and ev.payload.callback == callback)
+                                isinstance(ev.payload, self.TimerEvent) and
+                                ev.payload.callback == callback)

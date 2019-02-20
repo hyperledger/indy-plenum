@@ -81,6 +81,10 @@ class ListEventStream(SimEventStream):
     def __init__(self, events: Iterable[SimEvent] = ()):
         self._events = [ev for ev in events]
 
+    def add(self, event):
+        self._events.append(event)
+        self._events.sort(key=lambda ev: ev.timestamp)
+
     def extend(self, events):
         self._events.extend(events)
         self._events.sort(key=lambda ev: ev.timestamp)
