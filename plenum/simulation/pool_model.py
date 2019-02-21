@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import NamedTuple, Set, List, Optional
 
 from plenum.server.quorums import Quorums
@@ -38,12 +39,25 @@ class PoolModel(SimModel):
         return self._outbox
 
     def error_status(self) -> Optional[str]:
-        for node in self._nodes.values():
-            if node.is_primary and not node.is_participating:
-                return 'Primary is not participating'
         participating = sum(1 for node in self._nodes.values() if node.is_participating)
         if not self._quorum.strong.is_reached(participating):
             return 'Not enough participating nodes for consensus'
+
+        nodes_per_view = defaultdict(list)
+        for node in self._nodes.values():
+            nodes_per_view[node.view_no].append(node)
+        try:
+            nodes = next(nodes for nodes in nodes_per_view.values()
+                         if self._quorum.strong.is_reached(len(nodes)))
+        except StopIteration:
+            return 'No strong quorum has same view'
+
+        some_node = nodes[0]
+        primary = self._nodes[some_node.primary_id]
+        if primary.view_no != some_node.view_no:
+            return 'Primary has different view'
+        if not primary.is_participating:
+            return 'Primary is not participating'
 
     def process_restart(self, ts: int, event: RestartEvent):
         restarting_node = self._nodes[event.node_id]

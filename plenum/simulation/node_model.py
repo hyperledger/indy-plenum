@@ -20,7 +20,7 @@ class NodeModel:
         self._quorum = quorum
         self._ts = 0
         self._corrupted_id = None
-        self._timer = TimerModel()
+        self._timer = TimerModel(self.id_to_name(node_id))
         self._connections = connections
         self._view_changer = create_view_changer(self)
         self._internal_outbox = ListEventStream()
@@ -29,6 +29,10 @@ class NodeModel:
     @property
     def id(self):
         return self._id
+
+    @property
+    def view_no(self):
+        return self._view_changer.view_no
 
     @property
     def is_participating(self):
