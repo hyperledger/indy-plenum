@@ -31,9 +31,9 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         return True
 
     def ledger_summary(self) -> List[Tuple[int, int, str]]:
-        return [(0, 42, b58encode('A'*32).decode()),
-                (1, 73, b58encode('B'*32).decode()),
-                (2, 37, b58encode('C'*32).decode())]
+        return [(0, 42, b58encode('A' * 32).decode()),
+                (1, 73, b58encode('B' * 32).decode()),
+                (2, 37, b58encode('C' * 32).decode())]
 
     def node_registry(self, size):
         raise NotImplemented()
