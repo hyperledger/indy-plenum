@@ -45,8 +45,7 @@ def pool_model_events(draw, node_count):
         max_size=1, min_interval=50, max_interval=1000
     )))
 
-    timer = TimerModel()
-    pool = PoolModel(node_count, timer)
+    pool = PoolModel(node_count)
     model = ModelWithExternalEvents(pool, ListEventStream(events))
     return pool, process_model(draw, model, max_size=10000)
 

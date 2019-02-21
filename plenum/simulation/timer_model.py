@@ -6,7 +6,12 @@ from plenum.simulation.sim_model import SimModel
 
 
 class TimerModel(SimModel, TimerService):
-    TimerEvent = NamedTuple('TimerEvent', [('callback', Callable)])
+    class TimerEvent:
+        def __init__(self, callback):
+            self.callback = callback
+
+        def __repr__(self):
+            return 'TimerEvent({})'.format(str(self.callback))
 
     def __init__(self):
         self._ts = 0
@@ -23,7 +28,7 @@ class TimerModel(SimModel, TimerService):
 
     def schedule(self, delay: float, callback: Callable):
         self._outbox.add(SimEvent(timestamp=self._ts + delay,
-                                  payload=self.TimerEvent(callback=callback)))
+                                  payload=self.TimerEvent(callback)))
 
     def cancel(self, callback: Callable):
         self._outbox.remove_all(lambda ev:

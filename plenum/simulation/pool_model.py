@@ -13,12 +13,11 @@ CorruptEvent = NamedTuple('CorruptEvent', [('node_id', int)])
 
 
 class PoolModel(SimModel):
-    def __init__(self, node_count: int, timer: TimerModel):
+    def __init__(self, node_count: int):
         self._message_delay = 1
         self._quorum = Quorums(node_count)
         self._connections = PoolConnections()
-        self._timer = timer
-        self._nodes = {id: NodeModel(id, self._quorum, timer, self._connections)
+        self._nodes = {id: NodeModel(id, self._quorum, self._connections)
                        for id in range(1, node_count + 1)}
         self._outbox = CompositeEventStream(*(node.outbox for node in self._nodes.values()))
 

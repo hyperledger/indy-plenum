@@ -5,7 +5,8 @@ from plenum.common.timer import TimerService
 from plenum.server.quorums import Quorums
 from plenum.simulation.node_model_view_changer import create_view_changer
 from plenum.simulation.pool_connections import PoolConnections
-from plenum.simulation.sim_event_stream import ListEventStream, SimEvent
+from plenum.simulation.sim_event_stream import ListEventStream, SimEvent, CompositeEventStream
+from plenum.simulation.timer_model import TimerModel
 
 Connect = NamedTuple('Connect', [])
 Disconnect = NamedTuple('Disconnect', [])
@@ -15,7 +16,7 @@ NetworkEvent = NamedTuple('NetworkEvent', [('src', int), ('dst', int), ('payload
 
 
 class NodeModel:
-    def __init__(self, node_id: int, quorum: Quorums, timer: TimerService, connections: PoolConnections):
+    def __init__(self, node_id: int, quorum: Quorums, connections: PoolConnections):
         self._id = node_id
         self._quorum = quorum
         self._ts = 0
@@ -24,10 +25,11 @@ class NodeModel:
         self._corrupted_id = None
         self._instance_change = defaultdict(set)
         self._view_change_done = defaultdict(set)
-        self._timer = timer
+        self._timer = TimerModel()
         self._connections = connections
         self._view_changer = create_view_changer(self)
-        self.outbox = ListEventStream()
+        self._network_outbox = ListEventStream()
+        self.outbox = CompositeEventStream(self._network_outbox, self._timer.outbox())
 
     @property
     def id(self):
@@ -117,8 +119,9 @@ class NodeModel:
         self._broadcast(InstanceChange(view_no=view_no))
 
     def _broadcast(self, payload):
-        self.outbox.extend(SimEvent(timestamp=self._ts + 1, payload=NetworkEvent(src=self.id, dst=id, payload=payload))
-                           for id in range(1, self._quorum.n + 1))
+        events = (NetworkEvent(src=self.id, dst=id, payload=payload)
+                  for id in range(1, self._quorum.n + 1))
+        self._network_outbox.extend(SimEvent(timestamp=self._ts + 1, payload=event) for event in events)
 
     def _primary_id(self, view_no):
         return 1 + view_no % self._quorum.n

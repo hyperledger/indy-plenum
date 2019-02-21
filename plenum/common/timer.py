@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import Callable, NamedTuple
 
 import time
@@ -42,9 +43,16 @@ class QueueTimer(TimerService):
 
 class RepeatingTimer:
     def __init__(self, timer: TimerService, interval: int, callback: Callable, active: bool = True):
+        @wraps(callback)
+        def wrapped_callback():
+            if not self._active:
+                return
+            callback()
+            self._timer.schedule(self._interval, self._callback)
+
         self._timer = timer
         self._interval = interval
-        self._callback = callback
+        self._callback = wrapped_callback
         self._active = False
         if active:
             self.start()
@@ -53,16 +61,10 @@ class RepeatingTimer:
         if self._active:
             return
         self._active = True
-        self._timer.schedule(self._interval, self._repeating_callback)
+        self._timer.schedule(self._interval, self._callback)
 
     def stop(self):
         if not self._active:
             return
         self._active = False
-        self._timer.cancel(self._repeating_callback)
-
-    def _repeating_callback(self):
-        if not self._active:
-            return
-        self._callback()
-        self._timer.schedule(self._interval, self._repeating_callback)
+        self._timer.cancel(self._callback)
