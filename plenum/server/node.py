@@ -275,6 +275,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.states = {}  # type: Dict[int, State]
 
+        # Config ledger and state init
+        self._configLedger = self.init_config_ledger()
+        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        self._init_write_request_validator()
+
         # Pool ledger init
         self._poolLedger = self.init_pool_ledger()
         self.register_state(POOL_LEDGER_ID, self.init_pool_state())
@@ -305,9 +310,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
         self.upload_domain_state()
 
-        # Config ledger init
-        self._configLedger = self.init_config_ledger()
-        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        # Config request handler init
         self.register_req_handler(self.init_config_req_handler(), CONFIG_LEDGER_ID)
         self.upload_config_state()
 
@@ -3892,3 +3895,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn_type and not (txn_type == GET_TXN or
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
+
+    def _init_write_request_validator(self):
+        pass
