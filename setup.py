@@ -42,7 +42,7 @@ setup(
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],
     package_data={
-        '': ['*.txt', '*.metadata', '*.rst', '*.json', '*.conf', '*.html',
+        '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
     install_requires=['jsonpickle==0.9.6', 'ujson==1.33',
