@@ -1,20 +1,25 @@
 import logging
 from typing import Optional, List, Tuple, Set
 
+from base58 import b58encode
+
 from plenum.common.config_util import getConfig
 from plenum.common.startable import Mode
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.view_changer import ViewChangerDataProvider, ViewChanger
+from stp_core.common.log import getlogger
 
 config = getConfig()
+logger = getlogger()
 
 
 class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
     def __init__(self, node):
         self._node = node
+        self._has_primary = True
 
     def name(self) -> str:
-        return str(self._node.id)
+        return self._node.id_to_name(self._node.id)
 
     def config(self) -> object:
         return config
@@ -26,7 +31,9 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         return True
 
     def ledger_summary(self) -> List[Tuple[int, int, str]]:
-        raise NotImplemented()
+        return [(0, 42, b58encode('A'*32).decode()),
+                (1, 73, b58encode('B'*32).decode()),
+                (2, 37, b58encode('C'*32).decode())]
 
     def node_registry(self, size):
         raise NotImplemented()
@@ -38,22 +45,23 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         return Mode.synced
 
     def next_primary_name(self) -> str:
-        raise NotImplemented()
+        return self._node.next_primary_name
 
     def current_primary_name(self) -> str:
-        raise NotImplemented()
+        return self._node.current_primary_name
 
     def has_primary(self) -> bool:
-        return True
+        return self._has_primary
 
     def is_primary(self) -> Optional[bool]:
-        raise NotImplemented()
+        if self._has_primary:
+            return self._node.is_primary
 
     def is_primary_disconnected(self) -> bool:
-        raise NotImplemented()
+        return self._node.is_primary_disconnected
 
     def is_master_degraded(self) -> bool:
-        raise NotImplemented()
+        return self._node._corrupted_id == self._node.primary_id
 
     def pretty_metrics(self) -> str:
         return ""
@@ -62,10 +70,10 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         return 0
 
     def connected_nodes(self) -> Set[str]:
-        raise NotImplemented()
+        return {self._node.id_to_name(id) for id in self._node.connected_nodes}
 
     def notify_view_change_start(self):
-        pass
+        self._has_primary = False
 
     def notify_view_change_complete(self):
         pass
@@ -74,16 +82,16 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         pass
 
     def start_catchup(self):
-        pass
+        self._node.schedule_finish_catchup()
 
     def restore_backup_replicas(self):
         pass
 
     def select_primaries(self, node_reg):
-        pass
+        self._has_primary = True
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
-        pass
+        logMethod("Discarding {} because of {}".format(msg, reason))
 
     @property
     def node_status_db(self):
@@ -91,4 +99,6 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
 
 
 def create_view_changer(node):
-    return ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer)
+    vc = ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer)
+    # vc._propagated_view_change_completed = True
+    return vc

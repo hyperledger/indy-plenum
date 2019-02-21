@@ -30,6 +30,9 @@ class TimerModel(SimModel, TimerService):
         pass
 
     def schedule(self, delay: float, callback: Callable):
+        # TODO: Some classes (like ViewChanger) sometimes try to schedule None events o_O
+        if callback is None:
+            return
         self._outbox.add(SimEvent(timestamp=self._ts + delay,
                                   payload=self.TimerEvent(callback)))
 
