@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from plenum.common.startable import Mode
+from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
 from storage.kv_store import KeyValueStorage
@@ -16,7 +17,6 @@ from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement
-from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
 
@@ -130,15 +130,14 @@ class ViewChangerDataProvider(ABC):
         pass
 
 
-class ViewChanger(HasActionQueue):
+class ViewChanger():
 
-    def __init__(self, provider: ViewChangerDataProvider):
+    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
         self.provider = provider
+        self._timer = timer
         self.pre_vc_strategy = None
 
         self._view_no = 0  # type: int
-
-        HasActionQueue.__init__(self)
 
         self.inBox = deque()
         self.outBox = deque()
@@ -191,12 +190,12 @@ class ViewChanger(HasActionQueue):
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
-            self.startRepeating(self.on_master_degradation, force_view_change_freq)
+            RepeatingTimer(self._timer, force_view_change_freq, self.on_master_degradation)
 
         # Start periodic freshness check
         state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if state_freshness_update_interval > 0:
-            self.startRepeating(self.check_freshness, state_freshness_update_interval)
+            RepeatingTimer(self._timer, state_freshness_update_interval, self.check_freshness)
 
     def __repr__(self):
         return "{}".format(self.name)
@@ -341,8 +340,8 @@ class ViewChanger(HasActionQueue):
             # InstanceChange quorum
             logger.info("Resend instance change message to all recipients")
             self.sendInstanceChange(proposed_view_no, reason)
-            self._schedule(action=self.instance_change_action,
-                           seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+            self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+                                 self.instance_change_action)
             logger.info("Count of rounds without quorum of "
                         "instance change messages: {}".format(self.instance_change_rounds))
             self.instance_change_rounds += 1
@@ -350,7 +349,7 @@ class ViewChanger(HasActionQueue):
             # ViewChange procedure was started, therefore stop scheduling
             # resending instanceChange messages
             logger.info("Stop scheduling instance change resending")
-            self._cancel(action=self.instance_change_action)
+            self._timer.cancel(self.instance_change_action)
             self.instance_change_action = None
             self.instance_change_rounds = 0
 
@@ -359,13 +358,13 @@ class ViewChanger(HasActionQueue):
         if self.instance_change_action:
             # It's an action, scheduled for previous instanceChange round
             logger.info("Stop previous instance change resending schedule")
-            self._cancel(action=self.instance_change_action)
+            self._timer.cancel(self.instance_change_action)
             self.instance_change_rounds = 0
         self.instance_change_action = partial(self.send_instance_change_if_needed,
                                               view_no,
                                               Suspicions.PRIMARY_DISCONNECTED)
-        self._schedule(self.instance_change_action,
-                       seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+        self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+                             self.instance_change_action)
 
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):

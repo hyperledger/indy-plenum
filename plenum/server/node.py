@@ -17,6 +17,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
+from plenum.common.timer import QueueTimer
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
@@ -258,6 +259,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.timer = QueueTimer()
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
@@ -1369,6 +1371,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
                 self.nodestack.flushOutBoxes()
+            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                self.timer.service()
+
         if self.isGoing():
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
                 self.nodestack.serviceLifecycle()
@@ -1434,9 +1439,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return 0
         o = self.serviceViewChangerOutBox(limit)
         i = await self.serviceViewChangerInbox(limit)
-        # TODO: Why is protected method accessed here?
-        a = self.view_changer._serviceActions()
-        return o + i + a
+        return o + i
 
     @async_measure_time(MetricsName.SERVICE_OBSERVABLE_TIME)
     async def service_observable(self, limit) -> int:
@@ -2893,10 +2896,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.NODE_REQUESTED_PROPAGATES_FOR, len(self.requested_propagates_for))
 
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_ACTION_QUEUE, len(self.view_changer.actionQueue))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_AQ_STASH, len(self.view_changer.aqStash))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_REPEATING_ACTIONS, len(self.view_changer.repeatingActions))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_SCHEDULED, len(self.view_changer.scheduled))
+        self.metrics.add_event(MetricsName.TIMER_QUEUE_SIZE, self.timer.queue_size())
+
         self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_NEXT_VIEW_INDICATIONS,
