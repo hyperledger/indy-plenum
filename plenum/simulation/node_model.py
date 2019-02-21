@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import NamedTuple, List, Any, Set
 
-from plenum.common.timer import TimerService
+from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
 from plenum.simulation.node_model_view_changer import create_view_changer
 from plenum.simulation.pool_connections import PoolConnections
@@ -26,6 +26,7 @@ class NodeModel:
         self._view_changer = create_view_changer(self)
         self._internal_outbox = ListEventStream()
         self.outbox = CompositeEventStream(self._internal_outbox, self._timer.outbox())
+        self._check_performance_timer = RepeatingTimer(self._timer, 30, self._check_performance)
 
     @property
     def name(self):
@@ -82,16 +83,15 @@ class NodeModel:
     def restart(self):
         pass
 
-    def outage(self, other_name: str):
-        if other_name == self.primary_name:
+    def outage(self, node: str):
+        if node == self.primary_name:
             self._view_changer.on_primary_loss()
             self._flush_viewchanger_outbox()
 
-    def corrupt(self, node_name: str):
-        self._corrupted_name = node_name
-        if self._corrupted_name == self.primary_name:
-            self._view_changer.on_master_degradation()
-            self._flush_viewchanger_outbox()
+    def corrupt(self, node: str):
+        self._corrupted_name = node
+        if self.name == node:
+            self._check_performance_timer.stop()
 
     def schedule_finish_catchup(self):
         self._send(CatchupDoneEvent(node=self.name), delay=10)
@@ -110,11 +110,15 @@ class NodeModel:
         self._flush_viewchanger_outbox()
 
     def process_network(self, message: NetworkEvent):
+        if self.name == self._corrupted_name:
+            return
         if message.dst != self.name:
             return
         self._view_changer.inBoxRouter.handleSync((message.payload, message.src))
 
     def _flush_viewchanger_outbox(self):
+        if self.name == self._corrupted_name:
+            return
         for msg in self._view_changer.outBox:
             self._broadcast(msg)
         self._view_changer.outBox.clear()
@@ -130,6 +134,11 @@ class NodeModel:
             self._send(NetworkEvent(src=self.name,
                                     dst=name,
                                     payload=payload))
+
+    def _check_performance(self):
+        if self.primary_name == self._corrupted_name:
+            self._view_changer.on_master_degradation()
+            self._flush_viewchanger_outbox()
 
     def _primary_name(self, view_no):
         return self._node_names[view_no % len(self._node_names)]

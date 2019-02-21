@@ -1,4 +1,4 @@
-from hypothesis import strategies as st
+from hypothesis import strategies as st, reproduce_failure
 from hypothesis import given, settings
 
 from plenum.simulation.pool_model import RestartEvent, OutageEvent, CorruptEvent, PoolModel
@@ -53,6 +53,7 @@ def pool_model_events(draw, node_count):
                                max_size=1000)
 
 
+@reproduce_failure('4.6.0', b'AAEtAQEBAQAEAAEAAAAA')
 @given(pool_events=pool_model_events(node_count=4))
 def test_pool_model(pool_events):
     pool, events = pool_events

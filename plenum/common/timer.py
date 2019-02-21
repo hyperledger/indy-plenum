@@ -9,6 +9,10 @@ from sortedcontainers import SortedListWithKey
 
 class TimerService(ABC):
     @abstractmethod
+    def get_current_time(self) -> float:
+        pass
+
+    @abstractmethod
     def schedule(self, delay: int, callback: Callable):
         pass
 
@@ -30,6 +34,9 @@ class QueueTimer(TimerService):
     def service(self):
         while len(self._events) and self._events[0].timestamp <= self._get_current_time():
             self._events.pop(0).callback()
+
+    def get_current_time(self) -> float:
+        return self._get_current_time()
 
     def schedule(self, delay: float, callback: Callable):
         timestamp = self._get_current_time() + delay

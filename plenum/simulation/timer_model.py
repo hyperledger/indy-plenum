@@ -26,6 +26,9 @@ class TimerModel(SimModel, TimerService):
     def error_status(self) -> Optional[str]:
         pass
 
+    def get_current_time(self) -> float:
+        return self._ts
+
     def schedule(self, delay: float, callback: Callable):
         # TODO: Some classes (like ViewChanger) sometimes try to schedule None events o_O
         if callback is None:

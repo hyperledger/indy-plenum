@@ -548,7 +548,7 @@ class ViewChanger():
     def initInsChngThrottling(self):
         windowSize = self.config.ViewChangeWindowSize
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
-        self.insChngThrottler = Throttler(windowSize, ratchet.get)
+        self.insChngThrottler = Throttler(windowSize, ratchet.get, self._timer.get_current_time)
 
     def _create_instance_change_msg(self, view_no, suspicion_code):
         return InstanceChange(view_no, suspicion_code)
