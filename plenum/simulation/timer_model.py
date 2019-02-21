@@ -1,4 +1,4 @@
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Optional
 
 from plenum.common.timer import TimerService
 from plenum.simulation.sim_event_stream import ListEventStream, SimEvent
@@ -25,6 +25,9 @@ class TimerModel(SimModel, TimerService):
 
     def outbox(self):
         return self._outbox
+
+    def error_status(self) -> Optional[str]:
+        pass
 
     def schedule(self, delay: float, callback: Callable):
         self._outbox.add(SimEvent(timestamp=self._ts + delay,

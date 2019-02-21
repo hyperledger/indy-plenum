@@ -65,9 +65,6 @@ class NodeModel:
             return True
         return False
 
-    def update_ts(self, ts: int):
-        self._ts = ts
-
     def restart(self):
         self._instance_change.clear()
         self._view_change_done.clear()
@@ -82,9 +79,20 @@ class NodeModel:
         if self.need_view_change():
             self._send_instance_change()
 
-    def process(self, message: NetworkEvent):
+    def process(self, draw, event: SimEvent):
+        self._ts = event.timestamp
+        self._timer.process(draw, event)
+
+        if isinstance(event.payload, NetworkEvent):
+            self.process_network(event.payload)
+
+    def process_network(self, message: NetworkEvent):
+        if message.dst != self.id:
+            return
+
         if isinstance(message.payload, InstanceChange):
             self.process_instance_change(message.src, message.payload)
+
         if isinstance(message.payload, ViewChangeDone):
             self.process_view_change_done(message.src, message.payload)
 

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -31,6 +33,9 @@ class PassiveModel(SimModel):
     def outbox(self):
         return self._outbox
 
+    def error_status(self) -> Optional[str]:
+        pass
+
 
 @given(inputs_events_model=model_event_stream(PassiveModel))
 def test_passive_model_properties(inputs_events_model):
@@ -51,15 +56,21 @@ class RandomErrorModel(SimModel):
         self._events = st.one_of(st.just(ErrorEvent(reason="random")),
                                  some_event())
         self._outbox = ListEventStream()
+        self._error_status = None
 
     def process(self, draw, event: SimEvent):
         self.processed_events.append(event)
+        if isinstance(event.payload, ErrorEvent):
+            self._error_status = 'Has error'
         ts = event.timestamp
         delays = draw(st.lists(elements=st.integers(min_value=1, max_value=1000)))
         self._outbox.extend(SimEvent(timestamp=ts + delay, payload=draw(self._events)) for delay in delays)
 
     def outbox(self):
         return self._outbox
+
+    def error_status(self) -> Optional[str]:
+        pass
 
 
 @given(inputs_events_model=model_event_stream(RandomErrorModel))

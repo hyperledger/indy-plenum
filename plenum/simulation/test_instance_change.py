@@ -47,11 +47,11 @@ def pool_model_events(draw, node_count):
 
     pool = PoolModel(node_count)
     model = ModelWithExternalEvents(pool, ListEventStream(events))
-    return pool, process_model(draw, model, max_size=10000)
+    return pool, process_model(draw, model, max_size=1000)
 
 
 @given(pool_events=pool_model_events(node_count=4))
 def test_pool_model(pool_events):
     pool, events = pool_events
-    assert pool.check_status() is None
+    assert pool.error_status() is None
     assert not any(isinstance(ev.payload, ErrorEvent) for ev in events)

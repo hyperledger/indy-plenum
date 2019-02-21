@@ -23,7 +23,7 @@ class PoolModel(SimModel):
 
     def process(self, draw, event: SimEvent):
         for node in self._nodes.values():
-            node.update_ts(event.timestamp)
+            node.process(draw, event)
 
         if isinstance(event.payload, RestartEvent):
             self.process_restart(event.timestamp, event.payload)
@@ -34,17 +34,16 @@ class PoolModel(SimModel):
         if isinstance(event.payload, CorruptEvent):
             self.process_corrupt(event.timestamp, event.payload)
 
-        if isinstance(event.payload, NetworkEvent):
-            self.process_network(event.timestamp, event.payload)
-
-        # TODO
-        # if len(result) == 0 and is_stable:
-        #     error = self.check_status()
-        #     if error is not None:
-        #         result.append(SimEvent(timestamp=event.timestamp, payload=error))
-
     def outbox(self):
         return self._outbox
+
+    def error_status(self) -> Optional[str]:
+        for node in self._nodes.values():
+            if node.is_primary and not node.is_participating:
+                return 'Primary is not participating'
+        participating = sum(1 for node in self._nodes.values() if node.is_participating)
+        if not self._quorum.strong.is_reached(participating):
+            return 'Not enough participating nodes for consensus'
 
     def process_restart(self, ts: int, event: RestartEvent):
         restarting_node = self._nodes[event.node_id]
@@ -66,12 +65,6 @@ class PoolModel(SimModel):
     def process_corrupt(self, ts: int, event: CorruptEvent):
         for node in self._nodes.values():
             node.corrupt(event.node_id)
-
-    def process_network(self, ts: int, message: NetworkEvent):
-        # if not self._connections.are_connected(ts, (message.src, message.dst)):
-        #     return []
-        node = self._nodes[message.dst]
-        node.process(message)
 
     def check_status(self) -> Optional[ErrorEvent]:
         for node in self._nodes.values():

@@ -5,6 +5,8 @@ from hypothesis import strategies as st
 from hypothesis.strategies import composite
 from typing import NamedTuple, Any, List, Optional, Set, Union, Iterable, Callable
 
+from sortedcontainers import SortedListWithKey
+
 ErrorEvent = NamedTuple("ErrorEvent", [("reason", str)])
 AnyEvent = Union[ErrorEvent, Any]
 
@@ -79,15 +81,13 @@ class RandomEventStream(SimEventStream):
 
 class ListEventStream(SimEventStream):
     def __init__(self, events: Iterable[SimEvent] = ()):
-        self._events = [ev for ev in events]
+        self._events = SortedListWithKey(iterable=events, key=lambda ev: ev.timestamp)
 
     def add(self, event):
-        self._events.append(event)
-        self._events.sort(key=lambda ev: ev.timestamp)
+        self._events.add(event)
 
     def extend(self, events):
-        self._events.extend(events)
-        self._events.sort(key=lambda ev: ev.timestamp)
+        self._events.update(events)
 
     def remove_all(self, predicate: Callable):
         indexes = [i for i, ev in enumerate(self._events) if predicate(ev)]
