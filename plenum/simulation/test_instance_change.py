@@ -11,41 +11,43 @@ settings.load_profile("big")
 
 
 @st.composite
-def restart_event(draw, min_id, max_id):
-    return RestartEvent(node_id=draw(st.integers(min_value=min_id, max_value=max_id)))
+def restart_event(draw, node_names):
+    return RestartEvent(node=draw(st.sampled_from(node_names)))
 
 
 @st.composite
-def outage_event(draw, max_count, min_id, max_id, min_duration=1, max_duration=10):
-    node_id = draw(st.integers(min_value=min_id, max_value=max_id))
-    st_disconnected_id = st.integers(min_value=min_id, max_value=max_id - 1)
-    st_disconnected_ids = st.sets(elements=st_disconnected_id, min_size=1, max_size=max_count)
-    disconnected_ids = draw(st_disconnected_ids)
-    disconnected_ids = {v if v < node_id else v + 1 for v in disconnected_ids}
+def outage_event(draw, max_count, node_names, min_duration=1, max_duration=10):
+    node = draw(st.sampled_from(node_names))
+    allowed_nodes = [n for n in node_names if n != node]
+    st_disconnected = st.sampled_from(allowed_nodes)
+    disconnecteds = draw(st.sets(elements=st_disconnected, min_size=1, max_size=max_count))
     duration = draw(st.integers(min_value=min_duration, max_value=max_duration))
-    return OutageEvent(node_id=node_id, disconnected_ids=disconnected_ids, duration=duration)
+    return OutageEvent(node=node, disconnecteds=disconnecteds, duration=duration)
 
 
 @st.composite
-def corrupt_event(draw, min_id, max_id):
-    return CorruptEvent(node_id=draw(st.integers(min_value=min_id, max_value=max_id)))
+def corrupt_event(draw, node_names):
+    return CorruptEvent(node=draw(st.sampled_from(node_names)))
 
 
 @st.composite
 def pool_model_events(draw, node_count):
+    greek_names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta']
+    node_names = greek_names[:node_count]
+
     events = []
     events.extend(draw(sim_events(
-        st.one_of(outage_event(max_count=1, min_id=1, max_id=node_count, min_duration=3),
-                  outage_event(max_count=node_count // 2, min_id=1, max_id=node_count, min_duration=3),
-                  restart_event(min_id=1, max_id=node_count)),
+        st.one_of(outage_event(max_count=1, node_names=node_names, min_duration=3),
+                  outage_event(max_count=node_count // 2, node_names=node_names, min_duration=3),
+                  restart_event(node_names=node_names)),
         min_interval=10
     )))
     events.extend(draw(sim_events(
-        corrupt_event(min_id=1, max_id=node_count),
+        corrupt_event(node_names=node_names),
         max_size=1, min_interval=50, max_interval=1000
     )))
 
-    pool = PoolModel(node_count)
+    pool = PoolModel(node_names)
     model = ModelWithExternalEvents(pool, ListEventStream(events))
     return pool, process_model(draw, model,
                                max_size=1000)

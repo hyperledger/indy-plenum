@@ -19,7 +19,7 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         self._has_primary = True
 
     def name(self) -> str:
-        return self._node.id_to_name(self._node.id)
+        return self._node.name
 
     def config(self) -> object:
         return config
@@ -61,7 +61,7 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         return self._node.is_primary_disconnected
 
     def is_master_degraded(self) -> bool:
-        return self._node._corrupted_id == self._node.primary_id
+        return self._node._corrupted_name == self._node.primary_name
 
     def pretty_metrics(self) -> str:
         return ""
@@ -70,7 +70,7 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
         return 0
 
     def connected_nodes(self) -> Set[str]:
-        return {self._node.id_to_name(id) for id in self._node.connected_nodes}
+        return set(self._node.connected_nodes)
 
     def notify_view_change_start(self):
         self._has_primary = False
@@ -99,6 +99,4 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
 
 
 def create_view_changer(node):
-    vc = ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer)
-    # vc._propagated_view_change_completed = True
-    return vc
+    return ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer)

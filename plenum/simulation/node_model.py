@@ -10,25 +10,26 @@ from plenum.simulation.timer_model import TimerModel
 
 Connect = NamedTuple('Connect', [])
 Disconnect = NamedTuple('Disconnect', [])
-CatchupDoneEvent = NamedTuple('CatchupDone', [('node_id', int)])
-NetworkEvent = NamedTuple('NetworkEvent', [('src', int), ('dst', int), ('payload', Any)])
+CatchupDoneEvent = NamedTuple('CatchupDone', [('node', str)])
+NetworkEvent = NamedTuple('NetworkEvent', [('src', str), ('dst', str), ('payload', Any)])
 
 
 class NodeModel:
-    def __init__(self, node_id: int, quorum: Quorums, connections: PoolConnections):
-        self._id = node_id
-        self._quorum = quorum
+    def __init__(self, name: str, node_names: List[str], connections: PoolConnections):
+        self._name = name
+        self._node_names = node_names
+        self._quorum = Quorums(len(node_names))
         self._ts = 0
-        self._corrupted_id = None
-        self._timer = TimerModel(self.id_to_name(node_id))
+        self._corrupted_name = None
+        self._timer = TimerModel(name)
         self._connections = connections
         self._view_changer = create_view_changer(self)
         self._internal_outbox = ListEventStream()
         self.outbox = CompositeEventStream(self._internal_outbox, self._timer.outbox())
 
     @property
-    def id(self):
-        return self._id
+    def name(self):
+        return self._name
 
     @property
     def view_no(self):
@@ -39,68 +40,68 @@ class NodeModel:
         return not self._view_changer.view_change_in_progress and not self.is_corrupted
 
     @property
-    def primary_id(self):
-        return self._primary_id(self._view_changer.view_no)
+    def primary_name(self):
+        return self._primary_name(self._view_changer.view_no)
 
     @property
     def next_primary_name(self):
         view_no = self._view_changer.view_no
         if not self._view_changer.view_change_in_progress:
             view_no += 1
-        return self.id_to_name(self._primary_id(view_no))
+        return self._primary_name(view_no)
 
     @property
     def current_primary_name(self):
         view_no = self._view_changer.view_no - 1
         if not self._view_changer.view_change_in_progress:
             view_no += 1
-        return self.id_to_name(self._primary_id(view_no))
+        return self._primary_name(view_no)
 
     @property
     def is_primary(self):
-        return self.id == self.primary_id
+        return self.name == self.primary_name
 
     @property
     def is_primary_disconnected(self):
-        return self._connections.are_connected(self._ts, (self.id, self.primary_id))
+        return self._connections.are_connected(self._ts, (self.name, self.primary_name))
 
     @property
     def is_corrupted(self):
-        return self._corrupted_id == self.id
+        return self._corrupted_name == self.name
 
     @property
     def connected_nodes(self) -> List[int]:
         result = []
-        for id in range(1, self._quorum.n + 1):
-            if id == self.id:
+        for name in self._node_names:
+            if name == self.name:
                 continue
-            if self._connections.are_connected(self._ts, (self.id, id)):
-                result.append(id)
+            if self._connections.are_connected(self._ts, (self.name, name)):
+                result.append(name)
         return result
 
     def restart(self):
         pass
 
-    def outage(self, other_id: int):
-        if other_id == self.primary_id:
+    def outage(self, other_name: str):
+        if other_name == self.primary_name:
             self._view_changer.on_primary_loss()
             self._flush_viewchanger_outbox()
 
-    def corrupt(self, node_id: int):
-        self._corrupted_id = node_id
-        if self._corrupted_id == self.primary_id:
+    def corrupt(self, node_name: str):
+        self._corrupted_name = node_name
+        if self._corrupted_name == self.primary_name:
             self._view_changer.on_master_degradation()
             self._flush_viewchanger_outbox()
 
     def schedule_finish_catchup(self):
-        self._send(CatchupDoneEvent(node_id=self.id), delay=10)
+        self._send(CatchupDoneEvent(node=self.name), delay=10)
 
     def process(self, draw, event: SimEvent):
         self._ts = event.timestamp
         self._timer.process(draw, event)
 
         if isinstance(event.payload, CatchupDoneEvent):
-            if event.payload.node_id == self.id:
+            if event.payload.node == self.name:
                 self._view_changer.on_catchup_complete()
 
         if isinstance(event.payload, NetworkEvent):
@@ -109,10 +110,9 @@ class NodeModel:
         self._flush_viewchanger_outbox()
 
     def process_network(self, message: NetworkEvent):
-        if message.dst != self.id:
+        if message.dst != self.name:
             return
-
-        self._view_changer.inBoxRouter.handleSync((message.payload, self.id_to_name(message.src)))
+        self._view_changer.inBoxRouter.handleSync((message.payload, message.src))
 
     def _flush_viewchanger_outbox(self):
         for msg in self._view_changer.outBox:
@@ -124,14 +124,12 @@ class NodeModel:
         self.outbox.sort()
 
     def _broadcast(self, payload):
-        for id in range(1, self._quorum.n + 1):
-            if id == self.id:
+        for name in self._node_names:
+            if name == self.name:
                 continue
-            self._send(NetworkEvent(src=self.id, dst=id, payload=payload))
+            self._send(NetworkEvent(src=self.name,
+                                    dst=name,
+                                    payload=payload))
 
-    def _primary_id(self, view_no):
-        return 1 + view_no % self._quorum.n
-
-    @staticmethod
-    def id_to_name(id: int) -> str:
-        return "Node{}".format(id)
+    def _primary_name(self, view_no):
+        return self._node_names[view_no % len(self._node_names)]

@@ -6,20 +6,20 @@ from plenum.simulation.node_model import NodeModel, NetworkEvent
 from plenum.simulation.pool_connections import PoolConnections
 from plenum.simulation.sim_event_stream import SimEvent, ErrorEvent, ListEventStream, CompositeEventStream
 from plenum.simulation.sim_model import SimModel
-from plenum.simulation.timer_model import TimerModel
 
-RestartEvent = NamedTuple('RestartEvent', [('node_id', int)])
-OutageEvent = NamedTuple('OutageEvent', [('node_id', int), ('disconnected_ids', Set[int]), ('duration', int)])
-CorruptEvent = NamedTuple('CorruptEvent', [('node_id', int)])
+RestartEvent = NamedTuple('RestartEvent', [('node', str)])
+OutageEvent = NamedTuple('OutageEvent', [('node', str), ('disconnecteds', Set[str]), ('duration', int)])
+CorruptEvent = NamedTuple('CorruptEvent', [('node', str)])
 
 
 class PoolModel(SimModel):
-    def __init__(self, node_count: int):
+    def __init__(self, nodes: List[str]):
         self._message_delay = 1
-        self._quorum = Quorums(node_count)
+        self._node_names = nodes
+        self._quorum = Quorums(len(nodes))
         self._connections = PoolConnections()
-        self._nodes = {id: NodeModel(id, self._quorum, self._connections)
-                       for id in range(1, node_count + 1)}
+        self._nodes = {name: NodeModel(name, self._node_names, self._connections)
+                       for name in self._node_names}
         self._outbox = CompositeEventStream(*(node.outbox for node in self._nodes.values()))
 
     def process(self, draw, event: SimEvent):
@@ -53,14 +53,14 @@ class PoolModel(SimModel):
             return 'No strong quorum has same view'
 
         some_node = nodes[0]
-        primary = self._nodes[some_node.primary_id]
+        primary = self._nodes[some_node.primary_name]
         if primary.view_no != some_node.view_no:
             return 'Primary has different view'
         if not primary.is_participating:
             return 'Primary is not participating'
 
     def process_restart(self, ts: int, event: RestartEvent):
-        restarting_node = self._nodes[event.node_id]
+        restarting_node = self._nodes[event.node]
         restarting_node.restart()
 
         for node in self._nodes.values():
@@ -68,17 +68,17 @@ class PoolModel(SimModel):
                 self._outage(ts, 5, restarting_node, node, process_node_a=False)
 
     def process_outage(self, ts: int, event: OutageEvent):
-        outage_node = self._nodes[event.node_id]
+        outage_node = self._nodes[event.node]
 
-        for node_id in event.disconnected_ids:
-            if node_id == event.node_id:
+        for node in event.disconnecteds:
+            if node == event.node:
                 continue
-            node = self._nodes[node_id]
+            node = self._nodes[node]
             self._outage(ts, event.duration, outage_node, node)
 
     def process_corrupt(self, ts: int, event: CorruptEvent):
         for node in self._nodes.values():
-            node.corrupt(event.node_id)
+            node.corrupt(event.node)
 
     def check_status(self) -> Optional[ErrorEvent]:
         for node in self._nodes.values():
@@ -90,11 +90,11 @@ class PoolModel(SimModel):
 
     def _outage(self, ts: int, duration: int,
                 node_a: NodeModel, node_b: NodeModel, process_node_a=True):
-        node_ids = (node_a.id, node_b.id)
+        node_ids = (node_a.name, node_b.name)
         if not self._connections.are_connected(ts, node_ids):
             return
 
         self._connections.disconnect_till(ts + duration, node_ids)
         if process_node_a:
-            node_a.outage(node_b.id)
-        node_b.outage(node_a.id)
+            node_a.outage(node_b.name)
+        node_b.outage(node_a.name)
