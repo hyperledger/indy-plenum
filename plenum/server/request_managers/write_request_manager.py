@@ -9,7 +9,6 @@ from plenum.common.request import Request
 from plenum.common.txn_util import get_type
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_managers.request_manager import RequestManager
 from stp_core.common.log import getlogger
@@ -87,28 +86,33 @@ class WriteRequestManager(RequestManager):
         pass
 
     # BatchRequestHandler methods
-    def post_apply_batch(self, ledger_id, state_root):
-        handlers = self.batch_handlers.get(ledger_id, None)
+    # TODO: pass PrePrepare here
+    def post_apply_batch(self, three_pc_batch):
+        handlers = self.batch_handlers.get(three_pc_batch.ledger_id, None)
         if handlers is None:
             raise LogicError
-        for handler in handlers:
-            handler.post_batch_applied(state_root)
+        prev_handler_result = handlers[0].post_batch_applied(three_pc_batch, None)
+        for handler in handlers[1:]:
+            prev_handler_result = handler.post_batch_applied(three_pc_batch, prev_handler_result)
 
+    # TODO: no need to pass all these arguments explicitly here
+    # we can use LedgerUncommittedTracker to get this values
     def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:
             raise LogicError
-        prev_result = commited_txns = handlers[0].commit_batch(txn_count, state_root, txn_root, pp_time, None)
+        prev_handler_result = commited_txns = handlers[0].commit_batch(ledger_id, txn_count, state_root, txn_root, pp_time, None)
         for handler in handlers[1:]:
-            handler.commit_batch(txn_count, state_root, txn_root, pp_time, prev_result)
+            handler.commit_batch(ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result)
         return commited_txns
 
     def post_batch_rejected(self, ledger_id):
         handlers = self.batch_handlers.get(ledger_id, None)
         if handlers is None:
             raise LogicError
-        for handler in handlers:
-            handler.post_batch_rejected()
+        prev_handler_result = handlers[0].post_batch_rejected(ledger_id, None)
+        for handler in handlers[1:]:
+            handler.post_batch_rejected(ledger_id, prev_handler_result)
 
     def transform_txn_for_ledger(self, txn):
         handlers = self.request_handlers.get(get_type(txn), None)

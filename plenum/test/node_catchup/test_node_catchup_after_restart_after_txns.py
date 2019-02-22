@@ -93,7 +93,7 @@ def test_node_catchup_after_restart_with_txns(
 
     # Make sure ledger starts syncing (sufficient consistency proofs received)
     looper.run(eventually(check_ledger_state, newNode, DOMAIN_LEDGER_ID,
-                          LedgerState.syncing, retryWait=.5, timeout=5))
+                          LedgerState.syncing, retryWait=.5, timeout=50))
 
     confused_node = txnPoolNodeSet[0]
     new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]

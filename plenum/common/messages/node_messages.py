@@ -123,6 +123,7 @@ class Ordered(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -153,6 +154,8 @@ class PrePrepare(MessageBase):
         (f.FINAL.nm, BooleanField()),
         (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
                                                     nullable=True)),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
+                                                   nullable=True)),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
@@ -381,11 +384,15 @@ class BatchCommitted(MessageBase):
          IterableField(ClientMessageValidator(
              operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT))),
         (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.STATE_ROOT.nm, MerkleRootField()),
         (f.TXN_ROOT.nm, MerkleRootField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-        (f.SEQ_NO_END.nm, NonNegativeNumberField())
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
     )
 
 

@@ -11,7 +11,7 @@ class DatabaseManager():
         self.databases = {}  # type: Dict[int, Database]
         self.stores = {}
 
-    def register_new_database(self, lid, ledger: Ledger, state: State):
+    def register_new_database(self, lid, ledger: Ledger, state: State = None):
         if lid in self.databases:
             raise LogicError('Trying to add already existing database')
         self.databases[lid] = Database(ledger, state)
@@ -20,6 +20,16 @@ class DatabaseManager():
         if lid not in self.databases:
             return None
         return self.databases[lid]
+
+    def get_ledger(self, lid):
+        if lid not in self.databases:
+            return None
+        return self.databases[lid].ledger
+
+    def get_state(self, lid):
+        if lid not in self.databases:
+            return None
+        return self.databases[lid].state
 
     def register_new_store(self, label, store):
         if label in self.stores:
@@ -34,7 +44,12 @@ class DatabaseManager():
     @property
     def states(self):
         # TODO: change this. Too inefficient to build dict every time
-        return dict((lid, db.state) for lid, db in self.databases.items())
+        return {lid: db.state for lid, db in self.databases.items()}
+
+    @property
+    def ledgers(self):
+        # TODO: change this. Too inefficient to build dict every time
+        return {lid: db.ledger for lid, db in self.databases.items()}
 
     @property
     def bls_store(self):
@@ -57,3 +72,8 @@ class Database:
     def __init__(self, ledger, state):
         self.ledger = ledger
         self.state = state
+
+    def reset(self):
+        self.ledger.reset_uncommitted()
+        if self.state:
+            self.state.revertToHead(self.state.committedHeadHash)
