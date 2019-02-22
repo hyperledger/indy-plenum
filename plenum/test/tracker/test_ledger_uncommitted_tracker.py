@@ -26,8 +26,17 @@ def tracker(init_committed_root, init_ledger_size):
     return LedgerUncommittedTracker(init_committed_root, init_ledger_size)
 
 
+@pytest.fixture()
+def tracker_no_state(init_ledger_size):
+    return LedgerUncommittedTracker(None, init_ledger_size)
+
+
 def test_apply_batch_success(tracker, state_root):
     tracker.apply_batch(state_root, random.randint(1, 100))
+
+
+def test_apply_batch_success_no_state(tracker, state_root):
+    tracker.apply_batch(None, random.randint(1, 100))
 
 
 def test_apply_no_state_root_track_uncommitted(tracker):
@@ -52,6 +61,12 @@ def test_reject_one(tracker,
     assert (init_committed_root, 5) == tracker.reject_batch()
 
 
+def test_reject_one_no_state(tracker_no_state,
+                             init_ledger_size):
+    tracker_no_state.apply_batch(None, init_ledger_size + 5)
+    assert (None, 5) == tracker_no_state.reject_batch()
+
+
 def test_reject_multiple(tracker,
                          init_committed_root):
     tracker.apply_batch("uncommitted_state_root_1", 12)
@@ -66,39 +81,43 @@ def test_reject_error_with_empty_tracker(tracker):
 
 
 def test_commit_one_batch(tracker,
-                          state_root,
                           init_ledger_size):
     tracker.apply_batch("test_root", 1000)
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root", 1000 - init_ledger_size)
     assert tracker.last_committed == ("test_root", 1000)
 
 
+def test_commit_one_batch_no_state(tracker_no_state,
+                                   init_ledger_size):
+    tracker_no_state.apply_batch(None, 1000)
+    assert tracker_no_state.commit_batch() == (None, 1000 - init_ledger_size)
+    assert tracker_no_state.last_committed == (None, 1000)
+
+
 def test_commit_multiple_batches(tracker,
-                                 state_root,
                                  init_ledger_size):
     tracker.apply_batch("test_root_1", 1000)
     tracker.apply_batch("test_root_2", 1500)
     tracker.apply_batch("test_root_3", 1700)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_1", 1000 - init_ledger_size)
     assert tracker.last_committed == ("test_root_1", 1000)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_2", 500)
     assert tracker.last_committed == ("test_root_2", 1500)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_3", 200)
     assert tracker.last_committed == ("test_root_3", 1700)
 
 
 def test_apply_reject_commit(tracker,
-                             state_root,
                              init_ledger_size):
     tracker.apply_batch("test_root_1", 1000)
     tracker.apply_batch("test_root_2", 1600)
 
     assert ("test_root_1", 600) == tracker.reject_batch()
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_1", 1000 - init_ledger_size)
     assert tracker.last_committed == ("test_root_1", 1000)
 
 
@@ -114,15 +133,14 @@ def test_revert_all_and_apply_commit(tracker,
     tracker.apply_batch("test_root_3", 100)
     tracker.apply_batch("test_root_4", 300)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_3", 100 - init_ledger_size)
     assert tracker.last_committed == ("test_root_3", 100)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_4", 200)
     assert tracker.last_committed == ("test_root_4", 300)
 
 
 def test_apply_reject_apply_commit(tracker,
-                                   state_root,
                                    init_ledger_size):
     tracker.apply_batch("test_root_1", 1000)
     tracker.apply_batch("test_root_2", 1600)
@@ -131,26 +149,25 @@ def test_apply_reject_apply_commit(tracker,
 
     tracker.apply_batch("test_root_3", 1200)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_1", 1000 - init_ledger_size)
     assert tracker.last_committed == ("test_root_1", 1000)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_3", 200)
     assert tracker.last_committed == ("test_root_3", 1200)
 
 
 def test_commit_apply(tracker,
-                      state_root,
                       init_ledger_size):
     tracker.apply_batch("test_root_1", 1000)
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_1", 1000 - init_ledger_size)
     assert tracker.last_committed == ("test_root_1", 1000)
 
     tracker.apply_batch("test_root_2", 1400)
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_2", 400)
     assert tracker.last_committed == ("test_root_2", 1400)
 
     tracker.apply_batch("test_root_3", 1700)
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_3", 300)
     assert tracker.last_committed == ("test_root_3", 1700)
 
 
@@ -174,11 +191,17 @@ def test_set_last_committed(tracker):
     assert tracker.last_committed == test_tuple
 
 
+def test_set_last_committed_no_state(tracker_no_state):
+    test_tuple = (None, 42)
+    assert tracker_no_state.last_committed != test_tuple
+    tracker_no_state.set_last_committed(*test_tuple)
+    assert tracker_no_state.last_committed == test_tuple
+
+
 def test_apply_commit_after_set_lst_comitted(tracker,
-                                             state_root,
                                              init_ledger_size):
     tracker.apply_batch("test_root_1", 1000)
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_1", 1000 - init_ledger_size)
     assert tracker.last_committed == ("test_root_1", 1000)
 
     tracker.set_last_committed("test_root_2", 2000)
@@ -187,12 +210,12 @@ def test_apply_commit_after_set_lst_comitted(tracker,
     tracker.apply_batch("test_root_3", 2200)
     tracker.apply_batch("test_root_4", 2500)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_3", 200)
     assert tracker.last_committed == ("test_root_3", 2200)
 
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_4", 300)
     assert tracker.last_committed == ("test_root_4", 2500)
 
     tracker.apply_batch("test_root_5", 3000)
-    tracker.commit_batch()
+    assert tracker.commit_batch() == ("test_root_5", 500)
     assert tracker.last_committed == ("test_root_5", 3000)

@@ -1,38 +1,5 @@
-import pytest
-
-from common.serializers.serialization import domain_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
-from plenum.common.txn_util import do_req_to_txn
-from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
-from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.test.audit_ledger.helper import check_audit_txn
-
-
-@pytest.fixture(scope="function")
-def alh(db_manager):
-    audit_ledger_handler = AuditBatchHandler(db_manager)
-    yield audit_ledger_handler
-    for db in db_manager.databases.values():
-        db.reset()
-
-
-def do_apply_audit_txn(alh,
-                       txns_count, ledger_id,
-                       view_no, pp_sq_no, txn_time,
-                       has_audit_txn=True):
-    db_manager = alh.database_manager
-    add_txns(db_manager, ledger_id, txns_count, txn_time)
-    three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
-                                  inst_id=0,
-                                  view_no=view_no,
-                                  pp_seq_no=pp_sq_no,
-                                  pp_time=txn_time,
-                                  valid_txn_count=txns_count,
-                                  state_root=db_manager.get_state(ledger_id).headHash,
-                                  txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
-                                  has_audit_txn=has_audit_txn,
-                                  primaries=[])
-    alh.post_batch_applied(three_pc_batch)
+from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn
 
 
 def check_apply_audit_txn(alh,
@@ -218,11 +185,6 @@ def test_reject_batch(alh, db_manager,
                     last_pool_seqno=None,
                     last_domain_seqno=None,
                     last_config_seqno=None)
-
-    alh.post_batch_rejected(DOMAIN_LEDGER_ID)
-    assert alh.ledger.uncommitted_size == uncommited_size_before
-    assert alh.ledger.size == size_before
-    assert alh.ledger.get_last_txn() is None
 
     alh.post_batch_rejected(DOMAIN_LEDGER_ID)
     assert alh.ledger.uncommitted_size == uncommited_size_before
@@ -424,7 +386,6 @@ def test_audit_not_applied_if_pre_prepare_doesnt_have_audit(alh):
     assert alh.ledger.size == alh.ledger.uncommitted_size
 
 
-@pytest.mark.skip()
 def test_audit_not_committed_if_pre_prepare_doesnt_have_audit(alh, db_manager):
     size_before = alh.ledger.size
     uncommited_size_before = alh.ledger.uncommitted_size
@@ -444,12 +405,10 @@ def test_audit_not_committed_if_pre_prepare_doesnt_have_audit(alh, db_manager):
     # commit the first batch without audit txns
     alh.commit_batch(DOMAIN_LEDGER_ID, 10, state_root_hash_1, txn_root_hash_1, 10000)
 
-    assert alh.ledger.uncommitted_size == uncommited_size_before
+    assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before
-    assert alh.ledger.size == alh.ledger.uncommitted_size
 
 
-@pytest.mark.skip()
 def test_audit_not_reverted_if_pre_prepare_doesnt_have_audit(alh, db_manager):
     do_apply_audit_txn(alh,
                        txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
@@ -468,16 +427,3 @@ def test_audit_not_reverted_if_pre_prepare_doesnt_have_audit(alh, db_manager):
 
     assert alh.ledger.uncommitted_size == uncommited_size_after_1st
     assert alh.ledger.size == size_after_1st
-
-
-def add_txns(db_manager, ledger_id, count, txn_time):
-    ledger = db_manager.get_ledger(ledger_id)
-    state = db_manager.get_state(ledger_id)
-
-    txns = [do_req_to_txn({}, {"ledger_id": ledger_id, "num": i}) for i in range(count)]
-    ledger.append_txns_metadata(txns, txn_time)
-
-    ledger.appendTxns(txns)
-    for i, txn in enumerate(txns):
-        state.set(bytes(ledger_id + i),
-                  domain_state_serializer.serialize(txn))

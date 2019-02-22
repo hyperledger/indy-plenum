@@ -156,7 +156,7 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
         # trigger view change on all nodes
         ensure_view_change(looper, txnPoolNodeSet)
         # wait for view change done on all nodes
-        ensureElectionsDone(looper, txnPoolNodeSet)
+        ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=60)
 
     replies = sdk_get_replies(looper, requests)
     for reply in replies:

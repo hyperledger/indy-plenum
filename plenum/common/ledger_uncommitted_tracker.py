@@ -37,8 +37,10 @@ class LedgerUncommittedTracker:
             raise PlenumValueError("un_committed",
                                    self.un_committed,
                                    "commit_batch was called, but there is no tracked uncommitted states")
+        last_committed_size_before = self.last_committed[1]
         uncommitted_hash, uncommitted_size = self.un_committed.popleft()
         self.last_committed = (uncommitted_hash, uncommitted_size)
+        return uncommitted_hash, uncommitted_size - last_committed_size_before
 
     def reject_batch(self):
         """
