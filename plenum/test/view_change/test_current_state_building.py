@@ -102,7 +102,7 @@ def test_get_msgs_for_lagged_node_if_no_accepted(node_with_nodestack):
     fake_view_changer._accepted_view_change_done_message = ()
     current_view = fake_view_changer.last_completed_view_no
     fake_view_changer._view_change_done[node_with_nodestack.name] = ('SomeNewPrimary',
-                                                                    node_with_nodestack.ledger_summary)
+                                                                     node_with_nodestack.ledger_summary)
     vch_messages = fake_view_changer.get_msgs_for_lagged_nodes()
     assert vch_messages == [ViewChangeDone(current_view,
                                            *fake_view_changer._view_change_done[node_with_nodestack.name])]
@@ -118,7 +118,7 @@ def test_get_msgs_for_lagged_node_if_no_accepted_vc_in_progress(node_with_nodest
     fake_view_changer = node_with_nodestack.view_changer
     fake_view_changer._accepted_view_change_done_message = ()
     fake_view_changer._view_change_done[node_with_nodestack.name] = ('SomeNewPrimary',
-                                                                    node_with_nodestack.ledger_summary)
+                                                                     node_with_nodestack.ledger_summary)
     vch_messages = fake_view_changer.get_msgs_for_lagged_nodes()
     assert vch_messages == [ViewChangeDone(current_view,
                                            *fake_view_changer._view_change_done[node_with_nodestack.name])]

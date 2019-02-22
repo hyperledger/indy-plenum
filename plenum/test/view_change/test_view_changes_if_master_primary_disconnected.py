@@ -49,7 +49,7 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
     looper.run(eventually(checkViewNoForNodes,
                           txnPoolNodeSet, old_view_no + 1, timeout=tconf.VIEW_CHANGE_TIMEOUT))
     assert len(getAllReturnVals(old_pr_node.view_changer,
-                                old_pr_node.view_changer._start_view_change_if_possible,
+                                old_pr_node.view_changer._do_view_change_by_future_vcd,
                                 compare_val_to=True)) > 0
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

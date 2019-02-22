@@ -9,6 +9,7 @@ class ThreePcBatch:
                  pp_time,
                  valid_txn_count,
                  state_root, txn_root,
+                 primaries,
                  has_audit_txn=True) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
@@ -18,10 +19,11 @@ class ThreePcBatch:
         self.valid_txn_count = valid_txn_count
         self.state_root = state_root
         self.txn_root = txn_root
+        self.primaries = primaries
         self.has_audit_txn = has_audit_txn
 
     @staticmethod
-    def from_pre_prepare(pre_prepare, valid_txn_count, state_root, txn_root):
+    def from_pre_prepare(pre_prepare, valid_txn_count, state_root, txn_root, primaries):
         return ThreePcBatch(ledger_id=pre_prepare.ledgerId,
                             inst_id=pre_prepare.instId,
                             view_no=pre_prepare.viewNo,
@@ -31,6 +33,7 @@ class ThreePcBatch:
                             valid_txn_count=valid_txn_count,
                             state_root=state_root,
                             txn_root=txn_root,
+                            primaries=primaries,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None)
 
     @staticmethod
@@ -43,10 +46,11 @@ class ThreePcBatch:
                             valid_txn_count=len(ordered.valid_reqIdr),
                             state_root=Ledger.strToHash(ordered.stateRootHash),
                             txn_root=Ledger.strToHash(ordered.txnRootHash),
+                            primaries=ordered.primaries,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None)
 
     @staticmethod
-    def from_batch_committed_dict(batch_comitted):
+    def from_batch_committed_dict(batch_comitted, primaries):
         return ThreePcBatch(ledger_id=batch_comitted[f.LEDGER_ID.nm],
                             inst_id=batch_comitted[f.INST_ID.nm],
                             view_no=batch_comitted[f.VIEW_NO.nm],
@@ -55,5 +59,6 @@ class ThreePcBatch:
                             valid_txn_count=batch_comitted[f.SEQ_NO_END.nm] - batch_comitted[f.SEQ_NO_START.nm] + 1,
                             state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
                             txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]),
+                            primaries=primaries,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
                                 f.AUDIT_TXN_ROOT_HASH.nm] is not None)

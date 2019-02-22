@@ -16,7 +16,7 @@ def test_view_change_without_primary(txnPoolNodeSet, looper,
 
     timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + patched_view_change_timeout
 
-    #looper.runFor(40)
+    # looper.runFor(40)
 
     checkProtocolInstanceSetup(looper=looper, nodes=txnPoolNodeSet, retryWait=1,
                                customTimeout=timeout,

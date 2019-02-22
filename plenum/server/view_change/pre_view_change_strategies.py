@@ -40,8 +40,8 @@ class PreViewChangeStrategy(metaclass=ABCMeta):
 
 class VCStartMsgStrategy(PreViewChangeStrategy):
     """Strategy logic:
-    - when startViewChange method was called, then put 'local' ViewChangeStart message and set corresponded handlers
-    - on processing startViewChange message on the nodeInBoxRouter's side the next steps will be performed:
+    - when start_view_change method was called, then put 'local' ViewChangeStart message and set corresponded handlers
+    - on processing start_view_change message on the nodeInBoxRouter's side the next steps will be performed:
         - call nodestack.service method with extended quota parameters for getting as much as possible 3PC
           messages from ZMQ's side
         - process all messages from nodeInBox queue and stash all not 3PC
@@ -115,7 +115,7 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             """
             strategy.unstash_messages()
             replica.logger.info("VCStartMsgStrategy: continue view_change procedure in a normal way")
-            replica.node.view_changer.startViewChange(proposed_view_no, continue_vc=True)
+            replica.node.view_changer.start_view_change(proposed_view_no, continue_vc=True)
             strategy.is_preparing = False
 
     def unstash_messages(self):

@@ -83,8 +83,8 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def restore_backup_replicas(self):
         self._node.backup_instance_faulty_processor.restore_replicas()
 
-    def select_primaries(self, node_reg):
-        self._node.select_primaries(node_reg)
+    def select_primaries(self):
+        self._node.select_primaries()
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)

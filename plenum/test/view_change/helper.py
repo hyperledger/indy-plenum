@@ -334,7 +334,6 @@ def view_change_in_between_3pc_random_delays(
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)
 
 
-
 def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
                  tdir, tconf, all_plugins_path, name=None):
     node_name = name or "Psi"

@@ -11,7 +11,7 @@ from stp_core.loop.eventually import eventually
 
 
 def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(looper, txnPoolNodeSet,
-                                                  sdk_pool_handle, sdk_wallet_client):
+                                                                            sdk_pool_handle, sdk_wallet_client):
     '''
     1. Send random request
     2. Make 3 node on backup instance slow in getting commits
@@ -68,7 +68,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
 
 def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, txnPoolNodeSet,
-                                                  sdk_pool_handle, sdk_wallet_client):
+                                                                        sdk_pool_handle, sdk_wallet_client):
     '''
     1. Send random request
     2. Make 3 node on backup instance slow in getting prepares
@@ -130,7 +130,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
 
 def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(looper, txnPoolNodeSet,
-                                                  sdk_pool_handle, sdk_wallet_client):
+                                                                            sdk_pool_handle, sdk_wallet_client):
     ''' Send random request and do view change then fast_nodes (1, 4 - without
     primary after next view change) are already ordered transaction on master
     and slow_nodes are not. Check ordering on slow_nodes.'''

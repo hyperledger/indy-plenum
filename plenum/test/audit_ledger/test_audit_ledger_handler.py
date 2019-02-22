@@ -30,7 +30,8 @@ def do_apply_audit_txn(alh,
                                   valid_txn_count=txns_count,
                                   state_root=db_manager.get_state(ledger_id).headHash,
                                   txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
-                                  has_audit_txn=has_audit_txn)
+                                  has_audit_txn=has_audit_txn,
+                                  primaries=[])
     alh.post_batch_applied(three_pc_batch)
 
 

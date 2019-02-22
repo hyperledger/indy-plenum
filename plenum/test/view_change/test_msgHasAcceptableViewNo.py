@@ -2,6 +2,7 @@ import pytest
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.node import Node
 
+
 @pytest.fixture(scope='function', params=[False, True])
 def view_change_in_progress(request):
     return request.param

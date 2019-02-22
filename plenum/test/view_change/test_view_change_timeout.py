@@ -69,7 +69,7 @@ def stop_next_primary(nodes):
 
 def start_view_change(nodes, next_view_no):
     for n in nodes:
-        n.view_changer.startViewChange(next_view_no)
+        n.view_changer.start_view_change(next_view_no)
 
 
 @pytest.fixture()

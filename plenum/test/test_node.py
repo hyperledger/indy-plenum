@@ -444,9 +444,9 @@ class TestPrimarySelector(PrimarySelector):
 
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
-    ViewChanger._start_view_change_if_possible,
+    ViewChanger._do_view_change_by_future_vcd,
     ViewChanger.process_instance_change_msg,
-    ViewChanger.startViewChange,
+    ViewChanger.start_view_change,
     ViewChanger.process_future_view_vchd_msg
 ]
 
@@ -954,7 +954,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     :param proposedViewNo: The view no which is proposed
     :return:
     """
-    params = [args for args in getAllArgs(node.view_changer, ViewChanger.startViewChange)]
+    params = [args for args in getAllArgs(node.view_changer, ViewChanger.start_view_change)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo

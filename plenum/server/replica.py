@@ -907,7 +907,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           pp_time=tm,
                                           valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
-                                          txn_root=self.txnRootHash(ledger_id, to_str=False))
+                                          txn_root=self.txnRootHash(ledger_id, to_str=False),
+                                          primaries=self.node.primaries)
             self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
@@ -1433,8 +1434,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                            state_root=self.stateRootHash(pre_prepare.ledgerId,
                                                                                          to_str=False),
                                                            txn_root=self.txnRootHash(pre_prepare.ledgerId,
-                                                                                     to_str=False)
-                                                           )
+                                                                                     to_str=False),
+                                                           primaries=self.node.primaries)
             self.node.onBatchCreated(three_pc_batch)
 
         return reqs, invalid_indices, rejects
@@ -1912,7 +1913,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.ledgerId,
                           pp.stateRootHash,
                           pp.txnRootHash,
-                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None)
+                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
+                          self.node.replicas)
+        # some concerns about this ^^^
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered

@@ -13,8 +13,7 @@ def test_future_vcdone_when_propagate_primary_no_quorum(fake_node):
     fake_node.view_changer._next_view_indications[proposed_view_no] = {}
     fake_node.view_changer._next_view_indications[proposed_view_no][frm] = msg
     view_changer = fake_node.view_changer
-    res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      propagate_primary=True)
+    res = view_changer._do_view_change_by_future_vcd(proposed_view_no)
     assert res is False
 
 
@@ -32,8 +31,7 @@ def test_future_vcdone_when_propagate_primary_with_quorum(fake_node):
     for i in range(len(msgs)):
         fake_node.view_changer._next_view_indications[proposed_view_no][frms[i]] = msgs[i]
     view_changer = fake_node.view_changer
-    res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      propagate_primary=True)
+    res = view_changer._do_view_change_by_future_vcd(proposed_view_no)
     assert res is True
 
 
@@ -51,8 +49,7 @@ def test_future_vcdone_now_when_propagate_primary_no_quorum(fake_node):
     for i in range(len(msgs)):
         fake_node.view_changer._next_view_indications[proposed_view_no][frms[i]] = msgs[i]
     view_changer = fake_node.view_changer
-    res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      propagate_primary=False)
+    res = view_changer._do_view_change_by_future_vcd(proposed_view_no)
     assert res is False
 
 
@@ -70,6 +67,5 @@ def test_future_vcdone_now_when_propagate_primary_with_quorum(fake_node):
     for i in range(len(msgs)):
         fake_node.view_changer._next_view_indications[proposed_view_no][frms[i]] = msgs[i]
     view_changer = fake_node.view_changer
-    res = view_changer._start_view_change_if_possible(proposed_view_no,
-                                                      propagate_primary=False)
+    res = view_changer._do_view_change_by_future_vcd(proposed_view_no)
     assert res is True
