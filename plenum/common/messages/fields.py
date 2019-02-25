@@ -100,6 +100,12 @@ class AnyField(FieldBase):
 
 class BooleanField(FieldBase):
     _base_types = (bool,)
+    _exceptional_values = False
+
+    def __init__(self, exceptional_values: bool=False, **kwargs):
+        super().__init__(**kwargs)
+        if exceptional_values is not None:
+            self._exceptional_values = exceptional_values
 
     def _specific_validation(self, val):
         return
@@ -275,6 +281,11 @@ class MapField(FieldBase):
 class AnyMapField(FieldBase):
     # A map where key and value can be of arbitrary types
     _base_types = (dict,)
+    _exceptional_values = None
+
+    def __init__(self, exceptional_values=None, **kwargs):
+        super().__init__(**kwargs)
+        self._exceptional_values = exceptional_values
 
     def _specific_validation(self, _):
         return
