@@ -1,7 +1,6 @@
 import logging
 import time
 
-import base58
 from common.exceptions import PlenumValueError
 from common.serializers.mapping_serializer import MappingSerializer
 from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer, txn_root_serializer

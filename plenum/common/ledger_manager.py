@@ -999,8 +999,8 @@ class LedgerManager(HasActionQueue):
         seqNoEnd = ledger.size
         return self._buildConsistencyProof(ledgerId, seqNoStart, seqNoEnd)
 
+    # TODO: Replace with CatchupDataProvider
     def _buildConsistencyProof(self, ledgerId, seqNoStart, seqNoEnd):
-
         ledger = self.getLedgerInfoByType(ledgerId).ledger
 
         ledgerSize = ledger.size
