@@ -1,4 +1,5 @@
-from typing import Optional
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
@@ -9,20 +10,37 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
+# TODO: Come up with a better name?
+class CatchupNodeDataProvider(ABC):
+    @abstractmethod
+    # TODO: Delete when INDY-1946 gets implemented
+    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
+        pass
+
+    @abstractmethod
+    def update_txn_with_extra_data(self, txn: dict) -> dict:
+        pass
+
+
 class CatchupLedgerDataProvider:
-    def __init__(self, name: str, ledger_id: int, ledger: Ledger):
-        self._name = name
+    def __init__(self, name: str, ledger_id: int, ledger: Ledger, node: CatchupNodeDataProvider):
+        self._name = "{}, ledger id {}".format(name, ledger_id)
         self._ledger_id = ledger_id
         self._ledger = ledger
+        self._node = node  # TODO: Come up with a better name?
 
     def __repr__(self):
-        return "{}, ledger id {}".format(self._name, self._ledger_id)
+        return self._name
 
     def get_ledger_status(self) -> LedgerStatus:
+        # TODO: Delete when INDY-1946 gets implemented
+        three_pc_key = self._node.three_phase_key_for_txn_seq_no(self._ledger_id, self._ledger.size)
+        view_no, pp_seq_no = three_pc_key if three_pc_key else (None, None)
+
         return LedgerStatus(self._ledger_id,
                             self._ledger.size,
-                            None,
-                            None,
+                            view_no,
+                            pp_seq_no,
                             self._ledger.root_hash,
                             CURRENT_PROTOCOL_VERSION)
 
@@ -58,11 +76,15 @@ class CatchupLedgerDataProvider:
         new_root = Ledger.hashToStr(new_root)
         proof = [Ledger.hashToStr(p) for p in proof]
 
+        # TODO: Delete when INDY-1946 gets implemented
+        three_pc_key = self._node.three_phase_key_for_txn_seq_no(self._ledger_id, seq_no_end)
+        view_no, pp_seq_no = three_pc_key if three_pc_key else (0, 0)
+
         return ConsistencyProof(self._ledger_id,
                                 seq_no_start,
                                 seq_no_end,
-                                None,
-                                None,
+                                view_no,
+                                pp_seq_no,
                                 old_root,
                                 new_root,
                                 proof)
@@ -83,7 +105,7 @@ class CatchupLedgerDataProvider:
 
     def process_catchup_req(self, req: CatchupReq, frm: str) -> Optional[CatchupRep]:
         if req.ledgerId != self._ledger_id:
-            raise ValueError("{} received {} for wrong ledger".format(self, status))
+            raise ValueError("{} received {} for wrong ledger".format(self, req))
 
         start = req.seqNoStart
         end = req.seqNoEnd
@@ -108,11 +130,9 @@ class CatchupLedgerDataProvider:
 
         txns = {}
         for seq_no, txn in self._ledger.getAllTxn(start, end):
-            # TODO: txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
-            txns[seq_no] = txn
+            txns[seq_no] = self._node.update_txn_with_extra_data(txn)
 
-        # TODO: Do we really need them sorted?
-        sorted_txns = SortedDict(txns)
+        txns = SortedDict(txns)  # TODO: Do we really need them sorted?
         return CatchupRep(self._ledger_id,
-                          sorted_txns,
+                          txns,
                           cons_proof)
