@@ -75,6 +75,11 @@ def test_validator_info_file_metrics_count_config_field_valid(node, info):
     assert info['Node_info']['Metrics']['transaction-count']['config'] == txns_num
 
 
+def test_validator_info_file_metrics_count_audit_field_valid(node, info):
+    txns_num = node.auditLedger.size
+    assert info['Node_info']['Metrics']['transaction-count']['audit'] == txns_num
+
+
 def test_validator_info_file_metrics_count_pool_field_valid(info):
     assert info['Node_info']['Metrics']['transaction-count']['pool'] == nodeCount
 
