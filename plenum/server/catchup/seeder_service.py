@@ -132,7 +132,7 @@ class SeederService:
             right_cons_proof = self._make_consistency_proof(ledger,
                                                             right_last_seq_no,
                                                             initial_seq_no)
-            ledger_id = getattr(message, f.LEDGER_ID.nm)
+            ledger_id = message.ledgerId
 
             left_rep = CatchupRep(ledger_id, SortedDict(left), left_cons_proof)
             right_rep = CatchupRep(ledger_id, SortedDict(right), right_cons_proof)

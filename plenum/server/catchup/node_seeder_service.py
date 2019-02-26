@@ -16,7 +16,7 @@ class NodeSeederService(SeederService):
     def process_ledger_status(self, status: LedgerStatus, frm: str):
         logger.info("{} received ledger status: {} from {}".format(self, status, frm))
 
-        ledger_id, ledger = self._get_ledger_and_id(req)
+        ledger_id, ledger = self._get_ledger_and_id(status)
 
         if ledger is None:
             logger.warning("{} discarding message {} from {} because it references invalid ledger".
