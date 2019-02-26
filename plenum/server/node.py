@@ -1033,7 +1033,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_new_ledger_manager(self) -> LedgerManager:
         ledger_sync_order = self.ledger_ids
-        return LedgerManager(self, ownedByNode=True,
+        return LedgerManager(self,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp,
                              preCatchupClbk=self.preLedgerCatchUp,
                              postCatchupClbk=self.postLedgerCatchUp,

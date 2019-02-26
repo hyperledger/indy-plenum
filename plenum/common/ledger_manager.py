@@ -27,7 +27,6 @@ logger = getlogger()
 class LedgerManager(HasActionQueue):
     def __init__(self,
                  owner,
-                 ownedByNode: bool = True,
                  postAllLedgersCaughtUp: Optional[Callable] = None,
                  preCatchupClbk: Optional[Callable] = None,
                  postCatchupClbk: Optional[Callable] = None,
@@ -36,7 +35,6 @@ class LedgerManager(HasActionQueue):
         # If ledger_sync_order is not provided (is None), it is assumed that
         # `postCatchupCompleteClbk` of the LedgerInfo will be used
         self.owner = owner
-        self.ownedByNode = ownedByNode
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
         self.preCatchupClbk = preCatchupClbk
         self.postCatchupClbk = postCatchupClbk
@@ -294,32 +292,31 @@ class LedgerManager(HasActionQueue):
 
         ledgerId = getattr(status, f.LEDGER_ID.nm)
 
-        if self.ownedByNode:
-            statusFromClient = self.getStack(frm) == self.clientstack
+        statusFromClient = self.getStack(frm) == self.clientstack
 
-            if statusFromClient:
-                if ledgerId != POOL_LEDGER_ID:
-                    # A client has only the pool ledger, so it should not send
-                    # ledger statuses related to other ledgers
-                    logger.info("{} received inappropriate ledger status {} from client {}".
-                                format(self, status, frm))
-                    return
-                # If our node is not ahead the client which has sent
-                # the ledger status then reply to it that its ledger is OK
-                if not self.isLedgerNew(ledgerStatus):
-                    ledger_status = self.owner.build_ledger_status(ledgerId)
-                    self.sendTo(ledger_status, frm)
-
-            # If our node is ahead the sender of the ledger status
-            # then reply to it with the consistency proof
-            if self.isLedgerNew(ledgerStatus):
-                consistencyProof = self.getConsistencyProof(ledgerStatus)
-                if consistencyProof:
-                    self.sendTo(consistencyProof, frm)
-
-            # If the ledger status is from client then we do nothing more
-            if statusFromClient:
+        if statusFromClient:
+            if ledgerId != POOL_LEDGER_ID:
+                # A client has only the pool ledger, so it should not send
+                # ledger statuses related to other ledgers
+                logger.info("{} received inappropriate ledger status {} from client {}".
+                            format(self, status, frm))
                 return
+            # If our node is not ahead the client which has sent
+            # the ledger status then reply to it that its ledger is OK
+            if not self.isLedgerNew(ledgerStatus):
+                ledger_status = self.owner.build_ledger_status(ledgerId)
+                self.sendTo(ledger_status, frm)
+
+        # If our node is ahead the sender of the ledger status
+        # then reply to it with the consistency proof
+        if self.isLedgerNew(ledgerStatus):
+            consistencyProof = self.getConsistencyProof(ledgerStatus)
+            if consistencyProof:
+                self.sendTo(consistencyProof, frm)
+
+        # If the ledger status is from client then we do nothing more
+        if statusFromClient:
+            return
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
 
@@ -433,10 +430,6 @@ class LedgerManager(HasActionQueue):
     @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.info("{} received catchup request: {} from {}".format(self, req, frm))
-        if not self.ownedByNode:
-            self.discard(req, reason="Only node can serve catchup requests",
-                         logMethod=logger.warning)
-            return
 
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
@@ -563,17 +556,16 @@ class LedgerManager(HasActionQueue):
                 numProcessed += toBeProcessed
                 catchUpReplies = catchUpReplies[toBeProcessed:]
             else:
-                if self.ownedByNode:
-                    self.owner.blacklistNode(nodeName,
-                                             reason="Sent transactions "
-                                                    "that could not be "
-                                                    "verified")
-                    self._removePrcdCatchupReply(ledgerId, nodeName,
-                                                 seqNo)
-                    # Invalid transactions have to be discarded so letting
-                    # the caller know how many txns have to removed from
-                    # `self.receivedCatchUpReplies`
-                    return numProcessed + toBeProcessed
+                self.owner.blacklistNode(nodeName,
+                                         reason="Sent transactions "
+                                                "that could not be "
+                                                "verified")
+                self._removePrcdCatchupReply(ledgerId, nodeName,
+                                             seqNo)
+                # Invalid transactions have to be discarded so letting
+                # the caller know how many txns have to removed from
+                # `self.receivedCatchUpReplies`
+                return numProcessed + toBeProcessed
         return numProcessed
 
     def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
@@ -590,9 +582,7 @@ class LedgerManager(HasActionQueue):
     def _transform(self, txn):
         # Certain transactions might need to be
         # transformed to certain format before applying to the ledger
-        z = txn if not self.ownedByNode else \
-            self.owner.transform_txn_for_ledger(txn)
-        return z
+        return self.owner.transform_txn_for_ledger(txn)
 
     def hasValidCatchupReplies(self, ledgerId, ledger, seqNo, catchUpReplies):
         # Here seqNo has to be the seqNo of first transaction of
@@ -898,9 +888,6 @@ class LedgerManager(HasActionQueue):
                 self.postAllLedgersCaughtUp()
 
     def catchup_next_ledger(self, ledger_id):
-        if not self.ownedByNode:
-            logger.info('{} not owned by node'.format(self))
-            return
         next_ledger_id = self.ledger_to_sync_after(ledger_id)
         if next_ledger_id is not None:
             self.catchup_ledger(next_ledger_id)
@@ -1092,16 +1079,11 @@ class LedgerManager(HasActionQueue):
             return self.clientstack
 
     def sendTo(self, msg: Any, to: str, message_splitter=None):
-        # If the message is being sent by a node
-        if self.ownedByNode:
-            stack = self.getStack(to)
-            if stack == self.nodestack:
-                self.sendToNodes(msg, [to, ], message_splitter)
-            if stack == self.clientstack:
-                self.owner.transmitToClient(msg, to)
-        # If the message is being sent by a client
-        else:
-            self.sendToNodes(msg, [to, ])
+        stack = self.getStack(to)
+        if stack == self.nodestack:
+            self.sendToNodes(msg, [to, ], message_splitter)
+        if stack == self.clientstack:
+            self.owner.transmitToClient(msg, to)
 
     def send_catchup_req(self, msg: CatchupReq, to: str):
         self.wait_catchup_rep_from.add(to)
@@ -1113,7 +1095,7 @@ class LedgerManager(HasActionQueue):
 
     @property
     def clientstack(self):
-        return self.owner.clientstack if self.ownedByNode else None
+        return self.owner.clientstack
 
     @property
     def send(self):
@@ -1129,9 +1111,7 @@ class LedgerManager(HasActionQueue):
 
     @property
     def blacklistedNodes(self):
-        if self.ownedByNode:
-            return self.owner.blacklistedNodes
-        return set()
+        return self.owner.blacklistedNodes
 
     @property
     def nodes_to_request_txns_from(self):
