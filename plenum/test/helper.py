@@ -446,6 +446,7 @@ def assertFunc(func):
 def checkLedgerEquality(ledger1, ledger2):
     assertLength(ledger1, ledger2.size)
     assertEquality(ledger1.root_hash, ledger2.root_hash)
+    assertEquality(ledger1.uncommitted_root_hash, ledger2.uncommitted_root_hash)
 
 
 def checkAllLedgersEqual(*ledgers):
@@ -1093,10 +1094,9 @@ def create_pre_prepare_params(state_root,
               state_root,
               txn_root or '1' * 32,
               0,
-              True]
-    if pool_state_root is not None:
-        params.append(pool_state_root)
-    params.append(audit_txn_root or generate_state_root())
+              True,
+              pool_state_root or generate_state_root(),
+              audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params

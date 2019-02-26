@@ -86,7 +86,6 @@ class WriteRequestManager(RequestManager):
         pass
 
     # BatchRequestHandler methods
-    # TODO: pass PrePrepare here
     def post_apply_batch(self, three_pc_batch):
         handlers = self.batch_handlers.get(three_pc_batch.ledger_id, None)
         if handlers is None:

@@ -35,7 +35,6 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.view_change.node_view_changer import create_view_changer, ViewChangerNodeDataProvider
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
@@ -177,12 +176,7 @@ class TestNodeCore(StackedTester):
         return view_changer
 
     def delaySelfNomination(self, delay: Seconds):
-        if isinstance(self.primaryDecider, PrimaryElector):
-            logger.debug("{} delaying start election".format(self))
-            delayerElection = partial(delayers.delayerMethod,
-                                      TestPrimaryElector.startElection)
-            self.elector.actionQueueStasher.delay(delayerElection(delay))
-        elif isinstance(self.primaryDecider, PrimarySelector):
+        if isinstance(self.primaryDecider, PrimarySelector):
             raise RuntimeError('Does not support nomination since primary is '
                                'selected deterministically')
         else:
@@ -383,7 +377,6 @@ class TestNode(TestNodeCore, Node):
     def get_new_ledger_manager(self):
         return TestLedgerManager(
             self,
-            ownedByNode=True,
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp,
             postCatchupClbk=self.postLedgerCatchUp,
@@ -412,26 +405,6 @@ class TestNode(TestNodeCore, Node):
         self.clientstack.restart()
 
 
-elector_spyables = [
-    PrimaryElector.discard,
-    PrimaryElector.processPrimary,
-    PrimaryElector.sendPrimary
-]
-
-
-@spyable(methods=elector_spyables)
-class TestPrimaryElector(PrimaryElector):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.actionQueueStasher = Stasher(self.actionQueue,
-                                          "actionQueueStasher~elector~" +
-                                          self.name)
-
-    def _serviceActions(self):
-        self.actionQueueStasher.process()
-        return super()._serviceActions()
-
-
 selector_spyables = [PrimarySelector.decidePrimaries]
 
 
@@ -452,6 +425,7 @@ view_changer_spyables = [
 @spyable(methods=view_changer_spyables)
 class TestViewChanger(ViewChanger):
     pass
+
 
 replica_stasher_spyables = [
     ReplicaStasher.stash
@@ -510,8 +484,8 @@ class TestReplicas(Replicas):
 
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
         return self.__class__._replica_class(self._node, instance_id,
-                                                self._config, is_master,
-                                                bls_bft, self._metrics)
+                                             self._config, is_master,
+                                             bls_bft, self._metrics)
 
 
 # TODO: probably delete when remove from node
@@ -969,7 +943,7 @@ def timeThis(func, *args, **kwargs):
 def instances(nodes: Sequence[Node],
               instances: Sequence[int] = None) -> Dict[int, List[replica.Replica]]:
     instances = (range(getRequiredInstances(len(nodes)))
-                 if instances is None else instances)
+    if instances is None else instances)
     for n in nodes:
         assert len(n.replicas) == len(instances)
     return {i: [n.replicas[i] for n in nodes] for i in instances}
