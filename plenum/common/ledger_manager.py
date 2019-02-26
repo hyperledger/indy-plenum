@@ -17,11 +17,35 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
+from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+
+class CatchupNodeDataProvider(CatchupDataProvider):
+    def __init__(self, node):
+        self._node = node
+
+    def node_name(self) -> str:
+        return self._node.name
+
+    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
+        return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
+
+    def update_txn_with_extra_data(self, txn: dict) -> dict:
+        return self._node.update_txn_with_extra_data(txn)
+
+    def send_to(self, msg: Any, to: str, message_splitter: Optional[Callable] = None):
+        if self._node.nodestack.hasRemote(to):
+            self._node.sendToNodes(msg, [to], message_splitter)
+        else:
+            self._node.transmitToClient(msg, to)
+
+    def send_to_nodes(self, msg: Any):
+        self._node.sendToNodes(msg)
 
 
 class LedgerManager(HasActionQueue):

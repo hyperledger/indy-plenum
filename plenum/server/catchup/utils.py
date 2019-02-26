@@ -25,11 +25,11 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def send_to(self, msg: Any, to: Optional[str] = None, message_splitter: Optional[Callable] = None):
+    def send_to(self, msg: Any, to: str, message_splitter: Optional[Callable] = None):
         pass
 
     @abstractmethod
-    def broadcast(self, msg: Any):
+    def send_to_nodes(self, msg: Any):
         pass
 
 
