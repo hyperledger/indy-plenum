@@ -1032,7 +1032,7 @@ class LedgerManager(HasActionQueue):
             oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
 
         newRoot = ledger.tree.merkle_tree_hash(0, seqNoEnd)
-        key = self.owner.three_phase_key_for_txn_seq_no(ledgerId, seqNoEnd)
+        key = None
         logger.info('{} found 3 phase key {} for ledger {} seqNo {}'.format(self, key, ledgerId, seqNoEnd))
         if key is None:
             # The node receiving consistency proof should check if it has

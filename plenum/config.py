@@ -258,10 +258,6 @@ Max3PCBatchWait = 1
 UPDATE_STATE_FRESHNESS = True
 STATE_FRESHNESS_UPDATE_INTERVAL = 300  # in secs
 
-# Each node keeps a map of PrePrepare sequence numbers and the corresponding
-# txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
-ProcessedBatchMapsToKeep = 1000
-
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent
 # Max 3 state proof size
