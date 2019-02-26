@@ -29,6 +29,19 @@ class AuditBatchHandler(BatchRequestHandler):
         _, committedTxns = self.ledger.commitTxns(txns_count)
         return committedTxns
 
+    @staticmethod
+    def transform_txn_for_ledger(txn):
+        '''
+        Makes sure that we have integer as keys after possible deserialization from json
+        :param txn: txn to be transformed
+        :return: transformed txn
+        '''
+        txn_data = get_payload_data(txn)
+        txn_data[AUDIT_TXN_LEDGERS_SIZE] = {int(k): v for k, v in txn_data[AUDIT_TXN_LEDGERS_SIZE].items()}
+        txn_data[AUDIT_TXN_LEDGER_ROOT] = {int(k): v for k, v in txn_data[AUDIT_TXN_LEDGER_ROOT].items()}
+        txn_data[AUDIT_TXN_STATE_ROOT] = {int(k): v for k, v in txn_data[AUDIT_TXN_STATE_ROOT].items()}
+        return txn
+
     def _add_to_ledger(self, three_pc_batch: ThreePcBatch):
         # if PRE-PREPARE doesn't have audit txn (probably old code) - do nothing
         # TODO: remove this check after all nodes support audit ledger
