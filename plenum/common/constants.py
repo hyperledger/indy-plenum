@@ -104,12 +104,6 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
-CONSTRAINT = "constraint"
-OLD_VALUE = "old_value"
-NEW_VALUE = "new_value"
-AUTH_ACTION = "auth_action"
-AUTH_TYPE = "auth_type"
-FIELD = "field"
 
 AUDIT_TXN_VIEW_NO = "viewNo"
 AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
