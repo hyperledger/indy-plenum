@@ -1056,15 +1056,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainLedgerStatus(self):
         return self.build_ledger_status(DOMAIN_LEDGER_ID)
 
-    def getLedgerRootHash(self, ledgerId, isCommitted=True):
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
-        if not ledgerInfo:
-            raise RuntimeError('Ledger with id {} does not exist')
-        ledger = ledgerInfo.ledger
-        if isCommitted:
-            return ledger.root_hash
-        return ledger.uncommitted_root_hash
-
     def stateRootHash(self, ledgerId, isCommitted=True):
         state = self.states.get(ledgerId)
         if not state:

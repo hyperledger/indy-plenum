@@ -97,10 +97,10 @@ class AuditBatchHandler(BatchRequestHandler):
         elif last_audit_txn_data is None or lid not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
             return
 
-        # 3. ledger is not changed in last batch => delat = delta + 1
+        # 3. ledger is not changed in last batch => delta = delta + 1
         elif isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid], int):
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid] + 1
 
-        # 4. ledger is changed in last batch but not changed now => delat = 1
+        # 4. ledger is changed in last batch but not changed now => delta = 1
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = 1
