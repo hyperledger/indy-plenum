@@ -2,26 +2,59 @@ from typing import Any, Tuple, Optional
 
 from plenum.common.channel import RxChannel
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import CatchupReq, CatchupRep, ConsistencyProof
+from plenum.common.messages.node_messages import CatchupReq, CatchupRep, ConsistencyProof, LedgerStatus
 from plenum.common.util import SortedDict
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status
 from stp_core.common.log import getlogger
 
 logger = getlogger()
 
 
 class SeederService:
-    def __init__(self, input: RxChannel, provider: CatchupDataProvider):
+    def __init__(self, input: RxChannel, provider: CatchupDataProvider, service_clients: bool):
+        input.set_handler(LedgerStatus, self.process_ledger_status)
         input.set_handler(CatchupReq, self.process_catchup_req)
 
         self._provider = provider
         self._ledgers = {}  # Dict[int, Ledger]
+        self._service_clients = service_clients
 
     def __repr__(self):
         return self._provider.node_name()
 
     def add_ledger(self, ledger_id: int, ledger: Ledger):
         self._ledgers[ledger_id] = ledger
+
+    def process_ledger_status(self, status: LedgerStatus, frm: str):
+        logger.info("{} received ledger status: {} from {}".format(self, status, frm))
+
+        ledger_id, ledger = self._get_ledger_and_id(status)
+
+        if ledger is None:
+            logger.warning("{} discarding message {} from {} because it references invalid ledger".
+                           format(self, status, frm))
+            return
+
+        if status.txnSeqNo < 0:
+            logger.warning("{} discarding message {} from {} because it contains negative sequence number".
+                           format(self, status, frm))
+            return
+
+        if status.txnSeqNo >= ledger.size:
+            if self._service_clients:
+                ledger_status = build_ledger_status(ledger_id, ledger, self._provider)
+                self._provider.send_to(ledger_status, frm)
+            return
+
+        try:
+            cons_proof = self._build_consistency_proof(ledger_id, status.txnSeqNo, ledger.size)
+
+            logger.info("{} sending consistency proof: {} to {}".format(self, cons_proof, frm))
+            self._provider.send_to(cons_proof, frm)
+        except ValueError as e:
+            logger.warning("{} discarding message {} from {} because {}".
+                           format(self, status, frm, e))
+            return
 
     def process_catchup_req(self, req: CatchupReq, frm: str):
         logger.info("{} received catchup request: {} from {}".format(self, req, frm))
@@ -139,3 +172,13 @@ class SeederService:
             return left_rep, right_rep
 
         return _split
+
+
+class ClientSeederService(SeederService):
+    def __init__(self, input: RxChannel, provider: CatchupDataProvider):
+        SeederService.__init__(self, input, provider, service_clients=True)
+
+
+class NodeSeederService(SeederService):
+    def __init__(self, input: RxChannel, provider: CatchupDataProvider):
+        SeederService.__init__(self, input, provider, service_clients=False)
