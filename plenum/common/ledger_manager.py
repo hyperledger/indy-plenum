@@ -32,9 +32,6 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def node_name(self) -> str:
         return self._node.name
 
-    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-        return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
-
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         return self._node.update_txn_with_extra_data(txn)
 

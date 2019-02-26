@@ -3283,10 +3283,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
 
-        self._update_txn_seq_range_to_3phase(first_txn_seq_no, last_txn_seq_no,
-                                             ledger_id,
-                                             view_no, pp_seq_no)
-
         reqs = []
         reqs_list_built = True
         for req_key in valid_reqs_keys:
