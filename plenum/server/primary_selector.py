@@ -125,8 +125,8 @@ class PrimarySelector(PrimaryDecider):
                 replica.primaryChanged(self.node.primaries[instance_id])
                 self.node.primary_selected(instance_id)
 
-            # Emulate view_change ending
-            self.node.on_view_change_complete()
+        # Emulate view_change ending
+        self.node.on_view_change_complete()
 
     def get_last_audited_primaries(self):
         audit = self.node.getLedger(AUDIT_LEDGER_ID)

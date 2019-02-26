@@ -101,7 +101,7 @@ class AuditBatchHandler(BatchRequestHandler):
 
     def __fill_primaries(self, txn, three_pc_batch, last_audit_txn):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
-        last_txn_value = last_audit_txn_data[AUDIT_TXN_PRIMARIES]
+        last_txn_value = last_audit_txn_data[AUDIT_TXN_PRIMARIES] if last_audit_txn_data else None
         current_primaries = three_pc_batch.primaries
 
         # 1. First audit txn

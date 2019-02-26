@@ -2312,8 +2312,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def allLedgersCaughtUp(self):
         if self.num_txns_caught_up_in_last_catchup() == 0:
             self.catchup_rounds_without_txns += 1
-        data = get_payload_data(self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn())
-        self.ledgerManager.last_caught_up_3PC = (data[AUDIT_TXN_VIEW_NO], data[AUDIT_TXN_PP_SEQ_NO])
+        last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
+        if last_txn:
+            data = get_payload_data(last_txn)
+            self.ledgerManager.last_caught_up_3PC = (data[AUDIT_TXN_VIEW_NO], data[AUDIT_TXN_PP_SEQ_NO])
+        else:
+            self.ledgerManager.last_caught_up_3PC = (0, 0)
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         master_last_ordered_3PC = self.master_last_ordered_3PC
         self.mode = Mode.synced
@@ -3969,6 +3973,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_primaries_for_view_no(self, view_no):
         # TODO: Modify to restore primary_name by (view_no, seq_no)
+        # TODO: Because replicas can be deleted this is bad way for getting primaries
         return [replica.primaryNames[view_no] for replica in self.replicas.values()]
 
     def _init_write_request_validator(self):
