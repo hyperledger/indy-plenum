@@ -268,8 +268,8 @@ class ViewChanger():
     @property
     def has_acceptable_view_change_quorum(self):
         if not self._has_acceptable_view_change_quorum:
-            self._has_acceptable_view_change_quorum = (
-                    self._hasViewChangeQuorum and self.has_view_change_from_primary)
+            self._has_acceptable_view_change_quorum = \
+                (self._hasViewChangeQuorum and self.has_view_change_from_primary)
         return self._has_acceptable_view_change_quorum
 
     @property
@@ -381,8 +381,8 @@ class ViewChanger():
             self.provider.discard(
                 instChg,
                 "received instance change request: {} from {} "
-                "which is not in connected list: {}".
-                    format(instChg, frm, self.provider.connected_nodes()), logger.info)
+                "which is not in connected list: {}".format(
+                    instChg, frm, self.provider.connected_nodes()), logger.info)
             return
 
         logger.info("{} received instance change request: {} from {}".format(self, instChg, frm))
@@ -390,14 +390,14 @@ class ViewChanger():
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
             self.provider.discard(
-                instChg, "{}field view_no has incorrect type: {}".
-                    format(VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
+                instChg, "{}field view_no has incorrect type: {}".format(
+                    VIEW_CHANGE_PREFIX, type(instChg.viewNo)))
         elif instChg.viewNo <= self.view_no:
             self.provider.discard(
                 instChg,
                 "Received instance change request with view no {} "
-                "which is not more than its view no {}".
-                    format(instChg.viewNo, self.view_no), logger.info)
+                "which is not more than its view no {}".format(
+                    instChg.viewNo, self.view_no), logger.info)
         else:
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes

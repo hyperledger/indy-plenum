@@ -117,8 +117,7 @@ class PrimaryElector(PrimaryDecider):
 
         :param instId: the instance id (used to identify the replica on this node)
         """
-        return instId in self.nominations and \
-               self.replicas[instId].name in self.nominations[instId]
+        return instId in self.nominations and self.replicas[instId].name in self.nominations[instId]
 
     def didReplicaDeclarePrimary(self, instId: int):
         """
@@ -126,8 +125,7 @@ class PrimaryElector(PrimaryDecider):
 
         :param instId: the instance id (used to identify the replica on this node)
         """
-        return instId in self.primaryDeclarations and \
-               self.replicas[instId].name in self.primaryDeclarations[instId]
+        return instId in self.primaryDeclarations and self.replicas[instId].name in self.primaryDeclarations[instId]
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
@@ -248,8 +246,8 @@ class PrimaryElector(PrimaryDecider):
                 nom.name) == self.previous_master_primary:
             self.discard(
                 nom, '{} got Nomination from {} for {} who was primary'
-                     ' of master in previous view too'.format(
-                    self, sender, nom.name), logMethod=logger.debug)
+                     ' of master in previous view too'.format(self, sender, nom.name),
+                logMethod=logger.debug)
             return False
 
         sndrRep = replica.generateName(sender, nom.instId)
@@ -688,8 +686,7 @@ class PrimaryElector(PrimaryDecider):
 
         :param instId: id of the instance for which elections are happening.
         """
-        return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
-               > (1 * self.nodeCount)
+        return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) > (1 * self.nodeCount)
 
     def view_change_started(self, viewNo: int):
         """
