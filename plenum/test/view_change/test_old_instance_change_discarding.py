@@ -26,9 +26,9 @@ def test_old_instance_change_discarding(txnPoolNodeSet,
 
     def chk_ic_discard():
         for n in txnPoolNodeSet:
-            assert not n.view_changer.instanceChanges.has_view(view_no + 1)
+            assert not n.view_changer.instance_changes.has_view(view_no + 1)
             for frm in first_nodes:
-                assert not n.view_changer.instanceChanges.has_inst_chng_from(view_no + 1, frm.name)
+                assert not n.view_changer.instance_changes.has_inst_chng_from(view_no + 1, frm.name)
 
     looper.run(eventually(chk_ic_discard,
                           timeout=tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 10))

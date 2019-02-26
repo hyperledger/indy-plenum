@@ -188,6 +188,11 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
+    def __audit_ledger_size(self):
+        return self._node.auditLedger.size
+
+    @property
+    @none_on_fail
     def __uptime(self):
         return int(time.time() - self._node.created)
 
@@ -452,6 +457,7 @@ class ValidatorNodeInfoTool:
                     'ledger': self.__domain_ledger_size,
                     'pool': self.__pool_ledger_size,
                     'config': self.__config_ledger_size,
+                    'audit': self.__audit_ledger_size,
                 },
                 'uptime': self.__uptime,
             })
@@ -459,11 +465,10 @@ class ValidatorNodeInfoTool:
 
     def _get_ic_queue(self):
         ic_queue = {}
-        for view_no, queue in self._node.view_changer.instanceChanges.items():
-            ics = {}
-            ics["Vouters"] = self._prepare_for_json(list(queue.voters))
-            ics["Message"] = self._prepare_for_json(queue.msg)
-            ic_queue[view_no] = self._prepare_for_json(ics)
+        for view_no, votes in self._node.view_changer.instance_changes.items():
+            ics = {voter: {"reason": vote.reason}
+                   for voter, vote in votes.items()}
+            ic_queue[view_no] = {"Voters": self._prepare_for_json(ics)}
         return ic_queue
 
     def __get_start_vc_ts(self):

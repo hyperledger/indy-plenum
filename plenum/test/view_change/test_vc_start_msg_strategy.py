@@ -6,12 +6,12 @@ import pytest
 
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.router import Router
-from plenum.server.view_change.node_view_changer import create_view_changer, ViewChangerNodeDataProvider
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -21,6 +21,8 @@ from stp_zmq.zstack import Quota
 @pytest.fixture(scope="function")
 def fake_node(tconf):
     node = FakeSomething(config=tconf,
+                         timer=QueueTimer(),
+                         nodeStatusDB=None,
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       logger=FakeSomething(
@@ -166,7 +168,7 @@ def test_is_preparing_to_False_after_vc_continue(pre_vc_strategy):
 
 def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
     node = create_node_and_not_start
-    node.view_changer = ViewChanger(ViewChangerNodeDataProvider(node))
+    node.view_changer = create_view_changer(node)
     node.view_changer.pre_vc_strategy = VCStartMsgStrategy(view_changer, node)
     node.view_changer.view_no = 0
     """pre_view_change stage"""
