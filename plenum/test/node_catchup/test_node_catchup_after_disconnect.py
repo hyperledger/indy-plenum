@@ -1,7 +1,8 @@
 import pytest
 
+from plenum.common.util import getMaxFailures
 from stp_core.common.log import getlogger
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import \
@@ -9,6 +10,7 @@ from plenum.test.pool_transactions.helper import \
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
+from stp_core.loop.eventually import eventually
 
 logger = getlogger()
 txnCount = 5
@@ -24,6 +26,8 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
     transactions which happened while it was disconnected
     :return:
     """
+    view_no = txnPoolNodeSet[0].viewNo
+
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
         sdk_node_set_with_node_added_after_some_txns
 
@@ -49,3 +53,10 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 10)
     checkNodeDataForEquality(new_node, *txnPoolNodeSet[:-1])
+
+    last_ordered = txnPoolNodeSet[-1].master_last_ordered_3PC
+    primaries = txnPoolNodeSet[0].primaries
+    assert len(primaries) == getMaxFailures(len(txnPoolNodeSet)) + 1
+    looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
+    looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
+    looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
