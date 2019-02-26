@@ -4,6 +4,7 @@ from collections import deque
 from typing import List, Optional, Tuple, Set
 from functools import partial
 
+from common.exceptions import LogicError
 from plenum.common.startable import Mode
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
@@ -11,7 +12,7 @@ from stp_core.ratchet import Ratchet
 
 from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
-    VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
+    VIEW_CHANGE_PREFIX, MONITORING_PREFIX
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement
 from plenum.server.models import InstanceChanges
@@ -117,6 +118,10 @@ class ViewChangerDataProvider(ABC):
 
     @abstractmethod
     def select_primaries(self):
+        pass
+
+    @abstractmethod
+    def ensure_primaries_dropped(self):
         pass
 
     @abstractmethod
@@ -258,9 +263,7 @@ class ViewChanger(HasActionQueue):
     def has_acceptable_view_change_quorum(self):
         if not self._has_acceptable_view_change_quorum:
             self._has_acceptable_view_change_quorum = (
-                    self._hasViewChangeQuorum and
-                    (self.has_view_change_from_primary)
-            )
+                    self._hasViewChangeQuorum and self.has_view_change_from_primary)
         return self._has_acceptable_view_change_quorum
 
     @property
@@ -336,6 +339,11 @@ class ViewChanger(HasActionQueue):
         self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
 
     def on_catchup_complete(self):
+        if not self.provider.is_node_synced():
+            raise LogicError('on_catchup_complete can be called only after catchup completed')
+        if not self.provider.is_primary() is None:
+            raise LogicError('Primary on master replica cannot be elected yet')
+        self._send_view_change_done_message()
         self._start_selection()
 
     def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
@@ -624,6 +632,9 @@ class ViewChanger(HasActionQueue):
                         'but is behind the accepted state'.format(self))
             self.provider.start_catchup()
             return
+
+        self.provider.ensure_primaries_dropped()
+        self.provider.select_primaries()
 
         if self.view_change_in_progress:
             self.view_change_in_progress = False

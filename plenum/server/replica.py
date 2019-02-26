@@ -662,7 +662,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def on_propagate_primary_done(self):
         if self.isMaster:
             # if this is a Primary that is re-connected (that is view change is not actually changed,
-            # we just propagate it, then make sure that we don;t break the sequence
+            # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
             self.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
@@ -809,7 +809,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # and send an empty 3PC batch to update the state if needed
         self._send_3pc_freshness_batch(sent_batches)
 
-        # 3. update ts of last sent 3PC batch
+        # 3. send 3PC batch if new primaries elected
+        self._send_3pc_primaries_batch(sent_batches)
+
+        # 4. update ts of last sent 3PC batch
         if len(sent_batches) > 0:
             self.lastBatchCreated = self.get_current_time()
 
@@ -849,6 +852,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                              "so its freshness state is going to be updated now".format(ledger_id, ts))
             sent_batches.add(
                 self._do_send_3pc_batch(ledger_id=ledger_id))
+
+    def _send_3pc_primaries_batch(self, sent_batches):
+        # As we've selected new primaries, we need to send 3pc batch,
+        # so this primaries can be saved in audit ledger
+        if not sent_batches and self.isMaster and self.node.primaries_batch_needed:
+            self.node.primaries_batch_needed = False
+            sent_batches.add(self._do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
 
     def _do_send_3pc_batch(self, ledger_id):
         oldStateRootHash = self.stateRootHash(ledger_id, to_str=False)
@@ -1914,8 +1924,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self.node.replicas)
-        # some concerns about this ^^^
+                          self.node.get_primaries_for_view_no(pp.viewNo))
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered

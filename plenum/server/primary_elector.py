@@ -64,7 +64,7 @@ class PrimaryElector(PrimaryDecider):
         # nodes. This number `1` is configurable. The reason 1 duplicate
         # message is tolerated is because sometimes when a node communicates
         # to an already lagged node, an extra NOMINATE or PRIMARY might be sent
-        self.duplicateMsgs = {}   # Dict[Tuple, int]
+        self.duplicateMsgs = {}  # Dict[Tuple, int]
 
         # Need to keep track of who was primary for the master protocol
         # instance for previous view, this variable only matters between
@@ -118,7 +118,7 @@ class PrimaryElector(PrimaryDecider):
         :param instId: the instance id (used to identify the replica on this node)
         """
         return instId in self.nominations and \
-            self.replicas[instId].name in self.nominations[instId]
+               self.replicas[instId].name in self.nominations[instId]
 
     def didReplicaDeclarePrimary(self, instId: int):
         """
@@ -127,7 +127,7 @@ class PrimaryElector(PrimaryDecider):
         :param instId: the instance id (used to identify the replica on this node)
         """
         return instId in self.primaryDeclarations and \
-            self.replicas[instId].name in self.primaryDeclarations[instId]
+               self.replicas[instId].name in self.primaryDeclarations[instId]
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
@@ -248,7 +248,7 @@ class PrimaryElector(PrimaryDecider):
                 nom.name) == self.previous_master_primary:
             self.discard(
                 nom, '{} got Nomination from {} for {} who was primary'
-                ' of master in previous view too'. format(
+                     ' of master in previous view too'.format(
                     self, sender, nom.name), logMethod=logger.debug)
             return False
 
@@ -533,12 +533,12 @@ class PrimaryElector(PrimaryDecider):
             self.reElectionRounds[instId] = 0
 
         if replica.name in self.primaryDeclarations[instId]:
-            logger.debug("{} has already sent a Primary: {}". format(
+            logger.debug("{} has already sent a Primary: {}".format(
                 replica, self.primaryDeclarations[instId][replica.name]))
             return
 
         if replica.name in self.reElectionProposals[instId]:
-            logger.debug("{} has already sent a Re-Election for : {}". format(
+            logger.debug("{} has already sent a Re-Election for : {}".format(
                 replica, self.reElectionProposals[instId][replica.name]))
             return
 
@@ -689,7 +689,7 @@ class PrimaryElector(PrimaryDecider):
         :param instId: id of the instance for which elections are happening.
         """
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
-            > (1 * self.nodeCount)
+               > (1 * self.nodeCount)
 
     def view_change_started(self, viewNo: int):
         """
@@ -764,3 +764,6 @@ class PrimaryElector(PrimaryDecider):
         for instId in self.replicas.keys():
             msgs.extend(self.getElectionMsgsForInstance(instId))
         return msgs
+
+    def on_catchup_complete(self):
+        pass

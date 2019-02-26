@@ -1,6 +1,9 @@
 from typing import Iterable, List, Optional, Tuple
 
+from common.exceptions import LogicError
+from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, AUDIT_TXN_VIEW_NO
 from plenum.common.messages.node_messages import ViewChangeDone
+from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server.primary_decider import PrimaryDecider
@@ -52,7 +55,7 @@ class PrimarySelector(PrimaryDecider):
         assert name, "{} failed to get next primary node name for master instance".format(self)
         logger.trace("{} selected {} as next primary node for master instance, "
                      "viewNo {} with rank {}, nodeReg {}".format(
-                         self, name, self.viewNo, rank, nodeReg))
+            self, name, self.viewNo, rank, nodeReg))
         return name
 
     def next_primary_replica_name_for_master(self, nodeReg=None):
@@ -89,3 +92,49 @@ class PrimarySelector(PrimaryDecider):
     def start_election_for_instance(self, instance_id):
         raise NotImplementedError("Election can be started for "
                                   "all instances only")
+
+    def on_catchup_complete(self):
+        # Select primaries after usual catchup (not view change)
+        ledger = self.node.getLedger(AUDIT_LEDGER_ID)
+        if len(ledger) == 0:
+            if self.viewNo != 0:
+                raise LogicError('If audit ledger is empty, view_no must be 0. '
+                                 'Because this node just started, did not order any txn '
+                                 'and did not make a view change.')
+            for replica in self.replicas.values():
+                if replica.primaryName is not None:
+                    raise LogicError('If audit ledger is empty, '
+                                     'all primaries must not be set yet')
+            if len(self.replicas) != self.node.requiredNumberOfInstances:
+                raise LogicError('If audit ledger is empty, all replicas'
+                                 'must be active')
+            self.node.select_primaries()
+        else:
+            self.node.backup_instance_faulty_processor.restore_replicas()
+            self.node.drop_primaries()
+            self.node.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.node.primaries = self.get_last_audited_primaries()
+            if len(self.replicas) != len(self.node.primaries):
+                raise LogicError('Audit ledger has inconsistent number of nodes')
+            if any(p not in self.node.nodeReg for p in self.node.primaries):
+                raise LogicError('Audit ledger has inconsistent names of nodes')
+            # Similar functionality to select_primaries
+            for instance_id, replica in self.replicas.items():
+                if instance_id == 0:
+                    self.node.start_participating()
+                replica.primaryChanged(self.node.primaries[instance_id])
+                self.node.primary_selected(instance_id)
+
+            # Emulate view_change ending
+            self.node.on_view_change_complete()
+
+    def get_last_audited_primaries(self):
+        audit = self.node.getLedger(AUDIT_LEDGER_ID)
+        last_txn = audit.get_last_committed_txn()
+        last_txn_prim_value = get_payload_data(last_txn)[AUDIT_TXN_PRIMARIES]
+
+        if isinstance(last_txn_prim_value, int):
+            seq_no = get_seq_no(last_txn) - last_txn_prim_value
+            last_txn_prim_value = get_payload_data(audit.getBySeqNo(seq_no))[AUDIT_TXN_PRIMARIES]
+
+        return last_txn_prim_value

@@ -86,6 +86,9 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def select_primaries(self):
         self._node.select_primaries()
 
+    def ensure_primaries_dropped(self):
+        self._node.ensure_primaries_dropped()
+
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
 

@@ -124,7 +124,8 @@ class Ordered(MessageBase):
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
-        (f.PRIMARIES.nm, IterableField(NonNegativeNumberField())),
+        (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
