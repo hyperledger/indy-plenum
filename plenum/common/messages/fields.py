@@ -100,9 +100,9 @@ class AnyField(FieldBase):
 
 class BooleanField(FieldBase):
     _base_types = (bool,)
-    _exceptional_values = False
+    _exceptional_values = None
 
-    def __init__(self, exceptional_values: bool=False, **kwargs):
+    def __init__(self, exceptional_values: bool=None, **kwargs):
         super().__init__(**kwargs)
         if exceptional_values is not None:
             self._exceptional_values = exceptional_values
