@@ -17,6 +17,7 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
@@ -1178,3 +1179,17 @@ class MockTimestamp:
 
     def __call__(self):
         return self.value
+
+
+class MockTimer(QueueTimer):
+    def __init__(self, get_current_time: Optional[MockTimestamp] = None):
+        self._ts = get_current_time if get_current_time else MockTimestamp(0)
+        QueueTimer.__init__(self, self._ts)
+
+    def advance(self, seconds):
+        self._ts.value += seconds
+        self.service()
+
+    def update_time(self, value):
+        self._ts.value = value
+        self.service()

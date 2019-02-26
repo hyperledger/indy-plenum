@@ -35,7 +35,7 @@ setup(
     license=md['__license__'],
 
     keywords='Byzantine Fault Tolerant Plenum',
-    packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
+    packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*', 'simulation']) + [
         'data', ],
     package_data={
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',

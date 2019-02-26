@@ -17,6 +17,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
+from plenum.common.timer import QueueTimer
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -261,6 +262,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.timer = QueueTimer()
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
@@ -275,6 +277,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Motor.__init__(self)
 
         self.states = {}  # type: Dict[int, State]
+
+        # Config ledger and state init
+        self._configLedger = self.init_config_ledger()
+        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        self._init_write_request_validator()
 
         # Pool ledger init
         self._poolLedger = self.init_pool_ledger()
@@ -306,9 +313,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
         self.upload_domain_state()
 
-        # Config ledger init
-        self._configLedger = self.init_config_ledger()
-        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        # Config request handler init
         self.register_req_handler(self.init_config_req_handler(), CONFIG_LEDGER_ID)
         self.upload_config_state()
 
@@ -1234,6 +1239,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for ledger in self.ledgers:
                 ledger.start(loop)
 
+            if self.nodeStatusDB and self.nodeStatusDB.closed:
+                self.nodeStatusDB.open()
+
             self.nodestack.start()
             self.clientstack.start()
 
@@ -1321,7 +1329,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             add_stop_time(self.ledger_dir, self.utc_epoch())
 
         self.logstats()
-
         self.reset()
 
         # Stop the ledgers
@@ -1405,6 +1412,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
                 self.nodestack.flushOutBoxes()
+            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                self.timer.service()
+
         if self.isGoing():
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
                 self.nodestack.serviceLifecycle()
@@ -1470,9 +1480,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return 0
         o = self.serviceViewChangerOutBox(limit)
         i = await self.serviceViewChangerInbox(limit)
-        # TODO: Why is protected method accessed here?
-        a = self.view_changer._serviceActions()
-        return o + i + a
+        return o + i
 
     @async_measure_time(MetricsName.SERVICE_OBSERVABLE_TIME)
     async def service_observable(self, limit) -> int:
@@ -2929,10 +2937,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.NODE_REQUESTED_PROPAGATES_FOR, len(self.requested_propagates_for))
 
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_ACTION_QUEUE, len(self.view_changer.actionQueue))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_AQ_STASH, len(self.view_changer.aqStash))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_REPEATING_ACTIONS, len(self.view_changer.repeatingActions))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_SCHEDULED, len(self.view_changer.scheduled))
+        self.metrics.add_event(MetricsName.TIMER_QUEUE_SIZE, self.timer.queue_size())
+
         self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_NEXT_VIEW_INDICATIONS,
@@ -3943,3 +3949,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn_type and not (txn_type == GET_TXN or
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
+
+    def _init_write_request_validator(self):
+        pass

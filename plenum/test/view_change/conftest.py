@@ -3,6 +3,7 @@ from collections import deque
 
 import pytest
 
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
@@ -49,6 +50,7 @@ def fake_view_changer(request, tconf):
     )
     node = FakeSomething(
         name="SomeNode",
+        timer=QueueTimer(),
         viewNo=request.param,
         quorums=Quorums(getValueFromModule(request, 'nodeCount', default=node_count)),
         nodestack=node_stack,
@@ -58,7 +60,8 @@ def fake_view_changer(request, tconf):
         discard=lambda a, b, c, d: print(b),
         primaries_disconnection_times=[None] * getRequiredInstances(node_count),
         master_primary_name='Alpha',
-        master_replica=FakeSomething(instId=0)
+        master_replica=FakeSomething(instId=0),
+        nodeStatusDB=None
     )
     view_changer = create_view_changer(node)
     # TODO: This is a hack for tests compatibility, do something better

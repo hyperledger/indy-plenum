@@ -5,7 +5,10 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from plenum.common.startable import Mode
+from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
+from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
+from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
 from stp_core.ratchet import Ratchet
 
@@ -14,8 +17,6 @@ from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
 from plenum.common.util import mostCommonElement
-from plenum.server.models import InstanceChanges
-from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
 
@@ -123,16 +124,20 @@ class ViewChangerDataProvider(ABC):
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
+    @property
+    @abstractmethod
+    def node_status_db(self) -> Optional[KeyValueStorage]:
+        pass
 
-class ViewChanger(HasActionQueue):
 
-    def __init__(self, provider: ViewChangerDataProvider):
+class ViewChanger():
+
+    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
         self.provider = provider
+        self._timer = timer
         self.pre_vc_strategy = None
 
         self._view_no = 0  # type: int
-
-        HasActionQueue.__init__(self)
 
         self.inBox = deque()
         self.outBox = deque()
@@ -142,7 +147,8 @@ class ViewChanger(HasActionQueue):
             (FutureViewChangeDone, self.process_future_view_vchd_msg)
         )
 
-        self.instanceChanges = InstanceChanges(self.config)
+        self.instance_changes = InstanceChangeProvider(self.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                                                       node_status_db=self.provider.node_status_db)
 
         # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
         # or just propagating view_no and Primary from `CurrentState` messages sent to a newly joined Node.
@@ -184,12 +190,12 @@ class ViewChanger(HasActionQueue):
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:
-            self.startRepeating(self.on_master_degradation, force_view_change_freq)
+            RepeatingTimer(self._timer, force_view_change_freq, self.on_master_degradation)
 
         # Start periodic freshness check
         state_freshness_update_interval = self.config.STATE_FRESHNESS_UPDATE_INTERVAL
         if state_freshness_update_interval > 0:
-            self.startRepeating(self.check_freshness, state_freshness_update_interval)
+            RepeatingTimer(self._timer, state_freshness_update_interval, self.check_freshness)
 
     def __repr__(self):
         return "{}".format(self.name)
@@ -334,8 +340,8 @@ class ViewChanger(HasActionQueue):
             # InstanceChange quorum
             logger.info("Resend instance change message to all recipients")
             self.sendInstanceChange(proposed_view_no, reason)
-            self._schedule(action=self.instance_change_action,
-                           seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+            self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+                                 self.instance_change_action)
             logger.info("Count of rounds without quorum of "
                         "instance change messages: {}".format(self.instance_change_rounds))
             self.instance_change_rounds += 1
@@ -343,7 +349,7 @@ class ViewChanger(HasActionQueue):
             # ViewChange procedure was started, therefore stop scheduling
             # resending instanceChange messages
             logger.info("Stop scheduling instance change resending")
-            self._cancel(action=self.instance_change_action)
+            self._timer.cancel(self.instance_change_action)
             self.instance_change_action = None
             self.instance_change_rounds = 0
 
@@ -352,13 +358,13 @@ class ViewChanger(HasActionQueue):
         if self.instance_change_action:
             # It's an action, scheduled for previous instanceChange round
             logger.info("Stop previous instance change resending schedule")
-            self._cancel(action=self.instance_change_action)
+            self._timer.cancel(self.instance_change_action)
             self.instance_change_rounds = 0
         self.instance_change_action = partial(self.send_instance_change_if_needed,
                                               view_no,
                                               Suspicions.PRIMARY_DISCONNECTED)
-        self._schedule(self.instance_change_action,
-                       seconds=self.config.INSTANCE_CHANGE_TIMEOUT)
+        self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+                             self.instance_change_action)
 
     # TODO we have `on_primary_loss`, do we need that one?
     def on_primary_about_to_be_disconnected(self):
@@ -438,7 +444,7 @@ class ViewChanger(HasActionQueue):
             #  found then change view even if master not degraded
             self._on_verified_instance_change_msg(instChg, frm)
 
-            if self.instanceChanges.has_inst_chng_from(instChg.viewNo, self.name):
+            if self.instance_changes.has_inst_chng_from(instChg.viewNo, self.name):
                 logger.info("{} received instance change message {} but has already "
                             "sent an instance change message".format(self, instChg))
             elif not self.provider.is_master_degraded():
@@ -542,7 +548,7 @@ class ViewChanger(HasActionQueue):
     def initInsChngThrottling(self):
         windowSize = self.config.ViewChangeWindowSize
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
-        self.insChngThrottler = Throttler(windowSize, ratchet.get)
+        self.insChngThrottler = Throttler(windowSize, ratchet.get, self._timer.get_current_time)
 
     def _create_instance_change_msg(self, view_no, suspicion_code):
         return InstanceChange(view_no, suspicion_code)
@@ -550,8 +556,8 @@ class ViewChanger(HasActionQueue):
     def _on_verified_instance_change_msg(self, msg, frm):
         view_no = msg.viewNo
 
-        if not self.instanceChanges.has_inst_chng_from(view_no, frm):
-            self.instanceChanges.add_vote(msg, frm)
+        if not self.instance_changes.has_inst_chng_from(view_no, frm):
+            self.instance_changes.add_vote(msg, frm)
             if view_no > self.view_no:
                 self.do_view_change_if_possible(view_no)
 
@@ -591,7 +597,7 @@ class ViewChanger(HasActionQueue):
         """
         msg = None
         quorum = self.quorums.view_change.value
-        if not self.instanceChanges.has_quorum(proposedViewNo, quorum):
+        if not self.instance_changes.has_quorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
         elif not proposedViewNo > self.view_no:
             msg = '{} is in higher view more than {}'.format(
@@ -703,9 +709,7 @@ class ViewChanger(HasActionQueue):
             # then we should delete all INSTANCE_CHANGE messages with current (already changed)
             # view_no (which used in corresponded INSTANCE_CHANGE messages)
             # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
-            for view_number in list(self.instanceChanges.keys()):
-                if view_number <= self.view_no:
-                    self.instanceChanges.pop(view_number, None)
+            self.instance_changes.remove_view(self.view_no)
             self.previous_view_no = None
             self.previous_master_primary = None
             self.propagate_primary = False

@@ -19,6 +19,7 @@ txn_root_serializer = Base58Serializer()
 proof_nodes_serializer = Base64Serializer()
 multi_signature_value_serializer = MsgPackSerializer()
 invalid_index_serializer = JsonSerializer()
+instance_change_db_serializer = JsonSerializer()
 
 
 # TODO: separate data, metadata and signature, so that we don't need to have topLevelKeysToIgnore
