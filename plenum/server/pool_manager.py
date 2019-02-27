@@ -295,6 +295,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if self.name != nodeName:
                     self.connectNewRemote({DATA: node_info,
                                            TARGET_NYM: nodeNym}, nodeName, self.node)
+                else:
+                    logger.debug("{} adding itself to node registry".
+                                 format(self.name))
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled

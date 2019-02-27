@@ -63,7 +63,7 @@ class FakeNode:
             2: Replica(node=self, instId=2, isMaster=False, config=self.config),
         }
         self._found = False
-        self.ledgerManager = LedgerManager(self, ownedByNode=True)
+        self.ledgerManager = LedgerManager(self)
         ledger0 = FakeLedger(0, 10)
         ledger1 = FakeLedger(1, 5)
         self.ledgerManager.addLedger(0, ledger0)

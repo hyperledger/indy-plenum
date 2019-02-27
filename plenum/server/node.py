@@ -15,9 +15,11 @@ from intervaltree import IntervalTree
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.common.gc_trackers import GcTimeTracker, GcObjectTree
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.common.timer import QueueTimer
+from plenum.common.transactions import PlenumTransactions
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -126,100 +128,6 @@ from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
 logger = getlogger()
-
-
-class GcObject:
-    def __init__(self, obj):
-        self.obj = obj
-        self.referents = [id(ref) for ref in gc.get_referents(obj)]
-        self.referrers = set()
-
-
-class GcObjectTree:
-    def __init__(self):
-        self.objects = {id(obj): GcObject(obj) for obj in gc.get_objects()}
-        for obj_id, obj in self.objects.items():
-            for ref_id in obj.referents:
-                if ref_id in self.objects:
-                    self.objects[ref_id].referrers.add(obj_id)
-
-    def report_top_obj_types(self, num=50):
-        stats = defaultdict(int)
-        for obj in self.objects.values():
-            stats[type(obj.obj)] += 1
-        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:num]:
-            logger.info("    {}: {}".format(k, v))
-
-    def report_top_collections(self, num=10):
-        fat_objects = [(o.obj, len(o.referents)) for o in self.objects.values()]
-        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:num]
-
-        logger.info("Top big collections tracked by garbage collector:")
-        for obj, count in fat_objects:
-            logger.info("    {}: {}".format(type(obj), count))
-            self.report_collection_owners(obj)
-            self.report_collection_items(obj)
-
-    def report_collection_owners(self, obj):
-        referrers = {ref_id for ref_id in self.objects[id(obj)].referrers if ref_id in self.objects}
-        for _ in range(3):
-            self.add_super_referrerrs(referrers)
-        referrers = {type(self.objects[ref_id].obj) for ref_id in referrers}
-
-        logger.info("        Referrers:")
-        for v in referrers:
-            logger.info("            {}".format(v))
-
-    def add_super_referrerrs(self, referrers):
-        for ref_id in list(referrers):
-            for sup_ref_id in self.objects[ref_id].referrers:
-                if sup_ref_id in self.objects:
-                    referrers.add(sup_ref_id)
-
-    def report_collection_items(self, obj):
-        if not isinstance(obj, Iterable):
-            return
-        tmp_list = list(obj)
-        samples = random.sample(tmp_list, 3)
-
-        logger.info("        Samples:")
-        for k in samples:
-            if isinstance(obj, Dict):
-                logger.info("            {} : {}".format(repr(k), repr(obj[k])))
-            else:
-                logger.info("            {}".format(repr(k)))
-
-    def cleanup(self):
-        del self.objects
-
-
-class GcTimeTracker:
-    def __init__(self, metrics: MetricsCollector):
-        self._metrics = metrics
-        self._timestamps = {}
-        gc.callbacks.append(self._gc_callback)
-
-    def _gc_callback(self, action, info):
-        gen = info['generation']
-
-        collected = info.get('collected', 0)
-        if collected > 0:
-            self._metrics.add_event(MetricsName.GC_TOTAL_COLLECTED_OBJECTS, collected)
-            self._metrics.add_event(MetricsName.GC_GEN0_COLLECTED_OBJECTS + gen, collected)
-
-        uncollectable = info.get('uncollectable', 0)
-        if uncollectable > 0:
-            self._metrics.add_event(MetricsName.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
-
-        if action == 'start':
-            self._timestamps[gen] = time.perf_counter()
-        else:
-            start = self._timestamps.get(gen)
-            if start is None:
-                return
-            elapsed = time.perf_counter() - start
-            self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
-            self._timestamps[gen] = None
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -469,14 +377,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeStatusDB = self.loadNodeStatusDB()
 
         self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
-
-        # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
-        # the key is the ledger id and value is an interval tree with each
-        # interval being the range of txns and value being the 3 phase key of
-        # the batch in which those transactions were included. The txn range is
-        # exclusive of last seq no so to store txns from 1 to 100 add a range
-        # of `1:101`
-        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
@@ -1047,9 +947,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
         ledger_size = ledger.size
-        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
-                                                           ledger_size)
-        v, p = three_pc_key if three_pc_key else (None, None)
+        v, p =(None, None)
         return LedgerStatus(ledger_id, ledger_size, v, p, ledger.root_hash, CURRENT_PROTOCOL_VERSION)
 
     @property
@@ -1060,15 +958,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def domainLedgerStatus(self):
         return self.build_ledger_status(DOMAIN_LEDGER_ID)
-
-    def getLedgerRootHash(self, ledgerId, isCommitted=True):
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
-        if not ledgerInfo:
-            raise RuntimeError('Ledger with id {} does not exist')
-        ledger = ledgerInfo.ledger
-        if isCommitted:
-            return ledger.root_hash
-        return ledger.uncommitted_root_hash
 
     def stateRootHash(self, ledgerId, isCommitted=True):
         state = self.states.get(ledgerId)
@@ -1132,7 +1021,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_new_ledger_manager(self) -> LedgerManager:
         ledger_sync_order = self.ledger_ids
-        return LedgerManager(self, ownedByNode=True,
+        return LedgerManager(self,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp,
                              preCatchupClbk=self.preLedgerCatchUp,
                              postCatchupClbk=self.postLedgerCatchUp,
@@ -2258,8 +2147,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} reverted {} batches before starting catch up for ledger {}'.format(self, r, ledger_id))
 
     def postLedgerCatchUp(self, ledger_id, last_caughtup_3pc):
-        # update 3PC key interval tree to return last ordered to other nodes in Ledger Status
-        self._update_txn_seq_range_to_3phase_after_catchup(ledger_id, last_caughtup_3pc)
+        pass
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
@@ -2350,29 +2238,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.view_changer.on_catchup_complete()
             else:
                 self.elector.on_catchup_complete()
-
-    def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
-        logger.info(
-            "{} is updating txn to batch seqNo map after catchup to {} "
-            "for ledger_id {} ".format(self.name, str(last_caughtup_3pc), str(ledger_id)))
-        if not last_caughtup_3pc:
-            return
-        # do not set if this is a 'fake' one, see replica.on_view_change_start
-        # also (0,0) will be passed from ledger_manager._buildConsistencyProof if 3PC is None
-        if last_caughtup_3pc[1] == 0:
-            return
-
-        ledger_size = self.getLedger(ledger_id).size
-        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
-                                                           ledger_size)
-        if three_pc_key:
-            return
-
-        self._update_txn_seq_range_to_3phase(first_txn_seq_no=ledger_size,
-                                             last_txn_seq_no=ledger_size,
-                                             ledger_id=ledger_id,
-                                             view_no=last_caughtup_3pc[0],
-                                             pp_seq_no=last_caughtup_3pc[1])
 
     def is_catchup_needed(self) -> bool:
         """
@@ -2950,7 +2815,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.STASHED_ORDERED_REQS, len(self.stashedOrderedReqs))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
-        self.metrics.add_event(MetricsName.TXN_SEQ_RANGE_TO_3PHASE_KEY, len(self.txn_seq_range_to_3phase_key))
 
         self.metrics.add_event(MetricsName.LEDGERMANAGER_POOL_UNCOMMITEDS, len(
             self.ledgerManager.getLedgerInfoByType(0).ledger.uncommittedTxns))
@@ -3356,17 +3220,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def authNr(self, req):
         return self.clientAuthNr
 
-    def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
-        if ledger_id in self.txn_seq_range_to_3phase_key:
-            # point query in interval tree
-            s = self.txn_seq_range_to_3phase_key[ledger_id][seq_no]
-            if s:
-                # There should not be more than one interval for any seq no in
-                # the tree
-                assert len(s) == 1  # TODO add test for that and remove assert
-                return s.pop().data
-        return None
-
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
                      valid_reqs_keys: List, invalid_reqs_keys: List,
@@ -3430,10 +3283,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
 
-        self._update_txn_seq_range_to_3phase(first_txn_seq_no, last_txn_seq_no,
-                                             ledger_id,
-                                             view_no, pp_seq_no)
-
         reqs = []
         reqs_list_built = True
         for req_key in valid_reqs_keys:
@@ -3457,23 +3306,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  last_txn_seq_no,
                                                  audit_txn_root)
             self._observable.append_input(batch_committed_msg, self.name)
-
-    def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,
-                                        ledger_id, view_no, pp_seq_no):
-        if ledger_id not in self.txn_seq_range_to_3phase_key:
-            self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
-        # adding one to end of range since its exclusive
-        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
-        intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
-        logger.debug('{} storing 3PC key {} for ledger {} range {}'.
-                     format(self, (view_no, pp_seq_no), ledger_id,
-                            (first_txn_seq_no, last_txn_seq_no)))
-        if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
-            # Remove the first element from the interval tree
-            old = intrv_tree[intrv_tree.begin()].pop()
-            intrv_tree.remove(old)
-            logger.debug('{} popped {} from txn to batch seqNo map for ledger_id {}'.
-                         format(self, old, str(ledger_id)))
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
@@ -3816,9 +3648,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transform_txn_for_ledger(self, txn):
         txn_type = get_type(txn)
         req_handler = self.get_req_handler(txn_type=txn_type)
-        if not req_handler:
-            return txn
-        return req_handler.transform_txn_for_ledger(txn)
+        if req_handler:
+            return req_handler.transform_txn_for_ledger(txn)
+
+        # TODO: fix once pluggable request handlers are integrated
+        if get_type(txn) == PlenumTransactions.AUDIT.value:
+            # Makes sure that we have integer as keys after possible deserialization from json
+            return self.audit_handler.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self
@@ -3946,11 +3782,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn_type and not (txn_type == GET_TXN or
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
-
-    def get_primaries_for_view_no(self, view_no):
-        # TODO: Modify to restore primary_name by (view_no, seq_no)
-        # TODO: Because replicas can be deleted this is bad way for getting primaries
-        return [replica.primaryNames[view_no] for replica in self.replicas.values()]
 
     def _init_write_request_validator(self):
         pass

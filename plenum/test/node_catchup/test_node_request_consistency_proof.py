@@ -53,9 +53,7 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
 
         newRootHash = Ledger.hashToStr(
             self.domainLedger.tree.merkle_tree_hash(0, next_size))
-        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
-                                                           next_size)
-        v, p = three_pc_key if three_pc_key else None, None
+        v, p = None, None
         ledgerStatus = LedgerStatus(1, next_size, v, p, newRootHash,
                                     CURRENT_PROTOCOL_VERSION)
         print("dl status {}".format(ledgerStatus))
