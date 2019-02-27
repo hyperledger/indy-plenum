@@ -50,7 +50,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
                         last_pool_seqno=None,
                         last_domain_seqno=None,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=1)
 
     # 1st pool txn
     sdk_change_bls_key(looper, txnPoolNodeSet,
@@ -72,7 +72,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
                         last_pool_seqno=None,
                         last_domain_seqno=2,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=2)
 
     # 2d pool txn
     sdk_change_bls_key(looper, txnPoolNodeSet,
@@ -94,7 +94,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
                         last_pool_seqno=None,
                         last_domain_seqno=2,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=3)
 
     # one more domain txn
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -113,4 +113,4 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
                         last_pool_seqno=4,
                         last_domain_seqno=None,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=4)
