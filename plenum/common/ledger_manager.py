@@ -1,4 +1,5 @@
 import heapq
+import logging
 import math
 import operator
 import time
@@ -34,6 +35,13 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def node_name(self) -> str:
         return self._node.name
 
+    def ledgers(self) -> List[int]:
+        return self._node.ledger_ids
+
+    def ledger(self, ledger_id: int) -> Ledger:
+        info = self._node.ledgerManager.ledgerRegistry.get(ledger_id)
+        return info.ledger if info is not None else None
+
     def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
         return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
 
@@ -48,6 +56,9 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
     def send_to_nodes(self, msg: Any):
         self._node.sendToNodes(msg)
+
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
+        self._node.discard(msg, reason, logMethod, cliOutput)
 
 
 class LedgerManager(HasActionQueue):
@@ -127,10 +138,6 @@ class LedgerManager(HasActionQueue):
             postTxnAddedToLedgerClbk=postTxnAddedToLedgerClbk,
             verifier=MerkleVerifier(ledger.hasher)
         )
-
-        if iD == POOL_LEDGER_ID:
-            self._client_seeder.add_ledger(iD, ledger)
-        self._node_seeder.add_ledger(iD, ledger)
 
     def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
         if ledger_id in self.request_ledger_status_action_ids:
@@ -446,14 +453,6 @@ class LedgerManager(HasActionQueue):
     @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
     def processCatchupReq(self, req: CatchupReq, frm: str):
         self._send_to_seeder(req, frm)
-
-    def _make_consistency_proof(self, ledger, end, catchup_till):
-        # TODO: make catchup_till optional
-        # if catchup_till is None:
-        #     catchup_till = ledger.size
-        proof = ledger.tree.consistency_proof(end, catchup_till)
-        string_proof = [Ledger.hashToStr(p) for p in proof]
-        return string_proof
 
     @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
