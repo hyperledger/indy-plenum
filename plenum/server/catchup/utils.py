@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Any, Callable, List
 
+from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import LedgerStatus
@@ -25,6 +26,10 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
+    def verifier(self, ledger_id: int) -> MerkleVerifier:
+        pass
+
+    @abstractmethod
     # TODO: Delete when INDY-1946 gets implemented
     def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
         pass
@@ -34,11 +39,39 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
+    def transform_txn_for_ledger(self, txn: dict) -> dict:
+        pass
+
+    @abstractmethod
+    def notify_before_catchup_start(self, ledger_id: int):
+        pass
+
+    @abstractmethod
+    def notify_after_catchup_start(self, ledger_id: int):
+        pass
+
+    @abstractmethod
+    def notify_before_catchup_complete(self, ledger_id: int):
+        pass
+
+    @abstractmethod
+    def notify_after_catchup_complete(self, ledger_id: int):
+        pass
+
+    @abstractmethod
+    def notify_transaction_added_to_ledger(self, ledger_id: int, txn: dict):
+        pass
+
+    @abstractmethod
     def send_to(self, msg: Any, to: str, message_splitter: Optional[Callable] = None):
         pass
 
     @abstractmethod
     def send_to_nodes(self, msg: Any):
+        pass
+
+    @abstractmethod
+    def blacklist_node(self, node_name: str, reason: str):
         pass
 
     @abstractmethod

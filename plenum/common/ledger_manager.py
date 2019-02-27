@@ -6,11 +6,11 @@ import time
 from collections import Callable, Counter
 from functools import partial
 from random import shuffle
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, NamedTuple
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
-from plenum.common.channel import create_direct_channel
+from plenum.common.channel import create_direct_channel, TxChannel
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, CONSISTENCY_PROOF, CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
@@ -19,6 +19,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
+from plenum.server.catchup.node_one_ledger_leecher_service import NodeOneLedgerLeecherService
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
@@ -39,14 +40,46 @@ class CatchupNodeDataProvider(CatchupDataProvider):
         return self._node.ledger_ids
 
     def ledger(self, ledger_id: int) -> Ledger:
-        info = self._node.ledgerManager.ledgerRegistry.get(ledger_id)
+        info = self._ledger_info(ledger_id)
         return info.ledger if info is not None else None
+
+    def verifier(self, ledger_id: int) -> MerkleVerifier:
+        info = self._ledger_info(ledger_id)
+        return info.verifier if info is not None else None
 
     def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
         return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
 
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         return self._node.update_txn_with_extra_data(txn)
+
+    def transform_txn_for_ledger(self, txn: dict) -> dict:
+        return self._node.transform_txn_for_ledger(txn)
+
+    def notify_before_catchup_start(self, ledger_id: int):
+        info = self._ledger_info(ledger_id)
+        if info is not None:
+            info.preCatchupStartClbk()
+
+    def notify_after_catchup_start(self, ledger_id: int):
+        info = self._ledger_info(ledger_id)
+        if info is not None:
+            info.postCatchupStartClbk()
+
+    def notify_before_catchup_complete(self, ledger_id: int):
+        info = self._ledger_info(ledger_id)
+        if info is not None:
+            info.preCatchupCompleteClbk()
+
+    def notify_after_catchup_complete(self, ledger_id: int):
+        info = self._ledger_info(ledger_id)
+        if info is not None:
+            info.postCatchupCompleteClbk()
+
+    def notify_transaction_added_to_ledger(self, ledger_id: int, txn: dict):
+        info = self._ledger_info(ledger_id)
+        if info is not None:
+            info.postTxnAddedToLedgerClbk(ledger_id, txn)
 
     def send_to(self, msg: Any, to: str, message_splitter: Optional[Callable] = None):
         if self._node.nodestack.hasRemote(to):
@@ -57,11 +90,20 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def send_to_nodes(self, msg: Any):
         self._node.sendToNodes(msg)
 
+    def blacklist_node(self, node_name: str, reason: str):
+        self._node.blacklistNode(node_name, reason)
+
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
 
+    def _ledger_info(self, ledger_id: int):
+        return self._node.ledgerManager.ledgerRegistry.get(ledger_id)
+
 
 class LedgerManager(HasActionQueue):
+    Leecher = NamedTuple('Leecher',
+                         [('inbox', TxChannel), ('service', NodeOneLedgerLeecherService)])
+
     def __init__(self,
                  owner,
                  postAllLedgersCaughtUp: Optional[Callable] = None,
@@ -80,15 +122,15 @@ class LedgerManager(HasActionQueue):
         self.request_consistency_proof_action_ids = dict()
         self.metrics = metrics
 
-        provider = CatchupNodeDataProvider(owner)
+        self._provider = CatchupNodeDataProvider(owner)
 
         tx, rx = create_direct_channel()
         self._client_seeder_inbox = tx
-        self._client_seeder = ClientSeederService(rx, provider)
+        self._client_seeder = ClientSeederService(rx, self._provider)
 
         tx, rx = create_direct_channel()
         self._node_seeder_inbox = tx
-        self._node_seeder = NodeSeederService(rx, provider)
+        self._node_seeder = NodeSeederService(rx, self._provider)
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -98,6 +140,8 @@ class LedgerManager(HasActionQueue):
         # Holds ledgers of different types with
         # their info like callbacks, state, etc
         self.ledgerRegistry = {}  # type: Dict[int, LedgerInfo]
+
+        self._leechers = {}   # type: Dict[int, self.Leecher]
 
         # Largest 3 phase key received during catchup.
         # This field is needed to discard any stashed 3PC messages or
@@ -138,6 +182,11 @@ class LedgerManager(HasActionQueue):
             postTxnAddedToLedgerClbk=postTxnAddedToLedgerClbk,
             verifier=MerkleVerifier(ledger.hasher)
         )
+
+        inbox_tx, inbox_rx = create_direct_channel()
+        outbox_tx, outbox_rx = create_direct_channel()
+        service = NodeOneLedgerLeecherService(iD, inbox_rx, outbox_tx, self.metrics, self._provider)
+        self._leechers[iD] = self.Leecher(inbox=inbox_tx, service=service)
 
     def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
         if ledger_id in self.request_ledger_status_action_ids:
