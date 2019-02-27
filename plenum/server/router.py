@@ -3,6 +3,10 @@ from inspect import isawaitable
 from typing import Callable, Any, NamedTuple, Union, Iterable
 from typing import Tuple
 
+from stp_core.common.log import getlogger
+
+logger = getlogger()
+
 Route = Tuple[Union[type, NamedTuple], Callable]
 
 
@@ -48,9 +52,12 @@ class Router:
         :return: the next function
         """
         for cls, func in self.routes.items():
-            # Due to how plugins work
-            if str(o.__class__) == str(cls):
+            # String comparison is due to plugins reloading modules which messes class objects
+            if isinstance(o, cls) or str(o.__class__) == str(cls):
                 return func
+        logger.error("Unhandled msg {}, available handlers are:".format(o))
+        for cls in self.routes.keys():
+            logger.error("   {}".format(cls))
         raise RuntimeError("unhandled msg: {}".format(o))
 
     # noinspection PyCallingNonCallable
