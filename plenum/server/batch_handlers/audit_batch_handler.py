@@ -111,7 +111,6 @@ class AuditBatchHandler(BatchRequestHandler):
         # 4. ledger is changed in last batch but not changed now => delta = 1
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = 1
-            txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = get_seq_no(last_audit_txn)
 
     def __fill_primaries(self, txn, three_pc_batch, last_audit_txn):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
@@ -134,7 +133,7 @@ class AuditBatchHandler(BatchRequestHandler):
                 txn[AUDIT_TXN_PRIMARIES] = current_primaries
 
         # 3. Previous primaries field is delta
-        elif isinstance(last_txn_value, int) and last_txn_value < len(self.ledger):
+        elif isinstance(last_txn_value, int) and last_txn_value < self.ledger.uncommitted_size:
             last_primaries_seq_no = get_seq_no(last_audit_txn) - last_txn_value
             last_primaries = get_payload_data(
                 self.ledger.getBySeqNo(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]

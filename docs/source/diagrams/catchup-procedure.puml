@@ -84,12 +84,6 @@ loop For each ledger
             (LEDGER_STATUSes with ledger size equal to own)
         end note
 
-        Node4 -> Node4: Update txn_seq_range_to_3phase_key
-        note right Node4
-            Add <b>Master's 3PC key of last transaction</b>
-            to <b>txn_seq_range_to_3phase_key</b>
-        end note
-
         opt Ledger is pool
             Node4 -> Node4: mode = discovered
         end opt
@@ -235,13 +229,6 @@ loop For each ledger
 
         note over Node1, Node4
             Ledger reached target size
-        end note
-
-        Node4 -> Node4: Update txn_seq_range_to_3phase_key
-        note right Node4
-            Add <b>Master's 3PC key of last caught up transaction</b>
-            (gotten from <b>quorumed CONSISTENCY_PROOF</b>)
-            to <b>txn_seq_range_to_3phase_key</b>
         end note
 
         opt Ledger is pool

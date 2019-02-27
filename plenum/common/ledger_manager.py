@@ -32,9 +32,6 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def node_name(self) -> str:
         return self._node.name
 
-    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-        return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
-
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         return self._node.update_txn_with_extra_data(txn)
 
@@ -1043,7 +1040,7 @@ class LedgerManager(HasActionQueue):
             oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
 
         newRoot = ledger.tree.merkle_tree_hash(0, seqNoEnd)
-        key = self.owner.three_phase_key_for_txn_seq_no(ledgerId, seqNoEnd)
+        key = None
         logger.info('{} found 3 phase key {} for ledger {} seqNo {}'.format(self, key, ledgerId, seqNoEnd))
         if key is None:
             # The node receiving consistency proof should check if it has
