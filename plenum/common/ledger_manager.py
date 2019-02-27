@@ -1,4 +1,5 @@
 import heapq
+import logging
 import math
 import operator
 import time
@@ -9,6 +10,7 @@ from typing import Any, List, Dict, Tuple
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
+from plenum.common.channel import create_direct_channel
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, CONSISTENCY_PROOF, CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
@@ -17,6 +19,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
+from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.quorums import Quorums
@@ -32,6 +35,13 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def node_name(self) -> str:
         return self._node.name
 
+    def ledgers(self) -> List[int]:
+        return self._node.ledger_ids
+
+    def ledger(self, ledger_id: int) -> Ledger:
+        info = self._node.ledgerManager.ledgerRegistry.get(ledger_id)
+        return info.ledger if info is not None else None
+
     def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
         return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
 
@@ -46,6 +56,9 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
     def send_to_nodes(self, msg: Any):
         self._node.sendToNodes(msg)
+
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
+        self._node.discard(msg, reason, logMethod, cliOutput)
 
 
 class LedgerManager(HasActionQueue):
@@ -66,6 +79,16 @@ class LedgerManager(HasActionQueue):
         self.request_ledger_status_action_ids = dict()
         self.request_consistency_proof_action_ids = dict()
         self.metrics = metrics
+
+        provider = CatchupNodeDataProvider(owner)
+
+        tx, rx = create_direct_channel()
+        self._client_seeder_inbox = tx
+        self._client_seeder = ClientSeederService(rx, provider)
+
+        tx, rx = create_direct_channel()
+        self._node_seeder_inbox = tx
+        self._node_seeder = NodeSeederService(rx, provider)
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -302,47 +325,23 @@ class LedgerManager(HasActionQueue):
 
     @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
-        logger.info("{} received ledger status: {} from {}".format(self, status, frm))
-        if not status:
-            logger.info("{} found ledger status to be null from {}".format(self, frm))
-            return
-
-        ledgerStatus = LedgerStatus(*status)
-        if ledgerStatus.txnSeqNo < 0:
-            self.discard(status, reason="Received negative sequence number "
-                                        "from {}".format(frm),
-                         logMethod=logger.warning)
-            return
-
-        ledgerId = getattr(status, f.LEDGER_ID.nm)
-
-        statusFromClient = self.getStack(frm) == self.clientstack
-
-        if statusFromClient:
-            if ledgerId != POOL_LEDGER_ID:
-                # A client has only the pool ledger, so it should not send
-                # ledger statuses related to other ledgers
-                logger.info("{} received inappropriate ledger status {} from client {}".
-                            format(self, status, frm))
-                return
-            # If our node is not ahead the client which has sent
-            # the ledger status then reply to it that its ledger is OK
-            if not self.isLedgerNew(ledgerStatus):
-                ledger_status = self.owner.build_ledger_status(ledgerId)
-                self.sendTo(ledger_status, frm)
-
-        # If our node is ahead the sender of the ledger status
-        # then reply to it with the consistency proof
-        if self.isLedgerNew(ledgerStatus):
-            consistencyProof = self.getConsistencyProof(ledgerStatus)
-            if consistencyProof:
-                self.sendTo(consistencyProof, frm)
+        self._send_to_seeder(status, frm)
 
         # If the ledger status is from client then we do nothing more
-        if statusFromClient:
+        if self.getStack(frm) == self.clientstack:
             return
 
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+        # TODO: vvv Move this into common LEDGER_STATUS validation
+        if status.txnSeqNo < 0:
+            return
+
+        ledgerId = status.ledgerId
+        if ledgerId not in self.ledgerRegistry:
+            return
+        # TODO: ^^^
+
+        ledgerStatus = status
+        ledgerInfo = self.getLedgerInfoByType(status.ledgerId)
 
         # If we are performing a catch-up of the corresponding ledger
         if ledgerInfo.state == LedgerState.not_synced and ledgerInfo.canSync:
@@ -453,59 +452,7 @@ class LedgerManager(HasActionQueue):
 
     @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
     def processCatchupReq(self, req: CatchupReq, frm: str):
-        logger.info("{} received catchup request: {} from {}".format(self, req, frm))
-
-        start = getattr(req, f.SEQ_NO_START.nm)
-        end = getattr(req, f.SEQ_NO_END.nm)
-        ledger = self.getLedgerForMsg(req)
-        ledger_size = ledger.size
-
-        if start > end:
-            self.discard(req, reason="{} not able to service since "
-                                     "start = {} greater than "
-                                     "end = {}"
-                         .format(self, start, end),
-                         logMethod=logger.debug)
-            return
-        if end > req.catchupTill:
-            self.discard(req, reason="{} not able to service since "
-                                     "end = {} greater than "
-                                     "catchupTill = {}"
-                         .format(self, end, req.catchupTill),
-                         logMethod=logger.debug)
-            return
-        if req.catchupTill > ledger_size:
-            self.discard(req, reason="{} not able to service since "
-                                     "catchupTill = {} greater than "
-                                     "ledger size = {}"
-                         .format(self, req.catchupTill, ledger_size),
-                         logMethod=logger.debug)
-            return
-
-        logger.debug("node {} requested catchup for {} from {} to {}"
-                     .format(frm, end - start + 1, start, end))
-        logger.info("{} generating consistency proof: {} from {}".format(self, end, req.catchupTill))
-        cons_proof = self._make_consistency_proof(ledger, end, req.catchupTill)
-        txns = {}
-        for seq_no, txn in ledger.getAllTxn(start, end):
-            txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
-        self.metrics.add_event(MetricsName.CATCHUP_TXNS_SENT, len(txns))
-        sorted_txns = SortedDict(txns)
-        rep = CatchupRep(getattr(req, f.LEDGER_ID.nm),
-                         sorted_txns,
-                         cons_proof)
-        message_splitter = self._make_split_for_catchup_rep(ledger, req.catchupTill)
-        self.sendTo(msg=rep,
-                    to=frm,
-                    message_splitter=message_splitter)
-
-    def _make_consistency_proof(self, ledger, end, catchup_till):
-        # TODO: make catchup_till optional
-        # if catchup_till is None:
-        #     catchup_till = ledger.size
-        proof = ledger.tree.consistency_proof(end, catchup_till)
-        string_proof = [Ledger.hashToStr(p) for p in proof]
-        return string_proof
+        self._send_to_seeder(req, frm)
 
     @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
@@ -1096,6 +1043,12 @@ class LedgerManager(HasActionQueue):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         return ledgerInfo.ledger.append(txn)
 
+    def _send_to_seeder(self, msg: Any, frm: str):
+        if self.nodestack.hasRemote(frm):
+            self._node_seeder_inbox.put_nowait((msg, frm))
+        else:
+            self._client_seeder_inbox.put_nowait((msg, frm))
+
     def getStack(self, remoteName: str):
         if self.nodestack.hasRemote(remoteName):
             return self.nodestack
@@ -1144,30 +1097,3 @@ class LedgerManager(HasActionQueue):
             else self.nodestack.registry
         return [nm for nm in nodes_list
                 if nm not in self.blacklistedNodes and nm != self.nodestack.name]
-
-    def _make_split_for_catchup_rep(self, ledger, initial_seq_no):
-
-        def _split(message):
-            txns = list(message.txns.items())
-            if len(message.txns) < 2:
-                logger.warning("CatchupRep has {} txn(s). This is not enough "
-                               "to split. Message: {}".format(len(message.txns), message))
-                return None
-            divider = len(message.txns) // 2
-            left = txns[:divider]
-            left_last_seq_no = left[-1][0]
-            right = txns[divider:]
-            right_last_seq_no = right[-1][0]
-            left_cons_proof = self._make_consistency_proof(ledger,
-                                                           left_last_seq_no,
-                                                           initial_seq_no)
-            right_cons_proof = self._make_consistency_proof(ledger,
-                                                            right_last_seq_no,
-                                                            initial_seq_no)
-            ledger_id = getattr(message, f.LEDGER_ID.nm)
-
-            left_rep = CatchupRep(ledger_id, SortedDict(left), left_cons_proof)
-            right_rep = CatchupRep(ledger_id, SortedDict(right), right_cons_proof)
-            return left_rep, right_rep
-
-        return _split
