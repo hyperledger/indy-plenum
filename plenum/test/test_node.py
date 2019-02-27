@@ -377,7 +377,6 @@ class TestNode(TestNodeCore, Node):
     def get_new_ledger_manager(self):
         return TestLedgerManager(
             self,
-            ownedByNode=True,
             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
             preCatchupClbk=self.preLedgerCatchUp,
             postCatchupClbk=self.postLedgerCatchUp,
