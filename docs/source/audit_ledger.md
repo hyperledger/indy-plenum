@@ -76,28 +76,44 @@ With the audit ledger, external audit can be performed as follows:
 
         "data": {
             "ver": "1",
-            "viewNo": <...>, # view no of last 3PC batch which is equal to the current view no
-            "ppSeqNo": <...>, # ppSeqNo of last 3PC batch
-            "ledgerSize": { # a map of ledger_id -> size
+            
+            # view no of last 3PC batch which is equal to the current view no
+            "viewNo": <...>, 
+            
+            # ppSeqNo of last 3PC batch
+            "ppSeqNo": <...>, 
+            
+            # a map of ledger_id -> size
+            "ledgerSize": { 
                 0: <...>, # pool ledger size
                 1: <...>, # domain ledger size
                 2: <...>, # config ledger size
                 1001: <...>, # plugin ledger size
             },
-            "ledgerRoot": {  # either a root hash as base58, or a delta, that is a difference between the current audit txn seqno and a seq_no of audit txn where it was changed last time
+            
+            # either a root hash as base58, or a delta, 
+            # that is a difference between the current audit txn seqno and 
+            # a seq_no of audit txn where it was changed last time
+            "ledgerRoot": {  
                 0: <...>, # pool ledger root (hash or seqno delta)
                 1: <...>, # domain ledger root (hash or seqno delta)
                 2: <...>, # config ledger root (hash or seqno delta)
                 1001: <...>, # plugin ledger root (hash or seqno delta)
                 # -1: <...>, in case of shared root for all ledgers 
             },
-           "stateRoot": {   # a state root hash as base58 for the ledgers that changed the state in this 3PC
+            
+           # a state root hash as base58 for the ledgers that changed the state in this 3PC
+           "stateRoot": {   
                 0: <...>, # pool state root hash
                 1: <...>, # domain state root hash
                 2: <...>, # config state root hash
                 1001: <...>, # plugin state root hash
                 # -1: <...>, in case of shared root for all ledgers  
-            }    
+            },
+            
+            # either a list of primaries (Node names) for every protocol insatnce, 
+            # or a delta to the audit transaction the primaries were changed last time
+            "primaries": <...>    
         },
         "metadata": {
         },
@@ -114,6 +130,10 @@ With the audit ledger, external audit can be performed as follows:
 - `ledgerRoot` value for every ledger can be either
    - ledger root hash as base58, if this ledger was changed in the 3PC batch the audit txn is created for
    - delta, that is a difference between the current audit txn seq_no and a seq_no of audit txn where it was changed last time
+- `primaries` value can be either
+    - a list of primaries (Node names) for every protocol instance where the Node name is Node's `alias` from the NODE txn. 
+    Example: `['Alpha', 'Beta', 'Gamma']`.
+    - delta, that is a difference between the current audit txn seq_no and a seq_no of audit txn where the primaries were changed last time
 - The deltas are used to have more compact data than if we stored all root hashes all the time (even if it's not changed).
 - If the ledger is never changed, then the corresponding `ledger_id` is not present at all.
 
