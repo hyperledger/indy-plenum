@@ -26,8 +26,6 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
     transactions which happened while it was disconnected
     :return:
     """
-    view_no = txnPoolNodeSet[0].viewNo
-
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
         sdk_node_set_with_node_added_after_some_txns
 
@@ -54,9 +52,3 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
                               new_steward_wallet_handle, 10)
     checkNodeDataForEquality(new_node, *txnPoolNodeSet[:-1])
 
-    last_ordered = txnPoolNodeSet[-1].master_last_ordered_3PC
-    primaries = txnPoolNodeSet[0].primaries
-    assert len(primaries) == getMaxFailures(len(txnPoolNodeSet)) + 1
-    looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
-    looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
-    looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
