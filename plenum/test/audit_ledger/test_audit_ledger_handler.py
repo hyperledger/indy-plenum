@@ -1,3 +1,4 @@
+from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn
 
@@ -190,6 +191,35 @@ def test_reject_batch(alh, db_manager,
     assert alh.ledger.uncommitted_size == uncommited_size_before
     assert alh.ledger.size == size_before
     assert alh.ledger.get_last_txn() is None
+
+
+def test_transform_txn_for_catchup_rep(alh, db_manager,
+                                       initial_domain_size, initial_pool_size, initial_config_size):
+    do_apply_audit_txn(alh,
+                       txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
+                       view_no=0, pp_sq_no=1, txn_time=10000,
+                       has_audit_txn=True)
+
+    audit_txn_after_serialization = \
+        JsonSerializer.loads(
+            JsonSerializer.dumps(
+                alh.ledger.get_last_txn()
+            )
+        )
+
+    transformed_audit_txn = alh.transform_txn_for_ledger(audit_txn_after_serialization)
+    check_audit_txn(txn=transformed_audit_txn,
+                    view_no=0, pp_seq_no=1,
+                    seq_no=1, txn_time=10000,
+                    ledger_id=DOMAIN_LEDGER_ID,
+                    txn_root=db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash,
+                    state_root=db_manager.get_state(DOMAIN_LEDGER_ID).headHash,
+                    pool_size=initial_pool_size,
+                    domain_size=initial_domain_size + 10,
+                    config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=None,
+                    last_config_seqno=None)
 
 
 def test_commit_one_batch(alh, db_manager,

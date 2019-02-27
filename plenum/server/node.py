@@ -19,6 +19,7 @@ from plenum.common.gc_trackers import GcTimeTracker, GcObjectTree
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.common.timer import QueueTimer
+from plenum.common.transactions import PlenumTransactions
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -961,15 +962,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def domainLedgerStatus(self):
         return self.build_ledger_status(DOMAIN_LEDGER_ID)
-
-    def getLedgerRootHash(self, ledgerId, isCommitted=True):
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
-        if not ledgerInfo:
-            raise RuntimeError('Ledger with id {} does not exist')
-        ledger = ledgerInfo.ledger
-        if isCommitted:
-            return ledger.root_hash
-        return ledger.uncommitted_root_hash
 
     def stateRootHash(self, ledgerId, isCommitted=True):
         state = self.states.get(ledgerId)
@@ -3726,9 +3718,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transform_txn_for_ledger(self, txn):
         txn_type = get_type(txn)
         req_handler = self.get_req_handler(txn_type=txn_type)
-        if not req_handler:
-            return txn
-        return req_handler.transform_txn_for_ledger(txn)
+        if req_handler:
+            return req_handler.transform_txn_for_ledger(txn)
+
+        # TODO: fix once pluggable request handlers are integrated
+        if get_type(txn) == PlenumTransactions.AUDIT.value:
+            # Makes sure that we have integer as keys after possible deserialization from json
+            return self.audit_handler.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self

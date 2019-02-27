@@ -24,10 +24,23 @@ class AuditBatchHandler(BatchRequestHandler):
         _, txn_count = self.tracker.reject_batch()
         self.ledger.discardTxns(txn_count)
 
-    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_result=None):
+    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result=None):
         _, txns_count = self.tracker.commit_batch()
         _, committedTxns = self.ledger.commitTxns(txns_count)
         return committedTxns
+
+    @staticmethod
+    def transform_txn_for_ledger(txn):
+        '''
+        Makes sure that we have integer as keys after possible deserialization from json
+        :param txn: txn to be transformed
+        :return: transformed txn
+        '''
+        txn_data = get_payload_data(txn)
+        txn_data[AUDIT_TXN_LEDGERS_SIZE] = {int(k): v for k, v in txn_data[AUDIT_TXN_LEDGERS_SIZE].items()}
+        txn_data[AUDIT_TXN_LEDGER_ROOT] = {int(k): v for k, v in txn_data[AUDIT_TXN_LEDGER_ROOT].items()}
+        txn_data[AUDIT_TXN_STATE_ROOT] = {int(k): v for k, v in txn_data[AUDIT_TXN_STATE_ROOT].items()}
+        return txn
 
     def _add_to_ledger(self, three_pc_batch: ThreePcBatch):
         # if PRE-PREPARE doesn't have audit txn (probably old code) - do nothing
@@ -61,14 +74,14 @@ class AuditBatchHandler(BatchRequestHandler):
             if lid == AUDIT_LEDGER_ID:
                 continue
             # 2. ledger size
-            txn[AUDIT_TXN_LEDGERS_SIZE][str(lid)] = ledger.uncommitted_size
+            txn[AUDIT_TXN_LEDGERS_SIZE][lid] = ledger.uncommitted_size
 
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
             self.__fill_ledger_root_hash(txn, three_pc_batch, lid, last_audit_txn)
 
         # 4. state root hash
-        txn[AUDIT_TXN_STATE_ROOT][str(three_pc_batch.ledger_id)] = Ledger.hashToStr(three_pc_batch.state_root)
+        txn[AUDIT_TXN_STATE_ROOT][three_pc_batch.ledger_id] = Ledger.hashToStr(three_pc_batch.state_root)
 
         return txn
 
@@ -78,16 +91,16 @@ class AuditBatchHandler(BatchRequestHandler):
 
         # 1. ledger is changed in this batch => root_hash
         if lid == target_ledger_id:
-            txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = Ledger.hashToStr(three_pc_batch.txn_root)
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(three_pc_batch.txn_root)
 
         # 2. This ledger is never audited, so do not add the key
-        elif last_audit_txn_data is None or str(lid) not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
+        elif last_audit_txn_data is None or lid not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
             return
 
-        # 3. ledger is not changed in last batch => the same audit seq no
-        elif isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][str(lid)], int):
-            txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][str(lid)]
+        # 3. ledger is not changed in last batch => delta = delta + 1
+        elif isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid], int):
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid] + 1
 
-        # 4. ledger is changed in last batch but not changed now => seq_no of last audit txn
+        # 4. ledger is changed in last batch but not changed now => delta = 1
         elif last_audit_txn_data:
-            txn[AUDIT_TXN_LEDGER_ROOT][str(lid)] = get_seq_no(last_audit_txn)
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = 1
