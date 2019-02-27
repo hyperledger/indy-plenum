@@ -11,13 +11,14 @@ logger = getlogger()
 
 
 class SeederService:
-    def __init__(self, input: RxChannel, provider: CatchupDataProvider, service_clients: bool):
+    def __init__(self, input: RxChannel, provider: CatchupDataProvider,
+                 echo_ledger_status_if_up_to_date: bool):
         input.set_handler(LedgerStatus, self.process_ledger_status)
         input.set_handler(CatchupReq, self.process_catchup_req)
 
         self._provider = provider
         self._ledgers = {}  # Dict[int, Ledger]
-        self._service_clients = service_clients
+        self._echo_ledger_status_if_up_to_date = echo_ledger_status_if_up_to_date
 
     def __repr__(self):
         return self._provider.node_name()
@@ -41,7 +42,7 @@ class SeederService:
             return
 
         if status.txnSeqNo >= ledger.size:
-            if self._service_clients:
+            if self._echo_ledger_status_if_up_to_date:
                 ledger_status = build_ledger_status(ledger_id, ledger, self._provider)
                 self._provider.send_to(ledger_status, frm)
             return
@@ -176,9 +177,9 @@ class SeederService:
 
 class ClientSeederService(SeederService):
     def __init__(self, input: RxChannel, provider: CatchupDataProvider):
-        SeederService.__init__(self, input, provider, service_clients=True)
+        SeederService.__init__(self, input, provider, echo_ledger_status_if_up_to_date=True)
 
 
 class NodeSeederService(SeederService):
     def __init__(self, input: RxChannel, provider: CatchupDataProvider):
-        SeederService.__init__(self, input, provider, service_clients=False)
+        SeederService.__init__(self, input, provider, echo_ledger_status_if_up_to_date=False)
