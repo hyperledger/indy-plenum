@@ -5,6 +5,8 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change.helper import restart_node, nodes_received_ic
 from stp_core.loop.eventually import eventually
 
+TestRunningTimeLimitSec = 150
+
 
 @pytest.fixture(scope="module")
 def tconf(tconf):

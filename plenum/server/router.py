@@ -47,12 +47,11 @@ class Router:
         :param o: the object to process
         :return: the next function
         """
-        try:
-            return next(
-                func for cls, func in self.routes.items()
-                if isinstance(o, cls))
-        except StopIteration:
-            raise RuntimeError("unhandled msg: {}".format(o))
+        for cls, func in self.routes.items():
+            # Due to how plugins work
+            if str(o.__class__) == str(cls):
+                return func
+        raise RuntimeError("unhandled msg: {}".format(o))
 
     # noinspection PyCallingNonCallable
     def handleSync(self, msg: Any) -> Any:
