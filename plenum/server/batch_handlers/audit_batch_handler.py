@@ -136,7 +136,7 @@ class AuditBatchHandler(BatchRequestHandler):
         elif isinstance(last_txn_value, int) and last_txn_value < self.ledger.uncommitted_size:
             last_primaries_seq_no = get_seq_no(last_audit_txn) - last_txn_value
             last_primaries = get_payload_data(
-                self.ledger.getBySeqNo(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                self.ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
             if isinstance(last_primaries, Iterable):
                 if last_primaries == current_primaries:
                     txn[AUDIT_TXN_PRIMARIES] = last_txn_value + 1

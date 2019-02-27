@@ -19,7 +19,8 @@ def check_audit_txn(txn,
                     seq_no, txn_time,
                     ledger_id, txn_root, state_root,
                     pool_size, domain_size, config_size,
-                    last_domain_seqno, last_pool_seqno, last_config_seqno):
+                    last_domain_seqno, last_pool_seqno, last_config_seqno,
+                    primaries):
     expectedLedgerRoots = {}
     # we expect deltas here, that is a difference from the current audit ledger txn to
     # the audit txn where the corresponding ledger was updated
@@ -46,7 +47,8 @@ def check_audit_txn(txn,
                 },
                 "stateRoot": {
                     ledger_id: Ledger.hashToStr(state_root),
-                }
+                },
+                "primaries": primaries
 
             },
             "metadata": {
