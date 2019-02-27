@@ -52,8 +52,7 @@ class Router:
         :return: the next function
         """
         for cls, func in self.routes.items():
-            # String comparison is due to plugins reloading modules which messes class objects
-            if isinstance(o, cls) or str(o.__class__) == str(cls):
+            if isinstance(o, cls):
                 return func
         logger.error("Unhandled msg {}, available handlers are:".format(o))
         for cls in self.routes.keys():

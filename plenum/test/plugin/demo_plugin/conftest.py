@@ -17,6 +17,7 @@ def do_plugin_initialisation_for_tests():
 
     importlib.reload(plenum.server.replica)
     importlib.reload(plenum.server.node)
+    importlib.reload(plenum.server.catchup.seeder_service)
     importlib.reload(plenum.server.view_change.view_changer)
     importlib.reload(plenum.server.message_handlers)
     importlib.reload(plenum.server.observer.observable)
