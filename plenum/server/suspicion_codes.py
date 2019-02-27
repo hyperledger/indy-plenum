@@ -85,7 +85,7 @@ class Suspicions:
     PPR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(44, "Pre-Prepare message has "
                                                   "incorrect audit ledger transaction root hash")
     PR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(45, "Prepare message has "
-                                                  "incorrect audit ledger transaction root hash")
+                                                 "incorrect audit ledger transaction root hash")
 
     @classmethod
     def get_list(cls):
