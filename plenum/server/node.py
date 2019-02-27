@@ -3158,7 +3158,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaries.append(name)
 
         # Notify replica, that we need to send batch with new primaries
-        self.primaries_batch_needed = True
+        if self.viewNo != 0:
+            self.primaries_batch_needed = True
 
     def _do_start_catchup(self, just_started):
         # Process any already Ordered requests by the replica

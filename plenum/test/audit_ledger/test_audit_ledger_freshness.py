@@ -51,7 +51,7 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
                         last_pool_seqno=None,
                         last_domain_seqno=2,
                         last_config_seqno=3,
-                        primaries=node.primaries)
+                        primaries=pp_seq_no + 1 - 1)
 
         check_audit_txn(txn=node.auditLedger.getBySeqNo(node.auditLedger.size - 1),
                         view_no=view_no, pp_seq_no=pp_seq_no + 2,
@@ -64,7 +64,7 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
                         last_pool_seqno=4,
                         last_domain_seqno=None,
                         last_config_seqno=3,
-                        primaries=node.primaries)
+                        primaries=pp_seq_no + 2 - 1)
 
         check_audit_txn(txn=node.auditLedger.getBySeqNo(node.auditLedger.size),
                         view_no=view_no, pp_seq_no=pp_seq_no + 3,
@@ -77,4 +77,4 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
                         last_pool_seqno=4,
                         last_domain_seqno=5,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=pp_seq_no + 3 - 1)
