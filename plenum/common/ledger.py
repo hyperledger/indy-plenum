@@ -162,5 +162,5 @@ class Ledger(_Ledger):
         if seq_no > self.uncommitted_size:
             raise KeyError
         if seq_no > self.size:
-            return self.uncommittedTxns[self.uncommitted_size - seq_no]
+            return self.uncommittedTxns[seq_no - self.size - 1]
         return self.getBySeqNo(seq_no)
