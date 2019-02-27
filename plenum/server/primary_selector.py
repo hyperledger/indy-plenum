@@ -53,9 +53,9 @@ class PrimarySelector(PrimaryDecider):
         # TODO add more tests or refactor
         # to return name and rank at once and remove assert
         assert name, "{} failed to get next primary node name for master instance".format(self)
-        logger.trace("{} selected {} as next primary node for master instance, "
-                     "viewNo {} with rank {}, nodeReg {}".format(
-            self, name, self.viewNo, rank, nodeReg))
+        logger.trace(
+            "{} selected {} as next primary node for master instance, "
+            "viewNo {} with rank {}, nodeReg {}".format(self, name, self.viewNo, rank, nodeReg))
         return name
 
     def next_primary_replica_name_for_master(self, nodeReg=None):
@@ -124,6 +124,17 @@ class PrimarySelector(PrimaryDecider):
                     self.node.start_participating()
                 replica.primaryChanged(self.node.primaries[instance_id])
                 self.node.primary_selected(instance_id)
+
+            # Primary propagation
+            self.node.schedule_initial_propose_view_change()
+            last_sent_pp_seq_no_restored = False
+            for replica in self.replicas.values():
+                replica.on_propagate_primary_done()
+            if self.node.view_changer.previous_view_no == 0:
+                last_sent_pp_seq_no_restored = \
+                    self.node.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+            if not last_sent_pp_seq_no_restored:
+                self.node.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
         # Emulate view_change ending
         self.node.on_view_change_complete()

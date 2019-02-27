@@ -505,9 +505,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # and restoration current primaries from audit ledger
         self.primaries = []
 
-        # When node starts, it will catchup. After first catchup, this field will be set to False
-        self.initial_catchup = True
-
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
 
@@ -959,14 +956,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             replica.primaryName = None
 
     def ensure_primaries_dropped(self):
-        for replica in self.replicas.values():
-            if replica.primaryName is not None:
-                raise LogicError('Primaries must be dropped')
+        if any(replica.primaryName is not None for replica in self.replicas.values()):
+            raise LogicError('Primaries must be dropped')
 
     def ensure_primaries_set(self):
-        for replica in self.replicas.values():
-            if replica.primaryName is None:
-                raise LogicError('Primaries must be set')
+        if any(replica.primaryName is None for replica in self.replicas.values()):
+            raise LogicError('Primaries must be set')
 
     def on_inconsistent_3pc_state_from_network(self):
         if self.config.ENABLE_INCONSISTENCY_WATCHER_NETWORK:
@@ -2349,12 +2344,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(CATCH_UP_PREFIX, self),
                         extra={'cli': True})
 
+            self.no_more_catchups_needed()
+
             if self.view_change_in_progress:
                 self.view_changer.on_catchup_complete()
             else:
                 self.elector.on_catchup_complete()
-
-            self.no_more_catchups_needed()
 
     def _update_txn_seq_range_to_3phase_after_catchup(self, ledger_id, last_caughtup_3pc):
         logger.info(
@@ -2453,25 +2448,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
         if self.ledgerManager.last_caught_up_3PC == (0, 0):
-            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
-
-        # Must be called after primaries selection
-        self.ensure_primaries_set()
-        last_sent_pp_seq_no_restored = False
-        if self.initial_catchup:
-            self.initial_catchup = False
-
-            # disconnection times
-            self.schedule_initial_propose_view_change()
-
-            # backup restoration
-            for replica in self.replicas.values():
-                replica.on_propagate_primary_done()
-            if self.view_changer.previous_view_no == 0:
-                last_sent_pp_seq_no_restored = \
-                    self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
-
-        if not last_sent_pp_seq_no_restored:
             self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def getLedger(self, ledgerId) -> Ledger:
