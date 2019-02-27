@@ -1591,12 +1591,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if prepare.digest != ppReq.digest:
             raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
-
         elif prepare.stateRootHash != ppReq.stateRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                 prepare)
+        elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
+            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                  prepare)
 
         try:
