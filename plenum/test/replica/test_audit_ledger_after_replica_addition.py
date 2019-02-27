@@ -76,3 +76,7 @@ def test_audit_ledger_after_replica_addition(looper, sdk_pool_handle, txnPoolNod
     looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
     last_ordered = txnPoolNodeSet[0].master_last_ordered_3PC
     looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_steward, 1)
+    waitNodeDataEquality(looper, *txnPoolNodeSet)

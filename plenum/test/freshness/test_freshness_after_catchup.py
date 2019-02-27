@@ -61,3 +61,7 @@ def test_freshness_after_catchup(looper,
     looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
     looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
     looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 1)
+    waitNodeDataEquality(looper, *txnPoolNodeSet)

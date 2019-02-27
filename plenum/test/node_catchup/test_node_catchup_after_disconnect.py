@@ -1,8 +1,7 @@
 import pytest
 
-from plenum.common.util import getMaxFailures
 from stp_core.common.log import getlogger
-from plenum.test.helper import sdk_send_random_and_check, assertExp
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import \
@@ -10,7 +9,6 @@ from plenum.test.pool_transactions.helper import \
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
-from stp_core.loop.eventually import eventually
 
 logger = getlogger()
 txnCount = 5
@@ -51,4 +49,3 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 10)
     checkNodeDataForEquality(new_node, *txnPoolNodeSet[:-1])
-
