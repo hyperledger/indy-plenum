@@ -3947,10 +3947,5 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
 
-    def get_primaries_for_view_no(self, view_no):
-        # TODO: Modify to restore primary_name by (view_no, seq_no)
-        # TODO: Because replicas can be deleted this is bad way for getting primaries
-        return [replica.primaryNames[view_no] for replica in self.replicas.values()]
-
     def _init_write_request_validator(self):
         pass

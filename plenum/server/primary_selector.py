@@ -122,19 +122,20 @@ class PrimarySelector(PrimaryDecider):
             for instance_id, replica in self.replicas.items():
                 if instance_id == 0:
                     self.node.start_participating()
-                replica.primaryChanged(self.node.primaries[instance_id])
+                replica.primaryChanged(
+                    Replica.generateName(self.node.primaries[instance_id], instance_id))
                 self.node.primary_selected(instance_id)
 
-            # Primary propagation
-            self.node.schedule_initial_propose_view_change()
-            last_sent_pp_seq_no_restored = False
-            for replica in self.replicas.values():
-                replica.on_propagate_primary_done()
-            if self.node.view_changer.previous_view_no == 0:
-                last_sent_pp_seq_no_restored = \
-                    self.node.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
-            if not last_sent_pp_seq_no_restored:
-                self.node.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
+        # Primary propagation
+        self.node.schedule_initial_propose_view_change()
+        last_sent_pp_seq_no_restored = False
+        for replica in self.replicas.values():
+            replica.on_propagate_primary_done()
+        if self.node.view_changer.previous_view_no == 0:
+            last_sent_pp_seq_no_restored = \
+                self.node.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.node.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
         # Emulate view_change ending
         self.node.on_view_change_complete()

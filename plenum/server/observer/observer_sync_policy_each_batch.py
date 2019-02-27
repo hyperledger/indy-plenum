@@ -148,7 +148,7 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         txn_root = batch[f.TXN_ROOT.nm]
 
         three_pc_batch = ThreePcBatch.from_batch_committed_dict(
-            batch, self._node.get_primaries_for_view_no(batch[f.VIEW_NO]))
+            batch, self._node.primaries)
         self._node.apply_reqs(reqs, three_pc_batch)
         self._node.get_executer(ledger_id)(pp_time,
                                            reqs,
