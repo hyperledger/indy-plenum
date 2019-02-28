@@ -16,11 +16,6 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    # TODO: Delete when INDY-1946 gets implemented
-    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-        pass
-
-    @abstractmethod
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         pass
 
@@ -34,9 +29,7 @@ class CatchupDataProvider(ABC):
 
 
 def build_ledger_status(ledger_id: int, ledger: Ledger, provider: CatchupDataProvider):
-    # TODO: Delete when INDY-1946 gets implemented
-    three_pc_key = provider.three_phase_key_for_txn_seq_no(ledger_id, ledger.size)
-    view_no, pp_seq_no = three_pc_key if three_pc_key else (None, None)
+    view_no, pp_seq_no = (None, None)
     return LedgerStatus(ledger_id,
                         ledger.size,
                         view_no,
