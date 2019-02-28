@@ -48,8 +48,8 @@ class Stasher:
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
                     logger.info("{} stashing message {} for "
-                                 "{} seconds".
-                                 format(self.name, rx, secondsToDelay))
+                                "{} seconds".
+                                format(self.name, rx, secondsToDelay))
                     self.delayeds.append(StasherDelayed(item=rx, timestamp=age + secondsToDelay, rule=tester.__name__))
                     self.queue.remove(rx)
 
@@ -130,15 +130,12 @@ class Stasher:
         self.resetDelays(*names)
         self.force_unstash(*names)
 
+    def num_of_stashed(self, msg_type):
+        a = sum(1 for stashed in self.delayeds if isinstance(stashed.item[0], msg_type))
+        return a
 
-@contextmanager
-def delay_rules(stasher, *delayers):
-    """
-    Context manager to add delay rules to stasher(s) on entry and clean everything up on exit.
 
-    :param stasher: Instance of Stasher or iterable over instances of stasher
-    :param delayers: Delay rule functions to be added to stashers
-    """
+def _make_stashers(stasher, *delayers):
     try:
         stashers = [s for s in stasher]
     except TypeError:
@@ -151,6 +148,32 @@ def delay_rules(stasher, *delayers):
     for s in stashers:
         for d in delayers:
             s.delay(d)
+    return stashers
+
+
+@contextmanager
+def delay_rules(stasher, *delayers):
+    """
+    Context manager to add delay rules to stasher(s) on entry and clean everything up on exit.
+
+    :param stasher: Instance of Stasher or iterable over instances of stasher
+    :param delayers: Delay rule functions to be added to stashers
+    """
+    stashers = _make_stashers(stasher, *delayers)
     yield
     for s in stashers:
         s.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))
+
+
+@contextmanager
+def delay_rules_without_processing(stasher, *delayers):
+    """
+    Context manager to add delay rules to stasher(s) on entry and clean everything up on exit.
+
+    :param stasher: Instance of Stasher or iterable over instances of stasher
+    :param delayers: Delay rule functions to be added to stashers
+    """
+    stashers = _make_stashers(stasher, *delayers)
+    yield
+    for s in stashers:
+        s.resetDelays(*(d.__name__ for d in delayers))

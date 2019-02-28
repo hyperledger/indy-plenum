@@ -14,6 +14,7 @@ class MessageProcessor:
         # if True, message must be converted to Dict before sending.
         self.allowDictOnly = allowDictOnly
 
+    # TODO: Convert this into a free function?
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         """
         Discard a message and log a reason using the specified `logMethod`.

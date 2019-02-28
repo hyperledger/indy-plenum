@@ -17,6 +17,7 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
@@ -37,6 +38,7 @@ from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.node import Node
+from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
@@ -444,6 +446,7 @@ def assertFunc(func):
 def checkLedgerEquality(ledger1, ledger2):
     assertLength(ledger1, ledger2.size)
     assertEquality(ledger1.root_hash, ledger2.root_hash)
+    assertEquality(ledger1.uncommitted_root_hash, ledger2.uncommitted_root_hash)
 
 
 def checkAllLedgersEqual(*ledgers):
@@ -452,6 +455,8 @@ def checkAllLedgersEqual(*ledgers):
 
 
 def checkStateEquality(state1, state2):
+    if state1 is None:
+        return state2 is None
     assertEquality(state1.as_dict, state2.as_dict)
     assertEquality(state1.committedHeadHash, state2.committedHeadHash)
     assertEquality(state1.committedHead, state2.committedHead)
@@ -1073,32 +1078,37 @@ def create_pre_prepare_params(state_root,
                               view_no=0,
                               pool_state_root=None,
                               pp_seq_no=0,
-                              inst_id=0):
+                              inst_id=0,
+                              audit_txn_root=None,
+                              reqs=None):
+    digest = Replica.batchDigest(reqs) if reqs is not None else "random digest"
+    req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
     params = [inst_id,
               view_no,
               pp_seq_no,
               timestamp or get_utc_epoch(),
-              ["random request digest"],
+              req_idrs,
               init_discarded(0),
-              "random digest",
+              digest,
               ledger_id,
               state_root,
               txn_root or '1' * 32,
               0,
-              True]
-    if pool_state_root is not None:
-        params.append(pool_state_root)
+              True,
+              pool_state_root or generate_state_root(),
+              audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params
 
 
-def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0):
+def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0, audit_txn_root=None):
     params = create_pre_prepare_params(state_root=state_root,
                                        view_no=view_no,
                                        pool_state_root=pool_state_root,
                                        pp_seq_no=pp_seq_no,
-                                       inst_id=inst_id)
+                                       inst_id=inst_id,
+                                       audit_txn_root=audit_txn_root)
     return PrePrepare(*params)
 
 
@@ -1169,3 +1179,17 @@ class MockTimestamp:
 
     def __call__(self):
         return self.value
+
+
+class MockTimer(QueueTimer):
+    def __init__(self, get_current_time: Optional[MockTimestamp] = None):
+        self._ts = get_current_time if get_current_time else MockTimestamp(0)
+        QueueTimer.__init__(self, self._ts)
+
+    def advance(self, seconds):
+        self._ts.value += seconds
+        self.service()
+
+    def update_time(self, value):
+        self._ts.value = value
+        self.service()

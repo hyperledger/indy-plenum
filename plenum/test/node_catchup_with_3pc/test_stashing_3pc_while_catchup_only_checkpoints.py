@@ -2,14 +2,14 @@ from logging import getLogger
 
 import pytest
 
-from plenum.common.messages.node_messages import Checkpoint
+from plenum.common.messages.node_messages import Checkpoint, LedgerStatus
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cs_delay, lsDelay, \
-    ppDelay, pDelay, cDelay
+    ppDelay, pDelay, cDelay, msg_rep_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
@@ -80,8 +80,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
     initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
 
-    # delay all 3PC messages on teh lagged node so that it
-    # receives only Checkpoints andcatch-up messages
+    # delay all 3PC messages on the lagged node so that it
+    # receives only Checkpoints and catch-up messages
 
     lagging_node.nodeIbStasher.delay(ppDelay())
     lagging_node.nodeIbStasher.delay(pDelay())
@@ -89,10 +89,18 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
     # delay CurrentState to avoid Primary Propagation (since it will lead to more catch-ups not needed in this test).
     with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
-        with delay_rules(lagging_node.nodeIbStasher, lsDelay()):
+        with delay_rules(lagging_node.nodeIbStasher, lsDelay(), msg_rep_delay()):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
+
+            # wait till we got ledger statuses for messages missed while the node was offline,
+            # so that now we can order more messages, and they will not be caught up, but stashed
+            looper.run(
+                eventually(lambda: assertExp(lagging_node.nodeIbStasher.num_of_stashed(LedgerStatus) >= 3), retryWait=1,
+                           timeout=60))
+
+            assert lagging_node.mode != Mode.participating
 
             # make sure that more requests are being ordered while catch-up is in progress
             # stash enough stable checkpoints for starting a catch-up
@@ -109,6 +117,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
             # all good nodes stabilized checkpoint
             looper.run(eventually(chkChkpoints, rest_nodes, 2, 0))
 
+            assert lagging_node.mode != Mode.participating
             # lagging node is catching up and stashing all checkpoints
             looper.run(
                 eventually(
@@ -132,6 +141,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         )
 
         # check that catch-up was started only once
+        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1
         looper.run(
             eventually(
                 lambda: assertExp(
@@ -145,7 +155,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
             )
         )
 
-        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
+        # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering durinf catch-up
+        waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check='check_audit', customTimeout=5)
 
 
 def get_stashed_checkpoints(node):

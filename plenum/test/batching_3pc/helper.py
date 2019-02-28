@@ -2,10 +2,11 @@ import types
 from binascii import hexlify
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.messages.node_messages import ThreePhaseType
 from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
-from plenum.common.messages.node_messages import ThreePhaseType
 from plenum.common.util import check_if_all_equal_in_list
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
@@ -64,11 +65,19 @@ def add_txns_to_ledger_before_order(replica, reqs):
         canOrder, _ = self.canOrder(commit)
         node = replica.node
         if not replica.added and canOrder:
-
+            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             ledger_manager = node.ledgerManager
             ledger_id = DOMAIN_LEDGER_ID
             ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
             ledgerInfo = ledger_manager.getLedgerInfoByType(ledger_id)
+
+            # simulate audit ledger catchup
+            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
+                                                           valid_txn_count=len(reqs),
+                                                           state_root=pp.stateRootHash,
+                                                           txn_root=pp.txnRootHash)
+            node.audit_handler.post_batch_applied(three_pc_batch)
+            node.audit_handler.commit_batch(ledger_id, len(reqs), pp.stateRootHash, pp.txnRootHash, pp.ppTime)
 
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)

@@ -123,14 +123,15 @@ class NonEmptyStringField(FieldBase):
 class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
-    def __init__(self, max_length: int, **kwargs):
+    def __init__(self, max_length: int, can_be_empty=False, **kwargs):
         if not max_length > 0:
             raise PlenumValueError('max_length', max_length, '> 0')
         super().__init__(**kwargs)
         self._max_length = max_length
+        self._can_be_empty = can_be_empty
 
     def _specific_validation(self, val):
-        if not val:
+        if not val and not self._can_be_empty:
             return 'empty string'
         if len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')

@@ -8,15 +8,23 @@ NUM_BATCHES = 3
 TXNS_IN_BATCH = 5
 
 
-def create_txns(looper, sdk_wallet_client):
-    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, TXNS_IN_BATCH)
+def create_txns(looper, sdk_wallet_client, count=TXNS_IN_BATCH):
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, count)
     return [reqToTxn(req) for req in reqs]
 
 
 @pytest.fixture(scope='module')
 def ledger(txnPoolNodeSet):
-    return txnPoolNodeSet[0].ledgers[DOMAIN_LEDGER_ID]
+    return txnPoolNodeSet[0].getLedger(DOMAIN_LEDGER_ID)
 
+
+@pytest.fixture(scope='module')
+def inital_size(ledger):
+    return ledger.size
+
+@pytest.fixture(scope='module')
+def inital_root_hash(ledger):
+    return ledger.tree.root_hash
 
 @pytest.fixture(scope='module')
 def ledger_with_batches_appended(ledger,

@@ -19,7 +19,7 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -33,6 +33,7 @@ from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
 from plenum.config import CHK_FREQ
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -196,6 +197,7 @@ PP_APPLY_ROOT_HASH_MISMATCH = 10
 PP_APPLY_HOOK_ERROR = 11
 PP_SUB_SEQ_NO_WRONG = 12
 PP_NOT_FINAL = 13
+PP_APPLY_AUDIT_HASH_MISMATCH = 15
 
 
 def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
@@ -440,8 +442,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # the request key needs to be removed once its ordered
         if ledger_id not in self.requestQueues:
             self.requestQueues[ledger_id] = OrderedSet()
-        self._freshness_checker.register_ledger(ledger_id=ledger_id,
-                                                initial_time=self.get_time_for_3pc_batch())
+        if ledger_id != AUDIT_LEDGER_ID:
+            self._freshness_checker.register_ledger(ledger_id=ledger_id,
+                                                    initial_time=self.get_time_for_3pc_batch())
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -452,11 +455,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMaster:
             return None
         ledger = self.node.getLedger(ledger_str)
-        h = ledger.uncommittedRootHash
-        # If no uncommittedHash since this is the beginning of the tree
-        # or no transactions affecting the ledger were made after the
-        # last changes were committed
-        root = h if h else ledger.tree.root_hash
+        root = ledger.uncommitted_root_hash
         if to_str:
             root = ledger.hashToStr(root)
         return root
@@ -900,9 +899,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         reqs, invalid_indices, rejects = self.consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.viewNo, pp_seq_no)
+        if self.isMaster:
+            three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
+                                          inst_id=self.instId,
+                                          view_no=self.viewNo,
+                                          pp_seq_no=pp_seq_no,
+                                          pp_time=tm,
+                                          valid_txn_count=len(reqs) - len(invalid_indices),
+                                          state_root=self.stateRootHash(ledger_id, to_str=False),
+                                          txn_root=self.txnRootHash(ledger_id, to_str=False))
+            self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
         state_root_hash = self.stateRootHash(ledger_id)
+        audit_txn_root_hash = self.txnRootHash(AUDIT_LEDGER_ID)
 
         """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
@@ -918,7 +928,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.txnRootHash(ledger_id),
             0,
             True,
-            pool_state_root_hash
+            pool_state_root_hash,
+            audit_txn_root_hash
         ]
 
         # BLS multi-sig:
@@ -935,9 +946,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
             self.outBox.extend(rejects)
-            self.node.onBatchCreated(
-                ledger_id, self.stateRootHash(
-                    ledger_id, to_str=False))
         return pre_prepare
 
     def consume_req_queue_for_pre_prepare(self, ledger_id, tm,
@@ -1034,26 +1042,62 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.stasher.stash((msg, sender), result)
 
     def _process_valid_preprepare(self, pre_prepare, sender):
-        # TODO: rename to apply_pre_prepare
-        if not self.node.isParticipating:
-            self.discard(pre_prepare, 'node is not participating', self.logger.debug)
-            return None
-        pre_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-        why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
+        old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
+        old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
+        if self.isMaster:
+            self.logger.debug('{} state root before processing {} is {}, {}'.format(
+                self,
+                pre_prepare,
+                old_state_root,
+                old_txn_root))
+
+        # 1. APPLY
+        reqs, invalid_indices, rejects = self._apply_pre_prepare(pre_prepare)
+
+        # 2. CHECK IF MORE CHUNKS NEED TO BE APPLIED FURTHER BEFORE VALIDATION
+        if pre_prepare.sub_seq_no != 0:
+            return PP_SUB_SEQ_NO_WRONG
+
+        if not pre_prepare.final:
+            return PP_NOT_FINAL
+
+        # 3. VALIDATE APPLIED
+        invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
+        why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
+                                                             reqs, invalid_indices, invalid_from_pp)
+
+        # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
+            if self.isMaster:
+                self.revert(pre_prepare.ledgerId,
+                            old_state_root,
+                            len(pre_prepare.reqIdr) - len(invalid_from_pp))
             return why_not_applied
+
+        # 5. EXECUTE HOOK
+        if self.isMaster:
+            try:
+                self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
+            except Exception as ex:
+                self.logger.warning('{} encountered exception in replica '
+                                    'hook {} : {}'.
+                                    format(self, ReplicaHooks.APPLY_PPR, ex))
+                self.revert(pre_prepare.ledgerId,
+                            old_state_root,
+                            len(pre_prepare.reqIdr) - len(invalid_from_pp))
+                return PP_APPLY_HOOK_ERROR
+
+        # 6. TRACK APPLIED
+        self.outBox.extend(rejects)
         self.addToPrePrepares(pre_prepare)
 
         if self.isMaster:
-            # TODO: can pre_state_root be used here instead?
-            state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-            self.node.onBatchCreated(pre_prepare.ledgerId, state_root)
             # BLS multi-sig:
             self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
             self.logger.trace("{} saved shared multi signature for "
-                              "root".format(self, pre_state_root))
+                              "root".format(self, old_state_root))
 
-        self.trackBatches(pre_prepare, pre_state_root)
+        self.trackBatches(pre_prepare, old_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                           extra={"tags": ["processing"]})
@@ -1099,7 +1143,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 elif why_not_applied == PP_SUB_SEQ_NO_WRONG:
                     report_suspicious(Suspicions.PPR_SUB_SEQ_NO_WRONG)
                 elif why_not_applied == PP_NOT_FINAL:
-                    report_suspicious(Suspicions.PPR_NOT_FINAL)
+                    # this is fine, just wait for another
+                    return
+                elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
+                    report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1353,7 +1400,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
+    def _apply_pre_prepare(self, pre_prepare: PrePrepare):
         """
         Applies (but not commits) requests of the PrePrepare
         to the ledger and state
@@ -1364,16 +1411,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         rejects = []
         invalid_indices = []
 
-        if self.isMaster:
-            old_state_root = \
-                self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-            old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
-            self.logger.debug('{} state root before processing {} is {}, {}'.format(
-                self,
-                pre_prepare,
-                old_state_root,
-                old_txn_root))
-
+        # 1. apply each request
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
             try:
@@ -1388,50 +1426,39 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 reqs.append(req)
             idx += 1
 
-        invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
+        # 2. call callback for the applied batch
+        if self.isMaster:
+            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
+                                                           valid_txn_count=len(reqs) - len(invalid_indices),
+                                                           state_root=self.stateRootHash(pre_prepare.ledgerId,
+                                                                                         to_str=False),
+                                                           txn_root=self.txnRootHash(pre_prepare.ledgerId,
+                                                                                     to_str=False)
+                                                           )
+            self.node.onBatchCreated(three_pc_batch)
 
-        def revert():
-            self.revert(pre_prepare.ledgerId,
-                        old_state_root,
-                        len(pre_prepare.reqIdr) - len(invalid_from_pp))
+        return reqs, invalid_indices, rejects
+
+    def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
+                                      reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
-            if self.isMaster:
-                revert()
             return PP_APPLY_REJECT_WRONG
 
-        if pre_prepare.sub_seq_no != 0:
-            return PP_SUB_SEQ_NO_WRONG
-
-        if not pre_prepare.final:
-            return PP_NOT_FINAL
-
         digest = self.batchDigest(reqs)
-
-        # A PRE-PREPARE is sent that does not match request digest
         if digest != pre_prepare.digest:
-            if self.isMaster:
-                revert()
             return PP_APPLY_WRONG_DIGEST
 
         if self.isMaster:
             if pre_prepare.stateRootHash != self.stateRootHash(pre_prepare.ledgerId):
-                revert()
                 return PP_APPLY_WRONG_STATE
 
             if pre_prepare.txnRootHash != self.txnRootHash(pre_prepare.ledgerId):
-                revert()
                 return PP_APPLY_ROOT_HASH_MISMATCH
 
-            try:
-                self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
-            except Exception as ex:
-                self.logger.warning('{} encountered exception in replica '
-                                    'hook {} : {}'.
-                                    format(self, ReplicaHooks.APPLY_PPR, ex))
-                revert()
-                return PP_APPLY_HOOK_ERROR
+            # TODO: move this kind of validation to batch handlers
+            if f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash != self.txnRootHash(AUDIT_LEDGER_ID):
+                return PP_APPLY_AUDIT_HASH_MISMATCH
 
-            self.outBox.extend(rejects)
         return None
 
     def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
@@ -1884,7 +1911,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.ppTime,
                           pp.ledgerId,
                           pp.stateRootHash,
-                          pp.txnRootHash)
+                          pp.txnRootHash,
+                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered

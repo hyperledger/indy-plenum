@@ -2,7 +2,7 @@ from logging import getLogger
 
 import pytest as pytest
 
-from plenum.test.delayers import cqDelay
+from plenum.test.delayers import cqDelay, cs_delay
 from plenum.test.logging.conftest import logsearch
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -66,9 +66,10 @@ def test_catchup_with_one_slow_node(tdir, tconf,
 
     # Delay CatchupRep messages on Alpha
     with delay_rules(rest_nodes[0].nodeIbStasher, cqDelay()):
-        looper.add(lagging_node)
-        txnPoolNodeSet[-1] = lagging_node
-        looper.run(checkNodesConnected(txnPoolNodeSet))
+        with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
+            looper.add(lagging_node)
+            txnPoolNodeSet[-1] = lagging_node
+            looper.run(checkNodesConnected(txnPoolNodeSet))
 
-        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=120)
-        assert len(log_re_ask) - old_re_ask_count == 1
+            waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=120)
+            assert len(log_re_ask) - old_re_ask_count == 2  # for audit and domain ledgers

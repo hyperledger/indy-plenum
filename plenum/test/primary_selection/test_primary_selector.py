@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import base58
 import pytest
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 
 from plenum.server.propagator import Requests
@@ -11,18 +12,17 @@ from plenum.server.propagator import Requests
 from plenum.server.node import Node
 
 from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.types import HA
 
 from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.config_util import getConfigOnce
 from plenum.test.helper import create_new_test_node
-from plenum.test.test_node import TestNode
 
 whitelist = ['but majority declared']
 
@@ -44,6 +44,7 @@ class FakeNode:
     def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
+        self.timer = QueueTimer()
         self.f = 1
         self.replicas = dict()
         self.requests = Requests()
@@ -55,19 +56,20 @@ class FakeNode:
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
+        self.nodeStatusDB = None
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
             2: Replica(node=self, instId=2, isMaster=False, config=self.config),
         }
         self._found = False
-        self.ledgerManager = LedgerManager(self, ownedByNode=True)
+        self.ledgerManager = LedgerManager(self)
         ledger0 = FakeLedger(0, 10)
         ledger1 = FakeLedger(1, 5)
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.view_changer = ViewChanger(self)
+        self.view_changer = create_view_changer(self)
         self.elector = PrimarySelector(self)
         self.metrics = NullMetricsCollector()
 
@@ -77,6 +79,9 @@ class FakeNode:
         self.ledgerManager.last_caught_up_3PC = (0, 0)
         self.master_last_ordered_3PC = (0, 0)
         self.seqNoDB = {}
+
+        # callbacks
+        self.onBatchCreated = lambda self, *args, **kwargs: True
 
     @property
     def viewNo(self):
