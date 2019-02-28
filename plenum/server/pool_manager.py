@@ -387,26 +387,30 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if node_services is not None:
             self._ordered_node_services[node_nym] = node_services
 
-    def node_ids_ordered_by_rank(self, nodeReg=None) -> List:
+    def node_ids_ordered_by_rank(self, nodeReg=None, node_ids=None) -> List:
+        if node_ids is None:
+            node_ids = self._ordered_node_ids
         if nodeReg is None:
             nodeReg = self.nodeReg
-        return [nym for nym, name in self._ordered_node_ids.items()
+        return [nym for nym, name in node_ids.items()
                 if name in nodeReg]
 
-    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
+    def get_rank_of(self, node_id, nodeReg=None, node_ids=None) -> Optional[int]:
         if self.id is None:
             # This can happen if a non-genesis node starts
             return None
-        return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg))
+        return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg, node_ids))
 
-    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
-        for nym, nm in self._ordered_node_ids.items():
+    def get_rank_by_name(self, name, nodeReg=None, node_ids=None) -> Optional[int]:
+        if node_ids is None:
+            node_ids = self._ordered_node_ids
+        for nym, nm in node_ids.items():
             if name == nm:
-                return self.get_rank_of(nym, nodeReg)
+                return self.get_rank_of(nym, nodeReg, node_ids)
 
-    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
+    def get_name_by_rank(self, rank, nodeReg=None, node_ids=None) -> Optional[str]:
         try:
-            nym = self.node_ids_ordered_by_rank(nodeReg)[rank]
+            nym = self.node_ids_ordered_by_rank(nodeReg, node_ids)[rank]
         except IndexError:
             return None
         else:

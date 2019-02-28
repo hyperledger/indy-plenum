@@ -24,6 +24,7 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.future_primaries import FuturePrimaries
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
@@ -415,6 +416,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
+
+        self.future_primaries = FuturePrimaries(
+            self.requests,
+            self.nodeReg.keys(),
+            self.poolManager._ordered_node_ids,
+            self.requiredNumberOfInstances)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -1191,11 +1198,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def rank(self) -> Optional[int]:
         return self.poolManager.rank
 
-    def get_name_by_rank(self, rank, nodeReg=None):
-        return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
+    def get_name_by_rank(self, rank, nodeReg=None, node_ids=None):
+        return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg, node_ids=node_ids)
 
-    def get_rank_by_name(self, name, nodeReg=None):
-        return self.poolManager.get_rank_by_name(name, nodeReg=nodeReg)
+    def get_rank_by_name(self, name, nodeReg=None, node_ids=None):
+        return self.poolManager.get_rank_by_name(name, nodeReg=nodeReg, node_ids=node_ids)
 
     def newViewChanger(self):
         if self.view_changer:
@@ -1544,6 +1551,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # primaries after it finish.
             # - If this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
+            self.backup_instance_faulty_processor.restore_replicas()
+            self.drop_primaries()
             self.select_primaries()
 
     @property
@@ -2438,7 +2447,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             _, seq_no = self.seqNoDB.get(req.digest)
             if seq_no is None:
                 requests.append(req)
-        three_pc_batch = ThreePcBatch.from_ordered(ordered)
+        three_pc_batch = ThreePcBatch.from_ordered(ordered, requests, ordered.invalid_reqIdr)
         self.apply_reqs(requests, three_pc_batch)
 
     def apply_reqs(self, requests, three_pc_batch: ThreePcBatch):
@@ -3128,12 +3137,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def select_primaries(self):
         # If you want to refactor primaries selection,
         # please take a look at https://jira.hyperledger.org/browse/INDY-1946
+
+        self.ensure_primaries_dropped()
+
         primaries = set()
         primary_rank = None
         '''
         Build a set of names of primaries, it is needed to avoid
         duplicates of primary nodes for different replicas.
         '''
+        # TODO: Remove primaries saving functionality
         for instance_id, replica in self.replicas.items():
             if replica.primaryName is not None:
                 name = replica.primaryName.split(":", 1)[0]
@@ -3422,6 +3435,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
+        # Set future primaries
+        three_pc_batch.primaries = self.future_primaries.handle_3pc_batch(three_pc_batch)
         self.audit_handler.post_batch_applied(three_pc_batch)
 
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)

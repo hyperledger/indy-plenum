@@ -44,11 +44,11 @@ class PrimarySelector(PrimaryDecider):
     def _get_master_primary_id(self, view_no, total_nodes):
         return view_no % total_nodes
 
-    def _next_primary_node_name_for_master(self, nodeReg=None):
+    def _next_primary_node_name_for_master(self, nodeReg=None, node_ids=None):
         if nodeReg is None:
             nodeReg = self.node.nodeReg
         rank = self._get_master_primary_id(self.viewNo, len(nodeReg))
-        name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
+        name = self.node.get_name_by_rank(rank, nodeReg=nodeReg,node_ids=node_ids)
 
         # TODO add more tests or refactor
         # to return name and rank at once and remove assert
@@ -58,7 +58,7 @@ class PrimarySelector(PrimaryDecider):
             "viewNo {} with rank {}, nodeReg {}".format(self, name, self.viewNo, rank, nodeReg))
         return name
 
-    def next_primary_replica_name_for_master(self, nodeReg=None):
+    def next_primary_replica_name_for_master(self, nodeReg=None, node_ids=None):
         """
         Returns name and corresponding instance name of the next node which
         is supposed to be a new Primary. In fact it is not round-robin on
@@ -68,7 +68,7 @@ class PrimarySelector(PrimaryDecider):
         But since the view number is incremented by 1 before primary selection
         then current approach may be treated as round robin.
         """
-        name = self._next_primary_node_name_for_master(nodeReg)
+        name = self._next_primary_node_name_for_master(nodeReg, node_ids)
         return name, Replica.generateName(nodeName=name, instId=0)
 
     def next_primary_replica_name_for_backup(self, instance_id, master_primary_rank,
