@@ -1309,7 +1309,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   pp.ppTime,
                   pp.digest,
                   pp.stateRootHash,
-                  pp.txnRootHash]
+                  pp.txnRootHash,
+                  pp.auditTxnRootHash]
 
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
