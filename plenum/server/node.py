@@ -3369,7 +3369,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
         # Set future primaries
-        three_pc_batch.primaries = self.future_primaries.handle_3pc_batch(three_pc_batch)
+        if ledger_id == POOL_LEDGER_ID:
+            three_pc_batch.primaries = self.future_primaries.handle_3pc_batch(three_pc_batch)
         self.audit_handler.post_batch_applied(three_pc_batch)
 
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
