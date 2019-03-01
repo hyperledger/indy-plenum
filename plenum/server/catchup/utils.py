@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Any, Callable, List, Iterable
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof
+from plenum.common.messages.node_messages import LedgerStatus
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -108,18 +108,3 @@ def build_ledger_status(ledger_id: int, provider: CatchupDataProvider):
                         pp_seq_no,
                         ledger.root_hash,
                         CURRENT_PROTOCOL_VERSION)
-
-
-def build_consistency_proof(ledger, ledger_id: int, seq_no_end: int = None, new_root: str = None):
-    seq_no_start = ledger.size
-    old_root = Ledger.hashToStr(ledger.tree.root_hash)
-    seq_no_end = seq_no_end or seq_no_start
-    new_root = new_root or old_root
-    return ConsistencyProof(ledger_id,
-                            seq_no_start,
-                            seq_no_end,
-                            0,
-                            0,
-                            old_root,
-                            new_root,
-                            [])

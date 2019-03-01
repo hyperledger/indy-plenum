@@ -1,10 +1,14 @@
+from collections import Counter
+
+from ledger.ledger import Ledger
 from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF
 from plenum.common.messages.node_messages import LedgerStatus, MessageReq, ConsistencyProof
 from plenum.common.metrics_collector import MetricsCollector, measure_time, MetricsName
 from plenum.common.timer import TimerService
 from plenum.common.types import f
-from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status, build_consistency_proof
+from plenum.common.util import min_3PC_key
+from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
@@ -42,6 +46,7 @@ class ConsProofService:
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._requested_consistency_proof = set()
+        self._last_txn_3PC_key = {}
 
     def __repr__(self) -> str:
         return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
@@ -52,6 +57,7 @@ class ConsProofService:
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._requested_consistency_proof = set()
+        self._last_txn_3PC_key = {}
 
         self._request_ledger_status_from_nodes()
         self._schedule_reask_ledger_status()
@@ -62,6 +68,7 @@ class ConsProofService:
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._requested_consistency_proof = set()
+        self._last_txn_3PC_key = {}
 
         self._cancel_reask()
         self._output.put_nowait(cons_proof)
@@ -97,6 +104,39 @@ class ConsProofService:
             return
 
         self._finish_catchup(cp)
+
+    def _finish_no_catchup(self):
+        root = Ledger.hashToStr(self._ledger.tree.root_hash)
+        view_no, pp_seq_no = self._get_last_txn_3PC_key()
+        cons_proof = ConsistencyProof(self._ledger_id,
+                                      self._ledger.size,
+                                      self._ledger.size,
+                                      view_no,
+                                      pp_seq_no,
+                                      root,
+                                      root,
+                                      [])
+        self.stop(cons_proof)
+
+    def _finish_catchup(self, cp):
+        self.stop(cp)
+
+    def _get_last_txn_3PC_key(self):
+        quorumed_3PC_keys = \
+            [
+                most_common_element
+                for most_common_element, freq in
+                Counter(self._last_txn_3PC_key.values()).most_common()
+                if self._quorum.ledger_status_last_3PC.is_reached(freq) and
+                most_common_element[0] is not None and
+                most_common_element[1] is not None
+            ]
+
+        if len(quorumed_3PC_keys) == 0:
+            return None
+
+        min_quorumed_3PC_key = min_3PC_key(quorumed_3PC_keys)
+        return min_quorumed_3PC_key
 
     def _request_ledger_status_from_nodes(self, nodes=None):
         logger.info("{} asking for ledger status of ledger {}".format(self, self._ledger_id))
@@ -150,7 +190,7 @@ class ConsProofService:
         # in order to get the consistency proof from it
         my_ledger_status = build_ledger_status(self._ledger_id, self._provider)
         self._provider.send_to(my_ledger_status, frm)
-        self._schedule_reask_last_cons_proof()
+        self._schedule_reask_last_cons_proof(frm)
 
     def _process_same_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         # We are not behind the node which has sent the ledger status,
@@ -159,12 +199,21 @@ class ConsProofService:
         self._same_ledger_status.add(frm)
         self._cons_proofs[frm] = None
 
+        # If we are even with the node which has sent the ledger status
+        # then save the last txn master 3PC-key from it
+        if self._is_ledger_same(ledger_status):
+            self._last_txn_3PC_key[frm] = (ledger_status.viewNo, ledger_status.ppSeqNo)
+
         if not self._is_catchup_needed():
             self._finish_no_catchup()
 
     def _is_ledger_old(self, status: LedgerStatus):
         # Is self ledger older than the `LedgerStatus`
         return self._compare_ledger(status) < 0
+
+    def _is_ledger_same(self, status: LedgerStatus):
+        # Is self ledger same as the `LedgerStatus`
+        return self._compare_ledger(status) == 0
 
     def _compare_ledger(self, status: LedgerStatus):
         ledgerId = getattr(status, f.LEDGER_ID.nm)
@@ -192,14 +241,6 @@ class ConsProofService:
             return False
 
         return True
-
-    def _finish_no_catchup(self):
-        cons_proof = build_consistency_proof(ledger=self._ledger,
-                                             ledger_id=self._ledger_id)
-        self.stop(cons_proof)
-
-    def _finish_catchup(self, cp):
-        self.stop(cp)
 
     def _should_schedule_reask_cons_proofs(self):
         return len([v for v in self._cons_proofs.values() if v is not None]) == self._quorum.f + 1
