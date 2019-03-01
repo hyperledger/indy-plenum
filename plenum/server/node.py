@@ -840,8 +840,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.requiredNumberOfInstances,
             self.primaries)
 
-        self.future_primaries.primaries = self.primaries
-
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
                 "{} Not all replicas have "

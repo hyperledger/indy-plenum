@@ -43,7 +43,7 @@ class CatchupNodeDataProvider(CatchupDataProvider):
         return info.ledger if info is not None else None
 
     def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-        return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
+        return (0, 0)
 
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         return self._node.update_txn_with_extra_data(txn)

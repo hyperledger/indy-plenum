@@ -126,13 +126,6 @@ class PrimarySelector(PrimaryDecider):
                     Replica.generateName(self.node.primaries[instance_id], instance_id))
                 self.node.primary_selected(instance_id)
 
-        # Future primaries set
-        self.node.future_primaries.set_future_pool(
-            self.node.nodeReg,
-            self.node.poolManager._ordered_node_ids,
-            self.node.requiredNumberOfInstances,
-            self.node.primaries)
-
         # Primary propagation
         self.node.schedule_initial_propose_view_change()
         last_sent_pp_seq_no_restored = False
