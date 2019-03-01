@@ -1,11 +1,11 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Callable, List
+from typing import Optional, Tuple, Any, Callable, List, Iterable
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import LedgerStatus
+from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -15,6 +15,10 @@ logger = getlogger()
 class CatchupDataProvider(ABC):
     @abstractmethod
     def node_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def all_nodes_names(self) -> List[str]:
         pass
 
     @abstractmethod
@@ -79,7 +83,7 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def send_to_nodes(self, msg: Any):
+    def send_to_nodes(self, msg: Any, nodes: Iterable[str] = None):
         pass
 
     @abstractmethod
@@ -105,3 +109,17 @@ def build_ledger_status(ledger_id: int, provider: CatchupDataProvider):
                         pp_seq_no,
                         ledger.root_hash,
                         CURRENT_PROTOCOL_VERSION)
+
+def build_consistency_proof(ledger, ledger_id: int, seq_no_end: int = None, new_root = None):
+    seq_no_start = ledger.size
+    old_root = Ledger.hashToStr(ledger.tree.root_hash)
+    seq_no_end = seq_no_end or seq_no_start
+    new_root = new_root or old_root
+    return ConsistencyProof(ledger_id,
+                            seq_no_start,
+                            seq_no_end,
+                            0,
+                            0,
+                            old_root,
+                            new_root,
+                            [])

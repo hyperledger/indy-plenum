@@ -1,10 +1,8 @@
+import math
 from collections import defaultdict
-from enum import Enum
 from heapq import merge
 from random import shuffle
-from typing import Optional, List, Tuple, Any, NamedTuple
-
-import math
+from typing import Optional, List, Tuple, Any
 
 from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
@@ -429,3 +427,6 @@ class CatchupRepGatherer:
         self._wait_catchup_rep_from.clear()
         self._received_catchup_replies_from.clear()
         self._received_catchup_txns.clear()
+
+    def __str__(self) -> str:
+        return "{}:CatchupRepService:{}".format(self._provider.node_name(), self._ledger_id)
