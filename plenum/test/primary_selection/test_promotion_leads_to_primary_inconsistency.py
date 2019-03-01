@@ -13,7 +13,7 @@ from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 nodeCount = 7
 
 
-@pytest.mark.skip(reason='INDY-1720')
+# @pytest.mark.skip(reason='INDY-1720')
 def test_promotion_leads_to_primary_inconsistency(looper,
                                                   txnPoolNodeSet,
                                                   tdir,

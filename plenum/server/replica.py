@@ -918,9 +918,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
                                           txn_root=self.txnRootHash(ledger_id, to_str=False),
-                                          primaries=self.node.primaries,
-                                          requests=reqs,
-                                          invalid_indices=invalid_indices)
+                                          primaries=self.node.future_primaries.primaries)
             self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
@@ -1447,9 +1445,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                                                          to_str=False),
                                                            txn_root=self.txnRootHash(pre_prepare.ledgerId,
                                                                                      to_str=False),
-                                                           primaries=self.node.primaries,
-                                                           requests=reqs,
-                                                           invalid_indices=invalid_indices)
+                                                           primaries=self.node.future_primaries.primaries)
             self.node.onBatchCreated(three_pc_batch)
 
         return reqs, invalid_indices, rejects

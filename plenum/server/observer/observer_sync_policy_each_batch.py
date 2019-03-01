@@ -147,9 +147,8 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         state_root = batch[f.STATE_ROOT.nm]
         txn_root = batch[f.TXN_ROOT.nm]
 
-        # TODO: set correct invalid_indicies
         three_pc_batch = ThreePcBatch.from_batch_committed_dict(
-            batch, self._node.primaries, reqs, [])
+            batch, self._node.primaries)
         self._node.apply_reqs(reqs, three_pc_batch)
         self._node.get_executer(ledger_id)(pp_time,
                                            reqs,

@@ -10,8 +10,6 @@ class ThreePcBatch:
                  valid_txn_count,
                  state_root, txn_root,
                  primaries,
-                 requests,
-                 invalid_indices,
                  has_audit_txn=True) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
@@ -22,12 +20,10 @@ class ThreePcBatch:
         self.state_root = state_root
         self.txn_root = txn_root
         self.primaries = primaries
-        self.requests = requests
-        self.invalid_indices = invalid_indices
         self.has_audit_txn = has_audit_txn
 
     @staticmethod
-    def from_pre_prepare(pre_prepare, valid_txn_count, state_root, txn_root, primaries, requests, invalid_indices):
+    def from_pre_prepare(pre_prepare, valid_txn_count, state_root, txn_root, primaries):
         return ThreePcBatch(ledger_id=pre_prepare.ledgerId,
                             inst_id=pre_prepare.instId,
                             view_no=pre_prepare.viewNo,
@@ -38,12 +34,10 @@ class ThreePcBatch:
                             state_root=state_root,
                             txn_root=txn_root,
                             primaries=primaries,
-                            requests=requests,
-                            invalid_indices=invalid_indices,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None)
 
     @staticmethod
-    def from_ordered(ordered, requests, invalid_indices):
+    def from_ordered(ordered):
         return ThreePcBatch(ledger_id=ordered.ledgerId,
                             inst_id=ordered.instId,
                             view_no=ordered.viewNo,
@@ -53,12 +47,10 @@ class ThreePcBatch:
                             state_root=Ledger.strToHash(ordered.stateRootHash),
                             txn_root=Ledger.strToHash(ordered.txnRootHash),
                             primaries=ordered.primaries,
-                            requests=requests,
-                            invalid_indices=invalid_indices,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None)
 
     @staticmethod
-    def from_batch_committed_dict(batch_comitted, primaries, requests, invalid_indices):
+    def from_batch_committed_dict(batch_comitted, primaries):
         return ThreePcBatch(ledger_id=batch_comitted[f.LEDGER_ID.nm],
                             inst_id=batch_comitted[f.INST_ID.nm],
                             view_no=batch_comitted[f.VIEW_NO.nm],
@@ -68,7 +60,5 @@ class ThreePcBatch:
                             state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
                             txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]),
                             primaries=primaries,
-                            requests=requests,
-                            invalid_indices=invalid_indices,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
                                 f.AUDIT_TXN_ROOT_HASH.nm] is not None)
