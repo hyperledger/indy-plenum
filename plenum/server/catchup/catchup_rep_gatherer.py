@@ -220,7 +220,21 @@ class CatchupRepGatherer:
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
     def stop(self):
+        cp = self._catchup_till
+        num_caught_up = cp.seqNoEnd - cp.seqNoStart
+
+        self._wait_catchup_rep_from.clear()
+        self._provider.notify_lm_catchup_complete(self._ledger_id)
+
         self._is_working = False
+        self._received_catchup_txns.clear()
+        self._received_catchup_replies_from.clear()
+        self._provider.notify_li_after_catchup_complete()
+        self._catchup_till = None
+
+        logger.info("{}{} completed catching up ledger {}, caught up {} in total"
+                    .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
+                    extra={'cli': True})
 
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
