@@ -138,11 +138,15 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
         Node1 -> Node1: Create 3PC Batch
         note right Node4
             <b>Create 3PC Batch:</b>
-            For each ledger:
-                Each Max3PCBatchSize requests OR Max3PCBatchWait seconds
-                (depending on which is reached first):
-                    - dequeue forwarded requests for the ledger,
-                    - create 3PC Batch with dequeued requests
+            A new batch is created for every ledger if either
+                - There are Max3PCBatchSize requests
+                    OR non-zero requests and Max3PCBatchWait seconds passed
+                    (depending on which is reached first):
+                - 3PC Batch hasn't been created for STATE_FRESHNESS_UPDATE_INTERVAL
+                  (even if there are no requests to order)
+
+            - dequeue forwarded requests for the ledger,
+            - create 3PC Batch with dequeued requests (it can be an empty list)
         end note
 
         Node1 -> Node1: <color blue>Apply 3PC Batch
@@ -152,10 +156,12 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                 <color blue>- do dynamic validation (against uncommitted state),
                 <color blue>- if passed, apply request to ledger and state,
                 <color blue>  else discard request.
+            <color blue>Create and apply a txn in the audit ledger
             <color blue>Eventually get:
                 <color blue>- ledger_uncommitted,
                 <color blue>- state_uncommitted,
                 <color blue>- set of discared requests.
+                <color blue>- audit_ledger_uncommitted,
         end note
 
         Node1 ->> Node2: PRE-PREPARE
@@ -171,6 +177,7 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                 - ledger ID,
                 <color blue>- ledger_uncommitted,
                 <color blue>- state_uncommitted,
+                <color blue>- audit_ledger_uncommitted,
                 <color blue>- BLS multi-signature of previous 3PC batch
             <i>Note: request digest serves as its key
         end note
@@ -196,6 +203,7 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                     - digest of all requests is the same,
                     <color blue>- ledger_uncommitted is the same,
                     <color blue>- state_uncommitted is the same
+                    <color blue>- audit_ledger_uncommitted is the same
             end note
 
             Node2 ->> Node1: PREPARE
@@ -217,6 +225,7 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                     - digest of all requests,
                     <color blue>- ledger_uncommitted,
                     <color blue>- state_uncommitted
+                    <color blue>- audit_ledger_uncommitted
                 <i>(values are the same as in PRE-PREPARE)
             end note
 
@@ -229,6 +238,7 @@ loop For each protocol instance (2 in this example):<color blue>Master</color> a
                 - digest of all requests is the same,
                 <color blue>- ledger_uncommitted is the same,
                 <color blue>- state_uncommitted is the same
+                <color blue>- audit_ledger_uncommitted is the same
         end note
 
     end
@@ -313,6 +323,7 @@ note right Node4
     Execute 3PC batch from <color blue>Master</color> protocol instance:
         - commit ledger_uncommitted,
         - commit state_uncommitted
+        - commit audit_ledger_uncommitted
 end note
 
 Node1 ->> Client: REPLY
