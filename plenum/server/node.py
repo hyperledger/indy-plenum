@@ -1,6 +1,5 @@
 import json
 import os
-import random
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict

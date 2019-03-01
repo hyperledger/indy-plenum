@@ -189,7 +189,7 @@ def sdk_add_new_steward_and_node(looper,
 
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
                     alias=None, role=None, seed=None,
-                    dest=None, verkey=None,skipverkey=False):
+                    dest=None, verkey=None, skipverkey=False, no_wait=False):
     seed = seed or randomString(32)
     alias = alias or randomString(5)
     wh, _ = creators_wallet
@@ -203,7 +203,8 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
                                                         sdk_pool_handle, nym_request)
-
+    if no_wait:
+        return request_couple
     # waitng for replies
     sdk_get_and_check_replies(looper, [request_couple])
     return wh, new_did

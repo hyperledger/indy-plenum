@@ -31,7 +31,7 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
     for i in range(ledger.seqNo - txn_count + 1, ledger.seqNo + 1, num_txns_in_reply):
         start = i
         end = i + num_txns_in_reply - 1
-        cons_proof = ledger_manager._make_consistency_proof(ledger, end, ledger.size)
+        cons_proof = ledger_manager._node_seeder._make_consistency_proof(ledger, end, ledger.size)
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[str(seq_no)] = ledger_manager.owner.update_txn_with_extra_data(txn)
