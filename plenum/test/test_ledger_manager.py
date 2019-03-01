@@ -6,7 +6,6 @@ ledger_manager_spyables = [LedgerManager.startCatchUpProcess,
                            LedgerManager.processConsistencyProof,
                            LedgerManager.canProcessConsistencyProof,
                            LedgerManager.processCatchupRep,
-                           LedgerManager.getCatchupReqs
                            ]
 
 

@@ -15,6 +15,11 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
+LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
+                                   [('ledger_id', int),
+                                    ('num_caught_up', int),
+                                    ('last_3pc', Optional[Tuple[int, int]])])
+
 
 class CatchupRepGatherer:
     def __init__(self,
@@ -45,7 +50,7 @@ class CatchupRepGatherer:
         self._received_catchup_txns = []  # type: List[Tuple[int, Any]]
 
     def __repr__(self):
-        return "{}:CatchupRepService:{}".format(self._provider.node_name(), self._ledger_id)
+        return "{}, ledger {}".format(self._provider.node_name(), self._ledger_id)
 
     def is_working(self) -> bool:
         return self._is_working
@@ -81,6 +86,57 @@ class CatchupRepGatherer:
 
         timeout = self._catchup_timeout(len(reqs))
         self._timer.schedule(timeout, self._request_txns_if_needed)
+
+    def stop(self, last_3pc: Optional[Tuple[int, int]] = None):
+        cp = self._catchup_till
+        num_caught_up = cp.seqNoEnd - cp.seqNoStart
+
+        self._wait_catchup_rep_from.clear()
+        self._provider.notify_lm_catchup_complete(self._ledger_id, last_3pc)
+
+        self._is_working = False
+        self._received_catchup_txns.clear()
+        self._received_catchup_replies_from.clear()
+        self._provider.notify_li_after_catchup_complete(self._ledger_id)
+        self._catchup_till = None
+
+        logger.info("{}{} completed catching up ledger {}, caught up {} in total"
+                    .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
+                    extra={'cli': True})
+        self._output.put_nowait(LedgerCatchupComplete(ledger_id=self._ledger_id,
+                                                      num_caught_up=num_caught_up,
+                                                      last_3pc=last_3pc))
+
+    def process_catchup_rep(self, rep: CatchupRep, frm: str):
+        logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
+        self._wait_catchup_rep_from.discard(frm)
+
+        if not self._can_process_catchup_rep(rep):
+            return
+
+        txns = self._get_interesting_txns_from_catchup_rep(rep)
+        if len(txns) == 0:
+            return
+
+        logger.info("{} found {} interesting transactions in the catchup from {}".format(self, len(txns), frm))
+        self.metrics.add_event(MetricsName.CATCHUP_TXNS_RECEIVED, len(txns))
+
+        self._received_catchup_replies_from[frm].append(rep)
+
+        txns_already_rcvd_in_catchup = self._merge_catchup_txns(self._received_catchup_txns, txns)
+        logger.info("{} merged catchups, there are {} of them now, from {} to {}".
+                    format(self, len(txns_already_rcvd_in_catchup), txns_already_rcvd_in_catchup[0][0],
+                           txns_already_rcvd_in_catchup[-1][0]))
+
+        num_processed = self._process_catchup_txns(txns_already_rcvd_in_catchup)
+        logger.info("{} processed {} catchup replies with sequence numbers {}".
+                    format(self, num_processed,
+                           [seq_no for seq_no, _ in txns_already_rcvd_in_catchup[:num_processed]]))
+
+        self._received_catchup_txns = txns_already_rcvd_in_catchup[num_processed:]
+
+        if self._ledger.size >= self._catchup_till.seqNoEnd:
+            self.stop((self._catchup_till.viewNo, self._catchup_till.ppSeqNo))
 
     def _notify_catchup_start(self):
         self._provider.notify_lm_catchup_start(self._ledger_id)
@@ -164,6 +220,9 @@ class CatchupRepGatherer:
         lastSeenSeqNo = self._ledger.size
         leftMissing = num_missing
 
+        start = self._catchup_till.seqNoStart
+        end = self._catchup_till.seqNoEnd
+
         def addReqsForMissing(frm, to):
             # Add Catchup requests for missing transactions.
             # `frm` and `to` are inclusive
@@ -183,9 +242,6 @@ class CatchupRepGatherer:
                 missing = addReqsForMissing(lastSeenSeqNo + 1, seqNo - 1)
                 leftMissing -= missing
             lastSeenSeqNo = seqNo
-
-        start = self._catchup_till.seqNoStart
-        end = self._catchup_till.seqNoEnd
 
         # If still missing some transactions from request has not been
         # sent then either `catchUpReplies` was empty or it did not have
@@ -220,54 +276,6 @@ class CatchupRepGatherer:
         timeout = int(self._catchup_timeout(len(cReqs)))
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
-    def stop(self):
-        cp = self._catchup_till
-        num_caught_up = cp.seqNoEnd - cp.seqNoStart
-
-        self._wait_catchup_rep_from.clear()
-        self._provider.notify_lm_catchup_complete(self._ledger_id)
-
-        self._is_working = False
-        self._received_catchup_txns.clear()
-        self._received_catchup_replies_from.clear()
-        self._provider.notify_li_after_catchup_complete()
-        self._catchup_till = None
-
-        logger.info("{}{} completed catching up ledger {}, caught up {} in total"
-                    .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
-                    extra={'cli': True})
-
-    def process_catchup_rep(self, rep: CatchupRep, frm: str):
-        logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
-        self._wait_catchup_rep_from.discard(frm)
-
-        if not self._can_process_catchup_rep(rep):
-            return
-
-        txns = self._get_interesting_txns_from_catchup_rep(rep)
-        if len(txns) == 0:
-            return
-
-        logger.info("{} found {} interesting transactions in the catchup from {}".format(self, len(txns), frm))
-        self.metrics.add_event(MetricsName.CATCHUP_TXNS_RECEIVED, len(txns))
-
-        self._received_catchup_replies_from[frm].append(rep)
-
-        txns_already_rcvd_in_catchup = self._merge_catchup_txns(self._received_catchup_txns, txns)
-        logger.info("{} merged catchups, there are {} of them now, from {} to {}".
-                    format(self, len(txns_already_rcvd_in_catchup), txns_already_rcvd_in_catchup[0][0],
-                           txns_already_rcvd_in_catchup[-1][0]))
-
-        num_processed = self._process_catchup_txns(txns_already_rcvd_in_catchup)
-        logger.info("{} processed {} catchup replies with sequence numbers {}".
-                    format(self, num_processed,
-                           [seq_no for seq_no, _ in txns_already_rcvd_in_catchup[:num_processed]]))
-
-        self._received_catchup_txns = txns_already_rcvd_in_catchup[num_processed:]
-
-        if self._ledger.size >= self._catchup_till.seqNoEnd:
-            self.stop()
-
     def _can_process_catchup_rep(self, rep: CatchupRep) -> bool:
         if not self._is_working:
             logger.info('{} ignoring {} since it is not gathering catchup replies'.format(self, rep))
@@ -276,6 +284,8 @@ class CatchupRepGatherer:
         if rep.ledgerId != self._ledger_id:
             logger.warning('{} cannot process {} for different ledger'.format(self, rep))
             return False
+
+        return True
 
     def _get_interesting_txns_from_catchup_rep(self, rep: CatchupRep) -> List[Tuple[int, Any]]:
         ledger = self._provider.ledger(self._ledger_id)
