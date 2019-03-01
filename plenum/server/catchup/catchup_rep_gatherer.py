@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple, Any, NamedTuple
 
 from plenum.common.channel import RxChannel, TxChannel
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof, CatchupRep
+from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep
 from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.server.catchup.utils import CatchupDataProvider
 from stp_core.common.log import getlogger
@@ -13,7 +13,7 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-class NodeOneLedgerLeecherService:
+class CatchupRepGatherer:
     def __init__(self,
                  ledger_id: int,
                  input: RxChannel,
@@ -42,7 +42,8 @@ class NodeOneLedgerLeecherService:
 
     def start(self, cons_proof: ConsistencyProof):
         self._catchup_till = cons_proof
-        # self._gather_catchup_replies()
+        self._is_working = True
+        # TODO: Send catchup reqs
 
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
@@ -232,7 +233,7 @@ class NodeOneLedgerLeecherService:
         self._received_catchup_replies_from[node].pop(i)
 
     def _reset(self):
-        self._state = self.State.Ready
+        self._is_working = False
         self._catchup_till = None
 
         self._wait_catchup_rep_from.clear()

@@ -19,7 +19,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
-from plenum.server.catchup.node_one_ledger_leecher_service import NodeOneLedgerLeecherService
+from plenum.server.catchup.catchup_rep_gatherer import CatchupRepGatherer
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
@@ -102,7 +102,7 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
 class LedgerManager(HasActionQueue):
     Leecher = NamedTuple('Leecher',
-                         [('inbox', TxChannel), ('service', NodeOneLedgerLeecherService)])
+                         [('inbox', TxChannel), ('service', CatchupRepGatherer)])
 
     def __init__(self,
                  owner,
@@ -185,7 +185,7 @@ class LedgerManager(HasActionQueue):
 
         inbox_tx, inbox_rx = create_direct_channel()
         outbox_tx, outbox_rx = create_direct_channel()
-        service = NodeOneLedgerLeecherService(iD, inbox_rx, outbox_tx, self.metrics, self._provider)
+        service = CatchupRepGatherer(iD, inbox_rx, outbox_tx, self.metrics, self._provider)
         self._leechers[iD] = self.Leecher(inbox=inbox_tx, service=service)
 
     def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
