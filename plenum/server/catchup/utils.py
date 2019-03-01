@@ -30,6 +30,10 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
+    def eligible_nodes(self) -> List[str]:
+        pass
+
+    @abstractmethod
     # TODO: Delete when INDY-1946 gets implemented
     def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
         pass
@@ -43,19 +47,27 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_before_catchup_start(self, ledger_id: int):
+    def notify_lm_catchup_start(self, ledger_id: int):
         pass
 
     @abstractmethod
-    def notify_after_catchup_start(self, ledger_id: int):
+    def notify_lm_catchup_complete(self, ledger_id: int):
         pass
 
     @abstractmethod
-    def notify_before_catchup_complete(self, ledger_id: int):
+    def notify_li_before_catchup_start(self, ledger_id: int):
         pass
 
     @abstractmethod
-    def notify_after_catchup_complete(self, ledger_id: int):
+    def notify_li_after_catchup_start(self, ledger_id: int):
+        pass
+
+    @abstractmethod
+    def notify_li_before_catchup_complete(self, ledger_id: int):
+        pass
+
+    @abstractmethod
+    def notify_li_after_catchup_complete(self, ledger_id: int):
         pass
 
     @abstractmethod
