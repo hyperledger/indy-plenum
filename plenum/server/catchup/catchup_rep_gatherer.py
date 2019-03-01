@@ -2,7 +2,7 @@ import math
 from collections import defaultdict
 from heapq import merge
 from random import shuffle
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Any, NamedTuple
 
 from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
@@ -68,7 +68,7 @@ class CatchupRepGatherer:
 
         if self._ledger.size >= self._catchup_till.seqNoEnd:
             logger.info('{} found that ledger {} does not need catchup'.format(self, self._ledger_id))
-            self.stop()
+            self.stop(last_3pc=(cons_proof.viewNo, cons_proof.ppSeqNo))
             return
 
         eligible_nodes = self._provider.eligible_nodes()
