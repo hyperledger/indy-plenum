@@ -202,8 +202,7 @@ class ConsProofService:
         self.stop(cp)
 
     def _should_schedule_reask_cons_proofs(self):
-        return len([v for v in self._cons_proofs.values() if v is not None]) == \
-               self._quorum.f + 1
+        return len([v for v in self._cons_proofs.values() if v is not None]) == self._quorum.f + 1
 
     def _get_cons_proof_for_catchup(self):
         if not self._quorum.consistency_proof.is_reached(len(self._cons_proofs)):
@@ -229,8 +228,7 @@ class ConsProofService:
         nullProofs = 0
         for nodeName, proof in proofs.items():
             if proof:
-                start, end = getattr(proof, f.SEQ_NO_START.nm), \
-                             getattr(proof, f.SEQ_NO_END.nm)
+                start, end = getattr(proof, f.SEQ_NO_START.nm), getattr(proof, f.SEQ_NO_END.nm)
                 if (start, end) not in recvdPrf:
                     recvdPrf[(start, end)] = {}
                 key = (
@@ -240,8 +238,7 @@ class ConsProofService:
                     getattr(proof, f.NEW_MERKLE_ROOT.nm),
                     tuple(getattr(proof, f.HASHES.nm))
                 )
-                recvdPrf[(start, end)][key] = recvdPrf[(start, end)]. \
-                                                  get(key, 0) + 1
+                recvdPrf[(start, end)][key] = recvdPrf[(start, end)].get(key, 0) + 1
             else:
                 logger.info("{} found proof by {} null".format(self, nodeName))
                 nullProofs += 1
@@ -277,16 +274,16 @@ class ConsProofService:
         return latest
 
     def _reask_for_ledger_status(self):
-        nodes = [node_name for node_name in self._provider.all_nodes_names()
-                 if node_name not in self._same_ledger_status
-                 and node_name != self._provider.node_name()]
+        nodes = [node_name for node_name in self._provider.all_nodes_names() if
+                 node_name not in self._same_ledger_status and
+                 node_name != self._provider.node_name()]
         self._request_ledger_status_from_nodes(nodes)
 
     def _reask_for_last_consistency_proof(self):
         ledger_status = build_ledger_status(self._ledger_id, self._provider)
-        nodes = [node_name for node_name in self._provider.all_nodes_names()
-                 if node_name not in self._cons_proofs
-                 and node_name != self._provider.node_name()]
+        nodes = [node_name for node_name in self._provider.all_nodes_names() if
+                 node_name not in self._cons_proofs and
+                 node_name != self._provider.node_name()]
         self._provider.send_to_nodes(ledger_status, nodes=nodes)
 
     def _request_CPs_if_needed(self):

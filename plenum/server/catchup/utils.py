@@ -109,7 +109,8 @@ def build_ledger_status(ledger_id: int, provider: CatchupDataProvider):
                         ledger.root_hash,
                         CURRENT_PROTOCOL_VERSION)
 
-def build_consistency_proof(ledger, ledger_id: int, seq_no_end: int = None, new_root = None):
+
+def build_consistency_proof(ledger, ledger_id: int, seq_no_end: int = None, new_root: str = None):
     seq_no_start = ledger.size
     old_root = Ledger.hashToStr(ledger.tree.root_hash)
     seq_no_end = seq_no_end or seq_no_start
