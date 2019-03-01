@@ -857,6 +857,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # As we've selected new primaries, we need to send 3pc batch,
         # so this primaries can be saved in audit ledger
         if not sent_batches and self.isMaster and self.node.primaries_batch_needed:
+            self.logger.debug("Sending a 3PC batch to propagate newly selected primaries")
             self.node.primaries_batch_needed = False
             sent_batches.add(self._do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
 

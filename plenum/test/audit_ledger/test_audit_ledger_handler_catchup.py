@@ -1,6 +1,9 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, add_txns
+from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, add_txns, DEFAULT_PRIMARIES
+
+
+# BOTH TESTS NEED TO BE RUN TOGETHER AS THEY SHARE COMMITTED STATE
 
 
 def test_revert_works_after_catchup(alh, db_manager,
@@ -54,7 +57,8 @@ def test_revert_works_after_catchup(alh, db_manager,
                     config_size=initial_config_size,
                     last_pool_seqno=initial_seq_no + 1 + caughtup_txns,
                     last_domain_seqno=None,
-                    last_config_seqno=None)
+                    last_config_seqno=None,
+                    primaries=caughtup_txns + 1)
 
 
 def test_commit_works_after_catchup(alh, db_manager,
@@ -103,7 +107,8 @@ def test_commit_works_after_catchup(alh, db_manager,
                     config_size=initial_config_size,
                     last_pool_seqno=initial_seq_no + 1 + caughtup_txns,
                     last_domain_seqno=None,
-                    last_config_seqno=None)
+                    last_config_seqno=None,
+                    primaries=2 * (caughtup_txns + 1))
 
 
 def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp_seq_no, pp_time):
@@ -117,6 +122,7 @@ def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp
                                       pp_time=pp_time,
                                       valid_txn_count=txns_per_batch,
                                       state_root=db_manager.get_state(ledger_id).headHash,
-                                      txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash)
+                                      txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
+                                      primaries=DEFAULT_PRIMARIES)
         alh._add_to_ledger(three_pc_batch)
     alh.ledger.commitTxns(count)
