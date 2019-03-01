@@ -17,7 +17,7 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
-                                   [('ledger_id', int), ('num_caught_up', int), ('last_3pc', Optional[Tuple[int, int]])])
+                                   [('ledger_id', int), ('last_3pc', Optional[Tuple[int, int]])])
 
 
 class CatchupRepGatherer:
@@ -100,7 +100,6 @@ class CatchupRepGatherer:
                     .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
                     extra={'cli': True})
         self._output.put_nowait(LedgerCatchupComplete(ledger_id=self._ledger_id,
-                                                      num_caught_up=num_caught_up,
                                                       last_3pc=last_3pc))
 
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
