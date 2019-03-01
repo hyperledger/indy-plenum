@@ -410,11 +410,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
 
-        self.future_primaries = FuturePrimaries(
-            self,
-            self.nodeReg,
-            self.poolManager._ordered_node_ids,
-            self.requiredNumberOfInstances)
+        self.future_primaries = FuturePrimaries(self)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -839,6 +835,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
 
         # Set future primaries
+        self.future_primaries.set_future_pool(
+            self.nodeReg,
+            self.poolManager._ordered_node_ids,
+            self.requiredNumberOfInstances,
+            self.primaries)
+
         self.future_primaries.primaries = self.primaries
 
         if not self.replicas.all_instances_have_primary:

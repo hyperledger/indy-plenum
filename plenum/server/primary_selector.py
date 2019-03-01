@@ -127,7 +127,11 @@ class PrimarySelector(PrimaryDecider):
                 self.node.primary_selected(instance_id)
 
         # Future primaries set
-        self.node.future_primaries.primaries = self.node.primaries
+        self.node.future_primaries.set_future_pool(
+            self.node.nodeReg,
+            self.node.poolManager._ordered_node_ids,
+            self.node.requiredNumberOfInstances,
+            self.node.primaries)
 
         # Primary propagation
         self.node.schedule_initial_propose_view_change()
