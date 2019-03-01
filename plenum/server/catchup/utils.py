@@ -50,27 +50,11 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_lm_catchup_start(self, ledger_id: int):
+    def notify_catchup_start(self, ledger_id: int):
         pass
 
     @abstractmethod
-    def notify_lm_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
-        pass
-
-    @abstractmethod
-    def notify_li_before_catchup_start(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_after_catchup_start(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_before_catchup_complete(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_after_catchup_complete(self, ledger_id: int):
+    def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
         pass
 
     @abstractmethod

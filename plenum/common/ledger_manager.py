@@ -19,7 +19,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
-from plenum.server.catchup.catchup_rep_gatherer import CatchupRepGatherer, LedgerCatchupComplete
+from plenum.server.catchup.catchup_rep_service import CatchupRepService, LedgerCatchupComplete
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
@@ -62,30 +62,18 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def transform_txn_for_ledger(self, txn: dict) -> dict:
         return self._node.transform_txn_for_ledger(txn)
 
-    def notify_lm_catchup_start(self, ledger_id: int):
+    def notify_catchup_start(self, ledger_id: int):
         if self._node.ledgerManager.preCatchupClbk:
             self._node.ledgerManager.preCatchupClbk(ledger_id)
 
-    def notify_lm_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
-        if self._node.ledgerManager.postCatchupClbk:
-            self._node.ledgerManager.postCatchupClbk(ledger_id, last_3pc)
-
-    def notify_li_before_catchup_start(self, ledger_id: int):
         info = self._ledger_info(ledger_id)
         if info is not None and info.preCatchupStartClbk:
             info.preCatchupStartClbk()
 
-    def notify_li_after_catchup_start(self, ledger_id: int):
-        info = self._ledger_info(ledger_id)
-        if info is not None and info.postCatchupStartClbk:
-            info.postCatchupStartClbk()
+    def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
+        if self._node.ledgerManager.postCatchupClbk:
+            self._node.ledgerManager.postCatchupClbk(ledger_id, last_3pc)
 
-    def notify_li_before_catchup_complete(self, ledger_id: int):
-        info = self._ledger_info(ledger_id)
-        if info is not None and info.preCatchupCompleteClbk:
-            info.preCatchupCompleteClbk()
-
-    def notify_li_after_catchup_complete(self, ledger_id: int):
         info = self._ledger_info(ledger_id)
         if info is not None and info.postCatchupCompleteClbk:
             info.postCatchupCompleteClbk()
@@ -115,8 +103,8 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
 
 class LedgerManager(HasActionQueue):
-    CatchupGatherer = NamedTuple('CatchupGatherer',
-                                 [('inbox', TxChannel), ('service', CatchupRepGatherer)])
+    CatchupRepServiceWrapper = NamedTuple('CatchupRepServiceWrapper',
+                                          [('inbox', TxChannel), ('service', CatchupRepService)])
 
     def __init__(self,
                  owner,
@@ -146,7 +134,7 @@ class LedgerManager(HasActionQueue):
         self._node_seeder = NodeSeederService(rx, self._provider)
 
         self._catchup_rep_outbox, rx = create_direct_channel()
-        Router(rx).add(LedgerCatchupComplete, self._catchup_rep_gatherer_stop)
+        Router(rx).add(LedgerCatchupComplete, self._on_catchup_rep_service_stop)
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -157,7 +145,7 @@ class LedgerManager(HasActionQueue):
         # their info like callbacks, state, etc
         self.ledgerRegistry = {}  # type: Dict[int, LedgerInfo]
 
-        self._catchup_gatherers = {}   # type: Dict[int, LedgerManager.CatchupGatherer]
+        self._catchup_rep_services = {}   # type: Dict[int, LedgerManager.CatchupRepWrapper]
 
         # Largest 3 phase key received during catchup.
         # This field is needed to discard any stashed 3PC messages or
@@ -178,8 +166,6 @@ class LedgerManager(HasActionQueue):
 
     def addLedger(self, iD: int, ledger: Ledger,
                   preCatchupStartClbk: Callable = None,
-                  postCatchupStartClbk: Callable = None,
-                  preCatchupCompleteClbk: Callable = None,
                   postCatchupCompleteClbk: Callable = None,
                   postTxnAddedToLedgerClbk: Callable = None):
 
@@ -192,22 +178,20 @@ class LedgerManager(HasActionQueue):
             iD,
             ledger=ledger,
             preCatchupStartClbk=preCatchupStartClbk,
-            postCatchupStartClbk=postCatchupStartClbk,
-            preCatchupCompleteClbk=preCatchupCompleteClbk,
             postCatchupCompleteClbk=postCatchupCompleteClbk,
             postTxnAddedToLedgerClbk=postTxnAddedToLedgerClbk,
             verifier=MerkleVerifier(ledger.hasher)
         )
 
         inbox_tx, inbox_rx = create_direct_channel()
-        service = CatchupRepGatherer(ledger_id=iD,
-                                     config=self.config,
-                                     input=inbox_rx,
-                                     output=self._catchup_rep_outbox,
-                                     timer=self._timer,
-                                     metrics=self.metrics,
-                                     provider=self._provider)
-        self._catchup_gatherers[iD] = self.CatchupGatherer(inbox=inbox_tx, service=service)
+        service = CatchupRepService(ledger_id=iD,
+                                    config=self.config,
+                                    input=inbox_rx,
+                                    output=self._catchup_rep_outbox,
+                                    timer=self._timer,
+                                    metrics=self.metrics,
+                                    provider=self._provider)
+        self._catchup_rep_services[iD] = self.CatchupRepServiceWrapper(inbox=inbox_tx, service=service)
 
     def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
         if ledger_id in self.request_ledger_status_action_ids:
@@ -263,19 +247,6 @@ class LedgerManager(HasActionQueue):
 
         ledgerInfo.recvdConsistencyProofs = {}
         ledgerInfo.consistencyProofsTimer = None
-        ledgerInfo.recvdCatchupRepliesFrm = {}
-
-    @staticmethod
-    def _missing_txns(ledger_info) -> Tuple[bool, int]:
-        ledger = ledger_info.ledger
-        if ledger_info.catchupReplyTimer is None:
-            return False, 0
-
-        end = getattr(ledger_info.catchUpTill, f.SEQ_NO_END.nm)
-
-        catchUpReplies = ledger_info.receivedCatchUpReplies
-        total_missing = (end - ledger.size) - len(catchUpReplies)
-        return total_missing > 0, total_missing
 
     def setLedgerState(self, ledgerType: int, state: LedgerState):
         if ledgerType not in self.ledgerRegistry:
@@ -428,17 +399,14 @@ class LedgerManager(HasActionQueue):
     def processCatchupReq(self, req: CatchupReq, frm: str):
         self._send_to_seeder(req, frm)
 
-    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
-        logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
-
         ledger_id = rep.ledgerId
-        gatherer = self._catchup_gatherers.get(ledger_id)
-        if not gatherer:
+        wrapper = self._catchup_rep_services.get(ledger_id)
+        if not wrapper:
             logger.warning("{} received catchup reply {} for unknown ledger".format(self, rep))
             return
 
-        gatherer.inbox.put_nowait((rep, frm))
+        wrapper.inbox.put_nowait((rep, frm))
 
     # ASSUMING NO MALICIOUS NODES
     # Assuming that all nodes have the same state of the system and no node
@@ -566,8 +534,8 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.state = LedgerState.syncing
         ledgerInfo.catchUpTill = proof
 
-        gatherer = self._catchup_gatherers[ledgerId]
-        gatherer.service.start(proof)
+        wrapper = self._catchup_rep_services[ledgerId]
+        wrapper.service.start(proof)
 
     def catchupCompleted(self, ledgerId: int, last_3PC: Optional[Tuple] = None):
         # Since multiple ledger will be caught up and catchups might happen
@@ -583,8 +551,6 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.ledgerStatusOk = set()
         ledgerInfo.last_txn_3PC_key = {}
         ledgerInfo.recvdConsistencyProofs = {}
-        ledgerInfo.receivedCatchUpReplies = []
-        ledgerInfo.recvdCatchupRepliesFrm = {}
         ledgerInfo.catchUpTill = None
 
         if self.postAllLedgersCaughtUp:
@@ -594,7 +560,7 @@ class LedgerManager(HasActionQueue):
 
         self.catchup_next_ledger(ledgerId)
 
-    def _catchup_rep_gatherer_stop(self, msg: LedgerCatchupComplete):
+    def _on_catchup_rep_service_stop(self, msg: LedgerCatchupComplete):
         self.getLedgerInfoByType(msg.ledger_id).num_txns_caught_up = msg.num_caught_up
         self.catchupCompleted(msg.ledger_id, msg.last_3pc)
 
