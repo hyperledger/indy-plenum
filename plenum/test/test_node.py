@@ -33,7 +33,7 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
-from plenum.server.view_change.node_view_changer import create_view_changer, ViewChangerNodeDataProvider
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
@@ -520,8 +520,8 @@ class TestNodeSet(ExitStack):
             self.nodeReg = nodeReg
         else:
             nodeNames = (names if names is not None and count is None else
-            genNodeNames(count) if count is not None else
-            error("only one of either names or count is required"))
+                         genNodeNames(count) if count is not None else
+                         error("only one of either names or count is required"))
             self.nodeReg = genNodeReg(
                 names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
@@ -849,6 +849,9 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
+    for n in nodes[1:]:
+        assert nodes[0].primaries == n.primaries
+
     primaryReplicas = {replica.instId: replica
                        for node in nodes
                        for replica in node.replicas.values() if replica.isPrimary}
@@ -943,7 +946,7 @@ def timeThis(func, *args, **kwargs):
 def instances(nodes: Sequence[Node],
               instances: Sequence[int] = None) -> Dict[int, List[replica.Replica]]:
     instances = (range(getRequiredInstances(len(nodes)))
-    if instances is None else instances)
+                 if instances is None else instances)
     for n in nodes:
         assert len(n.replicas) == len(instances)
     return {i: [n.replicas[i] for n in nodes] for i in instances}

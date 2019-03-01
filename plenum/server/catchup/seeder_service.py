@@ -1,10 +1,11 @@
+from abc import abstractmethod
 from typing import Any, Tuple, Optional
 
 from plenum.common.channel import RxChannel
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import CatchupReq, CatchupRep, ConsistencyProof
+from plenum.common.messages.node_messages import CatchupReq, CatchupRep, ConsistencyProof, LedgerStatus
 from plenum.common.util import SortedDict
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -12,16 +13,41 @@ logger = getlogger()
 
 class SeederService:
     def __init__(self, input: RxChannel, provider: CatchupDataProvider):
+        input.set_handler(LedgerStatus, self.process_ledger_status)
         input.set_handler(CatchupReq, self.process_catchup_req)
-
         self._provider = provider
-        self._ledgers = {}  # Dict[int, Ledger]
 
     def __repr__(self):
         return self._provider.node_name()
 
-    def add_ledger(self, ledger_id: int, ledger: Ledger):
-        self._ledgers[ledger_id] = ledger
+    def process_ledger_status(self, status: LedgerStatus, frm: str):
+        logger.info("{} received ledger status: {} from {}".format(self, status, frm))
+
+        ledger_id, ledger = self._get_ledger_and_id(status)
+
+        if ledger is None:
+            self._provider.discard(status, reason="it references invalid ledger",
+                                   logMethod=logger.warning)
+            return
+
+        if status.txnSeqNo < 0:
+            self._provider.discard(status,
+                                   reason="Received negative sequence number from {}".format(frm),
+                                   logMethod=logger.warning)
+            return
+
+        if status.txnSeqNo >= ledger.size:
+            self._on_ledger_status_up_to_date(ledger_id, frm)
+            return
+
+        try:
+            cons_proof = self._build_consistency_proof(ledger_id, status.txnSeqNo, ledger.size)
+
+            logger.info("{} sending consistency proof: {} to {}".format(self, cons_proof, frm))
+            self._provider.send_to(cons_proof, frm)
+        except ValueError as e:
+            self._provider.discard(status, reason=str(e), logMethod=logger.warning)
+            return
 
     def process_catchup_req(self, req: CatchupReq, frm: str):
         logger.info("{} received catchup request: {} from {}".format(self, req, frm))
@@ -29,26 +55,28 @@ class SeederService:
         ledger_id, ledger = self._get_ledger_and_id(req)
 
         if ledger is None:
-            logger.warning("{} discarding message {} from {} because it references invalid ledger".
-                           format(self, req, frm))
+            self._provider.discard(req, reason="it references invalid ledger", logMethod=logger.warning)
             return
 
         start = req.seqNoStart
         end = req.seqNoEnd
 
         if start > end:
-            logger.debug("{} discarding message {} from {} because its start greater than end".
-                         format(self, req, frm))
+            self._provider.discard(req,
+                                   reason="not able to service since start = {} greater than end = {}"
+                                   .format(start, end), logMethod=logger.debug)
             return
 
         if end > req.catchupTill:
-            logger.debug("{} discarding message {} from {} because its end greater than catchup till".
-                         format(self, req, frm))
+            self._provider.discard(req,
+                                   reason="not able to service since end = {} greater than catchupTill = {}"
+                                   .format(end, req.catchupTill), logMethod=logger.debug)
             return
 
         if req.catchupTill > ledger.size:
-            logger.debug("{} discarding message {} from {} because its catchup till greater than ledger size {}".
-                         format(self, req, frm, ledger.size))
+            self._provider.discard(req,
+                                   reason="not able to service since catchupTill = {} greater than ledger size = {}"
+                                   .format(req.catchupTill, ledger.size), logMethod=logger.debug)
             return
 
         cons_proof = ledger.tree.consistency_proof(end, req.catchupTill)
@@ -65,7 +93,7 @@ class SeederService:
 
     def _get_ledger_and_id(self, req: Any) -> Tuple[int, Optional[Ledger]]:
         ledger_id = req.ledgerId
-        return ledger_id, self._ledgers.get(ledger_id)
+        return ledger_id, self._provider.ledger(ledger_id)
 
     @staticmethod
     def _make_consistency_proof(ledger: Ledger, seq_no_start: int, seq_no_end: int):
@@ -74,7 +102,7 @@ class SeederService:
         return string_proof
 
     def _build_consistency_proof(self, ledger_id: int, seq_no_start: int, seq_no_end: int) -> ConsistencyProof:
-        ledger = self._ledgers[ledger_id]
+        ledger = self._provider.ledger(ledger_id)
 
         if seq_no_end < seq_no_start:
             raise ValueError("end {} is less than start {}".format(seq_no_end, seq_no_start))
@@ -137,3 +165,24 @@ class SeederService:
             return left_rep, right_rep
 
         return _split
+
+    @abstractmethod
+    def _on_ledger_status_up_to_date(self, ledger_id: int, frm: str):
+        pass
+
+
+class ClientSeederService(SeederService):
+    def __init__(self, input: RxChannel, provider: CatchupDataProvider):
+        SeederService.__init__(self, input, provider)
+
+    def _on_ledger_status_up_to_date(self, ledger_id: int, frm: str):
+        ledger_status = build_ledger_status(ledger_id, self._provider)
+        self._provider.send_to(ledger_status, frm)
+
+
+class NodeSeederService(SeederService):
+    def __init__(self, input: RxChannel, provider: CatchupDataProvider):
+        SeederService.__init__(self, input, provider)
+
+    def _on_ledger_status_up_to_date(self, ledger_id: int, frm: str):
+        pass

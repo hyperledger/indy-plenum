@@ -1,7 +1,9 @@
 from typing import Iterable, List, Optional, Tuple
 
+from orderedset import OrderedSet
+
 from common.exceptions import LogicError
-from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, AUDIT_TXN_VIEW_NO
+from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, AUDIT_TXN_VIEW_NO, PRIMARY_SELECTION_PREFIX
 from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.server.router import Route
@@ -44,21 +46,19 @@ class PrimarySelector(PrimaryDecider):
     def _get_master_primary_id(self, view_no, total_nodes):
         return view_no % total_nodes
 
-    def _next_primary_node_name_for_master(self, nodeReg=None):
-        if nodeReg is None:
-            nodeReg = self.node.nodeReg
-        rank = self._get_master_primary_id(self.viewNo, len(nodeReg))
-        name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
+    def _next_primary_node_name_for_master(self, node_reg, node_ids):
+        rank = self._get_master_primary_id(self.viewNo, len(node_reg))
+        name = self.node.get_name_by_rank(rank, node_reg, node_ids)
 
         # TODO add more tests or refactor
         # to return name and rank at once and remove assert
         assert name, "{} failed to get next primary node name for master instance".format(self)
         logger.trace(
             "{} selected {} as next primary node for master instance, "
-            "viewNo {} with rank {}, nodeReg {}".format(self, name, self.viewNo, rank, nodeReg))
+            "viewNo {} with rank {}, nodeReg {}".format(self, name, self.viewNo, rank, node_reg))
         return name
 
-    def next_primary_replica_name_for_master(self, nodeReg=None):
+    def next_primary_replica_name_for_master(self, node_reg, node_ids):
         """
         Returns name and corresponding instance name of the next node which
         is supposed to be a new Primary. In fact it is not round-robin on
@@ -68,24 +68,24 @@ class PrimarySelector(PrimaryDecider):
         But since the view number is incremented by 1 before primary selection
         then current approach may be treated as round robin.
         """
-        name = self._next_primary_node_name_for_master(nodeReg)
+        name = self._next_primary_node_name_for_master(node_reg, node_ids)
         return name, Replica.generateName(nodeName=name, instId=0)
 
     def next_primary_replica_name_for_backup(self, instance_id, master_primary_rank,
-                                             primaries, nodeReg=None):
+                                             primaries, node_reg, node_ids):
         """
         Returns name and corresponding instance name of the next node which
         is supposed to be a new Primary for backup instance in round-robin
         fashion starting from primary of master instance.
         """
-        if nodeReg is None:
-            nodeReg = self.node.nodeReg
-        total_nodes = len(nodeReg)
+        if node_reg is None:
+            node_reg = self.node.nodeReg
+        total_nodes = len(node_reg)
         rank = (master_primary_rank + 1) % total_nodes
-        name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
+        name = self.node.get_name_by_rank(rank, node_reg, node_ids)
         while name in primaries:
             rank = (rank + 1) % total_nodes
-            name = self.node.get_name_by_rank(rank, nodeReg=nodeReg)
+            name = self.node.get_name_by_rank(rank, node_reg, node_ids)
         return name, Replica.generateName(nodeName=name, instId=instance_id)
 
     # overridden method of PrimaryDecider
@@ -113,7 +113,7 @@ class PrimarySelector(PrimaryDecider):
             self.node.backup_instance_faulty_processor.restore_replicas()
             self.node.drop_primaries()
             self.node.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
-            self.node.primaries = self.get_last_audited_primaries()
+            self.node.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.node.primaries):
                 raise LogicError('Audit ledger has inconsistent number of nodes')
             if any(p not in self.node.nodeReg for p in self.node.primaries):
@@ -125,6 +125,13 @@ class PrimarySelector(PrimaryDecider):
                 replica.primaryChanged(
                     Replica.generateName(self.node.primaries[instance_id], instance_id))
                 self.node.primary_selected(instance_id)
+
+        # Future primaries set
+        self.node.future_primaries.set_future_pool(
+            self.node.nodeReg,
+            self.node.poolManager._ordered_node_ids,
+            self.node.requiredNumberOfInstances,
+            self.node.primaries)
 
         # Primary propagation
         self.node.schedule_initial_propose_view_change()
@@ -140,7 +147,7 @@ class PrimarySelector(PrimaryDecider):
         # Emulate view_change ending
         self.node.on_view_change_complete()
 
-    def get_last_audited_primaries(self):
+    def _get_last_audited_primaries(self):
         audit = self.node.getLedger(AUDIT_LEDGER_ID)
         last_txn = audit.get_last_committed_txn()
         last_txn_prim_value = get_payload_data(last_txn)[AUDIT_TXN_PRIMARIES]
@@ -150,3 +157,40 @@ class PrimarySelector(PrimaryDecider):
             last_txn_prim_value = get_payload_data(audit.getBySeqNo(seq_no))[AUDIT_TXN_PRIMARIES]
 
         return last_txn_prim_value
+
+    def process_selection(self, instance_count, node_reg, node_ids):
+        # Select primaries for current view_no
+        if instance_count == 0:
+            return []
+
+        '''
+        Build a set of names of primaries, it is needed to avoid
+        duplicates of primary nodes for different replicas.
+        '''
+
+        primaries = []
+        primary_rank = None
+
+        for i in range(instance_count):
+            if i == 0:
+                primary_name = self._next_primary_node_name_for_master(node_reg, node_ids)
+                primary_rank = self.node.get_rank_by_name(primary_name, node_reg, node_ids)
+                if primary_rank is None:
+                    raise LogicError('primary_rank must not be None')
+            else:
+                primary_name, _ = self.next_primary_replica_name_for_backup(
+                    i, primary_rank, primaries, node_reg, node_ids)
+
+            primaries.append(primary_name)
+            logger.display("{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_SELECTION_PREFIX,
+                                   primary_name, i, self.viewNo),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
+        if len(primaries) != instance_count:
+            raise LogicError('instances inconsistency')
+
+        if len(primaries) != len(set(primaries)):
+            raise LogicError('repeating instances')
+
+        return primaries

@@ -38,7 +38,8 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         return self._node.mode
 
     def next_primary_name(self) -> str:
-        return self._node.elector._next_primary_node_name_for_master()
+        return self._node.elector._next_primary_node_name_for_master(
+            self._node.nodeReg, self._node.poolManager._ordered_node_ids)
 
     def current_primary_name(self) -> str:
         return self._node.master_primary_name

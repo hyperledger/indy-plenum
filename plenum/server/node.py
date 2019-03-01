@@ -1,6 +1,5 @@
 import json
 import os
-import random
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
@@ -11,6 +10,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 import gc
 import psutil
 from intervaltree import IntervalTree
+from plenum.server.replica import Replica
 
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
@@ -24,6 +24,7 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.future_primaries import FuturePrimaries
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
@@ -407,6 +408,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
+
+        self.future_primaries = FuturePrimaries(self)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -829,6 +832,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqNo and state and txn root for previous view
         """
+
+        # Set future primaries
+        self.future_primaries.set_future_pool(
+            self.nodeReg,
+            self.poolManager._ordered_node_ids,
+            self.requiredNumberOfInstances,
+            self.primaries)
+
+        self.future_primaries.primaries = self.primaries
+
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
                 "{} Not all replicas have "
@@ -947,7 +960,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
         ledger_size = ledger.size
-        v, p =(None, None)
+        v, p = (None, None)
         return LedgerStatus(ledger_id, ledger_size, v, p, ledger.root_hash, CURRENT_PROTOCOL_VERSION)
 
     @property
@@ -1181,11 +1194,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def rank(self) -> Optional[int]:
         return self.poolManager.rank
 
-    def get_name_by_rank(self, rank, nodeReg=None):
-        return self.poolManager.get_name_by_rank(rank, nodeReg=nodeReg)
+    def get_name_by_rank(self, rank, node_reg, node_ids):
+        return self.poolManager.get_name_by_rank(rank, node_reg, node_ids)
 
-    def get_rank_by_name(self, name, nodeReg=None):
-        return self.poolManager.get_rank_by_name(name, nodeReg=nodeReg)
+    def get_rank_by_name(self, name, node_reg, node_ids):
+        return self.poolManager.get_rank_by_name(name, node_reg, node_ids)
 
     def newViewChanger(self):
         if self.view_changer:
@@ -1534,6 +1547,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # primaries after it finish.
             # - If this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
+            self.backup_instance_faulty_processor.restore_replicas()
+            self.drop_primaries()
             self.select_primaries()
 
     @property
@@ -2388,6 +2403,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_handler.apply(request, cons_time)
         ledger_id = self.ledger_id_for_request(request)
+        if ledger_id == POOL_LEDGER_ID:
+            self.future_primaries.handle_pool_request(request)
         self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
@@ -3093,72 +3110,41 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def select_primaries(self):
         # If you want to refactor primaries selection,
         # please take a look at https://jira.hyperledger.org/browse/INDY-1946
-        primaries = set()
-        primary_rank = None
-        '''
-        Build a set of names of primaries, it is needed to avoid
-        duplicates of primary nodes for different replicas.
-        '''
-        for instance_id, replica in self.replicas.items():
-            if replica.primaryName is not None:
-                name = replica.primaryName.split(":", 1)[0]
-                primaries.add(name)
-                '''
-                Remember the rank of primary of master instance, it is needed
-                for calculation of primaries for backup instances.
-                '''
-                if instance_id == 0:
-                    primary_rank = self.get_rank_by_name(name)
 
-        for instance_id, replica in self.replicas.items():
-            if replica.primaryName is not None:
-                logger.debug('{} already has a primary'.format(replica))
-                continue
-            if instance_id == 0:
-                new_primary_name, new_primary_instance_name = \
-                    self.elector.next_primary_replica_name_for_master()
-                primary_rank = self.get_rank_by_name(new_primary_name)
-                # TODO add more tests or refactor
-                # to return name and rank at once and remove assert
-                assert primary_rank is not None
-            else:
-                new_primary_name, new_primary_instance_name = \
-                    self.elector.next_primary_replica_name_for_backup(
-                        instance_id, primary_rank, primaries)
-            primaries.add(new_primary_name)
-            logger.display("{}{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX, replica,
-                                   new_primary_instance_name, instance_id, self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-            if instance_id == 0:
+        self.ensure_primaries_dropped()
+        self.primaries = self.elector.process_selection(
+            self.requiredNumberOfInstances,
+            self.nodeReg, self.poolManager._ordered_node_ids)
+
+        for i, primary_name in enumerate(self.primaries):
+            if i == 0:
                 # The node needs to be set in participating mode since when
                 # the replica is made aware of the primary, it will start
                 # processing stashed requests and hence the node needs to be
                 # participating.
                 self.start_participating()
 
-            replica.primaryChanged(new_primary_instance_name)
-            self.primary_selected(instance_id)
+            replica = self.replicas[i]
+            instance_name = Replica.generateName(nodeName=primary_name, instId=i)
+            replica.primaryChanged(instance_name)
+            self.primary_selected(i)
 
-            logger.display("{}{} declares view change {} as completed for "
+            logger.display("{}{} declares primaries selection {} as completed for "
                            "instance {}, "
                            "new primary is {}, "
                            "ledger info is {}"
                            .format(VIEW_CHANGE_PREFIX,
                                    replica,
                                    self.viewNo,
-                                   instance_id,
-                                   new_primary_instance_name,
+                                   i,
+                                   instance_name,
                                    self.ledger_summary),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-        self.primaries = []
-        for name in self.replicas.primary_name_by_inst_id.values():
-            self.primaries.append(name)
 
         # Notify replica, that we need to send batch with new primaries
-        self.primaries_batch_needed = True
+        if self.viewNo != 0:
+            self.primaries_batch_needed = True
 
     def _do_start_catchup(self, just_started):
         # Process any already Ordered requests by the replica

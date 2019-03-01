@@ -857,6 +857,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # As we've selected new primaries, we need to send 3pc batch,
         # so this primaries can be saved in audit ledger
         if not sent_batches and self.isMaster and self.node.primaries_batch_needed:
+            self.logger.debug("Sending a 3PC batch to propagate newly selected primaries")
             self.node.primaries_batch_needed = False
             sent_batches.add(self._do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
 
@@ -918,7 +919,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
                                           txn_root=self.txnRootHash(ledger_id, to_str=False),
-                                          primaries=self.node.primaries)
+                                          primaries=self.node.future_primaries.primaries)
             self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
@@ -1445,7 +1446,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                                                          to_str=False),
                                                            txn_root=self.txnRootHash(pre_prepare.ledgerId,
                                                                                      to_str=False),
-                                                           primaries=self.node.primaries)
+                                                           primaries=self.node.future_primaries.primaries)
             self.node.onBatchCreated(three_pc_batch)
 
         return reqs, invalid_indices, rejects

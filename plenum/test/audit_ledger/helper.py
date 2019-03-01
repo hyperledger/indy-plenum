@@ -5,6 +5,7 @@ from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.txn_util import do_req_to_txn
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 
+DEFAULT_PRIMARIES = ['Alpha', 'Beta']
 
 def check_audit_ledger_updated(audit_size_initial, nodes, audit_txns_added):
     audit_size_after = [node.auditLedger.size for node in nodes]
@@ -19,7 +20,8 @@ def check_audit_txn(txn,
                     seq_no, txn_time,
                     ledger_id, txn_root, state_root,
                     pool_size, domain_size, config_size,
-                    last_domain_seqno, last_pool_seqno, last_config_seqno):
+                    last_domain_seqno, last_pool_seqno, last_config_seqno,
+                    primaries):
     expectedLedgerRoots = {}
     # we expect deltas here, that is a difference from the current audit ledger txn to
     # the audit txn where the corresponding ledger was updated
@@ -46,7 +48,8 @@ def check_audit_txn(txn,
                 },
                 "stateRoot": {
                     ledger_id: Ledger.hashToStr(state_root),
-                }
+                },
+                "primaries": primaries
 
             },
             "metadata": {
@@ -82,7 +85,7 @@ def do_apply_audit_txn(alh,
                                   valid_txn_count=txns_count,
                                   state_root=db_manager.get_state(ledger_id).headHash,
                                   txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
-                                  primaries=[],
+                                  primaries=DEFAULT_PRIMARIES,
                                   has_audit_txn=has_audit_txn)
     alh.post_batch_applied(three_pc_batch)
 

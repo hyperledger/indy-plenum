@@ -149,3 +149,9 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         """
         Select primaries after catchup completed
         """
+
+    @abstractmethod
+    def process_selection(self, instance_count, node_reg, node_ids):
+        """
+        Return primaries set for current view_no
+        """

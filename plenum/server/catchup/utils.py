@@ -1,5 +1,6 @@
+import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Callable
+from typing import Optional, Tuple, Any, Callable, List
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
@@ -16,6 +17,19 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
+    def ledgers(self) -> List[int]:
+        pass
+
+    @abstractmethod
+    def ledger(self, ledger_id: int) -> Ledger:
+        pass
+
+    @abstractmethod
+    # TODO: Delete when INDY-1946 gets implemented
+    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
+        pass
+
+    @abstractmethod
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         pass
 
@@ -27,9 +41,19 @@ class CatchupDataProvider(ABC):
     def send_to_nodes(self, msg: Any):
         pass
 
+    @abstractmethod
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
+        pass
 
-def build_ledger_status(ledger_id: int, ledger: Ledger, provider: CatchupDataProvider):
-    view_no, pp_seq_no = (None, None)
+
+def build_ledger_status(ledger_id: int, provider: CatchupDataProvider):
+    ledger = provider.ledger(ledger_id)
+    if ledger is None:
+        raise ValueError("Cannot get ledger {} to build LEDGER_STATUS".format(ledger_id))
+
+    # TODO: Delete when INDY-1946 gets implemented
+    three_pc_key = provider.three_phase_key_for_txn_seq_no(ledger_id, ledger.size)
+    view_no, pp_seq_no = three_pc_key if three_pc_key else (None, None)
     return LedgerStatus(ledger_id,
                         ledger.size,
                         view_no,
