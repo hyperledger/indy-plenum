@@ -47,9 +47,9 @@ class FuturePrimaries:
             count = self.count_required_number_of_instances()
             if self.future_required_number_of_instances != count:
                 self.future_required_number_of_instances = count
-                self.primaries = list(self.node.elector.process_selection(
+                self.primaries = self.node.elector.process_selection(
                     self.future_required_number_of_instances,
-                    self.future_node_reg, self.future_ordered_node_ids))
+                    self.future_node_reg, self.future_ordered_node_ids)
 
     def set_future_pool(self, node_reg, ordered_node_ids, current_required, primaries):
         # At the end of catchup and view_change, we need to set
@@ -61,7 +61,7 @@ class FuturePrimaries:
         if self.future_required_number_of_instances != current_required:
             raise LogicError('Required number of instances is unequal')
 
-        self.primaries = primaries
+        self.primaries = copy.deepcopy(primaries)
 
     def count_required_number_of_instances(self):
         return getMaxFailures(len(self.future_node_reg)) + 1
