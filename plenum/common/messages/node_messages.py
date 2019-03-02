@@ -174,6 +174,8 @@ class Prepare(MessageBase):
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
+                                                   nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
