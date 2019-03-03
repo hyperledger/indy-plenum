@@ -805,7 +805,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 1. send 3PC batches with requests for every ledger
         self._send_3pc_batches_for_ledgers(sent_batches)
 
-        # 2. for every ledger we havne't just sent a 3PC batch check if it's not fresh enough,
+        # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
         # and send an empty 3PC batch to update the state if needed
         self._send_3pc_freshness_batch(sent_batches)
 
