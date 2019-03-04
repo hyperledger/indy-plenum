@@ -588,6 +588,7 @@ class LedgerManager(HasActionQueue):
         self.catchup_next_ledger(ledgerId)
 
     def _catchup_rep_gatherer_stop(self, msg: LedgerCatchupComplete):
+        self.getLedgerInfoByType(msg.ledger_id).num_txns_caught_up = msg.num_caught_up
         self.catchupCompleted(msg.ledger_id, msg.last_3pc)
 
     def catchup_next_ledger(self, ledger_id):
