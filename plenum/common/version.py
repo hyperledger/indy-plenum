@@ -55,6 +55,9 @@ class VersionBase(metaclass=ABCMeta):
     def __ne__(self, other: 'VersionBase') -> bool:
         return self.cmp(self, other) != 0
 
+    def __hash__(self):
+        return hash(self.full)
+
 
 class SourceVersion(VersionBase):
     pass
