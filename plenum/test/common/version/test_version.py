@@ -2,7 +2,8 @@ import pytest
 
 from plenum.common.version import (
     InvalidVersion, VersionBase, PEP440BasedVersion,
-    SemVerBase, SemVerReleaseVersion, PackageVersion
+    SemVerBase, DigitDotVersion, SemVerReleaseVersion,
+    PackageVersion
 )
 
 
@@ -88,10 +89,22 @@ def test_sem_ver_base_api(version_base_required):
 # TODO do we need more test coverage here ?
 # (PEP440BasedVersion just wraps packaging package)
 
-def test_pep440_based_version_init():
+def test_pep440_based_version_init_stripped():
+    # stripped
     with pytest.raises(InvalidVersion):
         PEP440BasedVersion('a1')
     PEP440BasedVersion('1.2.3.rc1')
+
+
+def test_pep440_based_version_init_non_stripped():
+    # non stripped
+    with pytest.raises(InvalidVersion):
+        PEP440BasedVersion(' 1.2.3', allow_non_stripped=False)
+
+    with pytest.raises(InvalidVersion):
+        PEP440BasedVersion('1.2.3 ', allow_non_stripped=False)
+
+    PEP440BasedVersion(' 1.2.3 ', allow_non_stripped=True)
 
 
 @pytest.mark.parametrize(
@@ -143,10 +156,6 @@ def test_pep440_based_version_release_parts():
 #  postrelease
 #  epoch
 #  local verion
-#  parts num != 3
-# valid SemVer:
-#  with prerelease part
-#  with build metadata
 @pytest.mark.parametrize(
     'version',
     [
@@ -157,6 +166,46 @@ def test_pep440_based_version_release_parts():
         '1.2.3.post1',
         '1!1.2.3',
         '1.2.3+1',
+    ]
+)
+def test_digit_dot_version_invalid_value(version):
+    with pytest.raises(InvalidVersion):
+        DigitDotVersion(version)
+
+
+def test_digit_dot_version_parts():
+    assert len(DigitDotVersion('1.2.3').parts) == 3
+
+
+def test_digit_dot_version_valid():
+    DigitDotVersion('1.2.3')
+    DigitDotVersion('1.2.3', parts_num=3)
+    DigitDotVersion('1.2.3', parts_num=[3, 4])
+    DigitDotVersion('1.2.3.4.5', parts_num=(3, 5))
+
+
+def test_digit_dot_version_invalid_parts():
+    with pytest.raises(InvalidVersion) as excinfo:
+        DigitDotVersion('1.2.3', parts_num=4)
+    assert 'should contain 4' in str(excinfo.value)
+
+    with pytest.raises(InvalidVersion) as excinfo:
+        DigitDotVersion('1.2.3', parts_num=[4, 5])
+    assert 'should contain 4 or 5' in str(excinfo.value)
+
+    with pytest.raises(InvalidVersion) as excinfo:
+        DigitDotVersion('1.2.3', parts_num=(4, 6, 7))
+    assert 'should contain 4 or 6 or 7' in str(excinfo.value)
+
+
+# valid PEP440:
+#  parts num != 3
+# valid SemVer:
+#  with prerelease part
+#  with build metadata
+@pytest.mark.parametrize(
+    'version',
+    [
         '1',
         '1.2',
         '1.2.3.4',

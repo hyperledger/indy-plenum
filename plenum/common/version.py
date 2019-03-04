@@ -1,5 +1,6 @@
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Union
 from abc import abstractmethod, ABCMeta
+import collections
 from packaging.version import (
     Version as PEP440Version,
     InvalidVersion as PEP440InvalidVersion
@@ -55,6 +56,17 @@ class VersionBase(metaclass=ABCMeta):
         return self.cmp(self, other) != 0
 
 
+class PackageVersion(VersionBase):
+    @property
+    @abstractmethod
+    def upstream(self) -> str:
+        """ Upstream part of the package. """
+
+
+class SourceVersion(VersionBase):
+    pass
+
+
 class SemVerBase(VersionBase):
     @property
     def major(self) -> str:
@@ -81,7 +93,10 @@ class PEP440BasedVersion(VersionBase):
         else:
             return -1
 
-    def __init__(self, version: str):
+    def __init__(self, version: str, allow_non_stripped: bool = True):
+        if not allow_non_stripped and version != version.strip():
+            raise InvalidVersion('version includes leading and/or trailing spaces')
+
         try:
             self._version = PEP440Version(version)
         except PEP440InvalidVersion as exc:
@@ -128,26 +143,39 @@ class PEP440BasedVersion(VersionBase):
         return self._version.release
 
 
-# TODO allows (silently normalizes) leading zeroes in parts
-class SemVerReleaseVersion(PEP440BasedVersion, SemVerBase):
-    def __init__(self, version: str):
-        super().__init__(version)
+# TODO tests
+class DigitDotVersion(PEP440BasedVersion):
+    def __init__(
+            self,
+            version: str,
+            parts_num: Union[None, int, Iterable[int]]=None,
+            **kwargs
+    ):
+        super().__init__(version, **kwargs)
         # additional restrictions
         if (self._version.is_devrelease or
                 self._version.is_prerelease or
                 self._version.is_postrelease or
                 self._version.epoch or
-                self._version.local or
-                len(self._version.release) != 3):
-            raise InvalidVersion("only major.minor.patch parts are expected")
+                self._version.local):
+            raise InvalidVersion("only dots and digits are expected")
+        if parts_num:
+            # TODO docs for typing doesn't specify explicitly whether
+            # typing.Iterable can be used instead or not
+            if not isinstance(parts_num, collections.abc.Iterable):
+                parts_num = [parts_num]
+            if len(self.parts) not in parts_num:
+                raise InvalidVersion(
+                    "invalid number of parts {}, should contain {}"
+                    .format(len(self.parts), ' or '.join(map(str, parts_num)))
+                )
 
-
-class PackageVersion(VersionBase):
     @property
-    @abstractmethod
-    def upstream(self) -> str:
-        """ Upstream part of the package. """
+    def parts(self) -> Iterable:
+        return self._version.release
 
 
-class SourceVersion(VersionBase):
-    pass
+# TODO allows (silently normalizes) leading zeroes in parts
+class SemVerReleaseVersion(DigitDotVersion, SemVerBase):
+    def __init__(self, version: str, **kwargs):
+        super().__init__(version, parts_num=3, **kwargs)
