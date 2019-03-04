@@ -120,11 +120,11 @@ class PEP440BasedVersion(VersionBase):
         # TODO
         #   - API for add_parts
         add_parts = tuple()
-        if self._version.is_devrelease:
+        if self._version.dev:
             add_parts = ('dev', self._version.dev)
-        elif self._version.is_prerelease:
+        elif self._version.pre:
             add_parts = self._version.pre
-        elif self._version.is_postrelease:
+        elif self._version.post:
             add_parts = ('dev', self._version.post)
         return (
             self._version.epoch,
@@ -151,9 +151,9 @@ class DigitDotVersion(PEP440BasedVersion):
     ):
         super().__init__(version, **kwargs)
         # additional restrictions
-        if (self._version.is_devrelease or
-                self._version.is_prerelease or
-                self._version.is_postrelease or
+        if (self._version.dev or
+                self._version.pre or
+                self._version.post or
                 self._version.epoch or
                 self._version.local):
             raise InvalidVersion("only dots and digits are expected")
