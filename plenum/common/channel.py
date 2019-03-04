@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from asyncio import Queue, QueueFull, wait
 from collections import deque
 from inspect import isawaitable, iscoroutinefunction
-from typing import Any, Type, Callable, Tuple, Optional
+from typing import Any, Type, Callable, Tuple, Optional, Dict
 
 
 class TxChannel(ABC):
@@ -139,18 +139,13 @@ class AsyncioChannelService:
         self._is_running = False
 
 
-class Router:
-    def __init__(self, input: RxChannel, strict: bool = True):
-        input.subscribe(self._process)
+class RouterBase:
+    def __init__(self, strict: bool = True):
         self._strict = strict
         self._routes = {}  # type: Dict[Type, Callable]
 
     def add(self, msg_type: Type, handler: Callable):
         self._routes[msg_type] = handler
-
-    async def _process(self, msg: Any):
-        result = self._process_sync(msg)
-        return await result if isawaitable(result) else result
 
     def _process_sync(self, msg: Any):
         # This is done so that messages can include additional metadata
@@ -169,3 +164,24 @@ class Router:
         for cls, handler in self._routes.items():
             if isinstance(msg, cls):
                 return handler
+
+
+class Router(RouterBase):
+    def __init__(self, input: RxChannel, strict: bool = True):
+        RouterBase.__init__(self, strict)
+        input.subscribe(self._process_sync)
+
+    def add(self, msg_type: Type, handler: Callable):
+        if iscoroutinefunction(handler):
+            raise ValueError('Router works only with synchronous handlers')
+        RouterBase.add(self, msg_type, handler)
+
+
+class AsyncRouter(RouterBase):
+    def __init__(self, input: RxChannel, strict: bool = True):
+        RouterBase.__init__(self, strict)
+        input.subscribe(self._process)
+
+    async def _process(self, msg: Any):
+        result = self._process_sync(msg)
+        return await result if isawaitable(result) else result
