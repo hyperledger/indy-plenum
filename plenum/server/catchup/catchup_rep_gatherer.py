@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple, Any, NamedTuple
 
 import math
 
-from plenum.common.channel import RxChannel, TxChannel
+from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
@@ -29,7 +29,7 @@ class CatchupRepGatherer:
                  timer: TimerService,
                  metrics: MetricsCollector,
                  provider: CatchupDataProvider):
-        input.set_handler(CatchupRep, self.process_catchup_rep)
+        Router(input).add(CatchupRep, self.process_catchup_rep)
 
         self._ledger_id = ledger_id
         self._ledger = provider.ledger(ledger_id)
