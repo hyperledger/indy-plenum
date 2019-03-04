@@ -7,7 +7,7 @@ from packaging.version import (
 )
 
 
-class InvalidVersion(ValueError):
+class InvalidVersionError(ValueError):
     pass
 
 
@@ -94,13 +94,15 @@ class PEP440BasedVersion(VersionBase):
 
     def __init__(self, version: str, allow_non_stripped: bool = True):
         if not allow_non_stripped and version != version.strip():
-            raise InvalidVersion('version includes leading and/or trailing spaces')
+            raise InvalidVersionError(
+                'version includes leading and/or trailing spaces'
+            )
 
         try:
             self._version = PEP440Version(version)
         except PEP440InvalidVersion as exc:
             # TODO is it the best string to pass
-            raise InvalidVersion(str(exc))
+            raise InvalidVersionError(str(exc))
 
         # TODO create API wrappers for dev, pre and post from PEP440Version
 
@@ -156,14 +158,14 @@ class DigitDotVersion(PEP440BasedVersion):
                 self._version.post or
                 self._version.epoch or
                 self._version.local):
-            raise InvalidVersion("only dots and digits are expected")
+            raise InvalidVersionError("only dots and digits are expected")
         if parts_num:
             # TODO docs for typing doesn't specify explicitly whether
             # typing.Iterable can be used instead or not
             if not isinstance(parts_num, collections.abc.Iterable):
                 parts_num = [parts_num]
             if len(self.parts) not in parts_num:
-                raise InvalidVersion(
+                raise InvalidVersionError(
                     "invalid number of parts {}, should contain {}"
                     .format(len(self.parts), ' or '.join(map(str, parts_num)))
                 )

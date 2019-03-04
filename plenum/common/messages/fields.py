@@ -14,7 +14,7 @@ from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.version import (
-    InvalidVersion, DigitDotVersion, SemVerReleaseVersion
+    InvalidVersionError, DigitDotVersion, SemVerReleaseVersion
 )
 from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
 
@@ -561,7 +561,7 @@ class VersionField(LimitedLengthStringField):
                     val, parts_num=self._comp_num, allow_non_stripped=False)
             else:
                 self._version_cls(val, allow_non_stripped=False)
-        except InvalidVersion as exc:
+        except InvalidVersionError as exc:
             return str(exc)
         else:
             return None

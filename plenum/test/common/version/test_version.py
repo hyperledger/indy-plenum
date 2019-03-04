@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.version import (
-    InvalidVersion, VersionBase, PEP440BasedVersion,
+    InvalidVersionError, VersionBase, PEP440BasedVersion,
     SemVerBase, DigitDotVersion, SemVerReleaseVersion,
     PackageVersion
 )
@@ -91,17 +91,17 @@ def test_sem_ver_base_api(version_base_required):
 
 def test_pep440_based_version_init_stripped():
     # stripped
-    with pytest.raises(InvalidVersion):
+    with pytest.raises(InvalidVersionError):
         PEP440BasedVersion('a1')
     PEP440BasedVersion('1.2.3.rc1')
 
 
 def test_pep440_based_version_init_non_stripped():
     # non stripped
-    with pytest.raises(InvalidVersion):
+    with pytest.raises(InvalidVersionError):
         PEP440BasedVersion(' 1.2.3', allow_non_stripped=False)
 
-    with pytest.raises(InvalidVersion):
+    with pytest.raises(InvalidVersionError):
         PEP440BasedVersion('1.2.3 ', allow_non_stripped=False)
 
     PEP440BasedVersion(' 1.2.3 ', allow_non_stripped=True)
@@ -169,7 +169,7 @@ def test_pep440_based_version_release_parts():
     ]
 )
 def test_digit_dot_version_invalid_value(version):
-    with pytest.raises(InvalidVersion):
+    with pytest.raises(InvalidVersionError):
         DigitDotVersion(version)
 
 
@@ -185,15 +185,15 @@ def test_digit_dot_version_valid():
 
 
 def test_digit_dot_version_invalid_parts_num():
-    with pytest.raises(InvalidVersion) as excinfo:
+    with pytest.raises(InvalidVersionError) as excinfo:
         DigitDotVersion('1.2.3', parts_num=4)
     assert 'should contain 4' in str(excinfo.value)
 
-    with pytest.raises(InvalidVersion) as excinfo:
+    with pytest.raises(InvalidVersionError) as excinfo:
         DigitDotVersion('1.2.3', parts_num=[4, 5])
     assert 'should contain 4 or 5' in str(excinfo.value)
 
-    with pytest.raises(InvalidVersion) as excinfo:
+    with pytest.raises(InvalidVersionError) as excinfo:
         DigitDotVersion('1.2.3', parts_num=(4, 6, 7))
     assert 'should contain 4 or 6 or 7' in str(excinfo.value)
 
@@ -215,7 +215,7 @@ def test_digit_dot_version_invalid_parts_num():
     ]
 )
 def test_sem_ver_release_version_invalid(version):
-    with pytest.raises(InvalidVersion):
+    with pytest.raises(InvalidVersionError):
         SemVerReleaseVersion(version)
 
 
