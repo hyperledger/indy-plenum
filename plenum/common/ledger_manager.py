@@ -10,7 +10,7 @@ from typing import Any, List, Dict, Tuple, NamedTuple
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
-from plenum.common.channel import create_direct_channel, TxChannel
+from plenum.common.channel import create_direct_channel, TxChannel, Router
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, CONSISTENCY_PROOF, CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
@@ -143,7 +143,7 @@ class LedgerManager(HasActionQueue):
         self._node_seeder = NodeSeederService(rx, self._provider)
 
         self._catchup_rep_outbox, rx = create_direct_channel()
-        rx.set_handler(LedgerCatchupComplete, self._catchup_rep_gatherer_stop)
+        Router(rx).add(LedgerCatchupComplete, self._catchup_rep_gatherer_stop)
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
