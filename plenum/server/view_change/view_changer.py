@@ -344,6 +344,9 @@ class ViewChanger():
     def on_view_change_not_completed_in_time(self):
         self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
 
+    def on_replicas_count_changed(self):
+        self.propose_view_change(Suspicions.REPLICAS_COUNT_CHANGED)
+
     def on_catchup_complete(self):
         if not self.provider.is_node_synced():
             raise LogicError('on_catchup_complete can be called only after catchup completed')
