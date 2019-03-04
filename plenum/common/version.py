@@ -56,15 +56,15 @@ class VersionBase(metaclass=ABCMeta):
         return self.cmp(self, other) != 0
 
 
+class SourceVersion(VersionBase):
+    pass
+
+
 class PackageVersion(VersionBase):
     @property
     @abstractmethod
-    def upstream(self) -> str:
+    def upstream(self) -> SourceVersion:
         """ Upstream part of the package. """
-
-
-class SourceVersion(VersionBase):
-    pass
 
 
 class SemVerBase(VersionBase):
