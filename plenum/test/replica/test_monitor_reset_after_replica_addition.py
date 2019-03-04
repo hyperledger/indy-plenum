@@ -44,8 +44,5 @@ def test_monitor_reset_after_replica_addition(looper, sdk_pool_handle, txnPoolNo
     node = txnPoolNodeSet[0]
     assert all(node.monitor.getThroughput(instance) == 0 for instance in (0, 1, 2))
 
-    primaries = txnPoolNodeSet[-1].primaries
-    assert len(primaries) == getMaxFailures(len(txnPoolNodeSet)) + 1
-    looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
     looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
-    looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
+    waitNodeDataEquality(looper, *txnPoolNodeSet)

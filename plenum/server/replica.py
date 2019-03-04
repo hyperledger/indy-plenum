@@ -1915,6 +1915,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
+        print("pps val {}  inval {}".format(valid_reqIdr, invalid_reqIdr))
+        # ledger = self.node.getLedger(AUDIT_LEDGER_ID)
+        # for txn in ledger.get_uncommitted_txns():
+        #     #if pp.ppSeqNo ==txn
+        #     primaries = self.node.primaries
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,

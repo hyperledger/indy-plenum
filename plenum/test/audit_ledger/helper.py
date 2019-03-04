@@ -12,7 +12,6 @@ def check_audit_ledger_updated(audit_size_initial, nodes, audit_txns_added):
     for i in range(len(nodes)):
         assert audit_size_after[i] == audit_size_initial[i] + audit_txns_added, \
             "{} != {}".format(audit_size_after[i], audit_size_initial[i] + audit_txns_added)
-    assert all(audit_size_after[i] == audit_size_initial[i] + audit_txns_added for i in range(len(nodes)))
 
 
 def check_audit_txn(txn,

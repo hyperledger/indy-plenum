@@ -74,14 +74,7 @@ def test_node_catchup_after_checkpoints(
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-
-
-    last_ordered = txnPoolNodeSet[-1].master_last_ordered_3PC
-    primaries = txnPoolNodeSet[0].primaries
-    assert len(primaries) == getMaxFailures(len(txnPoolNodeSet)) + 1
-    looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
     looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
-    looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
 
 
 def get_number_of_completed_catchups(node):

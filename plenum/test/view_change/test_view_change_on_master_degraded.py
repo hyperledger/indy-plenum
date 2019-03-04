@@ -8,7 +8,7 @@ from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
     sdk_send_random_and_check, assertExp
-from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
     ensureElectionsDone
 from plenum.test.view_change.helper import simulate_slow_master
@@ -65,12 +65,8 @@ def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     new_primary_node = get_master_primary_node(list(txnPoolNodeSet))
     assert old_primary_node.name != new_primary_node.name
-    last_ordered = txnPoolNodeSet[-1].master_last_ordered_3PC
-    primaries = txnPoolNodeSet[0].primaries
-    assert len(primaries) == getMaxFailures(len(txnPoolNodeSet)) + 1
-    looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
     looper.run(eventually(lambda: assertExp(n.viewNo == viewNo + 1 for n in txnPoolNodeSet)))
-    looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
+    waitNodeDataEquality(looper, *txnPoolNodeSet)
 
 
 def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,

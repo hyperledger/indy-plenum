@@ -47,8 +47,8 @@ def _send_txn_for_creating_node(looper, sdk_pool_handle, sdk_wallet_steward, tdi
     sdk_get_and_check_replies(looper, [request_couple])
 
 
-def test_audit_ledger_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
-                                              sdk_wallet_steward, tdir, tconf, allPluginsPath):
+def test_catchup_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
+                                        sdk_wallet_steward, tdir, tconf, allPluginsPath):
     view_no = txnPoolNodeSet[-1].viewNo
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 1)
@@ -63,20 +63,15 @@ def test_audit_ledger_after_replica_addition(looper, sdk_pool_handle, txnPoolNod
                                          node_ha=(nodeIp, nodePort), client_ha=(clientIp, clientPort),
                                          tconf=tconf, auto_start=True, plugin_path=allPluginsPath,
                                          nodeClass=TestNode)
-    txnPoolNodeSet.append(new_node)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     _send_txn_for_creating_node(looper, sdk_pool_handle, sdk_wallet_steward, tdir, new_node_name, clientIp,
                                 clientPort, nodeIp, nodePort, bls_key, sigseed, key_proof)
-    looper.run(eventually(
-        lambda: assertExp(len(txnPoolNodeSet[-1].replicas()) == getMaxFailures(len(txnPoolNodeSet)) + 1)))
-    primaries = txnPoolNodeSet[-1].primaries
-    assert len(primaries) == getMaxFailures(len(txnPoolNodeSet)) + 1
-    looper.run(eventually(lambda: assertExp(n.primaries == primaries for n in txnPoolNodeSet)))
-    looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
-    last_ordered = txnPoolNodeSet[0].master_last_ordered_3PC
-    looper.run(eventually(lambda: assertExp(n.master_last_ordered_3PC == last_ordered for n in txnPoolNodeSet)))
 
+    txnPoolNodeSet.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+
+    looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
+    waitNodeDataEquality(looper, *txnPoolNodeSet)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)
