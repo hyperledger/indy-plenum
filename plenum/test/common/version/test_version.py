@@ -184,7 +184,7 @@ def test_digit_dot_version_valid():
     DigitDotVersion('1.2.3.4.5', parts_num=(3, 5))
 
 
-def test_digit_dot_version_invalid_parts():
+def test_digit_dot_version_invalid_parts_num():
     with pytest.raises(InvalidVersion) as excinfo:
         DigitDotVersion('1.2.3', parts_num=4)
     assert 'should contain 4' in str(excinfo.value)

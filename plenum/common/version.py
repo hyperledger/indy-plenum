@@ -81,7 +81,6 @@ class SemVerBase(VersionBase):
         return self.release_parts[2]
 
 
-# TODO tests
 class PEP440BasedVersion(VersionBase):
 
     @classmethod
@@ -143,7 +142,6 @@ class PEP440BasedVersion(VersionBase):
         return self._version.release
 
 
-# TODO tests
 class DigitDotVersion(PEP440BasedVersion):
     def __init__(
             self,
