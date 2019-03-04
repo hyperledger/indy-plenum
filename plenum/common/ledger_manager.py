@@ -559,6 +559,10 @@ class LedgerManager(HasActionQueue):
                          format(ledgerId))
             return
 
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+        ledgerInfo.state = LedgerState.syncing
+        ledgerInfo.catchUpTill = proof
+
         gatherer = self._catchup_gatherers[ledgerId]
         gatherer.service.start(proof)
 
