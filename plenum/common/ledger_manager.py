@@ -437,22 +437,6 @@ class LedgerManager(HasActionQueue):
 
         gatherer.inbox.put_nowait(rep)
 
-    def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
-        ledger.add(self._transform(txn))
-        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
-
-    def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        for i, rep in enumerate(ledgerInfo.recvdCatchupRepliesFrm[node]):
-            if str(seqNo) in getattr(rep, f.TXNS.nm):
-                break
-        ledgerInfo.recvdCatchupRepliesFrm[node].pop(i)
-
-    def _transform(self, txn):
-        # Certain transactions might need to be
-        # transformed to certain format before applying to the ledger
-        return self.owner.transform_txn_for_ledger(txn)
-
     # ASSUMING NO MALICIOUS NODES
     # Assuming that all nodes have the same state of the system and no node
     # is lagging behind. So if two new nodes are added in quick succession in a
@@ -586,6 +570,16 @@ class LedgerManager(HasActionQueue):
                 and compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
 
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+        ledgerInfo.canSync = False
+        ledgerInfo.state = LedgerState.synced
+        ledgerInfo.ledgerStatusOk = set()
+        ledgerInfo.last_txn_3PC_key = {}
+        ledgerInfo.recvdConsistencyProofs = {}
+        ledgerInfo.receivedCatchUpReplies = []
+        ledgerInfo.recvdCatchupRepliesFrm = {}
+        ledgerInfo.catchUpTill = None
+
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced
                    for l in self.ledgerRegistry.values()):
@@ -595,20 +589,6 @@ class LedgerManager(HasActionQueue):
 
     def _catchup_rep_gatherer_stop(self, msg: LedgerCatchupComplete):
         self.catchupCompleted(msg.ledger_id, msg.last_3pc)
-
-    def mark_ledger_synced(self, ledger_id):
-        ledgerInfo = self.getLedgerInfoByType(ledger_id)
-        ledgerInfo.done_syncing()
-        logger.info("{}{} completed catching up ledger {},"
-                    " caught up {} in total"
-                    .format(CATCH_UP_PREFIX, self, ledger_id,
-                            ledgerInfo.num_txns_caught_up),
-                    extra={'cli': True})
-
-        if self.postAllLedgersCaughtUp:
-            if all(l.state == LedgerState.synced
-                   for l in self.ledgerRegistry.values()):
-                self.postAllLedgersCaughtUp()
 
     def catchup_next_ledger(self, ledger_id):
         next_ledger_id = self.ledger_to_sync_after(ledger_id)
@@ -642,65 +622,6 @@ class LedgerManager(HasActionQueue):
                     return self.ledger_sync_order[idx + 1]
             except ValueError:
                 return None
-
-    def getCatchupReqs(self, consProof: ConsistencyProof):
-        # TODO: This needs to be optimised, there needs to be a minimum size
-        # of catchup requests so if a node is trying to catchup only 50 txns
-        # from 10 nodes, each of thise 10 nodes will servce 5 txns and prepare
-        # a consistency proof for other txns. This is bad for the node catching
-        #  up as it involves more network traffic and more computation to verify
-        # so many consistency proofs and for the node serving catchup reqs. But
-        # if the node sent only 2 catchup requests the network traffic greatly
-        # reduces and 25 txns can be read of a single chunk probably
-        # (if txns dont span across multiple chunks). A practical value of this
-        # "minimum size" is some multiple of chunk size of the ledger
-        node_count = len(self.nodes_to_request_txns_from)
-        if node_count == 0:
-            logger.info('{} did not find any connected to nodes to send CatchupReq'.format(self))
-            return
-        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
-        # since ordered requests might have been executed after receiving
-        # sufficient ConsProof in `preCatchupClbk`
-        start = getattr(consProof, f.SEQ_NO_START.nm)
-        end = getattr(consProof, f.SEQ_NO_END.nm)
-        ledger_id = getattr(consProof, f.LEDGER_ID.nm)
-        return self._generate_catchup_reqs(start, end, ledger_id, node_count)
-
-    @staticmethod
-    def _generate_catchup_reqs(start, end, ledger_id, node_count):
-        batch_length = math.ceil((end - start) / node_count)
-        reqs = []
-        s = start + 1
-        e = min(s + batch_length - 1, end)
-        for i in range(node_count):
-            req = CatchupReq(ledger_id, s, e, end)
-            reqs.append(req)
-            s = e + 1
-            e = min(s + batch_length - 1, end)
-            if s > end:
-                break
-        return reqs
-
-    @staticmethod
-    def _get_merged_catchup_txns(existing_txns, new_txns):
-        """
-        Merge any newly received txns during catchup with already received txns
-        :param existing_txns:
-        :param new_txns:
-        :return:
-        """
-        idx_to_remove = []
-        for i, (seq_no, _) in enumerate(existing_txns):
-            if seq_no < new_txns[0][0]:
-                continue
-            if seq_no > new_txns[-1][0]:
-                break
-            idx_to_remove.append(seq_no - new_txns[0][0])
-        for idx in reversed(idx_to_remove):
-            new_txns.pop(idx)
-
-        return list(heapq.merge(existing_txns, new_txns,
-                                key=operator.itemgetter(0)))
 
     def getConsistencyProof(self, status: LedgerStatus):
         ledger = self.getLedgerForMsg(status)  # type: Ledger
