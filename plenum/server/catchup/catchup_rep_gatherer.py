@@ -48,6 +48,9 @@ class CatchupRepGatherer:
         self._received_catchup_replies_from = defaultdict(list)  # type: Dict[int, List]
         self._received_catchup_txns = []  # type: List[Tuple[int, Any]]
 
+    def __repr__(self):
+        return "{}, ledger {}".format(self._provider.node_name(), self._ledger_id)
+
     def is_working(self) -> bool:
         return self._is_working
 
@@ -88,7 +91,7 @@ class CatchupRepGatherer:
         num_caught_up = cp.seqNoEnd - cp.seqNoStart
 
         self._wait_catchup_rep_from.clear()
-        self._provider.notify_lm_catchup_complete(self._ledger_id)
+        self._provider.notify_lm_catchup_complete(self._ledger_id, last_3pc)
 
         self._is_working = False
         self._received_catchup_txns.clear()
@@ -279,6 +282,8 @@ class CatchupRepGatherer:
         if rep.ledgerId != self._ledger_id:
             logger.warning('{} cannot process {} for different ledger'.format(self, rep))
             return False
+
+        return True
 
     def _get_interesting_txns_from_catchup_rep(self, rep: CatchupRep) -> List[Tuple[int, Any]]:
         ledger = self._provider.ledger(self._ledger_id)

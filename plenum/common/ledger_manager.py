@@ -63,9 +63,9 @@ class CatchupNodeDataProvider(CatchupDataProvider):
         if self._node.ledgerManager.preCatchupClbk:
             self._node.ledgerManager.preCatchupClbk(ledger_id)
 
-    def notify_lm_catchup_complete(self, ledger_id: int):
+    def notify_lm_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
         if self._node.ledgerManager.postCatchupClbk:
-            self._node.ledgerManager.postCatchupClbk(ledger_id)
+            self._node.ledgerManager.postCatchupClbk(ledger_id, last_3pc)
 
     def notify_li_before_catchup_start(self, ledger_id: int):
         info = self._ledger_info(ledger_id)
@@ -435,7 +435,7 @@ class LedgerManager(HasActionQueue):
             logger.warning("{} received catchup reply {} for unknown ledger".format(self, rep))
             return
 
-        gatherer.inbox.put_nowait(rep)
+        gatherer.inbox.put_nowait((rep, frm))
 
     # ASSUMING NO MALICIOUS NODES
     # Assuming that all nodes have the same state of the system and no node

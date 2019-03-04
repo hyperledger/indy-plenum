@@ -51,7 +51,7 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_lm_catchup_complete(self, ledger_id: int):
+    def notify_lm_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
         pass
 
     @abstractmethod
