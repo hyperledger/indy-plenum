@@ -57,8 +57,8 @@ class CatchupRepGatherer:
         return self._is_working
 
     def start(self, cons_proof: ConsistencyProof):
-        self._notify_catchup_start()  # TODO: Was like this in original logic, but why???
         logger.info("{} started catching up with consistency proof {}".format(self, cons_proof))
+        self._provider.notify_catchup_start(self._ledger_id)
 
         if cons_proof is None:
             self.stop()
@@ -93,12 +93,11 @@ class CatchupRepGatherer:
         num_caught_up = cp.seqNoEnd - cp.seqNoStart
 
         self._wait_catchup_rep_from.clear()
-        self._provider.notify_lm_catchup_complete(self._ledger_id, last_3pc)
 
         self._is_working = False
         self._received_catchup_txns.clear()
         self._received_catchup_replies_from.clear()
-        self._provider.notify_li_after_catchup_complete(self._ledger_id)
+        self._provider.notify_catchup_complete(self._ledger_id, last_3pc)
         self._catchup_till = None
 
         logger.info("{}{} completed catching up ledger {}, caught up {} in total"
@@ -138,10 +137,6 @@ class CatchupRepGatherer:
 
         if self._ledger.size >= self._catchup_till.seqNoEnd:
             self.stop((self._catchup_till.viewNo, self._catchup_till.ppSeqNo))
-
-    def _notify_catchup_start(self):
-        self._provider.notify_lm_catchup_start(self._ledger_id)
-        self._provider.notify_li_before_catchup_start(self._ledger_id)
 
     def _gen_catchup_reqs_from_cons_proof(self, cons_proof: ConsistencyProof):
         # TODO: This needs to be optimised, there needs to be a minimum size

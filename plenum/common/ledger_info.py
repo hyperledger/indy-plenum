@@ -9,8 +9,6 @@ class LedgerInfo:
                  id: int,
                  ledger: Ledger,
                  preCatchupStartClbk,
-                 postCatchupStartClbk,
-                 preCatchupCompleteClbk,
                  postCatchupCompleteClbk,
                  postTxnAddedToLedgerClbk,
                  verifier):
@@ -19,8 +17,6 @@ class LedgerInfo:
         self.ledger = ledger
 
         self.preCatchupStartClbk = preCatchupStartClbk
-        self.postCatchupStartClbk = postCatchupStartClbk
-        self.preCatchupCompleteClbk = preCatchupCompleteClbk
         self.postCatchupCompleteClbk = postCatchupCompleteClbk
         self.postTxnAddedToLedgerClbk = postTxnAddedToLedgerClbk
         self.verifier = verifier

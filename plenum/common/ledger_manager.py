@@ -59,30 +59,18 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def transform_txn_for_ledger(self, txn: dict) -> dict:
         return self._node.transform_txn_for_ledger(txn)
 
-    def notify_lm_catchup_start(self, ledger_id: int):
+    def notify_catchup_start(self, ledger_id: int):
         if self._node.ledgerManager.preCatchupClbk:
             self._node.ledgerManager.preCatchupClbk(ledger_id)
 
-    def notify_lm_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
-        if self._node.ledgerManager.postCatchupClbk:
-            self._node.ledgerManager.postCatchupClbk(ledger_id, last_3pc)
-
-    def notify_li_before_catchup_start(self, ledger_id: int):
         info = self._ledger_info(ledger_id)
         if info is not None and info.preCatchupStartClbk:
             info.preCatchupStartClbk()
 
-    def notify_li_after_catchup_start(self, ledger_id: int):
-        info = self._ledger_info(ledger_id)
-        if info is not None and info.postCatchupStartClbk:
-            info.postCatchupStartClbk()
+    def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
+        if self._node.ledgerManager.postCatchupClbk:
+            self._node.ledgerManager.postCatchupClbk(ledger_id, last_3pc)
 
-    def notify_li_before_catchup_complete(self, ledger_id: int):
-        info = self._ledger_info(ledger_id)
-        if info is not None and info.preCatchupCompleteClbk:
-            info.preCatchupCompleteClbk()
-
-    def notify_li_after_catchup_complete(self, ledger_id: int):
         info = self._ledger_info(ledger_id)
         if info is not None and info.postCatchupCompleteClbk:
             info.postCatchupCompleteClbk()
@@ -175,8 +163,6 @@ class LedgerManager(HasActionQueue):
 
     def addLedger(self, iD: int, ledger: Ledger,
                   preCatchupStartClbk: Callable = None,
-                  postCatchupStartClbk: Callable = None,
-                  preCatchupCompleteClbk: Callable = None,
                   postCatchupCompleteClbk: Callable = None,
                   postTxnAddedToLedgerClbk: Callable = None):
 
@@ -189,8 +175,6 @@ class LedgerManager(HasActionQueue):
             iD,
             ledger=ledger,
             preCatchupStartClbk=preCatchupStartClbk,
-            postCatchupStartClbk=postCatchupStartClbk,
-            preCatchupCompleteClbk=preCatchupCompleteClbk,
             postCatchupCompleteClbk=postCatchupCompleteClbk,
             postTxnAddedToLedgerClbk=postTxnAddedToLedgerClbk,
             verifier=MerkleVerifier(ledger.hasher)
