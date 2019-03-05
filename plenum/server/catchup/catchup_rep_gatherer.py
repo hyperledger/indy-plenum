@@ -221,6 +221,9 @@ class CatchupRepGatherer:
         lastSeenSeqNo = self._ledger.size
         leftMissing = num_missing
 
+        start = self._catchup_till.seqNoStart
+        end = self._catchup_till.seqNoEnd
+
         def addReqsForMissing(frm, to):
             # Add Catchup requests for missing transactions.
             # `frm` and `to` are inclusive
@@ -240,9 +243,6 @@ class CatchupRepGatherer:
                 missing = addReqsForMissing(lastSeenSeqNo + 1, seqNo - 1)
                 leftMissing -= missing
             lastSeenSeqNo = seqNo
-
-        start = self._catchup_till.seqNoStart
-        end = self._catchup_till.seqNoEnd
 
         # If still missing some transactions from request has not been
         # sent then either `catchUpReplies` was empty or it did not have
