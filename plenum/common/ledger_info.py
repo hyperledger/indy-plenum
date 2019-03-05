@@ -58,23 +58,6 @@ class LedgerInfo:
         if self.preCatchupStartClbk:
             self.preCatchupStartClbk()
 
-    # noinspection PyAttributeOutsideInit
-    def done_syncing(self):
-        self.canSync = False
-        self.state = LedgerState.synced
-        self.ledgerStatusOk = set()
-        self.last_txn_3PC_key = {}
-        self.recvdConsistencyProofs = {}
-        self.receivedCatchUpReplies = []
-        self.recvdCatchupRepliesFrm = {}
-        if self.postCatchupCompleteClbk:
-            self.postCatchupCompleteClbk()
-        self.catchupReplyTimer = None
-        if self.catchUpTill:
-            cp = self.catchUpTill
-            self.num_txns_caught_up = cp.seqNoEnd - cp.seqNoStart
-        self.catchUpTill = None
-
     @property
     def ledger_summary(self):
         return self.id, len(self.ledger), self.ledger.root_hash

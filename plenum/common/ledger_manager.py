@@ -244,7 +244,6 @@ class LedgerManager(HasActionQueue):
 
         ledgerInfo.recvdConsistencyProofs = {}
         ledgerInfo.consistencyProofsTimer = None
-        ledgerInfo.recvdCatchupRepliesFrm = {}
 
     def setLedgerState(self, ledgerType: int, state: LedgerState):
         if ledgerType not in self.ledgerRegistry:
@@ -552,7 +551,6 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.ledgerStatusOk = set()
         ledgerInfo.last_txn_3PC_key = {}
         ledgerInfo.recvdConsistencyProofs = {}
-        ledgerInfo.recvdCatchupRepliesFrm = {}
         ledgerInfo.catchUpTill = None
 
         if self.postAllLedgersCaughtUp:

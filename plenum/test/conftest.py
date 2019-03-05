@@ -1173,8 +1173,4 @@ def sdk_new_node_caught_up(txnPoolNodeSet,
                 new_node,
                 new_node.num_txns_caught_up_in_last_catchup)) > 0
 
-    for li in new_node.ledgerManager.ledgerRegistry.values():
-        assert not li.receivedCatchUpReplies
-        assert not li.recvdCatchupRepliesFrm
-
     return new_node
