@@ -25,7 +25,9 @@ class ConsProofService:
                  timer: TimerService,
                  metrics: MetricsCollector,
                  provider: CatchupDataProvider):
-        Router(input).add(LedgerStatus, self.process_ledger_status)
+        router = Router(input)
+        router.add(LedgerStatus, self.process_ledger_status)
+        router.add(ConsistencyProof, self.process_consistency_proof)
 
         self._ledger_id = ledger_id
         self._ledger = provider.ledger(ledger_id)
@@ -36,25 +38,33 @@ class ConsProofService:
         self._provider = provider
         self._is_working = False
 
-        # TODO: make sure that we pass the values here after theprevious ledger is caught up,
-        # so that we have correct number of nodes after pool ledger is caught up
         self._quorum = Quorums(len(self._provider.all_nodes_names()))
-
         self._same_ledger_status = set()
         self._cons_proofs = {}
-
         self._requested_consistency_proof = set()
-        self._consistency_proofs_timer = None
+
+    def __repr__(self) -> str:
+        return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
 
     def start(self):
         self._is_working = True
+        self._quorum = Quorums(len(self._provider.all_nodes_names()))
+        self._same_ledger_status = set()
+        self._cons_proofs = {}
+        self._requested_consistency_proof = set()
+
         self._request_ledger_status_from_nodes()
         self._schedule_reask_ledger_status()
 
-    def stop(self, cons_proof):
+    def stop(self, cons_proof: ConsistencyProof):
         # Stop requesting last consistency proofs and ledger statuses.
+        self._is_working = False
+        self._same_ledger_status = set()
+        self._cons_proofs = {}
+        self._requested_consistency_proof = set()
+
         self._cancel_reask()
-        self._output.put(cons_proof)
+        self._output.put_nowait(cons_proof)
 
     @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
@@ -280,7 +290,7 @@ class ConsProofService:
         self._provider.send_to_nodes(ledger_status, nodes=nodes)
 
     def _request_CPs_if_needed(self):
-        if self._consistency_proofs_timer is None:
+        if not self._is_working:
             return
 
         proofs = self._cons_proofs
@@ -330,9 +340,6 @@ class ConsProofService:
         # Start timer that will expire in some time and if till that time
         # enough CPs are not received, then explicitly request CPs
         # from other nodes, see `request_CPs_if_needed`
-
-        self._consistency_proofs_timer = self._timer.get_current_time()
-
         self._timer.schedule(
             delay=self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
             callback=self._request_CPs_if_needed
@@ -356,6 +363,3 @@ class ConsProofService:
         self._timer.cancel(self._reask_for_last_consistency_proof)
         self._timer.cancel(self._reask_for_ledger_status)
         self._timer.cancel(self._request_CPs_if_needed)
-
-    def __str__(self) -> str:
-        return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)

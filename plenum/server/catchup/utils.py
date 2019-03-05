@@ -11,7 +11,6 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-# TODO: Come up with a better name?
 class CatchupDataProvider(ABC):
     @abstractmethod
     def node_name(self) -> str:
