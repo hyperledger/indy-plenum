@@ -9,7 +9,7 @@ from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
-from plenum.common.metrics_collector import MetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, MetricsName, measure_time
 from plenum.common.timer import TimerService
 from plenum.server.catchup.utils import CatchupDataProvider
 from stp_core.common.log import getlogger
@@ -22,7 +22,7 @@ LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
                                     ('last_3pc', Optional[Tuple[int, int]])])
 
 
-class CatchupRepGatherer:
+class CatchupRepService:
     def __init__(self,
                  ledger_id: int,
                  config: object,
@@ -57,8 +57,8 @@ class CatchupRepGatherer:
         return self._is_working
 
     def start(self, cons_proof: ConsistencyProof):
-        self._notify_catchup_start()  # TODO: Was like this in original logic, but why???
         logger.info("{} started catching up with consistency proof {}".format(self, cons_proof))
+        self._provider.notify_catchup_start(self._ledger_id)
 
         if cons_proof is None:
             self.stop()
@@ -93,13 +93,11 @@ class CatchupRepGatherer:
         num_caught_up = cp.seqNoEnd - cp.seqNoStart
 
         self._wait_catchup_rep_from.clear()
-        self._provider.notify_lm_catchup_complete(self._ledger_id, last_3pc)
 
         self._is_working = False
         self._received_catchup_txns.clear()
         self._received_catchup_replies_from.clear()
-        self._provider.notify_li_after_catchup_complete(self._ledger_id)
-        self._catchup_till = None
+        self._provider.notify_catchup_complete(self._ledger_id, last_3pc)
 
         logger.info("{}{} completed catching up ledger {}, caught up {} in total"
                     .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
@@ -108,6 +106,7 @@ class CatchupRepGatherer:
                                                       num_caught_up=num_caught_up,
                                                       last_3pc=last_3pc))
 
+    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
         self._wait_catchup_rep_from.discard(frm)
@@ -138,10 +137,6 @@ class CatchupRepGatherer:
 
         if self._ledger.size >= self._catchup_till.seqNoEnd:
             self.stop((self._catchup_till.viewNo, self._catchup_till.ppSeqNo))
-
-    def _notify_catchup_start(self):
-        self._provider.notify_lm_catchup_start(self._ledger_id)
-        self._provider.notify_li_before_catchup_start(self._ledger_id)
 
     def _gen_catchup_reqs_from_cons_proof(self, cons_proof: ConsistencyProof):
         # TODO: This needs to be optimised, there needs to be a minimum size
@@ -184,13 +179,19 @@ class CatchupRepGatherer:
         self._wait_catchup_rep_from.add(to)
         self._provider.send_to(msg, to)
 
+    def _num_missing_txns(self):
+        if self._catchup_till is None:
+            return 0
+        needed_txns = self._catchup_till.seqNoEnd - self._ledger.size
+        num_missing = needed_txns - len(self._received_catchup_txns)
+        return num_missing if num_missing > 0 else 0
+
     def _request_txns_if_needed(self):
         if not self._is_working:
             return
 
-        needed_txns = self._catchup_till.seqNoEnd - self._ledger.size
-        num_missing = needed_txns - len(self._received_catchup_txns)
-        if num_missing <= 0:
+        num_missing = self._num_missing_txns()
+        if num_missing == 0:
             logger.info('{} not missing any transactions for ledger {}'.format(self, self._ledger_id))
             return
 
