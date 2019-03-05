@@ -16,6 +16,8 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 logger = getlogger()
 
+TestRunningTimeLimitSec = 150
+
 nodeCount = 7
 
 instId = 0
