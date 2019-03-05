@@ -17,6 +17,7 @@ class VersionBase(metaclass=ABCMeta):
     @classmethod
     def cmp(cls, v1: 'VersionBase', v2: 'VersionBase') -> int:
         """ Compares two instances. """
+        # TODO types checking
         if v1._version > v2._version:
             return 1
         elif v1._version == v2._version:
