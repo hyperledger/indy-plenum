@@ -1,9 +1,9 @@
 import pytest
 
 from plenum.common.version import (
-    InvalidVersionError, VersionBase, PEP440BasedVersion,
-    SemVerBase, DigitDotVersion, SemVerReleaseVersion,
-    PackageVersion
+    InvalidVersionError, VersionBase, GenericVersion,
+    PEP440BasedVersion, SemVerBase, DigitDotVersion,
+    SemVerReleaseVersion, PackageVersion
 )
 
 
@@ -35,7 +35,6 @@ def iterate_abstracts(required, cls_name, base_cls, base_required=None):
 def version_base_required():
     return abc_required(
         properties=('full', 'parts', 'release', 'release_parts'),
-        classmethods=('cmp',)
     )
 
 
@@ -45,67 +44,76 @@ def test_version_base_abstracts(version_base_required):
             'VersionBaseChild',
             VersionBase):
         if filled:
-            version_cls()
+            version_cls('1.2.3')
         else:
             with pytest.raises(TypeError):
-                version_cls()
+                version_cls('1.2.3')
 
 
 def test_version_base_comparison_operators(version_base_required):
-    def cmp(cls, v1, v2):
-        if v1.val > v2.val:
-            return 1
-        elif v1.val == v2.val:
-            return 0
-        else:
-            return -1
 
-    def init(self, val):
-        self.val = val
+    def parse(self, val):
+        try:
+            return int(val)
+        except ValueError:
+            raise InvalidVersionError()
 
-    version_base_required['cmp'] = classmethod(cmp)
-    version_base_required['__init__'] = init
+    version_base_required['_parse'] = parse
 
     version_cls = type("VersionBaseChild", (VersionBase,), version_base_required)
 
-    assert version_cls(1) < version_cls(2)
-    assert version_cls(2) > version_cls(1)
-    assert version_cls(1) == version_cls(1)
-    assert version_cls(1) <= version_cls(2)
-    assert version_cls(2) <= version_cls(2)
-    assert version_cls(2) >= version_cls(1)
-    assert version_cls(1) >= version_cls(1)
-    assert version_cls(1) != version_cls(2)
+    assert version_cls('1') < version_cls('2')
+    assert version_cls('2') > version_cls('1')
+    assert version_cls('1') == version_cls('1')
+    assert version_cls('1') <= version_cls('2')
+    assert version_cls('2') <= version_cls('2')
+    assert version_cls('2') >= version_cls('1')
+    assert version_cls('1') >= version_cls('1')
+    assert version_cls('1') != version_cls('2')
+
+
+def test_version_base_init_with_spaces(version_base_required):
+    version_cls = type("VersionBaseChild", (VersionBase,), version_base_required)
+    for version in [' 1.2.3', '1.2.3 ', ' 1.2.3 ']:
+        with pytest.raises(InvalidVersionError):
+            version_cls(version)
+        version_cls(version, allow_non_stripped=True)
 
 
 def test_sem_ver_base_api(version_base_required):
-    version_base_required['release_parts'] = property(lambda *_: (1, 2, 3))
+    version_base_required['release_parts'] = property(
+        lambda self: self._version.split('.'))
     version_cls = type("SemVerBaseChild", (SemVerBase,), version_base_required)
-    assert version_cls().major == 1
-    assert version_cls().minor == 2
-    assert version_cls().patch == 3
+    assert version_cls('1.2.3').major == '1'
+    assert version_cls('1.2.3').minor == '2'
+    assert version_cls('1.2.3').patch == '3'
+
+
+def test_generic_version_invalid():
+    for version in [
+        '1.@2.3',
+        '1. 2.3',
+        '1.2.3~'
+
+    ]:
+        with pytest.raises(InvalidVersionError):
+            GenericVersion(version)
+
+
+def test_generic_version_valid():
+    GenericVersion('1.a.B-+!')
+
+
+def test_generic_version_api():
+    version = '1.2.3'
+    assert GenericVersion(version).full == version
+    assert GenericVersion(version).parts == (version,)
+    assert GenericVersion(version).release == version
+    assert GenericVersion(version).release_parts == (version,)
 
 
 # TODO do we need more test coverage here ?
 # (PEP440BasedVersion just wraps packaging package)
-
-def test_pep440_based_version_init_stripped():
-    # stripped
-    with pytest.raises(InvalidVersionError):
-        PEP440BasedVersion('a1')
-    PEP440BasedVersion('1.2.3.rc1')
-
-
-def test_pep440_based_version_init_non_stripped():
-    # non stripped
-    with pytest.raises(InvalidVersionError):
-        PEP440BasedVersion(' 1.2.3', allow_non_stripped=False)
-
-    with pytest.raises(InvalidVersionError):
-        PEP440BasedVersion('1.2.3 ', allow_non_stripped=False)
-
-    PEP440BasedVersion(' 1.2.3 ', allow_non_stripped=True)
-
 
 @pytest.mark.parametrize(
     'val1,val2,res',
@@ -232,7 +240,7 @@ def test_package_version_abstracts(version_base_required):
             PackageVersion,
             base_required=version_base_required):
         if filled:
-            version_cls()
+            version_cls('1.2.3')
         else:
             with pytest.raises(TypeError):
-                version_cls()
+                version_cls('1.2.3')

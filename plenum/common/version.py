@@ -1,5 +1,6 @@
 from typing import Tuple, Iterable, Union
 from abc import abstractmethod, ABCMeta
+import re
 import collections
 from packaging.version import (
     Version as PEP440Version,
@@ -12,10 +13,16 @@ class InvalidVersionError(ValueError):
 
 
 class VersionBase(metaclass=ABCMeta):
+
     @classmethod
-    @abstractmethod
     def cmp(cls, v1: 'VersionBase', v2: 'VersionBase') -> int:
         """ Compares two instances. """
+        if v1._version > v2._version:
+            return 1
+        elif v1._version == v2._version:
+            return 0
+        else:
+            return -1
 
     @property
     @abstractmethod
@@ -36,6 +43,16 @@ class VersionBase(metaclass=ABCMeta):
     @abstractmethod
     def release_parts(self) -> Iterable:
         """ Release part as iterable. """
+
+    def __init__(self, version: str, allow_non_stripped: bool = False):
+        if not allow_non_stripped and version != version.strip():
+            raise InvalidVersionError(
+                'version includes leading and/or trailing spaces'
+            )
+        self._version = self._parse(version)
+
+    def _parse(self, version: str):
+        return version
 
     def __lt__(self, other: 'VersionBase') -> bool:
         return self.cmp(self, other) < 0
@@ -84,29 +101,43 @@ class SemVerBase(VersionBase):
         return self.release_parts[2]
 
 
+class GenericVersion(VersionBase):
+
+    # combines allowed characters from:
+    # - PyPI: https://www.python.org/dev/peps/pep-0440
+    # - SemVer: https://semver.org/
+    re_version = re.compile(r'[0-9a-zA-Z.\-+!]+')
+
+    @property
+    def full(self) -> str:
+        return self._version
+
+    @property
+    def parts(self) -> Iterable:
+        return (self.full,)
+
+    @property
+    def release(self) -> str:
+        return self.full
+
+    @property
+    def release_parts(self) -> Iterable:
+        return self.parts
+
+    def _parse(self, version):
+        if not self.re_version.fullmatch(version):
+            raise InvalidVersionError('only alphanumerics and [.-+!] are allowed')
+        return version
+
+
 class PEP440BasedVersion(VersionBase):
 
-    @classmethod
-    def cmp(cls, v1: 'PEP440BasedVersion', v2: 'PEP440BasedVersion') -> int:
-        if v1._version > v2._version:
-            return 1
-        elif v1._version == v2._version:
-            return 0
-        else:
-            return -1
-
-    def __init__(self, version: str, allow_non_stripped: bool = True):
-        if not allow_non_stripped and version != version.strip():
-            raise InvalidVersionError(
-                'version includes leading and/or trailing spaces'
-            )
-
+    def _parse(self, version: str):
         try:
-            self._version = PEP440Version(version)
+            return PEP440Version(version)
         except PEP440InvalidVersion as exc:
             # TODO is it the best string to pass
             raise InvalidVersionError(str(exc))
-
         # TODO create API wrappers for dev, pre and post from PEP440Version
 
     @property
