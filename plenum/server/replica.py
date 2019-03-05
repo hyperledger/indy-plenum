@@ -19,7 +19,8 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -29,6 +30,7 @@ from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
+from plenum.common.txn_util import get_payload_data
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
@@ -1915,11 +1917,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
-        print("pps val {}  inval {}".format(valid_reqIdr, invalid_reqIdr))
-        # ledger = self.node.getLedger(AUDIT_LEDGER_ID)
-        # for txn in ledger.get_uncommitted_txns():
-        #     #if pp.ppSeqNo ==txn
-        #     primaries = self.node.primaries
+        ledger = self.node.getLedger(AUDIT_LEDGER_ID)
+        for txn in ledger.get_uncommitted_txns():
+            payload_data = get_payload_data(txn)
+            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
+                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                break
+        else:
+            primaries = self.node.primaries
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1930,7 +1936,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self.node.primaries)
+                          primaries)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
