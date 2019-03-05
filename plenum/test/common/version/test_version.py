@@ -38,6 +38,8 @@ def version_base_required():
     )
 
 
+# this test ensures that VersionBase declares specific
+# set of abstracts that child classes must implement
 def test_version_base_abstracts(version_base_required):
     for version_cls, filled in iterate_abstracts(
             version_base_required,
