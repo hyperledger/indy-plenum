@@ -179,13 +179,19 @@ class CatchupRepGatherer:
         self._wait_catchup_rep_from.add(to)
         self._provider.send_to(msg, to)
 
+    def _num_missing_txns(self):
+        if self._catchup_till is None:
+            return 0
+        needed_txns = self._catchup_till.seqNoEnd - self._ledger.size
+        num_missing = needed_txns - len(self._received_catchup_txns)
+        return num_missing if num_missing > 0 else 0
+
     def _request_txns_if_needed(self):
         if not self._is_working:
             return
 
-        needed_txns = self._catchup_till.seqNoEnd - self._ledger.size
-        num_missing = needed_txns - len(self._received_catchup_txns)
-        if num_missing <= 0:
+        num_missing = self._num_missing_txns()
+        if num_missing == 0:
             logger.info('{} not missing any transactions for ledger {}'.format(self, self._ledger_id))
             return
 

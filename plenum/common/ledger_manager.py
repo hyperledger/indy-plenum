@@ -552,7 +552,6 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.ledgerStatusOk = set()
         ledgerInfo.last_txn_3PC_key = {}
         ledgerInfo.recvdConsistencyProofs = {}
-        ledgerInfo.receivedCatchUpReplies = []
         ledgerInfo.recvdCatchupRepliesFrm = {}
         ledgerInfo.catchUpTill = None
 
