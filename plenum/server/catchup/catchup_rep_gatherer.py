@@ -44,6 +44,9 @@ class CatchupRepGatherer:
         self._received_catchup_replies_from = defaultdict(list)  # type: Dict[int, List]
         self._received_catchup_txns = []  # type: List[Tuple[int, Any]]
 
+    def __repr__(self):
+        return "{}:CatchupRepService:{}".format(self._provider.node_name(), self._ledger_id)
+
     def is_working(self) -> bool:
         return self._is_working
 
@@ -427,6 +430,3 @@ class CatchupRepGatherer:
         self._wait_catchup_rep_from.clear()
         self._received_catchup_replies_from.clear()
         self._received_catchup_txns.clear()
-
-    def __str__(self) -> str:
-        return "{}:CatchupRepService:{}".format(self._provider.node_name(), self._ledger_id)
