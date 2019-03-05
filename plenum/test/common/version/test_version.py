@@ -82,6 +82,13 @@ def test_version_base_init_with_spaces(version_base_required):
         version_cls(version, allow_non_stripped=True)
 
 
+def test_version_base_str(version_base_required):
+    version_base_required['full'] = property(lambda self: self._version)
+    version_cls = type("VersionBaseChild", (VersionBase,), version_base_required)
+    version = '1.2.3'
+    assert str(version_cls(version)) == version
+
+
 def test_sem_ver_base_api(version_base_required):
     version_base_required['release_parts'] = property(
         lambda self: self._version.split('.'))

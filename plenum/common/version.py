@@ -75,6 +75,9 @@ class VersionBase(metaclass=ABCMeta):
     def __hash__(self):
         return hash(self.full)
 
+    def __str__(self):
+        return self.full
+
 
 class SourceVersion(VersionBase):
     pass
