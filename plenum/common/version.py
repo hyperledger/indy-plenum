@@ -134,7 +134,7 @@ class GenericVersion(VersionBase):
         return version
 
 
-class PEP440BasedVersion(VersionBase):
+class PEP440BasedVersion(GenericVersion):
 
     def _parse(self, version: str):
         try:
