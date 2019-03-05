@@ -45,26 +45,11 @@ class LedgerInfo:
         # Key is the node name and value is a consistency proof
         self.recvdConsistencyProofs = {}
 
-        # Tracks the consistency proof till which the node has to catchup
-        self.catchUpTill = None
-
-        # Catchup replies that need to be applied to the ledger
-        self.receivedCatchUpReplies = []
-
-        # Keep track of received replies from different senders
-        self.recvdCatchupRepliesFrm = {}
-
         # Tracks the beginning of consistency proof timer. Timer starts when the
         #  node gets f+1 consistency proofs. If the node is not able to begin
         # the catchup process even after the timer expires then it requests
         # consistency proofs.
         self.consistencyProofsTimer = None
-
-        # Tracks the beginning of catchup reply timer. Timer starts after the
-        #  node sends catchup requests. If the node is not able to finish the
-        # the catchup process even after the timer expires then it requests
-        # missing transactions.
-        self.catchupReplyTimer = None
 
         # Number of transactions caught up
         self.num_txns_caught_up = 0

@@ -23,6 +23,7 @@ def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
     ledger.stop()
 
 
+@pytest.mark.skip(reason='INDY-1945: There is no missing txn method in LedgerManager anymore')
 def test_missing_txn_request(ledger_no_genesis):
     """
     Testing LedgerManager's `_missing_txns`
@@ -33,8 +34,7 @@ def test_missing_txn_request(ledger_no_genesis):
         ledger.add(txn)
 
     # Callbacks don't matter in this test
-    ledger_info = LedgerInfo(0, ledger, *[None] * 6)
-    assert ledger_info.catchupReplyTimer is None
+    ledger_info = LedgerInfo(0, ledger, *[None] * 4)
     assert LedgerManager._missing_txns(ledger_info) == (False, 0)
 
     ledger_info.catchupReplyTimer = time.perf_counter()

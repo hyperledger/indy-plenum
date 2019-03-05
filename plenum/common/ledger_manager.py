@@ -246,18 +246,6 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.consistencyProofsTimer = None
         ledgerInfo.recvdCatchupRepliesFrm = {}
 
-    @staticmethod
-    def _missing_txns(ledger_info) -> Tuple[bool, int]:
-        ledger = ledger_info.ledger
-        if ledger_info.catchupReplyTimer is None:
-            return False, 0
-
-        end = getattr(ledger_info.catchUpTill, f.SEQ_NO_END.nm)
-
-        catchUpReplies = ledger_info.receivedCatchUpReplies
-        total_missing = (end - ledger.size) - len(catchUpReplies)
-        return total_missing > 0, total_missing
-
     def setLedgerState(self, ledgerType: int, state: LedgerState):
         if ledgerType not in self.ledgerRegistry:
             logger.error("ledger type {} not present in ledgers so "
