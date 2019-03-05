@@ -1545,9 +1545,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # primaries after it finish.
             # - If this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
-            self.backup_instance_faulty_processor.restore_replicas()
-            self.drop_primaries()
-            self.select_primaries()
+            self.view_changer.on_replicas_count_changed()
 
     @property
     def clientStackName(self):

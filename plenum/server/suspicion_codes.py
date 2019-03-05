@@ -86,6 +86,8 @@ class Suspicions:
 
     STATE_SIGS_ARE_NOT_UPDATED = Suspicion(43, "State signatures are not updated for too long")
 
+    REPLICAS_COUNT_CHANGED = Suspicion(45, "Replica's count changed")
+
     @classmethod
     def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(

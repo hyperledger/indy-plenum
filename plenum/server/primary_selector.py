@@ -112,7 +112,13 @@ class PrimarySelector(PrimaryDecider):
         else:
             self.node.backup_instance_faulty_processor.restore_replicas()
             self.node.drop_primaries()
+
+            # Emulate view change start
+            self.node.view_changer.previous_view_no = self.node.viewNo
             self.node.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.node.view_changer.previous_master_primary = self.node.master_primary_name
+            self.node.view_changer.set_defaults()
+
             self.node.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.node.primaries):
                 raise LogicError('Audit ledger has inconsistent number of nodes')
