@@ -15,7 +15,7 @@ from plenum.common.ledger_info import LedgerInfo
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
 from plenum.common.metrics_collector import NullMetricsCollector
-from plenum.server.catchup.catchup_rep_gatherer import CatchupRepGatherer
+from plenum.server.catchup.catchup_rep_service import CatchupRepService
 from plenum.server.catchup.utils import CatchupDataProvider
 
 
@@ -84,7 +84,7 @@ def create_fake_catchup_rep_service(ledger: Ledger):
 
     _, input_rx = create_direct_channel()
     provider = FakeCatchupProvider(ledger)
-    service = CatchupRepGatherer(
+    service = CatchupRepService(
         ledger_id=0,
         config=None,
         input=input_rx,

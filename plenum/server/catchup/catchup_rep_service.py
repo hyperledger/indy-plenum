@@ -9,7 +9,7 @@ from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
-from plenum.common.metrics_collector import MetricsCollector, MetricsName
+from plenum.common.metrics_collector import MetricsCollector, MetricsName, measure_time
 from plenum.common.timer import TimerService
 from plenum.server.catchup.utils import CatchupDataProvider
 from stp_core.common.log import getlogger
@@ -22,7 +22,7 @@ LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
                                     ('last_3pc', Optional[Tuple[int, int]])])
 
 
-class CatchupRepGatherer:
+class CatchupRepService:
     def __init__(self,
                  ledger_id: int,
                  config: object,
@@ -107,6 +107,7 @@ class CatchupRepGatherer:
                                                       num_caught_up=num_caught_up,
                                                       last_3pc=last_3pc))
 
+    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
         logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
         self._wait_catchup_rep_from.discard(frm)
