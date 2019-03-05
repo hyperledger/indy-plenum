@@ -98,7 +98,6 @@ class CatchupRepService:
         self._received_catchup_txns.clear()
         self._received_catchup_replies_from.clear()
         self._provider.notify_catchup_complete(self._ledger_id, last_3pc)
-        self._catchup_till = None
 
         logger.info("{}{} completed catching up ledger {}, caught up {} in total"
                     .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
