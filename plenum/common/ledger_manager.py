@@ -641,20 +641,19 @@ class LedgerManager(HasActionQueue):
 
         ledgerSize = ledger.size
         if seqNoStart > ledgerSize:
-            logger.error("{} cannot build consistency proof from {} "
-                         "since its ledger size is {}"
-                         .format(self, seqNoStart, ledgerSize))
+            logger.warning(
+                "{} cannot build consistency proof from {} "
+                "since its ledger size is {}".format(self, seqNoStart, ledgerSize))
             return
         if seqNoEnd > ledgerSize:
-            logger.error("{} cannot build consistency "
-                         "proof till {} since its ledger size is {}"
-                         .format(self, seqNoEnd, ledgerSize))
+            logger.warning(
+                "{} cannot build consistency "
+                "proof till {} since its ledger size is {}".format(self, seqNoEnd, ledgerSize))
             return
         if seqNoEnd < seqNoStart:
-            logger.error(
+            logger.warning(
                 '{} cannot build consistency proof since end {} is '
-                'lesser than start {}'.format(
-                    self, seqNoEnd, seqNoStart))
+                'lesser than start {}'.format(self, seqNoEnd, seqNoStart))
             return
 
         if seqNoStart == 0:
