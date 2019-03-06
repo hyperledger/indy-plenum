@@ -273,9 +273,6 @@ class LedgerManager:
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.canSync = False
         ledgerInfo.state = LedgerState.synced
-        ledgerInfo.ledgerStatusOk = set()
-        ledgerInfo.last_txn_3PC_key = {}
-        ledgerInfo.recvdConsistencyProofs = {}
         ledgerInfo.catchUpTill = None
 
         if self.postAllLedgersCaughtUp:
