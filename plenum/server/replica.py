@@ -3,7 +3,7 @@ from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
 from functools import partial
 from hashlib import sha256
-from typing import List, Dict, Optional, Any, Set, Tuple, Callable
+from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
 
 import math
 
@@ -30,7 +30,7 @@ from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
-from plenum.common.txn_util import get_payload_data
+from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
@@ -1917,12 +1917,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
-        ledger = self.node.getLedger(AUDIT_LEDGER_ID)
-        for txn in ledger.get_uncommitted_txns():
+        ledger = self.node.auditLedger
+        for index, txn in enumerate(ledger.get_uncommitted_txns()):
             payload_data = get_payload_data(txn)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
                     pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                if isinstance(txn_primaries, Iterable):
+                    primaries = txn_primaries
+                elif isinstance(txn_primaries, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                    primaries = get_payload_data(
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
                 break
         else:
             primaries = self.node.primaries
