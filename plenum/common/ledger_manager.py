@@ -6,7 +6,7 @@ import time
 from collections import Callable, Counter
 from functools import partial
 from random import shuffle
-from typing import Any, List, Dict, Tuple, NamedTuple
+from typing import Any, List, Dict, Tuple, NamedTuple, Iterable
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
@@ -35,6 +35,9 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
     def node_name(self) -> str:
         return self._node.name
+
+    def all_nodes_names(self) -> List[str]:
+        return self._node.allNodeNames
 
     def ledgers(self) -> List[int]:
         return self._node.ledger_ids
@@ -86,8 +89,8 @@ class CatchupNodeDataProvider(CatchupDataProvider):
         else:
             self._node.transmitToClient(msg, to)
 
-    def send_to_nodes(self, msg: Any):
-        self._node.sendToNodes(msg)
+    def send_to_nodes(self, msg: Any, nodes: Iterable[str] = None):
+        self._node.sendToNodes(msg, nodes)
 
     def blacklist_node(self, node_name: str, reason: str):
         self._node.blacklistNode(node_name, reason)

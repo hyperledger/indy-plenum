@@ -36,6 +36,9 @@ def create_fake_catchup_rep_service(ledger: Ledger):
         def __init__(self, ledger):
             self._ledger = ledger
 
+        def all_nodes_names(self):
+            pass
+
         def node_name(self) -> str:
             pass
 
