@@ -27,7 +27,7 @@ class AuditBatchHandler(BatchRequestHandler):
         _, txn_count = self.tracker.reject_batch()
         self.ledger.discardTxns(txn_count)
 
-    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result=None):
+    def commit_batch(self, three_pc_batch, prev_handler_result=None):
         _, txns_count = self.tracker.commit_batch()
         _, committedTxns = self.ledger.commitTxns(txns_count)
         return committedTxns

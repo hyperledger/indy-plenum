@@ -24,7 +24,7 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.future_primaries import FuturePrimaries
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
@@ -409,7 +409,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
 
-        self.future_primaries = FuturePrimaries(self)
+        self.future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -639,12 +639,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return ActionReqHandler()
 
     # EXECUTERS
-    def default_executer(self, ledger_id, pp_time, reqs_keys,
-                         state_root, txn_root):
-        return self.commitAndSendReplies(ledger_id,
-                                         pp_time, reqs_keys, state_root, txn_root)
+    def default_executer(self, three_pc_batch: ThreePcBatch):
+        return self.commitAndSendReplies(three_pc_batch)
 
-    def execute_pool_txns(self, ppTime, reqs_keys, stateRoot, txnRoot) -> List:
+    def execute_pool_txns(self, three_pc_batch) -> List:
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
@@ -652,17 +650,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param ppTime: PrePrepare request time
         :param reqs_keys: requests keys to be committed
         """
-        committed_txns = self.default_executer(POOL_LEDGER_ID, ppTime,
-                                               reqs_keys,
-                                               stateRoot, txnRoot)
+        committed_txns = self.default_executer(three_pc_batch)
         for txn in committed_txns:
             self.poolManager.onPoolMembershipChange(txn)
         return committed_txns
 
-    def execute_domain_txns(self, ppTime, reqs: List[Request], stateRoot,
-                            txnRoot) -> List:
-        committed_txns = self.default_executer(DOMAIN_LEDGER_ID, ppTime, reqs,
-                                               stateRoot, txnRoot)
+    def execute_domain_txns(self, three_pc_batch) -> List:
+        committed_txns = self.default_executer(three_pc_batch)
 
         # Refactor: This is only needed for plenum as some old style tests
         # require authentication based on an in-memory map. This would be
@@ -832,13 +826,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqNo and state and txn root for previous view
         """
-
-        # Set future primaries
-        self.future_primaries.set_future_pool(
-            self.nodeReg,
-            self.poolManager._ordered_node_ids,
-            self.requiredNumberOfInstances,
-            self.primaries)
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
@@ -2399,8 +2386,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_handler.apply(request, cons_time)
         ledger_id = self.ledger_id_for_request(request)
-        if ledger_id == POOL_LEDGER_ID:
-            self.future_primaries.handle_pool_request(request)
         self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
@@ -2675,14 +2660,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              ordered.ppSeqNo,
                              len(ordered.valid_reqIdr)))
 
-        self.executeBatch(ordered.viewNo,
-                          ordered.ppSeqNo,
-                          ordered.ppTime,
+        self.executeBatch(ThreePcBatch.from_ordered(ordered),
                           ordered.valid_reqIdr,
                           ordered.invalid_reqIdr,
-                          ordered.ledgerId,
-                          ordered.stateRootHash,
-                          ordered.txnRootHash,
                           ordered.auditTxnRootHash)
 
         with self.metrics.measure_time(MetricsName.MONITOR_REQUEST_ORDERED_TIME):
@@ -3203,9 +3183,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientAuthNr
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
-    def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
+    def executeBatch(self, three_pc_batch: ThreePcBatch,
                      valid_reqs_keys: List, invalid_reqs_keys: List,
-                     ledger_id, state_root, txn_root, audit_txn_root) -> None:
+                     audit_txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
@@ -3214,25 +3194,34 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param valid_reqs: list of valid client requests keys
         :param valid_reqs: list of invalid client requests keys
         """
+
+        # We need hashes in apply and str in commit
+        three_pc_batch.txn_root = Ledger.hashToStr(three_pc_batch.txn_root)
+        three_pc_batch.state_root = Ledger.hashToStr(three_pc_batch.state_root)
+
         for req_key in valid_reqs_keys:
             self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
-                              pp_time=pp_time, state_root=state_root,
-                              txn_root=txn_root)
+                              pp_time=three_pc_batch.pp_time,
+                              state_root=three_pc_batch.state_root,
+                              txn_root=three_pc_batch.txn_root)
 
-        self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=pp_time, reqs_keys=valid_reqs_keys, state_root=state_root,
-                          txn_root=txn_root)
+        self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED,
+                          ledger_id=three_pc_batch.ledger_id,
+                          pp_time=three_pc_batch.pp_time,
+                          reqs_keys=valid_reqs_keys,
+                          state_root=three_pc_batch.state_root,
+                          txn_root=three_pc_batch.txn_root)
 
         try:
-            committedTxns = self.get_executer(ledger_id)(pp_time, valid_reqs_keys,
-                                                         state_root, txn_root)
+            committedTxns = self.get_executer(three_pc_batch.ledger_id)(three_pc_batch)
         except Exception as exc:
             logger.error(
                 "{} commit failed for batch request, error {}, view no {}, "
                 "ppSeqNo {}, ledger {}, state root {}, txn root {}, "
                 "requests: {}".format(
-                    self, repr(exc), view_no, pp_seq_no, ledger_id, state_root,
-                    txn_root, [req_idr for req_idr in valid_reqs_keys]
+                    self, repr(exc), three_pc_batch.view_no, three_pc_batch.pp_seq_no,
+                    three_pc_batch.ledger_id, three_pc_batch.state_root,
+                    three_pc_batch.txn_root, [req_idr for req_idr in valid_reqs_keys]
                 )
             )
             raise
@@ -3254,13 +3243,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
-                     format(self, view_no, pp_seq_no, ledger_id, state_root,
-                            txn_root, [key for key in valid_reqs_keys]))
+                     format(self, three_pc_batch.view_no, three_pc_batch.pp_seq_no,
+                            three_pc_batch.ledger_id, three_pc_batch.state_root,
+                            three_pc_batch.txn_root, [key for key in valid_reqs_keys]))
 
         for txn in committedTxns:
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
-                              pp_time=pp_time, state_root=state_root,
-                              txn_root=txn_root)
+                              pp_time=three_pc_batch.pp_time, state_root=three_pc_batch.state_root,
+                              txn_root=three_pc_batch.txn_root)
 
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
@@ -3277,13 +3267,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if reqs_list_built:
             batch_committed_msg = BatchCommitted(reqs,
-                                                 ledger_id,
+                                                 three_pc_batch.ledger_id,
                                                  0,
-                                                 view_no,
-                                                 pp_seq_no,
-                                                 pp_time,
-                                                 state_root,
-                                                 txn_root,
+                                                 three_pc_batch.view_no,
+                                                 three_pc_batch.pp_seq_no,
+                                                 three_pc_batch.pp_time,
+                                                 three_pc_batch.state_root,
+                                                 three_pc_batch.txn_root,
                                                  first_txn_seq_no,
                                                  last_txn_seq_no,
                                                  audit_txn_root)
@@ -3294,24 +3284,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
                                   for txn in committedTxns)
 
-    def commitAndSendReplies(self, ledger_id, ppTime, reqs_keys,
-                             stateRoot, txnRoot) -> List:
+    def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
-        reqHandler = self.get_req_handler(ledger_id)
-        committedTxns = reqHandler.commit(len(reqs_keys), stateRoot, txnRoot, ppTime)
-        self.audit_handler.commit_batch(ledger_id=ledger_id,
-                                        txn_count=len(reqs_keys),
-                                        state_root=stateRoot,
-                                        txn_root=txnRoot,
-                                        pp_time=ppTime)
-        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=ledger_id,
-                          pp_time=ppTime, committed_txns=committedTxns,
-                          state_root=stateRoot, txn_root=txnRoot)
-        self.updateSeqNoMap(committedTxns, ledger_id)
+        reqHandler = self.get_req_handler(three_pc_batch.ledger_id)
+        committedTxns = reqHandler.commit(len(three_pc_batch.valid_digests),
+                                          three_pc_batch.state_root, three_pc_batch.txn_root,
+                                          three_pc_batch.pp_time)
+        if three_pc_batch.ledger_id == POOL_LEDGER_ID:
+            self.future_primaries_handler.commit_batch(three_pc_batch)
+        self.audit_handler.commit_batch(three_pc_batch)
+        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=three_pc_batch.ledger_id,
+                          pp_time=three_pc_batch.pp_time, committed_txns=committedTxns,
+                          state_root=three_pc_batch.state_root, txn_root=three_pc_batch.txn_root)
+        self.updateSeqNoMap(committedTxns, three_pc_batch.ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
-        self.hook_pre_send_reply(updated_committed_txns, ppTime)
-        self.sendRepliesToClients(updated_committed_txns, ppTime)
-        self.hook_post_send_reply(updated_committed_txns, ppTime)
+        self.hook_pre_send_reply(updated_committed_txns, three_pc_batch.pp_time)
+        self.sendRepliesToClients(updated_committed_txns, three_pc_batch.pp_time)
+        self.hook_post_send_reply(updated_committed_txns, three_pc_batch.pp_time)
         return committedTxns
 
     def hook_pre_send_reply(self, txns, pp_time):
@@ -3337,6 +3326,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
+        primaries = None
+        if ledger_id == POOL_LEDGER_ID:
+            primaries = self.future_primaries_handler.post_batch_applied(three_pc_batch)
+        else:
+            primaries = self.primaries
+        three_pc_batch.primaries = primaries
         self.audit_handler.post_batch_applied(three_pc_batch)
 
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)

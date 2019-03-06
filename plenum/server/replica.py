@@ -919,7 +919,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
                                           txn_root=self.txnRootHash(ledger_id, to_str=False),
-                                          primaries=self.node.future_primaries.primaries)
+                                          primaries=[],
+                                          valid_digests=self.get_valid_req_ids_from_all_requests(
+                                              reqs, invalid_indices))
             self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
@@ -1446,7 +1448,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                                                          to_str=False),
                                                            txn_root=self.txnRootHash(pre_prepare.ledgerId,
                                                                                      to_str=False),
-                                                           primaries=self.node.future_primaries.primaries)
+                                                           primaries=[],
+                                                           valid_digests=self.get_valid_req_ids_from_all_requests(
+                                                               reqs, invalid_indices))
             self.node.onBatchCreated(three_pc_batch)
 
         return reqs, invalid_indices, rejects
@@ -2834,3 +2838,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def request_propagates_if_needed(self, bad_reqs, pre_prepare):
         if any(pre_prepare is pended[0] for pended in self.prePreparesPendingFinReqs):
             self.node.request_propagates(bad_reqs)
+
+    def get_valid_req_ids_from_all_requests(self, reqs, invalid_indices):
+        return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
