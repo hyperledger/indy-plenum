@@ -89,7 +89,7 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
 
     def get_current_node_state(self):
         return NodeState(list(self.node.nodeReg.keys()),
-                         copy.deepcopy(self.node.poolManager._ordered_node_ids),
+                         copy.deepcopy(self.node.nodeIds),
                          copy.deepcopy(self.node.primaries))
 
     @staticmethod

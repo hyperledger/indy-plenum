@@ -1,6 +1,7 @@
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, DEFAULT_PRIMARIES
+from plenum.test.testing_utils import FakeSomething
 
 
 def check_apply_audit_txn(alh,
@@ -246,7 +247,7 @@ def test_commit_one_batch(alh, db_manager,
                        view_no=3, pp_sq_no=35, txn_time=11111)
     txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
-    alh.commit_batch(DOMAIN_LEDGER_ID, 7, state_root_hash, txn_root_hash, 11111)
+    alh.commit_batch(FakeSomething())
 
     assert alh.ledger.uncommitted_size == alh.ledger.size
     assert alh.ledger.size == size_before + 1
@@ -294,7 +295,7 @@ def test_audit_not_committed_if_pre_prepare_doesnt_have_audit(alh, db_manager):
                        has_audit_txn=True)
 
     # commit the first batch without audit txns
-    alh.commit_batch(DOMAIN_LEDGER_ID, 10, state_root_hash_1, txn_root_hash_1, 10000)
+    alh.commit_batch(FakeSomething())
 
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before

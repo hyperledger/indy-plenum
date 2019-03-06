@@ -1,19 +1,10 @@
 import copy
-from contextlib import contextmanager
 
-import pytest
-from plenum.common.constants import STEWARD_STRING, VALIDATOR
-
-from plenum.test import waits
-from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
-from plenum.test.view_change.test_view_change_timeout import start_view_change
-
-from plenum.common.util import randomString
+from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import add_new_node
 
-from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes
-from plenum.test.pool_transactions.helper import demote_node, sdk_add_new_nym, sdk_pool_refresh, sdk_add_new_node
+from plenum.test.helper import checkViewNoForNodes
+from plenum.test.pool_transactions.helper import demote_node
 
 nodeCount = 6
 
@@ -65,3 +56,7 @@ def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_han
     assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
     # Because view_change happened
     assert state.primaries != txnPoolNodeSet[0].primaries
+
+    for node in txnPoolNodeSet:
+        node.future_primaries_handler.commit_batch = old_commit
+

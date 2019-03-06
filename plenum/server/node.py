@@ -206,6 +206,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                 self.get_req_handler(POOL_LEDGER_ID),
                                 ha, cliname, cliha)
         self.nodeReg = self.poolManager.nodeReg
+        self.nodeIds = self.poolManager._ordered_node_ids
         self.cliNodeReg = self.poolManager.cliNodeReg
 
         # init BLS after pool manager!
@@ -1075,7 +1076,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if executer:
             return executer
         else:
-            return partial(self.default_executer, ledger_id)
+            return self.default_executer
 
     def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)

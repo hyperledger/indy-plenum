@@ -39,7 +39,7 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     for node in other_nodes:
         looper.run(eventually(chk, node, retryWait=1))
 
-    # Since `ViewChangeCone` is delayed, slow_node is not able to select primary
+    # Since `ViewChangeDone` is delayed, slow_node is not able to select primary
     # and participate
     assert not slow_node.view_changer.has_acceptable_view_change_quorum
     assert not slow_node.view_changer._primary_verified

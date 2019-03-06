@@ -61,7 +61,8 @@ def check_watchdog_called_expected_times(nodes, stats, times):
 
 
 def stop_next_primary(nodes):
-    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master()
+    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master(
+        nodes[0].nodeReg, nodes[0].nodeIds)
     next(node for node in nodes if node.name == m_next_primary_name).stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes

@@ -59,7 +59,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
     check_last_ordered(txnPoolNodeSet,
                        txnPoolNodeSet[0].master_replica.instId,
-                       (old_last_ordered[0], old_last_ordered[1] + 1))
+                       (old_last_ordered[0] + 1, 1))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
