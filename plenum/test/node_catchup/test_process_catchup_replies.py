@@ -37,9 +37,8 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
         replies.append(CatchupRep(ledger_id,
                                   SortedDict(txns),
                                   cons_proof))
-    return ledger_manager._buildConsistencyProof(ledger_id,
-                                                 ledger.seqNo - txn_count,
-                                                 ledger.seqNo), replies
+    return ledger_manager._node_seeder._build_consistency_proof(
+        ledger_id, ledger.seqNo - txn_count, ledger.seqNo), replies
 
 
 def check_reply_not_applied(old_ledger_size, ledger, catchup_rep_service, frm, reply):

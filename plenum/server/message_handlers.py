@@ -115,7 +115,7 @@ class ConsistencyProofHandler(BaseHandler):
         return cp
 
     def requestor(self, params: Dict[str, Any]) -> ConsistencyProof:
-        return self.node.ledgerManager._buildConsistencyProof(
+        return self.node.ledgerManager._node_seeder._build_consistency_proof(
             params['ledger_id'],
             params['seq_no_start'],
             params['seq_no_end'])
