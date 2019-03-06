@@ -10,6 +10,7 @@ class ThreePcBatch:
                  valid_txn_count,
                  state_root, txn_root,
                  primaries,
+                 valid_digests,
                  has_audit_txn=True) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
@@ -20,10 +21,11 @@ class ThreePcBatch:
         self.state_root = state_root
         self.txn_root = txn_root
         self.primaries = primaries
+        self.valid_digests = valid_digests
         self.has_audit_txn = has_audit_txn
 
     @staticmethod
-    def from_pre_prepare(pre_prepare, valid_txn_count, state_root, txn_root, primaries):
+    def from_pre_prepare(pre_prepare, valid_txn_count, state_root, txn_root, primaries, valid_digests):
         return ThreePcBatch(ledger_id=pre_prepare.ledgerId,
                             inst_id=pre_prepare.instId,
                             view_no=pre_prepare.viewNo,
@@ -34,6 +36,7 @@ class ThreePcBatch:
                             state_root=state_root,
                             txn_root=txn_root,
                             primaries=primaries,
+                            valid_digests=valid_digests,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None)
 
     @staticmethod
@@ -47,6 +50,7 @@ class ThreePcBatch:
                             state_root=Ledger.strToHash(ordered.stateRootHash),
                             txn_root=Ledger.strToHash(ordered.txnRootHash),
                             primaries=ordered.primaries,
+                            valid_digests=ordered.valid_reqIdr,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None)
 
     @staticmethod
@@ -60,5 +64,6 @@ class ThreePcBatch:
                             state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
                             txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]),
                             primaries=primaries,
+                            valid_digests=batch_comitted.valid_digests,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
                                 f.AUDIT_TXN_ROOT_HASH.nm] is not None)
