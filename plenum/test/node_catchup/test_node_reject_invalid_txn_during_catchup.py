@@ -102,7 +102,7 @@ def _sendIncorrectTxns(self, req, frm):
                     format(self, req, frm))
         start, end = getattr(req, f.SEQ_NO_START.nm), \
                      getattr(req, f.SEQ_NO_END.nm)
-        ledger = self.getLedgerForMsg(req)
+        ledger = self.ledgerRegistry[ledgerId].ledger
         txns = {}
         for seqNo, txn in ledger.getAllTxn(start, end):
             # Since the type of random request is `buy`
