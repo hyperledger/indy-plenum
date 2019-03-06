@@ -79,6 +79,9 @@ class VersionBase(metaclass=ABCMeta):
     def __str__(self):
         return self.full
 
+    def __repr__(self):
+        return "{}(version='{}')".format(self.__class__.__name__, self.full)
+
 
 class SourceVersion(VersionBase):
     pass
