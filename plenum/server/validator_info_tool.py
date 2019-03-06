@@ -522,7 +522,7 @@ class ValidatorNodeInfoTool:
         freshness_status = {}
 
         for lid, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            catchup_rep_service = self._node.ledgerManager._catchup_rep_services[lid].service
+            catchup_rep_service = self._node.ledgerManager._leechers[lid].catchup_rep_service
             ledger_statuses[lid] = self._prepare_for_json(linfo.state.name)
             waiting_cp[lid] = self._prepare_for_json(catchup_rep_service._catchup_till)
             num_txns_in_catchup[lid] = self._prepare_for_json(linfo.num_txns_caught_up)

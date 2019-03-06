@@ -73,7 +73,6 @@ class ConsProofService:
         self._cancel_reask()
         self._output.put_nowait(cons_proof)
 
-    @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         if not self._can_process_ledger_status(ledger_status):
             return

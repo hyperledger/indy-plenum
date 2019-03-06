@@ -1,25 +1,22 @@
-import heapq
 import logging
-import math
-import operator
 import time
 from collections import Callable, Counter
 from functools import partial
-from random import shuffle
 from typing import Any, List, Dict, Tuple, NamedTuple, Iterable
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.channel import create_direct_channel, TxChannel, Router
 from plenum.common.config_util import getConfig
-from plenum.common.constants import POOL_LEDGER_ID, LedgerState, CONSISTENCY_PROOF, CATCH_UP_PREFIX
+from plenum.common.constants import LedgerState, CONSISTENCY_PROOF
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
-from plenum.common.util import compare_3PC_keys, SortedDict, min_3PC_key
+from plenum.common.util import compare_3PC_keys, min_3PC_key
 from plenum.server.catchup.catchup_rep_service import CatchupRepService, LedgerCatchupComplete
+from plenum.server.catchup.cons_proof_service import ConsProofService
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
@@ -103,8 +100,11 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
 
 class LedgerManager(HasActionQueue):
-    CatchupRepServiceWrapper = NamedTuple('CatchupRepServiceWrapper',
-                                          [('inbox', TxChannel), ('service', CatchupRepService)])
+    LedgerLeecherService = NamedTuple('LedgerLeecherService',
+                                      [('cons_proof_inbox', TxChannel),
+                                       ('cons_proof_service', ConsProofService),
+                                       ('catchup_rep_inbox', TxChannel),
+                                       ('catchup_rep_service', CatchupRepService)])
 
     def __init__(self,
                  owner,
@@ -133,8 +133,10 @@ class LedgerManager(HasActionQueue):
         self._node_seeder_inbox, rx = create_direct_channel()
         self._node_seeder = NodeSeederService(rx, self._provider)
 
-        self._catchup_rep_outbox, rx = create_direct_channel()
-        Router(rx).add(LedgerCatchupComplete, self._on_catchup_rep_service_stop)
+        self._leecher_outbox, rx = create_direct_channel()
+        router = Router(rx)
+        router.add(LedgerCatchupComplete, self._on_catchup_rep_service_stop)
+        router.add(ConsistencyProof, self._on_cons_proof_service_stop)
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -145,7 +147,7 @@ class LedgerManager(HasActionQueue):
         # their info like callbacks, state, etc
         self.ledgerRegistry = {}  # type: Dict[int, LedgerInfo]
 
-        self._catchup_rep_services = {}   # type: Dict[int, LedgerManager.CatchupRepWrapper]
+        self._leechers = {}   # type: Dict[int, LedgerManager.LedgerLeecherService]
 
         # Largest 3 phase key received during catchup.
         # This field is needed to discard any stashed 3PC messages or
@@ -183,15 +185,28 @@ class LedgerManager(HasActionQueue):
             verifier=MerkleVerifier(ledger.hasher)
         )
 
-        inbox_tx, inbox_rx = create_direct_channel()
-        service = CatchupRepService(ledger_id=iD,
-                                    config=self.config,
-                                    input=inbox_rx,
-                                    output=self._catchup_rep_outbox,
-                                    timer=self._timer,
-                                    metrics=self.metrics,
-                                    provider=self._provider)
-        self._catchup_rep_services[iD] = self.CatchupRepServiceWrapper(inbox=inbox_tx, service=service)
+        cons_proof_inbox_tx, cons_proof_inbox_rx = create_direct_channel()
+        cons_proof_service = ConsProofService(ledger_id=iD,
+                                              config=self.config,
+                                              input=cons_proof_inbox_rx,
+                                              output=self._leecher_outbox,
+                                              timer=self._timer,
+                                              metrics=self.metrics,
+                                              provider=self._provider)
+
+        catchup_rep_inbox_tx, catchup_rep_inbox_rx = create_direct_channel()
+        catchup_rep_service = CatchupRepService(ledger_id=iD,
+                                                config=self.config,
+                                                input=catchup_rep_inbox_rx,
+                                                output=self._leecher_outbox,
+                                                timer=self._timer,
+                                                metrics=self.metrics,
+                                                provider=self._provider)
+
+        self._leechers[iD] = self.LedgerLeecherService(cons_proof_inbox=cons_proof_inbox_tx,
+                                                       cons_proof_service=cons_proof_service,
+                                                       catchup_rep_inbox=catchup_rep_inbox_tx,
+                                                       catchup_rep_service=catchup_rep_service)
 
     def _cancel_request_ledger_statuses_and_consistency_proofs(self, ledger_id):
         if ledger_id in self.request_ledger_status_action_ids:
@@ -401,12 +416,12 @@ class LedgerManager(HasActionQueue):
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         ledger_id = rep.ledgerId
-        wrapper = self._catchup_rep_services.get(ledger_id)
-        if not wrapper:
+        leecher = self._leechers.get(ledger_id)
+        if not leecher:
             logger.warning("{} received catchup reply {} for unknown ledger".format(self, rep))
             return
 
-        wrapper.inbox.put_nowait((rep, frm))
+        leecher.catchup_rep_inbox.put_nowait((rep, frm))
 
     # ASSUMING NO MALICIOUS NODES
     # Assuming that all nodes have the same state of the system and no node
@@ -534,8 +549,8 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.state = LedgerState.syncing
         ledgerInfo.catchUpTill = proof
 
-        wrapper = self._catchup_rep_services[ledgerId]
-        wrapper.service.start(proof)
+        leecher = self._leechers[ledgerId]
+        leecher.catchup_rep_service.start(proof)
 
     def catchupCompleted(self, ledgerId: int, last_3PC: Optional[Tuple] = None):
         # Since multiple ledger will be caught up and catchups might happen
@@ -559,6 +574,9 @@ class LedgerManager(HasActionQueue):
                 self.postAllLedgersCaughtUp()
 
         self.catchup_next_ledger(ledgerId)
+
+    def _on_cons_proof_service_stop(self, msg: ConsistencyProof):
+        pass
 
     def _on_catchup_rep_service_stop(self, msg: LedgerCatchupComplete):
         self.getLedgerInfoByType(msg.ledger_id).num_txns_caught_up = msg.num_caught_up
