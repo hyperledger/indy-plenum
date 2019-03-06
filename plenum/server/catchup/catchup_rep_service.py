@@ -89,7 +89,7 @@ class CatchupRepService:
 
     def stop(self, last_3pc: Optional[Tuple[int, int]] = None):
         cp = self._catchup_till
-        num_caught_up = cp.seqNoEnd - cp.seqNoStart
+        num_caught_up = cp.seqNoEnd - cp.seqNoStart if cp else 0
 
         self._wait_catchup_rep_from.clear()
 

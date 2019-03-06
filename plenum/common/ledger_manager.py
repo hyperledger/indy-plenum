@@ -16,7 +16,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys, min_3PC_key
 from plenum.server.catchup.catchup_rep_service import CatchupRepService, LedgerCatchupComplete
-from plenum.server.catchup.cons_proof_service import ConsProofService
+from plenum.server.catchup.cons_proof_service import ConsProofService, ConsProofReady
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.server.has_action_queue import HasActionQueue
@@ -136,7 +136,7 @@ class LedgerManager(HasActionQueue):
         self._leecher_outbox, rx = create_direct_channel()
         router = Router(rx)
         router.add(LedgerCatchupComplete, self._on_catchup_rep_service_stop)
-        router.add(ConsistencyProof, self._on_cons_proof_service_stop)
+        router.add(ConsProofReady, self._on_cons_proof_service_stop)
 
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
@@ -300,51 +300,13 @@ class LedgerManager(HasActionQueue):
             return
         # TODO: ^^^
 
-        ledgerStatus = status
-        ledgerInfo = self.getLedgerInfoByType(status.ledgerId)
+        leecher = self._leechers[ledgerId]
+        leecher.cons_proof_inbox.put_nowait((status, frm))
 
-        # If we are performing a catch-up of the corresponding ledger
-        if ledgerInfo.state == LedgerState.not_synced and ledgerInfo.canSync:
-            # If we are behind the node which has sent the ledger status
-            # then send our ledger status to it
-            # in order to get the consistency proof from it
-            if self.isLedgerOld(ledgerStatus):
-                ledger_status = self.owner.build_ledger_status(ledgerId)
-                self.sendTo(ledger_status, frm)
-                if ledgerId not in self.request_consistency_proof_action_ids:
-                    self.request_consistency_proof_action_ids[ledgerId] = \
-                        self._schedule(
-                            partial(self.reask_for_last_consistency_proof, ledgerId),
-                            self.config.ConsistencyProofsTimeout * (self.owner.totalNodes - 1))
-                return
-
-            # We are not behind the node which has sent the ledger status,
-            # so our ledger is OK in comparison with that node
-            # and we will not get a consistency proof from it
-            ledgerInfo.ledgerStatusOk.add(frm)
-            ledgerInfo.recvdConsistencyProofs[frm] = None
-
-            # If we are even with the node which has sent the ledger status
-            # then save the last txn master 3PC-key from it
-            if self.isLedgerSame(ledgerStatus):
-                ledgerInfo.last_txn_3PC_key[frm] = \
-                    (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
-
-            # If we gathered the quorum of ledger statuses indicating
-            # that our ledger is OK then we do not need to perform actual
-            # synchronization of our ledger (however, we still need to do
-            # the ledger pre-catchup and post-catchup procedures)
-            if self.has_ledger_status_quorum(
-                    len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
-                logger.info("{} found out from {} that its ledger of type {} is latest".
-                            format(self, ledgerInfo.ledgerStatusOk, ledgerId))
-                logger.info('{} found from ledger status {} that it does not need catchup'.
-                            format(self, ledgerStatus))
-                # Stop requesting last consistency proofs and ledger statuses.
-                self._cancel_request_ledger_statuses_and_consistency_proofs(ledgerId)
-                self.do_pre_catchup(ledgerId)
-                last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
-                self.catchupCompleted(ledgerId, last_3PC_key)
+        # self._cancel_request_ledger_statuses_and_consistency_proofs(ledgerId)
+        # self.do_pre_catchup(ledgerId)
+        # last_3PC_key = self._get_last_txn_3PC_key(ledgerInfo)
+        # self.catchupCompleted(ledgerId, last_3PC_key)
 
     def _get_last_txn_3PC_key(self, ledgerInfo):
         quorum = Quorums(self.owner.totalNodes)
@@ -371,15 +333,12 @@ class LedgerManager(HasActionQueue):
 
     @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
-        logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
-        ledgerId = getattr(proof, f.LEDGER_ID.nm)
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        ledgerInfo.recvdConsistencyProofs[frm] = ConsistencyProof(*proof)
+        leecher = self._leechers.get(proof.ledgerId)
+        if not leecher:
+            logger.warning("{} received consistency proof {} for unknown ledger".format(self, proof))
+            return
 
-        if self.canProcessConsistencyProof(proof):
-            canCatchup, catchUpFrm = self.canStartCatchUpProcess(ledgerId)
-            if canCatchup:
-                self.startCatchUpProcess(ledgerId, catchUpFrm)
+        leecher.cons_proof_inbox.put_nowait((proof, frm))
 
     def canProcessConsistencyProof(self, proof: ConsistencyProof) -> bool:
         ledgerId = getattr(proof, f.LEDGER_ID.nm)
@@ -575,8 +534,8 @@ class LedgerManager(HasActionQueue):
 
         self.catchup_next_ledger(ledgerId)
 
-    def _on_cons_proof_service_stop(self, msg: ConsistencyProof):
-        pass
+    def _on_cons_proof_service_stop(self, msg: ConsProofReady):
+        self.startCatchUpProcess(msg.ledger_id, msg.cons_proof)
 
     def _on_catchup_rep_service_stop(self, msg: LedgerCatchupComplete):
         self.getLedgerInfoByType(msg.ledger_id).num_txns_caught_up = msg.num_caught_up
@@ -594,13 +553,9 @@ class LedgerManager(HasActionQueue):
             ledger_info = self.getLedgerInfoByType(ledger_id)
             ledger_info.set_defaults()
             ledger_info.canSync = True
-            if request_ledger_statuses:
-                self.owner.request_ledger_status_from_nodes(ledger_id)
-                self.request_ledger_status_action_ids[ledger_id] = \
-                    self._schedule(
-                        partial(self.reask_for_ledger_status,
-                                ledger_id),
-                        self.config.LedgerStatusTimeout * (self.owner.totalNodes - 1))
+
+            leecher = self._leechers[ledger_id]
+            leecher.cons_proof_service.start(request_ledger_statuses)
         except KeyError:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledger_id))
