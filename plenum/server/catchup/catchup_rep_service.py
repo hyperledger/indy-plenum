@@ -50,7 +50,7 @@ class CatchupRepService:
         self._received_catchup_txns = []  # type: List[Tuple[int, Any]]
 
     def __repr__(self):
-        return "{}, ledger {}".format(self._provider.node_name(), self._ledger_id)
+        return "{}:CatchupRepService:{}".format(self._provider.node_name(), self._ledger_id)
 
     def is_working(self) -> bool:
         return self._is_working
