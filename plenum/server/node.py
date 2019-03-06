@@ -1302,7 +1302,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceClientMsgs(limit)
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
                 c += self._serviceActions()
-            c += self.ledgerManager.service()
             with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
             c += await self.serviceViewChanger(limit)

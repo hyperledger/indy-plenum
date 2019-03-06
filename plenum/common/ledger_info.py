@@ -54,10 +54,6 @@ class LedgerInfo:
         # Number of transactions caught up
         self.num_txns_caught_up = 0
 
-    def pre_syncing(self):
-        if self.preCatchupStartClbk:
-            self.preCatchupStartClbk()
-
     @property
     def ledger_summary(self):
         return self.id, len(self.ledger), self.ledger.root_hash
