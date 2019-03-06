@@ -62,8 +62,8 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
                               pp.ppTime,
                               pp.digest,
                               pp.stateRootHash,
-                              pp.txnRootHash
-                              )
+                              pp.txnRootHash,
+                              pp.auditTxnRootHash)
             rep.send(prepare)
 
         looper.run(eventually(chk, True, retryWait=1))
@@ -76,8 +76,8 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
                           pp.ppTime,
                           pp.digest,
                           pp.stateRootHash,
-                          pp.txnRootHash
-                          )
+                          pp.txnRootHash,
+                          pp.auditTxnRootHash)
         rep.send(prepare)
 
         looper.run(eventually(chk, False, retryWait=1))
