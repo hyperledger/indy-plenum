@@ -74,7 +74,6 @@ class ConsProofService:
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._requested_consistency_proof = set()
-        self._last_txn_3PC_key = {}
 
         self._cancel_reask()
         self._output.put_nowait(ConsProofReady(ledger_id=self._ledger_id, cons_proof=cons_proof))

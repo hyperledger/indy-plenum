@@ -5,7 +5,7 @@ import pytest
 def cons_proof_service(txnPoolNodeSet):
     ledger_manager = txnPoolNodeSet[0].ledgerManager
     service = ledger_manager._leechers[1].cons_proof_service
-    service.stop()
+    service.start(request_ledger_statuses=False)
     return service
 
 
