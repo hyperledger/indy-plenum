@@ -318,69 +318,6 @@ class LedgerManager:
             except ValueError:
                 return None
 
-    def getConsistencyProof(self, status: LedgerStatus):
-        ledger = self.getLedgerForMsg(status)  # type: Ledger
-        ledgerId = getattr(status, f.LEDGER_ID.nm)
-        seqNoStart = getattr(status, f.TXN_SEQ_NO.nm)
-        seqNoEnd = ledger.size
-        return self._buildConsistencyProof(ledgerId, seqNoStart, seqNoEnd)
-
-    # TODO: Replace with CatchupDataProvider
-    def _buildConsistencyProof(self, ledgerId, seqNoStart, seqNoEnd):
-        ledger = self.getLedgerInfoByType(ledgerId).ledger
-
-        ledgerSize = ledger.size
-        if seqNoStart > ledgerSize:
-            logger.warning(
-                "{} cannot build consistency proof from {} "
-                "since its ledger size is {}".format(self, seqNoStart, ledgerSize))
-            return
-        if seqNoEnd > ledgerSize:
-            logger.warning(
-                "{} cannot build consistency "
-                "proof till {} since its ledger size is {}".format(self, seqNoEnd, ledgerSize))
-            return
-        if seqNoEnd < seqNoStart:
-            logger.warning(
-                '{} cannot build consistency proof since end {} is '
-                'lesser than start {}'.format(self, seqNoEnd, seqNoStart))
-            return
-
-        if seqNoStart == 0:
-            # Consistency proof for an empty tree cannot exist. Using the root
-            # hash now so that the node which is behind can verify that
-            # TODO: Make this an empty list
-            oldRoot = ledger.tree.root_hash
-            proof = [oldRoot, ]
-        else:
-            proof = ledger.tree.consistency_proof(seqNoStart, seqNoEnd)
-            oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
-
-        newRoot = ledger.tree.merkle_tree_hash(0, seqNoEnd)
-        key = self.owner.three_phase_key_for_txn_seq_no(ledgerId, seqNoEnd)
-        logger.info('{} found 3 phase key {} for ledger {} seqNo {}'.format(self, key, ledgerId, seqNoEnd))
-        if key is None:
-            # The node receiving consistency proof should check if it has
-            # received this sentinel 3 phase key (0, 0) in spite of seeing a
-            # non-zero txn seq no
-            key = (0, 0)
-
-        return ConsistencyProof(
-            ledgerId,
-            seqNoStart,
-            seqNoEnd,
-            *key,
-            Ledger.hashToStr(oldRoot),
-            Ledger.hashToStr(newRoot),
-            [Ledger.hashToStr(p) for p in proof]
-        )
-
-    def getLedgerForMsg(self, msg: Any) -> Ledger:
-        ledger_id = getattr(msg, f.LEDGER_ID.nm)
-        if ledger_id in self.ledgerRegistry:
-            return self.getLedgerInfoByType(ledger_id).ledger
-        self.discard(msg, reason="Invalid ledger msg type")
-
     def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:
         if ledgerType not in self.ledgerRegistry:
             raise KeyError("Invalid ledger type: {}".format(ledgerType))
