@@ -33,8 +33,8 @@ def set_version(version: str, version_file: str = VERSION_FILE):
 
 
 __title__ = 'indy-plenum'
-#__version_info__ = load_version()
-#__version__ = __version_info__.full
+# __version_info__ = load_version()
+# __version__ = __version_info__.full
 __version_info__ = (1, 6)
 __version__ = '.'.join(map(str, __version_info__))
 __author__ = "Hyperledger"
