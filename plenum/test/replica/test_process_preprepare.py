@@ -9,6 +9,7 @@ from plenum.common.types import f
 from plenum.server.replica import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import create_pre_prepare_params
+from plenum.test.replica.helper import expect_suspicious
 from plenum.test.testing_utils import FakeSomething
 from stp_zmq.zstack import ZStack
 
@@ -60,11 +61,7 @@ def test_process_pre_prepare_validation_old_schema_no_audit(replica_with_request
 
 def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_requests,
                                                             state_roots, txn_roots, multi_sig, fake_requests):
-    def reportSuspiciousNodeEx(ex):
-        assert Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code == ex.code
-        raise ex
-
-    replica_with_requests.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+    expect_suspicious(replica_with_requests, Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code)
 
     pre_prepare_params = create_pre_prepare_params(state_root=state_roots[DOMAIN_LEDGER_ID],
                                                    ledger_id=DOMAIN_LEDGER_ID,
@@ -84,11 +81,7 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_request
 
 def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests,
                                                            state_roots, txn_roots, multi_sig, fake_requests):
-    def reportSuspiciousNodeEx(ex):
-        assert Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG.code == ex.code
-        raise ex
-
-    replica_with_requests.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+    expect_suspicious(replica_with_requests, Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG.code)
 
     pre_prepare_params = create_pre_prepare_params(state_root=state_roots[DOMAIN_LEDGER_ID],
                                                    ledger_id=DOMAIN_LEDGER_ID,
@@ -120,20 +113,18 @@ def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
 
 
 def test_process_pre_prepare_with_ordered_request(replica, pre_prepare):
+    expect_suspicious(replica, Suspicions.PPR_WITH_ORDERED_REQUEST.code)
+
     replica.node.seqNoDB = FakeSomething(get=lambda req: (1, 1))
     replica.nonFinalisedReqs = lambda a: pre_prepare.reqIdr
-
-    def reportSuspiciousNodeEx(ex):
-        assert ex.code == Suspicions.PPR_WITH_ORDERED_REQUEST.code
-
-    replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
     def request_propagates(reqs):
         assert False, "Requested propagates for: {}".format(reqs)
 
     replica.node.request_propagates = request_propagates
 
-    replica.processPrePrepare(pre_prepare, replica.primaryName)
+    with pytest.raises(SuspiciousNode):
+        replica.processPrePrepare(pre_prepare, replica.primaryName)
     assert (pre_prepare, replica.primaryName, set(pre_prepare.reqIdr)) not in replica.prePreparesPendingFinReqs
 
 

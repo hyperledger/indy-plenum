@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Callable, List
+from typing import Optional, Tuple, Any, Callable, List, Iterable
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
@@ -11,10 +11,13 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-# TODO: Come up with a better name?
 class CatchupDataProvider(ABC):
     @abstractmethod
     def node_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def all_nodes_names(self) -> List[str]:
         pass
 
     @abstractmethod
@@ -47,27 +50,11 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_lm_catchup_start(self, ledger_id: int):
+    def notify_catchup_start(self, ledger_id: int):
         pass
 
     @abstractmethod
-    def notify_lm_catchup_complete(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_before_catchup_start(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_after_catchup_start(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_before_catchup_complete(self, ledger_id: int):
-        pass
-
-    @abstractmethod
-    def notify_li_after_catchup_complete(self, ledger_id: int):
+    def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
         pass
 
     @abstractmethod
@@ -79,7 +66,7 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def send_to_nodes(self, msg: Any):
+    def send_to_nodes(self, msg: Any, nodes: Iterable[str] = None):
         pass
 
     @abstractmethod

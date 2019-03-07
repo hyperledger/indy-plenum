@@ -1310,6 +1310,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
+        if f.AUDIT_TXN_ROOT_HASH.nm in pp:
+            params.append(pp.auditTxnRootHash)
 
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
@@ -1591,12 +1593,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if prepare.digest != ppReq.digest:
             raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
-
         elif prepare.stateRootHash != ppReq.stateRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                 prepare)
+        elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
+            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                  prepare)
 
         try:
