@@ -1,4 +1,5 @@
 from collections import Counter
+from typing import Optional, NamedTuple
 
 from ledger.ledger import Ledger
 from plenum.common.channel import RxChannel, TxChannel, Router
@@ -13,6 +14,10 @@ from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+ConsProofReady = NamedTuple('LedgerCatchupStart',
+                            [('ledger_id', int),
+                             ('cons_proof', Optional[ConsistencyProof])])
 
 
 # ASSUMING NO MALICIOUS NODES
@@ -51,7 +56,7 @@ class ConsProofService:
     def __repr__(self) -> str:
         return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
 
-    def start(self):
+    def start(self, request_ledger_statuses: bool):
         self._is_working = True
         self._quorum = Quorums(len(self._provider.all_nodes_names()))
         self._same_ledger_status = set()
@@ -59,21 +64,20 @@ class ConsProofService:
         self._requested_consistency_proof = set()
         self._last_txn_3PC_key = {}
 
-        self._request_ledger_status_from_nodes()
-        self._schedule_reask_ledger_status()
+        if request_ledger_statuses:
+            self._request_ledger_status_from_nodes()
+            self._schedule_reask_ledger_status()
 
-    def stop(self, cons_proof: ConsistencyProof):
+    def stop(self, cons_proof: Optional[ConsistencyProof] = None):
         # Stop requesting last consistency proofs and ledger statuses.
         self._is_working = False
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._requested_consistency_proof = set()
-        self._last_txn_3PC_key = {}
 
         self._cancel_reask()
-        self._output.put_nowait(cons_proof)
+        self._output.put_nowait(ConsProofReady(ledger_id=self._ledger_id, cons_proof=cons_proof))
 
-    @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         if not self._can_process_ledger_status(ledger_status):
             return
@@ -107,7 +111,12 @@ class ConsProofService:
 
     def _finish_no_catchup(self):
         root = Ledger.hashToStr(self._ledger.tree.root_hash)
-        view_no, pp_seq_no = self._get_last_txn_3PC_key()
+        last_3pc = self._get_last_txn_3PC_key()
+        if not last_3pc:
+            self.stop()
+            return
+
+        view_no, pp_seq_no = last_3pc
         cons_proof = ConsistencyProof(self._ledger_id,
                                       self._ledger.size,
                                       self._ledger.size,
@@ -138,6 +147,7 @@ class ConsProofService:
         min_quorumed_3PC_key = min_3PC_key(quorumed_3PC_keys)
         return min_quorumed_3PC_key
 
+    @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def _request_ledger_status_from_nodes(self, nodes=None):
         logger.info("{} asking for ledger status of ledger {}".format(self, self._ledger_id))
         ledger_status_req = MessageReq(
@@ -154,6 +164,8 @@ class ConsProofService:
         if ledger_status.ledgerId != self._ledger_id:
             logger.warning('{} cannot process {} for different ledger'.format(self, ledger_status))
             return False
+
+        return True
 
     def _can_process_consistency_proof(self, proof: ConsistencyProof):
         if not self._is_working:
@@ -349,15 +361,16 @@ class ConsProofService:
         if self._get_latest_reliable_proof(grouped_proofs):
             return
 
-        start, end = self._get_consistency_proof_request_params(grouped_proofs)
-        logger.info("{} sending consistency proof request: {}".format(self, self._ledger_id, start, end))
-        cons_proof_req = MessageReq(
-            CONSISTENCY_PROOF,
-            {f.LEDGER_ID.nm: self._ledger_id,
-             f.SEQ_NO_START.nm: start,
-             f.SEQ_NO_END.nm: end}
-        )
-        self._provider.send_to_nodes(cons_proof_req, nodes=self._provider.eligible_nodes())
+        with self.metrics.measure_time(MetricsName.SEND_MESSAGE_REQ_TIME):
+            start, end = self._get_consistency_proof_request_params(grouped_proofs)
+            logger.info("{} sending consistency proof request: {}".format(self, self._ledger_id, start, end))
+            cons_proof_req = MessageReq(
+                CONSISTENCY_PROOF,
+                {f.LEDGER_ID.nm: self._ledger_id,
+                 f.SEQ_NO_START.nm: start,
+                 f.SEQ_NO_END.nm: end}
+            )
+            self._provider.send_to_nodes(cons_proof_req, nodes=self._provider.eligible_nodes())
 
     def _get_consistency_proof_request_params(self, groupedProofs):
         # Choose the consistency proof which occurs median number of times in
