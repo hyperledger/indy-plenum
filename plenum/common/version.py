@@ -250,6 +250,10 @@ class PlenumVersion(
                 "release part should contain only 3 parts")
 
     @property
+    def parts(self) -> Iterable:
+        return super().parts[1:6]
+
+    @property
     def upstream(self) -> SourceVersion:
         """ Upstream part of the package. """
         return self

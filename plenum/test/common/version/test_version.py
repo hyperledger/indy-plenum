@@ -298,3 +298,14 @@ def test_plenum_version_invalid_value(version):
 )
 def test_plenum_version_valid(version):
     PlenumVersion(version)
+
+
+def test_plenum_version_parts():
+    assert PlenumVersion('1.2.3.dev2').parts == (1, 2, 3, 'dev', 2)
+    assert PlenumVersion('1.2.3.rc3').parts == (1, 2, 3, 'rc', 3)
+    assert PlenumVersion('1.2.3').parts == (1, 2, 3, None, None)
+
+
+def test_plenum_version_upstrean():
+    pv = PlenumVersion('1.2.3')
+    assert pv.upstream is pv
