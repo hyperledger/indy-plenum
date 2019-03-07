@@ -18,5 +18,5 @@ import_metadata_str="indy_node.__metadata__"
 
 # call python set_version function
 
-python3 -c "from $import_metadata_str import set_version, split_version_from_str
-set_version(split_version_from_str(\"$dotted_version\"))"
+python3 -c "from $import_metadata_str import set_version, parse_version
+set_version(parse_version(\"$dotted_version\"))"

@@ -2,9 +2,9 @@ import pytest
 
 from plenum.__metadata__ import (
     check_version, set_version, load_version, pep440_version,
-    split_version_from_str
+    parse_version, __version__
 )
-
+from plenum.common.version import PlenumVersion, InvalidVersionError
 
 # TODO ??? other type of cases
 def test_check_version_fail():
@@ -42,34 +42,30 @@ def test_set_and_load_version(tmpdir):
         assert load_version(version_file) == list(version)
 
 
+# checks that current version is valid
 def test_pep440_version_default():
     pep440_version()
 
 
+def test_package_version():
+    assert __version__ == pep440_version().full
+
+
 def test_pep440_version_stable():
-    pep440_version((1, 2, 3, 'stable', 2)) == "1.2.3"
+    assert pep440_version((1, 2, 3, 'stable', 2)) == PlenumVersion('1.2.3')
 
 
 def test_pep440_version_dev():
-    pep440_version((1, 2, 3, 'dev', 1)) == "1.2.3.dev1"
+    assert pep440_version((1, 2, 3, 'dev', 1)) == PlenumVersion('1.2.3.dev1')
 
 
 def test_pep440_version_rc():
-    pep440_version((1, 2, 3, 'rc', 2)) == "1.2.3.rc2"
+    assert pep440_version((1, 2, 3, 'rc', 2)) == PlenumVersion('1.2.3.rc2')
 
 
-def test_split_version_from_str_only_int():
-    assert split_version_from_str("1.2.3.4.5") == [1, 2, 3, 4, 5]
-
-
-def test_split_version_from_str_with_str():
-    assert split_version_from_str("1.2.3.rc.5") == [1, 2, 3, 'rc', 5]
-
-
-def test_check_version_right_case():
-    check_version(split_version_from_str("1.2.3.rc.5"))
-
-
-def test_check_version_wrong_case():
-    with pytest.raises(ValueError):
-        check_version(split_version_from_str("1.2.3.4.5"))
+def test_parse_version():
+    assert parse_version("1.2.3").parts == (0, 1, 2, 3, None, None, None)
+    assert parse_version("1.2.3rc5").parts == (0, 1, 2, 3, 'rc', 5, None)
+    assert parse_version("1.2.3dev6").parts == (0, 1, 2, 3, 'dev', 6, None)
+    with pytest.raises(InvalidVersionError):
+        parse_version("1.2.3.4.5")

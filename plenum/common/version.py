@@ -162,7 +162,7 @@ class PEP440BasedVersion(GenericVersion):
     def parts(self) -> Iterable:
         # TODO
         #   - API for add_parts
-        add_parts = tuple()
+        add_parts = (None, None)
         if self._version.dev:
             add_parts = ('dev', self._version.dev)
         elif self._version.pre:

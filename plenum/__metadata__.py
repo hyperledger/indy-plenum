@@ -3,27 +3,21 @@ plenum package metadata
 """
 import os
 import json
+from typing import Tuple, Union
 
 import plenum
+from plenum.common.version import PlenumVersion
 
 VERSION_FILENAME = '__version__.json'
 VERSION_FILE = os.path.join(
     os.path.abspath(os.path.dirname(plenum.__file__)), VERSION_FILENAME)
 
 
-def split_version_from_str(vers: str)->list:
-    # TODO use PlenumVersion instead
-    splitted = vers.split('.')
-    result = []
-    for ver in splitted:
-        try:
-            result.append(int(ver))
-        except ValueError:
-            result.append(ver)
-    return result
+def parse_version(version: str) -> PlenumVersion:
+    return PlenumVersion(version)
 
 
-def check_version(version):
+def check_version(version: Tuple):
     # TODO better errors (e.g. some are TypeError)
     if not (
         (type(version) in (tuple, list)) and
@@ -34,38 +28,38 @@ def check_version(version):
         raise ValueError("Incorrect version: {}".format(version))
 
 
-def load_version(version_file=VERSION_FILE):
+def load_version(version_file: str = VERSION_FILE) -> Tuple:
     with open(version_file, 'r') as _f:
         version = json.load(_f)
     check_version(version)
     return version
 
 
-def set_version(version, version_file=VERSION_FILE):
+def set_version(version: Tuple, version_file: str = VERSION_FILE):
     check_version(version)
     with open(version_file, 'w') as _f:
         version = json.dump(version, _f)
         _f.write('\n')
 
 
-def pep440_version(version=None):
+def pep440_version(version: Union[Tuple, None] = None):
     if not version:
         version = __version_info__
 
     check_version(version)
     major, minor, patch, pre_release_suffix, revision = version
 
-    release_part = "{}.{}.{}".format(major, minor, patch)
+    version = "{}.{}.{}".format(major, minor, patch)
 
-    if pre_release_suffix == 'stable':
-        return release_part
-    else:
-        return "{}.{}{}".format(release_part, pre_release_suffix, revision)
+    if pre_release_suffix != 'stable':
+        version += ".{}{}".format(pre_release_suffix, revision)
+
+    return PlenumVersion(version)
 
 
 __title__ = 'indy-plenum'
 __version_info__ = load_version()
-__version__ = pep440_version()
+__version__ = pep440_version().full
 __author__ = "Hyperledger"
 __author_email__ = 'hyperledger-indy@lists.hyperledger.org'
 __maintainer__ = 'Hyperledger'
