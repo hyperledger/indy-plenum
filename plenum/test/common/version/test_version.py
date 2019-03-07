@@ -1,7 +1,9 @@
 import pytest
+from packaging.version import Version as PEP440Version
 
 from plenum.common.version import (
     InvalidVersionError, VersionBase, GenericVersion,
+    PEP440VersionFallback,
     PEP440BasedVersion, SemVerBase, DigitDotVersion,
     SemVerReleaseVersion, PackageVersion,
     PlenumVersion
@@ -138,23 +140,102 @@ def test_generic_version_api():
     assert GenericVersion(version).release_parts == (version,)
 
 
-# TODO do we need more test coverage here ?
-# (PEP440BasedVersion just wraps packaging package)
+# PEP440VersionFallback
 
 @pytest.mark.parametrize(
-    'val1,val2,res',
+    'version',
     [
-        ('1.2.3', '1.2.3.rc1', 1),
-        ('1.2.3.dev2', '1.2.3.rc1', -1),
-        ('1.2.3rc1', '1.2.3.rc1', 0),
+        '1',
+        '1.2',
+        '1.2.3.4',
+        '1:1.2.3',
+        '1.2.3+4',
+        '1.2.3post4',
+        '1.2.3dev',
+        '1.2.3rc',
+        '1.2.3a',
+        '1.2.3b',
     ]
 )
-def test_pep440_based_version_cmp(val1, val2, res):
-    assert PEP440BasedVersion.cmp(
-        PEP440BasedVersion(val1),
-        PEP440BasedVersion(val2)
-    ) == res
+def test_pep440_version_fallback_init_invalid(version):
+    with pytest.raises(InvalidVersionError):
+        PEP440VersionFallback(version)
 
+
+@pytest.mark.parametrize(
+    'version',
+    [
+        '1.2.3',
+        '1.2.3.dev1',
+        '1.2.3dev1',
+        '1.2.3.dev.1',
+        '1.2.3.a1',
+        '1.2.3a1',
+        '1.2.3.a.1',
+        '1.2.3.b1',
+        '1.2.3b1',
+        '1.2.3.b.1',
+        '1.2.3.rc1',
+        '1.2.3rc1',
+        '1.2.3.rc.1',
+    ]
+)
+def test_pep440_version_fallback_init_valid(version):
+    PEP440VersionFallback(version)
+
+
+@pytest.mark.parametrize(
+    'api',
+    [
+        'public',
+        'base_version',
+        'epoch',
+        'release',
+        'local',
+        'pre',
+        'is_prerelease',
+        'dev',
+        'is_devrelease',
+        'post',
+        'is_postrelease',
+    ]
+)
+@pytest.mark.parametrize(
+    'version',
+    [
+        '1.2.3',
+        '1.2.3.dev1',
+        '1.2.3dev1',
+        '1.2.3.dev.1',
+        '1.2.3.a1',
+        '1.2.3a1',
+        '1.2.3.a.1',
+        '1.2.3.b1',
+        '1.2.3b1',
+        '1.2.3.b.1',
+        '1.2.3.rc1',
+        '1.2.3rc1',
+        '1.2.3.rc.1',
+    ]
+)
+def test_pep440_version_fallback_api(api, version):
+    v1 = PEP440VersionFallback(version)
+    v2 = PEP440Version(version)
+    assert getattr(v1, api) == getattr(v2, api)
+
+
+def test_pep440_version_fallback_cmp():
+    with pytest.raises(NotImplementedError):
+        PEP440VersionFallback.cmp(
+            PEP440VersionFallback('1.2.3'),
+            PEP440VersionFallback('1.2.3')
+        )
+
+
+# PEP440BasedVersion
+
+# TODO do we need more test coverage here ?
+# (PEP440BasedVersion just wraps packaging package)
 
 def test_pep440_based_version_public():
     assert PEP440BasedVersion('1.2.3rc1+1').public == '1.2.3rc1'
@@ -180,6 +261,21 @@ def test_pep440_based_version_release():
 
 def test_pep440_based_version_release_parts():
     assert PEP440BasedVersion('1.2.3.dev2').release_parts == (1, 2, 3)
+
+
+@pytest.mark.parametrize(
+    'val1,val2,res',
+    [
+        ('1.2.3', '1.2.3.rc1', 1),
+        ('1.2.3.dev2', '1.2.3.rc1', -1),
+        ('1.2.3rc1', '1.2.3.rc1', 0),
+    ]
+)
+def test_pep440_based_version_cmp(val1, val2, res):
+    assert PEP440BasedVersion.cmp(
+        PEP440BasedVersion(val1),
+        PEP440BasedVersion(val2)
+    ) == res
 
 
 # valid PEP440:
@@ -270,6 +366,7 @@ def test_package_version_abstracts(version_base_required):
         else:
             with pytest.raises(TypeError):
                 version_cls('1.2.3')
+
 
 # valid PEP440:
 #  alpha prerelease

@@ -2,17 +2,38 @@ from typing import Tuple, Iterable, Union
 from abc import abstractmethod, ABCMeta
 import re
 import collections
-from packaging.version import (
-    Version as PEP440Version,
-    InvalidVersion as PEP440InvalidVersion
-)
 
 
 class InvalidVersionError(ValueError):
     pass
 
 
-class VersionBase(metaclass=ABCMeta):
+class Comparable(metaclass=ABCMeta):
+    @classmethod
+    @abstractmethod
+    def cmp(cls, v1: 'Comparable', v2: 'Comparable') -> int:
+        """ Compares two instances. """
+
+    def __lt__(self, other: 'Comparable') -> bool:
+        return self.cmp(self, other) < 0
+
+    def __gt__(self, other: 'Comparable') -> bool:
+        return self.cmp(self, other) > 0
+
+    def __eq__(self, other: 'Comparable') -> bool:
+        return self.cmp(self, other) == 0
+
+    def __le__(self, other: 'Comparable') -> bool:
+        return self.cmp(self, other) <= 0
+
+    def __ge__(self, other: 'Comparable') -> bool:
+        return self.cmp(self, other) >= 0
+
+    def __ne__(self, other: 'Comparable') -> bool:
+        return self.cmp(self, other) != 0
+
+
+class VersionBase(Comparable):
 
     @classmethod
     def cmp(cls, v1: 'VersionBase', v2: 'VersionBase') -> int:
@@ -57,24 +78,6 @@ class VersionBase(metaclass=ABCMeta):
     def _parse(self, version: str):
         return version
 
-    def __lt__(self, other: 'VersionBase') -> bool:
-        return self.cmp(self, other) < 0
-
-    def __gt__(self, other: 'VersionBase') -> bool:
-        return self.cmp(self, other) > 0
-
-    def __eq__(self, other: 'VersionBase') -> bool:
-        return self.cmp(self, other) == 0
-
-    def __le__(self, other: 'VersionBase') -> bool:
-        return self.cmp(self, other) <= 0
-
-    def __ge__(self, other: 'VersionBase') -> bool:
-        return self.cmp(self, other) >= 0
-
-    def __ne__(self, other: 'VersionBase') -> bool:
-        return self.cmp(self, other) != 0
-
     def __hash__(self):
         return hash(self.full)
 
@@ -115,7 +118,7 @@ class GenericVersion(VersionBase):
     # combines allowed characters from:
     # - PyPI: https://www.python.org/dev/peps/pep-0440
     # - SemVer: https://semver.org/
-    re_version = re.compile(r'[0-9a-zA-Z.\-+!]+')
+    re_generic = re.compile(r'[0-9a-zA-Z.\-+!]+')
 
     @property
     def full(self) -> str:
@@ -134,14 +137,101 @@ class GenericVersion(VersionBase):
         return self.parts
 
     def _parse(self, version):
-        if not self.re_version.fullmatch(version):
+        if not self.re_generic.fullmatch(version):
             raise InvalidVersionError('only alphanumerics and [.-+!] are allowed')
         return version
+
+
+class PEP440VersionFallback(Comparable):
+    """ Mimics packaging.version.Version. """
+
+    # covers only some cases
+    re_pep440 = re.compile(r'([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.?(dev|rc|a|b)\.?([0-9]+))?')
+
+    @classmethod
+    def cmp(cls, v1: 'PEP440VersionFallback',
+            v2: 'PEP440VersionFallback') -> int:
+        """ Compares two instances. """
+        raise NotImplementedError("Please, install 'packaging' package")
+
+    def __init__(self, version: str):
+        match = self.re_pep440.fullmatch(version)
+        if not match:
+            raise InvalidVersionError(
+                "version '{}' is invalid, expected N.N.N[[.]{{a|b|rc|dev}}[.]N]"
+                .format(version)
+            )
+        self._version = tuple(
+            [int(p) if idx in (0, 1, 2, 4) and p is not None else p for idx, p in enumerate(match.groups())]
+        )
+
+    @property
+    def public(self):
+        return self.base_version + (
+            '' if self._version[3] is None else
+            "{}{}{}"
+            .format(
+                '.' if self.dev else '', self._version[3], self._version[4]
+            )
+        )
+
+    @property
+    def base_version(self):
+        return "{}.{}.{}".format(*self.release)
+
+    @property
+    def epoch(self):
+        return 0
+
+    @property
+    def release(self):
+        return self._version[:3]
+
+    @property
+    def local(self):
+        return None
+
+    @property
+    def pre(self):
+        if self.is_prerelease and not self.is_devrelease:
+            return self._version[3:]
+
+    @property
+    def is_prerelease(self):
+        return self._version[3] in ('a', 'b', 'rc', 'dev')
+
+    @property
+    def dev(self):
+        return self._version[4] if self.is_devrelease else None
+
+    @property
+    def is_devrelease(self):
+        return self._version[3] == 'dev'
+
+    @property
+    def post(self):
+        return None
+
+    @property
+    def is_postrelease(self):
+        return False
 
 
 class PEP440BasedVersion(GenericVersion):
 
     def _parse(self, version: str):
+
+        # TODO test that
+        try:
+            from packaging.version import (
+                Version as PEP440Version,
+                InvalidVersion as PEP440InvalidVersion
+            )
+        except ImportError:
+            # seems we work in pour environment
+            PEP440Version = PEP440VersionFallback
+            PEP440InvalidVersion = InvalidVersionError
+
         try:
             return PEP440Version(version)
         except PEP440InvalidVersion as exc:
