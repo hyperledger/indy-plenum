@@ -1302,6 +1302,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceClientMsgs(limit)
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
                 c += self._serviceActions()
+            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                self.timer.service()
             with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
             c += await self.serviceViewChanger(limit)
@@ -1309,8 +1311,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
                 self.nodestack.flushOutBoxes()
-            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
-                self.timer.service()
 
         if self.isGoing():
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
