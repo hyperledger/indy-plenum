@@ -74,7 +74,6 @@ def test_node_catchup_after_checkpoints(
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-    looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
 
 
 def get_number_of_completed_catchups(node):

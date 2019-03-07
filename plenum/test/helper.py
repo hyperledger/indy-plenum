@@ -483,6 +483,11 @@ def check_last_ordered_3pc(node1, node2):
     return master_replica_1.last_ordered_3pc
 
 
+def check_view_no(node1, node2):
+    assert node1.viewNo != node2.viewNo, \
+        "{} != {}".format(node1.viewNo, node2.viewNo)
+
+
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
     for n in nodes:
         for r in n.replicas.values():
