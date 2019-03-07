@@ -2317,8 +2317,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
-        if self.ledgerManager.last_caught_up_3PC == (0, 0):
-            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def getLedger(self, ledgerId) -> Ledger:
         return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger

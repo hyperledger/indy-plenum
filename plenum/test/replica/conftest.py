@@ -32,7 +32,9 @@ class ReplicaFakeNode(FakeSomething):
             view_change_in_progress=False,
             requests=Requests(),
             onBatchCreated=lambda self, *args, **kwargs: True,
-            applyReq=lambda self, *args, **kwargs: True
+            applyReq=lambda self, *args, **kwargs: True,
+            primaries_batch_needed=False,
+            primaries=[]
         )
 
     @property

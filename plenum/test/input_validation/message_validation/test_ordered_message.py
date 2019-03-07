@@ -17,6 +17,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
     ("auditTxnRootHash", MerkleRootField),
+    ("primaries", IterableField),
     ('plugin_fields', AnyMapField)
 ])
 

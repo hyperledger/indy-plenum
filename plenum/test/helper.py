@@ -493,6 +493,15 @@ def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
                               last_ordered_3pc)
 
 
+def check_last_ordered_3pc_on_backup(nodes, last_ordered_3pc):
+    for n in nodes:
+        for i, r in n.replicas.items():
+            if i != 0:
+                assert r.last_ordered_3pc == last_ordered_3pc, \
+                    "{} != {}".format(r.last_ordered_3pc,
+                                      last_ordered_3pc)
+
+
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
 

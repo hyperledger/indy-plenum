@@ -11,7 +11,7 @@ from stp_core.loop.eventually import eventually
 TestRunningTimeLimitSec = 125
 
 
-def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet, pre_check,
+def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet,
                                            sdk_node_created_after_some_txns):
     _, new_node, sdk_pool_handle, new_steward_wallet_handle = \
         sdk_node_created_after_some_txns

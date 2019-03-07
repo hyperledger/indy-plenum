@@ -7,6 +7,7 @@ from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.test.testing_utils import FakeSomething
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
@@ -75,9 +76,11 @@ def add_txns_to_ledger_before_order(replica, reqs):
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
                                                            valid_txn_count=len(reqs),
                                                            state_root=pp.stateRootHash,
-                                                           txn_root=pp.txnRootHash)
+                                                           txn_root=pp.txnRootHash,
+                                                           primaries=self.node.primaries,
+                                                           valid_digests=pp.reqIdr)
             node.audit_handler.post_batch_applied(three_pc_batch)
-            node.audit_handler.commit_batch(ledger_id, len(reqs), pp.stateRootHash, pp.txnRootHash, pp.ppTime)
+            node.audit_handler.commit_batch(FakeSomething())
 
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
