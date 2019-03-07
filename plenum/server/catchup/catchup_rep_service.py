@@ -57,14 +57,14 @@ class CatchupRepService:
 
     def start(self, cons_proof: ConsistencyProof):
         logger.info("{} started catching up with consistency proof {}".format(self, cons_proof))
+
+        self._is_working = True
+        self._catchup_till = cons_proof
         self._provider.notify_catchup_start(self._ledger_id)
 
         if cons_proof is None:
             self.stop()
             return
-
-        self._catchup_till = cons_proof
-        self._is_working = True
 
         if self._ledger.size >= self._catchup_till.seqNoEnd:
             logger.info('{} found that ledger {} does not need catchup'.format(self, self._ledger_id))
