@@ -99,18 +99,21 @@ def test_node_catchup_after_restart_with_txns(
     new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
     cp = new_node_ledger.catchUpTill
     start, end = cp.seqNoStart, cp.seqNoEnd
-    cons_proof = confused_node.ledgerManager._buildConsistencyProof(
+    cons_proof = confused_node.ledgerManager._node_seeder._build_consistency_proof(
         DOMAIN_LEDGER_ID, start, end)
 
     bad_send_time = None
 
     def chk():
         nonlocal bad_send_time
-        entries = newNode.ledgerManager.spylog.getAll(
-            newNode.ledgerManager.canProcessConsistencyProof.__name__)
+        entries = newNode.ledgerManager.spylog.getAll(newNode.ledgerManager.processConsistencyProof.__name__)
         for entry in entries:
             # `canProcessConsistencyProof` should return False after `syncing_time`
-            if entry.result == False and entry.starttime > bad_send_time:
+            if entry.starttime <= bad_send_time:
+                continue
+            cons_proof = entry.params['proof']
+            service = newNode.ledgerManager._leechers[cons_proof.ledgerId].cons_proof_service
+            if not service._can_process_consistency_proof(cons_proof):
                 return
         assert False
 

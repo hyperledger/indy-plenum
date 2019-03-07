@@ -50,21 +50,21 @@ class CatchupRepService:
         self._received_catchup_txns = []  # type: List[Tuple[int, Any]]
 
     def __repr__(self):
-        return "{}, ledger {}".format(self._provider.node_name(), self._ledger_id)
+        return "{}:CatchupRepService:{}".format(self._provider.node_name(), self._ledger_id)
 
     def is_working(self) -> bool:
         return self._is_working
 
     def start(self, cons_proof: ConsistencyProof):
         logger.info("{} started catching up with consistency proof {}".format(self, cons_proof))
+
+        self._is_working = True
+        self._catchup_till = cons_proof
         self._provider.notify_catchup_start(self._ledger_id)
 
         if cons_proof is None:
             self.stop()
             return
-
-        self._catchup_till = cons_proof
-        self._is_working = True
 
         if self._ledger.size >= self._catchup_till.seqNoEnd:
             logger.info('{} found that ledger {} does not need catchup'.format(self, self._ledger_id))
@@ -89,7 +89,7 @@ class CatchupRepService:
 
     def stop(self, last_3pc: Optional[Tuple[int, int]] = None):
         cp = self._catchup_till
-        num_caught_up = cp.seqNoEnd - cp.seqNoStart
+        num_caught_up = cp.seqNoEnd - cp.seqNoStart if cp else 0
 
         self._wait_catchup_rep_from.clear()
 
