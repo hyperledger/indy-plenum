@@ -46,6 +46,8 @@ class VersionBase(metaclass=ABCMeta):
         """ Release part as iterable. """
 
     def __init__(self, version: str, allow_non_stripped: bool = False):
+        if not isinstance(version, str):
+            raise InvalidVersionError('version should be a string')
         if not allow_non_stripped and version != version.strip():
             raise InvalidVersionError(
                 'version includes leading and/or trailing spaces'

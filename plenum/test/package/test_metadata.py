@@ -1,71 +1,73 @@
 import pytest
+import json
+import os
 
-from plenum.__metadata__ import (
-    check_version, set_version, load_version, pep440_version,
-    parse_version, __version__
-)
+from plenum.__metadata__ import set_version, load_version
 from plenum.common.version import PlenumVersion, InvalidVersionError
 
-# TODO ??? other type of cases
-def test_check_version_fail():
-    for version in [
+
+@pytest.fixture
+def version_file_path(tdir, request):
+    return os.path.join(
+        tdir,
+        "{}.upgrade_log".format(os.path.basename(request.node.nodeid))
+    )
+
+
+def idfn(v):
+    return str(v).replace(' ', '')
+
+
+@pytest.mark.parametrize(
+    'version',
+    [
         '1',
-        1,
-        (1, 2, 3),
+        2,
+        (1, 2),
         (1, 2, 3, 4, 5),
         (1, 2, 3, 'alpha', 5),
         (1, 2, 3, 'dev', 5, 6)
-    ]:
-        with pytest.raises(ValueError):
-            check_version(version)
-
-
-# TODO ??? other type of cases
-def test_check_version_pass():
-    for version in [
-            (1, 2, 3, 'dev', 5),
-            (1, 2, 3, 'rc', 5),
-            (1, 2, 3, 'stable', 5)
-    ]:
-        check_version(version)
-
-
-# TODO ??? other type of cases
-def test_set_and_load_version(tmpdir):
-    version_file = str(tmpdir.join("version.txt"))
-    for version in [
-        (1, 2, 3, 'dev', 5),
-        (1, 2, 3, 'rc', 5),
-        (1, 2, 3, 'stable', 5)
-    ]:
-        set_version(version, version_file)
-        assert load_version(version_file) == list(version)
-
-
-# checks that current version is valid
-def test_pep440_version_default():
-    pep440_version()
-
-
-def test_package_version():
-    assert __version__ == pep440_version().full
-
-
-def test_pep440_version_stable():
-    assert pep440_version((1, 2, 3, 'stable', 2)) == PlenumVersion('1.2.3')
-
-
-def test_pep440_version_dev():
-    assert pep440_version((1, 2, 3, 'dev', 1)) == PlenumVersion('1.2.3.dev1')
-
-
-def test_pep440_version_rc():
-    assert pep440_version((1, 2, 3, 'rc', 2)) == PlenumVersion('1.2.3.rc2')
-
-
-def test_parse_version():
-    assert parse_version("1.2.3").parts == (0, 1, 2, 3, None, None, None)
-    assert parse_version("1.2.3rc5").parts == (0, 1, 2, 3, 'rc', 5, None)
-    assert parse_version("1.2.3dev6").parts == (0, 1, 2, 3, 'dev', 6, None)
+    ],
+    ids=idfn
+)
+def test_load_version_invalid(version, version_file_path):
+    with open(version_file_path, 'w') as _f:
+        json.dump(version, _f)
     with pytest.raises(InvalidVersionError):
-        parse_version("1.2.3.4.5")
+        load_version(version_file_path)
+
+
+# TODO ??? wider coverage
+
+@pytest.mark.parametrize(
+    'version',
+    [
+        'a1.2.3',
+        '1.2.3a1',
+        '1.2.3b2',
+        '1.2.3.post1',
+        '1!1.2.3',
+        '1.2.3+1',
+        '1',
+        '1.2',
+        '1.2.3.4',
+        2
+    ],
+    ids=idfn
+)
+def test_set_version_invalid(version, version_file_path):
+    with pytest.raises(InvalidVersionError):
+        set_version(version, version_file_path)
+
+
+@pytest.mark.parametrize(
+    'version',
+    [
+        '1.2.3',
+        '1.2.3.rc1',
+        '1.2.3.dev2',
+    ]
+)
+def test_set_load_version_valid(version, version_file_path):
+    set_version(version, version_file_path)
+    assert load_version(version_file_path) == PlenumVersion(version)

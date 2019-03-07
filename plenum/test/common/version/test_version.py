@@ -75,6 +75,14 @@ def test_version_base_comparison_operators(version_base_required):
     assert version_cls('1') != version_cls('2')
 
 
+def test_version_base_init_non_str(version_base_required):
+    version_cls = type("VersionBaseChild", (VersionBase,), version_base_required)
+    for version in [1, [], {}]:
+        with pytest.raises(InvalidVersionError) as excinfo:
+            version_cls(version)
+        assert 'should be a string' in str(excinfo.value)
+
+
 def test_version_base_init_with_spaces(version_base_required):
     version_cls = type("VersionBaseChild", (VersionBase,), version_base_required)
     for version in [' 1.2.3', '1.2.3 ', ' 1.2.3 ']:

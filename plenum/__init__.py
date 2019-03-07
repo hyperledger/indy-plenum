@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function
 from .__metadata__ import (
     __title__, __version_info__, __version__, __author__, __author_email__, __maintainer__,
     __maintainer_email__, __url__, __description__, __long_description__, __download_url__,
-    __license__
+    __license__, load_version, set_version
 )
 
 import sys
