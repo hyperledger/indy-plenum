@@ -3,7 +3,8 @@ import pytest
 from plenum.common.version import (
     InvalidVersionError, VersionBase, GenericVersion,
     PEP440BasedVersion, SemVerBase, DigitDotVersion,
-    SemVerReleaseVersion, PackageVersion
+    SemVerReleaseVersion, PackageVersion,
+    PlenumVersion
 )
 
 
@@ -261,3 +262,39 @@ def test_package_version_abstracts(version_base_required):
         else:
             with pytest.raises(TypeError):
                 version_cls('1.2.3')
+
+# valid PEP440:
+#  alpha prerelease
+#  beta prerelease
+#  postrelease
+#  epoch
+#  local version
+#  parts num != 3
+@pytest.mark.parametrize(
+    'version',
+    [
+        '1.2.3a1',
+        '1.2.3b2',
+        '1.2.3.post1',
+        '1!1.2.3',
+        '1.2.3+1',
+        '1',
+        '1.2',
+        '1.2.3.4'
+    ]
+)
+def test_plenum_version_invalid_value(version):
+    with pytest.raises(InvalidVersionError):
+        PlenumVersion(version)
+
+
+@pytest.mark.parametrize(
+    'version',
+    [
+        '1.2.3',
+        '1.2.3.rc1',
+        '1.2.3.dev2',
+    ]
+)
+def test_plenum_version_valid(version):
+    PlenumVersion(version)
