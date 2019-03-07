@@ -11,12 +11,24 @@ VERSION_FILE = os.path.join(
     os.path.abspath(os.path.dirname(plenum.__file__)), VERSION_FILENAME)
 
 
+def split_version_from_str(vers: str)->list:
+    # TODO use PlenumVersion instead
+    splitted = vers.split('.')
+    result = []
+    for ver in splitted:
+        try:
+            result.append(int(ver))
+        except ValueError:
+            result.append(ver)
+    return result
+
+
 def check_version(version):
     # TODO better errors (e.g. some are TypeError)
     if not (
         (type(version) in (tuple, list)) and
         (len(version) == 5) and
-        all([type(version[i]) == int] for i in (0, 1, 2, 4)) and
+        all([type(version[i]) == int for i in (0, 1, 2, 4)]) and
         (version[3] in ('dev', 'rc', 'stable'))
     ):
         raise ValueError("Incorrect version: {}".format(version))
