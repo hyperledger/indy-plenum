@@ -143,7 +143,7 @@ def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
                     # served again
                     nodes_to_send_proof_of_small_ledger.remove(node_name)
                     logger.debug('{} sending a proof to {} for {} instead of {}'.
-                                 format(self.owner.name, target_node.name, seqNoEnd - shorten_by, seqNoEnd))
+                                 format(node_name, target_node.name, seqNoEnd - shorten_by, seqNoEnd))
                     return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd - shorten_by)
             return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)
 
@@ -162,6 +162,7 @@ def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
         orig_methods[node.name] = seeder._build_consistency_proof
 
         def patched_method(self, ledgerId, seqNoStart, seqNoEnd):
+            node_name = self._provider.node_name()
             if self.catchup_twice:
                 import inspect
                 curframe = inspect.currentframe()
@@ -172,7 +173,7 @@ def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
                         and calframe[1].frame.f_locals['frm'] == target_node.name \
                         and ledgerId == ledger_id:
                     logger.info('{} sending a proof to {} for {} instead of {}'.
-                                format(self.owner.name, target_node.name, seqNoEnd - shorten_by, seqNoEnd))
+                                format(node_name, target_node.name, seqNoEnd - shorten_by, seqNoEnd))
                     return orig_methods[node.name](ledgerId, seqNoStart,
                                                    seqNoEnd - shorten_by)
             return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)
