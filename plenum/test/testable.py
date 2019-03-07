@@ -88,7 +88,8 @@ def spy(func, is_init, should_spy, spy_log=None):
             r = func(self, *args, **kwargs)
         except Exception as ex:
             r = ex
-            logger.warning(traceback.print_exc())
+            logger.warning("Caught exception {}".format(ex))
+            logger.warning("{}".format(traceback.format_exc()))
             raise
         finally:
             bound = sig.bind(self, *args, **kwargs)
