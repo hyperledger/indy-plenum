@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.version import DigitDotVersion
+from common.version import DigitDotVersion
 from plenum.common.messages.fields import VersionField
 from plenum.config import VERSION_FIELD_LIMIT
 

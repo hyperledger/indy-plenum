@@ -6,8 +6,8 @@ import json
 from typing import Tuple, List, Union
 import collections.abc
 
+from common.version import PlenumVersion, InvalidVersionError
 import plenum
-from plenum.common.version import PlenumVersion, InvalidVersionError
 
 VERSION_FILENAME = '__version__.json'
 VERSION_FILE = os.path.join(

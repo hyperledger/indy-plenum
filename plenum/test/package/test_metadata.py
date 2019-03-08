@@ -2,8 +2,8 @@ import pytest
 import json
 import os
 
+from common.version import PlenumVersion, InvalidVersionError
 from plenum.__metadata__ import set_version, load_version
-from plenum.common.version import PlenumVersion, InvalidVersionError
 
 
 @pytest.fixture

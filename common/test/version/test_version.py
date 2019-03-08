@@ -1,7 +1,7 @@
 import pytest
 from packaging.version import Version as PEP440Version
 
-from plenum.common.version import (
+from common.version import (
     InvalidVersionError, VersionBase, GenericVersion,
     PEP440VersionFallback,
     PEP440BasedVersion, SemVerBase, DigitDotVersion,

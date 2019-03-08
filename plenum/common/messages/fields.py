@@ -9,13 +9,13 @@ import dateutil
 
 from common.exceptions import PlenumTypeError, PlenumValueError
 from common.error import error
+from common.version import (
+    InvalidVersionError, VersionBase, GenericVersion
+)
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
-from plenum.common.version import (
-    InvalidVersionError, VersionBase, GenericVersion
-)
 from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
 
 
