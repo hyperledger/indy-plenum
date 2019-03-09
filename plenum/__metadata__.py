@@ -7,11 +7,10 @@ from typing import Tuple, List, Union
 import collections.abc
 
 from common.version import PlenumVersion, InvalidVersionError
-import plenum
 
 VERSION_FILENAME = '__version__.json'
 VERSION_FILE = os.path.join(
-    os.path.abspath(os.path.dirname(plenum.__file__)), VERSION_FILENAME)
+    os.path.abspath(os.path.dirname(__file__)), VERSION_FILENAME)
 
 
 def load_version(version_file: str = VERSION_FILE) -> PlenumVersion:

@@ -19,8 +19,8 @@ except NameError:
     # it can be the case when we are being run as script or frozen
     here = os.path.abspath(os.path.dirname(sys.argv[0]))
 
-metadata = {}
-with open(os.path.join(here, 'plenum', '__metadata__.py'), 'r') as f:
+metadata = {'__file__': os.path.join(here, 'plenum', '__metadata__.py')}
+with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.8', 'pytest-asyncio==0.8.0']
