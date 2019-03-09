@@ -6,10 +6,10 @@ import pytest
 from plenum.common.constants import AUDIT_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
     Checkpoint
-from plenum.common.util import check_if_all_equal_in_list
+from plenum.common.util import check_if_all_equal_in_list, getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
-    check_seqno_db_equality, assertEquality, check_last_ordered_3pc
+    check_seqno_db_equality, assertEquality, check_last_ordered_3pc, check_primaries_equality, check_view_no
 from plenum.test.test_node import TestNode
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -37,10 +37,20 @@ def checkNodeDataForEquality(node: TestNode,
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
 
+        if exclude_from_check and 'check_view_no' not in exclude_from_check:
+            check_view_no(node, n)
+        else:
+            logger.debug("Excluding check_view_no check")
+
         if exclude_from_check and 'check_seqno_db' not in exclude_from_check:
             check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
         else:
             logger.debug("Excluding check_seqno_db_equality check")
+
+        if exclude_from_check and 'check_primaries' not in exclude_from_check:
+            check_primaries_equality(node, n)
+        else:
+            logger.debug("Excluding check_primaries_equality check")
 
         for ledger_id in n.ledgerManager.ledgerRegistry:
             if not check_audit_ledger and ledger_id == AUDIT_LEDGER_ID:

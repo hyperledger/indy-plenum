@@ -3,7 +3,7 @@ from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
 from functools import partial
 from hashlib import sha256
-from typing import List, Dict, Optional, Any, Set, Tuple, Callable
+from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
 
 import math
 
@@ -19,7 +19,8 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -29,6 +30,7 @@ from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
+from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
@@ -1919,6 +1921,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
+        ledger = self.node.auditLedger
+        for index, txn in enumerate(ledger.get_uncommitted_txns()):
+            payload_data = get_payload_data(txn)
+            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
+                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                if isinstance(txn_primaries, Iterable):
+                    primaries = txn_primaries
+                elif isinstance(txn_primaries, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                    primaries = get_payload_data(
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                break
+        else:
+            primaries = self.node.primaries
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1929,7 +1946,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self.node.primaries)
+                          primaries)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered

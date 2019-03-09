@@ -469,6 +469,11 @@ def check_seqno_db_equality(db1, db2):
            {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}
 
 
+def check_primaries_equality(node1, node2):
+    assert node1.primaries == node2.primaries, \
+        "{} != {}".format(node1.primaries, node2.primaries)
+
+
 def check_last_ordered_3pc(node1, node2):
     master_replica_1 = node1.master_replica
     master_replica_2 = node2.master_replica
@@ -476,6 +481,11 @@ def check_last_ordered_3pc(node1, node2):
         "{} != {}".format(master_replica_1.last_ordered_3pc,
                           master_replica_2.last_ordered_3pc)
     return master_replica_1.last_ordered_3pc
+
+
+def check_view_no(node1, node2):
+    assert node1.viewNo != node2.viewNo, \
+        "{} != {}".format(node1.viewNo, node2.viewNo)
 
 
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
