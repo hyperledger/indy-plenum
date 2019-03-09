@@ -1,13 +1,15 @@
 from logging import getLogger
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.util import getMaxFailures
 from plenum.server.replica import Replica
 
 from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
-from plenum.test.helper import send_reqs_batches_and_get_suff_replies
+from plenum.test.helper import send_reqs_batches_and_get_suff_replies, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality, \
     repair_broken_node
+from stp_core.loop.eventually import eventually
 
 logger = getLogger()
 
@@ -27,6 +29,7 @@ def test_node_catchup_after_checkpoints(
     A node misses 3pc messages and checkpoints during some period but later it
     stashes some amount of checkpoints and decides to catchup.
     """
+    view_no = txnPoolNodeSet[0].viewNo
     max_batch_size = chkFreqPatched.Max3PCBatchSize
     broken_node, other_nodes = broken_node_and_others
 
