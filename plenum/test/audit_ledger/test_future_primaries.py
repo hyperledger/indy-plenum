@@ -29,7 +29,7 @@ def test_future_primaries_replicas_increase(looper, txnPoolNodeSet, sdk_pool_han
     new_view_no = checkViewNoForNodes(txnPoolNodeSet)
     assert new_view_no == starting_view_number + 1
     # "seq_no + 2" because 1 domain and 1 pool txn.
-    state = txnPoolNodeSet[0].future_primaries_handler.node_states[(last_ordered[0], last_ordered[1] + 2)]
+    state = txnPoolNodeSet[0].future_primaries_handler.node_states[-1]
     assert len(state.primaries) == len(initial_primaries) + 1
     assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
     # Because view_change happened
@@ -51,7 +51,7 @@ def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_han
 
     new_view_no = checkViewNoForNodes(txnPoolNodeSet)
     assert new_view_no == starting_view_number + 1
-    state = txnPoolNodeSet[0].future_primaries_handler.node_states[(last_ordered[0], last_ordered[1] + 1)]
+    state = txnPoolNodeSet[0].future_primaries_handler.node_states[-1]
     assert len(state.primaries) + 1 == len(initial_primaries)
     assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
     # Because view_change happened

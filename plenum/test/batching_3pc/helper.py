@@ -73,7 +73,6 @@ def add_txns_to_ledger_before_order(replica, reqs):
 
             # simulate audit ledger catchup
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
-                                                           valid_txn_count=len(reqs),
                                                            state_root=pp.stateRootHash,
                                                            txn_root=pp.txnRootHash,
                                                            primaries=self.node.primaries,

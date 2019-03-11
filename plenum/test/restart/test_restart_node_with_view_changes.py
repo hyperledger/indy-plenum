@@ -8,7 +8,7 @@ from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrat
 
 from plenum.server.node import Node
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.test.delayers import cqDelay, cs_delay, vcd_delay
+from plenum.test.delayers import msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp, waitForViewChange
 
 from plenum.test import waits
@@ -81,7 +81,7 @@ def test_restart_node_with_view_changes(tdir, tconf,
     lagging_node.nodeMsgRouter.add((ViewChangeStartMessage, processor))
 
     # Delay CurrentState messages on lagging_node to delay propagate primary
-    with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
+    with delay_rules(lagging_node.nodeIbStasher, msg_rep_delay()):
         # Add lagging_node to pool
         looper.add(lagging_node)
         txnPoolNodeSet[-1] = lagging_node
@@ -89,23 +89,19 @@ def test_restart_node_with_view_changes(tdir, tconf,
         looper.run(
             eventually(lambda: assertExp(len(lagging_node.nodeIbStasher.delayeds) >= 3)))
 
-        # Change viewNo in received CurrentStates.
-        for cs in lagging_node.nodeIbStasher.delayeds:
-            cs[0][0].viewNo = 1
-            for vcd in cs[0][0].primary:
-                vcd[f.VIEW_NO.nm] = 1
-
         # Start ViewChange (0 -> 1)
         for n in rest_nodes:
             n.view_changer.on_master_degradation()
 
-        # Wait View Change start with InstanceChange messages on lagging_node
+        # Lagging node still did not catchup, so it can't participate and process I_CH
         looper.run(
             eventually(
-                lambda: assertExp(len(view_change_started_messages) == 1)))
+                lambda: assertExp(len(view_change_started_messages) == 0)))
+
+    # Lagging node catches up till old view
     looper.run(
         eventually(
-            lambda: assertExp(lagging_node.viewNo == start_view_no + 1)))
+            lambda: assertExp(lagging_node.viewNo == start_view_no)))
 
     # Unpatch ViewChangeStartMessages processing and process delayed messages
     processor = partial(VCStartMsgStrategy.on_view_change_started,

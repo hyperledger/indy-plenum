@@ -918,7 +918,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           view_no=self.viewNo,
                                           pp_seq_no=pp_seq_no,
                                           pp_time=tm,
-                                          valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
                                           txn_root=self.txnRootHash(ledger_id, to_str=False),
                                           primaries=[],
@@ -1447,7 +1446,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 2. call callback for the applied batch
         if self.isMaster:
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
-                                                           valid_txn_count=len(reqs) - len(invalid_indices),
                                                            state_root=self.stateRootHash(pre_prepare.ledgerId,
                                                                                          to_str=False),
                                                            txn_root=self.txnRootHash(pre_prepare.ledgerId,
