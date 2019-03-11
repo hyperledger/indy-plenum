@@ -1244,7 +1244,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._info_tool.stop()
 
         self.mode = None
-        self.ledgerManager.prepare_ledgers_for_sync()
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
@@ -3205,9 +3204,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} reverted {} batches before starting catch up'.format(self, r))
 
         self.mode = Mode.starting
-        self.ledgerManager.prepare_ledgers_for_sync()
-        self.ledgerManager.catchup_ledger(self.ledgerManager.ledger_sync_order[0],
-                                          request_ledger_statuses=not just_started)
+        self.ledgerManager.start_catchup(request_ledger_statuses=not just_started)
 
     def start_catchup(self, just_started=False):
         if not self.is_synced and not just_started:
