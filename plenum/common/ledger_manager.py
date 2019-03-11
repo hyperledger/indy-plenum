@@ -67,7 +67,6 @@ class LedgerManager:
         # will be applied when they are received through the catchup process
         self.last_caught_up_3PC = (0, 0)
 
-
     def __repr__(self):
         return self.owner.name
 
