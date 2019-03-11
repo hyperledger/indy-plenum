@@ -1,6 +1,7 @@
 from typing import Optional
 
 from plenum.common.channel import RxChannel, TxChannel, Router, create_direct_channel
+from plenum.common.constants import LedgerState
 from plenum.common.messages.node_messages import ConsistencyProof
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
@@ -29,6 +30,10 @@ class LedgerLeecherService:
         self.metrics = metrics
         self._provider = provider
 
+        self._state = LedgerState.not_synced
+        self._catchup_till = None  # type: Optional[ConsistencyProof]
+        self._num_txns_caught_up = 0
+
         services_tx, services_rx = create_direct_channel()
         router = Router(services_rx)
         router.add(LedgerCatchupComplete, self._on_catchup_rep_service_stop)
@@ -53,11 +58,39 @@ class LedgerLeecherService:
     def __repr__(self):
         return "{}:LedgerLeecherService:{}".format(self._provider.node_name(), self._ledger_id)
 
-    def start(self, cons_proof: Optional[ConsistencyProof] = None):
-        pass
+    @property
+    def state(self) -> LedgerState:
+        return self._state
+
+    @property
+    def catchup_till(self) -> Optional[ConsistencyProof]:
+        return self._catchup_till
+
+    @property
+    def num_txns_caught_up(self) -> int:
+        return self._num_txns_caught_up
+
+    def start(self, request_ledger_statuses: bool, cons_proof: Optional[ConsistencyProof] = None):
+        if self._state != LedgerState.synced:
+            logger.warning('{} ignoring attempt to restart catchup'.format(self))
+            return
+
+        self._catchup_till = cons_proof
+        self._num_txns_caught_up = 0
+        if cons_proof is None:
+            self._state = LedgerState.not_synced
+            self._cons_proof_service.start(request_ledger_statuses)
+        else:
+            self._state = LedgerState.syncing
+            self._catchup_rep_service.start(cons_proof)
 
     def _on_cons_proof_service_stop(self, msg: ConsProofReady):
-        pass
+        self._state = LedgerState.syncing
+        self._catchup_till = msg.cons_proof
+        self._catchup_rep_service.start(msg.cons_proof)
 
     def _on_catchup_rep_service_stop(self, msg: LedgerCatchupComplete):
-        pass
+        self._num_txns_caught_up = msg.num_caught_up
+        self._state = LedgerState.synced
+        self._catchup_till = None
+        self._output.put_nowait(msg)
