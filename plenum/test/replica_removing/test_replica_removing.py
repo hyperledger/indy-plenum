@@ -107,12 +107,10 @@ def test_ordered_request_freed_on_replica_removal(looper,
     assert len(node.requests) == 1
 
     forwardedToBefore = next(iter(node.requests.values())).forwardedTo
-    print(forwardedToBefore)
     node.replicas.remove_replica(node.replicas.num_replicas - 1)
 
-    forwardedToAfter = next(iter(node.requests.values())).forwardedTo
-    print(forwardedToAfter)
     assert len(node.requests) == 1
+    forwardedToAfter = next(iter(node.requests.values())).forwardedTo
     assert forwardedToAfter == forwardedToBefore - 1
     chkChkpoints(txnPoolNodeSet, 1)
 
