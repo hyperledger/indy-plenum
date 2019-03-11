@@ -102,8 +102,8 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
         ensureElectionsDone(looper=looper,
                             nodes=txnPoolNodeSet)
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
-        assert all(n.master_replica.last_ordered_3pc == (last_ordered[0],
-                                                         last_ordered[1] + 2)
+        assert all(n.master_replica.last_ordered_3pc == (view_no + 1,
+                                                         1)
                    for n in txnPoolNodeSet)
         assert slow_node.catchup_rounds_without_txns == 1
 
