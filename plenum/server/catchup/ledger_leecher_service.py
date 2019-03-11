@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from plenum.common.channel import RxChannel, TxChannel, Router, create_direct_channel
 from plenum.common.constants import LedgerState
