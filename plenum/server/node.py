@@ -1244,7 +1244,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._info_tool.stop()
 
         self.mode = None
-        self.ledgerManager.prepare_ledgers_for_sync()
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
@@ -1513,10 +1512,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
+        leecher = self.ledgerManager._leechers[POOL_LEDGER_ID].service
         if self.requiredNumberOfInstances > old_required_number_of_instances \
                 and not self.view_changer.view_change_in_progress \
-                and ledgerInfo.state == LedgerState.synced:
+                and leecher.state == LedgerState.synced:
             # Select primaries must be only after pool ledger catchup
             # or if poolLedger already caughtup and we are ordering node transaction
             self.select_primaries()
@@ -2336,8 +2335,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = sum([l.num_txns_caught_up for l in
-                     self.ledgerManager.ledgerRegistry.values()])
+        count = sum([leecher.service.num_txns_caught_up
+                     for leecher in self.ledgerManager._leechers.values()])
         logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
         return count
 
@@ -3205,9 +3204,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} reverted {} batches before starting catch up'.format(self, r))
 
         self.mode = Mode.starting
-        self.ledgerManager.prepare_ledgers_for_sync()
-        self.ledgerManager.catchup_ledger(self.ledgerManager.ledger_sync_order[0],
-                                          request_ledger_statuses=not just_started)
+        self.ledgerManager.start_catchup(request_ledger_statuses=not just_started)
 
     def start_catchup(self, just_started=False):
         if not self.is_synced and not just_started:

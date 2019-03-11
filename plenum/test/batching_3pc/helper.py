@@ -7,6 +7,7 @@ from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.server.catchup.catchup_rep_service import LedgerCatchupComplete
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
@@ -68,7 +69,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             ledger_manager = node.ledgerManager
             ledger_id = DOMAIN_LEDGER_ID
-            catchup_rep_service = ledger_manager._leechers[ledger_id].catchup_rep_service
+            catchup_rep_service = ledger_manager._leechers[ledger_id].service._catchup_rep_service
 
             # simulate audit ledger catchup
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
@@ -83,9 +84,10 @@ def add_txns_to_ledger_before_order(replica, reqs):
             for req in reqs:
                 txn = append_txn_metadata(reqToTxn(req), txn_time=pp.ppTime)
                 catchup_rep_service._add_txn(txn)
-            ledger_manager.catchupCompleted(
-                DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
-
+            ledger_manager._on_leecher_service_stop(LedgerCatchupComplete(
+                ledger_id=DOMAIN_LEDGER_ID,
+                num_caught_up=len(reqs),
+                last_3pc=(node.viewNo, commit.ppSeqNo)))
             replica.added = True
 
         return origMethod(commit)
