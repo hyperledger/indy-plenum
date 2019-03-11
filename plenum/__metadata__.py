@@ -32,10 +32,12 @@ def set_version(version: str, version_file: str = VERSION_FILE):
 
 
 __title__ = 'indy-plenum'
-# __version_info__ = load_version()
-# __version__ = __version_info__.full
 __version_info__ = (1, 6)
 __version__ = '.'.join(map(str, __version_info__))
+# TODO activate once new versioning scheme becomes implemented
+# Note. double underscores
+# _version_info__ = load_version()
+# _version__ = __version_info__.full
 __author__ = "Hyperledger"
 __author_email__ = 'hyperledger-indy@lists.hyperledger.org'
 __maintainer__ = 'Hyperledger'
