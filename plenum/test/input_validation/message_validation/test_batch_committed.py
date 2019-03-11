@@ -20,7 +20,8 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("txnRootHash", MerkleRootField),
     ("seqNoStart", NonNegativeNumberField),
     ("seqNoEnd", NonNegativeNumberField),
-    ("auditTxnRootHash", MerkleRootField)
+    ("auditTxnRootHash", MerkleRootField),
+    ("primaries", IterableField)
 ])
 
 
@@ -37,7 +38,8 @@ def create_valid_batch_committed():
                           generate_state_root(),
                           1,
                           2,
-                          generate_state_root())
+                          generate_state_root(),
+                          ['Alpha', 'Beta'])
 
 
 def create_invalid_batch_committed():
@@ -51,7 +53,8 @@ def create_invalid_batch_committed():
                           generate_state_root(),
                           1,
                           2,
-                          generate_state_root())
+                          generate_state_root(),
+                          ['Alpha', 'Beta'])
 
 
 def create_valid_batch_committed_as_dict():

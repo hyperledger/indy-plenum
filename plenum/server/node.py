@@ -3280,7 +3280,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  three_pc_batch.txn_root,
                                                  first_txn_seq_no,
                                                  last_txn_seq_no,
-                                                 audit_txn_root)
+                                                 audit_txn_root,
+                                                 three_pc_batch.primaries)
             self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
@@ -3330,12 +3331,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        primaries = None
         if ledger_id == POOL_LEDGER_ID:
-            primaries = self.future_primaries_handler.post_batch_applied(three_pc_batch)
-        else:
-            primaries = self.primaries
-        three_pc_batch.primaries = primaries
+            three_pc_batch.primaries = self.future_primaries_handler.post_batch_applied(three_pc_batch)
+        elif not three_pc_batch.primaries:
+            three_pc_batch.primaries = self.primaries
         self.audit_handler.post_batch_applied(three_pc_batch)
 
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)

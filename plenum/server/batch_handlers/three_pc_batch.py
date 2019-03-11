@@ -1,4 +1,5 @@
 from plenum.common.ledger import Ledger
+from plenum.common.request import Request
 from plenum.common.types import f
 
 
@@ -54,7 +55,8 @@ class ThreePcBatch:
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None)
 
     @staticmethod
-    def from_batch_committed_dict(batch_comitted, primaries):
+    def from_batch_committed_dict(batch_comitted):
+        valid_req_keys = [Request(**req_dict).key for req_dict in batch_comitted[f.REQUESTS.nm]]
         return ThreePcBatch(ledger_id=batch_comitted[f.LEDGER_ID.nm],
                             inst_id=batch_comitted[f.INST_ID.nm],
                             view_no=batch_comitted[f.VIEW_NO.nm],
@@ -63,7 +65,7 @@ class ThreePcBatch:
                             valid_txn_count=batch_comitted[f.SEQ_NO_END.nm] - batch_comitted[f.SEQ_NO_START.nm] + 1,
                             state_root=Ledger.strToHash(batch_comitted[f.STATE_ROOT.nm]),
                             txn_root=Ledger.strToHash(batch_comitted[f.TXN_ROOT.nm]),
-                            primaries=primaries,
-                            valid_digests=batch_comitted.valid_digests,
+                            primaries=batch_comitted[f.PRIMARIES.nm],
+                            valid_digests=valid_req_keys,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
                                 f.AUDIT_TXN_ROOT_HASH.nm] is not None)
