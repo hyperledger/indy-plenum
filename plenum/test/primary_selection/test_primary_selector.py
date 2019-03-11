@@ -53,6 +53,7 @@ class FakeNode:
         self.nodeReg = {
             name: HA("127.0.0.1", 0) for name in self.allNodeNames
         }
+        self.nodeIds = []
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
@@ -92,7 +93,7 @@ class FakeNode:
         return [li.ledger_summary for li in
                 self.ledgerManager.ledgerRegistry.values()]
 
-    def get_name_by_rank(self, name, nodeReg=None):
+    def get_name_by_rank(self, name, node_reg, node_ids):
         # This is used only for getting name of next primary, so
         # it just returns a constant
         return 'Node2'
@@ -373,7 +374,7 @@ def test_send_view_change_done_message(tdir, tconf):
     node = FakeNode(str(tdir), tconf)
     view_no = node.view_changer.view_no
     new_primary_name = node.elector.node.get_name_by_rank(node.elector._get_master_primary_id(
-        view_no, node.totalNodes))
+        view_no, node.totalNodes), node.nodeReg, node.nodeIds)
     node.view_changer._send_view_change_done_message()
 
     ledgerInfo = [

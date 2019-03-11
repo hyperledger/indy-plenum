@@ -484,7 +484,7 @@ def check_last_ordered_3pc(node1, node2):
 
 
 def check_view_no(node1, node2):
-    assert node1.viewNo != node2.viewNo, \
+    assert node1.viewNo == node2.viewNo, \
         "{} != {}".format(node1.viewNo, node2.viewNo)
 
 
@@ -501,6 +501,15 @@ def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
         assert n.master_replica.last_ordered_3pc == last_ordered_3pc, \
             "{} != {}".format(n.master_replica.last_ordered_3pc,
                               last_ordered_3pc)
+
+
+def check_last_ordered_3pc_on_backup(nodes, last_ordered_3pc):
+    for n in nodes:
+        for i, r in n.replicas.items():
+            if i != 0:
+                assert r.last_ordered_3pc == last_ordered_3pc, \
+                    "{} != {}".format(r.last_ordered_3pc,
+                                      last_ordered_3pc)
 
 
 def randomText(size):
@@ -1154,6 +1163,18 @@ def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
             "random digest",
             state_root,
             '1' * 32]
+
+
+def create_prepare_from_pre_prepare(pre_prepare):
+    params = [pre_prepare.instId,
+              pre_prepare.viewNo,
+              pre_prepare.ppSeqNo,
+              pre_prepare.ppTime,
+              pre_prepare.digest,
+              pre_prepare.stateRootHash,
+              pre_prepare.txnRootHash,
+              pre_prepare.auditTxnRootHash]
+    return Prepare(*params)
 
 
 def create_prepare(req_key, state_root, inst_id=0):

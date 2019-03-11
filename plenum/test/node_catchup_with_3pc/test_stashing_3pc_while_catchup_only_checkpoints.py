@@ -141,17 +141,17 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         )
 
         # check that catch-up was started only once
-        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1
+        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2
         looper.run(
             eventually(
                 lambda: assertExp(
-                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
+                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2)
             )
         )
         looper.run(
             eventually(
                 lambda: assertExp(
-                    lagging_node.spylog.count(Node.start_catchup) == 1)
+                    lagging_node.spylog.count(Node.start_catchup) == 2)
             )
         )
 

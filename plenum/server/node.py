@@ -206,6 +206,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                 self.get_req_handler(POOL_LEDGER_ID),
                                 ha, cliname, cliha)
         self.nodeReg = self.poolManager.nodeReg
+        self.nodeIds = self.poolManager._ordered_node_ids
         self.cliNodeReg = self.poolManager.cliNodeReg
 
         # init BLS after pool manager!
@@ -1075,7 +1076,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if executer:
             return executer
         else:
-            return partial(self.default_executer, ledger_id)
+            return self.default_executer
 
     def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self)
@@ -1303,7 +1304,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceClientMsgs(limit)
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
                 c += self._serviceActions()
-            c += self.ledgerManager.service()
+            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                self.timer.service()
             with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
             c += await self.serviceViewChanger(limit)
@@ -1311,8 +1313,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
                 self.nodestack.flushOutBoxes()
-            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
-                self.timer.service()
 
         if self.isGoing():
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
@@ -2316,8 +2316,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self._catch_up_start_ts = 0
-        if self.ledgerManager.last_caught_up_3PC == (0, 0):
-            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def getLedger(self, ledgerId) -> Ledger:
         return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger

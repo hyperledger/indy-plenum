@@ -4,6 +4,7 @@ from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn,
 
 
 # BOTH TESTS NEED TO BE RUN TOGETHER AS THEY SHARE COMMITTED STATE
+from plenum.test.testing_utils import FakeSomething
 
 
 def test_revert_works_after_catchup(alh, db_manager,
@@ -17,7 +18,7 @@ def test_revert_works_after_catchup(alh, db_manager,
                        view_no=3, pp_sq_no=35, txn_time=11111)
     txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
-    alh.commit_batch(DOMAIN_LEDGER_ID, 7, state_root_hash, txn_root_hash, 11111)
+    alh.commit_batch(FakeSomething())
 
     # add txns to audit ledger emulating catchup
     caughtup_txns = 5
@@ -72,7 +73,7 @@ def test_commit_works_after_catchup(alh, db_manager,
                        view_no=3, pp_sq_no=35, txn_time=11111)
     txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
-    alh.commit_batch(DOMAIN_LEDGER_ID, 7, state_root_hash, txn_root_hash, 11111)
+    alh.commit_batch(FakeSomething())
 
     # add txns to audit ledger emulating catchup
     caughtup_txns = 5
@@ -92,7 +93,7 @@ def test_commit_works_after_catchup(alh, db_manager,
 
     txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
-    alh.commit_batch(DOMAIN_LEDGER_ID, 3, state_root_hash, txn_root_hash, 21111)
+    alh.commit_batch(FakeSomething())
 
     assert alh.ledger.uncommitted_size == alh.ledger.size
     assert alh.ledger.size == size_before + 2 + caughtup_txns
@@ -123,6 +124,7 @@ def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp
                                       valid_txn_count=txns_per_batch,
                                       state_root=db_manager.get_state(ledger_id).headHash,
                                       txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
-                                      primaries=DEFAULT_PRIMARIES)
+                                      primaries=DEFAULT_PRIMARIES,
+                                      valid_digests=[])
         alh._add_to_ledger(three_pc_batch)
     alh.ledger.commitTxns(count)

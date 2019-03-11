@@ -3,7 +3,7 @@ import sys
 from plenum.server.node import Node
 from plenum.test.delayers import cDelay, pDelay, ppDelay
 from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, sdk_check_reply
+    sdk_send_random_requests, sdk_get_replies, sdk_check_reply, check_last_ordered_3pc_on_master
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change
@@ -59,7 +59,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
     check_last_ordered(txnPoolNodeSet,
                        txnPoolNodeSet[0].master_replica.instId,
-                       (old_last_ordered[0], old_last_ordered[1] + 1))
+                       (old_last_ordered[0] + 1, 1))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
@@ -116,7 +116,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
     check_last_ordered(txnPoolNodeSet,
                        txnPoolNodeSet[0].master_replica.instId,
-                       (old_last_ordered[0], old_last_ordered[1] + 1))
+                       (old_last_ordered[0] + 1, 1))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)

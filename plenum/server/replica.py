@@ -807,7 +807,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 1. send 3PC batches with requests for every ledger
         self._send_3pc_batches_for_ledgers(sent_batches)
 
-        # 2. for every ledger we havne't just sent a 3PC batch check if it's not fresh enough,
+        # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
         # and send an empty 3PC batch to update the state if needed
         self._send_3pc_freshness_batch(sent_batches)
 
@@ -1326,6 +1326,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
+        if f.AUDIT_TXN_ROOT_HASH.nm in pp:
+            params.append(pp.auditTxnRootHash)
 
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
@@ -1609,12 +1611,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if prepare.digest != ppReq.digest:
             raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
-
         elif prepare.stateRootHash != ppReq.stateRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                 prepare)
+        elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
+            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                  prepare)
 
         try:
@@ -1921,21 +1925,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
-        ledger = self.node.auditLedger
-        for index, txn in enumerate(ledger.get_uncommitted_txns()):
-            payload_data = get_payload_data(txn)
-            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
-                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
-                if isinstance(txn_primaries, Iterable):
-                    primaries = txn_primaries
-                elif isinstance(txn_primaries, int):
-                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
-                    primaries = get_payload_data(
-                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
-                break
-        else:
-            primaries = self.node.primaries
+
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1946,7 +1936,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          primaries)
+                          self._get_primaries_for_ordered(pp))
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
@@ -1976,6 +1966,23 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica.process_order(key, self.quorums, pp)
 
         return True
+
+    def _get_primaries_for_ordered(self, pp):
+        ledger = self.node.auditLedger
+        for index, txn in enumerate(ledger.get_uncommitted_txns()):
+            payload_data = get_payload_data(txn)
+            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
+                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                if isinstance(txn_primaries, Iterable):
+                    return txn_primaries
+                elif isinstance(txn_primaries, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                    return get_payload_data(
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                break
+        else:
+            return self.node.primaries
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:

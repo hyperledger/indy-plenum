@@ -69,7 +69,7 @@ def test_catchup_not_triggered_if_another_in_progress(
         looper.run(eventually(lambda: assertExp(repaired_node.mode == Mode.discovering),
                               timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet)) +
                                       waits.expectedPoolConsistencyProof(len(txnPoolNodeSet))))
-    
+
         assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
 
         logger.info(
@@ -92,7 +92,7 @@ def test_catchup_not_triggered_if_another_in_progress(
                                          (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                                          (len(txnPoolNodeSet) - 1)),
                        timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet))))
-    
+
         # New catchup is not started when another one is in progress
         assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
         assert repaired_node.mode == Mode.discovering
@@ -102,6 +102,6 @@ def test_catchup_not_triggered_if_another_in_progress(
 
     looper.run(eventually(lambda: assertExp(repaired_node.mode == Mode.participating),
                           timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))))
-    assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
-    assert repaired_node.spylog.count(Node.allLedgersCaughtUp) - initial_all_ledgers_caught_up == 1
+    assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 2
+    assert repaired_node.spylog.count(Node.allLedgersCaughtUp) - initial_all_ledgers_caught_up == 2
     assert repaired_node.domainLedger.size == other_nodes[0].domainLedger.size

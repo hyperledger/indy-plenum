@@ -16,14 +16,14 @@ def check_rank_consistent_across_each_node(nodes):
         for other_node in nodes:
             if node != other_node:
                 oid = other_node.poolManager.id
-                assert node.poolManager.get_rank_of(oid) == node_ranks[oid]
+                assert node.poolManager.get_rank_of(oid, node.nodeReg, node.nodeIds) == node_ranks[oid]
                 ork = node_ranks[oid]
                 assert node.poolManager.get_name_by_rank(
-                    ork) == name_by_ranks[ork]
+                    ork, node.nodeReg, node.nodeIds) == name_by_ranks[ork]
     order = []
     for node in nodes:
         if isinstance(node.poolManager, TxnPoolManager):
-            order.append(node.poolManager.node_ids_ordered_by_rank())
+            order.append(node.poolManager.node_ids_ordered_by_rank(node.nodeReg, node.nodeIds))
         else:
             RuntimeError('Dont know this pool manager {}'.
                          format(node.poolManager))

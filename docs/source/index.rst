@@ -14,6 +14,7 @@ Welcome to Indy Plenum's documentation!
    diagrams/index.rst
    request_handling.md
    storage.md
+   audit_ledger.md
    catchup.md
    message_requests.md
    plugins.md
