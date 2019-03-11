@@ -4,6 +4,31 @@ note "Default storage names are in <b><color blue>blue</color></b>" as N1
 
 rectangle "Ledgers" {
 
+    database "Audit Ledger" as AL {
+      storage A1[
+      Transaction Log
+      <color blue>audit_transactions</color>
+      ]
+      storage A2[
+      Merkle Leaves
+      <color blue>audit_merkleLeaves</color>
+      ]
+      storage A3[
+      Merkle Node
+      <color blue>audit_merkleNodes</color>
+      ]
+    }
+    note top of AL
+         - Contains transactions for every ordered 3PC Batch
+         with information about the pool state at the moment
+          of batch ordering.
+         - It's used for synchronization between other ledgers
+         and recovering of pool state by new or restarted nodes.
+         - It can also be used for external audit and validation
+          of all transactions written to the ledger.
+    end note
+
+
     database "Pool Ledger" as PL {
       storage P1[
       Transaction Log
@@ -99,7 +124,9 @@ rectangle "Other" {
     <b>Node Status: <color blue>node_status_db</color></b>
 
     Auxiliary storage to persist
-    data needed for consensus algorithm
+    data needed for consensus algorithm:
+     - last pre-prepare seqNo for backup instances' primaries
+     - non-processed Instance Change messages
     ]
 
     database database2 [

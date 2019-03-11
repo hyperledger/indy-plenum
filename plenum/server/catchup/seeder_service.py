@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Any, Tuple, Optional
 
-from plenum.common.channel import RxChannel
+from plenum.common.channel import RxChannel, Router
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import CatchupReq, CatchupRep, ConsistencyProof, LedgerStatus
 from plenum.common.util import SortedDict
@@ -13,8 +13,9 @@ logger = getlogger()
 
 class SeederService:
     def __init__(self, input: RxChannel, provider: CatchupDataProvider):
-        input.set_handler(LedgerStatus, self.process_ledger_status)
-        input.set_handler(CatchupReq, self.process_catchup_req)
+        router = Router(input)
+        router.add(LedgerStatus, self.process_ledger_status)
+        router.add(CatchupReq, self.process_catchup_req)
         self._provider = provider
 
     def __repr__(self):
