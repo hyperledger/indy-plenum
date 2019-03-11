@@ -32,22 +32,22 @@ def checkNodeDataForEquality(node: TestNode,
     # Checks for node's ledgers and state's to be equal
     check_audit_ledger = not exclude_from_check or ('check_audit' not in exclude_from_check)
     for n in otherNodes:
-        if exclude_from_check and 'check_last_ordered_3pc' not in exclude_from_check:
+        if not exclude_from_check or 'check_last_ordered_3pc' not in exclude_from_check:
             check_last_ordered_3pc(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
 
-        if exclude_from_check and 'check_view_no' not in exclude_from_check:
+        if not exclude_from_check or 'check_view_no' not in exclude_from_check:
             check_view_no(node, n)
         else:
             logger.debug("Excluding check_view_no check")
 
-        if exclude_from_check and 'check_seqno_db' not in exclude_from_check:
+        if not exclude_from_check or 'check_seqno_db' not in exclude_from_check:
             check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
         else:
             logger.debug("Excluding check_seqno_db_equality check")
 
-        if exclude_from_check and 'check_primaries' not in exclude_from_check:
+        if not exclude_from_check or 'check_primaries' not in exclude_from_check:
             check_primaries_equality(node, n)
         else:
             logger.debug("Excluding check_primaries_equality check")
