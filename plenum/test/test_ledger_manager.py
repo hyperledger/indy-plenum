@@ -3,6 +3,7 @@ from plenum.test.testable import spyable
 
 ledger_manager_spyables = [LedgerManager.processConsistencyProof,
                            LedgerManager.processCatchupRep,
+                           LedgerManager.catchup_ledger,
                            LedgerManager._on_leecher_service_stop]
 
 

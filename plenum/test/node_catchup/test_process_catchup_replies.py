@@ -19,7 +19,7 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
     txn_count = num_txns_in_reply * reply_count
     ledger_manager = node.ledgerManager
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
-    catchup_rep_service = ledger_manager._leechers[ledger_id].catchup_rep_service
+    catchup_rep_service = ledger_manager._leechers[ledger_id].service._catchup_rep_service
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, txn_count)
     # add transactions to ledger
     for req in reqs:
