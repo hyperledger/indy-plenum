@@ -141,6 +141,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         )
 
         # check that catch-up was started only once
+        # TODO: When INDY-1945 will be implemented, ledgers catchup must be synchronized,
+        # so return catchup counter to 1
         assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2
         looper.run(
             eventually(
