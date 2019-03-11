@@ -8,9 +8,13 @@ As of now, RocksDB is used as a key-value database for all Storages.
 - A transaction is serialised (currently as MsgPack) before storing in the ledger, more on this in the Serialisation doc.
 - Exact format of each transaction can be found in [Indy Node Transactions](https://github.com/hyperledger/indy-node/blob/master/docs/transactions.md).
 - Each node hosts several ledgers each identified by a unique id:
-  -   Pool Ledger (id is 0): Contains transactions related to pool membership, like joining of new nodes, suspension of existing nodes, changing the IP/port or keys of existing nodes.
-  -   Domain Ledger (id is 1): Contains transactions related to the core application logic. Currently it contains NYM transactions. The `indy-node` codebase extends this ledger with other identity transactions.
-  -   Config Ledger (id is 2): Contains transactions related to the configuration parameters for which the pool needs to agree, eg. if each node of the pool needs to use the value `5` for a config variable `x`, then this ledger should contain transaction specifying the value of `x` as `5`. The `indy-node` codebase extends this ledger with source code update transactions.
+  -   Audit Ledger (id is `3`): Contains transactions for every ordered 3PC Batch with information about the pool state at the moment of batch ordering.
+   It's used for synchronization between other ledgers and recovering of pool state by new or restarted nodes.
+   It can also be used for external audit and validation of all transactions written to the ledger.
+   See [Audit Ledger](audit_ledgher.md) for more details. 
+  -   Pool Ledger (id is `0`): Contains transactions related to pool membership, like joining of new nodes, suspension of existing nodes, changing the IP/port or keys of existing nodes.
+  -   Domain Ledger (id is `1`): Contains transactions related to the core application logic. Currently it contains NYM transactions. The `indy-node` codebase extends this ledger with other identity transactions.
+  -   Config Ledger (id is `2`): Contains transactions related to the configuration parameters for which the pool needs to agree, eg. if each node of the pool needs to use the value `5` for a config variable `x`, then this ledger should contain transaction specifying the value of `x` as `5`. The `indy-node` codebase extends this ledger with source code update transactions.
   - More ledgers can be added by plugins.
 - Each correct node should have exactly the same transactions for each ledger id.
 - A ledger is associated with a [compact merkle tree](https://github.com/google/certificate-transparency/blob/master/python/ct/crypto/merkle.py). 
@@ -26,6 +30,10 @@ The leaf or node hashes are queried by their number.
 the transaction is returned with its inclusion proof. 
 - States and Caches can be deterministically re-created from the Transaction Log.
 - There are 9 storages associated with the Ledgers (3 for each of the ledgers):
+  - Audit Ledger:
+    - `audit_transactions` (Transaction Log)
+    - `audit_merkleLeaves` (Hash Store for leaves)
+    - `audit_merkleNodes` (Hash Store for nodes)
   - Pool Ledger:
     - `pool_transactions` (Transaction Log)
     - `pool_merkleLeaves` (Hash Store for leaves)
@@ -46,7 +54,7 @@ Relevant code:
 
 
 #### 2. State
-- Each Ledger has a State. State is a resulting view (projection) of the ledger data used by Node and Application business logic,
+- Each Ledger (except Audit Ledger) has a State. State is a resulting view (projection) of the ledger data used by Node and Application business logic,
 as well as for read requests.
 - The underlying data structure of state is the [Merkle Patricia Trie](https://blog.ethereum.org/2015/11/15/merkling-in-ethereum/) used by Ethereum.
 - The state can be considered a collection of key value pairs but this collection has some properties of merkle tree like a root hash and 
@@ -57,7 +65,7 @@ keys will result in the same root hash and same inclusion proof.
 - It's possible to get the current value (state) for a key, as well as
     a value from the past (defined by a state root hash). 
 - The state is built from a ledger, hence each ledger will usually have a corresponding state. State can be reconstructed from the Ledger.
-- There are 3 storages associated with every Ledger:
+- There are 3 storages associated with every Ledger except Audit one:
   - `pool_state`
   - `domain_state`
   - `config_state`
@@ -67,7 +75,11 @@ Relevant code:
 - Merkle Patricia Trie: `state/trie/pruning_trie.py`
 
 #### 3. Node Status Database
-- Auxiliary storage to persist data needed for consensus algorithm
+- Auxiliary storage to persist data needed for consensus algorithm.
+ As of now the following information is stored there:
+   - Last sent pre-prepare seqNo for primaries on backup instances to be able to recover it and continue 
+   ordering on a backup instance if the coirresponding primary is restarted.
+   - Instance Change messages from every Node a given Node hasn't yet started a View Change.
 - Storage name: `node_status_db`
 
 #### 4. BLS Multi-Signature Database
@@ -93,6 +105,7 @@ Relevant code:
 
 #### 6. Timestamp storage
 - This database stores the mapping `timestamp -> state root hash` in a key value store.
+- This is applied to transactions in Domain ledger only.
 - This is used to get the state root hash for the given timestamp to efficiently
     get data from the past.
 - Storage name: `state_ts_db`
@@ -109,7 +122,7 @@ Relevant code:
 - IdrCache: `indy-node/persistence/idr_cache.py`
 
 #### 8. Attribute Database (in Indy Node)
-- Raw attributes from ATTRIB transaction are stored in this database.
+- Raw and encoded attributes from ATTRIB transaction are stored in this database.
 - The ATTRIB transaction in the Domain Ledger contains the hash of the data only.
 - Storage name: `attr_db`
 
