@@ -30,7 +30,7 @@ class LedgerLeecherService:
         self.metrics = metrics
         self._provider = provider
 
-        self._state = LedgerState.not_synced
+        self._state = LedgerState.not_synced  # TODO: Improve enum
         self._catchup_till = None  # type: Optional[ConsistencyProof]
         self._num_txns_caught_up = 0
 
@@ -71,10 +71,6 @@ class LedgerLeecherService:
         return self._num_txns_caught_up
 
     def start(self, request_ledger_statuses: bool, cons_proof: Optional[ConsistencyProof] = None):
-        if self._state != LedgerState.synced:
-            logger.warning('{} ignoring attempt to restart catchup'.format(self))
-            return
-
         self._catchup_till = cons_proof
         self._num_txns_caught_up = 0
         if cons_proof is None:
@@ -83,6 +79,11 @@ class LedgerLeecherService:
         else:
             self._state = LedgerState.syncing
             self._catchup_rep_service.start(cons_proof)
+
+    def reset(self):
+        self._state = LedgerState.not_synced
+        self._catchup_till = None  # type: Optional[ConsistencyProof]
+        self._num_txns_caught_up = 0
 
     def _on_cons_proof_service_stop(self, msg: ConsProofReady):
         self._state = LedgerState.syncing
