@@ -1921,21 +1921,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
-        ledger = self.node.auditLedger
-        for index, txn in enumerate(ledger.get_uncommitted_txns()):
-            payload_data = get_payload_data(txn)
-            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
-                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
-                if isinstance(txn_primaries, Iterable):
-                    primaries = txn_primaries
-                elif isinstance(txn_primaries, int):
-                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
-                    primaries = get_payload_data(
-                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
-                break
-        else:
-            primaries = self.node.primaries
+
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1946,7 +1932,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          primaries)
+                          self._get_primaries_for_ordered(pp))
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
@@ -1976,6 +1962,23 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica.process_order(key, self.quorums, pp)
 
         return True
+
+    def _get_primaries_for_ordered(self, pp):
+        ledger = self.node.auditLedger
+        for index, txn in enumerate(ledger.get_uncommitted_txns()):
+            payload_data = get_payload_data(txn)
+            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
+                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                if isinstance(txn_primaries, Iterable):
+                    return txn_primaries
+                elif isinstance(txn_primaries, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                    return get_payload_data(
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                break
+        else:
+            return self.node.primaries
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
