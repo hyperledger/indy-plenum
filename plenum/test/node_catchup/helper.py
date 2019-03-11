@@ -3,7 +3,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.constants import AUDIT_LEDGER_ID
+from plenum.common.constants import AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
     Checkpoint
 from plenum.common.util import check_if_all_equal_in_list
@@ -196,3 +196,11 @@ def repair_broken_node(node):
         )
     )
     return node
+
+
+def get_number_of_completed_catchups(node):
+    cnt = 0
+    for entry in node.ledgerManager.spylog.getAll(node.ledgerManager._on_leecher_service_stop):
+        if entry.params['msg'].ledger_id == DOMAIN_LEDGER_ID:
+            cnt += 1
+    return cnt

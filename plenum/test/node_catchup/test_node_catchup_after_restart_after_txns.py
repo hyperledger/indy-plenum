@@ -112,7 +112,7 @@ def test_node_catchup_after_restart_with_txns(
             if entry.starttime <= bad_send_time:
                 continue
             cons_proof = entry.params['proof']
-            service = newNode.ledgerManager._leechers[cons_proof.ledgerId].cons_proof_service
+            service = newNode.ledgerManager._leechers[cons_proof.ledgerId].service._cons_proof_service
             if not service._can_process_consistency_proof(cons_proof):
                 return
         assert False
