@@ -96,8 +96,8 @@ def test_node_catchup_after_restart_with_txns(
                           LedgerState.syncing, retryWait=.5, timeout=50))
 
     confused_node = txnPoolNodeSet[0]
-    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
-    cp = new_node_ledger.catchUpTill
+    new_node_leecher = newNode.ledgerManager._leechers[DOMAIN_LEDGER_ID].service
+    cp = new_node_leecher.catchup_till
     start, end = cp.seqNoStart, cp.seqNoEnd
     cons_proof = confused_node.ledgerManager._node_seeder._build_consistency_proof(
         DOMAIN_LEDGER_ID, start, end)

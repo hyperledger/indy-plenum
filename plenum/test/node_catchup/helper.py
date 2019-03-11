@@ -106,8 +106,7 @@ def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None,
 
 
 def check_ledger_state(node, ledger_id, ledger_state):
-    assertEquality(node.ledgerManager.getLedgerInfoByType(ledger_id).state,
-                   ledger_state)
+    assertEquality(node.ledgerManager._leechers[ledger_id].service.state, ledger_state)
 
 
 def check_last_3pc_master(node, other_nodes):

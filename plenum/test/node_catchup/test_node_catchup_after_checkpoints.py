@@ -75,8 +75,7 @@ def test_node_catchup_after_checkpoints(
 
 def get_number_of_completed_catchups(node):
     cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(
-            node.ledgerManager.catchupCompleted):
-        if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
+    for entry in node.ledgerManager.spylog.getAll(node.ledgerManager._on_leecher_service_stop):
+        if entry.params['msg'].ledger_id == DOMAIN_LEDGER_ID:
             cnt += 1
     return cnt
