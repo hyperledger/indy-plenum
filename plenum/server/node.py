@@ -825,6 +825,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
         self._catch_up_start_ts = time.perf_counter()
+        self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
         """
