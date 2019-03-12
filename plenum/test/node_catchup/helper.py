@@ -9,7 +9,8 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
 from plenum.common.util import check_if_all_equal_in_list, getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
-    check_seqno_db_equality, assertEquality, check_last_ordered_3pc, check_primaries_equality, check_view_no
+    check_seqno_db_equality, assertEquality, check_last_ordered_3pc, check_primaries_equality, check_view_no, \
+    check_last_ordered_3pc_backup
 from plenum.test.test_node import TestNode
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -36,6 +37,11 @@ def checkNodeDataForEquality(node: TestNode,
             check_last_ordered_3pc(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
+
+        if not exclude_from_check or 'check_last_ordered_3pc_backup' not in exclude_from_check:
+            check_last_ordered_3pc_backup(node, n)
+        else:
+            logger.debug("Excluding check_last_ordered_3pc_backup check")
 
         if not exclude_from_check or 'check_view_no' not in exclude_from_check:
             check_view_no(node, n)

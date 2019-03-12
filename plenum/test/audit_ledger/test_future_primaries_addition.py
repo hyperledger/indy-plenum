@@ -59,4 +59,3 @@ def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_han
 
     for node in txnPoolNodeSet:
         node.future_primaries_handler.commit_batch = old_commit
-
