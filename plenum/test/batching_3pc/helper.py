@@ -8,7 +8,7 @@ from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.catchup.catchup_rep_service import LedgerCatchupComplete
-from plenum.server.catchup.node_leecher_service import AllLedgersCaughtUp
+from plenum.server.catchup.utils import NodeCatchupComplete
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
@@ -89,7 +89,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
                 ledger_id=DOMAIN_LEDGER_ID,
                 num_caught_up=len(reqs),
                 last_3pc=(node.viewNo, commit.ppSeqNo)))
-            ledger_manager._on_catchup_complete(AllLedgersCaughtUp())
+            ledger_manager._on_catchup_complete(NodeCatchupComplete())
             replica.added = True
 
         return origMethod(commit)
