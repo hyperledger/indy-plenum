@@ -2,23 +2,18 @@ import math
 from collections import defaultdict
 from heapq import merge
 from random import shuffle
-from typing import Optional, List, Tuple, Any, NamedTuple
+from typing import Optional, List, Tuple, Any
 
 from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
-from plenum.common.metrics_collector import MetricsCollector, MetricsName, measure_time
+from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.timer import TimerService
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
-                                   [('ledger_id', int),
-                                    ('num_caught_up', int),
-                                    ('last_3pc', Optional[Tuple[int, int]])])
 
 
 class CatchupRepService:

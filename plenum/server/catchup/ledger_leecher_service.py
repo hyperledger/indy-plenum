@@ -5,9 +5,9 @@ from plenum.common.constants import LedgerState
 from plenum.common.messages.node_messages import ConsistencyProof
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
-from plenum.server.catchup.catchup_rep_service import CatchupRepService, LedgerCatchupComplete
-from plenum.server.catchup.cons_proof_service import ConsProofService, ConsProofReady
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.catchup_rep_service import CatchupRepService
+from plenum.server.catchup.cons_proof_service import ConsProofService
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupStart, LedgerCatchupComplete
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -36,8 +36,8 @@ class LedgerLeecherService:
 
         services_tx, services_rx = create_direct_channel()
         router = Router(services_rx)
-        router.add(LedgerCatchupComplete, self._on_catchup_rep_service_stop)
-        router.add(ConsProofReady, self._on_cons_proof_service_stop)
+        router.add(LedgerCatchupStart, self._on_catchup_start)
+        router.add(LedgerCatchupComplete, self._on_catchup_complete)
 
         self._cons_proof_service = ConsProofService(ledger_id=ledger_id,
                                                     config=config,
@@ -85,12 +85,13 @@ class LedgerLeecherService:
         self._catchup_till = None  # type: Optional[ConsistencyProof]
         self._num_txns_caught_up = 0
 
-    def _on_cons_proof_service_stop(self, msg: ConsProofReady):
+    def _on_catchup_start(self, msg: LedgerCatchupStart):
         self._state = LedgerState.syncing
         self._catchup_till = msg.cons_proof
+        self._output.put_nowait(msg)
         self._catchup_rep_service.start(msg.cons_proof)
 
-    def _on_catchup_rep_service_stop(self, msg: LedgerCatchupComplete):
+    def _on_catchup_complete(self, msg: LedgerCatchupComplete):
         self._num_txns_caught_up = msg.num_caught_up
         self._state = LedgerState.synced
         self._catchup_till = None

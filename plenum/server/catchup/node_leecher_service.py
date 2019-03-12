@@ -1,18 +1,15 @@
 from enum import Enum
-from typing import Dict, Optional, NamedTuple
+from typing import Dict, Optional
 
 from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
-from plenum.server.catchup.catchup_rep_service import LedgerCatchupComplete
 from plenum.server.catchup.ledger_leecher_service import LedgerLeecherService
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-AllLedgersCaughtUp = NamedTuple('AllLedgerCaughtUp', [])
 
 
 class NodeLeecherService:
@@ -42,7 +39,8 @@ class NodeLeecherService:
         self._current_ledger = None  # type: Optional[int]
 
         self._leecher_outbox, rx = create_direct_channel()
-        Router(rx).add(LedgerCatchupComplete, self._on_ledger_leecher_stop)
+        Router(rx).add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
+        rx.subscribe(lambda msg: output.put_nowait(msg))
 
         self._leechers = {}  # type: Dict[int, LedgerLeecherService]
 
@@ -69,9 +67,7 @@ class NodeLeecherService:
     def num_txns_caught_up_in_last_catchup(self) -> int:
         return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
 
-    def _on_ledger_leecher_stop(self, msg: LedgerCatchupComplete):
-        self._output.put_nowait(msg)
-
+    def _on_ledger_catchup_complete(self, msg: LedgerCatchupComplete):
         if self._state == self.State.SyncingAudit:
             self._on_audit_synced(msg)
         elif self._state == self.State.SyncingPool:
@@ -111,7 +107,7 @@ class NodeLeecherService:
             self._leechers[self._current_ledger].start(request_ledger_statuses=True)
         else:
             self._state = self.State.Idle
-            self._output.put_nowait(AllLedgersCaughtUp())
+            self._output.put_nowait(NodeCatchupComplete())
 
     def _get_next_ledger(self, ledger_id: Optional[int]) -> Optional[int]:
         ledger_ids = list(self._leechers.keys())

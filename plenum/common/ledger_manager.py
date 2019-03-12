@@ -10,11 +10,10 @@ from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, ConsistencyProof, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.util import compare_3PC_keys
-from plenum.server.catchup.catchup_rep_service import LedgerCatchupComplete
-from plenum.server.catchup.cons_proof_service import ConsProofReady
 from plenum.server.catchup.node_catchup_data import CatchupNodeDataProvider
-from plenum.server.catchup.node_leecher_service import NodeLeecherService, AllLedgersCaughtUp
+from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService
+from plenum.server.catchup.utils import LedgerCatchupStart, LedgerCatchupComplete, NodeCatchupComplete
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -51,8 +50,9 @@ class LedgerManager:
 
         leecher_outbox_tx, leecher_outbox_rx = create_direct_channel()
         router = Router(leecher_outbox_rx)
+        router.add(LedgerCatchupStart, self._on_ledger_sync_start)
         router.add(LedgerCatchupComplete, self._on_ledger_sync_complete)
-        router.add(AllLedgersCaughtUp, self._on_catchup_complete)
+        router.add(NodeCatchupComplete, self._on_catchup_complete)
 
         self._node_leecher_inbox, rx = create_direct_channel()
         self._node_leecher = NodeLeecherService(config=config,
@@ -129,14 +129,14 @@ class LedgerManager:
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         self._node_leecher_inbox.put_nowait((rep, frm))
 
-    def _on_ledger_sync_start(self, msg: ConsProofReady):
+    def _on_ledger_sync_start(self, msg: LedgerCatchupStart):
         pass
 
     def _on_ledger_sync_complete(self, msg: LedgerCatchupComplete):
         if msg.last_3pc is not None and compare_3PC_keys(self.last_caught_up_3PC, msg.last_3pc) > 0:
             self.last_caught_up_3PC = msg.last_3pc
 
-    def _on_catchup_complete(self, _: AllLedgersCaughtUp):
+    def _on_catchup_complete(self, _: NodeCatchupComplete):
         if self.postAllLedgersCaughtUp:
             self.postAllLedgersCaughtUp()
 
