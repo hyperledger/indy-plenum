@@ -10,7 +10,6 @@ def test_primaries_in_ordered_from_audit(test_node):
     replica.prePrepares[key] = pre_prepare
     test_node.primaries = ["Alpha", "Beta"]
     three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pre_prepare,
-                                                   valid_txn_count=len(pre_prepare.reqIdr),
                                                    state_root=pre_prepare.stateRootHash,
                                                    txn_root=pre_prepare.txnRootHash,
                                                    primaries=["Alpha", "Beta", "Gamma"],
@@ -34,7 +33,6 @@ def test_primaries_in_ordered_from_audit_for_tree_txns(test_node):
         key = (pp.viewNo, pp.ppSeqNo)
         replica.prePrepares[key] = pp
         three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
-                                                       valid_txn_count=len(pp.reqIdr),
                                                        state_root=pp.stateRootHash,
                                                        txn_root=pp.txnRootHash,
                                                        primaries=["Node{}".format(num)

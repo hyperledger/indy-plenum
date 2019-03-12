@@ -33,7 +33,7 @@ class BatchRequestHandler:
 
     @staticmethod
     def _commit(ledger, state, three_pc_batch: ThreePcBatch):
-        _, committedTxns = ledger.commitTxns(three_pc_batch.valid_txn_count)
+        _, committedTxns = ledger.commitTxns(len(three_pc_batch.valid_digests))
         state_root = state_roots_serializer.deserialize(three_pc_batch.state_root.encode()) if isinstance(
             three_pc_batch.state_root, str) else three_pc_batch.state_root
         # TODO test for that

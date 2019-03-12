@@ -121,7 +121,6 @@ def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp
                                       view_no=view_no,
                                       pp_seq_no=initial_pp_seq_no + i,
                                       pp_time=pp_time,
-                                      valid_txn_count=txns_per_batch,
                                       state_root=db_manager.get_state(ledger_id).headHash,
                                       txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
                                       primaries=DEFAULT_PRIMARIES,

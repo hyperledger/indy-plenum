@@ -483,6 +483,16 @@ def check_last_ordered_3pc(node1, node2):
     return master_replica_1.last_ordered_3pc
 
 
+def check_last_ordered_3pc_backup(node1, node2):
+    assert len(node1.replicas) == len(node2.replicas)
+    for i in range(1, len(node1.replicas)):
+        replica1 = node1.replicas[i]
+        replica2 = node2.replicas[i]
+        assert replica1.last_ordered_3pc == replica2.last_ordered_3pc, \
+            "{} != {}".format(replica1.last_ordered_3pc,
+                              replica2.last_ordered_3pc)
+
+
 def check_view_no(node1, node2):
     assert node1.viewNo == node2.viewNo, \
         "{} != {}".format(node1.viewNo, node2.viewNo)

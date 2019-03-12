@@ -3,13 +3,14 @@ from functools import partial
 
 import pytest
 
-from plenum.common.constants import AUDIT_LEDGER_ID
+from plenum.common.constants import AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
     Checkpoint
 from plenum.common.util import check_if_all_equal_in_list, getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
-    check_seqno_db_equality, assertEquality, check_last_ordered_3pc, check_primaries_equality, check_view_no
+    check_seqno_db_equality, assertEquality, check_last_ordered_3pc, check_primaries_equality, check_view_no, \
+    check_last_ordered_3pc_backup
 from plenum.test.test_node import TestNode
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -36,6 +37,11 @@ def checkNodeDataForEquality(node: TestNode,
             check_last_ordered_3pc(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
+
+        if not exclude_from_check or 'check_last_ordered_3pc_backup' not in exclude_from_check:
+            check_last_ordered_3pc_backup(node, n)
+        else:
+            logger.debug("Excluding check_last_ordered_3pc_backup check")
 
         if not exclude_from_check or 'check_view_no' not in exclude_from_check:
             check_view_no(node, n)
@@ -116,8 +122,7 @@ def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None,
 
 
 def check_ledger_state(node, ledger_id, ledger_state):
-    assertEquality(node.ledgerManager.getLedgerInfoByType(ledger_id).state,
-                   ledger_state)
+    assertEquality(node.ledgerManager._leechers[ledger_id].service.state, ledger_state)
 
 
 def check_last_3pc_master(node, other_nodes):
@@ -207,3 +212,11 @@ def repair_broken_node(node):
         )
     )
     return node
+
+
+def get_number_of_completed_catchups(node):
+    cnt = 0
+    for entry in node.ledgerManager.spylog.getAll(node.ledgerManager._on_leecher_service_stop):
+        if entry.params['msg'].ledger_id == DOMAIN_LEDGER_ID:
+            cnt += 1
+    return cnt

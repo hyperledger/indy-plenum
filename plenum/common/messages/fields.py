@@ -9,13 +9,13 @@ import dateutil
 
 from common.exceptions import PlenumTypeError, PlenumValueError
 from common.error import error
+from common.version import (
+    InvalidVersionError, VersionBase, GenericVersion
+)
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
-from plenum.common.version import (
-    InvalidVersionError, DigitDotVersion, SemVerReleaseVersion
-)
 from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
 
 
@@ -536,17 +536,13 @@ class SerializedValueField(FieldBase):
 class VersionField(LimitedLengthStringField):
     _base_types = (str,)
 
-    # TODO components_number is legacy arg, will be removed,
-    # use version_cls instead
     def __init__(
             self,
-            version_cls: Type[DigitDotVersion] = SemVerReleaseVersion,
-            components_number: Iterable[int] = None,
+            version_cls: Type[VersionBase] = GenericVersion,
             max_length: int = VERSION_FIELD_LIMIT,
             **kwargs
     ):
         super().__init__(max_length=max_length, **kwargs)
-        self._comp_num = components_number
         self._version_cls = version_cls
 
     def _specific_validation(self, val):
@@ -555,12 +551,7 @@ class VersionField(LimitedLengthStringField):
             return lim_str_err
 
         try:
-            # TODO legacy logic support, will be removed
-            if self._comp_num:
-                DigitDotVersion(
-                    val, parts_num=self._comp_num, allow_non_stripped=False)
-            else:
-                self._version_cls(val, allow_non_stripped=False)
+            self._version_cls(val)
         except InvalidVersionError as exc:
             return str(exc)
         else:

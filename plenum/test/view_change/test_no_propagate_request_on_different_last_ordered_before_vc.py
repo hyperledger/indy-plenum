@@ -47,19 +47,19 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
     primary = getPrimaryReplica(txnPoolNodeSet, slow_instance).node
     non_primaries = [n for n in txnPoolNodeSet if n is not primary]
 
-    check_last_ordered(non_primaries,
-                       slow_instance,
-                       (old_view_no, old_last_ordered[1] + 1))
+    looper.run(eventually(check_last_ordered, non_primaries,
+                          slow_instance,
+                          (old_view_no + 1, 1)))
 
     # Backup primary replica must not advance last_ordered_3pc
     # up to the master's value
-    check_last_ordered([primary],
-                       slow_instance,
-                       (old_view_no, old_last_ordered[1]))
+    looper.run(eventually(check_last_ordered, [primary],
+                          slow_instance,
+                          (old_view_no + 1, 1)))
 
-    check_last_ordered(txnPoolNodeSet,
-                       txnPoolNodeSet[0].master_replica.instId,
-                       (old_last_ordered[0] + 1, 1))
+    looper.run(eventually(check_last_ordered, txnPoolNodeSet,
+                          txnPoolNodeSet[0].master_replica.instId,
+                          (old_last_ordered[0] + 1, 1)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
@@ -104,19 +104,19 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
     primary = getPrimaryReplica(txnPoolNodeSet, slow_instance).node
     non_primaries = [n for n in txnPoolNodeSet if n is not primary]
 
-    check_last_ordered(non_primaries,
-                       slow_instance,
-                       (old_view_no, old_last_ordered[1] + 1))
+    looper.run(eventually(check_last_ordered, non_primaries,
+                          slow_instance,
+                          (old_view_no, old_last_ordered[1] + 1)))
 
     # Backup primary replica must not advance last_ordered_3pc
     # up to the master's value
-    check_last_ordered([primary],
-                       slow_instance,
-                       (old_view_no, old_last_ordered[1]))
+    looper.run(eventually(check_last_ordered, [primary],
+                          slow_instance,
+                          (old_view_no, old_last_ordered[1])))
 
-    check_last_ordered(txnPoolNodeSet,
-                       txnPoolNodeSet[0].master_replica.instId,
-                       (old_last_ordered[0] + 1, 1))
+    looper.run(eventually(check_last_ordered, txnPoolNodeSet,
+                          txnPoolNodeSet[0].master_replica.instId,
+                          (old_last_ordered[0] + 1, 1)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
@@ -124,7 +124,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
         eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance,
-                   (txnPoolNodeSet[0].viewNo, 1)))
+                   (txnPoolNodeSet[0].viewNo, 2)))
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
@@ -162,9 +162,9 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
     for reply in replies:
         sdk_check_reply(reply)
 
-    check_last_ordered(slow_nodes,
-                       master_instance,
-                       (old_view_no, last_ordered_for_slow[1] + 1))
+    looper.run(eventually(check_last_ordered, slow_nodes,
+                          master_instance,
+                          (old_view_no, last_ordered_for_slow[1] + 1)))
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
