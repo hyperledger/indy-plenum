@@ -522,7 +522,7 @@ class ValidatorNodeInfoTool:
         freshness_status = {}
 
         for lid, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            leecher = self._node.ledgerManager._leechers[lid].service
+            leecher = self._node.ledgerManager._node_leecher._leechers[lid]
             cons_proof_service = leecher._cons_proof_service
 
             ledger_statuses[lid] = self._prepare_for_json(leecher.state.name)

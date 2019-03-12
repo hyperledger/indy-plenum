@@ -19,7 +19,7 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
     txn_count = num_txns_in_reply * reply_count
     ledger_manager = node.ledgerManager
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
-    catchup_rep_service = ledger_manager._leechers[ledger_id].service._catchup_rep_service
+    catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, txn_count)
     # add transactions to ledger
     for req in reqs:
@@ -69,7 +69,7 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     in reverse order will call a few iterations of cycle in _processCatchupRep
     '''
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    catchup_rep_service = ledger_manager._leechers[ledger_id].service._catchup_rep_service
+    catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
     ledger_size = ledger.size
     num_txns_in_reply = 3
@@ -128,7 +128,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     in reverse order will call a few iterations of cycle in _processCatchupRep
     '''
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    catchup_rep_service = ledger_manager._leechers[ledger_id].service._catchup_rep_service
+    catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
     ledger_size = ledger.size
     num_txns_in_reply = 3

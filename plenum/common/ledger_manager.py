@@ -40,7 +40,7 @@ class LedgerManager:
         self.request_consistency_proof_action_ids = dict()
         self.metrics = metrics
 
-        self.config = getConfig()
+        config = getConfig()
         provider = CatchupNodeDataProvider(owner)
 
         self._client_seeder_inbox, rx = create_direct_channel()
@@ -55,7 +55,7 @@ class LedgerManager:
         router.add(AllLedgersCaughtUp, self._on_catchup_complete)
 
         self._node_leecher_inbox, rx = create_direct_channel()
-        self._node_leecher = NodeLeecherService(config=self.config,
+        self._node_leecher = NodeLeecherService(config=config,
                                                 input=rx,
                                                 output=leecher_outbox_tx,
                                                 timer=self._timer,
@@ -74,18 +74,17 @@ class LedgerManager:
     def __repr__(self):
         return self.owner.name
 
-    def addLedger(self, iD: int, ledger: Ledger,
-                  preCatchupStartClbk: Callable = None,
-                  postCatchupCompleteClbk: Callable = None,
-                  postTxnAddedToLedgerClbk: Callable = None):
+    def addLedger(self, ledger_id: int, ledger: Ledger,
+                  preCatchupStartClbk: Optional[Callable] = None,
+                  postCatchupCompleteClbk: Optional[Callable] = None,
+                  postTxnAddedToLedgerClbk: Optional[Callable] = None):
 
-        if iD in self.ledgerRegistry:
-            logger.error("{} already present in ledgers "
-                         "so cannot replace that ledger".format(iD))
+        if ledger_id in self.ledgerRegistry:
+            logger.error("{} already present in ledgers so cannot replace that ledger".format(ledger_id))
             return
 
-        self.ledgerRegistry[iD] = LedgerInfo(
-            iD,
+        self.ledgerRegistry[ledger_id] = LedgerInfo(
+            ledger_id,
             ledger=ledger,
             preCatchupStartClbk=preCatchupStartClbk,
             postCatchupCompleteClbk=postCatchupCompleteClbk,
@@ -93,19 +92,13 @@ class LedgerManager:
             verifier=MerkleVerifier(ledger.hasher)
         )
 
-        self._node_leecher.register_ledger(iD)
+        self._node_leecher.register_ledger(ledger_id)
 
     def start_catchup(self, request_ledger_statuses: bool):
         self._node_leecher.start(request_ledger_statuses)
 
     @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
-        self._send_to_seeder(status, frm)
-
-        # If the ledger status is from client then we do nothing more
-        if self.getStack(frm) == self.clientstack:
-            return
-
         # TODO: vvv Move this into common LEDGER_STATUS validation
         if status.txnSeqNo < 0:
             return
@@ -115,7 +108,11 @@ class LedgerManager:
             return
         # TODO: ^^^
 
-        self._node_leecher_inbox.put_nowait((status, frm))
+        if self.nodestack.hasRemote(frm):
+            self._node_seeder_inbox.put_nowait((status, frm))
+            self._node_leecher_inbox.put_nowait((status, frm))
+        else:
+            self._client_seeder_inbox.put_nowait((status, frm))
 
     @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
@@ -123,8 +120,12 @@ class LedgerManager:
 
     @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
     def processCatchupReq(self, req: CatchupReq, frm: str):
-        self._send_to_seeder(req, frm)
+        if self.nodestack.hasRemote(frm):
+            self._node_seeder_inbox.put_nowait((req, frm))
+        else:
+            self._client_seeder_inbox.put_nowait((req, frm))
 
+    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         self._node_leecher_inbox.put_nowait((rep, frm))
 
@@ -144,44 +145,15 @@ class LedgerManager:
             raise KeyError("Invalid ledger type: {}".format(ledgerType))
         return self.ledgerRegistry[ledgerType]
 
-    def _send_to_seeder(self, msg: Any, frm: str):
-        if self.nodestack.hasRemote(frm):
-            self._node_seeder_inbox.put_nowait((msg, frm))
-        else:
-            self._client_seeder_inbox.put_nowait((msg, frm))
-
-    def getStack(self, remoteName: str):
-        if self.nodestack.hasRemote(remoteName):
-            return self.nodestack
-        else:
-            return self.clientstack
-
     def sendTo(self, msg: Any, to: str, message_splitter=None):
-        stack = self.getStack(to)
-        if stack == self.nodestack:
-            self.sendToNodes(msg, [to, ], message_splitter)
-        if stack == self.clientstack:
+        if self.nodestack.hasRemote(to):
+            self.owner.sendToNodes(msg, [to, ], message_splitter)
+        else:
             self.owner.transmitToClient(msg, to)
 
     @property
     def nodestack(self):
         return self.owner.nodestack
-
-    @property
-    def clientstack(self):
-        return self.owner.clientstack
-
-    @property
-    def send(self):
-        return self.owner.send
-
-    @property
-    def sendToNodes(self):
-        return self.owner.sendToNodes
-
-    @property
-    def discard(self):
-        return self.owner.discard
 
     @property
     def blacklistedNodes(self):

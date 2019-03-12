@@ -105,13 +105,11 @@ class CatchupRepService:
                                                       num_caught_up=num_caught_up,
                                                       last_3pc=last_3pc))
 
-    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
-        logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
-        self._wait_catchup_rep_from.discard(frm)
-
         if not self._can_process_catchup_rep(rep):
             return
+
+        self._wait_catchup_rep_from.discard(frm)
 
         txns = self._get_interesting_txns_from_catchup_rep(rep)
         if len(txns) == 0:
@@ -278,12 +276,11 @@ class CatchupRepService:
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
     def _can_process_catchup_rep(self, rep: CatchupRep) -> bool:
-        if not self._is_working:
-            logger.info('{} ignoring {} since it is not gathering catchup replies'.format(self, rep))
+        if rep.ledgerId != self._ledger_id:
             return False
 
-        if rep.ledgerId != self._ledger_id:
-            logger.warning('{} cannot process {} for different ledger'.format(self, rep))
+        if not self._is_working:
+            logger.info('{} ignoring {} since it is not gathering catchup replies'.format(self, rep))
             return False
 
         return True

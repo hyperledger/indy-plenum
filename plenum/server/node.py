@@ -1512,7 +1512,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
-        leecher = self.ledgerManager._leechers[POOL_LEDGER_ID].service
+        leecher = self.ledgerManager._node_leecher._leechers[POOL_LEDGER_ID]
         if self.requiredNumberOfInstances > old_required_number_of_instances \
                 and not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:

@@ -29,7 +29,7 @@ def node_and_leecher(txnPoolNodeSet):
     ledger_manager = node.ledgerManager
     ledger_manager.last_caught_up_3PC = (0, 0)
 
-    leecher = ledger_manager._leechers[ledger_id].service
+    leecher = ledger_manager._node_leecher._leechers[ledger_id]
     leecher.start(request_ledger_statuses=False)
 
     ledger_status = node.build_ledger_status(ledger_id)
