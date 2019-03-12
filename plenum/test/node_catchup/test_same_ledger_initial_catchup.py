@@ -2,7 +2,8 @@ import pytest
 
 # noinspection PyUnresolvedReferences
 from ledger.test.conftest import tempdir, txn_serializer, hash_serializer  # noqa
-from plenum.common.constants import LedgerState, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, TXN_PAYLOAD_DATA, \
+    TXN_PAYLOAD, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.messages.node_messages import LedgerStatus
 
 nodeCount = 7
@@ -18,6 +19,9 @@ def node_and_leecher(txnPoolNodeSet):
     node = txnPoolNodeSet[0]
 
     node.master_replica.last_ordered_3pc = (0, 0)
+
+    for replica in node.replicas.values():
+        replica.primaryName = None
 
     view_changer = node.view_changer
     view_changer.propagate_primary = True
@@ -54,15 +58,16 @@ def test_same_ledger_status_quorum(txnPoolNodeSet,
         assert cons_proof_service._same_ledger_status == status_from
         assert leecher.state == LedgerState.not_synced
 
-    node_name = txnPoolNodeSet[4].name
-    cons_proof_service.process_ledger_status(ledger_status, node_name)
+    node = txnPoolNodeSet[4]
+    cons_proof_service.process_ledger_status(ledger_status, node.name)
 
     assert cons_proof_service._same_ledger_status == set()
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_same_3PC(txnPoolNodeSet,
-                                                  node_and_leecher):
+                                                  node_and_leecher,
+                                                  monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same not None 3PC keys
@@ -73,7 +78,10 @@ def test_same_ledger_status_last_ordered_same_3PC(txnPoolNodeSet,
                                       2, 20,
                                       ledger_status_none_3PC.merkleRoot,
                                       CURRENT_PROTOCOL_VERSION)
-
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_2_40.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_2_40.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_2_40, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_2_40, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_2_40, txnPoolNodeSet[3].name)
@@ -81,18 +89,24 @@ def test_same_ledger_status_last_ordered_same_3PC(txnPoolNodeSet,
     assert leecher.state == LedgerState.not_synced
 
     cons_proof_service.process_ledger_status(ledger_status_2_40, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (2, 20)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_same_None_3PC(txnPoolNodeSet,
-                                                       node_and_leecher):
+                                                       node_and_leecher,
+                                                       monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same None 3PC keys (like at the initial start of the pool)
     '''
     node, leecher, ledger_status_none_3PC, cons_proof_service = node_and_leecher
 
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_none_3PC.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_none_3PC.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[3].name)
@@ -100,12 +114,14 @@ def test_same_ledger_status_last_ordered_same_None_3PC(txnPoolNodeSet,
     assert leecher.state == LedgerState.not_synced
 
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (0, 0)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_one_not_none_3PC_last(txnPoolNodeSet,
-                                                               node_and_leecher):
+                                                               node_and_leecher,
+                                                  monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same None 3PC keys except the last one.
@@ -120,6 +136,10 @@ def test_same_ledger_status_last_ordered_one_not_none_3PC_last(txnPoolNodeSet,
                                       ledger_status_none_3PC.merkleRoot,
                                       CURRENT_PROTOCOL_VERSION)
 
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_3_40.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_3_40.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[3].name)
@@ -127,12 +147,14 @@ def test_same_ledger_status_last_ordered_one_not_none_3PC_last(txnPoolNodeSet,
     assert leecher.state == LedgerState.not_synced
 
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (0, 0)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_one_not_none_3PC_first(txnPoolNodeSet,
-                                                                node_and_leecher):
+                                                                node_and_leecher,
+                                                       monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same None 3PC keys except the first one.
@@ -147,6 +169,10 @@ def test_same_ledger_status_last_ordered_one_not_none_3PC_first(txnPoolNodeSet,
                                       ledger_status_none_3PC.merkleRoot,
                                       CURRENT_PROTOCOL_VERSION)
 
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_3_40.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_3_40.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[3].name)
@@ -154,12 +180,14 @@ def test_same_ledger_status_last_ordered_one_not_none_3PC_first(txnPoolNodeSet,
     assert leecher.state == LedgerState.not_synced
 
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (0, 0)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_not_none_3PC_quorum_with_none(txnPoolNodeSet,
-                                                                       node_and_leecher):
+                                                                       node_and_leecher,
+                                                       monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same not None 3PC keys except the last one.
@@ -173,7 +201,10 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum_with_none(txnPoolNo
                                       3, 40,
                                       ledger_status_none_3PC.merkleRoot,
                                       CURRENT_PROTOCOL_VERSION)
-
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_3_40.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_3_40.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[3].name)
@@ -181,12 +212,14 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum_with_none(txnPoolNo
     assert leecher.state == LedgerState.not_synced
 
     cons_proof_service.process_ledger_status(ledger_status_none_3PC, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (3, 40)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_not_none_3PC_quorum1(txnPoolNodeSet,
-                                                              node_and_leecher):
+                                                              node_and_leecher,
+                                                       monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same not None 3PC keys except the last one.
@@ -207,19 +240,29 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum1(txnPoolNodeSet,
                                       ledger_status_none_3PC.merkleRoot,
                                       CURRENT_PROTOCOL_VERSION)
 
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_1_10.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_1_10.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_1_10, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_1_10, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_1_10, txnPoolNodeSet[3].name)
     assert node.master_last_ordered_3PC == (0, 0)
     assert leecher.state == LedgerState.not_synced
 
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_3_40.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_3_40.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (1, 10)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_not_none_3PC_quorum2(txnPoolNodeSet,
-                                                              node_and_leecher):
+                                                              node_and_leecher,
+                                                       monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs
     if all LedgerStatus msgs have the same not None 3PC keys except the last one.
@@ -239,20 +282,29 @@ def test_same_ledger_status_last_ordered_not_none_3PC_quorum2(txnPoolNodeSet,
                                       3, 40,
                                       ledger_status_none_3PC.merkleRoot,
                                       CURRENT_PROTOCOL_VERSION)
-
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_3_40.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_3_40.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[1].name)
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[2].name)
     cons_proof_service.process_ledger_status(ledger_status_3_40, txnPoolNodeSet[3].name)
     assert node.master_last_ordered_3PC == (0, 0)
     assert leecher.state == LedgerState.not_synced
 
+    monkeypatch.setattr(node.getLedger(AUDIT_LEDGER_ID),
+                        'get_last_committed_txn',
+                        lambda: {TXN_PAYLOAD: {TXN_PAYLOAD_DATA: {AUDIT_TXN_VIEW_NO: ledger_status_1_10.viewNo,
+                                                                  AUDIT_TXN_PP_SEQ_NO: ledger_status_1_10.ppSeqNo}}})
     cons_proof_service.process_ledger_status(ledger_status_1_10, txnPoolNodeSet[4].name)
+    monkeypatch.undo()
     assert node.master_last_ordered_3PC == (3, 40)
     assert leecher.state == LedgerState.synced
 
 
 def test_same_ledger_status_last_ordered_not_none_3PC_no_quorum_equal(txnPoolNodeSet,
-                                                                      node_and_leecher):
+                                                                      node_and_leecher,
+                                                       monkeypatch):
     '''
     Check that last_ordered_3PC is set according to 3PC from LedgerStatus msgs.
     Check that if we have no quorum (2 different keys, but 3 is required ror quorum), then

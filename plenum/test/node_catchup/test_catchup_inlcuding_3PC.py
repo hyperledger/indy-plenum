@@ -17,9 +17,9 @@ def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet,
         sdk_node_created_after_some_txns
     txnPoolNodeSet.append(new_node)
 
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
     # Check the new node has set same `last_3pc_ordered` for master as others
     check_last_3pc_master(new_node, txnPoolNodeSet[:4])
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
 
     # check that the node has the same primaries
     ensureElectionsDone(looper=looper,
