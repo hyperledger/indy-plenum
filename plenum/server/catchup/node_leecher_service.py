@@ -38,9 +38,9 @@ class NodeLeecherService:
         # TODO: Get rid of this, theoretically most ledgers can be synced in parallel
         self._current_ledger = None  # type: Optional[int]
 
-        self._leecher_outbox, rx = create_direct_channel()
-        Router(rx).add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
-        rx.subscribe(lambda msg: output.put_nowait(msg))
+        self._leecher_outbox, self._leecher_outbox_rx = create_direct_channel()
+        Router(self._leecher_outbox_rx).add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
+        self._leecher_outbox_rx.subscribe(lambda msg: output.put_nowait(msg))
 
         self._leechers = {}  # type: Dict[int, LedgerLeecherService]
 
