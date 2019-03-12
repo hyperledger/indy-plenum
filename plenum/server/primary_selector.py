@@ -97,17 +97,9 @@ class PrimarySelector(PrimaryDecider):
         # Select primaries after usual catchup (not view change)
         ledger = self.node.getLedger(AUDIT_LEDGER_ID)
         if len(ledger) == 0:
-            if self.viewNo != 0:
-                raise LogicError('If audit ledger is empty, view_no must be 0. '
-                                 'Because this node just started, did not order any txn '
-                                 'and did not make a view change.')
-            for replica in self.replicas.values():
-                if replica.primaryName is not None:
-                    raise LogicError('If audit ledger is empty, '
-                                     'all primaries must not be set yet')
-            if len(self.replicas) != self.node.requiredNumberOfInstances:
-                raise LogicError('If audit ledger is empty, all replicas'
-                                 'must be active')
+            self.node.backup_instance_faulty_processor.restore_replicas()
+            self.node.drop_primaries()
+
             self.node.select_primaries()
         else:
             self.node.backup_instance_faulty_processor.restore_replicas()
