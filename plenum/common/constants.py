@@ -100,7 +100,6 @@ VERIFIABLE_ATTRIBUTES = 'verifiableAttributes'
 PREDICATES = 'predicates'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
-KEY = "key"
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
