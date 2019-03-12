@@ -33,9 +33,9 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
     """
     newNode = sdk_new_node_caught_up
     starts = newNode.ledgerManager.spylog.getAll(
-        TestLedgerManager.catchup_ledger.__name__)
+        TestLedgerManager._on_ledger_sync_complete.__name__)
     completes = newNode.ledgerManager.spylog.getAll(
-        TestLedgerManager._on_leecher_service_stop.__name__)
+        TestLedgerManager._on_ledger_sync_complete.__name__)
     startTimes = {}
     completionTimes = {}
     for start in starts:

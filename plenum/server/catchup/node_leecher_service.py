@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, Optional, NamedTuple
 
-from plenum.common.channel import TxChannel, RxChannel, create_direct_channel
+from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
@@ -42,6 +42,7 @@ class NodeLeecherService:
         self._current_ledger = None  # type: Optional[int]
 
         self._leecher_outbox, rx = create_direct_channel()
+        Router(rx).add(LedgerCatchupComplete, self._on_ledger_leecher_stop)
 
         self._leechers = {}  # type: Dict[int, LedgerLeecherService]
 
@@ -65,7 +66,12 @@ class NodeLeecherService:
         self._state = self.State.SyncingAudit
         self._leechers[AUDIT_LEDGER_ID].start(request_ledger_statuses)
 
+    def num_txns_caught_up_in_last_catchup(self) -> int:
+        return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
+
     def _on_ledger_leecher_stop(self, msg: LedgerCatchupComplete):
+        self._output.put_nowait(msg)
+
         if self._state == self.State.SyncingAudit:
             self._on_audit_synced(msg)
         elif self._state == self.State.SyncingPool:

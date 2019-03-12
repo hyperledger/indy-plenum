@@ -2335,8 +2335,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = sum([leecher.service.num_txns_caught_up
-                     for leecher in self.ledgerManager._leechers.values()])
+        count = self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
         logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
         return count
 
