@@ -180,4 +180,4 @@ class DomainRequestHandler(LedgerRequestHandler):
             encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
             multi_sig = self.bls_store.get(encoded_root_hash)
-        self.super(path, head_hash, with_proof, multi_sig)
+        return super().get_value_from_state(path, head_hash, with_proof, multi_sig)
