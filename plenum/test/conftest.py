@@ -1160,8 +1160,8 @@ def sdk_new_node_caught_up(txnPoolNodeSet,
 
     # Check if catchup done once
     catchup_done_once = True
-    for li in new_node.ledgerManager.ledgerRegistry.values():
-        catchup_done_once = catchup_done_once and (li.num_txns_caught_up > 0)
+    for leecher in new_node.ledgerManager._leechers.values():
+        catchup_done_once = catchup_done_once and (leecher.service.num_txns_caught_up > 0)
 
     if not catchup_done_once:
         # It might be the case that node has to do catchup again, in that case

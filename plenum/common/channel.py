@@ -140,7 +140,7 @@ class AsyncioChannelService:
 
 
 class RouterBase:
-    def __init__(self, strict: bool = True):
+    def __init__(self, strict: bool = False):
         self._strict = strict
         self._routes = {}  # type: Dict[Type, Callable]
 
@@ -160,14 +160,14 @@ class RouterBase:
             return
         return handler(*msg)
 
-    def _find_handler(self, msg: Any) -> Callable:
+    def _find_handler(self, msg: Any) -> Optional[Callable]:
         for cls, handler in self._routes.items():
             if isinstance(msg, cls):
                 return handler
 
 
 class Router(RouterBase):
-    def __init__(self, input: RxChannel, strict: bool = True):
+    def __init__(self, input: RxChannel, strict: bool = False):
         RouterBase.__init__(self, strict)
         input.subscribe(self._process_sync)
 
