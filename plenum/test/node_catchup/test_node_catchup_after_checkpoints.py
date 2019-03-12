@@ -8,8 +8,6 @@ from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality, \
-    repair_broken_node
-from stp_core.loop.eventually import eventually
     repair_broken_node, get_number_of_completed_catchups
 
 logger = getLogger()
