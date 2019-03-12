@@ -11,40 +11,37 @@ from .__metadata__ import (
 )
 
 import sys
+
 if sys.version_info < (3, 5, 0):
     raise ImportError("Python 3.5.0 or later required.")
-
-import pip  # noqa
-import os   # noqa
-import importlib    # noqa
-from importlib.util import module_from_spec, spec_from_file_location    # noqa: E402
-
-import plenum   # noqa: E402
-import plenum.server.plugin     # noqa: E402
-
-from plenum.common.config_util import getConfigOnce   # noqa: E402
-
 
 PLUGIN_LEDGER_IDS = set()
 PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 
-def find_and_load_plugin(plugin_name, plugin_root, installed_packages):
-    if plugin_name in installed_packages:
-        # TODO: Need a test for installed packages
-        plugin_name = plugin_name.replace('-', '_')
-        plugin = importlib.import_module(plugin_name)
-    else:
-        plugin_path = os.path.join(plugin_root.__path__[0],
-                                   plugin_name, '__init__.py')
-        spec = spec_from_file_location('__init__.py', plugin_path)
-        plugin = module_from_spec(spec)
-        spec.loader.exec_module(plugin)
-
-    return plugin
-
-
 def setup_plugins():
+    import os   # noqa
+    import pip  # noqa
+    import importlib    # noqa
+    from importlib.util import module_from_spec, spec_from_file_location    # noqa: E402
+    import plenum   # noqa: E402
+    import plenum.server.plugin     # noqa: E402
+    from plenum.common.config_util import getConfigOnce   # noqa: E402
+
+    def find_and_load_plugin(plugin_name, plugin_root, installed_packages):
+        if plugin_name in installed_packages:
+            # TODO: Need a test for installed packages
+            plugin_name = plugin_name.replace('-', '_')
+            plugin = importlib.import_module(plugin_name)
+        else:
+            plugin_path = os.path.join(plugin_root.__path__[0],
+                                       plugin_name, '__init__.py')
+            spec = spec_from_file_location('__init__.py', plugin_path)
+            plugin = module_from_spec(spec)
+            spec.loader.exec_module(plugin)
+
+        return plugin
+
     # TODO: Should have a check to make sure no plugin defines any conflicting ledger id or request field
     global PLUGIN_LEDGER_IDS
     global PLUGIN_CLIENT_REQUEST_FIELDS
@@ -77,7 +74,15 @@ def setup_plugins():
     importlib.reload(plenum.common.messages.node_message_factory)
 
 
-setup_plugins()
-
-from plenum.common.jsonpickle_util import setUpJsonpickle   # noqa: E402
-setUpJsonpickle()
+try:
+    # TODO the goal here is to make early import of packaging
+    # before any 'pip' imports happens since the latter somehow (TODO check why)
+    # may switch imports to wheels (e.g. installed with debian package
+    # python-pip-whl_8.1.1)
+    import packaging
+except ImportError:
+    pass  # it is expected in raw env
+else:
+    setup_plugins()
+    from plenum.common.jsonpickle_util import setUpJsonpickle   # noqa: E402
+    setUpJsonpickle()
