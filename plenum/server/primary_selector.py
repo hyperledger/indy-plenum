@@ -96,15 +96,11 @@ class PrimarySelector(PrimaryDecider):
     def on_catchup_complete(self):
         # Select primaries after usual catchup (not view change)
         ledger = self.node.getLedger(AUDIT_LEDGER_ID)
+        self.node.backup_instance_faulty_processor.restore_replicas()
+        self.node.drop_primaries()
         if len(ledger) == 0:
-            self.node.backup_instance_faulty_processor.restore_replicas()
-            self.node.drop_primaries()
-
             self.node.select_primaries()
         else:
-            self.node.backup_instance_faulty_processor.restore_replicas()
-            self.node.drop_primaries()
-
             # Emulate view change start
             self.node.view_changer.previous_view_no = self.node.viewNo
             self.node.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
