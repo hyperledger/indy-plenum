@@ -397,6 +397,8 @@ class BatchCommitted(MessageBase):
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
+        (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
     )
 
 
