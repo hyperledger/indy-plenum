@@ -522,11 +522,12 @@ class ValidatorNodeInfoTool:
         freshness_status = {}
 
         for lid, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            cons_proof_service = self._node.ledgerManager._leechers[lid].cons_proof_service
-            catchup_rep_service = self._node.ledgerManager._leechers[lid].catchup_rep_service
-            ledger_statuses[lid] = self._prepare_for_json(linfo.state.name)
-            waiting_cp[lid] = self._prepare_for_json(catchup_rep_service._catchup_till)
-            num_txns_in_catchup[lid] = self._prepare_for_json(linfo.num_txns_caught_up)
+            leecher = self._node.ledgerManager._leechers[lid].service
+            cons_proof_service = leecher._cons_proof_service
+
+            ledger_statuses[lid] = self._prepare_for_json(leecher.state.name)
+            waiting_cp[lid] = self._prepare_for_json(leecher.catchup_till)
+            num_txns_in_catchup[lid] = self._prepare_for_json(leecher.num_txns_caught_up)
             last_txn_3PC_keys[lid] = self._prepare_for_json(cons_proof_service._last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
                 uncommited_ledger_root_hashes[lid] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
