@@ -2,14 +2,13 @@ import json
 import os
 import time
 from binascii import unhexlify
-from collections import deque, defaultdict
+from collections import deque
 from contextlib import closing
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
 import gc
 import psutil
-from intervaltree import IntervalTree
 from plenum.server.replica import Replica
 
 from common.exceptions import LogicError
@@ -17,7 +16,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.common.gc_trackers import GcTimeTracker, GcObjectTree
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
-    async_measure_time, measure_time, MetricsCollector
+    async_measure_time, measure_time
 from plenum.common.timer import QueueTimer
 from plenum.common.transactions import PlenumTransactions
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
