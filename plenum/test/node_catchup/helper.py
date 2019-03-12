@@ -3,7 +3,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.constants import AUDIT_LEDGER_ID
+from plenum.common.constants import AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
     Checkpoint
 from plenum.common.util import check_if_all_equal_in_list
@@ -106,8 +106,7 @@ def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None,
 
 
 def check_ledger_state(node, ledger_id, ledger_state):
-    assertEquality(node.ledgerManager.getLedgerInfoByType(ledger_id).state,
-                   ledger_state)
+    assertEquality(node.ledgerManager._leechers[ledger_id].service.state, ledger_state)
 
 
 def check_last_3pc_master(node, other_nodes):
@@ -125,31 +124,29 @@ def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
     nodes_to_send_proof_of_small_ledger = {n.name for n in other_nodes}
     orig_methods = {}
     for node in other_nodes:
-        orig_methods[node.name] = node.ledgerManager._buildConsistencyProof
+        seeder = node.ledgerManager._node_seeder
+        orig_methods[node.name] = seeder._build_consistency_proof
 
         def patched_method(self, ledgerId, seqNoStart, seqNoEnd):
-            if self.owner.name in nodes_to_send_proof_of_small_ledger:
+            node_name = self._provider.node_name()
+            if node_name in nodes_to_send_proof_of_small_ledger:
                 import inspect
                 curframe = inspect.currentframe()
                 calframe = inspect.getouterframes(curframe, 2)
                 # For domain ledger, send a proof for a small ledger to the bad
                 # node
-                if calframe[1][
-                    3] == node.ledgerManager.getConsistencyProof.__name__ \
-                        and calframe[2].frame.f_locals['frm'] == target_node.name \
+                if calframe[1][3] == seeder.process_ledger_status.__name__ \
+                        and calframe[1].frame.f_locals['frm'] == target_node.name \
                         and ledgerId == ledger_id:
                     # Pop so this node name, so proof for smaller ledger is not
                     # served again
-                    nodes_to_send_proof_of_small_ledger.remove(self.owner.name)
-                    logger.debug('{} sending a proof to {} for {} instead '
-                                 'of {}'.format(self.owner.name, target_node.name,
-                                                seqNoEnd - shorten_by, seqNoEnd))
-                    return orig_methods[node.name](ledgerId, seqNoStart,
-                                                   seqNoEnd - shorten_by)
+                    nodes_to_send_proof_of_small_ledger.remove(node_name)
+                    logger.debug('{} sending a proof to {} for {} instead of {}'.
+                                 format(node_name, target_node.name, seqNoEnd - shorten_by, seqNoEnd))
+                    return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd - shorten_by)
             return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)
 
-        node.ledgerManager._buildConsistencyProof = types.MethodType(
-            patched_method, node.ledgerManager)
+        seeder._build_consistency_proof = types.MethodType(patched_method, seeder)
 
 
 def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
@@ -159,34 +156,34 @@ def make_a_node_catchup_less(target_node, other_nodes, ledger_id, shorten_by):
     """
     orig_methods = {}
     for node in other_nodes:
-        node.catchup_twice = True
-        orig_methods[node.name] = node.ledgerManager._buildConsistencyProof
+        seeder = node.ledgerManager._node_seeder
+        seeder.catchup_twice = True
+        orig_methods[node.name] = seeder._build_consistency_proof
 
         def patched_method(self, ledgerId, seqNoStart, seqNoEnd):
-            if self.owner.catchup_twice:
+            node_name = self._provider.node_name()
+            if self.catchup_twice:
                 import inspect
                 curframe = inspect.currentframe()
                 calframe = inspect.getouterframes(curframe, 2)
                 # For domain ledger, send a proof for a small ledger to the bad
                 # node
-                if calframe[1][
-                    3] == node.ledgerManager.getConsistencyProof.__name__ \
-                        and calframe[2].frame.f_locals['frm'] == target_node.name \
+                if calframe[1][3] == seeder.process_ledger_status.__name__ \
+                        and calframe[1].frame.f_locals['frm'] == target_node.name \
                         and ledgerId == ledger_id:
-                    logger.debug('{} sending a proof to {} for {} instead '
-                                 'of {}'.format(self.owner.name, target_node.name,
-                                                seqNoEnd - shorten_by, seqNoEnd))
+                    logger.info('{} sending a proof to {} for {} instead of {}'.
+                                format(node_name, target_node.name, seqNoEnd - shorten_by, seqNoEnd))
                     return orig_methods[node.name](ledgerId, seqNoStart,
                                                    seqNoEnd - shorten_by)
             return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)
 
-        node.ledgerManager._buildConsistencyProof = types.MethodType(
-            patched_method, node.ledgerManager)
+        seeder._build_consistency_proof = types.MethodType(patched_method, seeder)
 
 
 def repair_node_catchup_less(other_nodes):
     for node in other_nodes:
-        node.catchup_twice = False
+        seeder = node.ledgerManager._node_seeder
+        seeder.catchup_twice = False
 
 
 def repair_broken_node(node):
@@ -199,3 +196,11 @@ def repair_broken_node(node):
         )
     )
     return node
+
+
+def get_number_of_completed_catchups(node):
+    cnt = 0
+    for entry in node.ledgerManager.spylog.getAll(node.ledgerManager._on_leecher_service_stop):
+        if entry.params['msg'].ledger_id == DOMAIN_LEDGER_ID:
+            cnt += 1
+    return cnt

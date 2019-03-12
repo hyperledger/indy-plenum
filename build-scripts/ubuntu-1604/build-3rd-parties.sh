@@ -84,3 +84,4 @@ build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package
 build_from_pypi python-rocksdb 0.6.9
 build_from_pypi pympler 0.5
+build_from_pypi packaging 19.0

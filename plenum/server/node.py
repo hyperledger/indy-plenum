@@ -1,6 +1,5 @@
 import json
 import os
-import random
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
@@ -15,9 +14,11 @@ from intervaltree import IntervalTree
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_key_manager import LoadBLSKeyError
+from plenum.common.gc_trackers import GcTimeTracker, GcObjectTree
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time, MetricsCollector
 from plenum.common.timer import QueueTimer
+from plenum.common.transactions import PlenumTransactions
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -125,100 +126,6 @@ from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
 logger = getlogger()
-
-
-class GcObject:
-    def __init__(self, obj):
-        self.obj = obj
-        self.referents = [id(ref) for ref in gc.get_referents(obj)]
-        self.referrers = set()
-
-
-class GcObjectTree:
-    def __init__(self):
-        self.objects = {id(obj): GcObject(obj) for obj in gc.get_objects()}
-        for obj_id, obj in self.objects.items():
-            for ref_id in obj.referents:
-                if ref_id in self.objects:
-                    self.objects[ref_id].referrers.add(obj_id)
-
-    def report_top_obj_types(self, num=50):
-        stats = defaultdict(int)
-        for obj in self.objects.values():
-            stats[type(obj.obj)] += 1
-        for k, v in sorted(stats.items(), key=lambda kv: -kv[1])[:num]:
-            logger.info("    {}: {}".format(k, v))
-
-    def report_top_collections(self, num=10):
-        fat_objects = [(o.obj, len(o.referents)) for o in self.objects.values()]
-        fat_objects = sorted(fat_objects, key=lambda kv: -kv[1])[:num]
-
-        logger.info("Top big collections tracked by garbage collector:")
-        for obj, count in fat_objects:
-            logger.info("    {}: {}".format(type(obj), count))
-            self.report_collection_owners(obj)
-            self.report_collection_items(obj)
-
-    def report_collection_owners(self, obj):
-        referrers = {ref_id for ref_id in self.objects[id(obj)].referrers if ref_id in self.objects}
-        for _ in range(3):
-            self.add_super_referrerrs(referrers)
-        referrers = {type(self.objects[ref_id].obj) for ref_id in referrers}
-
-        logger.info("        Referrers:")
-        for v in referrers:
-            logger.info("            {}".format(v))
-
-    def add_super_referrerrs(self, referrers):
-        for ref_id in list(referrers):
-            for sup_ref_id in self.objects[ref_id].referrers:
-                if sup_ref_id in self.objects:
-                    referrers.add(sup_ref_id)
-
-    def report_collection_items(self, obj):
-        if not isinstance(obj, Iterable):
-            return
-        tmp_list = list(obj)
-        samples = random.sample(tmp_list, 3)
-
-        logger.info("        Samples:")
-        for k in samples:
-            if isinstance(obj, Dict):
-                logger.info("            {} : {}".format(repr(k), repr(obj[k])))
-            else:
-                logger.info("            {}".format(repr(k)))
-
-    def cleanup(self):
-        del self.objects
-
-
-class GcTimeTracker:
-    def __init__(self, metrics: MetricsCollector):
-        self._metrics = metrics
-        self._timestamps = {}
-        gc.callbacks.append(self._gc_callback)
-
-    def _gc_callback(self, action, info):
-        gen = info['generation']
-
-        collected = info.get('collected', 0)
-        if collected > 0:
-            self._metrics.add_event(MetricsName.GC_TOTAL_COLLECTED_OBJECTS, collected)
-            self._metrics.add_event(MetricsName.GC_GEN0_COLLECTED_OBJECTS + gen, collected)
-
-        uncollectable = info.get('uncollectable', 0)
-        if uncollectable > 0:
-            self._metrics.add_event(MetricsName.GC_UNCOLLECTABLE_OBJECTS, uncollectable)
-
-        if action == 'start':
-            self._timestamps[gen] = time.perf_counter()
-        else:
-            start = self._timestamps.get(gen)
-            if start is None:
-                return
-            elapsed = time.perf_counter() - start
-            self._metrics.add_event(MetricsName.GC_GEN0_TIME + gen, elapsed)
-            self._timestamps[gen] = None
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
@@ -1055,15 +962,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainLedgerStatus(self):
         return self.build_ledger_status(DOMAIN_LEDGER_ID)
 
-    def getLedgerRootHash(self, ledgerId, isCommitted=True):
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
-        if not ledgerInfo:
-            raise RuntimeError('Ledger with id {} does not exist')
-        ledger = ledgerInfo.ledger
-        if isCommitted:
-            return ledger.root_hash
-        return ledger.uncommitted_root_hash
-
     def stateRootHash(self, ledgerId, isCommitted=True):
         state = self.states.get(ledgerId)
         if not state:
@@ -1126,7 +1024,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_new_ledger_manager(self) -> LedgerManager:
         ledger_sync_order = self.ledger_ids
-        return LedgerManager(self, ownedByNode=True,
+        return LedgerManager(self,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp,
                              preCatchupClbk=self.preLedgerCatchUp,
                              postCatchupClbk=self.postLedgerCatchUp,
@@ -1346,7 +1244,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._info_tool.stop()
 
         self.mode = None
-        self.ledgerManager.prepare_ledgers_for_sync()
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
@@ -1404,7 +1301,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceClientMsgs(limit)
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
                 c += self._serviceActions()
-            c += self.ledgerManager.service()
+            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                self.timer.service()
             with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
             c += await self.serviceViewChanger(limit)
@@ -1412,8 +1310,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
                 self.nodestack.flushOutBoxes()
-            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
-                self.timer.service()
 
         if self.isGoing():
             with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
@@ -1616,10 +1512,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
+        leecher = self.ledgerManager._leechers[POOL_LEDGER_ID].service
         if self.requiredNumberOfInstances > old_required_number_of_instances \
                 and not self.view_changer.view_change_in_progress \
-                and ledgerInfo.state == LedgerState.synced:
+                and leecher.state == LedgerState.synced:
             # Select primaries must be only after pool ledger catchup
             # or if poolLedger already caughtup and we are ordering node transaction
             self.select_primaries()
@@ -2439,8 +2335,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = sum([l.num_txns_caught_up for l in
-                     self.ledgerManager.ledgerRegistry.values()])
+        count = sum([leecher.service.num_txns_caught_up
+                     for leecher in self.ledgerManager._leechers.values()])
         logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
         return count
 
@@ -3308,9 +3204,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} reverted {} batches before starting catch up'.format(self, r))
 
         self.mode = Mode.starting
-        self.ledgerManager.prepare_ledgers_for_sync()
-        self.ledgerManager.catchup_ledger(self.ledgerManager.ledger_sync_order[0],
-                                          request_ledger_statuses=not just_started)
+        self.ledgerManager.start_catchup(request_ledger_statuses=not just_started)
 
     def start_catchup(self, just_started=False):
         if not self.is_synced and not just_started:
@@ -3819,9 +3713,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def transform_txn_for_ledger(self, txn):
         txn_type = get_type(txn)
         req_handler = self.get_req_handler(txn_type=txn_type)
-        if not req_handler:
-            return txn
-        return req_handler.transform_txn_for_ledger(txn)
+        if req_handler:
+            return req_handler.transform_txn_for_ledger(txn)
+
+        # TODO: fix once pluggable request handlers are integrated
+        if get_type(txn) == PlenumTransactions.AUDIT.value:
+            # Makes sure that we have integer as keys after possible deserialization from json
+            return self.audit_handler.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self

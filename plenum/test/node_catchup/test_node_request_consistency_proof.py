@@ -1,10 +1,11 @@
 import types
 
+import plenum.server.catchup.cons_proof_service as catchup_utils
 from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF, CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
+from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.test.node_request.message_request.helper import \
     count_msg_reqs_of_type
-from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import LedgerStatus
 from plenum.test.helper import sdk_send_random_requests
@@ -40,29 +41,30 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     # The new node sends different ledger statuses to every node so it
     # does not get enough similar consistency proofs
     next_size = 0
-    origMethod = new_node.build_ledger_status
+    origMethod = catchup_utils.build_ledger_status
 
-    def build_broken_ledger_status(self, ledger_id):
+    def build_broken_ledger_status(ledger_id: int, provider: CatchupDataProvider):
         nonlocal next_size
+        if provider.node_name() != new_node.name:
+            return origMethod(ledger_id, provider)
         if ledger_id != DOMAIN_LEDGER_ID:
-            return origMethod(ledger_id)
+            return origMethod(ledger_id, provider)
 
-        size = self.domainLedger.size
+        domain_ledger = provider.ledger(DOMAIN_LEDGER_ID)
+
+        size = domain_ledger.size
         next_size = next_size + 1 if next_size < size else 1
         print("new size {}".format(next_size))
 
-        newRootHash = Ledger.hashToStr(
-            self.domainLedger.tree.merkle_tree_hash(0, next_size))
-        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
-                                                           next_size)
+        newRootHash = Ledger.hashToStr(domain_ledger.tree.merkle_tree_hash(0, next_size))
+        three_pc_key = provider.three_phase_key_for_txn_seq_no(ledger_id, next_size)
         v, p = three_pc_key if three_pc_key else None, None
         ledgerStatus = LedgerStatus(1, next_size, v, p, newRootHash,
                                     CURRENT_PROTOCOL_VERSION)
         print("dl status {}".format(ledgerStatus))
         return ledgerStatus
 
-    new_node.build_ledger_status = types.MethodType(
-        build_broken_ledger_status, new_node)
+    catchup_utils.build_ledger_status = build_broken_ledger_status
 
     logger.debug(
         'Domain Ledger status sender of {} patched'.format(new_node))

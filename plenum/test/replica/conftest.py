@@ -9,7 +9,8 @@ from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import MockTimestamp, sdk_random_request_objects, create_pre_prepare_params
+from plenum.test.helper import MockTimestamp, sdk_random_request_objects, create_pre_prepare_params, \
+    create_prepare_from_pre_prepare
 from plenum.test.testing_utils import FakeSomething
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 
@@ -100,6 +101,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
         gc=lambda *args: None,
         update_pre_prepare=lambda params, l_id: params,
         validate_pre_prepare=lambda a, b: None,
+        validate_prepare=lambda a, b: None,
         update_prepare=lambda a, b: a,
         process_prepare=lambda a, b: None,
         process_pre_prepare=lambda a, b: None,
@@ -163,3 +165,8 @@ def pre_prepare(replica, state_roots, txn_roots, multi_sig, fake_requests):
                                        reqs=fake_requests)
     pp = PrePrepare(*params)
     return pp
+
+
+@pytest.fixture(scope="function")
+def prepare(pre_prepare):
+    return create_prepare_from_pre_prepare(pre_prepare)

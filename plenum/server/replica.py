@@ -805,7 +805,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 1. send 3PC batches with requests for every ledger
         self._send_3pc_batches_for_ledgers(sent_batches)
 
-        # 2. for every ledger we havne't just sent a 3PC batch check if it's not fresh enough,
+        # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
         # and send an empty 3PC batch to update the state if needed
         self._send_3pc_freshness_batch(sent_batches)
 
@@ -1310,6 +1310,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
+        if f.AUDIT_TXN_ROOT_HASH.nm in pp:
+            params.append(pp.auditTxnRootHash)
 
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
@@ -1591,12 +1593,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if prepare.digest != ppReq.digest:
             raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
-
         elif prepare.stateRootHash != ppReq.stateRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                 prepare)
+        elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
+            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                  prepare)
 
         try:

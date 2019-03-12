@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 
 from common.exceptions import LogicError
 from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL
@@ -11,7 +11,7 @@ class DatabaseManager():
         self.databases = {}  # type: Dict[int, Database]
         self.stores = {}
 
-    def register_new_database(self, lid, ledger: Ledger, state: State = None):
+    def register_new_database(self, lid, ledger: Ledger, state: Optional[State] = None):
         if lid in self.databases:
             raise LogicError('Trying to add already existing database')
         self.databases[lid] = Database(ledger, state)
