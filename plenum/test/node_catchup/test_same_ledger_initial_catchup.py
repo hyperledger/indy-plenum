@@ -1,42 +1,59 @@
+from types import MethodType
+
 import pytest
 
 # noinspection PyUnresolvedReferences
 from ledger.test.conftest import tempdir, txn_serializer, hash_serializer  # noqa
+from plenum.common.channel import Router
 from plenum.common.constants import LedgerState, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import LedgerStatus
+from plenum.server.catchup.utils import NodeCatchupComplete, LedgerCatchupComplete
 
 nodeCount = 7
 
 ledger_id = 1
 
 
-@pytest.yield_fixture(scope="function")
-def node_and_leecher(txnPoolNodeSet):
+@pytest.fixture(scope="module")
+def patched_node(txnPoolNodeSet):
+    node = txnPoolNodeSet[0]
+
+    node_leecher = node.ledgerManager._node_leecher
+    router = Router(node_leecher._leecher_outbox_rx)
+
+    def patched_ledger_catchup_complete(msg):
+        node_leecher._output.put_nowait(NodeCatchupComplete())
+
+    router.add(LedgerCatchupComplete, patched_ledger_catchup_complete)
+
+    return node
+
+
+@pytest.fixture(scope="function")
+def node_and_leecher(patched_node):
     '''
     Emulate restart of the node (clean state)
     '''
-    node = txnPoolNodeSet[0]
+    patched_node.txn_seq_range_to_3phase_key = {}
+    patched_node.master_replica.last_ordered_3pc = (0, 0)
 
-    node.txn_seq_range_to_3phase_key = {}
-    node.master_replica.last_ordered_3pc = (0, 0)
-
-    view_changer = node.view_changer
+    view_changer = patched_node.view_changer
     view_changer.propagate_primary = True
     view_changer.view_no = 0
     view_changer.view_change_in_progress = True
     view_changer.set_defaults()
 
-    ledger_manager = node.ledgerManager
+    ledger_manager = patched_node.ledgerManager
     ledger_manager.last_caught_up_3PC = (0, 0)
 
-    leecher = ledger_manager._leechers[ledger_id].service
+    leecher = ledger_manager._node_leecher._leechers[ledger_id]
     leecher.start(request_ledger_statuses=False)
 
-    ledger_status = node.build_ledger_status(ledger_id)
+    ledger_status = patched_node.build_ledger_status(ledger_id)
     assert ledger_status.viewNo is None
     assert ledger_status.ppSeqNo is None
 
-    return node, leecher, ledger_status, leecher._cons_proof_service
+    return patched_node, leecher, ledger_status, leecher._cons_proof_service
 
 
 def test_same_ledger_status_quorum(txnPoolNodeSet,
