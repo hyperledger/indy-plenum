@@ -22,7 +22,6 @@ backup_inst_id = 1
 def test_backup_primary_restores_pp_seq_no_if_view_is_same(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
         tconf, tdir, allPluginsPath, chkFreqPatched, view_no):
-
     # Get a node with a backup primary replica
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
     node = replica.node
@@ -33,6 +32,8 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
                                num_reqs=7, num_batches=7,
                                timeout=tconf.Max3PCBatchWait)
 
+    print('ahtung')
+    print(replica.last_ordered_3pc)
     looper.run(
         eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, 7)),
                    retryWait=1,

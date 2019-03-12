@@ -77,9 +77,6 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def notify_view_change_complete(self):
         self._node.on_view_change_complete()
 
-    def notify_initial_propose_view_change(self):
-        self._node.schedule_initial_propose_view_change()
-
     def start_catchup(self):
         self._node.start_catchup()
 

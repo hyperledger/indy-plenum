@@ -1148,8 +1148,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.view_changer = self.newViewChanger()
             self.elector = self.newPrimaryDecider()
 
-            self.schedule_initial_propose_view_change()
-
             self.schedule_node_status_dump()
             self.dump_additional_info()
 
@@ -1163,12 +1161,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.start_catchup(just_started=True)
 
         self.logNodeInfo()
-
-    def schedule_initial_propose_view_change(self):
-        # It is supposed that master's primary is lost until it is connected
-        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
-        self._schedule(action=self.propose_view_change,
-                       seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
     def schedule_node_status_dump(self):
         # one-shot dump right after start
