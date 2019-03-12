@@ -33,15 +33,15 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
     """
     newNode = sdk_new_node_caught_up
     starts = newNode.ledgerManager.spylog.getAll(
-        TestLedgerManager.startCatchUpProcess.__name__)
+        TestLedgerManager.catchup_ledger.__name__)
     completes = newNode.ledgerManager.spylog.getAll(
-        TestLedgerManager.catchupCompleted.__name__)
+        TestLedgerManager._on_leecher_service_stop.__name__)
     startTimes = {}
     completionTimes = {}
     for start in starts:
-        startTimes[start.params.get('ledgerId')] = start.endtime
+        startTimes[start.params.get('ledger_id')] = start.endtime
     for comp in completes:
-        completionTimes[comp.params.get('ledgerId')] = comp.endtime
+        completionTimes[comp.params.get('msg').ledger_id] = comp.endtime
     assert startTimes[0] < completionTimes[0] < \
            startTimes[1] < completionTimes[1]
 

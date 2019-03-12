@@ -82,4 +82,4 @@ def test_apply_data(fake_node,
     # check that Observer is synced with the pool
     checkNodeDataForEquality(fake_node,
                              *txnPoolNodeSet,
-                             exclude_from_check=['check_last_ordered_3pc'])
+                             exclude_from_check=['check_last_ordered_3pc', 'check_primaries'])

@@ -825,6 +825,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
         self._catch_up_start_ts = time.perf_counter()
+        self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
         """
@@ -1246,7 +1247,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._info_tool.stop()
 
         self.mode = None
-        self.ledgerManager.prepare_ledgers_for_sync()
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
@@ -1526,12 +1526,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def select_primaries_if_needed(self, old_required_number_of_instances):
         # This function mainly used in nodeJoined and nodeLeft functions
-        ledgerInfo = self.ledgerManager.getLedgerInfoByType(POOL_LEDGER_ID)
+        leecher = self.ledgerManager._leechers[POOL_LEDGER_ID].service
 
         # If required number of instances changed, we need to recalculate it.
-        if self.requiredNumberOfInstances != old_required_number_of_instances \
+        if self.requiredNumberOfInstances > old_required_number_of_instances \
                 and not self.view_changer.view_change_in_progress \
-                and ledgerInfo.state == LedgerState.synced:
+                and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
             # We need to reselect primaries only during usual ordering. Because:
             # - If this is catchup, called by view change, then, we will select
@@ -2308,8 +2308,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = sum([l.num_txns_caught_up for l in
-                     self.ledgerManager.ledgerRegistry.values()])
+        count = sum([leecher.service.num_txns_caught_up
+                     for leecher in self.ledgerManager._leechers.values()])
         logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
         return count
 
@@ -3135,9 +3135,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} reverted {} batches before starting catch up'.format(self, r))
 
         self.mode = Mode.starting
-        self.ledgerManager.prepare_ledgers_for_sync()
-        self.ledgerManager.catchup_ledger(self.ledgerManager.ledger_sync_order[0],
-                                          request_ledger_statuses=not just_started)
+        self.ledgerManager.start_catchup(request_ledger_statuses=not just_started)
 
     def start_catchup(self, just_started=False):
         if not self.is_synced and not just_started:
@@ -3280,7 +3278,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  three_pc_batch.txn_root,
                                                  first_txn_seq_no,
                                                  last_txn_seq_no,
-                                                 audit_txn_root)
+                                                 audit_txn_root,
+                                                 three_pc_batch.primaries)
             self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
@@ -3330,12 +3329,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        primaries = None
         if ledger_id == POOL_LEDGER_ID:
-            primaries = self.future_primaries_handler.post_batch_applied(three_pc_batch)
-        else:
-            primaries = self.primaries
-        three_pc_batch.primaries = primaries
+            three_pc_batch.primaries = self.future_primaries_handler.post_batch_applied(three_pc_batch)
+        elif not three_pc_batch.primaries:
+            three_pc_batch.primaries = self.primaries
         self.audit_handler.post_batch_applied(three_pc_batch)
 
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
