@@ -121,7 +121,6 @@ class PrimarySelector(PrimaryDecider):
                 self.node.primary_selected(instance_id)
 
         # Primary propagation
-        self.node.schedule_initial_propose_view_change()
         last_sent_pp_seq_no_restored = False
         for replica in self.replicas.values():
             replica.on_propagate_primary_done()

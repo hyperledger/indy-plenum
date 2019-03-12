@@ -106,10 +106,6 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_initial_propose_view_change(self):
-        pass
-
-    @abstractmethod
     def start_catchup(self):
         pass
 
