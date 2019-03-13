@@ -5,6 +5,7 @@ from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.txn_util import append_txn_metadata, reqToTxn
 from plenum.common.types import f
 from plenum.common.util import SortedDict
+from plenum.server.catchup.utils import CatchupTill
 from plenum.test.helper import sdk_signed_random_requests
 
 ledger_id = DOMAIN_LEDGER_ID
@@ -37,8 +38,11 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
         replies.append(CatchupRep(ledger_id,
                                   SortedDict(txns),
                                   cons_proof))
-    return ledger_manager._node_seeder._build_consistency_proof(
-        ledger_id, ledger.seqNo - txn_count, ledger.seqNo), replies
+    return CatchupTill(start_size=ledger.seqNo - txn_count,
+                       final_size=ledger.seqNo,
+                       final_hash=ledger.tree.merkle_tree_hash(0, ledger.seqNo),
+                       view_no=0,
+                       pp_seq_no=0), replies
 
 
 def check_reply_not_applied(old_ledger_size, ledger, catchup_rep_service, frm, reply):
@@ -134,12 +138,12 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     num_txns_in_reply = 3
     reply_count = 2
 
-    cons_proof, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
-                                                   looper,
-                                                   sdk_wallet_client,
-                                                   num_txns_in_reply,
-                                                   reply_count)
-    catchup_rep_service._catchup_till = cons_proof
+    catchup_till, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
+                                                     looper,
+                                                     sdk_wallet_client,
+                                                     num_txns_in_reply,
+                                                     reply_count)
+    catchup_rep_service._catchup_till = catchup_till
     catchup_rep_service._is_working = True
 
     # make invalid catchup reply by dint of adding new transaction in it

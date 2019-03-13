@@ -16,7 +16,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.server.catchup.catchup_rep_service import CatchupRepService
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.utils import CatchupDataProvider, CatchupTill
 
 
 @pytest.yield_fixture(
@@ -112,28 +112,25 @@ def test_missing_txn_request(ledger_no_genesis):
     assert service._num_missing_txns() == 0
 
     # Ledger is already ahead
-    cp = ConsistencyProof(0, 1, 10, 1, 1,
-                          'GJybBTHjzMzPWsE6n9qNQWAmhJP88dTcdbgkGLhYGFYn',
-                          'Gv9AdSeib9EnBakfpgkU79dPMtjcnFWXvXeiCX4QAgAC', [])
-    service._catchup_till = cp
+    ct = CatchupTill(start_size=1, final_size=10,
+                     final_hash='Gv9AdSeib9EnBakfpgkU79dPMtjcnFWXvXeiCX4QAgAC', view_no=0, pp_seq_no=0)
+    service._catchup_till = ct
     service._received_catchup_txns = [(i, {}) for i in range(1, 15)]
     assert service._num_missing_txns() == 0
 
     # Ledger is behind but catchup replies present
-    cp = ConsistencyProof(0, 1, 30, 1, 1,
-                          'Gv9AdSeib9EnBakfpgkU79dPMtjcnFWXvXeiCX4QAgAC',
-                          'EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC', [])
-    service._catchup_till = cp
+    ct = CatchupTill(start_size=1, final_size=30,
+                     final_hash='EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC', view_no=0, pp_seq_no=0)
+    service._catchup_till = ct
     service._received_catchup_txns = [(i, {}) for i in range(21, 31)]
     assert service._num_missing_txns() == 0
     service._received_catchup_txns = [(i, {}) for i in range(21, 35)]
     assert service._num_missing_txns() == 0
 
     # Ledger is behind
-    cp = ConsistencyProof(0, 1, 30, 1, 1,
-                          'Gv9AdSeib9EnBakfpgkU79dPMtjcnFWXvXeiCX4QAgAC',
-                          'EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC', [])
-    service._catchup_till = cp
+    ct = CatchupTill(start_size=1, final_size=30,
+                     final_hash='EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC', view_no=0, pp_seq_no=0)
+    service._catchup_till = ct
     service._received_catchup_txns = [(i, {}) for i in range(21, 26)]
     assert service._num_missing_txns() == 5
 

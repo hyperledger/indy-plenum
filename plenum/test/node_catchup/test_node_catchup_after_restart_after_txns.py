@@ -97,8 +97,8 @@ def test_node_catchup_after_restart_with_txns(
 
     confused_node = txnPoolNodeSet[0]
     new_node_leecher = newNode.ledgerManager._node_leecher._leechers[DOMAIN_LEDGER_ID]
-    cp = new_node_leecher.catchup_till
-    start, end = cp.seqNoStart, cp.seqNoEnd
+    ct = new_node_leecher.catchup_till
+    start, end = ct.start_size, ct.final_size
     cons_proof = confused_node.ledgerManager._node_seeder._build_consistency_proof(
         DOMAIN_LEDGER_ID, start, end)
 
