@@ -12,22 +12,11 @@ MANIFEST_FNAME="manifest.txt"
 
 echo -e "\n\nAbout to start updating package $repo to version $version_dotted info from cur dir: $(pwd)"
 
-metadata="$(find $repo -name $METADATA_FNAME)"
-
-if [ -z $metadata ] ; then
-  echo "FAILED finding metadata"
-  exit $ret
-fi
-
-version=$(sed -r "s/\./, /g" <<< $version_dotted)
-
-echo -e "\n\nUpdating version in $metadata with $version"
-sed -i -r "s~(__version_info__ = \()[0-9, ]+~\1$version~" "$metadata"
-ret=$?
-if [ $ret -ne 0 ] ; then
-  echo "FAILED ret: $ret"
-  exit $ret
-fi
+# bumps version
+pushd $repo
+echo -e "\n\nUpdating version in metadata with $version_dotted"
+python3 -c "from plenum import set_version; set_version('$version_dotted')"
+popd
 
 echo -e "\n\nReplace postfixes"
 sed -i -r "s~indy-plenum-[a-z]+~indy-plenum~" "$repo/setup.py"
@@ -41,7 +30,7 @@ sed -i "s~msgpack-python==0.4.6~msgpack==0.4.6-1build1~" "$repo/setup.py"
 repourl=$(git --git-dir $repo/.git --work-tree $repo config --get remote.origin.url)
 hashcommit=$(git --git-dir $repo/.git --work-tree $repo rev-parse HEAD)
 manifest="// built from: repo version hash\n$repourl $version_dotted $hashcommit"
-manifest_file=$(echo $metadata | sed -r "s/${METADATA_FNAME}$/${MANIFEST_FNAME}/")
+manifest_file="$repo/plenum/$MANIFEST_FNAME"
 
 echo "Adding manifest\n=======\n$manifest\n=======\n into $manifest_file"
 rm -rf $manifest_file
