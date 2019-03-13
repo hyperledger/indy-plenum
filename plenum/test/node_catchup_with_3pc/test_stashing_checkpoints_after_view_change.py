@@ -76,7 +76,7 @@ def test_checkpoints_after_view_change(tconf,
             )
             looper.run(
                 eventually(check_last_ordered_3pc_on_backup, rest_nodes,
-                           (1, num_reqs))
+                           (1, num_reqs + 1))
             )
 
             # all good nodes stabilized checkpoint
@@ -103,7 +103,7 @@ def test_checkpoints_after_view_change(tconf,
     )
     looper.run(
         eventually(check_last_ordered_3pc_on_backup, [lagging_node],
-                   (1, num_reqs))
+                   (1, num_reqs + 1))
     )
 
     # check that checkpoint is stabilized for master

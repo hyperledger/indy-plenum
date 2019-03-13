@@ -55,9 +55,8 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
             # 1 - pre-prepare msg
             # (len(txnPoolNodeSet) - 2) - prepare msgs
             # (len(txnPoolNodeSet) - 1) - commit msgs
-            # multiply by 2 on master since 1 batch with new Primaries and 1 batch with requests
             stashed_master_messages = 2 * (1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1))
-            stashed_backup_messages = 1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1)
+            stashed_backup_messages = 2 * (1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1))
             assert slow_node.master_replica.stasher.num_stashed_future_view == old_stashed[0] + stashed_master_messages
             assert all(r.stasher.num_stashed_future_view == old_stashed[inst_id] + stashed_backup_messages
                        for inst_id, r in slow_node.replicas.items() if inst_id != 0)
@@ -67,10 +66,9 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
         def chk():
             for inst_id, r in slow_node.replicas.items():
                 if inst_id == 0:
-                    # 1 batch for new primaries and 1 batch for requests on master
                     assert r.last_ordered_3pc == (view_no + 1, 2)
                 else:
-                    assert r.last_ordered_3pc == (view_no + 1, 1)
+                    assert r.last_ordered_3pc == (view_no + 1, 2)
                 assert r.stasher.num_stashed_future_view == old_stashed[inst_id]
 
         looper.run(eventually(chk))

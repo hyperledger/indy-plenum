@@ -131,7 +131,7 @@ class PrimarySelector(PrimaryDecider):
             self.node.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
         # Emulate view_change ending
-        self.node.on_view_change_complete()
+        self.node.on_view_propagated()
 
     def _get_last_audited_primaries(self):
         audit = self.node.getLedger(AUDIT_LEDGER_ID)

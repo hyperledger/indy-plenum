@@ -857,6 +857,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
 
+    def on_view_propagated(self):
+        """
+        View change completes for a replica when it has been decided which was
+        the last ppSeqNo and state and txn root for previous view
+        """
+        self.new_future_primaries_needed = True
+
+        if not self.replicas.all_instances_have_primary:
+            raise LogicError(
+                "{} Not all replicas have "
+                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
+            )
+        self._cancel(self._check_view_change_completed)
+
+        for replica in self.replicas.values():
+            replica.on_view_change_done()
+        self.view_changer.last_completed_view_no = self.view_changer.view_no
+        self.monitor.reset()
+
     def drop_primaries(self):
         for replica in self.replicas.values():
             replica.primaryName = None
@@ -1518,7 +1537,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def select_primaries_if_needed(self, old_required_number_of_instances):
         # This function mainly used in nodeJoined and nodeLeft functions
-        leecher = self.ledgerManager._leechers[POOL_LEDGER_ID].service
+        leecher = self.ledgerManager._node_leecher._leechers[POOL_LEDGER_ID]
 
         # If required number of instances changed, we need to recalculate it.
         if self.requiredNumberOfInstances > old_required_number_of_instances \
@@ -2300,8 +2319,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = sum([leecher.service.num_txns_caught_up
-                     for leecher in self.ledgerManager._leechers.values()])
+        count = self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
         logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
         return count
 

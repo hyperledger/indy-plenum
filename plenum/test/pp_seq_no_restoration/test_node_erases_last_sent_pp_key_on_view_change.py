@@ -45,6 +45,6 @@ def test_node_erases_last_sent_pp_key_on_view_change(
                                timeout=tconf.Max3PCBatchWait)
 
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, 1)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, 2)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
