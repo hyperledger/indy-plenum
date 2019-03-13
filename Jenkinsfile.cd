@@ -200,8 +200,10 @@ def stateTestWindowsNoDocker = {
     }
 }
 
-def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
+def buildDebUbuntu = { repoName, releaseVersion, sourcePath, packageVersion=null ->
     def volumeName = "$name-deb-u1604"
+    packageVersion = packageVersion ?: releaseVersion
+
     if (env.BRANCH_NAME != '' && env.BRANCH_NAME != 'master') {
         volumeName = "${volumeName}.${BRANCH_NAME}"
     }
@@ -209,7 +211,7 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
         sh "docker volume rm $volumeName"
     }
     dir('build-scripts/ubuntu-1604') {
-        sh "./build-$name-docker.sh \"$sourcePath\" $releaseVersion $volumeName"
+        sh "./build-$name-docker.sh \"$sourcePath\" $releaseVersion $volumeName $packageVersion"
         sh "./build-3rd-parties-docker.sh $volumeName"
     }
     return "$volumeName"
@@ -226,5 +228,5 @@ testAndPublish(
         ledger: ledgerTestUbuntu,
         stp: stpTestUbuntu]
     ],
-    true, options, [ubuntu: buildDebUbuntu]
+    true, options, [ubuntu: buildDebUbuntu], 'plenum'
 )
