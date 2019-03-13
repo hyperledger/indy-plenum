@@ -3,11 +3,9 @@ from logging import getLogger
 import pytest
 
 from plenum.common.constants import PREPARE, PREPREPARE, DOMAIN_LEDGER_ID
-from plenum.common.startable import Mode
 from plenum.server.node import Node
-from plenum.server.replica_stasher import StashDeque
 from plenum.test import waits
-from plenum.test.delayers import cr_delay, cs_delay, msg_rep_delay
+from plenum.test.delayers import cr_delay, msg_rep_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
@@ -80,8 +78,7 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
 
     initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
 
-    with delay_rules(lagging_node.nodeIbStasher, cs_delay(),
-                     msg_rep_delay(types_to_delay=[PREPARE, PREPREPARE])):
+    with delay_rules(lagging_node.nodeIbStasher, msg_rep_delay(types_to_delay=[PREPARE, PREPREPARE])):
         with delay_rules(lagging_node.nodeIbStasher, cr_delay(ledger_filter=DOMAIN_LEDGER_ID)):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
