@@ -175,7 +175,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         :param get_value: whether to return the value
         :return: a state proof or None
         '''
-        if not multi_sig:
+        if not multi_sig and with_proof:
             root_hash = head_hash if head_hash else self.state.committedHeadHash
             encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
