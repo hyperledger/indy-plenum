@@ -50,4 +50,4 @@ def test_freeing_forwarded_not_preprepared_request(
             looper.run(eventually(lambda: assertExp(len(behind_node.requests) == req_num)))
         # Start catchup with the quorum of Checkpoints
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
-        looper.run(eventually(lambda: assertExp(len(behind_node.requests) == 0)))
+        assert all(r.executed for r in behind_node.requests.values() if behind_node.seqNoDB.get(r.request.key)[1])

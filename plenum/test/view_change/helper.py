@@ -183,7 +183,8 @@ def ensure_several_view_change(looper, nodes, vc_count=1,
 
 def ensure_view_change_by_primary_restart(
         looper, nodes,
-        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None):
+        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None,
+        exclude_from_check=None):
     """
     This method stops current primary for a while to force a view change
 
@@ -215,7 +216,8 @@ def ensure_view_change_by_primary_restart(
     logger.debug("Ensure all nodes are connected")
     looper.run(checkNodesConnected(nodes))
     logger.debug("Ensure all nodes have the same data")
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes,
+                                    exclude_from_check=exclude_from_check)
 
     return nodes
 
