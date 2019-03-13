@@ -857,6 +857,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
 
+    def on_view_propagated(self):
+        """
+        View change completes for a replica when it has been decided which was
+        the last ppSeqNo and state and txn root for previous view
+        """
+        self.new_future_primaries_needed = True
+
+        if not self.replicas.all_instances_have_primary:
+            raise LogicError(
+                "{} Not all replicas have "
+                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
+            )
+        self._cancel(self._check_view_change_completed)
+
+        for replica in self.replicas.values():
+            replica.on_view_change_done()
+        self.view_changer.last_completed_view_no = self.view_changer.view_no
+        self.monitor.reset()
+
     def drop_primaries(self):
         for replica in self.replicas.values():
             replica.primaryName = None

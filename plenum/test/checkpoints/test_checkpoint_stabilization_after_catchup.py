@@ -18,7 +18,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check="check_last_ordered_3pc_backup")
     # Epsilon did not participate in ordering of the batch with EpsilonSteward
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
