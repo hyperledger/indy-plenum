@@ -62,7 +62,8 @@ def testNodeCatchupFPlusOne(looper,
     looper.add(node0)
 
     logger.debug("Waiting for the node0 to catch up")
-    waitNodeDataEquality(looper, node0, *txnPoolNodeSet[:-2])
+    waitNodeDataEquality(looper, node0, *txnPoolNodeSet[:-2],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     logger.debug("Sending more requests")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,

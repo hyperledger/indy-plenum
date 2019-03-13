@@ -60,7 +60,8 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Verify that `node_to_restart` successfully completes catch-up
-    waitNodeDataEquality(looper, node_to_restart, *other_nodes)
+    waitNodeDataEquality(looper, node_to_restart, *other_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # check discarding ledger statuses from `old_node` for all ledgers
     assert countDiscarded(node_to_restart,
