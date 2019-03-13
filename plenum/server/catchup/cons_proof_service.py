@@ -9,15 +9,11 @@ from plenum.common.metrics_collector import MetricsCollector, measure_time, Metr
 from plenum.common.timer import TimerService
 from plenum.common.types import f
 from plenum.common.util import min_3PC_key
-from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status
+from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status, LedgerCatchupStart
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-ConsProofReady = NamedTuple('LedgerCatchupStart',
-                            [('ledger_id', int),
-                             ('cons_proof', Optional[ConsistencyProof])])
 
 
 # ASSUMING NO MALICIOUS NODES
@@ -76,7 +72,7 @@ class ConsProofService:
         self._requested_consistency_proof = set()
 
         self._cancel_reask()
-        self._output.put_nowait(ConsProofReady(ledger_id=self._ledger_id, cons_proof=cons_proof))
+        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, cons_proof=cons_proof))
 
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         if not self._can_process_ledger_status(ledger_status):
@@ -157,23 +153,21 @@ class ConsProofService:
         self._provider.send_to_nodes(ledger_status_req, nodes=nodes)
 
     def _can_process_ledger_status(self, ledger_status: LedgerStatus):
-        if not self._is_working:
-            logger.info('{} ignoring {} since it is not gathering ledger statuses'.format(self, ledger_status))
+        if ledger_status.ledgerId != self._ledger_id:
             return False
 
-        if ledger_status.ledgerId != self._ledger_id:
-            logger.warning('{} cannot process {} for different ledger'.format(self, ledger_status))
+        if not self._is_working:
+            logger.info('{} ignoring {} since it is not gathering ledger statuses'.format(self, ledger_status))
             return False
 
         return True
 
     def _can_process_consistency_proof(self, proof: ConsistencyProof):
-        if not self._is_working:
-            logger.info('{} ignoring {} since it is not gathering consistency proofs'.format(self, proof))
+        if proof.ledgerId != self._ledger_id:
             return False
 
-        if proof.ledgerId != self._ledger_id:
-            logger.warning('{} cannot process {} for different ledger'.format(self, proof))
+        if not self._is_working:
+            logger.info('{} ignoring {} since it is not gathering consistency proofs'.format(self, proof))
             return False
 
         start = getattr(proof, f.SEQ_NO_START.nm)

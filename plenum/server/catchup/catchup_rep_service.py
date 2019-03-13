@@ -2,23 +2,18 @@ import math
 from collections import defaultdict
 from heapq import merge
 from random import shuffle
-from typing import Optional, List, Tuple, Any, NamedTuple
+from typing import Optional, List, Tuple, Any
 
 from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
-from plenum.common.metrics_collector import MetricsCollector, MetricsName, measure_time
+from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.timer import TimerService
-from plenum.server.catchup.utils import CatchupDataProvider
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
-                                   [('ledger_id', int),
-                                    ('num_caught_up', int),
-                                    ('last_3pc', Optional[Tuple[int, int]])])
 
 
 class CatchupRepService:
@@ -105,13 +100,11 @@ class CatchupRepService:
                                                       num_caught_up=num_caught_up,
                                                       last_3pc=last_3pc))
 
-    @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
-        logger.info("{} received catchup reply from {}: {}".format(self, frm, rep))
-        self._wait_catchup_rep_from.discard(frm)
-
         if not self._can_process_catchup_rep(rep):
             return
+
+        self._wait_catchup_rep_from.discard(frm)
 
         txns = self._get_interesting_txns_from_catchup_rep(rep)
         if len(txns) == 0:
@@ -278,12 +271,11 @@ class CatchupRepService:
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
     def _can_process_catchup_rep(self, rep: CatchupRep) -> bool:
-        if not self._is_working:
-            logger.info('{} ignoring {} since it is not gathering catchup replies'.format(self, rep))
+        if rep.ledgerId != self._ledger_id:
             return False
 
-        if rep.ledgerId != self._ledger_id:
-            logger.warning('{} cannot process {} for different ledger'.format(self, rep))
+        if not self._is_working:
+            logger.info('{} ignoring {} since it is not gathering catchup replies'.format(self, rep))
             return False
 
         return True

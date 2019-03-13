@@ -1518,7 +1518,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def select_primaries_if_needed(self, old_required_number_of_instances):
         # This function mainly used in nodeJoined and nodeLeft functions
-        leecher = self.ledgerManager._leechers[POOL_LEDGER_ID].service
+        leecher = self.ledgerManager._node_leecher._leechers[POOL_LEDGER_ID]
 
         # If required number of instances changed, we need to recalculate it.
         if self.requiredNumberOfInstances > old_required_number_of_instances \
@@ -2300,8 +2300,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = sum([leecher.service.num_txns_caught_up
-                     for leecher in self.ledgerManager._leechers.values()])
+        count = self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
         logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
         return count
 
