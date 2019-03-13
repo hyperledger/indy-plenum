@@ -2,8 +2,8 @@ from logging import getLogger
 
 import pytest
 
-from plenum.common.constants import LEDGER_STATUS, DOMAIN_LEDGER_ID
-from plenum.common.messages.node_messages import MessageReq
+from plenum.common.constants import LEDGER_STATUS, DOMAIN_LEDGER_ID, CATCHUP_REQ
+from plenum.common.messages.node_messages import MessageReq, CatchupReq
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import ppDelay, pDelay, cDelay, DEFAULT_DELAY
 from plenum.test.helper import sdk_send_random_and_check
@@ -13,21 +13,20 @@ from stp_core.loop.eventually import eventually
 
 logger = getLogger()
 
-def delay_msg_req_domain_ledger_status():
+def delay_domain_ledger_catchup():
     def delay(msg):
         msg = msg[0]
-        if not isinstance(msg, MessageReq):
-            return
-        if msg.msg_type != LEDGER_STATUS:
-            return
-        if msg.params.get('ledgerId') != DOMAIN_LEDGER_ID:
-            return
-        return DEFAULT_DELAY
+        if isinstance(msg, MessageReq) and \
+                msg.msg_type == LEDGER_STATUS and \
+                msg.params.get('ledgerId') == DOMAIN_LEDGER_ID:
+            return DEFAULT_DELAY
+        if isinstance(msg, CatchupReq) and \
+                msg.ledgerId == DOMAIN_LEDGER_ID:
+            return DEFAULT_DELAY
 
     return delay
 
 
-@pytest.mark.skip(reason='INDY-1945, INDY-1946')
 def test_slow_catchup_while_ordering(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
@@ -51,7 +50,7 @@ def test_slow_catchup_while_ordering(tdir, tconf,
                                   sdk_pool_handle, sdk_wallet_client, 1)
 
         # Prevent lagging node from catching up domain ledger (and finishing catchup)
-        with delay_rules(other_stashers, delay_msg_req_domain_ledger_status()):
+        with delay_rules(other_stashers, delay_domain_ledger_catchup()):
             # Start catchup on lagging node
             lagging_node.ledgerManager.start_catchup(request_ledger_statuses=True)
             assert lagging_node_state() == NodeLeecherService.State.SyncingAudit

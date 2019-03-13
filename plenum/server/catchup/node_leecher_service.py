@@ -3,10 +3,11 @@ from typing import Dict, Optional
 
 from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID
+from plenum.common.ledger import Ledger
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
 from plenum.server.catchup.ledger_leecher_service import LedgerLeecherService
-from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete, CatchupTill
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -34,6 +35,7 @@ class NodeLeecherService:
         self._provider = provider
 
         self._state = self.State.Idle
+        self._catchup_till = {}  # type: Dict[int, CatchupTill]
 
         # TODO: Get rid of this, theoretically most ledgers can be synced in parallel
         self._current_ledger = None  # type: Optional[int]
@@ -62,6 +64,7 @@ class NodeLeecherService:
             leecher.reset()
 
         self._state = self.State.SyncingAudit
+        self._catchup_till.clear()
         self._leechers[AUDIT_LEDGER_ID].start(request_ledger_statuses)
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
@@ -82,8 +85,9 @@ class NodeLeecherService:
             logger.warning("{} got unexpected catchup complete {} during syncing audit ledger".format(self, msg))
             return
 
+        self._calc_catchup_till()
         self._state = self.State.SyncingPool
-        self._leechers[POOL_LEDGER_ID].start(request_ledger_statuses=True)
+        self._catchup_ledger(POOL_LEDGER_ID)
 
     def _on_pool_synced(self, msg):
         if msg.ledger_id != POOL_LEDGER_ID:
@@ -104,7 +108,7 @@ class NodeLeecherService:
     def _sync_next_ledger(self):
         self._current_ledger = self._get_next_ledger(self._current_ledger)
         if self._current_ledger is not None:
-            self._leechers[self._current_ledger].start(request_ledger_statuses=True)
+            self._catchup_ledger(self._current_ledger)
         else:
             self._state = self.State.Idle
             self._output.put_nowait(NodeCatchupComplete())
@@ -125,3 +129,45 @@ class NodeLeecherService:
             return None
 
         return ledger_ids[next_index]
+
+    def _catchup_ledger(self, ledger_id: int):
+        leecher = self._leechers[ledger_id]
+        catchup_till = self._catchup_till.get(ledger_id)
+        if catchup_till is None:
+            leecher.start(request_ledger_statuses=True)
+        else:
+            leecher.start(request_ledger_statuses=False, till=catchup_till)
+
+    def _calc_catchup_till(self):
+        audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
+        last_audit_txn = audit_ledger.get_last_committed_txn()
+        if last_audit_txn is None:
+            return
+
+        last_audit_txn = last_audit_txn['txn']['data']
+        view_no = last_audit_txn['viewNo']
+        pp_seq_no = last_audit_txn['ppSeqNo']
+        for ledger_id, final_size in last_audit_txn['ledgerSize'].items():
+            ledger = self._provider.ledger(ledger_id)
+            start_size = ledger.size
+
+            final_hash = last_audit_txn['ledgerRoot'].get(ledger_id)
+            if final_hash is None:
+                if final_size != ledger.size:
+                    raise RuntimeError('!!!')  # TODO: Write sensible message
+                final_hash = Ledger.hashToStr(ledger.tree.merkle_tree_hash(0, final_size)) if final_size > 0 else None
+
+            if isinstance(final_hash, int):
+                audit_txn = audit_ledger.getBySeqNo(audit_ledger.size - final_hash)
+                if audit_txn is None:
+                    raise RuntimeError('!!!')  # TODO: Write sensible message
+                audit_txn = audit_txn['txn']['data']
+                final_hash = audit_txn['ledgerRoot'].get(ledger_id)
+                if not isinstance(final_hash, str):
+                    raise RuntimeError('!!!')  # TODO: Write sensible message
+
+            self._catchup_till[ledger_id] = CatchupTill(start_size=start_size,
+                                                        final_size=final_size,
+                                                        final_hash=final_hash,
+                                                        view_no=view_no,
+                                                        pp_seq_no=pp_seq_no)
