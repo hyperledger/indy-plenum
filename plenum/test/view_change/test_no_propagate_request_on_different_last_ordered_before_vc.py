@@ -51,8 +51,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
                           slow_instance,
                           (old_view_no + 1, 1)))
 
-    # Backup primary replica must not advance last_ordered_3pc
-    # up to the master's value
+    # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
                           (old_view_no + 1, 1)))
@@ -106,13 +105,12 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no, old_last_ordered[1] + 1)))
+                          (old_view_no + 1, 1)))
 
-    # Backup primary replica must not advance last_ordered_3pc
-    # up to the master's value
+    # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no, old_last_ordered[1])))
+                          (old_view_no + 1, 1)))
 
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,

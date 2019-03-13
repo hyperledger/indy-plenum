@@ -88,7 +88,8 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
                                num_reqs=1, num_batches=1,
                                timeout=tconf.Max3PCBatchWait)
 
+    seq_no = 8 if view_no == 0 else 9
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, 8)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, seq_no)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
