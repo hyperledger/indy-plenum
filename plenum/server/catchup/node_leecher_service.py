@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID
@@ -85,7 +85,7 @@ class NodeLeecherService:
             logger.warning("{} got unexpected catchup complete {} during syncing audit ledger".format(self, msg))
             return
 
-        self._calc_catchup_till()
+        self._calc_catchup_till(msg.last_3pc)
         self._state = self.State.SyncingPool
         self._catchup_ledger(POOL_LEDGER_ID)
 
@@ -138,7 +138,7 @@ class NodeLeecherService:
         else:
             leecher.start(request_ledger_statuses=False, till=catchup_till)
 
-    def _calc_catchup_till(self):
+    def _calc_catchup_till(self, last_3pc: Optional[Tuple[int, int]]):
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
         last_audit_txn = audit_ledger.get_last_committed_txn()
         if last_audit_txn is None:
@@ -147,6 +147,7 @@ class NodeLeecherService:
         last_audit_txn = last_audit_txn['txn']['data']
         view_no = last_audit_txn['viewNo']
         pp_seq_no = last_audit_txn['ppSeqNo']
+        # view_no, pp_seq_no = last_3pc if last_3pc else (0, 0)
         for ledger_id, final_size in last_audit_txn['ledgerSize'].items():
             ledger = self._provider.ledger(ledger_id)
             start_size = ledger.size
