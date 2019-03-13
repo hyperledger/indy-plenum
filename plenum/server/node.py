@@ -1548,7 +1548,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         leecher = self.ledgerManager._node_leecher._leechers[POOL_LEDGER_ID]
 
         # If required number of instances changed, we need to recalculate it.
-        if self.requiredNumberOfInstances > old_required_number_of_instances \
+        if self.requiredNumberOfInstances != old_required_number_of_instances \
                 and not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
