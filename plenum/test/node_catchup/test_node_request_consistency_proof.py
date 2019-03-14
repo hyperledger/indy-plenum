@@ -28,7 +28,8 @@ def test_node_request_consistency_proof(tdir, tconf,
                                         looper,
                                         txnPoolNodeSet,
                                         sdk_pool_handle,
-                                        sdk_wallet_client):
+                                        sdk_wallet_client,
+                                        monkeypatch):
     lagging_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
 
@@ -62,7 +63,7 @@ def test_node_request_consistency_proof(tdir, tconf,
         logger.info("audit status {}".format(ledgerStatus))
         return ledgerStatus
 
-    catchup_utils.build_ledger_status = build_broken_ledger_status
+    monkeypatch.setattr(catchup_utils, 'build_ledger_status', build_broken_ledger_status)
     logger.info('Audit Ledger status sender of {} patched'.format(lagging_node))
 
     # Block lagging node from ordering transactions
