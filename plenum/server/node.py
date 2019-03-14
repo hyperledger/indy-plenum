@@ -50,7 +50,8 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_LEDGER_ROOT, \
+    AUDIT_TXN_LEDGERS_SIZE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -3253,6 +3254,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientAuthNr
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
+        # TODO: This is a temporary workaround until INDY-1946 is implemented
+        if ledger_id == AUDIT_LEDGER_ID:
+            return self._three_phase_key_for_audit_txn_seq_no(seq_no)
+
         if ledger_id in self.txn_seq_range_to_3phase_key:
             # point query in interval tree
             s = self.txn_seq_range_to_3phase_key[ledger_id][seq_no]
@@ -3262,6 +3267,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 assert len(s) == 1  # TODO add test for that and remove assert
                 return s.pop().data
         return None
+
+    def _three_phase_key_for_audit_txn_seq_no(self, audit_seq_no):
+        try:
+            txn = self._auditLedger.getBySeqNo(audit_seq_no)
+        except KeyError:
+            return None
+
+        if txn is None:
+            return None
+        txn = get_payload_data(txn)
+        updated_ledgers = [ledger_id for ledger_id, root_hash in txn[AUDIT_TXN_LEDGER_ROOT].items()
+                           if isinstance(root_hash, str)]
+        if not updated_ledgers:
+            return None
+
+        result = None
+        ledgers_size = txn[AUDIT_TXN_LEDGERS_SIZE]
+        for ledger_id in updated_ledgers:
+            seq_no = ledgers_size.get(ledger_id)
+            if seq_no is None:
+                continue
+            three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
+            if three_pc_key is None:
+                continue
+            if result is None or compare_3PC_keys(result, three_pc_key) > 0:
+                result = three_pc_key
+        return result
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,

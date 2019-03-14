@@ -148,9 +148,7 @@ class NodeLeecherService:
 
         catchup_till = {}
         last_audit_txn = get_payload_data(last_audit_txn)
-        view_no = last_audit_txn[AUDIT_TXN_VIEW_NO]
-        pp_seq_no = last_audit_txn[AUDIT_TXN_PP_SEQ_NO]
-        # view_no, pp_seq_no = last_3pc if last_3pc else (0, 0)
+        view_no, pp_seq_no = last_3pc if last_3pc else (0, 0)
         for ledger_id, final_size in last_audit_txn[AUDIT_TXN_LEDGERS_SIZE].items():
             ledger = self._provider.ledger(ledger_id)
             start_size = ledger.size
