@@ -161,16 +161,12 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
                 return None, None
 
     @staticmethod
-    def make_result(request, data, last_seq_no=None, update_time=None, proof=None):
+    def make_result(request, data, proof=None):
         result = {**request.operation, **{
             DATA: data,
             f.IDENTIFIER.nm: request.identifier,
             f.REQ_ID.nm: request.reqId
         }}
-        if last_seq_no:
-            result[f.SEQ_NO.nm] = last_seq_no
-        if update_time:
-            result[TXN_TIME] = update_time
         if proof and request.protocolVersion and \
                 request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
             result[STATE_PROOF] = proof
