@@ -107,7 +107,8 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
                                              sdk_pool_handle, sdk_wallet_client,
                                              2 * CHK_FREQ, 2)
 
-    waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
+    waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     looper.run(

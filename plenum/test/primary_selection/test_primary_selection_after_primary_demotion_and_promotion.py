@@ -55,6 +55,8 @@ def test_primary_selection_after_demoted_primary_node_promotion(
                          None, None,
                          services=[VALIDATOR])
 
+    ensureElectionsDone(looper, txnPoolNodeSet)
+
     # Ensure pool is working properly.
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
