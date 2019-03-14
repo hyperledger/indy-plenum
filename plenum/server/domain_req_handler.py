@@ -183,7 +183,7 @@ class DomainRequestHandler(LedgerRequestHandler):
         return super().get_value_from_state(path, head_hash, with_proof, multi_sig)
 
     @staticmethod
-    def make_result(request, data, last_seq_no=None, update_time=None, proof=None):
+    def make_domain_result(request, data, last_seq_no=None, update_time=None, proof=None):
         result = LedgerRequestHandler.make_result(request, data, proof=proof)
         result[f.SEQ_NO.nm] = last_seq_no
         result[TXN_TIME] = update_time
