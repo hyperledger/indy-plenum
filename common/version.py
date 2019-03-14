@@ -260,7 +260,7 @@ class PEP440BasedVersion(GenericVersion):
         elif self._version.pre:
             add_parts = self._version.pre
         elif self._version.post:
-            add_parts = ('dev', self._version.post)
+            add_parts = ('post', self._version.post)
         return (
             self._version.epoch,
             *self.release_parts,
