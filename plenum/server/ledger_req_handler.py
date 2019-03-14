@@ -161,7 +161,7 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
                 return None, None
 
     @staticmethod
-    def make_result(request, data, last_seq_no=None, update_time=None, proof=None):
+    def make_result(request, data, proof=None):
         result = {**request.operation, **{
             DATA: data,
             f.IDENTIFIER.nm: request.identifier,
