@@ -78,7 +78,11 @@ class LedgerLeecherService:
             self._cons_proof_service.start(request_ledger_statuses)
         else:
             self._state = LedgerState.syncing
-            self._catchup_rep_service.start(till)
+            # TODO: This is an attempt to mimic old behaviour more closely
+            if till.start_size != till.final_size:
+                self._catchup_rep_service.start(till)
+            else:
+                self._catchup_rep_service.start(None)
 
     def reset(self):
         self._state = LedgerState.not_synced
