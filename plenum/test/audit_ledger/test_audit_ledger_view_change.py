@@ -79,7 +79,9 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
     looper.run(eventually(lambda: assertExp(not ordereds)))
 
     for node in txnPoolNodeSet:
-        check_audit_txn(txn=node.auditLedger.get_last_txn(),
+        last_txn = node.auditLedger.get_last_txn()
+        last_txn['txn']['data']['primaries'] = node.elector._get_last_audited_primaries()
+        check_audit_txn(txn=last_txn,
                         view_no=view_no + 1, pp_seq_no=1,
                         seq_no=initial_seq_no + 4,
                         txn_time=node.master_replica.last_accepted_pre_prepare_time,
@@ -91,7 +93,7 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
                         last_pool_seqno=2,
                         last_domain_seqno=1,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=node.future_primaries_handler.get_last_primaries() or node.primaries)
 
 
 def check_audit_ledger_uncommitted_updated(audit_size_initial, nodes, audit_txns_added):

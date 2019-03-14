@@ -32,8 +32,6 @@ def test_future_primaries_replicas_increase(looper, txnPoolNodeSet, sdk_pool_han
     state = txnPoolNodeSet[0].future_primaries_handler.node_states[-1]
     assert len(state.primaries) == len(initial_primaries) + 1
     assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
-    # Because view_change happened
-    assert state.primaries != txnPoolNodeSet[0].primaries
 
 
 def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -54,8 +52,6 @@ def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_han
     state = txnPoolNodeSet[0].future_primaries_handler.node_states[-1]
     assert len(state.primaries) + 1 == len(initial_primaries)
     assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
-    # Because view_change happened
-    assert state.primaries != txnPoolNodeSet[0].primaries
 
     for node in txnPoolNodeSet:
         node.future_primaries_handler.commit_batch = old_commit

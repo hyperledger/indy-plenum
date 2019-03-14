@@ -72,8 +72,8 @@ def test_apply_and_commit_1(future_primaries, node, three_pc_batch):
     node_reg.append('n7')
     node.elector.process_selection = lambda a, b, c: ['n1', 'n2', 'n3']
 
-    future_primaries.commit_batch(three_pc_batch)
-    assert len(future_primaries.node_states) == 0
+    future_primaries.set_node_state()
+    assert len(future_primaries.node_states) == 1
 
 
 def test_apply_and_commit_2(future_primaries, node, three_pc_batch):
@@ -85,7 +85,7 @@ def test_apply_and_commit_2(future_primaries, node, three_pc_batch):
     node.requests['a'].request.operation[DATA][SERVICES] = []
     future_primaries.post_batch_applied(three_pc_batch)
 
-    future_primaries.commit_batch(three_pc_batch)
+    future_primaries.set_node_state()
     assert len(future_primaries.node_states) == 1
     assert future_primaries.node_states[0].node_reg == list(node.nodeReg.keys())
 
