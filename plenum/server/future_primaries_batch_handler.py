@@ -37,10 +37,8 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         node_txn_count = 0
         last_state = None
-        if len(self.node_states) == 0 or self.node.new_future_primaries_needed:
-            self.node_states = []
+        if len(self.node_states) == 0:
             last_state = self.create_node_state_from_current_node()
-            self.node.new_future_primaries_needed = False
         else:
             last_state = copy.deepcopy(self.node_states[-1])
 
@@ -82,14 +80,16 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
         self.node_states = self.node_states[:-1]
 
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
-        # When batch committed, we need to remove node_states of this batch
-        # self.node_states = self.node_states[1:]
         pass
 
     def create_node_state_from_current_node(self):
         return NodeState(list(self.node.nodeReg.keys()),
                          copy.deepcopy(self.node.nodeIds),
                          copy.deepcopy(self.node.primaries))
+
+    def set_node_state(self):
+        self.node_states = []
+        self.node_states.append(self.create_node_state_from_current_node())
 
     @staticmethod
     def get_required_number_of_instances(nodes_count):

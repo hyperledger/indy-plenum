@@ -412,8 +412,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # We need future_primaries to calculate applied primaries correctly
         self.future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self)
 
-        # Flag that indicates, that view_change happened and future primaries need to use node's state
-        self.new_future_primaries_needed = False
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -832,7 +830,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         the last ppSeqNo and state and txn root for previous view
         """
 
-        self.new_future_primaries_needed = True
+        self.future_primaries_handler.set_node_state()
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
@@ -861,7 +859,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqNo and state and txn root for previous view
         """
-        self.new_future_primaries_needed = True
+        self.future_primaries_handler.set_node_state()
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
