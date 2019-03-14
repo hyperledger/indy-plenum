@@ -40,7 +40,7 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
     txnPoolNodeSet.append(new_node)
     old_nodes = txnPoolNodeSet[:-1]
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              new_steward_wallet_handle, 5)
+                              new_steward_wallet_handle, 4)
     chk_commits_prepares_recvd(0, old_nodes, new_node)
 
     for node in old_nodes:

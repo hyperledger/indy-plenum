@@ -63,9 +63,7 @@ def test_freshness_after_catchup(looper,
 
     txnPoolNodeSet[-1] = restarted_node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    # looper.run(eventually(lambda: assertExp(txnPoolNodeSet[0].relicas[0])))
     waitNodeDataEquality(looper, *txnPoolNodeSet)
-    # assert False
     assert all(n.viewNo == view_no for n in txnPoolNodeSet)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
