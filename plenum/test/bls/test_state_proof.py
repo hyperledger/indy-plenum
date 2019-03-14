@@ -24,11 +24,11 @@ def check_result(txnPoolNodeSet, req, should_have_proof):
         _, proof = req_handler.get_value_from_state(key, with_proof=True)
 
         txn_time = get_utc_epoch()
-        result = req_handler.make_result(req,
-                                         {TXN_TYPE: "buy"},
-                                         2,
-                                         txn_time,
-                                         proof)
+        result = req_handler.make_domain_result(req,
+                                                {TXN_TYPE: "buy"},
+                                                2,
+                                                txn_time,
+                                                proof)
         assert result
         assert result[DATA] == {TXN_TYPE: "buy"}
         assert result[f.IDENTIFIER.nm] == req.identifier
