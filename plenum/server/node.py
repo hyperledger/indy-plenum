@@ -3350,7 +3350,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledger_id == POOL_LEDGER_ID:
             three_pc_batch.primaries = self.future_primaries_handler.post_batch_applied(three_pc_batch)
         elif not three_pc_batch.primaries:
-            three_pc_batch.primaries = self.primaries
+            three_pc_batch.primaries = self.future_primaries_handler.get_last_primaries() or self.primaries
         self.audit_handler.post_batch_applied(three_pc_batch)
 
         self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
