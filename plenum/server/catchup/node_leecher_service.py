@@ -2,10 +2,12 @@ from enum import Enum
 from typing import Dict, Optional, Tuple
 
 from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
-from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, \
+    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.ledger import Ledger
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
+from plenum.common.txn_util import get_payload_data
 from plenum.server.catchup.ledger_leecher_service import LedgerLeecherService
 from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete, CatchupTill
 from stp_core.common.log import getlogger
@@ -85,7 +87,7 @@ class NodeLeecherService:
             logger.warning("{} got unexpected catchup complete {} during syncing audit ledger".format(self, msg))
             return
 
-        self._calc_catchup_till(msg.last_3pc)
+        self._catchup_till = self._calc_catchup_till(msg.last_3pc)
         self._state = self.State.SyncingPool
         self._catchup_ledger(POOL_LEDGER_ID)
 
@@ -138,37 +140,50 @@ class NodeLeecherService:
         else:
             leecher.start(request_ledger_statuses=False, till=catchup_till)
 
-    def _calc_catchup_till(self, last_3pc: Optional[Tuple[int, int]]):
+    def _calc_catchup_till(self, last_3pc: Optional[Tuple[int, int]]) -> Dict[int, CatchupTill]:
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
         last_audit_txn = audit_ledger.get_last_committed_txn()
         if last_audit_txn is None:
-            return
+            return {}
 
-        last_audit_txn = last_audit_txn['txn']['data']
-        view_no = last_audit_txn['viewNo']
-        pp_seq_no = last_audit_txn['ppSeqNo']
+        catchup_till = {}
+        last_audit_txn = get_payload_data(last_audit_txn)
+        view_no = last_audit_txn[AUDIT_TXN_VIEW_NO]
+        pp_seq_no = last_audit_txn[AUDIT_TXN_PP_SEQ_NO]
         # view_no, pp_seq_no = last_3pc if last_3pc else (0, 0)
-        for ledger_id, final_size in last_audit_txn['ledgerSize'].items():
+        for ledger_id, final_size in last_audit_txn[AUDIT_TXN_LEDGERS_SIZE].items():
             ledger = self._provider.ledger(ledger_id)
             start_size = ledger.size
 
-            final_hash = last_audit_txn['ledgerRoot'].get(ledger_id)
+            final_hash = last_audit_txn[AUDIT_TXN_LEDGER_ROOT].get(ledger_id)
             if final_hash is None:
                 if final_size != ledger.size:
-                    raise RuntimeError('!!!')  # TODO: Write sensible message
-                final_hash = Ledger.hashToStr(ledger.tree.merkle_tree_hash(0, final_size)) if final_size > 0 else None
+                    logger.error("{} has corrupted audit ledger: "
+                                 "it indicates that ledger {} has new transactions but doesn't have new txn root".
+                                 format(self, ledger_id))
+                    return {}
+                final_hash = Ledger.hashToStr(ledger.tree.root_hash) if final_size > 0 else None
 
             if isinstance(final_hash, int):
                 audit_txn = audit_ledger.getBySeqNo(audit_ledger.size - final_hash)
                 if audit_txn is None:
-                    raise RuntimeError('!!!')  # TODO: Write sensible message
-                audit_txn = audit_txn['txn']['data']
-                final_hash = audit_txn['ledgerRoot'].get(ledger_id)
+                    logger.error("{} has corrupted audit ledger: "
+                                 "its txn root for ledger {} references nonexistent txn with seq_no {} - {} = {}".
+                                 format(self, ledger_id, audit_ledger.size, final_hash, audit_ledger.size - final_hash))
+                    return {}
+                audit_txn = get_payload_data(audit_txn)
+                final_hash = audit_txn[AUDIT_TXN_LEDGER_ROOT].get(ledger_id)
                 if not isinstance(final_hash, str):
-                    raise RuntimeError('!!!')  # TODO: Write sensible message
+                    logger.error("{} has corrupted audit ledger: "
+                                 "its txn root for ledger {} references txn with seq_no {} - {} = {} "
+                                 "which doesn't contain txn root".
+                                 format(self, ledger_id, audit_ledger.size, final_hash, audit_ledger.size - final_hash))
+                    return {}
 
-            self._catchup_till[ledger_id] = CatchupTill(start_size=start_size,
-                                                        final_size=final_size,
-                                                        final_hash=final_hash,
-                                                        view_no=view_no,
-                                                        pp_seq_no=pp_seq_no)
+            catchup_till[ledger_id] = CatchupTill(start_size=start_size,
+                                                  final_size=final_size,
+                                                  final_hash=final_hash,
+                                                  view_no=view_no,
+                                                  pp_seq_no=pp_seq_no)
+
+        return catchup_till

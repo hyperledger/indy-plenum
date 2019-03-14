@@ -1,7 +1,7 @@
 import types
 
 import plenum.server.catchup.cons_proof_service as catchup_utils
-from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID
 from plenum.common.ledger import Ledger
 from plenum.server.catchup.utils import CatchupDataProvider
 from plenum.test.node_request.message_request.helper import \
