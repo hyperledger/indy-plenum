@@ -489,8 +489,8 @@ def check_last_ordered_3pc_backup(node1, node2):
         replica1 = node1.replicas[i]
         replica2 = node2.replicas[i]
         assert replica1.last_ordered_3pc == replica2.last_ordered_3pc, \
-            "{} != {}".format(replica1.last_ordered_3pc,
-                              replica2.last_ordered_3pc)
+            "{}: {} != {}: {}".format(replica1, replica1.last_ordered_3pc,
+                                      replica2, replica2.last_ordered_3pc)
 
 
 def check_view_no(node1, node2):

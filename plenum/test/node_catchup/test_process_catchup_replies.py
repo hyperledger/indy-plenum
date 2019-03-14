@@ -75,6 +75,7 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     num_txns_in_reply = 3
     reply_count = 6
 
+
     cons_proof, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
                                                    looper,
                                                    sdk_wallet_client,

@@ -68,7 +68,8 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
     looper.add(node_to_disconnect)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
 
 def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
@@ -124,7 +125,8 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     looper.add(node_to_disconnect)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
 
 def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
@@ -153,7 +155,8 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
                                             tdir, allPluginsPath)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # check cancel of schedule with requesting ledger statuses and consistency proofs
     for event in node_to_disconnect.timer._events:

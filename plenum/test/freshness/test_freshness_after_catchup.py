@@ -10,7 +10,7 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 
-FRESHNESS_TIMEOUT = 3
+FRESHNESS_TIMEOUT = 30
 
 
 @pytest.fixture(scope="module")
@@ -40,7 +40,6 @@ def test_freshness_after_catchup(looper,
                                             restarted_node,
                                             stopNode=True)
     looper.removeProdable(restarted_node)
-    print(txnPoolNodeSet[0].master_last_ordered_3PC)
     # Wait for the first freshness update
     looper.run(eventually(
         check_freshness_updated_for_all, rest_nodes,
@@ -64,8 +63,9 @@ def test_freshness_after_catchup(looper,
 
     txnPoolNodeSet[-1] = restarted_node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-
+    # looper.run(eventually(lambda: assertExp(txnPoolNodeSet[0].relicas[0])))
     waitNodeDataEquality(looper, *txnPoolNodeSet)
+    # assert False
     assert all(n.viewNo == view_no for n in txnPoolNodeSet)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
