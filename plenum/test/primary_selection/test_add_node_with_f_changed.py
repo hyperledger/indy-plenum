@@ -43,7 +43,7 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
     looper.run(checkNodesConnected(nodes, customTimeout=60))
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
     waitNodeDataEquality(looper, new_node, *nodes[:-1],
-                         customTimeout=timeout)
+                         customTimeout=timeout, exclude_from_check=['check_last_ordered_3pc_backup'])
     return new_node
 
 

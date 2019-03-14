@@ -835,7 +835,8 @@ def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None,
-                               instances: Sequence[int] = None):
+                               instances: Sequence[int] = None,
+                               check_primaries=True):
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
@@ -849,8 +850,9 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
-    for n in nodes[1:]:
-        assert nodes[0].primaries == n.primaries
+    if check_primaries:
+        for n in nodes[1:]:
+            assert nodes[0].primaries == n.primaries
 
     primaryReplicas = {replica.instId: replica
                        for node in nodes
@@ -863,7 +865,8 @@ def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
                         customTimeout: float = None,
-                        instances_list: Sequence[int] = None) -> Sequence[TestNode]:
+                        instances_list: Sequence[int] = None,
+                        check_primaries=True) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`
     # since there might not always be an election, there might be a round
     # robin selection
@@ -887,7 +890,8 @@ def ensureElectionsDone(looper: Looper,
         nodes=nodes,
         retryWait=retryWait,
         customTimeout=customTimeout,
-        instances=instances_list)
+        instances=instances_list,
+        check_primaries=check_primaries)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:

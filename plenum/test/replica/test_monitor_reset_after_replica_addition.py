@@ -45,4 +45,4 @@ def test_monitor_reset_after_replica_addition(looper, sdk_pool_handle, txnPoolNo
     assert all(node.monitor.getThroughput(instance) == 0 for instance in (0, 1, 2))
 
     looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
-    waitNodeDataEquality(looper, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check=['check_last_ordered_3pc_backup'])

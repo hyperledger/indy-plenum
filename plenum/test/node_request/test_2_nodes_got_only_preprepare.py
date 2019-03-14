@@ -72,7 +72,8 @@ def test_2_nodes_get_only_preprepare(looper,
     check_stashed_chekpoints(behind_nodes[1], 2)
 
     # 1st behind got another stashed checkpoint, so should catch-up now
-    waitNodeDataEquality(looper, master_node, behind_nodes[0], customTimeout=60)
+    waitNodeDataEquality(looper, master_node, behind_nodes[0], customTimeout=60,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Remove connection problems
     reset_sending(txnPoolNodeSet[:-2])
@@ -90,7 +91,9 @@ def test_2_nodes_get_only_preprepare(looper,
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                          1, 1)
     # 2d behind got another stashed checkpoint, so should catch-up now
-    waitNodeDataEquality(looper, master_node, behind_nodes[1], customTimeout=60)
+    waitNodeDataEquality(looper, master_node, behind_nodes[1], customTimeout=60,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Pool is working
-    waitNodeDataEquality(looper, master_node, *behind_nodes, customTimeout=5)
+    waitNodeDataEquality(looper, master_node, *behind_nodes, customTimeout=5,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])

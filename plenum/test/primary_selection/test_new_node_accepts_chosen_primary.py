@@ -70,7 +70,8 @@ def test_new_node_accepts_chosen_primary(
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_set_with_node_added_after_some_txns
 
     logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # here we must have view_no = 4
     #  - current primary is Alpha (based on node registry before new node joined)

@@ -74,4 +74,4 @@ def test_catchup_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
     waitNodeDataEquality(looper, *txnPoolNodeSet)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 1)
-    waitNodeDataEquality(looper, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check=['check_last_ordered_3pc'])

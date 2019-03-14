@@ -67,7 +67,7 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
     looper.add(restarted_node)
     txnPoolNodeSet[1] = restarted_node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, check_primaries=False)
 
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
                                          sdk_pool_handle, sdk_wallet_client, 1, 1)
