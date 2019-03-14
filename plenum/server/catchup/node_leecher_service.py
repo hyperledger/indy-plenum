@@ -43,8 +43,8 @@ class NodeLeecherService:
         self._current_ledger = None  # type: Optional[int]
 
         self._leecher_outbox, self._leecher_outbox_rx = create_direct_channel()
-        Router(self._leecher_outbox_rx).add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
         self._leecher_outbox_rx.subscribe(lambda msg: output.put_nowait(msg))
+        Router(self._leecher_outbox_rx).add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
 
         self._leechers = {}  # type: Dict[int, LedgerLeecherService]
 
@@ -169,6 +169,7 @@ class NodeLeecherService:
                                  "its txn root for ledger {} references nonexistent txn with seq_no {} - {} = {}".
                                  format(self, ledger_id, audit_ledger.size, final_hash, audit_ledger.size - final_hash))
                     return {}
+
                 audit_txn = get_payload_data(audit_txn)
                 final_hash = audit_txn[AUDIT_TXN_LEDGER_ROOT].get(ledger_id)
                 if not isinstance(final_hash, str):
