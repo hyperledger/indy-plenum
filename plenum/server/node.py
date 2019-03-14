@@ -412,7 +412,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # We need future_primaries to calculate applied primaries correctly
         self.future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self)
 
-
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
         self.created = time.time()
