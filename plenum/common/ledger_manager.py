@@ -140,11 +140,6 @@ class LedgerManager:
         if self.postAllLedgersCaughtUp:
             self.postAllLedgersCaughtUp()
 
-    def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:
-        if ledgerType not in self.ledgerRegistry:
-            raise KeyError("Invalid ledger type: {}".format(ledgerType))
-        return self.ledgerRegistry[ledgerType]
-
     def sendTo(self, msg: Any, to: str, message_splitter=None):
         if self.nodestack.hasRemote(to):
             self.owner.sendToNodes(msg, [to, ], message_splitter)

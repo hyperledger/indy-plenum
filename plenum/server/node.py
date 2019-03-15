@@ -2357,7 +2357,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.start_participating()
 
     def getLedger(self, ledgerId) -> Ledger:
-        return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
+        try:
+            return self.ledgerManager.ledgerRegistry[ledgerId].ledger
+        except KeyError:
+            raise KeyError("Invalid ledger type: {}".format(ledgerId))
 
     def getState(self, ledgerId) -> PruningState:
         return self.states.get(ledgerId)
@@ -2858,12 +2861,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
         self.metrics.add_event(MetricsName.TXN_SEQ_RANGE_TO_3PHASE_KEY, len(self.txn_seq_range_to_3phase_key))
 
-        self.metrics.add_event(MetricsName.LEDGERMANAGER_POOL_UNCOMMITEDS, len(
-            self.ledgerManager.getLedgerInfoByType(0).ledger.uncommittedTxns))
-        self.metrics.add_event(MetricsName.LEDGERMANAGER_DOMAIN_UNCOMMITEDS, len(
-            self.ledgerManager.getLedgerInfoByType(1).ledger.uncommittedTxns))
-        self.metrics.add_event(MetricsName.LEDGERMANAGER_CONFIG_UNCOMMITEDS, len(
-            self.ledgerManager.getLedgerInfoByType(2).ledger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_POOL_UNCOMMITEDS, len(self.getLedger(0).uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_DOMAIN_UNCOMMITEDS, len(self.getLedger(1).uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_CONFIG_UNCOMMITEDS, len(self.getLedger(2).uncommittedTxns))
 
         # REPLICAS
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_MASTER, len(self.master_replica.outBox))
