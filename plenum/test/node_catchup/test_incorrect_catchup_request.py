@@ -5,7 +5,7 @@ from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
 
 logger = getlogger()
-leger_id = 1
+ledger_id = 1
 
 
 def test_receive_incorrect_catchup_request_with_end_greater_catchuptill(looper,
@@ -14,7 +14,7 @@ def test_receive_incorrect_catchup_request_with_end_greater_catchuptill(looper,
                                                                         sdk_wallet_client):
     end = 15
     catchup_till = 10
-    req = CatchupReq(leger_id, 0, end, catchup_till)
+    req = CatchupReq(ledger_id, 0, end, catchup_till)
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
@@ -34,7 +34,7 @@ def test_receive_incorrect_catchup_request_with_start_greater_end(looper,
                                                                   sdk_wallet_client):
     start = 10
     end = 5
-    req = CatchupReq(leger_id, start, end, 11)
+    req = CatchupReq(ledger_id, start, end, 11)
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
@@ -54,7 +54,7 @@ def test_receive_incorrect_catchup_request_with_catchuptill_greater_ledger_size(
         sdk_pool_handle,
         sdk_wallet_client):
     catchup_till = 100
-    req = CatchupReq(leger_id, 0, 10, catchup_till)
+    req = CatchupReq(ledger_id, 0, 10, catchup_till)
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
@@ -62,7 +62,7 @@ def test_receive_incorrect_catchup_request_with_catchuptill_greater_ledger_size(
                               4)
     ledger_manager = txnPoolNodeSet[0].ledgerManager
     ledger_manager.processCatchupReq(req, "frm")
-    ledger_size = ledger_manager.getLedgerForMsg(req).size
+    ledger_size = ledger_manager.ledgerRegistry[ledger_id].ledger.size
     _check_call_discard(ledger_manager, "not able to service since "
                                         "catchupTill = {} greater than "
                                         "ledger size = {}"

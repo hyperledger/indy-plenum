@@ -188,6 +188,11 @@ class ValidatorNodeInfoTool:
 
     @property
     @none_on_fail
+    def __audit_ledger_size(self):
+        return self._node.auditLedger.size
+
+    @property
+    @none_on_fail
     def __uptime(self):
         return int(time.time() - self._node.created)
 
@@ -452,6 +457,7 @@ class ValidatorNodeInfoTool:
                     'ledger': self.__domain_ledger_size,
                     'pool': self.__pool_ledger_size,
                     'config': self.__config_ledger_size,
+                    'audit': self.__audit_ledger_size,
                 },
                 'uptime': self.__uptime,
             })
@@ -462,7 +468,7 @@ class ValidatorNodeInfoTool:
         for view_no, votes in self._node.view_changer.instance_changes.items():
             ics = {voter: {"reason": vote.reason}
                    for voter, vote in votes.items()}
-            ic_queue[view_no]["Voters"] = self._prepare_for_json(ics)
+            ic_queue[view_no] = {"Voters": self._prepare_for_json(ics)}
         return ic_queue
 
     def __get_start_vc_ts(self):
@@ -514,20 +520,24 @@ class ValidatorNodeInfoTool:
         committed_state_root_hashes = {}
         uncommitted_state_root_hashes = {}
         freshness_status = {}
-        for idx, linfo in self._node.ledgerManager.ledgerRegistry.items():
-            ledger_statuses[idx] = self._prepare_for_json(linfo.state.name)
-            waiting_cp[idx] = self._prepare_for_json(linfo.catchUpTill)
-            num_txns_in_catchup[idx] = self._prepare_for_json(linfo.num_txns_caught_up)
-            last_txn_3PC_keys[idx] = self._prepare_for_json(linfo.last_txn_3PC_key)
+
+        for lid, linfo in self._node.ledgerManager.ledgerRegistry.items():
+            cons_proof_service = self._node.ledgerManager._leechers[lid].cons_proof_service
+            catchup_rep_service = self._node.ledgerManager._leechers[lid].catchup_rep_service
+            ledger_statuses[lid] = self._prepare_for_json(linfo.state.name)
+            waiting_cp[lid] = self._prepare_for_json(catchup_rep_service._catchup_till)
+            num_txns_in_catchup[lid] = self._prepare_for_json(linfo.num_txns_caught_up)
+            last_txn_3PC_keys[lid] = self._prepare_for_json(cons_proof_service._last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
-                uncommited_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
+                uncommited_ledger_root_hashes[lid] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
             txns = {"Count": len(linfo.ledger.uncommittedTxns)}
             if len(linfo.ledger.uncommittedTxns) > 0:
                 txns["First_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[0])
                 txns["Last_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[-1])
-            uncommitted_ledger_txns[idx] = txns
+            uncommitted_ledger_txns[lid] = txns
             if linfo.ledger.tree.root_hash:
-                committed_ledger_root_hashes[idx] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+                committed_ledger_root_hashes[lid] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+
         for l_id, req_handler in self._node.ledger_to_req_handler.items():
             committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.committedHeadHash))
             uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))

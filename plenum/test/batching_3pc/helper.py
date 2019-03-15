@@ -68,8 +68,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             ledger_manager = node.ledgerManager
             ledger_id = DOMAIN_LEDGER_ID
-            ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
-            ledgerInfo = ledger_manager.getLedgerInfoByType(ledger_id)
+            catchup_rep_service = ledger_manager._leechers[ledger_id].catchup_rep_service
 
             # simulate audit ledger catchup
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
@@ -83,8 +82,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             for req in reqs:
                 txn = append_txn_metadata(reqToTxn(req), txn_time=pp.ppTime)
-                ledger_manager._add_txn(
-                    ledger_id, ledger, ledgerInfo, txn)
+                catchup_rep_service._add_txn(txn)
             ledger_manager.catchupCompleted(
                 DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
 
