@@ -1,8 +1,12 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
+from plenum.common.constants import STATE_PROOF, TXN_TIME, DATA, MULTI_SIGNATURE, PROOF_NODES, ROOT_HASH
+
 from common.exceptions import PlenumValueError, LogicError
-from common.serializers.serialization import state_roots_serializer
+from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
+from plenum.common.types import f
 from stp_core.common.log import getlogger
 
 from plenum.common.ledger import Ledger
@@ -117,3 +121,55 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     @property
     def valid_txn_types(self) -> set:
         return self.write_types.union(self.query_types)
+
+    def get_value_from_state(self, path, head_hash=None, with_proof=False, multi_sig=None):
+        '''
+        Get a value (and proof optionally)for the given path in state trie.
+        Does not return the proof is there is no aggregate signature for it.
+        :param path: the path generate a state proof for
+        :param head_hash: the root to create the proof against
+        :param get_value: whether to return the value
+        :return: a state proof or None
+        '''
+        root_hash = head_hash if head_hash else self.state.committedHeadHash
+        encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+
+        if not with_proof:
+            return self.state.get_for_root_hash(root_hash, path), None
+
+        if not multi_sig:
+            # Just return the value and not proof
+            try:
+                return self.state.get_for_root_hash(root_hash, path), None
+            except KeyError:
+                return None, None
+        else:
+            try:
+                proof, value = self.state.generate_state_proof(key=path,
+                                                               root=self.state.get_head_by_hash(root_hash),
+                                                               serialize=True,
+                                                               get_value=True)
+                value = self.state.get_decoded(value) if value else value
+                encoded_proof = proof_nodes_serializer.serialize(proof)
+                proof = {
+                    ROOT_HASH: encoded_root_hash,
+                    MULTI_SIGNATURE: multi_sig.as_dict(),
+                    PROOF_NODES: encoded_proof
+                }
+                return value, proof
+            except KeyError:
+                return None, None
+
+    @staticmethod
+    def make_result(request, data, proof=None):
+        result = {**request.operation, **{
+            DATA: data,
+            f.IDENTIFIER.nm: request.identifier,
+            f.REQ_ID.nm: request.reqId
+        }}
+        if proof and request.protocolVersion and \
+                request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
+            result[STATE_PROOF] = proof
+
+        # Do not inline please, it makes debugging easier
+        return result

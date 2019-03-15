@@ -8,8 +8,8 @@ from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints
-from plenum.test.delayers import lsDelay, \
-    ppDelay, pDelay, cDelay, msg_rep_delay
+from plenum.test.delayers import cs_delay, lsDelay, \
+    ppDelay, pDelay, cDelay, msg_rep_delay, cr_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
@@ -87,7 +87,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
     lagging_node.nodeIbStasher.delay(pDelay())
     lagging_node.nodeIbStasher.delay(cDelay())
 
-    with delay_rules(lagging_node.nodeIbStasher, lsDelay(), msg_rep_delay()):
+    with delay_rules(lagging_node.nodeIbStasher, lsDelay(), cr_delay()):
         looper.add(lagging_node)
         txnPoolNodeSet[-1] = lagging_node
         looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -141,18 +141,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
     # check that catch-up was started twice, since we were able to catch-up till audit ledger only
     # for the first time, and after this the node sees a quorum of stashed checkpoints
     assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2
-    looper.run(
-        eventually(
-            lambda: assertExp(
-                lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2)
-        )
-    )
-    looper.run(
-        eventually(
-            lambda: assertExp(
-                lagging_node.spylog.count(Node.start_catchup) == 2)
-        )
-    )
+    assert lagging_node.spylog.count(Node.start_catchup) == 2
 
     # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering durinf catch-up
     waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5,

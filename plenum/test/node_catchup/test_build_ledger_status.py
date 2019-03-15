@@ -60,10 +60,6 @@ def test_ledger_status_for_new_node(looper, txnPoolNodeSet, sdk_node_created_aft
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet + [new_node],
                                     exclude_from_check=['check_last_ordered_3pc_backup'])
 
-    ref_node = txnPoolNodeSet[0]
-    pool_last_ordered_3pc = ref_node.master_last_ordered_3PC  # since last txn is NODE
-    domain_last_ordered_3pc = (ref_node.master_last_ordered_3PC[0], ref_node.master_last_ordered_3PC[1] - 1)
-
     # Ledger Status for Pool ledger should return not None 3PC key as
     # a new Node txn was ordered
     check_ledger_statuses(txnPoolNodeSet)

@@ -10,9 +10,16 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
+CatchupTill = NamedTuple('CatchupTill',
+                         [('start_size', int),
+                          ('final_size', int),
+                          ('final_hash', str),
+                          ('view_no', int),  # TODO: Remove view_no/pp_seq_no after INDY-1946 is implemented
+                          ('pp_seq_no', int)])
+
 LedgerCatchupStart = NamedTuple('LedgerCatchupStart',
                                 [('ledger_id', int),
-                                 ('cons_proof', Optional[ConsistencyProof])])
+                                 ('catchup_till', Optional[CatchupTill])])
 
 LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
                                    [('ledger_id', int),

@@ -78,10 +78,6 @@ class NodeHandler(WriteRequestHandler):
         if error:
             return error
 
-        is_steward = self._is_steward(origin, is_committed=False)
-        if not is_steward:
-            return "{} is not a steward so cannot add a new node".format(
-                origin)
         if self._steward_has_node(origin):
             return "{} already has a node".format(origin)
         error = self._is_node_data_conflicting(data)
@@ -94,10 +90,6 @@ class NodeHandler(WriteRequestHandler):
         # conflict with any existing node's data
         origin = request.identifier
         operation = request.operation
-        is_steward = self._is_steward(origin, is_committed=False)
-        if not is_steward:
-            return "{} is not a steward so cannot update a node".format(origin)
-
         node_nym = operation.get(TARGET_NYM)
         if not self._is_steward_of_node(origin, node_nym, is_committed=False):
             return "{} is not a steward of node {}".format(origin, node_nym)

@@ -1,10 +1,10 @@
 from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.loop.eventually import eventually
 
-from plenum.common.constants import COMMIT, LEDGER_STATUS, MESSAGE_RESPONSE
+from plenum.common.constants import COMMIT, LEDGER_STATUS, MESSAGE_RESPONSE, CATCHUP_REP
 from plenum.common.messages.node_messages import Commit
 from plenum.common.util import check_if_all_equal_in_list
-from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay
+from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay, cr_delay
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
@@ -58,6 +58,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     # Delay LEDGER_STATUS so catchup starts late
     slow_node.nodeIbStasher.delay(lsDelay(100))
     slow_node.nodeIbStasher.delay(msg_rep_delay(100))
+    slow_node.nodeIbStasher.delay(cr_delay(100))
 
     # slow_node has not reverted batches
     assert sent_batches not in getAllReturnVals(
@@ -91,6 +92,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     # Deliver LEDGER_STATUS so catchup can complete
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(LEDGER_STATUS)
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(MESSAGE_RESPONSE)
+    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CATCHUP_REP)
 
     # Ensure all nodes have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
