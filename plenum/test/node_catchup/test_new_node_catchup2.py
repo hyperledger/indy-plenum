@@ -50,7 +50,8 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
               catchup_delay + \
               waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
-    waitNodeDataEquality(looper, new_node, *old_nodes)
+    waitNodeDataEquality(looper, new_node, *old_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 2)
