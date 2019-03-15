@@ -64,8 +64,10 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
               reduced_catchup_timeout_conf.CatchupTransactionsTimeout
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
-                         customTimeout=timeout)
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 2)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
-                         customTimeout=timeout)
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])

@@ -68,4 +68,5 @@ def testNodeCatchupFPlusOne(looper,
     logger.debug("Sending more requests")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 2)
-    checkNodeDataForEquality(node0, *txnPoolNodeSet[:-2])
+    checkNodeDataForEquality(node0, *txnPoolNodeSet[:-2],
+                             exclude_from_check=['check_last_ordered_3pc_backup'])

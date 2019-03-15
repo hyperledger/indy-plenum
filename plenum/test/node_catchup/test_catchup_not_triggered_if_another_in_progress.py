@@ -102,8 +102,6 @@ def test_catchup_not_triggered_if_another_in_progress(
 
     looper.run(eventually(lambda: assertExp(repaired_node.mode == Mode.participating),
                           timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))))
-    # TODO: When INDY-1945 will be implemented, ledgers catchup must be synchronized,
-    # so return catchup counter to 1
-    assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 2
-    assert repaired_node.spylog.count(Node.allLedgersCaughtUp) - initial_all_ledgers_caught_up == 2
+    assert repaired_node.spylog.count(Node._do_start_catchup) - initial_do_start_catchup_times == 1
+    assert repaired_node.spylog.count(Node.allLedgersCaughtUp) - initial_all_ledgers_caught_up == 1
     assert repaired_node.domainLedger.size == other_nodes[0].domainLedger.size
