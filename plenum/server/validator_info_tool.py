@@ -526,7 +526,7 @@ class ValidatorNodeInfoTool:
             cons_proof_service = leecher._cons_proof_service
 
             ledger_statuses[lid] = self._prepare_for_json(leecher.state.name)
-            waiting_cp[lid] = self._prepare_for_json(leecher.catchup_till)
+            waiting_cp[lid] = self._prepare_for_json(leecher.catchup_till._asdict if leecher.catchup_till else None)
             num_txns_in_catchup[lid] = self._prepare_for_json(leecher.num_txns_caught_up)
             last_txn_3PC_keys[lid] = self._prepare_for_json(cons_proof_service._last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
