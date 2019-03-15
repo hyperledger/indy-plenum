@@ -190,6 +190,19 @@ def test_fail_update_instance_changes_from_db(instance_change_provider, tconf,
                            node_status_db, time_provider)
     assert logs
 
+    # test updating cache with incorrect and correct view_no format
+    node_status_db.iterator = lambda include_value=True: {
+        "a": node_status_db_serializer.serialize({"voter1": [5, 25]}),
+        "1": node_status_db_serializer.serialize({"voter2": [4, 15]})}.items()
+    logs, _ = logsearch(
+        msgs=["InstanceChangeProvider: view_no='.*' "
+              "must be of int type"])
+    provider = InstanceChangeProvider(tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
+                                      node_status_db, time_provider)
+    assert provider.has_view(1)
+    assert provider.has_inst_chng_from(1, "voter2")
+    assert logs
+
 
 def test_remove_view(instance_change_provider):
     frm = "Node1"
