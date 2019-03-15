@@ -1,8 +1,9 @@
 from enum import Enum
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, NamedTuple
 
 from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
-from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT
+from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, \
+    CONFIG_LEDGER_ID
 from plenum.common.ledger import Ledger
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
@@ -17,9 +18,11 @@ logger = getlogger()
 class NodeLeecherService:
     class State(Enum):
         Idle = 0
-        SyncingAudit = 1
-        SyncingPool = 2
-        SyncingOthers = 3
+        PreSyncingPool = 1
+        SyncingAudit = 2
+        SyncingPool = 3
+        SyncingConfig = 4
+        SyncingOthers = 5
 
     def __init__(self,
                  config: object,
@@ -60,51 +63,77 @@ class NodeLeecherService:
                                  metrics=self.metrics,
                                  provider=self._provider)
 
-    def start(self, request_ledger_statuses: bool):
+    def start(self, is_initial: bool = False):
         for leecher in self._leechers.values():
             leecher.reset()
 
-        self._state = self.State.SyncingAudit
         self._catchup_till.clear()
-        self._leechers[AUDIT_LEDGER_ID].start(request_ledger_statuses)
+        if is_initial:
+            self._state = self.State.PreSyncingPool
+            self._leechers[POOL_LEDGER_ID].start(request_ledger_statuses=False)
+        else:
+            self._state = self.State.SyncingAudit
+            self._leechers[AUDIT_LEDGER_ID].start()
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
         return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
 
     def _on_ledger_catchup_complete(self, msg: LedgerCatchupComplete):
-        if self._state == self.State.SyncingAudit:
+        if self._state == self.State.PreSyncingPool:
+            self._on_pool_pre_synced(msg)
+        elif self._state == self.State.SyncingAudit:
             self._on_audit_synced(msg)
         elif self._state == self.State.SyncingPool:
             self._on_pool_synced(msg)
+        elif self._state == self.State.SyncingConfig:
+            self._on_config_synced(msg)
         elif self._state == self.State.SyncingOthers:
             self._on_other_synced(msg)
         else:
             logger.warning("{} got unexpected catchup complete {} during idle state".format(self, msg))
 
-    def _on_audit_synced(self, msg):
-        if msg.ledger_id != AUDIT_LEDGER_ID:
-            logger.warning("{} got unexpected catchup complete {} during syncing audit ledger".format(self, msg))
+    def _on_pool_pre_synced(self, msg: LedgerCatchupComplete):
+        if not self._validate_catchup_complete(msg, POOL_LEDGER_ID):
+            return
+
+        self._state = self.State.SyncingAudit
+        self._leechers[AUDIT_LEDGER_ID].start()
+
+    def _on_audit_synced(self, msg: LedgerCatchupComplete):
+        if not self._validate_catchup_complete(msg, AUDIT_LEDGER_ID):
             return
 
         self._catchup_till = self._calc_catchup_till(msg.last_3pc)
         self._state = self.State.SyncingPool
         self._catchup_ledger(POOL_LEDGER_ID)
 
-    def _on_pool_synced(self, msg):
-        if msg.ledger_id != POOL_LEDGER_ID:
-            logger.warning("{} got unexpected catchup complete {} during syncing pool ledger".format(self, msg))
+    def _on_pool_synced(self, msg: LedgerCatchupComplete):
+        if not self._validate_catchup_complete(msg, POOL_LEDGER_ID):
+            return
+
+        self._state = self.State.SyncingConfig
+        self._leechers[CONFIG_LEDGER_ID].start()
+
+    def _on_config_synced(self, msg: LedgerCatchupComplete):
+        if not self._validate_catchup_complete(msg, CONFIG_LEDGER_ID):
             return
 
         self._state = self.State.SyncingOthers
         self._sync_next_ledger()
 
-    def _on_other_synced(self, msg):
-        if msg.ledger_id != self._current_ledger:
-            logger.warning("{} got unexpected catchup complete {} during syncing ledger {}".
-                           format(self, msg, self._current_ledger))
+    def _on_other_synced(self, msg: LedgerCatchupComplete):
+        if not self._validate_catchup_complete(msg, self._current_ledger):
             return
 
         self._sync_next_ledger()
+
+    def _validate_catchup_complete(self, msg: LedgerCatchupComplete, ledger_id: int):
+        if msg.ledger_id != ledger_id:
+            logger.warning("{} got unexpected catchup complete {} during syncing ledger {}".
+                           format(self, msg, self._current_ledger))
+            return False
+
+        return True
 
     def _sync_next_ledger(self):
         self._current_ledger = self._get_next_ledger(self._current_ledger)
@@ -118,6 +147,7 @@ class NodeLeecherService:
         ledger_ids = list(self._leechers.keys())
         ledger_ids.remove(AUDIT_LEDGER_ID)
         ledger_ids.remove(POOL_LEDGER_ID)
+        ledger_ids.remove(CONFIG_LEDGER_ID)
 
         if len(ledger_ids) == 0:
             return None
@@ -135,9 +165,9 @@ class NodeLeecherService:
         leecher = self._leechers[ledger_id]
         catchup_till = self._catchup_till.get(ledger_id)
         if catchup_till is None:
-            leecher.start(request_ledger_statuses=True)
+            leecher.start()
         else:
-            leecher.start(request_ledger_statuses=False, till=catchup_till)
+            leecher.start(till=catchup_till)
 
     def _calc_catchup_till(self, last_3pc: Optional[Tuple[int, int]]) -> Dict[int, CatchupTill]:
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)

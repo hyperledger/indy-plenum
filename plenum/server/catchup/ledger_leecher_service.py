@@ -70,7 +70,7 @@ class LedgerLeecherService:
     def num_txns_caught_up(self) -> int:
         return self._num_txns_caught_up
 
-    def start(self, request_ledger_statuses: bool, till: Optional[CatchupTill] = None):
+    def start(self, request_ledger_statuses: bool = True, till: Optional[CatchupTill] = None):
         self._catchup_till = till
         self._num_txns_caught_up = 0
         if till is None:

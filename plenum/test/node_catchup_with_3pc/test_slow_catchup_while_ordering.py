@@ -52,7 +52,7 @@ def test_slow_catchup_while_ordering(tdir, tconf,
         # Prevent lagging node from catching up domain ledger (and finishing catchup)
         with delay_rules(other_stashers, delay_domain_ledger_catchup()):
             # Start catchup on lagging node
-            lagging_node.ledgerManager.start_catchup(request_ledger_statuses=True)
+            lagging_node.ledgerManager.start_catchup()
             assert lagging_node_state() == NodeLeecherService.State.SyncingAudit
 
             # Ensure that audit ledger is caught up by lagging node
