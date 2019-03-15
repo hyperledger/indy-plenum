@@ -105,26 +105,26 @@ class InstanceChangeProvider:
             return
         for view_no_db, serialized_votes in self._node_status_db.iterator(include_value=True):
             if serialized_votes is None:
-                break
+                continue
             if isinstance(view_no_db, bytes):
                 view_no_db = view_no_db.decode()
             view_no_str = view_no_db.replace(self.db_prefix, "")
             if not view_no_str.isdigit():
                 logger.warning("InstanceChangeProvider: view_no='{}' "
                                "must be of int type".format(view_no_str))
-                break
+                continue
             view_no = int(view_no_str)
             votes_as_dict = instance_change_db_serializer.deserialize(serialized_votes)
             if not votes_as_dict:
-                break
+                continue
             for voter, vote_dict in votes_as_dict.items():
                 vote = Vote(*vote_dict)
                 if not isinstance(vote.timestamp, (float, int)):
                     logger.warning("InstanceChangeProvider: timestamp in Vote (view_no={} : {} - {}) must "
                                    "be of float or int type".format(view_no, voter, vote_dict))
-                    break
+                    continue
                 if not isinstance(vote.reason, int):
                     logger.warning("InstanceChangeProvider: reason in Vote (view_no={} : {} - {}) must "
                                    "be of int type".format(view_no, voter, vote_dict))
-                    break
+                    continue
                 self._cache.add(view_no, voter, vote)
