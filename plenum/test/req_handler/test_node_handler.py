@@ -92,15 +92,6 @@ def test_node_handler_dynamic_validation_new_node_fails_same_ha(node_handler,
     e.match('node and client ha cannot be same')
 
 
-def test_node_handler_dynamic_validation_new_node_fails_not_steward(node_handler,
-                                                                    node_request):
-    node_handler._is_steward = lambda nym, is_committed: False
-
-    with pytest.raises(UnauthorizedClientRequest) as e:
-        node_handler.dynamic_validation(node_request)
-    e.match('is not a steward so cannot add a new node')
-
-
 def test_node_handler_dynamic_validation_new_node_fails_has_node(node_handler,
                                                                  node_request):
     node_handler._is_steward = lambda nym, is_committed: True
@@ -127,26 +118,9 @@ def test_node_handler_dynamic_validation_new_node_passes(node_handler,
     node_handler.dynamic_validation(node_request)
 
 
-def test_node_handler_dynamic_validation_update_node_fails_not_steward(node_handler,
-                                                                       node_request):
-    node_handler._get_node_data = lambda origin, is_committed: True
-    node_handler._is_steward = lambda origin, is_committed: False
-    with pytest.raises(UnauthorizedClientRequest) as e:
-        node_handler.dynamic_validation(node_request)
-    e.match('is not a steward so cannot update a node')
-
-
-def test_node_handler_dynamic_validation_update_node_fails_not_node_steward(node_handler,
-                                                                            node_request):
-    node_handler._is_steward = lambda origin, is_committed: True
-    node_handler._is_steward_of_node = lambda steward_nym, node_nym, is_committed: False
-    with pytest.raises(UnauthorizedClientRequest) as e:
-        node_handler.dynamic_validation(node_request)
-    e.match('is not a steward of node')
-
-
 def test_node_handler_dynamic_validation_update_node_fails_same_data(node_handler,
                                                                      node_request):
+    node_handler._get_node_data = lambda *args, **kwargs: True
     node_handler._is_steward_of_node = lambda steward_nym, node_nym, is_committed: True
     node_handler._is_node_data_same = lambda node_nym, new_data, is_committed: True
     with pytest.raises(UnauthorizedClientRequest) as e:
@@ -156,6 +130,7 @@ def test_node_handler_dynamic_validation_update_node_fails_same_data(node_handle
 
 def test_node_handler_dynamic_validation_update_node_fails_conflict_data(node_handler,
                                                                          node_request):
+    node_handler._get_node_data = lambda *args, **kwargs: True
     node_handler._is_node_data_same = lambda node_nym, new_data, is_committed: False
     node_handler._is_node_data_conflicting = lambda new_data, updating_nym=None: True
     with pytest.raises(UnauthorizedClientRequest) as e:

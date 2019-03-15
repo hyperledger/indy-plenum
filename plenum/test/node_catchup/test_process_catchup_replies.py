@@ -1,10 +1,12 @@
 from collections import OrderedDict
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
+from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.txn_util import append_txn_metadata, reqToTxn
 from plenum.common.types import f
 from plenum.common.util import SortedDict
+from plenum.server.catchup.utils import CatchupTill
 from plenum.test.helper import sdk_signed_random_requests
 
 ledger_id = DOMAIN_LEDGER_ID
@@ -19,7 +21,7 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
     txn_count = num_txns_in_reply * reply_count
     ledger_manager = node.ledgerManager
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
-    catchup_rep_service = ledger_manager._leechers[ledger_id].catchup_rep_service
+    catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, txn_count)
     # add transactions to ledger
     for req in reqs:
@@ -37,8 +39,14 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
         replies.append(CatchupRep(ledger_id,
                                   SortedDict(txns),
                                   cons_proof))
-    return ledger_manager._node_seeder._build_consistency_proof(
-        ledger_id, ledger.seqNo - txn_count, ledger.seqNo), replies
+
+    three_pc_key = node.three_phase_key_for_txn_seq_no(ledger_id, ledger.seqNo)
+    view_no, pp_seq_no = three_pc_key if three_pc_key else (0, 0)
+    return CatchupTill(start_size=ledger.seqNo - txn_count,
+                       final_size=ledger.seqNo,
+                       final_hash=Ledger.hashToStr(ledger.tree.merkle_tree_hash(0, ledger.seqNo)),
+                       view_no=view_no,
+                       pp_seq_no=pp_seq_no), replies
 
 
 def check_reply_not_applied(old_ledger_size, ledger, catchup_rep_service, frm, reply):
@@ -69,18 +77,18 @@ def test_process_catchup_replies(txnPoolNodeSet, looper, sdk_wallet_client):
     in reverse order will call a few iterations of cycle in _processCatchupRep
     '''
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    catchup_rep_service = ledger_manager._leechers[ledger_id].catchup_rep_service
+    catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
     ledger_size = ledger.size
     num_txns_in_reply = 3
     reply_count = 6
 
-    cons_proof, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
-                                                   looper,
-                                                   sdk_wallet_client,
-                                                   num_txns_in_reply,
-                                                   reply_count)
-    catchup_rep_service._catchup_till = cons_proof
+    catchup_till, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
+                                                     looper,
+                                                     sdk_wallet_client,
+                                                     num_txns_in_reply,
+                                                     reply_count)
+    catchup_rep_service._catchup_till = catchup_till
     catchup_rep_service._is_working = True
 
     # send replies in next order: 2, 3, 1
@@ -128,18 +136,18 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     in reverse order will call a few iterations of cycle in _processCatchupRep
     '''
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    catchup_rep_service = ledger_manager._leechers[ledger_id].catchup_rep_service
+    catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
     ledger_size = ledger.size
     num_txns_in_reply = 3
     reply_count = 2
 
-    cons_proof, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
-                                                   looper,
-                                                   sdk_wallet_client,
-                                                   num_txns_in_reply,
-                                                   reply_count)
-    catchup_rep_service._catchup_till = cons_proof
+    catchup_till, catchup_reps = _add_txns_to_ledger(txnPoolNodeSet[1],
+                                                     looper,
+                                                     sdk_wallet_client,
+                                                     num_txns_in_reply,
+                                                     reply_count)
+    catchup_rep_service._catchup_till = catchup_till
     catchup_rep_service._is_working = True
 
     # make invalid catchup reply by dint of adding new transaction in it

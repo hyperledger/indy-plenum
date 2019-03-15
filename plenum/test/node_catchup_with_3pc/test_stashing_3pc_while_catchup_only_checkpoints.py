@@ -9,7 +9,7 @@ from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cs_delay, lsDelay, \
-    ppDelay, pDelay, cDelay, msg_rep_delay
+    ppDelay, pDelay, cDelay, msg_rep_delay, cr_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
@@ -89,7 +89,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
     # delay CurrentState to avoid Primary Propagation (since it will lead to more catch-ups not needed in this test).
     with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
-        with delay_rules(lagging_node.nodeIbStasher, lsDelay(), msg_rep_delay()):
+        with delay_rules(lagging_node.nodeIbStasher, lsDelay(), cr_delay()):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -140,20 +140,9 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
             )
         )
 
-        # check that catch-up was started only once
-        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1
-        looper.run(
-            eventually(
-                lambda: assertExp(
-                    lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1)
-            )
-        )
-        looper.run(
-            eventually(
-                lambda: assertExp(
-                    lagging_node.spylog.count(Node.start_catchup) == 1)
-            )
-        )
+        # check that catch-up was started twice
+        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2
+        assert lagging_node.spylog.count(Node.start_catchup) == 2
 
         # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering durinf catch-up
         waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check='check_audit', customTimeout=5)

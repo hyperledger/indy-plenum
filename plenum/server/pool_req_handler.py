@@ -91,10 +91,6 @@ class PoolRequestHandler(LedgerRequestHandler):
         if error:
             return error
 
-        isSteward = self.isSteward(origin, isCommitted=False)
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(
-                origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
         error = self.isNodeDataConflicting(data)
@@ -107,9 +103,6 @@ class PoolRequestHandler(LedgerRequestHandler):
         # conflict with any existing node's data
         origin = request.identifier
         operation = request.operation
-        isSteward = self.isSteward(origin, isCommitted=False)
-        if not isSteward:
-            return "{} is not a steward so cannot update a node".format(origin)
 
         nodeNym = operation.get(TARGET_NYM)
         if not self.isStewardOfNode(origin, nodeNym, isCommitted=False):

@@ -1,14 +1,32 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Callable, List, Iterable
+from typing import Optional, Tuple, Any, Callable, List, Iterable, NamedTuple
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import LedgerStatus
+from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+CatchupTill = NamedTuple('CatchupTill',
+                         [('start_size', int),
+                          ('final_size', int),
+                          ('final_hash', str),
+                          ('view_no', int),  # TODO: Remove view_no/pp_seq_no after INDY-1946 is implemented
+                          ('pp_seq_no', int)])
+
+LedgerCatchupStart = NamedTuple('LedgerCatchupStart',
+                                [('ledger_id', int),
+                                 ('catchup_till', Optional[CatchupTill])])
+
+LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
+                                   [('ledger_id', int),
+                                    ('num_caught_up', int),
+                                    ('last_3pc', Optional[Tuple[int, int]])])
+
+NodeCatchupComplete = NamedTuple('NodeCatchupComplete', [])
 
 
 class CatchupDataProvider(ABC):
