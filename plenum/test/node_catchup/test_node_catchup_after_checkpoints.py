@@ -55,7 +55,8 @@ def test_node_catchup_after_checkpoints(
                                            (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                                            reqs_for_checkpoint - max_batch_size)
 
-    waitNodeDataEquality(looper, repaired_node, *other_nodes)
+    waitNodeDataEquality(looper, repaired_node, *other_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     # Note that the repaired node might not fill the gap of missed 3PC-messages
     # by requesting them from other nodes because these 3PC-batches start from
     # an already stabilized checkpoint, so a part of these 3PC-messages are
