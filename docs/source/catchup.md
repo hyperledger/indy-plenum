@@ -102,10 +102,16 @@ There is a number of callbacks called during catchup:
     - adjust current viewNo and primaries (based on the information from the audit ledger)
     - adjust last ordered 3PC (based on the information from the audit ledger)
     - adjust watermarks 
+    - unstash and process messages stashed during catchup
+       
+### Ordering during Catchup
+- Replicas do not generate, send or process any 3PC messages while catchup is in progress
+- 3PC messages received during catchup are stashed (in received order) 
+- The messages are unstashed and processed afetr catchup is finished
        
 
 
-Relevant code:
+### Relevant Code:
 - LedgerManager: `plenum/common/ledger_manager.py`
 - SeederService: `plenum/server/catchup/seeder_service.py`
 - NodeLeecherService: `plenum/server/catchup/node_leecher_service.py`
