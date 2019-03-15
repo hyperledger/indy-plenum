@@ -32,7 +32,7 @@ loop For every ledger in order: audit, pool, config, domain
 
 
 note over Node1, Node4
-    <b>1. Learn how many transaction to catch-up
+    <b> STEP 1: Learn how many transaction to catch-up
 end note
 
     alt not Audit Ledger
@@ -131,11 +131,12 @@ end note
                 Designate  <b>target ledger size</b> for catch-up
                 according to  <b>quorumed CONSISTENCY_PROOF</b>
             end note
+        end alt
     end alt
 
 
 note over Node1, Node4
-    <b>2.  Request and apply transactions from other nodes
+    <b> STEP 2:  Request and apply transactions from other nodes
 end note
 
     Node4 -> Node4: Process stashed ORDEREDs
@@ -216,13 +217,9 @@ end note
         Ledger reached target size
     end note
 
-    end alt
-
-
     opt Ledger is pool
         Node4 -> Node4: mode = discovered
     end opt
-
 
 end loop
 
