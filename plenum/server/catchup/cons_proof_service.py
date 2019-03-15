@@ -9,7 +9,7 @@ from plenum.common.metrics_collector import MetricsCollector, measure_time, Metr
 from plenum.common.timer import TimerService
 from plenum.common.types import f
 from plenum.common.util import min_3PC_key
-from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status, LedgerCatchupStart
+from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status, LedgerCatchupStart, CatchupTill
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
@@ -72,7 +72,13 @@ class ConsProofService:
         self._requested_consistency_proof = set()
 
         self._cancel_reask()
-        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, cons_proof=cons_proof))
+
+        till = CatchupTill(start_size=cons_proof.seqNoStart,
+                           final_size=cons_proof.seqNoEnd,
+                           final_hash=cons_proof.newMerkleRoot,
+                           view_no=cons_proof.viewNo,
+                           pp_seq_no=cons_proof.ppSeqNo) if cons_proof else None
+        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
 
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         if not self._can_process_ledger_status(ledger_status):
