@@ -24,6 +24,13 @@ class NodeLeecherService:
         SyncingConfig = 4
         SyncingOthers = 5
 
+    _state_to_ledger = {
+        State.PreSyncingPool: POOL_LEDGER_ID,
+        State.SyncingAudit: AUDIT_LEDGER_ID,
+        State.SyncingPool: POOL_LEDGER_ID,
+        State.SyncingConfig: CONFIG_LEDGER_ID,
+    }
+
     def __init__(self,
                  config: object,
                  input: RxChannel,
@@ -69,68 +76,43 @@ class NodeLeecherService:
 
         self._catchup_till.clear()
         if is_initial:
-            self._state = self.State.PreSyncingPool
-            self._leechers[POOL_LEDGER_ID].start(request_ledger_statuses=False)
+            self._enter_state(self.State.PreSyncingPool)
         else:
-            self._state = self.State.SyncingAudit
-            self._leechers[AUDIT_LEDGER_ID].start()
+            self._enter_state(self.State.SyncingAudit)
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
         return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
 
     def _on_ledger_catchup_complete(self, msg: LedgerCatchupComplete):
+        if not self._validate_catchup_complete(msg):
+            return
+
         if self._state == self.State.PreSyncingPool:
-            self._on_pool_pre_synced(msg)
+            self._enter_state(self.State.SyncingAudit)
+
         elif self._state == self.State.SyncingAudit:
-            self._on_audit_synced(msg)
+            self._catchup_till = self._calc_catchup_till(msg.last_3pc)
+            self._enter_state(self.State.SyncingPool)
+
         elif self._state == self.State.SyncingPool:
-            self._on_pool_synced(msg)
+            self._enter_state(self.State.SyncingConfig)
+
         elif self._state == self.State.SyncingConfig:
-            self._on_config_synced(msg)
+            self._enter_state(self.State.SyncingOthers)
+
         elif self._state == self.State.SyncingOthers:
-            self._on_other_synced(msg)
-        else:
-            logger.warning("{} got unexpected catchup complete {} during idle state".format(self, msg))
+            self._sync_next_ledger()
 
-    def _on_pool_pre_synced(self, msg: LedgerCatchupComplete):
-        if not self._validate_catchup_complete(msg, POOL_LEDGER_ID):
-            return
+    def _validate_catchup_complete(self, msg: LedgerCatchupComplete):
+        ledger_id = self._state_to_ledger.get(self._state)
+        state_name = self._state.name
+        if self._state == self.State.SyncingOthers:
+            ledger_id = self._current_ledger
+            state_name = "{}({})".format(state_name, ledger_id)
 
-        self._state = self.State.SyncingAudit
-        self._leechers[AUDIT_LEDGER_ID].start()
-
-    def _on_audit_synced(self, msg: LedgerCatchupComplete):
-        if not self._validate_catchup_complete(msg, AUDIT_LEDGER_ID):
-            return
-
-        self._catchup_till = self._calc_catchup_till(msg.last_3pc)
-        self._state = self.State.SyncingPool
-        self._catchup_ledger(POOL_LEDGER_ID)
-
-    def _on_pool_synced(self, msg: LedgerCatchupComplete):
-        if not self._validate_catchup_complete(msg, POOL_LEDGER_ID):
-            return
-
-        self._state = self.State.SyncingConfig
-        self._leechers[CONFIG_LEDGER_ID].start()
-
-    def _on_config_synced(self, msg: LedgerCatchupComplete):
-        if not self._validate_catchup_complete(msg, CONFIG_LEDGER_ID):
-            return
-
-        self._state = self.State.SyncingOthers
-        self._sync_next_ledger()
-
-    def _on_other_synced(self, msg: LedgerCatchupComplete):
-        if not self._validate_catchup_complete(msg, self._current_ledger):
-            return
-
-        self._sync_next_ledger()
-
-    def _validate_catchup_complete(self, msg: LedgerCatchupComplete, ledger_id: int):
         if msg.ledger_id != ledger_id:
-            logger.warning("{} got unexpected catchup complete {} during syncing ledger {}".
-                           format(self, msg, self._current_ledger))
+            logger.warning("{} got unexpected catchup complete {} during {}".
+                           format(self, msg, state_name))
             return False
 
         return True
@@ -160,6 +142,21 @@ class NodeLeecherService:
             return None
 
         return ledger_ids[next_index]
+
+    def _enter_state(self, state: State):
+        self._state = state
+        if state == self.State.Idle:
+            return
+
+        if state == self.State.PreSyncingPool:
+            self._leechers[POOL_LEDGER_ID].start(request_ledger_statuses=False)
+            return
+
+        if state == self.State.SyncingOthers:
+            self._sync_next_ledger()
+            return
+
+        self._catchup_ledger(self._state_to_ledger[state])
 
     def _catchup_ledger(self, ledger_id: int):
         leecher = self._leechers[ledger_id]
