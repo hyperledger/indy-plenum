@@ -75,7 +75,8 @@ def test_node_request_consistency_proof(tdir, tconf,
         lagging_node.ledgerManager.start_catchup(request_ledger_statuses=True)
 
         # Wait until catchup is succesfully finished
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=75)
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=75,
+                                        exclude_from_check=['check_last_ordered_3pc_backup'])
 
         # Make sure that there were requests for consistency proofs on other pool
         for node in other_nodes:

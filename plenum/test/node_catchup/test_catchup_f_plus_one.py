@@ -60,6 +60,7 @@ def testNodeCatchupFPlusOne(looper,
                           ha=nodeHa, cliha=nodeCHa,
                           config=tconf, pluginPaths=allPluginsPath)
     looper.add(node0)
+    txnPoolNodeSet[-2] = node0
 
     logger.debug("Waiting for the node0 to catch up")
     waitNodeDataEquality(looper, node0, *txnPoolNodeSet[:-2],
