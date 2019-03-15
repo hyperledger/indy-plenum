@@ -10,7 +10,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.timer import TimerService
-from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, CatchupTill
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -35,7 +35,7 @@ class CatchupRepService:
         self.metrics = metrics
         self._provider = provider
         self._is_working = False
-        self._catchup_till = None  # type: Optional[ConsistencyProof]
+        self._catchup_till = None  # type: Optional[CatchupTill]
 
         # Nodes are added in this set when the current node sent a CatchupReq
         # for them and waits a CatchupRep message.
@@ -50,20 +50,20 @@ class CatchupRepService:
     def is_working(self) -> bool:
         return self._is_working
 
-    def start(self, cons_proof: ConsistencyProof):
-        logger.info("{} started catching up with consistency proof {}".format(self, cons_proof))
+    def start(self, catchup_till: Optional[CatchupTill]):
+        logger.info("{} started catching up till {}".format(self, catchup_till))
 
         self._is_working = True
-        self._catchup_till = cons_proof
+        self._catchup_till = catchup_till
         self._provider.notify_catchup_start(self._ledger_id)
 
-        if cons_proof is None:
+        if catchup_till is None:
             self.stop()
             return
 
-        if self._ledger.size >= self._catchup_till.seqNoEnd:
+        if self._ledger.size >= self._catchup_till.final_size:
             logger.info('{} found that ledger {} does not need catchup'.format(self, self._ledger_id))
-            self.stop(last_3pc=(cons_proof.viewNo, cons_proof.ppSeqNo))
+            self.stop(last_3pc=(catchup_till.view_no, catchup_till.pp_seq_no))
             return
 
         eligible_nodes = self._provider.eligible_nodes()
@@ -72,7 +72,7 @@ class CatchupRepService:
                         ' found any connected nodes'.format(CATCH_UP_PREFIX, self, self._ledger_id))
             return
 
-        reqs = self._gen_catchup_reqs_from_cons_proof(cons_proof)
+        reqs = self._gen_catchup_reqs(catchup_till)
         if len(reqs) == 0:
             return
 
@@ -83,8 +83,7 @@ class CatchupRepService:
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
     def stop(self, last_3pc: Optional[Tuple[int, int]] = None):
-        cp = self._catchup_till
-        num_caught_up = cp.seqNoEnd - cp.seqNoStart if cp else 0
+        num_caught_up = self._catchup_till.final_size - self._catchup_till.start_size if self._catchup_till else 0
 
         self._wait_catchup_rep_from.clear()
 
@@ -127,10 +126,10 @@ class CatchupRepService:
 
         self._received_catchup_txns = txns_already_rcvd_in_catchup[num_processed:]
 
-        if self._ledger.size >= self._catchup_till.seqNoEnd:
-            self.stop((self._catchup_till.viewNo, self._catchup_till.ppSeqNo))
+        if self._ledger.size >= self._catchup_till.final_size:
+            self.stop((self._catchup_till.view_no, self._catchup_till.pp_seq_no))
 
-    def _gen_catchup_reqs_from_cons_proof(self, cons_proof: ConsistencyProof):
+    def _gen_catchup_reqs(self, catchup_till: CatchupTill):
         # TODO: This needs to be optimised, there needs to be a minimum size
         # of catchup requests so if a node is trying to catchup only 50 txns
         # from 10 nodes, each of thise 10 nodes will servce 5 txns and prepare
@@ -148,9 +147,9 @@ class CatchupRepService:
         # TODO: Consider setting start to `max(ledger.size, consProof.start)`
         # since ordered requests might have been executed after receiving
         # sufficient ConsProof in `preCatchupClbk`
-        return self._generate_catchup_reqs(cons_proof.seqNoStart, cons_proof.seqNoEnd, node_count)
+        return self.__gen_catchup_reqs(catchup_till.start_size, catchup_till.final_size, node_count)
 
-    def _generate_catchup_reqs(self, start, end, node_count):
+    def __gen_catchup_reqs(self, start, end, node_count):
         batch_length = math.ceil((end - start) / node_count)
         reqs = []
         s = start + 1
@@ -174,7 +173,7 @@ class CatchupRepService:
     def _num_missing_txns(self):
         if self._catchup_till is None:
             return 0
-        needed_txns = self._catchup_till.seqNoEnd - self._ledger.size
+        needed_txns = self._catchup_till.final_size - self._ledger.size
         num_missing = needed_txns - len(self._received_catchup_txns)
         return num_missing if num_missing > 0 else 0
 
@@ -214,8 +213,8 @@ class CatchupRepService:
         lastSeenSeqNo = self._ledger.size
         leftMissing = num_missing
 
-        start = self._catchup_till.seqNoStart
-        end = self._catchup_till.seqNoEnd
+        start = self._catchup_till.start_size
+        end = self._catchup_till.final_size
 
         def addReqsForMissing(frm, to):
             # Add Catchup requests for missing transactions.
@@ -388,8 +387,8 @@ class CatchupRepService:
         temp_tree = self._ledger.treeWithAppliedTxns(txns)
 
         proof = catchup_rep.consProof
-        final_size = self._catchup_till.seqNoEnd
-        final_hash = self._catchup_till.newMerkleRoot
+        final_size = self._catchup_till.final_size
+        final_hash = self._catchup_till.final_hash
         try:
             logger.info("{} verifying proof for {}, {}, {}, {}, {}".
                         format(self, temp_tree.tree_size, final_size,

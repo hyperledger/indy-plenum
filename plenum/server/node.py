@@ -52,7 +52,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
-    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO
+    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \

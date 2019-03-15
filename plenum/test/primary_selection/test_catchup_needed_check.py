@@ -80,11 +80,15 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
         old_count_3 = is_catchup_not_needed_count()
         ensure_view_change(looper, txnPoolNodeSet)
         checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
-        ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet, exclude_from_check=['check_last_ordered_3pc', 'check_audit'])
+        ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
+                                        exclude_from_check=['check_last_ordered_3pc',
+                                                            'check_audit',
+                                                            'check_last_ordered_3pc_backup'])
 
         assert is_catchup_needed_count() > old_count_1
         assert is_catchup_not_needed_count() > old_count_3
         # The bad_node caught up due to ordering till last prepared certificate
         assert has_ordered_till_last_prepared_certificate_count() > old_count_2
 
-    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
