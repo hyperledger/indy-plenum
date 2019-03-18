@@ -60,7 +60,8 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     logger.info("Check if the pool is able to process requests")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 10 * checkpoint_size)
-    ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=active_nodes,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
     assert nodes_have_checkpoints(*active_nodes)
 
 
