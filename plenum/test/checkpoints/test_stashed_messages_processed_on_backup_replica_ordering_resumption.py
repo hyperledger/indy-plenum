@@ -33,7 +33,8 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc == (view_no, 1)),
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -56,7 +57,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     # for catch-up number of checkpoints
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
-                             reqs_for_checkpoint - 2)
+                             reqs_for_checkpoint - 3)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Don't receive Checkpoints
@@ -77,7 +78,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that the replica has not ordered any batches
     # after the very first one
-    assert slow_replica.last_ordered_3pc == (view_no, 1)
+    assert slow_replica.last_ordered_3pc == (view_no, 2)
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == 0
@@ -95,8 +96,9 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that the replica has ordered the batch for the last sent request
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc ==
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc ==
                                      (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 1)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -116,7 +118,8 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc ==
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc ==
                                      (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 2)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
