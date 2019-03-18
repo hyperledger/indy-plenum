@@ -228,20 +228,14 @@ options.skip([StagesEnum.TEST])
 options.skip([StagesEnum.AUTOMERGE])
 options.skip([StagesEnum.BUILD_RESULT_NOTIF])
 options.skip([StagesEnum.PYPI_RELEASE])
-options.skip([StagesEnum.GET_RELEASE_VERSION])
+//options.skip([StagesEnum.GET_RELEASE_VERSION])
 options.skip([StagesEnum.PACK_RELEASE])
 options.skip([StagesEnum.QA_NOTIF])
+options.skip([StagesEnum.QA_APPROVAL])
 
-
-env.JENKINS_GITHUB_USER_EMAIL = 'andkononykhin@gmail.com'
-env.JENKINS_GITHUB_USER_NAME = 'andkononykhin'
 
 options.setApprovers(['QA'])
-options.releaseVersion = [
-    release: '1.7.0',
-    pre: 'rc',
-    revision: '1'
-]
+options.setReleaseBranch('stable2')
 
 options.setPrContexts([env.INDY_GITHUB_PR_REQUIRED_CONTEXT ?: "ci/hyperledger-jenkins/pr-merge"])
 testAndPublish(
