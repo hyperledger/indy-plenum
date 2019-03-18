@@ -2165,7 +2165,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r = self.master_replica.revert_unordered_batches()
         logger.info('{} reverted {} batches before starting catch up for ledger {}'.format(self, r, ledger_id))
 
-    def postLedgerCatchUp(self, ledger_id, last_caughtup_3pc):
+    def postLedgerCatchUp(self, ledger_id):
         pass
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):

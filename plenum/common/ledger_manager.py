@@ -133,8 +133,7 @@ class LedgerManager:
         pass
 
     def _on_ledger_sync_complete(self, msg: LedgerCatchupComplete):
-        if msg.last_3pc is not None and compare_3PC_keys(self.last_caught_up_3PC, msg.last_3pc) > 0:
-            self.last_caught_up_3PC = msg.last_3pc
+        pass
 
     def _on_catchup_complete(self, _: NodeCatchupComplete):
         if self.postAllLedgersCaughtUp:

@@ -75,9 +75,7 @@ class ConsProofService:
 
         till = CatchupTill(start_size=cons_proof.seqNoStart,
                            final_size=cons_proof.seqNoEnd,
-                           final_hash=cons_proof.newMerkleRoot,
-                           view_no=cons_proof.viewNo,
-                           pp_seq_no=cons_proof.ppSeqNo) if cons_proof else None
+                           final_hash=cons_proof.newMerkleRoot) if cons_proof else None
         self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
 
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
