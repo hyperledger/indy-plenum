@@ -1520,8 +1520,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{} asking {} for ledger status of ledger {}".format(self, node_name, ledger_id))
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
-        self.sendLedgerStatus(node_name,
-                              self.ledgerManager.ledger_sync_order[0])
+        self.sendLedgerStatus(node_name, POOL_LEDGER_ID)
 
     def nodeJoined(self, txn_data):
         logger.display("{} new node joined by txn {}".format(self, txn_data))
@@ -2332,7 +2331,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._catch_up_start_ts = 0
 
     def getLedger(self, ledgerId) -> Ledger:
-        return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
+        try:
+            return self.ledgerManager.ledgerRegistry[ledgerId].ledger
+        except KeyError:
+            raise KeyError("Invalid ledger type: {}".format(ledgerId))
 
     def getState(self, ledgerId) -> PruningState:
         return self.states.get(ledgerId)
@@ -2827,12 +2829,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
 
-        self.metrics.add_event(MetricsName.LEDGERMANAGER_POOL_UNCOMMITEDS, len(
-            self.ledgerManager.getLedgerInfoByType(0).ledger.uncommittedTxns))
-        self.metrics.add_event(MetricsName.LEDGERMANAGER_DOMAIN_UNCOMMITEDS, len(
-            self.ledgerManager.getLedgerInfoByType(1).ledger.uncommittedTxns))
-        self.metrics.add_event(MetricsName.LEDGERMANAGER_CONFIG_UNCOMMITEDS, len(
-            self.ledgerManager.getLedgerInfoByType(2).ledger.uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_POOL_UNCOMMITEDS, len(self.getLedger(0).uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_DOMAIN_UNCOMMITEDS, len(self.getLedger(1).uncommittedTxns))
+        self.metrics.add_event(MetricsName.LEDGERMANAGER_CONFIG_UNCOMMITEDS, len(self.getLedger(2).uncommittedTxns))
 
         # REPLICAS
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_MASTER, len(self.master_replica.outBox))
@@ -3140,7 +3139,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo != 0:
             self.primaries_batch_needed = True
 
-    def _do_start_catchup(self, just_started):
+    def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica
         self.force_process_ordered()
 
@@ -3149,7 +3148,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} reverted {} batches before starting catch up'.format(self, r))
 
         self.mode = Mode.starting
-        self.ledgerManager.start_catchup(request_ledger_statuses=not just_started)
+        self.ledgerManager.start_catchup(is_initial=just_started)
 
     def start_catchup(self, just_started=False):
         if not self.is_synced and not just_started:
