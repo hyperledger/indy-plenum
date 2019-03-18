@@ -234,9 +234,6 @@ options.skip([StagesEnum.QA_NOTIF])
 options.skip([StagesEnum.QA_APPROVAL])
 
 
-env.JENKINS_GITHUB_USER_EMAIL = 'andkononykhin@gmail.com'
-env.JENKINS_GITHUB_USER_NAME = 'andkononykhin'
-
 options.setApprovers(['QA'])
 options.releaseVersion = [
     release: '1.7.0',
