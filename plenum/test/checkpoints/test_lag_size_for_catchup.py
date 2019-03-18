@@ -67,7 +67,7 @@ def test_lag_size_for_catchup(
                                            sdk_wallet_client,
                                            reqs_for_checkpoint)
 
-    waitNodeDataEquality(looper, slow_node, *other_nodes)
+    waitNodeDataEquality(looper, slow_node, *other_nodes, exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Verify that the slow node has caught up
     assert get_number_of_completed_catchups(slow_node) > completed_catchups_before_reqs
