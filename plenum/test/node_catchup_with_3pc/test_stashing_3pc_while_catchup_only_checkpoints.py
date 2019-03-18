@@ -141,8 +141,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         )
 
         # check that catch-up was started twice
-        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 2
-        assert lagging_node.spylog.count(Node.start_catchup) == 2
+        assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1
+        assert lagging_node.spylog.count(Node.start_catchup) == 1
 
         # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering durinf catch-up
         waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check='check_audit', customTimeout=5)
