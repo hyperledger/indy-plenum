@@ -73,7 +73,7 @@ def test_node_request_consistency_proof(tdir, tconf,
                                   sdk_pool_handle, sdk_wallet_client, 4)
 
         # Start catchup on lagging node
-        lagging_node.ledgerManager.start_catchup(request_ledger_statuses=True)
+        lagging_node.ledgerManager.start_catchup()
 
         # Wait until catchup is succesfully finished
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=75)

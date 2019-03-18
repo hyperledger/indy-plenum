@@ -1,4 +1,4 @@
-from plenum.common.constants import AUDIT_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import AUDIT_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.server.node import Node
 
 
@@ -12,7 +12,7 @@ def check_ledger_sync_order(node: Node):
 
     # TODO: It does ignore designated ledger order, however it will obsolete after implemnting parallel catchup
     ledger_ids = [ledger.id for ledger in node.ledgerManager.ledgerRegistry.values()
-                  if ledger.id not in [AUDIT_LEDGER_ID, POOL_LEDGER_ID]]
+                  if ledger.id not in [AUDIT_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID]]
 
     for prev, next in zip(ledger_ids, ledger_ids[1:]):
         assert leecher._get_next_ledger(prev) == next

@@ -94,8 +94,8 @@ class LedgerManager:
 
         self._node_leecher.register_ledger(ledger_id)
 
-    def start_catchup(self, request_ledger_statuses: bool):
-        self._node_leecher.start(request_ledger_statuses)
+    def start_catchup(self, is_initial: bool = False):
+        self._node_leecher.start(is_initial)
 
     @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
@@ -139,11 +139,6 @@ class LedgerManager:
     def _on_catchup_complete(self, _: NodeCatchupComplete):
         if self.postAllLedgersCaughtUp:
             self.postAllLedgersCaughtUp()
-
-    def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:
-        if ledgerType not in self.ledgerRegistry:
-            raise KeyError("Invalid ledger type: {}".format(ledgerType))
-        return self.ledgerRegistry[ledgerType]
 
     def sendTo(self, msg: Any, to: str, message_splitter=None):
         if self.nodestack.hasRemote(to):
