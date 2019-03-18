@@ -231,6 +231,7 @@ options.skip([StagesEnum.PYPI_RELEASE])
 options.skip([StagesEnum.GET_RELEASE_VERSION])
 options.skip([StagesEnum.PACK_RELEASE])
 options.skip([StagesEnum.QA_NOTIF])
+options.skip([StagesEnum.QA_APPROVAL])
 
 
 env.JENKINS_GITHUB_USER_EMAIL = 'andkononykhin@gmail.com'
