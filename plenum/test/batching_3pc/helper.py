@@ -89,8 +89,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
                 catchup_rep_service._add_txn(txn)
             ledger_manager._on_ledger_sync_complete(LedgerCatchupComplete(
                 ledger_id=DOMAIN_LEDGER_ID,
-                num_caught_up=len(reqs),
-                last_3pc=(node.viewNo, commit.ppSeqNo)))
+                num_caught_up=len(reqs)))
             ledger_manager._on_catchup_complete(NodeCatchupComplete())
             replica.added = True
 

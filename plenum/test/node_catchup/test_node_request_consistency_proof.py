@@ -55,9 +55,7 @@ def test_node_request_consistency_proof(tdir, tconf,
         print("new size {}".format(next_size))
 
         newRootHash = Ledger.hashToStr(audit_ledger.tree.merkle_tree_hash(0, next_size))
-        three_pc_key = provider.three_phase_key_for_txn_seq_no(ledger_id, next_size)
-        v, p = three_pc_key if three_pc_key else (None, None)
-        ledgerStatus = LedgerStatus(AUDIT_LEDGER_ID, next_size, v, p, newRootHash,
+        ledgerStatus = LedgerStatus(AUDIT_LEDGER_ID, next_size, 0, 0, newRootHash,
                                     CURRENT_PROTOCOL_VERSION)
         logger.info("audit status {}".format(ledgerStatus))
         return ledgerStatus

@@ -82,19 +82,16 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     # gets a chance to order COMMITs
     slow_node.nodeIbStasher.delay(cr_delay(catchup_rep_delay))
 
+    old_last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
+
     # start view change (and hence catchup)
     ensure_view_change(looper, txnPoolNodeSet)
 
     # Check last ordered of `other_nodes` is same
     for n1, n2 in combinations(other_nodes, 2):
-        lst_3pc = check_last_ordered_3pc(n1, n2)
+        check_last_ordered_3pc(n1, n2)
 
-    def chk1():
-        # `slow_node` has prepared all 3PC messages which
-        # `other_nodes` have ordered
-        assertEquality(slow_master_replica.last_prepared_before_view_change, lst_3pc)
-
-    looper.run(eventually(chk1, retryWait=1))
+    assert slow_master_replica.last_prepared_before_view_change == old_last_ordered
 
     old_pc_count = slow_master_replica.spylog.count(
         slow_master_replica.process_three_phase_msg)

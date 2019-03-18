@@ -57,10 +57,14 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
     # Reset catchup reply delay so that  catchup can complete
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CatchupRep.typename)
 
+    old_last_ordered = fast_nodes[0].master_replica.last_ordered_3pc
+
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, fast_nodes)
+    assert slow_node.master_replica.last_ordered_3pc == old_last_ordered
+
     for req in reqs:
         chk(req.digest, txnPoolNodeSet, False)
 
