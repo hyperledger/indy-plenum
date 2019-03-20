@@ -71,6 +71,8 @@ class NodeLeecherService:
                                  provider=self._provider)
 
     def start(self, is_initial: bool = False):
+        logger.info("{} starting catchup (is_initial={})".format(self, is_initial))
+
         for leecher in self._leechers.values():
             leecher.reset()
 
