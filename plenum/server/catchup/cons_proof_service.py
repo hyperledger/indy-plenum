@@ -53,6 +53,8 @@ class ConsProofService:
         return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
 
     def start(self, request_ledger_statuses: bool):
+        logger.info("{} starts".format(self))
+
         self._is_working = True
         self._quorum = Quorums(len(self._provider.all_nodes_names()))
         self._same_ledger_status = set()
@@ -64,7 +66,39 @@ class ConsProofService:
             self._request_ledger_status_from_nodes()
             self._schedule_reask_ledger_status()
 
-    def stop(self, cons_proof: Optional[ConsistencyProof] = None):
+    def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
+        if not self._can_process_ledger_status(ledger_status):
+            return
+
+        if self._is_ledger_old(ledger_status):
+            self._process_newer_ledger_status(ledger_status, frm)
+        else:
+            self._process_same_ledger_status(ledger_status, frm)
+
+    @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
+    def process_consistency_proof(self, proof: ConsistencyProof, frm: str):
+        if not self._can_process_consistency_proof(proof):
+            return
+
+        logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
+        self._cons_proofs[frm] = ConsistencyProof(*proof)
+
+        if not self._is_catchup_needed():
+            self._finish_no_catchup()
+            return
+
+        if self._should_schedule_reask_cons_proofs():
+            self._schedule_reask_cons_proof()
+
+        cp = self._get_cons_proof_for_catchup()
+        if not cp:
+            return
+
+        self._finish(cp)
+
+    def _finish(self, cons_proof: Optional[ConsistencyProof] = None):
+        logger.info("{} finished with consistency proof {}".format(self, cons_proof))
+
         # Stop requesting last consistency proofs and ledger statuses.
         self._is_working = False
         self._same_ledger_status = set()
@@ -80,42 +114,11 @@ class ConsProofService:
                            pp_seq_no=cons_proof.ppSeqNo) if cons_proof else None
         self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
 
-    def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
-        if not self._can_process_ledger_status(ledger_status):
-            return
-
-        if self._is_ledger_old(ledger_status):
-            self._process_newer_ledger_status(ledger_status, frm)
-        else:
-            self._process_same_ledger_status(ledger_status, frm)
-
-    @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
-    def process_consistency_proof(self, proof: ConsistencyProof, frm: str):
-        logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
-
-        if not self._can_process_consistency_proof(proof):
-            return
-
-        self._cons_proofs[frm] = ConsistencyProof(*proof)
-
-        if not self._is_catchup_needed():
-            self._finish_no_catchup()
-            return
-
-        if self._should_schedule_reask_cons_proofs():
-            self._schedule_reask_cons_proof()
-
-        cp = self._get_cons_proof_for_catchup()
-        if not cp:
-            return
-
-        self._finish_catchup(cp)
-
     def _finish_no_catchup(self):
         root = Ledger.hashToStr(self._ledger.tree.root_hash)
         last_3pc = self._get_last_txn_3PC_key()
         if not last_3pc:
-            self.stop()
+            self._finish()
             return
 
         view_no, pp_seq_no = last_3pc
@@ -127,10 +130,7 @@ class ConsProofService:
                                       root,
                                       root,
                                       [])
-        self.stop(cons_proof)
-
-    def _finish_catchup(self, cp):
-        self.stop(cp)
+        self._finish(cons_proof)
 
     def _get_last_txn_3PC_key(self):
         quorumed_3PC_keys = \
