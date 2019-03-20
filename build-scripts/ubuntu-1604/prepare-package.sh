@@ -18,9 +18,6 @@ echo -e "\n\nUpdating version in metadata with $version_dotted"
 python3 -c "from plenum import set_version; set_version('$version_dotted')"
 popd
 
-echo -e "\n\nReplace postfixes"
-sed -i -r "s~indy-plenum-[a-z]+~indy-plenum~" "$repo/setup.py"
-
 echo -e "Adapt the dependencies for the Canonical archive"
 sed -i "s~ujson==1.33~ujson==1.33-1build1~" "$repo/setup.py"
 sed -i "s~prompt_toolkit==0.57~prompt_toolkit==0.57-1~" "$repo/setup.py"
