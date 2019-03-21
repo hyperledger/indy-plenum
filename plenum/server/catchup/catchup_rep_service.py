@@ -55,7 +55,6 @@ class CatchupRepService:
 
         self._is_working = True
         self._catchup_till = catchup_till
-        self._provider.notify_catchup_start(self._ledger_id)
 
         if catchup_till is None:
             self._finish()

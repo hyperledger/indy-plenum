@@ -73,6 +73,7 @@ class LedgerLeecherService:
     def start(self, request_ledger_statuses: bool = True, till: Optional[CatchupTill] = None):
         self._catchup_till = till
         self._num_txns_caught_up = 0
+        self._provider.notify_catchup_start(self._ledger_id)
         if till is None:
             self._state = LedgerState.not_synced
             self._cons_proof_service.start(request_ledger_statuses)
