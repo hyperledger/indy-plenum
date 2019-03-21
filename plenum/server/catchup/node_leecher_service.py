@@ -124,7 +124,7 @@ class NodeLeecherService:
         if self._current_ledger is not None:
             self._catchup_ledger(self._current_ledger)
         else:
-            self._state = self.State.Idle
+            self._enter_state(self.State.Idle)
             self._output.put_nowait(NodeCatchupComplete())
 
     def _get_next_ledger(self, ledger_id: Optional[int]) -> Optional[int]:
@@ -146,6 +146,8 @@ class NodeLeecherService:
         return ledger_ids[next_index]
 
     def _enter_state(self, state: State):
+        logger.info("{} transitioning from {} to {}".format(self, self._state.name, state.name))
+
         self._state = state
         if state == self.State.Idle:
             return
