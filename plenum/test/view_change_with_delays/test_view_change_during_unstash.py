@@ -5,11 +5,11 @@ import pytest
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
-from plenum.test.delayers import DEFAULT_DELAY
+from plenum.test.delayers import DEFAULT_DELAY, icDelay
 from plenum.test.helper import max_3pc_batch_limits, sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.stasher import start_delaying, stop_delaying_and_process
+from plenum.test.stasher import start_delaying, stop_delaying_and_process, delay_rules
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
@@ -32,6 +32,7 @@ def delay_3pc_after(view_no, pp_seq_no, *args):
             return
         return DEFAULT_DELAY
 
+    _delayer.__name__ = "delay_3pc_after({}, {}, {})".format(view_no, pp_seq_no, args)
     return _delayer
 
 
@@ -50,6 +51,7 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
 
     slow_stasher = slow_node.nodeIbStasher
     other_stashers = [n.nodeIbStasher for n in other_nodes]
+    all_stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
     # Preload nodes with some transactions
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
@@ -73,7 +75,10 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
     looper.run(eventually(check_nodes_ordered_till, [slow_node], 0, 7))
 
     # Start view change and allow slow node to get remaining commits
-    ensure_view_change(looper, txnPoolNodeSet)
+    with delay_rules(all_stashers, icDelay()):
+        for node in txnPoolNodeSet:
+            node.view_changer.on_master_degradation()
+        looper.runFor(0.1)
     stop_delaying_and_process(slow_node_remaining_commits)
 
     # Ensure that everything is ok
