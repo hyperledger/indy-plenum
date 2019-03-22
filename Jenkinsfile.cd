@@ -204,7 +204,7 @@ def stateTestWindowsNoDocker = {
     }
 }
 
-def buildDebUbuntu = { repoName, releaseVersion, sourcePath, packageVersion=null ->
+def buildDebUbuntu = { repoName, releaseVersion, sourcePath, packageVersion=null, pkgOnly=false ->
     def volumeName = "$name-deb-u1604"
     packageVersion = packageVersion ?: releaseVersion
 
@@ -216,7 +216,11 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath, packageVersion=null
     }
     dir('build-scripts/ubuntu-1604') {
         sh "./build-$name-docker.sh \"$sourcePath\" $releaseVersion $volumeName $packageVersion"
-        sh "./build-3rd-parties-docker.sh $volumeName"
+        if (!pkgOnly) {
+            sh "./build-3rd-parties-docker.sh $volumeName"
+        } else {
+            echo "Skip 3rd parties building"
+        }
     }
     return "$volumeName"
 }
