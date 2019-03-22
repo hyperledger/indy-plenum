@@ -231,6 +231,33 @@ options.skip([StagesEnum.BUILD_RESULT_NOTIF])
 options.skip([StagesEnum.QA_NOTIF])
 
 
+// TODO duplicates list from build scripts
+options.setPkgDeps([
+    'rocksdb': '5.8.8',
+    'ioflo': '1.5.4',
+    'orderedset': '2.0',
+    'base58': '1.0.0',
+    'prompt-toolkit': '0.57',
+    'rlp': '0.5.1',
+    'sha3': '0.2.1',
+    'libnacl': '1.6.1',
+    'six': '1.11.0',
+    'portalocker': '0.5.7',
+    'sortedcontainers': '1.5.7',
+    'setuptools': '38.5.2',
+    'python-dateutil': '2.6.1',
+    'semver': '2.7.9',
+    'pygments': '2.2.0',
+    'psutil': '5.4.3',
+    'pyzmq': '17.0.0',
+    'intervaltree': '2.1.0',
+    'jsonpickle': '0.9.6',
+    'python-rocksdb': '0.6.9',
+    'pympler': '0.5',
+    'packaging': '19.0'
+])
+
+
 options.setPrContexts([env.INDY_GITHUB_PR_REQUIRED_CONTEXT ?: "ci/hyperledger-jenkins/pr-merge"])
 testAndPublish(
     name,
