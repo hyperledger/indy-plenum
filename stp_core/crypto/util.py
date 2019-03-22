@@ -74,8 +74,7 @@ def getEd25519AndCurve25519Keys(seed=None):
         seed = cleanSeed(seed)
     signer = Signer(seed)
     sigkey, verkey = signer.keyhex, signer.verhex
-    prikey, pubkey = hexlify(ed25519SkToCurve25519(signer.keyraw)), \
-                     hexlify(ed25519PkToCurve25519(signer.verraw))
+    prikey, pubkey = hexlify(ed25519SkToCurve25519(signer.keyraw)), hexlify(ed25519PkToCurve25519(signer.verraw))
     return (sigkey, verkey), (prikey, pubkey)
 
 
