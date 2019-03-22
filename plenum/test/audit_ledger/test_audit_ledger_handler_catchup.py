@@ -26,13 +26,17 @@ def test_revert_works_after_catchup(alh, db_manager,
                       view_no=3,
                       initial_pp_seq_no=36,
                       pp_time=11222)
+    alh.on_catchup_finished()
 
-    # apply two new batches and revert one
+    txn_root_hash_1 = db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash
+    state_root_hash_1 = db_manager.get_state(POOL_LEDGER_ID).headHash
+
+    # apply two new batches and revert them both
     do_apply_audit_txn(alh,
                        txns_count=3, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=45, txn_time=21111)
-    txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
-    state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+    txn_root_hash_2 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
+    state_root_hash_2 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
     do_apply_audit_txn(alh,
                        txns_count=6, ledger_id=DOMAIN_LEDGER_ID,
                        view_no=3, pp_sq_no=46, txn_time=21112)
@@ -47,13 +51,31 @@ def test_revert_works_after_catchup(alh, db_manager,
                     view_no=3, pp_seq_no=45,
                     seq_no=initial_seq_no + 1 + caughtup_txns + 1, txn_time=21111,
                     ledger_id=DOMAIN_LEDGER_ID,
-                    txn_root=txn_root_hash,
-                    state_root=state_root_hash,
+                    txn_root=txn_root_hash_2,
+                    state_root=state_root_hash_2,
                     pool_size=initial_pool_size + txns_per_batch * caughtup_txns,
                     domain_size=initial_domain_size + 7 + 3,
                     config_size=initial_config_size,
                     last_pool_seqno=initial_seq_no + 1 + caughtup_txns,
                     last_domain_seqno=None,
+                    last_config_seqno=None)
+
+    alh.post_batch_rejected(DOMAIN_LEDGER_ID)
+
+    assert alh.ledger.uncommitted_size == alh.ledger.size
+    assert alh.ledger.size == size_before + 1 + caughtup_txns
+
+    check_audit_txn(txn=alh.ledger.get_last_txn(),
+                    view_no=3, pp_seq_no=40,
+                    seq_no=initial_seq_no + caughtup_txns + 1, txn_time=11222,
+                    ledger_id=POOL_LEDGER_ID,
+                    txn_root=txn_root_hash_1,
+                    state_root=state_root_hash_1,
+                    pool_size=initial_pool_size + txns_per_batch * caughtup_txns,
+                    domain_size=initial_domain_size + 7,
+                    config_size=initial_config_size,
+                    last_pool_seqno=None,
+                    last_domain_seqno=initial_seq_no + 1,
                     last_config_seqno=None)
 
 
@@ -80,6 +102,8 @@ def test_commit_works_after_catchup(alh, db_manager,
                       view_no=3,
                       initial_pp_seq_no=36,
                       pp_time=11222)
+    alh.on_catchup_finished()
+
     # apply and commit new batch
     do_apply_audit_txn(alh,
                        txns_count=3, ledger_id=DOMAIN_LEDGER_ID,
