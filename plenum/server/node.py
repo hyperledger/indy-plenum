@@ -2743,8 +2743,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.try_processing_ordered(message)
                 num_processed += 1
             logger.info('{} processed {} Ordered batches for instance {} '
-                         'before starting catch up'
-                         .format(self, num_processed, instance_id))
+                        'before starting catch up'
+                        .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
         if self.isParticipating:
