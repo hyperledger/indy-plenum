@@ -1,1 +1,2 @@
 recursive-include data *
+include plenum/__version__.json
