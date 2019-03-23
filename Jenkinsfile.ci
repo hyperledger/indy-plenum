@@ -20,7 +20,7 @@ name = 'indy-plenum'
 
 def config = [
     codeValidation: true,
-    runTests: false,
+    runTests: true,
     failFast: false,
     sendNotif: true
 ]

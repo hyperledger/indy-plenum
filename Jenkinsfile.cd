@@ -1,10 +1,7 @@
 #!groovy
 
-// TODO remove after shared libs refactoring
-//@Library('SovrinHelpers@v1.2.1') _
-library(identifier: 'sovrin@INDY-1992-new-release-logic', retriever: modernSCM(
-    github(credentialsId: 'sovbot-github', repoOwner: 'sovrin-foundation', repository: 'jenkins-shared')
-))
+// TODO doesn't exist yet
+@Library('SovrinHelpers@v2.0.0') _
 
 
 String name = 'indy-plenum'
@@ -228,15 +225,9 @@ def buildDebUbuntu = { releaseVersion, sourcePath, packageVersion=null, missedPk
     return "$volumeName"
 }
 
-def options = TestAndPublishOptions
+def options = new TestAndPublishOptions()
+// TODO review that
 options.setApprovers(['QA'])
-options.skip([StagesEnum.IS_TESTED])
-options.skip([StagesEnum.STATIC_CODE_VALIDATION])
-options.skip([StagesEnum.TEST])
-options.skip([StagesEnum.AUTOMERGE])
-options.skip([StagesEnum.BUILD_RESULT_NOTIF])
-options.skip([StagesEnum.QA_NOTIF])
-
 options.setPkgName(pkgName)
 
 // TODO duplicates list from build scripts
