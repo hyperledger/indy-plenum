@@ -2,6 +2,7 @@
 
 if [ "$1" = "--help" ] ; then
   echo "Usage: $0 <path-to-repo-folder> <release-version-dotted>"
+  exit 0
 fi
 
 repo="$1"
@@ -15,7 +16,7 @@ echo -e "\n\nAbout to start updating package $repo to version $version_dotted in
 # bumps version
 pushd $repo
 echo -e "\n\nUpdating version in metadata with $version_dotted"
-python3 -c "from plenum import set_version; set_version('$version_dotted')"
+bash -ex ./bump_version.sh $version_dotted
 popd
 
 echo -e "Adapt the dependencies for the Canonical archive"
