@@ -14,11 +14,11 @@ class AuditBatchHandler(BatchRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, AUDIT_LEDGER_ID)
         # TODO: move it to BatchRequestHandler
-        self.tracker = LedgerUncommittedTracker(None, None, self.ledger.size)
+        self.tracker = LedgerUncommittedTracker(None, self.ledger.uncommitted_root_hash, self.ledger.size)
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         self._add_to_ledger(three_pc_batch)
-        self.tracker.apply_batch(None, None, self.ledger.uncommitted_size)
+        self.tracker.apply_batch(None, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size)
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         _, _, txn_count = self.tracker.reject_batch()
@@ -28,6 +28,11 @@ class AuditBatchHandler(BatchRequestHandler):
         _, _, txns_count = self.tracker.commit_batch()
         _, committedTxns = self.ledger.commitTxns(txns_count)
         return committedTxns
+
+    def on_catchup_finished(self):
+        self.tracker.set_last_committed(state_root=None,
+                                        txn_root=self.ledger.uncommitted_root_hash,
+                                        ledger_size=self.ledger.size)
 
     @staticmethod
     def transform_txn_for_ledger(txn):
