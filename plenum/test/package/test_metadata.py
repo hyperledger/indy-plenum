@@ -72,6 +72,19 @@ def test_set_version_invalid(version, version_file_path):
         set_version(version, version_file_path)
 
 
+@pytest.mark.parametrize(
+    'version',
+    [
+        '1.2.3',
+        '1.2.3.rc1',
+        '1.2.3.dev2',
+    ]
+)
+def test_set_load_version_valid(version, version_file_path):
+    set_version(version, version_file_path)
+    assert load_version(version_file_path) == PlenumVersion(version)
+
+
 def test_load_absent_manifest(manifest_file_path):
     assert load_manifest(manifest_file_path) is None
 
