@@ -5,11 +5,13 @@ import pytest
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
-from plenum.test.delayers import DEFAULT_DELAY, icDelay
+from plenum.test.delayers import DEFAULT_DELAY, icDelay, cr_delay
 from plenum.test.helper import max_3pc_batch_limits, sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_and_check_replies, sdk_get_replies, sdk_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import start_delaying, stop_delaying_and_process, delay_rules
+from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
@@ -28,7 +30,9 @@ def delay_3pc_after(view_no, pp_seq_no, *args):
         msg, frm = msg_frm
         if not isinstance(msg, args):
             return
-        if compare_3PC_keys((view_no, pp_seq_no), (msg.viewNo, msg.ppSeqNo)) <= 0:
+        if msg.viewNo != view_no:
+            return
+        if msg.ppSeqNo <= pp_seq_no:
             return
         return DEFAULT_DELAY
 
@@ -43,6 +47,10 @@ def check_nodes_ordered_till(nodes: Iterable, view_no: int, pp_seq_no: int):
 
 def check_catchup_is_started(node):
     assert node.ledgerManager._node_leecher._state != NodeLeecherService.State.Idle
+
+
+def check_catchup_is_finished(node):
+    assert node.ledgerManager._node_leecher._state == NodeLeecherService.State.Idle
 
 
 def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
@@ -62,19 +70,24 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
     start_delaying(all_stashers, delay_3pc_after(0, 7, Prepare, Commit))
 
     # Stop ordering on slow node and send requests
-    slow_node_remaining_commits = start_delaying(slow_stasher, delay_3pc_after(0, 5, Commit))
-    slow_node_3pc = start_delaying(slow_stasher, delay_3pc_after(0, 0))
+    slow_node_after_5 = start_delaying(slow_stasher, delay_3pc_after(0, 5, Commit))
+    slow_node_until_5 = start_delaying(slow_stasher, delay_3pc_after(0, 0))
     reqs_view_0 = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 8)
 
     # Make pool order first 2 batches and pause
-    pool_pause_3pc = start_delaying(other_stashers, delay_3pc_after(0, 3))
+    pool_after_3 = start_delaying(other_stashers, delay_3pc_after(0, 3))
     looper.run(eventually(check_nodes_ordered_till, other_nodes, 0, 3))
 
     # Start catchup, continue ordering everywhere (except two last batches on slow node)
-    slow_node._do_start_catchup(just_started=False)
-    looper.run(eventually(check_catchup_is_started, slow_node))
-    stop_delaying_and_process(slow_node_3pc)
-    stop_delaying_and_process(pool_pause_3pc)
+    with delay_rules(slow_stasher, cr_delay()):
+        slow_node._do_start_catchup(just_started=False)
+        looper.run(eventually(check_catchup_is_started, slow_node))
+        stop_delaying_and_process(pool_after_3)
+        looper.run(eventually(check_nodes_ordered_till, other_nodes, 0, 7))
+
+    # Finish catchup and continue processing on slow node
+    looper.run(eventually(check_catchup_is_finished, slow_node))
+    stop_delaying_and_process(slow_node_until_5)
     looper.run(eventually(check_nodes_ordered_till, [slow_node], 0, 5))
 
     # Start view change and allow slow node to get remaining commits
@@ -82,7 +95,7 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
         for node in txnPoolNodeSet:
             node.view_changer.on_master_degradation()
         looper.runFor(0.1)
-    stop_delaying_and_process(slow_node_remaining_commits)
+    stop_delaying_and_process(slow_node_after_5)
 
     # Ensure that expected number of requests was ordered
     replies = sdk_get_replies(looper, reqs_view_0)
@@ -90,4 +103,6 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
         sdk_check_reply(rep)
 
     # Ensure that everything is ok
+    ensureElectionsDone(looper, txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
