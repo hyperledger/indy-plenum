@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES, BLS_KEY, BLS_KEY_PROOF, DOMAIN_LEDGER_ID
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES, BLS_KEY, BLS_KEY_PROOF, DOMAIN_LEDGER_ID, VERKEY
 from plenum.common.exceptions import UnauthorizedClientRequest, \
     InvalidClientRequest
 from plenum.common.ledger import Ledger
@@ -14,6 +14,7 @@ from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.req_handler import RequestHandler
 from state.state import State
 from stp_core.common.log import getlogger
+from stp_core.crypto.util import base58_is_correct_ed25519_key
 
 logger = getlogger()
 
@@ -31,6 +32,18 @@ class PoolRequestHandler(LedgerRequestHandler):
     def doStaticValidation(self, request: Request):
         if request.txn_type != NODE:
             return
+
+        dest = request.operation.get(TARGET_NYM)
+        if not base58_is_correct_ed25519_key(dest):
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Node's dest is not correct Ed25519 key. Dest: {}".format(dest))
+
+        verkey = request.operation.get(VERKEY, None)
+        if verkey:
+            if not base58_is_correct_ed25519_key(verkey):
+                raise InvalidClientRequest(request.identifier, request.reqId,
+                                           "Node's verkey is not correct Ed25519 key. Verkey: {}".format(verkey))
+
         blskey = request.operation.get(DATA).get(BLS_KEY, None)
         blskey_proof = request.operation.get(DATA).get(BLS_KEY_PROOF, None)
         if blskey is None and blskey_proof is None:

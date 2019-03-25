@@ -1,7 +1,7 @@
 from copy import copy
 from typing import List, Tuple
 
-from common.exceptions import PlenumValueError
+from common.exceptions import PlenumValueError, LogicError
 from ledger.ledger import Ledger as _Ledger
 from ledger.util import F
 from plenum.common.txn_util import append_txn_metadata, get_seq_no
@@ -110,6 +110,9 @@ class Ledger(_Ledger):
         # together since merkle root computation will be done only once.
         if count == 0:
             return
+        if count > len(self.uncommittedTxns):
+            raise LogicError("expected to revert {} txns while there are only {}".
+                             format(count, len(self.uncommittedTxns)))
         old_hash = self.uncommittedRootHash
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
