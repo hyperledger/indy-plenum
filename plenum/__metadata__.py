@@ -3,7 +3,7 @@ plenum package metadata
 """
 import os
 import json
-from typing import Tuple, List, Union, Any
+from typing import Any
 import collections.abc
 
 from common.version import PlenumVersion, InvalidVersionError
