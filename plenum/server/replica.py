@@ -1929,8 +1929,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
                       "state root {}, txn root {}, audit root {}".format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                                                        pp.stateRootHash, pp.txnRootHash,
-                                                                        pp.auditTxnRootHash)
+                                                                         pp.stateRootHash, pp.txnRootHash,
+                                                                         pp.auditTxnRootHash)
         self.logger.debug("{}, requests ordered {}, discarded {}".
                           format(ordered_msg, valid_reqIdr, invalid_reqIdr))
         self.logger.info("{}, requests ordered {}, discarded {}".
