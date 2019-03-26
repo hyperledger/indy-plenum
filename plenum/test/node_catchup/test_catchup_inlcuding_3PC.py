@@ -13,7 +13,7 @@ TestRunningTimeLimitSec = 125
 def chk_if_equal_txn_to_3pc(nodes, count=None):
     txn_to_tpc = []
     for node in nodes:
-        txn_to_tpc.append(node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID])
+        txn_to_tpc.append(node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID][0])
     assert check_if_all_equal_in_list(txn_to_tpc)
     if count is not None:
         assert len(txn_to_tpc[0]) == count
