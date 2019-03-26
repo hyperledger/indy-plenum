@@ -1,30 +1,39 @@
 import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.server.replica import Replica
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.exceptions import PoolLedgerTimeoutException
-from plenum.server.node import Node
+from plenum.test.freshness.helper import get_all_multi_sig_values_for_all_nodes, \
+    check_updated_bls_multi_sig_for_all_ledgers, check_freshness_updated_for_all
 from plenum.test.helper import freshness, sdk_send_random_and_check, primary_disconnection_time
 from plenum.test.spy_helpers import getSpecificDiscardedMsg
 from plenum.test.view_change.helper import restart_node
 
-# 20 secs, so node could restart
-FRESHNESS_TIMEOUT = 20
+from stp_core.loop.eventually import eventually
+
+# 10 secs, so node could restart
+FRESHNESS_TIMEOUT = 10
 
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    with freshness(tconf, enabled=True, timeout=FRESHNESS_TIMEOUT), primary_disconnection_time(tconf, 60):
+    with freshness(tconf, enabled=True, timeout=FRESHNESS_TIMEOUT), primary_disconnection_time(tconf, 100):
         yield tconf
 
 
 def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_handle,
                                               sdk_wallet_steward, tconf, tdir, allPluginsPath):
     assert txnPoolNodeSet[0].master_replica.isPrimary
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
-    looper.runFor(FRESHNESS_TIMEOUT)
+
+    looper.run(eventually(
+        check_freshness_updated_for_all, txnPoolNodeSet,
+        timeout=FRESHNESS_TIMEOUT * 2)
+    )
+    bls_multi_sigs_after_first_update = get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet)
+    looper.run(eventually(check_updated_bls_multi_sig_for_all_ledgers,
+                          txnPoolNodeSet, bls_multi_sigs_after_first_update, FRESHNESS_TIMEOUT,
+                          timeout=FRESHNESS_TIMEOUT * 2
+                          ))
 
     restart_node(looper, txnPoolNodeSet, txnPoolNodeSet[0], tconf, tdir, allPluginsPath)
 
@@ -52,8 +61,15 @@ def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_h
 
 def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet, sdk_pool_handle,
                                                           sdk_wallet_steward, tconf, tdir, allPluginsPath):
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
-    looper.runFor(FRESHNESS_TIMEOUT)
+    looper.run(eventually(
+        check_freshness_updated_for_all, txnPoolNodeSet,
+        timeout=FRESHNESS_TIMEOUT * 2)
+    )
+    bls_multi_sigs_after_first_update = get_all_multi_sig_values_for_all_nodes(txnPoolNodeSet)
+    looper.run(eventually(check_updated_bls_multi_sig_for_all_ledgers,
+                          txnPoolNodeSet, bls_multi_sigs_after_first_update, FRESHNESS_TIMEOUT,
+                          timeout=FRESHNESS_TIMEOUT * 2
+                          ))
 
     restart_node(looper, txnPoolNodeSet, txnPoolNodeSet[1], tconf, tdir, allPluginsPath)
 
