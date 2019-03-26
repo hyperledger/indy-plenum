@@ -7,12 +7,11 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import DEFAULT_DELAY, icDelay, cr_delay
 from plenum.test.helper import max_3pc_batch_limits, sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_and_check_replies, sdk_get_replies, sdk_check_reply
+    sdk_send_random_requests, sdk_get_replies, sdk_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import start_delaying, stop_delaying_and_process, delay_rules
 from plenum.test.test_node import ensureElectionsDone
-from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
 
