@@ -1,6 +1,5 @@
 #!groovy
 
-// TODO doesn't exist yet
 @Library('SovrinHelpers@v2.0.0') _
 
 
@@ -226,7 +225,7 @@ def buildDebUbuntu = { releaseVersion, sourcePath, packageVersion=null, missedPk
 }
 
 def options = new TestAndPublishOptions()
-// TODO review that
+
 options.setApprovers(['QA'])
 options.setNotifEmails([
     QA: [
