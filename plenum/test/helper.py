@@ -1055,6 +1055,14 @@ def freshness(tconf, enabled, timeout):
 
 
 @contextmanager
+def primary_disconnection_time(tconf, value):
+    old_tolarate_disconnection = tconf.ToleratePrimaryDisconnection
+    tconf.ToleratePrimaryDisconnection = value
+    yield tconf
+    tconf.ToleratePrimaryDisconnection = old_tolarate_disconnection
+
+
+@contextmanager
 def acc_monitor(tconf, acc_monitor_enabled=True, acc_monitor_timeout=3, acc_monitor_delta=0):
     old_timeout = tconf.ACC_MONITOR_TIMEOUT
     old_delta = tconf.ACC_MONITOR_TXN_DELTA_K

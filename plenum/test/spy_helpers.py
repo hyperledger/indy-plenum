@@ -1,5 +1,7 @@
 from typing import Tuple, List, Optional, Any, Union, Callable
 
+from plenum.server.replica import Replica
+
 from plenum.common.request import Request
 from plenum.common.util import getCallableName
 from plenum.server.node import Node
@@ -16,6 +18,11 @@ def getLastMsgReceivedForNode(node, method: str = None) -> Tuple:
 def getAllMsgReceivedForNode(node, method: str = None) -> List:
     return [m.params['msg'] for m in
             node.spylog.getAll(method if method else "eatTestMsg")]
+
+
+def getSpecificDiscardedMsg(node, msg, replica=0):
+    return [entr for entr in node.replicas[replica].spylog.getAll(Replica.discard)
+            if isinstance(entr.params['msg'], msg)]
 
 
 def getLastClientReqReceivedForNode(node) -> Optional[Request]:
