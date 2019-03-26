@@ -3270,12 +3270,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if ledger_id in self.txn_seq_range_to_3phase_key:
             # point query in interval tree
-            tuple = self.txn_seq_range_to_3phase_key[ledger_id]
-            # tuple[1] stands for last freshness batch
-            if tuple[1] is not None:
-                return tuple[1]
+            pair_3pc = self.txn_seq_range_to_3phase_key[ledger_id]
+            # pair_3pc[1] stands for last freshness batch
+            if pair_3pc[1] is not None:
+                return pair_3pc[1]
             else:
-                s = tuple[0][seq_no]
+                s = pair_3pc[0][seq_no]
 
             if s:
                 # There should not be more than one interval for any seq no in
