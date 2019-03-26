@@ -2167,7 +2167,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r = self.master_replica.revert_unordered_batches()
         logger.info('{} reverted {} batches before starting catch up for ledger {}'.format(self, r, ledger_id))
 
+        if len(self.auditLedger.uncommittedTxns) > 0:
+            raise LogicError('{} audit ledger has uncommitted txns before catching up ledger {}'.format(self, ledger_id))
+
     def postLedgerCatchUp(self, ledger_id, last_caughtup_3pc):
+        if len(self.auditLedger.uncommittedTxns) > 0:
+            raise LogicError('{} audit ledger has uncommitted txns after catching up ledger {}'.format(self, ledger_id))
+
         # update 3PC key interval tree to return last ordered to other nodes in Ledger Status
         self._update_txn_seq_range_to_3phase_after_catchup(ledger_id, last_caughtup_3pc)
 

@@ -151,6 +151,23 @@ def _make_stashers(stasher, *delayers):
     return stashers
 
 
+def start_delaying(stasher, *delayers):
+    stashers = _make_stashers(stasher, *delayers)
+    return stashers, delayers
+
+
+def stop_delaying_and_process(handle):
+    stashers, delayers = handle
+    for s in stashers:
+        s.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))
+
+
+def stop_delaying_and_discard(handle):
+    stashers, delayers = handle
+    for s in stashers:
+        s.resetDelays(*(d.__name__ for d in delayers))
+
+
 @contextmanager
 def delay_rules(stasher, *delayers):
     """
@@ -159,10 +176,9 @@ def delay_rules(stasher, *delayers):
     :param stasher: Instance of Stasher or iterable over instances of stasher
     :param delayers: Delay rule functions to be added to stashers
     """
-    stashers = _make_stashers(stasher, *delayers)
+    handle = start_delaying(stasher, *delayers)
     yield
-    for s in stashers:
-        s.reset_delays_and_process_delayeds(*(d.__name__ for d in delayers))
+    stop_delaying_and_process(handle)
 
 
 @contextmanager
@@ -173,7 +189,6 @@ def delay_rules_without_processing(stasher, *delayers):
     :param stasher: Instance of Stasher or iterable over instances of stasher
     :param delayers: Delay rule functions to be added to stashers
     """
-    stashers = _make_stashers(stasher, *delayers)
+    handle = start_delaying(stasher, *delayers)
     yield
-    for s in stashers:
-        s.resetDelays(*(d.__name__ for d in delayers))
+    stop_delaying_and_discard(handle)

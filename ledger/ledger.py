@@ -242,6 +242,8 @@ class Ledger(ImmutableStore):
 
     @staticmethod
     def hashToStr(h):
+        if h is None:
+            return None
         return txn_root_serializer.serialize(h)
 
     @staticmethod
