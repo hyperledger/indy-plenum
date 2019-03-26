@@ -383,7 +383,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # the batch in which those transactions were included. The txn range is
         # exclusive of last seq no so to store txns from 1 to 100 add a range
         # of `1:101`
-        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, List[IntervalTree, int]]
+        # Second element of list stands for freshness 3pc.
+        # It is set to None by default and when txn batch ordered.
+        # When it is None LedgerStatus takes last from IntervalTree
+        # It is set to 3pc number when freshness or empty batch ordered
+        # When it is set to some number, LedgerStatus takes it
+        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, List[IntervalTree, Tuple[int, int]]]
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
