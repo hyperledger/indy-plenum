@@ -383,7 +383,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # the batch in which those transactions were included. The txn range is
         # exclusive of last seq no so to store txns from 1 to 100 add a range
         # of `1:101`
-        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
+        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, List[IntervalTree, int]]
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
@@ -3259,7 +3259,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if ledger_id in self.txn_seq_range_to_3phase_key:
             # point query in interval tree
-            s = self.txn_seq_range_to_3phase_key[ledger_id][seq_no]
+            tuple = self.txn_seq_range_to_3phase_key[ledger_id]
+            # tuple[1] stands for last freshness batch
+            if tuple[1] is not None:
+                return tuple[1]
+            else:
+                s = tuple[0][seq_no]
+
             if s:
                 # There should not be more than one interval for any seq no in
                 # the tree
@@ -3342,7 +3348,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible to get len(committedTxns) != len(valid_reqs)
         # someday
         if not committedTxns:
+            self._update_txn_seq_range_to_3phase(None, None,
+                                                 ledger_id,
+                                                 view_no, pp_seq_no)
             return
+        else:
+            first_txn_seq_no = get_seq_no(committedTxns[0])
+            last_txn_seq_no = get_seq_no(committedTxns[-1])
+            self._update_txn_seq_range_to_3phase(first_txn_seq_no, last_txn_seq_no,
+                                                 ledger_id,
+                                                 view_no, pp_seq_no)
 
         logger.debug("{} committed batch request, view no {}, ppSeqNo {}, "
                      "ledger {}, state root {}, txn root {}, requests: {}".
@@ -3353,13 +3368,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
                               pp_time=pp_time, state_root=state_root,
                               txn_root=txn_root)
-
-        first_txn_seq_no = get_seq_no(committedTxns[0])
-        last_txn_seq_no = get_seq_no(committedTxns[-1])
-
-        self._update_txn_seq_range_to_3phase(first_txn_seq_no, last_txn_seq_no,
-                                             ledger_id,
-                                             view_no, pp_seq_no)
 
         reqs = []
         reqs_list_built = True
@@ -3387,11 +3395,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _update_txn_seq_range_to_3phase(self, first_txn_seq_no, last_txn_seq_no,
                                         ledger_id, view_no, pp_seq_no):
+        is_freshness = first_txn_seq_no is None and last_txn_seq_no is None
         if ledger_id not in self.txn_seq_range_to_3phase_key:
-            self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
+            self.txn_seq_range_to_3phase_key[ledger_id] = [IntervalTree(), None]
         # adding one to end of range since its exclusive
-        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
-        intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
+        intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id][0]
+
+        if is_freshness:
+            self.txn_seq_range_to_3phase_key[ledger_id][1] = (view_no, pp_seq_no)
+        else:
+            intrv_tree[first_txn_seq_no:last_txn_seq_no + 1] = (view_no, pp_seq_no)
+            self.txn_seq_range_to_3phase_key[ledger_id][1] = None
         logger.debug('{} storing 3PC key {} for ledger {} range {}'.
                      format(self, (view_no, pp_seq_no), ledger_id,
                             (first_txn_seq_no, last_txn_seq_no)))
