@@ -26,7 +26,7 @@ with open(metadata['__file__'], 'r') as f:
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.6.8', 'pytest-asyncio==0.8.0']
 
 setup(
-    name='indy-plenum-dev',  # TODO refers to metadata as well
+    name=metadata['__title__'],
     version=metadata['__version__'],
     author=metadata['__author__'],
     author_email=metadata['__author_email__'],
@@ -41,6 +41,7 @@ setup(
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*', 'simulation']) + [
         'data', ],
+    # TODO move that to MANIFEST.in
     package_data={
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},

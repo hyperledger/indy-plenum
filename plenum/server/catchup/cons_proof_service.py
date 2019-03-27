@@ -53,6 +53,8 @@ class ConsProofService:
         return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
 
     def start(self, request_ledger_statuses: bool):
+        logger.info("{} starts".format(self))
+
         self._is_working = True
         self._quorum = Quorums(len(self._provider.all_nodes_names()))
         self._same_ledger_status = set()
@@ -63,20 +65,6 @@ class ConsProofService:
         if request_ledger_statuses:
             self._request_ledger_status_from_nodes()
             self._schedule_reask_ledger_status()
-
-    def stop(self, cons_proof: Optional[ConsistencyProof] = None):
-        # Stop requesting last consistency proofs and ledger statuses.
-        self._is_working = False
-        self._same_ledger_status = set()
-        self._cons_proofs = {}
-        self._requested_consistency_proof = set()
-
-        self._cancel_reask()
-
-        till = CatchupTill(start_size=cons_proof.seqNoStart,
-                           final_size=cons_proof.seqNoEnd,
-                           final_hash=cons_proof.newMerkleRoot) if cons_proof else None
-        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
 
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         if not self._can_process_ledger_status(ledger_status):
@@ -89,11 +77,10 @@ class ConsProofService:
 
     @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
     def process_consistency_proof(self, proof: ConsistencyProof, frm: str):
-        logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
-
         if not self._can_process_consistency_proof(proof):
             return
 
+        logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
         self._cons_proofs[frm] = ConsistencyProof(*proof)
 
         if not self._is_catchup_needed():
@@ -107,13 +94,31 @@ class ConsProofService:
         if not cp:
             return
 
-        self._finish_catchup(cp)
+        self._finish(cp)
+
+    def _finish(self, cons_proof: Optional[ConsistencyProof] = None):
+        logger.info("{} finished with consistency proof {}".format(self, cons_proof))
+
+        # Stop requesting last consistency proofs and ledger statuses.
+        self._is_working = False
+        self._same_ledger_status = set()
+        self._cons_proofs = {}
+        self._requested_consistency_proof = set()
+
+        self._cancel_reask()
+
+        till = CatchupTill(start_size=cons_proof.seqNoStart,
+                           final_size=cons_proof.seqNoEnd,
+                           final_hash=cons_proof.newMerkleRoot,
+                           view_no=cons_proof.viewNo,
+                           pp_seq_no=cons_proof.ppSeqNo) if cons_proof else None
+        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
 
     def _finish_no_catchup(self):
         root = Ledger.hashToStr(self._ledger.tree.root_hash)
         last_3pc = self._get_last_txn_3PC_key()
         if not last_3pc:
-            self.stop()
+            self._finish()
             return
 
         view_no, pp_seq_no = last_3pc
@@ -125,10 +130,7 @@ class ConsProofService:
                                       root,
                                       root,
                                       [])
-        self.stop(cons_proof)
-
-    def _finish_catchup(self, cp):
-        self.stop(cp)
+        self._finish(cons_proof)
 
     def _get_last_txn_3PC_key(self):
         quorumed_3PC_keys = \
@@ -137,8 +139,8 @@ class ConsProofService:
                 for most_common_element, freq in
                 Counter(self._last_txn_3PC_key.values()).most_common()
                 if self._quorum.ledger_status_last_3PC.is_reached(freq) and
-                most_common_element[0] is not None and
-                most_common_element[1] is not None
+                   most_common_element[0] is not None and
+                   most_common_element[1] is not None
             ]
 
         if len(quorumed_3PC_keys) == 0:

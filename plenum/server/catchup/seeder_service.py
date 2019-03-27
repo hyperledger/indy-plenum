@@ -41,14 +41,10 @@ class SeederService:
             self._on_ledger_status_up_to_date(ledger_id, frm)
             return
 
-        try:
-            cons_proof = self._build_consistency_proof(ledger_id, status.txnSeqNo, ledger.size)
-
+        cons_proof = self._build_consistency_proof(ledger_id, status.txnSeqNo, ledger.size)
+        if cons_proof:
             logger.info("{} sending consistency proof: {} to {}".format(self, cons_proof, frm))
             self._provider.send_to(cons_proof, frm)
-        except ValueError as e:
-            self._provider.discard(status, reason=str(e), logMethod=logger.warning)
-            return
 
     def process_catchup_req(self, req: CatchupReq, frm: str):
         logger.info("{} received catchup request: {} from {}".format(self, req, frm))
@@ -102,17 +98,24 @@ class SeederService:
         string_proof = [Ledger.hashToStr(p) for p in proof]
         return string_proof
 
-    def _build_consistency_proof(self, ledger_id: int, seq_no_start: int, seq_no_end: int) -> ConsistencyProof:
+    def _build_consistency_proof(self, ledger_id: int,
+                                 seq_no_start: int, seq_no_end: int) -> Optional[ConsistencyProof]:
         ledger = self._provider.ledger(ledger_id)
 
         if seq_no_end < seq_no_start:
-            raise ValueError("end {} is less than start {}".format(seq_no_end, seq_no_start))
+            logger.error("{} cannot build consistency proof: end {} is less than start {}".
+                         format(self, seq_no_end, seq_no_start))
+            return
 
         if seq_no_start > ledger.size:
-            raise ValueError("start {} is more than ledger size {}".format(seq_no_start, ledger.size))
+            logger.error("{} cannot build consistency proof: start {} is more than ledger size {}".
+                         format(self, seq_no_start, ledger.size))
+            return
 
         if seq_no_end > ledger.size:
-            raise ValueError("end {} is more than ledger size {}".format(seq_no_end, ledger.size))
+            logger.error("{} cannot build consistency proof: end {} is more than ledger size {}".
+                         format(self, seq_no_end, ledger.size))
+            return
 
         if seq_no_start == 0:
             # Consistency proof for an empty tree cannot exist. Using the root

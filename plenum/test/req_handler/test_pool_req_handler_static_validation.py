@@ -4,6 +4,8 @@ from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, TXN_TYPE, \
     DATA, NODE
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
+from plenum.common.signer_simple import SimpleSigner
+from plenum.common.util import randomString
 from plenum.test.pool_transactions.helper import prepare_new_node_data
 from stp_core.types import Identifier
 
@@ -78,11 +80,15 @@ def test_pool_req_handler_static_validation_with_not_full_proof(bls_keys,
 
 def _generate_node_request(bls_key=None,
                            bls_key_proof=None) -> Request:
+    sigseed = randomString(32).encode()
+    nodeSigner = SimpleSigner(seed=sigseed)
+    destination = nodeSigner.identifier
     op = {
         DATA: {
             BLS_KEY: bls_key,
             BLS_KEY_PROOF: bls_key_proof
         },
+        'dest': destination,
         TXN_TYPE: NODE
     }
     return Request(operation=op,

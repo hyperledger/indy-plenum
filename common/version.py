@@ -255,12 +255,12 @@ class PEP440BasedVersion(GenericVersion):
         # TODO
         #   - API for add_parts
         add_parts = (None, None)
-        if self._version.dev:
+        if self._version.dev is not None:
             add_parts = ('dev', self._version.dev)
-        elif self._version.pre:
+        elif self._version.pre is not None:
             add_parts = self._version.pre
-        elif self._version.post:
-            add_parts = ('dev', self._version.post)
+        elif self._version.post is not None:
+            add_parts = ('post', self._version.post)
         return (
             self._version.epoch,
             *self.release_parts,

@@ -60,6 +60,8 @@ function build_from_pypi {
     rm ${PREREM_TMP}
 }
 
+# TODO duplicates list from Jenkinsfile.cd
+
 # Build rocksdb at first
 build_rocksdb_deb 5.8.8
 

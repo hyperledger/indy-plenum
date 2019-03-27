@@ -1312,28 +1312,30 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.quota_control.update_state({
             'request_queue_size': len(self.monitor.requestTracker.unordered())}
         )
+        try:
+            if self.status is not Status.stopped:
+                c += await self.serviceReplicas(limit)
+                c += await self.serviceNodeMsgs(limit)
+                c += await self.serviceClientMsgs(limit)
+                with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
+                    c += self._serviceActions()
+                with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                    self.timer.service()
+                with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
+                    c += self.monitor._serviceActions()
+                c += await self.serviceViewChanger(limit)
+                c += await self.service_observable(limit)
+                c += await self.service_observer(limit)
+                with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
+                    self.nodestack.flushOutBoxes()
 
-        if self.status is not Status.stopped:
-            c += await self.serviceReplicas(limit)
-            c += await self.serviceNodeMsgs(limit)
-            c += await self.serviceClientMsgs(limit)
-            with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
-                c += self._serviceActions()
-            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
-                self.timer.service()
-            with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
-                c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger(limit)
-            c += await self.service_observable(limit)
-            c += await self.service_observer(limit)
-            with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
-                self.nodestack.flushOutBoxes()
-
-        if self.isGoing():
-            with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
-                self.nodestack.serviceLifecycle()
-            with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
-                self.clientstack.serviceClientStack()
+            if self.isGoing():
+                with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+                    self.nodestack.serviceLifecycle()
+                with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
+                    self.clientstack.serviceClientStack()
+        except Exception as e:
+            a = 10
 
         return c
 
@@ -2150,7 +2152,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postAuditLedgerCaughtUp(self, **kwargs):
-        pass
+        self.audit_handler.on_catchup_finished()
 
     def preLedgerCatchUp(self, ledger_id):
         # Process any Ordered requests. This causes less transactions to be
@@ -2164,8 +2166,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r = self.master_replica.revert_unordered_batches()
         logger.info('{} reverted {} batches before starting catch up for ledger {}'.format(self, r, ledger_id))
 
+        if len(self.auditLedger.uncommittedTxns) > 0:
+            raise LogicError(
+                '{} audit ledger has uncommitted txns before catching up ledger {}'.format(self, ledger_id))
+
     def postLedgerCatchUp(self, ledger_id):
-        pass
+        if len(self.auditLedger.uncommittedTxns) > 0:
+            raise LogicError('{} audit ledger has uncommitted txns after catching up ledger {}'.format(self, ledger_id))
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
@@ -2712,15 +2719,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for message in messages:
                 self.try_processing_ordered(message)
                 num_processed += 1
-            logger.debug('{} processed {} Ordered batches for instance {} '
-                         'before starting catch up'
-                         .format(self, num_processed, instance_id))
+            logger.info('{} processed {} Ordered batches for instance {} '
+                        'before starting catch up'
+                        .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
         if self.isParticipating:
             self.processOrdered(msg)
         else:
-            logger.debug("{} stashing {} since mode is {}".format(self, msg, self.mode))
+            logger.info("{} stashing {} since mode is {}".format(self, msg, self.mode))
             self.stashedOrderedReqs.append(msg)
 
     def processEscalatedException(self, ex):
@@ -3434,12 +3441,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         (msg.viewNo,
                          msg.ppSeqNo),
                         self.ledgerManager.last_caught_up_3PC) >= 0:
-                    logger.debug(
+                    logger.info(
                         '{} ignoring stashed ordered msg {} since ledger '
                         'manager has last_caught_up_3PC as {}'.format(
                             self, msg, self.ledgerManager.last_caught_up_3PC))
                     continue
-                logger.debug(
+                logger.info(
                     '{} applying stashed Ordered msg {}'.format(self, msg))
                 # Since the PRE-PREPAREs ans PREPAREs corresponding to these
                 # stashed ordered requests was not processed.
@@ -3448,7 +3455,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.processOrdered(msg)
             i += 1
 
-        logger.debug(
+        logger.info(
             "{} processed {} stashed ordered requests".format(
                 self, i))
         # Resetting monitor after executing all stashed requests so no view

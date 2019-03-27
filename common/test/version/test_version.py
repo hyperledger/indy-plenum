@@ -250,8 +250,12 @@ def test_pep440_based_version_full():
 
 
 def test_pep440_based_version_parts():
-    assert PEP440BasedVersion('1.2.3.dev2').parts == (0, 1, 2, 3, 'dev', 2, None)
+    assert PEP440BasedVersion('1.2.3.dev0').parts == (0, 1, 2, 3, 'dev', 0, None)
+    assert PEP440BasedVersion('1.2.3.dev1').parts == (0, 1, 2, 3, 'dev', 1, None)
+    assert PEP440BasedVersion('1!1.2.3.rc0').parts == (1, 1, 2, 3, 'rc', 0, None)
     assert PEP440BasedVersion('1!1.2.3.rc2').parts == (1, 1, 2, 3, 'rc', 2, None)
+    assert PEP440BasedVersion('1.2.3.post0').parts == (0, 1, 2, 3, 'post', 0, None)
+    assert PEP440BasedVersion('1.2.3.post3').parts == (0, 1, 2, 3, 'post', 3, None)
     assert PEP440BasedVersion('1.2.3+local').parts == (0, 1, 2, 3, None, None, 'local')
 
 
@@ -411,6 +415,6 @@ def test_plenum_version_parts():
     assert PlenumVersion('1.2.3').parts == (1, 2, 3, None, None)
 
 
-def test_plenum_version_upstrean():
+def test_plenum_version_upstream():
     pv = PlenumVersion('1.2.3')
     assert pv.upstream is pv

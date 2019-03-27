@@ -24,6 +24,7 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
+from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
@@ -1086,7 +1087,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.isMaster:
                 self.revert(pre_prepare.ledgerId,
                             old_state_root,
-                            len(pre_prepare.reqIdr) - len(invalid_from_pp))
+                            len(pre_prepare.reqIdr) - len(invalid_indices))
             return why_not_applied
 
         # 5. EXECUTE HOOK
@@ -1411,8 +1412,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
-        self.logger.info('{} reverting {} txns and state root from {} to {} for'
-                         ' ledger {}'.format(self, reqCount, state.headHash, stateRootHash, ledgerId))
+        self.logger.info('{} reverting {} txns and state root from {} to {} for ledger {}'
+                         .format(self, reqCount, Ledger.hashToStr(state.headHash),
+                                 Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
@@ -1942,16 +1944,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._discard_ordered_req_keys(pp)
 
         self.send(ordered, TPCStat.OrderSent)
-        self.logger.debug("{} ordered batch request, view no {}, ppSeqNo {}, "
-                          "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
-                          format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                 pp.stateRootHash, pp.txnRootHash, valid_reqIdr,
-                                 invalid_reqIdr))
-        self.logger.info("{} ordered batch request, view no {}, ppSeqNo {}, "
-                         "ledger {}, state root {}, txn root {}, requests ordered {}, discarded {}".
-                         format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                                pp.stateRootHash, pp.txnRootHash, len(valid_reqIdr),
-                                len(invalid_reqIdr)))
+
+        ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
+                      "state root {}, txn root {}, audit root {}".format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
+                                                                         pp.stateRootHash, pp.txnRootHash,
+                                                                         pp.auditTxnRootHash)
+        self.logger.debug("{}, requests ordered {}, discarded {}".
+                          format(ordered_msg, valid_reqIdr, invalid_reqIdr))
+        self.logger.info("{}, requests ordered {}, discarded {}".
+                         format(ordered_msg, len(valid_reqIdr), len(invalid_reqIdr)))
+
         if self.isMaster:
             self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
             self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
