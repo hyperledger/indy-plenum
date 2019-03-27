@@ -2,7 +2,6 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, add_txns, DEFAULT_PRIMARIES
 
-
 # BOTH TESTS NEED TO BE RUN TOGETHER AS THEY SHARE COMMITTED STATE
 from plenum.test.testing_utils import FakeSomething
 
@@ -81,7 +80,8 @@ def test_revert_works_after_catchup(alh, db_manager,
                     config_size=initial_config_size,
                     last_pool_seqno=None,
                     last_domain_seqno=initial_seq_no + 1,
-                    last_config_seqno=None)
+                    last_config_seqno=None,
+                    primaries=caughtup_txns)
 
 
 def test_commit_works_after_catchup(alh, db_manager,
