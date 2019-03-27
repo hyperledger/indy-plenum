@@ -1072,7 +1072,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.isMaster:
                 self.revert(pre_prepare.ledgerId,
                             old_state_root,
-                            len(pre_prepare.reqIdr) - len(invalid_from_pp))
+                            len(pre_prepare.reqIdr) - len(invalid_indices))
             return why_not_applied
 
         # 5. EXECUTE HOOK
