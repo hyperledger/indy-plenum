@@ -1,13 +1,12 @@
 from logging import getLogger
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 
 from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality, \
-    repair_broken_node
+    repair_broken_node, get_number_of_completed_catchups
 
 logger = getLogger()
 
@@ -71,12 +70,3 @@ def test_node_catchup_after_checkpoints(
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-
-
-def get_number_of_completed_catchups(node):
-    cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(
-            node.ledgerManager.catchupCompleted):
-        if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
-            cnt += 1
-    return cnt

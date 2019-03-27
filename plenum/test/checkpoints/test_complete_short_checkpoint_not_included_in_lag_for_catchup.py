@@ -1,6 +1,5 @@
 from logging import getLogger
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.replica import Replica
 from plenum.test import waits
@@ -9,7 +8,7 @@ from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    checkNodeDataForInequality, waitNodeDataInequality
+    checkNodeDataForInequality, waitNodeDataInequality, get_number_of_completed_catchups
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 
@@ -102,12 +101,3 @@ def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
 
     # Verify that the new node has caught up
     assert get_number_of_completed_catchups(new_node) > completed_catchups_before_reqs
-
-
-def get_number_of_completed_catchups(node):
-    cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(
-            node.ledgerManager.catchupCompleted):
-        if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
-            cnt += 1
-    return cnt

@@ -4,14 +4,14 @@ from collections import deque
 import functools
 import pytest
 
-from plenum.common.constants import PreVCStrategies
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.router import Router
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -19,8 +19,10 @@ from stp_zmq.zstack import Quota
 
 
 @pytest.fixture(scope="function")
-def view_changer(tconf):
+def fake_node(tconf):
     node = FakeSomething(config=tconf,
+                         timer=QueueTimer(),
+                         nodeStatusDB=None,
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       logger=FakeSomething(
@@ -42,16 +44,21 @@ def view_changer(tconf):
                          ))
     node.metrics = functools.partial(Node._createMetricsCollector, node)()
     node.process_one_node_message = functools.partial(Node.process_one_node_message, node)
-    view_changer = ViewChanger(node)
-    node.view_changer = view_changer
-    node.viewNo = view_changer.view_no
-    node.master_replica.node = node
+    return node
+
+
+@pytest.fixture(scope="function")
+def view_changer(fake_node):
+    view_changer = create_view_changer(fake_node)
+    fake_node.view_changer = view_changer
+    fake_node.viewNo = view_changer.view_no
+    fake_node.master_replica.node = fake_node
     return view_changer
 
 
 @pytest.fixture(scope="function")
-def pre_vc_strategy(view_changer):
-    strategy = VCStartMsgStrategy(view_changer)
+def pre_vc_strategy(view_changer, fake_node):
+    strategy = VCStartMsgStrategy(view_changer, fake_node)
     strategy.view_changer.pre_vc_strategy = strategy
     return strategy
 
@@ -84,7 +91,7 @@ def test_add_vc_start_msg(pre_vc_strategy):
     pre_vc_strategy.prepare_view_change(1)
 
     """Check, that ViewChangeStartMessage is added to nodeInBox queue"""
-    assert len(pre_vc_strategy.view_changer.node.nodeInBox) == 1
+    assert len(pre_vc_strategy.node.nodeInBox) == 1
     m = pre_vc_strategy.node.nodeInBox.popleft()
     assert len(m) == 2
     assert m[1] == pre_vc_strategy.node.name
@@ -115,8 +122,8 @@ def test_add_vc_continued_msg_on_view_change_started(pre_vc_strategy, looper):
     looper.run(pre_vc_strategy.on_view_change_started(pre_vc_strategy.node,
                                                       ViewChangeStartMessage(2),
                                                       "some_node"))
-    assert len(pre_vc_strategy.view_changer.node.master_replica.inBox) == 1
-    m = pre_vc_strategy.view_changer.node.master_replica.inBox.popleft()
+    assert len(pre_vc_strategy.node.master_replica.inBox) == 1
+    m = pre_vc_strategy.node.master_replica.inBox.popleft()
     assert isinstance(m, ViewChangeContinueMessage)
 
 
@@ -158,16 +165,10 @@ def test_is_preparing_to_False_after_vc_continue(pre_vc_strategy):
     assert pre_vc_strategy.is_preparing == False
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    tconf.PRE_VC_STRATEGY = PreVCStrategies.VC_START_MSG_STRATEGY
-    yield tconf
-    del tconf.PRE_VC_STRATEGY
-
-
 def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
     node = create_node_and_not_start
-    node.view_changer = ViewChanger(node)
+    node.view_changer = create_view_changer(node)
+    node.view_changer.pre_vc_strategy = VCStartMsgStrategy(view_changer, node)
     node.view_changer.view_no = 0
     """pre_view_change stage"""
     node.view_changer.startViewChange(1)

@@ -53,7 +53,7 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
             # The ledger should store time for each txn and it should be same
             # as the time for that PRE-PREPARE
             if r.isMaster:
-                for iv in node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID]:
+                for iv in node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID][0]:
                     three_pc_key = iv.data
                     for seq_no in range(iv.begin, iv.end):
                         assert get_txn_time(node.domainLedger.getBySeqNo(seq_no))\

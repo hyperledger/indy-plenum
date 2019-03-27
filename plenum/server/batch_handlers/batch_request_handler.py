@@ -10,7 +10,7 @@ class BatchRequestHandler:
         self.database_manager = database_manager
         self.ledger_id = ledger_id
 
-    def commit_batch(self, txn_count, state_root, txn_root, pp_time, prev_result):
+    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result=None):
         """
         :param txn_count: The number of requests to commit (The actual requests
         are picked up from the uncommitted list from the ledger)
@@ -24,11 +24,11 @@ class BatchRequestHandler:
                             txn_root)
 
     @abstractmethod
-    def post_batch_applied(self, state_root):
+    def post_batch_applied(self, three_pc_batch, prev_handler_result=None):
         pass
 
     @abstractmethod
-    def post_batch_rejected(self):
+    def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         pass
 
     @staticmethod
@@ -43,10 +43,25 @@ class BatchRequestHandler:
             raise PlenumValueError(
                 'txnRoot', txn_root,
                 ("equal to current ledger root hash {}"
-                    .format(ledger.root_hash))
+                 .format(ledger.root_hash))
             )
         state.commit(rootHash=state_root)
         return committedTxns
+
+    def _check_consistency_after_commit(self, txn_root, state_root=None):
+        if self.ledger.root_hash != txn_root:
+            raise PlenumValueError(
+                'txnRoot', txn_root,
+                ("equal to current ledger root hash {}"
+                 .format(self.ledger.root_hash))
+            )
+        if state_root is not None and self.state is not None:
+            if self.state.committedHeadHash != state_root:
+                raise PlenumValueError(
+                    'stateRoot', state_root,
+                    ("equal to current state root hash {}"
+                     .format(self.state.committedHeadHash))
+                )
 
     @property
     def state(self):

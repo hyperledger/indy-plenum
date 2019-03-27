@@ -122,12 +122,11 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     repair_node_catchup_less(other_nodes)
 
     def chk4():
-        # Some COMMITs were ordered but stashed and they were processed
+        # Some COMMITs were received but stashed and
+        # they will processed after catchup
         assert slow_node.master_replica.stasher.num_stashed_catchup == 0
-        # rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
-        # assert delay_batches in rv
 
-    looper.run(eventually(chk4, retryWait=1, timeout=catchup_rep_delay + 5))
+    looper.run(eventually(chk4, retryWait=1, timeout=catchup_rep_delay + 50))
 
     def chk5():
         # Catchup was done once

@@ -20,6 +20,8 @@ whitelist = ['InvalidSignature',
 
 logger = getlogger()
 
+TestRunningTimeLimitSec = 150
+
 delayPrePrepareSec = 60
 
 
