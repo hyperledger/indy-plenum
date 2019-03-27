@@ -1312,30 +1312,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.quota_control.update_state({
             'request_queue_size': len(self.monitor.requestTracker.unordered())}
         )
-        try:
-            if self.status is not Status.stopped:
-                c += await self.serviceReplicas(limit)
-                c += await self.serviceNodeMsgs(limit)
-                c += await self.serviceClientMsgs(limit)
-                with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
-                    c += self._serviceActions()
-                with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
-                    self.timer.service()
-                with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
-                    c += self.monitor._serviceActions()
-                c += await self.serviceViewChanger(limit)
-                c += await self.service_observable(limit)
-                c += await self.service_observer(limit)
-                with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
-                    self.nodestack.flushOutBoxes()
 
-            if self.isGoing():
-                with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
-                    self.nodestack.serviceLifecycle()
-                with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
-                    self.clientstack.serviceClientStack()
-        except Exception as e:
-            a = 10
+        if self.status is not Status.stopped:
+            c += await self.serviceReplicas(limit)
+            c += await self.serviceNodeMsgs(limit)
+            c += await self.serviceClientMsgs(limit)
+            with self.metrics.measure_time(MetricsName.SERVICE_NODE_ACTIONS_TIME):
+                c += self._serviceActions()
+            with self.metrics.measure_time(MetricsName.SERVICE_TIMERS_TIME):
+                self.timer.service()
+            with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
+                c += self.monitor._serviceActions()
+            c += await self.serviceViewChanger(limit)
+            c += await self.service_observable(limit)
+            c += await self.service_observer(limit)
+            with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
+                self.nodestack.flushOutBoxes()
+
+        if self.isGoing():
+            with self.metrics.measure_time(MetricsName.SERVICE_NODE_LIFECYCLE_TIME):
+                self.nodestack.serviceLifecycle()
+            with self.metrics.measure_time(MetricsName.SERVICE_CLIENT_STACK_TIME):
+                self.clientstack.serviceClientStack()
 
         return c
 

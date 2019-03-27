@@ -138,9 +138,9 @@ class ConsProofService:
                 most_common_element
                 for most_common_element, freq in
                 Counter(self._last_txn_3PC_key.values()).most_common()
-                if self._quorum.ledger_status_last_3PC.is_reached(freq) and
-                   most_common_element[0] is not None and
-                   most_common_element[1] is not None
+                if
+                self._quorum.ledger_status_last_3PC.is_reached(
+                    freq) and most_common_element[0] is not None and most_common_element[1] is not None
             ]
 
         if len(quorumed_3PC_keys) == 0:
