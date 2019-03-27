@@ -1,6 +1,7 @@
 import types
 
 from plenum.common.util import randomString
+from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
@@ -11,7 +12,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode, checkNodesConnected
+    TestNode, checkNodesConnected, TestViewChanger
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -350,3 +351,28 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
                          customTimeout=timeout)
     sdk_pool_refresh(looper, sdk_pool_handle)
     return new_node
+
+
+def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
+                 allPluginsPath, wait_node_data_equality=True):
+    idx = txnPoolNodeSet.index(node_to_disconnect)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            node_to_disconnect)
+    looper.removeProdable(name=node_to_disconnect.name)
+
+    # add node_to_disconnect to pool
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
+    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, TestViewChanger)
+
+    txnPoolNodeSet[idx] = node_to_disconnect
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    if wait_node_data_equality:
+        waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+
+
+def nodes_received_ic(nodes, frm, view_no=1):
+    for n in nodes:
+        assert n.view_changer.instance_changes.has_inst_chng_from(view_no,
+                                                                 frm.name)

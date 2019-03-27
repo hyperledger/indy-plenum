@@ -16,11 +16,15 @@ def create_observed_data(seq_no_start=1, seq_no_end=5):
         req_num, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     msg = BatchCommitted(reqs,
                          DOMAIN_LEDGER_ID,
+                         0,
+                         0,
+                         1,
                          get_utc_epoch(),
                          generate_state_root(),
                          generate_state_root(),
                          seq_no_start,
-                         seq_no_end)
+                         seq_no_end,
+                         generate_state_root())
     return ObservedData(BATCH, msg)
 
 

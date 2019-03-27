@@ -2,18 +2,21 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
-from typing import Iterable
+from typing import Iterable, Type
 
 import base58
 import dateutil
 
 from common.exceptions import PlenumTypeError, PlenumValueError
-from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
-from plenum import PLUGIN_LEDGER_IDS
-from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
+from common.version import (
+    InvalidVersionError, VersionBase, GenericVersion
+)
+from crypto.bls.bls_multi_signature import MultiSignatureValue
+from plenum import PLUGIN_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -123,14 +126,15 @@ class NonEmptyStringField(FieldBase):
 class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
-    def __init__(self, max_length: int, **kwargs):
+    def __init__(self, max_length: int, can_be_empty=False, **kwargs):
         if not max_length > 0:
             raise PlenumValueError('max_length', max_length, '> 0')
         super().__init__(**kwargs)
         self._max_length = max_length
+        self._can_be_empty = can_be_empty
 
     def _specific_validation(self, val):
-        if not val:
+        if not val and not self._can_be_empty:
             return 'empty string'
         if len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')
@@ -532,22 +536,26 @@ class SerializedValueField(FieldBase):
 class VersionField(LimitedLengthStringField):
     _base_types = (str,)
 
-    def __init__(self, components_number=(3,), **kwargs):
-        super().__init__(**kwargs)
-        self._comp_num = components_number
+    def __init__(
+            self,
+            version_cls: Type[VersionBase] = GenericVersion,
+            max_length: int = VERSION_FIELD_LIMIT,
+            **kwargs
+    ):
+        super().__init__(max_length=max_length, **kwargs)
+        self._version_cls = version_cls
 
     def _specific_validation(self, val):
         lim_str_err = super()._specific_validation(val)
         if lim_str_err:
             return lim_str_err
-        parts = val.split(".")
-        if len(parts) not in self._comp_num:
-            return "version consists of {} components, but it should contain {}".format(
-                len(parts), self._comp_num)
-        for p in parts:
-            if not p.isdigit():
-                return "version component should contain only digits"
-        return None
+
+        try:
+            self._version_cls(val)
+        except InvalidVersionError as exc:
+            return str(exc)
+        else:
+            return None
 
 
 class TxnSeqNoField(FieldBase):

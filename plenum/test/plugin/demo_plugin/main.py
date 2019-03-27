@@ -27,4 +27,8 @@ def integrate_plugin_in_node(node):
     node.clientAuthNr.register_authenticator(auction_authnr)
     auction_req_handler = AuctionReqHandler(ledger, state)
     node.register_req_handler(auction_req_handler, AUCTION_LEDGER_ID)
+    # FIXME: find a generic way of registering DBs
+    node.db_manager.register_new_database(lid=AUCTION_LEDGER_ID,
+                                          ledger=ledger,
+                                          state=state)
     return node

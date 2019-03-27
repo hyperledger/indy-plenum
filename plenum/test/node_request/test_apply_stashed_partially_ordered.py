@@ -44,7 +44,7 @@ def test_apply_stashed_partially_ordered(looper,
         looper.run(eventually(check_pool_ordered_some_requests))
 
     # Get some of txns that need to be ordered
-    ledger_info = test_node.ledgerManager.getLedgerInfoByType(DOMAIN_LEDGER_ID)
+    ledger_info = test_node.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
     txns = ledger_info.ledger.uncommittedTxns
     txns = txns[:len(txns) // 2]
     assert len(txns) > 1

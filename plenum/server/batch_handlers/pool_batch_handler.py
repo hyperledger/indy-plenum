@@ -8,11 +8,8 @@ class PoolBatchHandler(BatchRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, POOL_LEDGER_ID)
 
-    def commit_batch(self, txn_count, state_root, txn_root, pp_time, prev_result):
-        return super().commit_batch(txn_count, state_root, txn_root, pp_time, prev_result)
-
-    def post_batch_applied(self, state_root):
+    def post_batch_applied(self, three_pc_batch, prev_handler_result=None):
         pass
 
-    def post_batch_rejected(self):
+    def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         pass

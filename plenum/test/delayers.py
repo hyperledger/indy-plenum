@@ -26,7 +26,8 @@ def delayer(seconds, op, senderFilter=None, instFilter: int = None):
 
 
 def delayerMsgTuple(seconds, opType, senderFilter=None,
-                    instFilter: int = None):
+                    instFilter: int = None,
+                    ledgerFilter: int = None):
     """
     Used for nodeInBoxStasher
 
@@ -43,7 +44,10 @@ def delayerMsgTuple(seconds, opType, senderFilter=None,
                 (not senderFilter or frm == senderFilter) and \
                 (instFilter is None or
                  (f.INST_ID.nm in msg._fields and
-                  getattr(msg, f.INST_ID.nm) == instFilter)):
+                  getattr(msg, f.INST_ID.nm) == instFilter)) and \
+                (ledgerFilter is None or
+                 f.LEDGER_ID.nm in msg._fields and
+                 getattr(msg, f.LEDGER_ID.nm) == ledgerFilter):
             return seconds
 
     if hasattr(opType, 'typename'):
@@ -123,18 +127,20 @@ def vcd_delay(delay: float = DEFAULT_DELAY):
     # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, ViewChangeDone)
 
+
 def cs_delay(delay: float = DEFAULT_DELAY):
     # Delayer of CURRENT_STATE requests
     return delayerMsgTuple(delay, CurrentState)
+
 
 def chk_delay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of CHECKPOINT requests
     return delayerMsgTuple(delay, Checkpoint, instFilter=instId, senderFilter=sender_filter)
 
 
-def lsDelay(delay: float = DEFAULT_DELAY):
+def lsDelay(delay: float = DEFAULT_DELAY, ledger_filter=None):
     # Delayer of LEDGER_STATUSES requests
-    return delayerMsgTuple(delay, LedgerStatus)
+    return delayerMsgTuple(delay, LedgerStatus, ledgerFilter=ledger_filter)
 
 
 def cpDelay(delay: float = DEFAULT_DELAY):
@@ -147,9 +153,9 @@ def cqDelay(delay: float = DEFAULT_DELAY):
     return delayerMsgTuple(delay, CatchupReq)
 
 
-def cr_delay(delay: float = DEFAULT_DELAY):
+def cr_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
     # Delayer of CATCHUP_REP requests
-    return delayerMsgTuple(delay, CatchupRep)
+    return delayerMsgTuple(delay, CatchupRep, ledgerFilter=ledger_filter)
 
 
 def req_delay(delay: float = DEFAULT_DELAY):
@@ -252,3 +258,4 @@ def reset_delays_and_process_delayeds(nodes):
 def reset_delays_and_process_delayeds_for_client(nodes):
     for node in nodes:
         node.reset_delays_and_process_delayeds_for_clients()
+

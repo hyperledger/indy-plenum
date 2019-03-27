@@ -16,6 +16,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
+    ("auditTxnRootHash", MerkleRootField),
     ('plugin_fields', AnyMapField)
 ])
 

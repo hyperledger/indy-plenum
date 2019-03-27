@@ -7,6 +7,7 @@ from plenum.common.constants import BATCH, OBSERVER_PREFIX
 from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.common.util import mostCommonElement
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicy
 
 logger = getLogger()
@@ -146,9 +147,8 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
         state_root = batch[f.STATE_ROOT.nm]
         txn_root = batch[f.TXN_ROOT.nm]
 
-        self._node.apply_reqs(reqs,
-                              pp_time,
-                              ledger_id)
+        three_pc_batch = ThreePcBatch.from_batch_committed_dict(batch)
+        self._node.apply_reqs(reqs, three_pc_batch)
         self._node.get_executer(ledger_id)(pp_time,
                                            reqs,
                                            state_root,

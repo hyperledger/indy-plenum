@@ -125,7 +125,8 @@ def sendDuplicate3PhaseMsg(
                           ppReq.ppTime,
                           ppReq.digest,
                           ppReq.stateRootHash,
-                          ppReq.txnRootHash)
+                          ppReq.txnRootHash,
+                          ppReq.auditTxnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)

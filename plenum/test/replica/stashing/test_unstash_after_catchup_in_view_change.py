@@ -73,14 +73,14 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
 
                     for n in txnPoolNodeSet:
                         n.view_changer.on_master_degradation()
-                    looper.run(eventually(lambda: assertExp(slow_node.mode == Mode.syncing)))
+                    looper.run(eventually(lambda: assertExp(slow_node.mode == Mode.discovering)))
 
                     # Reset delay Commit messages for all nodes.
                     for n in txnPoolNodeSet:
                         n.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
                     assert slow_node.view_change_in_progress
-                    assert slow_node.mode == Mode.syncing
+                    assert slow_node.mode == Mode.discovering
                     looper.run(eventually(_check_nodes_stashed,
                                           fast_nodes,
                                           old_stashed,

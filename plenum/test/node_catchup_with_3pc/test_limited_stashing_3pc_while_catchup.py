@@ -2,7 +2,7 @@ from logging import getLogger
 
 import pytest
 
-from plenum.common.constants import PREPARE, PREPREPARE
+from plenum.common.constants import PREPARE, PREPREPARE, DOMAIN_LEDGER_ID
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica_stasher import StashDeque
@@ -82,7 +82,7 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
 
     with delay_rules(lagging_node.nodeIbStasher, cs_delay(),
                      msg_rep_delay(types_to_delay=[PREPARE, PREPREPARE])):
-        with delay_rules(lagging_node.nodeIbStasher, cr_delay()):
+        with delay_rules(lagging_node.nodeIbStasher, cr_delay(ledger_filter=DOMAIN_LEDGER_ID)):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
