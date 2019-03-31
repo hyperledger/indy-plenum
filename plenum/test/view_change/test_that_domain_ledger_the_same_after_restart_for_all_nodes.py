@@ -91,7 +91,8 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
                                                               tconf,
                                                               tdir,
                                                               allPluginsPath,
-                                                              customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+                                                              customTimeout=tconf.VIEW_CHANGE_TIMEOUT,
+                                                              exclude_from_check=['check_last_ordered_3pc_backup'])
         for node in pool_of_nodes:
             logger.debug("compare_domain_ledgers: "
                          "primary node before view_change: {}, "

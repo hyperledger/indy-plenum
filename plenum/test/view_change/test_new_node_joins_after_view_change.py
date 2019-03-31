@@ -88,6 +88,7 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                 restarted_node.view_changer._do_view_change_by_future_vcd,
                                 compare_val_to=True)) == 0
 
-    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
     ensureElectionsDone(looper, txnPoolNodeSet)
     assert not restarted_node.view_changer._next_view_indications

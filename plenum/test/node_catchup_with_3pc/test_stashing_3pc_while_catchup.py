@@ -96,5 +96,8 @@ def test_3pc_while_catchup(tdir, tconf,
     )
     # check that the node was able to order requests stashed during catch-up
     # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering during catch-up
-    waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check='check_audit', customTimeout=5)
+    waitNodeDataEquality(looper, *txnPoolNodeSet,
+                         exclude_from_check=['check_audit',
+                                             'check_last_ordered_3pc_backup'],
+                         customTimeout=5)
     assert all(replica.stasher.num_stashed_catchup == 0 for inst_id, replica in lagging_node.replicas.items())

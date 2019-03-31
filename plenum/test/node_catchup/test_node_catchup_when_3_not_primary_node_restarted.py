@@ -87,4 +87,5 @@ def test_node_catchup_when_3_not_primary_node_restarted(
                                   sdk_wallet_steward, 1)
         ensure_all_nodes_have_same_data(looper,
                                         pool_of_nodes,
-                                        custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+                                        custom_timeout=tconf.VIEW_CHANGE_TIMEOUT,
+                                        exclude_from_check=['check_last_ordered_3pc_backup'])

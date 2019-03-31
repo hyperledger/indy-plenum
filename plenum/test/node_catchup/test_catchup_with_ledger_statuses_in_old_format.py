@@ -71,7 +71,8 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
     # of further transactions
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
-    waitNodeDataEquality(looper, node_to_restart, *other_nodes)
+    waitNodeDataEquality(looper, node_to_restart, *other_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
 
 class LedgerStatusInOldFormat(MessageBase):
