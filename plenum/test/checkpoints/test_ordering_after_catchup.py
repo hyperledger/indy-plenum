@@ -23,7 +23,7 @@ def add_new_node(looper, pool_nodes, sdk_pool_handle, sdk_wallet_steward,
         allPluginsPath=all_plugins_path)
     pool_nodes.append(new_node)
     looper.run(checkNodesConnected(pool_nodes))
-    waitNodeDataEquality(looper, new_node, *pool_nodes[:-1])
+    waitNodeDataEquality(looper, new_node, *pool_nodes[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
     # The new node did not participate in ordering of the batch with
     # the new steward NYM transaction and the batch with the new NODE
     # transaction. The new node got these transactions via catch-up.
@@ -48,5 +48,5 @@ def test_ordering_after_more_than_f_nodes_caught_up(
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 20)
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, exclude_from_check=['check_last_ordered_3pc_backup'])
     checkViewNoForNodes(txnPoolNodeSet, initial_view_no)

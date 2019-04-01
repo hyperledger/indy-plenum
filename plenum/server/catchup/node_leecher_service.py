@@ -93,7 +93,7 @@ class NodeLeecherService:
             self._enter_state(self.State.SyncingAudit)
 
         elif self._state == self.State.SyncingAudit:
-            self._catchup_till = self._calc_catchup_till(msg.last_3pc)
+            self._catchup_till = self._calc_catchup_till()
             self._enter_state(self.State.SyncingPool)
 
         elif self._state == self.State.SyncingPool:
@@ -170,7 +170,7 @@ class NodeLeecherService:
         else:
             leecher.start(till=catchup_till)
 
-    def _calc_catchup_till(self, last_3pc: Optional[Tuple[int, int]]) -> Dict[int, CatchupTill]:
+    def _calc_catchup_till(self) -> Dict[int, CatchupTill]:
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
         last_audit_txn = audit_ledger.get_last_committed_txn()
         if last_audit_txn is None:
@@ -178,7 +178,6 @@ class NodeLeecherService:
 
         catchup_till = {}
         last_audit_txn = get_payload_data(last_audit_txn)
-        view_no, pp_seq_no = last_3pc if last_3pc else (0, 0)
         for ledger_id, final_size in last_audit_txn[AUDIT_TXN_LEDGERS_SIZE].items():
             ledger = self._provider.ledger(ledger_id)
             start_size = ledger.size
@@ -211,8 +210,6 @@ class NodeLeecherService:
 
             catchup_till[ledger_id] = CatchupTill(start_size=start_size,
                                                   final_size=final_size,
-                                                  final_hash=final_hash,
-                                                  view_no=view_no,
-                                                  pp_seq_no=pp_seq_no)
+                                                  final_hash=final_hash)
 
         return catchup_till

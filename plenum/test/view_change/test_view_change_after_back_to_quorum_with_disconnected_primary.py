@@ -31,7 +31,8 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
                                                   tconf,
                                                   tdir,
                                                   allPluginsPath,
-                                                  customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                                                  customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT,
+                                                  exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Now primary should be Beta
     pr_node = get_master_primary_node(nodes)

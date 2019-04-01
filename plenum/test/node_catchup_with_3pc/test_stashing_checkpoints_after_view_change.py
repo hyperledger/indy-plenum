@@ -10,7 +10,7 @@ from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints, chk_chkpoints_for_instance
 from plenum.test.delayers import lsDelay, vcd_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
-    check_last_ordered_3pc_on_all_replicas
+    check_last_ordered_3pc_on_all_replicas, check_last_ordered_3pc_on_master, check_last_ordered_3pc_on_backup
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
@@ -71,8 +71,12 @@ def test_checkpoints_after_view_change(tconf,
                                       sdk_wallet_client,
                                       num_reqs)
             looper.run(
-                eventually(check_last_ordered_3pc_on_all_replicas, rest_nodes,
-                           (1, num_reqs))
+                eventually(check_last_ordered_3pc_on_master, rest_nodes,
+                           (1, num_reqs + 1))
+            )
+            looper.run(
+                eventually(check_last_ordered_3pc_on_backup, rest_nodes,
+                           (1, num_reqs + 1))
             )
 
             # all good nodes stabilized checkpoint
@@ -94,8 +98,12 @@ def test_checkpoints_after_view_change(tconf,
 
     # check that last_ordered is set
     looper.run(
-        eventually(check_last_ordered_3pc_on_all_replicas, [lagging_node],
-                   (1, num_reqs))
+        eventually(check_last_ordered_3pc_on_master, [lagging_node],
+                   (1, num_reqs + 1))
+    )
+    looper.run(
+        eventually(check_last_ordered_3pc_on_backup, [lagging_node],
+                   (1, num_reqs + 1))
     )
 
     # check that checkpoint is stabilized for master

@@ -53,6 +53,7 @@ class FakeNode:
         self.nodeReg = {
             name: HA("127.0.0.1", 0) for name in self.allNodeNames
         }
+        self.nodeIds = []
         self.totalNodes = len(self.allNodeNames)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
@@ -92,7 +93,7 @@ class FakeNode:
         return [li.ledger_summary for li in
                 self.ledgerManager.ledgerRegistry.values()]
 
-    def get_name_by_rank(self, name, nodeReg=None):
+    def get_name_by_rank(self, name, node_reg, node_ids):
         # This is used only for getting name of next primary, so
         # it just returns a constant
         return 'Node2'
@@ -238,80 +239,6 @@ def test_has_view_change_quorum_must_contain_primary(tconf, tdir):
     assert node.view_changer.has_view_change_from_primary
 
 
-def test_has_view_change_quorum_number_propagate_primary(tconf, tdir):
-    """
-    Checks method _hasViewChangeQuorum of SimpleSelector
-    It must have f+1 ViewChangeDone in the case of PrimaryPropagation
-
-    Check it for a case of view change (view_change_in_progress = True, propagate_primary = True)
-    """
-
-    ledgerInfo = (
-        # ledger id, ledger length, merkle root
-        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
-        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
-    )
-
-    node = FakeNode(str(tdir), tconf)
-    node.view_changer.view_change_in_progress = True
-    node.view_changer.propagate_primary = True
-
-    assert not node.view_changer._hasViewChangeQuorum
-
-    # Accessing _view_change_done directly to avoid influence of methods
-    node.view_changer._view_change_done = {}
-
-    def declare(replica_name):
-        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
-
-    # Declare the Primary first and check that f+1 are required
-    declare('Node2')
-    assert node.view_changer.has_view_change_from_primary
-    assert not node.view_changer._hasViewChangeQuorum
-    declare('Node1')
-    assert node.view_changer._hasViewChangeQuorum
-    assert node.view_changer.has_view_change_from_primary
-
-
-def test_has_view_change_quorum_number_must_contain_primary_propagate_primary(tconf, tdir):
-    """
-    Checks method _hasViewChangeQuorum of SimpleSelector
-    It must have f+1 ViewChangeDone and contain a VCD from the next Primary in the case of PrimaryPropagation
-
-    Check it for a case of view change (view_change_in_progress = True, propagate_primary = True)
-    """
-
-    ledgerInfo = (
-        # ledger id, ledger length, merkle root
-        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
-        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
-    )
-
-    node = FakeNode(str(tdir), tconf)
-    node.view_changer.view_change_in_progress = True
-    node.view_changer.propagate_primary = True
-
-    assert not node.view_changer._hasViewChangeQuorum
-
-    # Accessing _view_change_done directly to avoid influence of methods
-    node.view_changer._view_change_done = {}
-
-    def declare(replica_name):
-        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
-
-    # Declare the Primary first and check that f+1 are required
-    declare('Node1')
-    assert not node.view_changer.has_view_change_from_primary
-    assert not node.view_changer._hasViewChangeQuorum
-    declare('Node3')
-    assert not node.view_changer.has_view_change_from_primary
-    assert node.view_changer._hasViewChangeQuorum
-
-    declare('Node2')
-    assert node.view_changer.has_view_change_from_primary
-    assert node.view_changer._hasViewChangeQuorum
-
-
 def test_process_view_change_done(tdir, tconf):
     ledgerInfo = (
         # ledger id, ledger length, merkle root
@@ -339,7 +266,7 @@ def test_process_view_change_done(tdir, tconf):
     # Since the FakeNode does not have setting of mode
     # assert node.is_primary_found()
     node.view_changer.pre_vc_strategy = None
-    node.view_changer.startViewChange(1)
+    node.view_changer.start_view_change(1)
     assert not node.view_changer._view_change_done
 
 
@@ -373,7 +300,7 @@ def test_send_view_change_done_message(tdir, tconf):
     node = FakeNode(str(tdir), tconf)
     view_no = node.view_changer.view_no
     new_primary_name = node.elector.node.get_name_by_rank(node.elector._get_master_primary_id(
-        view_no, node.totalNodes))
+        view_no, node.totalNodes), node.nodeReg, node.nodeIds)
     node.view_changer._send_view_change_done_message()
 
     ledgerInfo = [
@@ -431,24 +358,24 @@ def test_primaries_selection_viewno_0(txnPoolNodeSetWithElector):
         primaries = set()
         view_no_bak = node.elector.viewNo
         node.elector.viewNo = view_no
-        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
-        master_primary_rank = node.poolManager.get_rank_by_name(name)
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg, node.poolManager._ordered_node_ids)
+        master_primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert master_primary_rank == 0
         assert name == "Alpha" and instance_name == "Alpha:0"
         primaries.add(name)
 
         instance_id = 1
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            instance_id, master_primary_rank, primaries)
-        primary_rank = node.poolManager.get_rank_by_name(name)
+            instance_id, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
+        primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert primary_rank == 1
         assert name == "Beta" and instance_name == "Beta:1"
         primaries.add(name)
 
         instance_id = 2
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            instance_id, master_primary_rank, primaries)
-        primary_rank = node.poolManager.get_rank_by_name(name)
+            instance_id, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
+        primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert primary_rank == 2
         assert name == "Gamma" and instance_name == "Gamma:2"
         primaries.add(name)
@@ -464,24 +391,24 @@ def test_primaries_selection_viewno_5(txnPoolNodeSetWithElector):
         primaries = set()
         view_no_bak = node.elector.viewNo
         node.elector.viewNo = view_no
-        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
-        master_primary_rank = node.poolManager.get_rank_by_name(name)
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg, node.poolManager._ordered_node_ids)
+        master_primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert master_primary_rank == 5
         assert name == "Zeta" and instance_name == "Zeta:0"
         primaries.add(name)
 
         instance_id = 1
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            instance_id, master_primary_rank, primaries)
-        primary_rank = node.poolManager.get_rank_by_name(name)
+            instance_id, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
+        primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert primary_rank == 6
         assert name == "Eta" and instance_name == "Eta:1"
         primaries.add(name)
 
         instance_id = 2
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            instance_id, master_primary_rank, primaries)
-        primary_rank = node.poolManager.get_rank_by_name(name)
+            instance_id, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
+        primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert primary_rank == 0
         assert name == "Alpha" and instance_name == "Alpha:2"
         primaries.add(name)
@@ -497,24 +424,24 @@ def test_primaries_selection_viewno_9(txnPoolNodeSetWithElector):
         primaries = set()
         view_no_bak = node.elector.viewNo
         node.elector.viewNo = view_no
-        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg)
-        master_primary_rank = node.poolManager.get_rank_by_name(name)
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg, node.poolManager._ordered_node_ids)
+        master_primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert master_primary_rank == 2
         assert name == "Gamma" and instance_name == "Gamma:0"
         primaries.add(name)
 
         instance_id = 1
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            instance_id, master_primary_rank, primaries)
-        primary_rank = node.poolManager.get_rank_by_name(name)
+            instance_id, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
+        primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert primary_rank == 3
         assert name == "Delta" and instance_name == "Delta:1"
         primaries.add(name)
 
         instance_id = 2
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            instance_id, master_primary_rank, primaries)
-        primary_rank = node.poolManager.get_rank_by_name(name)
+            instance_id, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
+        primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert primary_rank == 4
         assert name == "Epsilon" and instance_name == "Epsilon:2"
         primaries.add(name)
@@ -534,8 +461,8 @@ def test_primaries_selection_gaps(txnPoolNodeSetWithElector):
         primary_0 = "Beta"
         primary_1 = "Delta"
         primaries = {primary_0, primary_1}
-        master_primary_rank = node.poolManager.get_rank_by_name(primary_0)
+        master_primary_rank = node.poolManager.get_rank_by_name(primary_0, node.nodeReg, node.poolManager._ordered_node_ids)
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
-            2, master_primary_rank, primaries)
+            2, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
         assert name == "Gamma" and \
                instance_name == "Gamma:2"

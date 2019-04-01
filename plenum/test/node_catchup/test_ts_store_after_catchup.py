@@ -31,7 +31,8 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     req_handler = node_to_disconnect.get_req_handler(DOMAIN_LEDGER_ID)
     for reply in sdk_replies:
         key = req_handler.prepare_buy_key(get_from(reply[1]['result']),

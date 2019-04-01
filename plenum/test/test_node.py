@@ -35,7 +35,6 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
@@ -177,12 +176,7 @@ class TestNodeCore(StackedTester):
         return view_changer
 
     def delaySelfNomination(self, delay: Seconds):
-        if isinstance(self.primaryDecider, PrimaryElector):
-            logger.debug("{} delaying start election".format(self))
-            delayerElection = partial(delayers.delayerMethod,
-                                      TestPrimaryElector.startElection)
-            self.elector.actionQueueStasher.delay(delayerElection(delay))
-        elif isinstance(self.primaryDecider, PrimarySelector):
+        if isinstance(self.primaryDecider, PrimarySelector):
             raise RuntimeError('Does not support nomination since primary is '
                                'selected deterministically')
         else:
@@ -348,8 +342,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.process_message_req,
                  Node.process_message_rep,
                  Node.request_propagates,
-                 Node.send_current_state_to_lagging_node,
-                 Node.process_current_state_message,
                  Node.transmitToClient,
                  Node.has_ordered_till_last_prepared_certificate,
                  Node.on_inconsistent_3pc_state,
@@ -413,26 +405,6 @@ class TestNode(TestNodeCore, Node):
         self.clientstack.restart()
 
 
-elector_spyables = [
-    PrimaryElector.discard,
-    PrimaryElector.processPrimary,
-    PrimaryElector.sendPrimary
-]
-
-
-@spyable(methods=elector_spyables)
-class TestPrimaryElector(PrimaryElector):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.actionQueueStasher = Stasher(self.actionQueue,
-                                          "actionQueueStasher~elector~" +
-                                          self.name)
-
-    def _serviceActions(self):
-        self.actionQueueStasher.process()
-        return super()._serviceActions()
-
-
 selector_spyables = [PrimarySelector.decidePrimaries]
 
 
@@ -443,9 +415,9 @@ class TestPrimarySelector(PrimarySelector):
 
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
-    ViewChanger._start_view_change_if_possible,
+    ViewChanger._do_view_change_by_future_vcd,
     ViewChanger.process_instance_change_msg,
-    ViewChanger.startViewChange,
+    ViewChanger.start_view_change,
     ViewChanger.process_future_view_vchd_msg
 ]
 
@@ -453,6 +425,7 @@ view_changer_spyables = [
 @spyable(methods=view_changer_spyables)
 class TestViewChanger(ViewChanger):
     pass
+
 
 replica_stasher_spyables = [
     ReplicaStasher.stash
@@ -511,8 +484,8 @@ class TestReplicas(Replicas):
 
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
         return self.__class__._replica_class(self._node, instance_id,
-                                                self._config, is_master,
-                                                bls_bft, self._metrics)
+                                             self._config, is_master,
+                                             bls_bft, self._metrics)
 
 
 # TODO: probably delete when remove from node
@@ -547,8 +520,8 @@ class TestNodeSet(ExitStack):
             self.nodeReg = nodeReg
         else:
             nodeNames = (names if names is not None and count is None else
-            genNodeNames(count) if count is not None else
-            error("only one of either names or count is required"))
+                         genNodeNames(count) if count is not None else
+                         error("only one of either names or count is required"))
             self.nodeReg = genNodeReg(
                 names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
@@ -862,7 +835,8 @@ def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None,
-                               instances: Sequence[int] = None):
+                               instances: Sequence[int] = None,
+                               check_primaries=True):
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
@@ -876,6 +850,10 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
+    if check_primaries:
+        for n in nodes[1:]:
+            assert nodes[0].primaries == n.primaries
+
     primaryReplicas = {replica.instId: replica
                        for node in nodes
                        for replica in node.replicas.values() if replica.isPrimary}
@@ -887,7 +865,8 @@ def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
                         customTimeout: float = None,
-                        instances_list: Sequence[int] = None) -> Sequence[TestNode]:
+                        instances_list: Sequence[int] = None,
+                        check_primaries=True) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`
     # since there might not always be an election, there might be a round
     # robin selection
@@ -911,7 +890,8 @@ def ensureElectionsDone(looper: Looper,
         nodes=nodes,
         retryWait=retryWait,
         customTimeout=customTimeout,
-        instances=instances_list)
+        instances=instances_list,
+        check_primaries=check_primaries)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -953,7 +933,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     :param proposedViewNo: The view no which is proposed
     :return:
     """
-    params = [args for args in getAllArgs(node.view_changer, ViewChanger.startViewChange)]
+    params = [args for args in getAllArgs(node.view_changer, ViewChanger.start_view_change)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo

@@ -1155,7 +1155,8 @@ def sdk_node_set_with_node_added_after_some_txns(
 def sdk_new_node_caught_up(txnPoolNodeSet,
                            sdk_node_set_with_node_added_after_some_txns):
     looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     check_last_3pc_master(new_node, txnPoolNodeSet[:4])
 
     # Check if catchup done once

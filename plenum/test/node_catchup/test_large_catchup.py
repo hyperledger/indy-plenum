@@ -85,4 +85,5 @@ def test_large_catchup(tdir, tconf,
                                  config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
     txnPoolNodeSet[-1] = lagging_node
-    waitNodeDataEquality(looper, *all_nodes)
+    waitNodeDataEquality(looper, *all_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])

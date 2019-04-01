@@ -71,5 +71,6 @@ def test_catchup_with_one_slow_node(tdir, tconf,
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
 
-            waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=120)
+            waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=120,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
             assert len(log_re_ask) - old_re_ask_count == 2  # for audit and domain ledgers

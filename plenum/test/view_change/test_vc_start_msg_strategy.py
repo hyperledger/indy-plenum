@@ -103,6 +103,7 @@ def test_do_not_add_vcs_msg_if_is_preparing_true(pre_vc_strategy):
     pre_vc_strategy.prepare_view_change(1)
     assert len(pre_vc_strategy.node.nodeInBox) == 0
 
+
 def test_do_not_set_req_handlers_if_is_preparing_true(pre_vc_strategy):
     pre_vc_strategy.is_preparing = True
     pre_vc_strategy.prepare_view_change(1)
@@ -171,7 +172,7 @@ def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
     node.view_changer.pre_vc_strategy = VCStartMsgStrategy(view_changer, node)
     node.view_changer.view_no = 0
     """pre_view_change stage"""
-    node.view_changer.startViewChange(1)
+    node.view_changer.start_view_change(1)
     assert node.view_changer.view_no == 0
     prepare = Prepare(
         0,

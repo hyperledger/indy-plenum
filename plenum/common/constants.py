@@ -110,6 +110,7 @@ AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
 AUDIT_TXN_LEDGERS_SIZE = "ledgerSize"
 AUDIT_TXN_LEDGER_ROOT = "ledgerRoot"
 AUDIT_TXN_STATE_ROOT = "stateRoot"
+AUDIT_TXN_PRIMARIES = "primaries"
 
 
 # State proof fields

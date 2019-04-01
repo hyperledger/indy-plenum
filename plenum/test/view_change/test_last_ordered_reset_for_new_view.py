@@ -20,8 +20,9 @@ def test_last_ordered_3pc_reset_if_more_than_new_view(txnPoolNodeSet, looper, sd
     ensure_view_change_complete(looper, txnPoolNodeSet, customTimeout=60)
     view_no = checkViewNoForNodes(txnPoolNodeSet)
 
+    # After view_change, master primary must initiate 3pc batch
     for node in txnPoolNodeSet:
-        assert (view_no, 0) == node.master_replica.last_ordered_3pc
+        assert (view_no, 1) == node.master_replica.last_ordered_3pc
 
     # Make sure the pool is working
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
@@ -46,7 +47,7 @@ def test_last_ordered_3pc_reset_if_equal_to_new_view(txnPoolNodeSet, looper, sdk
     view_no = checkViewNoForNodes(txnPoolNodeSet)
 
     for node in txnPoolNodeSet:
-        assert (view_no, 0) == node.master_replica.last_ordered_3pc
+        assert (view_no, 1) == node.master_replica.last_ordered_3pc
 
     # Make sure the pool is working
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
@@ -70,7 +71,7 @@ def test_last_ordered_3pc_not_reset_if_less_than_new_view(txnPoolNodeSet, looper
     ensure_view_change_complete(looper, txnPoolNodeSet, customTimeout=60)
 
     for node in txnPoolNodeSet:
-        assert (old_view_no, 100) == node.master_replica.last_ordered_3pc
+        assert (old_view_no + 1, 1) == node.master_replica.last_ordered_3pc
 
     # Make sure the pool is working
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)

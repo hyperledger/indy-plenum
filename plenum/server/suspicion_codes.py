@@ -87,6 +87,8 @@ class Suspicions:
     PR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(45, "Prepare message has "
                                                  "incorrect audit ledger transaction root hash")
 
+    REPLICAS_COUNT_CHANGED = Suspicion(45, "Replica's count changed")
+
     @classmethod
     def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(

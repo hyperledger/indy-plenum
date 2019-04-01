@@ -18,8 +18,7 @@ from plenum.test.node_catchup.conftest import whitelist
 from plenum.test.batching_3pc.conftest import tconf
 
 logger = getlogger()
-# So that `three_phase_key_for_txn_seq_no` always works, it makes the test
-# easy as the requesting node selects a random size for the ledger
+
 Max3PCBatchSize = 1
 TestRunningTimeLimitSec = 150
 
@@ -56,9 +55,7 @@ def test_node_request_consistency_proof(tdir, tconf,
         print("new size {}".format(next_size))
 
         newRootHash = Ledger.hashToStr(audit_ledger.tree.merkle_tree_hash(0, next_size))
-        three_pc_key = provider.three_phase_key_for_txn_seq_no(ledger_id, next_size)
-        v, p = three_pc_key if three_pc_key else (None, None)
-        ledgerStatus = LedgerStatus(AUDIT_LEDGER_ID, next_size, v, p, newRootHash,
+        ledgerStatus = LedgerStatus(AUDIT_LEDGER_ID, next_size, 0, 0, newRootHash,
                                     CURRENT_PROTOCOL_VERSION)
         logger.info("audit status {}".format(ledgerStatus))
         return ledgerStatus
@@ -76,7 +73,8 @@ def test_node_request_consistency_proof(tdir, tconf,
         lagging_node.ledgerManager.start_catchup()
 
         # Wait until catchup is succesfully finished
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=75)
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=75,
+                                        exclude_from_check=['check_last_ordered_3pc_backup'])
 
         # Make sure that there were requests for consistency proofs on other pool
         for node in other_nodes:

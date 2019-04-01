@@ -1,6 +1,9 @@
+from collections import Iterable
+
+from common.exceptions import LogicError
 from ledger.ledger import Ledger
 from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT
+    AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PRIMARIES
 from plenum.common.ledger_uncommitted_tracker import LedgerUncommittedTracker
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
@@ -24,7 +27,7 @@ class AuditBatchHandler(BatchRequestHandler):
         _, _, txn_count = self.tracker.reject_batch()
         self.ledger.discardTxns(txn_count)
 
-    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result=None):
+    def commit_batch(self, three_pc_batch, prev_handler_result=None):
         _, _, txns_count = self.tracker.commit_batch()
         _, committedTxns = self.ledger.commitTxns(txns_count)
         return committedTxns
@@ -72,7 +75,8 @@ class AuditBatchHandler(BatchRequestHandler):
             AUDIT_TXN_PP_SEQ_NO: three_pc_batch.pp_seq_no,
             AUDIT_TXN_LEDGERS_SIZE: {},
             AUDIT_TXN_LEDGER_ROOT: {},
-            AUDIT_TXN_STATE_ROOT: {}
+            AUDIT_TXN_STATE_ROOT: {},
+            AUDIT_TXN_PRIMARIES: None
         }
 
         for lid, ledger in self.database_manager.ledgers.items():
@@ -87,6 +91,9 @@ class AuditBatchHandler(BatchRequestHandler):
 
         # 4. state root hash
         txn[AUDIT_TXN_STATE_ROOT][three_pc_batch.ledger_id] = Ledger.hashToStr(three_pc_batch.state_root)
+
+        # 5. set primaries field
+        self.__fill_primaries(txn, three_pc_batch, last_audit_txn)
 
         return txn
 
@@ -109,3 +116,42 @@ class AuditBatchHandler(BatchRequestHandler):
         # 4. ledger is changed in last batch but not changed now => delta = 1
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = 1
+
+    def __fill_primaries(self, txn, three_pc_batch, last_audit_txn):
+        last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
+        last_txn_value = last_audit_txn_data[AUDIT_TXN_PRIMARIES] if last_audit_txn_data else None
+        current_primaries = three_pc_batch.primaries
+
+        # 1. First audit txn
+        if last_audit_txn_data is None:
+            txn[AUDIT_TXN_PRIMARIES] = current_primaries
+
+        # 2. Previous primaries field contains primary list
+        # If primaries did not changed, we will store seq_no delta
+        # between current txn and last persisted primaries, i.e.
+        # we can find seq_no of last actual primaries, like:
+        # last_audit_txn_seq_no - last_audit_txn[AUDIT_TXN_PRIMARIES]
+        elif isinstance(last_txn_value, Iterable):
+            if last_txn_value == current_primaries:
+                txn[AUDIT_TXN_PRIMARIES] = 1
+            else:
+                txn[AUDIT_TXN_PRIMARIES] = current_primaries
+
+        # 3. Previous primaries field is delta
+        elif isinstance(last_txn_value, int) and last_txn_value < self.ledger.uncommitted_size:
+            last_primaries_seq_no = get_seq_no(last_audit_txn) - last_txn_value
+            last_primaries = get_payload_data(
+                self.ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+            if isinstance(last_primaries, Iterable):
+                if last_primaries == current_primaries:
+                    txn[AUDIT_TXN_PRIMARIES] = last_txn_value + 1
+                else:
+                    txn[AUDIT_TXN_PRIMARIES] = current_primaries
+            else:
+                raise LogicError('Value, mentioned in primaries field must be a '
+                                 'seq_no of a txn with primaries')
+
+        # 4. That cannot be
+        else:
+            raise LogicError('Incorrect primaries field in audit ledger (seq_no: {}. value: {})'.format(
+                get_seq_no(last_audit_txn), last_txn_value))

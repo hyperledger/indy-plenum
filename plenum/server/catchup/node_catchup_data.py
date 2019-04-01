@@ -30,9 +30,6 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def eligible_nodes(self) -> List[str]:
         return self._node.ledgerManager.nodes_to_request_txns_from
 
-    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-        return self._node.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
-
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         return self._node.update_txn_with_extra_data(txn)
 
@@ -47,9 +44,9 @@ class CatchupNodeDataProvider(CatchupDataProvider):
         if info is not None and info.preCatchupStartClbk:
             info.preCatchupStartClbk()
 
-    def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
+    def notify_catchup_complete(self, ledger_id: int):
         if self._node.ledgerManager.postCatchupClbk:
-            self._node.ledgerManager.postCatchupClbk(ledger_id, last_3pc)
+            self._node.ledgerManager.postCatchupClbk(ledger_id)
 
         info = self._ledger_info(ledger_id)
         if info is not None and info.postCatchupCompleteClbk:

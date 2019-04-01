@@ -3,7 +3,7 @@ from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
 from functools import partial
 from hashlib import sha256
-from typing import List, Dict, Optional, Any, Set, Tuple, Callable
+from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
 
 import math
 
@@ -19,7 +19,8 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.hook_manager import HookManager
@@ -30,6 +31,7 @@ from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
+from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
@@ -434,6 +436,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
+        # Defines if there was a batch after last catchup
+        self.first_batch_after_catchup = False
+
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
@@ -663,7 +668,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def on_propagate_primary_done(self):
         if self.isMaster:
             # if this is a Primary that is re-connected (that is view change is not actually changed,
-            # we just propagate it, then make sure that we don;t break the sequence
+            # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
             self.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
@@ -706,7 +711,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `last_ordered_3pc`
         :return:
         """
-        if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
+        if not self.isMaster and self.first_batch_after_catchup and \
                 not self.isPrimary:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -719,6 +724,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
+                self.first_batch_after_catchup = False
 
     def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
@@ -810,7 +816,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # and send an empty 3PC batch to update the state if needed
         self._send_3pc_freshness_batch(sent_batches)
 
-        # 3. update ts of last sent 3PC batch
+        # 3. send 3PC batch if new primaries elected
+        self._send_3pc_primaries_batch(sent_batches)
+
+        # 4. update ts of last sent 3PC batch
         if len(sent_batches) > 0:
             self.lastBatchCreated = self.get_current_time()
 
@@ -850,6 +859,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                              "so its freshness state is going to be updated now".format(ledger_id, ts))
             sent_batches.add(
                 self._do_send_3pc_batch(ledger_id=ledger_id))
+
+    def _send_3pc_primaries_batch(self, sent_batches):
+        # As we've selected new primaries, we need to send 3pc batch,
+        # so this primaries can be saved in audit ledger
+        if not sent_batches and self.node.primaries_batch_needed:
+            self.logger.debug("Sending a 3PC batch to propagate newly selected primaries")
+            self.node.primaries_batch_needed = False
+            sent_batches.add(self._do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
 
     def _do_send_3pc_batch(self, ledger_id):
         oldStateRootHash = self.stateRootHash(ledger_id, to_str=False)
@@ -906,9 +923,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                           view_no=self.viewNo,
                                           pp_seq_no=pp_seq_no,
                                           pp_time=tm,
-                                          valid_txn_count=len(reqs) - len(invalid_indices),
                                           state_root=self.stateRootHash(ledger_id, to_str=False),
-                                          txn_root=self.txnRootHash(ledger_id, to_str=False))
+                                          txn_root=self.txnRootHash(ledger_id, to_str=False),
+                                          primaries=[],
+                                          valid_digests=self.get_valid_req_ids_from_all_requests(
+                                              reqs, invalid_indices))
             self.node.onBatchCreated(three_pc_batch)
 
         digest = self.batchDigest(reqs)
@@ -1043,6 +1062,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.stasher.stash((msg, sender), result)
 
     def _process_valid_preprepare(self, pre_prepare, sender):
+        self.first_batch_after_catchup = False
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
         if self.isMaster:
@@ -1098,6 +1118,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} saved shared multi signature for "
                               "root".format(self, old_state_root))
 
+        if not self.isMaster:
+            self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                self.instId, pre_prepare.ppSeqNo)
         self.trackBatches(pre_prepare, old_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
@@ -1433,12 +1456,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 2. call callback for the applied batch
         if self.isMaster:
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
-                                                           valid_txn_count=len(reqs) - len(invalid_indices),
                                                            state_root=self.stateRootHash(pre_prepare.ledgerId,
                                                                                          to_str=False),
                                                            txn_root=self.txnRootHash(pre_prepare.ledgerId,
-                                                                                     to_str=False)
-                                                           )
+                                                                                     to_str=False),
+                                                           primaries=[],
+                                                           valid_digests=self.get_valid_req_ids_from_all_requests(
+                                                               reqs, invalid_indices))
             self.node.onBatchCreated(three_pc_batch)
 
         return reqs, invalid_indices, rejects
@@ -1909,6 +1933,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 valid_reqIdr.append(reqIdr)
             self.requests.ordered_by_replica(reqIdr)
+
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1918,7 +1943,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           pp.ledgerId,
                           pp.stateRootHash,
                           pp.txnRootHash,
-                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None)
+                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
+                          self._get_primaries_for_ordered(pp))
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
@@ -1948,6 +1974,23 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica.process_order(key, self.quorums, pp)
 
         return True
+
+    def _get_primaries_for_ordered(self, pp):
+        ledger = self.node.auditLedger
+        for index, txn in enumerate(ledger.get_uncommitted_txns()):
+            payload_data = get_payload_data(txn)
+            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
+                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                if isinstance(txn_primaries, Iterable):
+                    return txn_primaries
+                elif isinstance(txn_primaries, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                    return get_payload_data(
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                break
+        else:
+            return self.node.primaries
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
@@ -2711,6 +2754,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self._caught_up_till_3pc(last_caught_up_3PC)
             else:
                 self._catchup_clear_for_backup()
+                self.first_batch_after_catchup = True
         self.stasher.unstash_catchup()
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
@@ -2827,3 +2871,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def request_propagates_if_needed(self, bad_reqs, pre_prepare):
         if any(pre_prepare is pended[0] for pended in self.prePreparesPendingFinReqs):
             self.node.request_propagates(bad_reqs)
+
+    def get_valid_req_ids_from_all_requests(self, reqs, invalid_indices):
+        return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]

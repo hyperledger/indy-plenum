@@ -80,6 +80,7 @@ class f:  # provides a namespace for reusable field constants
     FINAL = Field('final', bool)
     VALID_REQ_IDR = Field("valid_reqIdr", List[str])
     INVALID_REQ_IDR = Field("invalid_reqIdr", List[str])
+    PRIMARIES = Field("primaries", List[str])
 
 
 OPERATION = 'operation'

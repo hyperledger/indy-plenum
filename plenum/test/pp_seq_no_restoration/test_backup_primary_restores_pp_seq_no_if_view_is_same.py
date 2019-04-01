@@ -1,6 +1,5 @@
 from common.serializers.serialization import node_status_db_serializer
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
-from plenum.server.last_sent_pp_store_helper import PrePrepareKey
 from plenum.test import waits
 from plenum.test.checkpoints.conftest import chkFreqPatched
 from plenum.test.helper import sdk_send_batches_of_random, assertExp
@@ -22,7 +21,6 @@ backup_inst_id = 1
 def test_backup_primary_restores_pp_seq_no_if_view_is_same(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
         tconf, tdir, allPluginsPath, chkFreqPatched, view_no):
-
     # Get a node with a backup primary replica
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
     node = replica.node
@@ -33,23 +31,23 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
                                num_reqs=7, num_batches=7,
                                timeout=tconf.Max3PCBatchWait)
 
+    seq_no = 7 if view_no == 0 else 8
+
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, 7)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, seq_no)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
     # Check view no of the node and lastPrePrepareSeqNo of the replica
     assert node.viewNo == view_no
-    assert replica.lastPrePrepareSeqNo == 7
+    assert replica.lastPrePrepareSeqNo == seq_no
 
     # Ensure that the node has stored the last sent PrePrepare key
     assert LAST_SENT_PRE_PREPARE in node.nodeStatusDB
     last_sent_pre_prepare_key = \
-        PrePrepareKey(**node_status_db_serializer.deserialize(
-            node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)))
-    assert last_sent_pre_prepare_key == PrePrepareKey(inst_id=backup_inst_id,
-                                                      view_no=view_no,
-                                                      pp_seq_no=7)
+        node_status_db_serializer.deserialize(
+            node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))
+    assert last_sent_pre_prepare_key == {str(backup_inst_id): [view_no, seq_no]}
 
     # Restart the node containing the replica
     disconnect_node_and_ensure_disconnected(looper,
@@ -73,10 +71,10 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
     # the watermarks correspondingly
     assert node.viewNo == view_no
     assert replica.isPrimary
-    assert replica.lastPrePrepareSeqNo == 7
-    assert replica.last_ordered_3pc == (view_no, 7)
-    assert replica.h == 7
-    assert replica.H == 7 + LOG_SIZE
+    assert replica.lastPrePrepareSeqNo == seq_no
+    assert replica.last_ordered_3pc == (view_no, seq_no)
+    assert replica.h == seq_no
+    assert replica.H == seq_no + LOG_SIZE
 
     # Verify also that the stored last sent PrePrepare key has not been erased
     assert LAST_SENT_PRE_PREPARE in node.nodeStatusDB
@@ -87,7 +85,8 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
                                num_reqs=1, num_batches=1,
                                timeout=tconf.Max3PCBatchWait)
 
+    seq_no = 8 if view_no == 0 else 9
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, 8)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, seq_no)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

@@ -540,7 +540,8 @@ def sdk_add_2_nodes(looper, txnPoolNodeSet,
                                          allPluginsPath)
         txnPoolNodeSet.append(new_node)
         looper.run(checkNodesConnected(txnPoolNodeSet))
-        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                             exclude_from_check=['check_last_ordered_3pc_backup'])
         sdk_pool_refresh(looper, sdk_pool_handle)
         new_nodes.append(new_node)
     return new_nodes

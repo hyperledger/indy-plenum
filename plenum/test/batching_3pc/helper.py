@@ -7,6 +7,7 @@ from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.test.testing_utils import FakeSomething
 from plenum.server.catchup.catchup_rep_service import LedgerCatchupComplete
 from plenum.server.catchup.utils import NodeCatchupComplete
 
@@ -74,11 +75,12 @@ def add_txns_to_ledger_before_order(replica, reqs):
 
             # simulate audit ledger catchup
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
-                                                           valid_txn_count=len(reqs),
                                                            state_root=pp.stateRootHash,
-                                                           txn_root=pp.txnRootHash)
+                                                           txn_root=pp.txnRootHash,
+                                                           primaries=self.node.primaries,
+                                                           valid_digests=pp.reqIdr)
             node.audit_handler.post_batch_applied(three_pc_batch)
-            node.audit_handler.commit_batch(ledger_id, len(reqs), pp.stateRootHash, pp.txnRootHash, pp.ppTime)
+            node.audit_handler.commit_batch(FakeSomething())
 
             ledger_manager.preCatchupClbk(ledger_id)
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
@@ -87,8 +89,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
                 catchup_rep_service._add_txn(txn)
             ledger_manager._on_ledger_sync_complete(LedgerCatchupComplete(
                 ledger_id=DOMAIN_LEDGER_ID,
-                num_caught_up=len(reqs),
-                last_3pc=(node.viewNo, commit.ppSeqNo)))
+                num_caught_up=len(reqs)))
             ledger_manager._on_catchup_complete(NodeCatchupComplete())
             replica.added = True
 
