@@ -436,6 +436,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
+        # Defines if there was a batch after last catchup
+        self.first_batch_after_catchup = False
+
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
@@ -708,7 +711,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `last_ordered_3pc`
         :return:
         """
-        if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
+        if not self.isMaster and self.first_batch_after_catchup and \
                 not self.isPrimary:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -721,6 +724,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
+                self.first_batch_after_catchup = False
 
     def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
@@ -1058,6 +1062,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.stasher.stash((msg, sender), result)
 
     def _process_valid_preprepare(self, pre_prepare, sender):
+        self.first_batch_after_catchup = False
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
         if self.isMaster:
@@ -2749,6 +2754,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self._caught_up_till_3pc(last_caught_up_3PC)
             else:
                 self._catchup_clear_for_backup()
+                self.first_batch_after_catchup = True
         self.stasher.unstash_catchup()
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
