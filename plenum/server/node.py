@@ -3292,9 +3292,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if txn is None:
             return None
-        return txn[AUDIT_TXN_VIEW_NO], txn[AUDIT_TXN_PP_SEQ_NO]
 
-        # txn = get_payload_data(txn)
+        txn = get_payload_data(txn)
+        return txn[AUDIT_TXN_VIEW_NO], txn[AUDIT_TXN_PP_SEQ_NO]
         # updated_ledgers = [ledger_id for ledger_id, root_hash in txn[AUDIT_TXN_LEDGER_ROOT].items()
         #                    if isinstance(root_hash, str)]
         # if not updated_ledgers:
