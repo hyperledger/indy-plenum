@@ -92,6 +92,6 @@ def test_node_not_erases_last_sent_pp_key_on_pool_restart(
 
     looper.run(
         eventually(lambda: assertExp(replica.last_ordered_3pc ==
-                                     old_last_ordered),
+                                     (old_last_ordered[0], old_last_ordered[1] + 1)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

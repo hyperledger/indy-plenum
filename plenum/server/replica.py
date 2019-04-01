@@ -1113,6 +1113,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} saved shared multi signature for "
                               "root".format(self, old_state_root))
 
+        if not self.isMaster:
+            self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                self.instId, pre_prepare.ppSeqNo)
         self.trackBatches(pre_prepare, old_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
