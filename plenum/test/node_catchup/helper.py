@@ -22,7 +22,8 @@ logger = getlogger()
 #  ledgers to be equal
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: TestNode,
-                             exclude_from_check=None):
+                             exclude_from_check=None,
+                             include_in_check=None):
     def chk_ledger_and_state(first_node, second_node, ledger_id):
         checkLedgerEquality(first_node.getLedger(ledger_id),
                             second_node.getLedger(ledger_id))
@@ -38,7 +39,7 @@ def checkNodeDataForEquality(node: TestNode,
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
 
-        if not exclude_from_check or 'check_last_ordered_3pc_backup' not in exclude_from_check:
+        if include_in_check and 'check_last_ordered_3pc_backup' in include_in_check:
             check_last_ordered_3pc_backup(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc_backup check")
@@ -76,7 +77,8 @@ def waitNodeDataEquality(looper,
                          referenceNode: TestNode,
                          *otherNodes: TestNode,
                          customTimeout=None,
-                         exclude_from_check=None):
+                         exclude_from_check=None,
+                         include_in_check=None):
     """
     Wait for node ledger to become equal
 
@@ -85,7 +87,8 @@ def waitNodeDataEquality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    kwargs = {'exclude_from_check': exclude_from_check}
+    kwargs = {'exclude_from_check': exclude_from_check,
+              'include_in_check': include_in_check}
     looper.run(eventually(partial(checkNodeDataForEquality, **kwargs),
                           referenceNode,
                           *otherNodes,

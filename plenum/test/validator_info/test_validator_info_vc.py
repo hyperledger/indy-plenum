@@ -46,7 +46,8 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
                                      tdir, allPluginsPath)
     txnPoolNodeSet[master_node_index] = master_node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, master_node, *txnPoolNodeSet[-1:])
+    waitNodeDataEquality(looper, master_node, *txnPoolNodeSet[-1:],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     latest_info = master_node._info_tool.info
     assert latest_info['Node_info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
     assert latest_info['Node_info']['View_change_status']['View_No'] == expected_view_no
