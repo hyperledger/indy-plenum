@@ -2680,12 +2680,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self))
 
         logger.info("{} executing Ordered batch {} {} of {} requests; state root {}; txn root {}"
-                     .format(self.name,
-                             ordered.viewNo,
-                             ordered.ppSeqNo,
-                             len(ordered.valid_reqIdr),
-                             ordered.stateRootHash,
-                             ordered.txnRootHash))
+                    .format(self.name,
+                            ordered.viewNo,
+                            ordered.ppSeqNo,
+                            len(ordered.valid_reqIdr),
+                            ordered.stateRootHash,
+                            ordered.txnRootHash))
 
         self.executeBatch(ThreePcBatch.from_ordered(ordered),
                           ordered.valid_reqIdr,

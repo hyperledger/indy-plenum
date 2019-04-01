@@ -14,6 +14,7 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
+
 class AuditBatchHandler(BatchRequestHandler):
 
     def __init__(self, database_manager: DatabaseManager):
