@@ -2679,11 +2679,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
 
-        logger.debug("{} executing Ordered batch {} {} of {} requests"
+        logger.info("{} executing Ordered batch {} {} of {} requests; state root {}; txn root {}"
                      .format(self.name,
                              ordered.viewNo,
                              ordered.ppSeqNo,
-                             len(ordered.valid_reqIdr)))
+                             len(ordered.valid_reqIdr),
+                             ordered.stateRootHash,
+                             ordered.txnRootHash))
 
         self.executeBatch(ThreePcBatch.from_ordered(ordered),
                           ordered.valid_reqIdr,

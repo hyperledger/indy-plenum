@@ -2671,11 +2671,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return True
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
-            self.logger.warning('{} found {} to have incorrect time.'.format(self, pp))
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
                 self.logger.debug('{} marking time as correct for {}'.format(self, pp))
                 correct = True
+            else:
+                self.logger.warning('{} found {} to have incorrect time.'.format(self, pp))
         return correct
 
     def _process_stashed_pre_prepare_for_time_if_possible(
