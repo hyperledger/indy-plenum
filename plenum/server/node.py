@@ -51,7 +51,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_LEDGER_ROOT, \
-    AUDIT_TXN_LEDGERS_SIZE
+    AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -3292,24 +3292,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if txn is None:
             return None
-        txn = get_payload_data(txn)
-        updated_ledgers = [ledger_id for ledger_id, root_hash in txn[AUDIT_TXN_LEDGER_ROOT].items()
-                           if isinstance(root_hash, str)]
-        if not updated_ledgers:
-            return None
+        return txn[AUDIT_TXN_VIEW_NO], txn[AUDIT_TXN_PP_SEQ_NO]
 
-        result = None
-        ledgers_size = txn[AUDIT_TXN_LEDGERS_SIZE]
-        for ledger_id in updated_ledgers:
-            seq_no = ledgers_size.get(ledger_id)
-            if seq_no is None:
-                continue
-            three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
-            if three_pc_key is None:
-                continue
-            if result is None or compare_3PC_keys(result, three_pc_key) > 0:
-                result = three_pc_key
-        return result
+        # txn = get_payload_data(txn)
+        # updated_ledgers = [ledger_id for ledger_id, root_hash in txn[AUDIT_TXN_LEDGER_ROOT].items()
+        #                    if isinstance(root_hash, str)]
+        # if not updated_ledgers:
+        #     return None
+        #
+        # result = None
+        # ledgers_size = txn[AUDIT_TXN_LEDGERS_SIZE]
+        # for ledger_id in updated_ledgers:
+        #     seq_no = ledgers_size.get(ledger_id)
+        #     if seq_no is None:
+        #         continue
+        #     three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id, seq_no)
+        #     if three_pc_key is None:
+        #         continue
+        #     if result is None or compare_3PC_keys(result, three_pc_key) > 0:
+        #         result = three_pc_key
+        # return result
 
     @measure_time(MetricsName.EXECUTE_BATCH_TIME)
     def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
