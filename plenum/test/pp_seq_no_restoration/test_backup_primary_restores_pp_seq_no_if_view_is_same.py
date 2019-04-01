@@ -1,5 +1,6 @@
 from common.serializers.serialization import node_status_db_serializer
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
+from plenum.server.last_sent_pp_store_helper import PrePrepareKey
 from plenum.test import waits
 from plenum.test.checkpoints.conftest import chkFreqPatched
 from plenum.test.helper import sdk_send_batches_of_random, assertExp
@@ -45,9 +46,11 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
     # Ensure that the node has stored the last sent PrePrepare key
     assert LAST_SENT_PRE_PREPARE in node.nodeStatusDB
     last_sent_pre_prepare_key = \
-        node_status_db_serializer.deserialize(
-            node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE))
-    assert last_sent_pre_prepare_key == {str(backup_inst_id): [view_no, seq_no]}
+        PrePrepareKey(**node_status_db_serializer.deserialize(
+            node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)))
+    assert last_sent_pre_prepare_key == PrePrepareKey(inst_id=backup_inst_id,
+                                                      view_no=view_no,
+                                                      pp_seq_no=seq_no)
 
     # Restart the node containing the replica
     disconnect_node_and_ensure_disconnected(looper,
