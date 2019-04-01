@@ -54,7 +54,6 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
                                 old_pr_node.view_changer.start_view_change,
                                 compare_val_to=True)) == 0
 
-    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
-                                    exclude_from_check=['check_last_ordered_3pc_backup'])
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     assert not old_pr_node.view_changer._next_view_indications
