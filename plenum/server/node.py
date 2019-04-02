@@ -3109,10 +3109,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # If you want to refactor primaries selection,
         # please take a look at https://jira.hyperledger.org/browse/INDY-1946
 
+        self.backup_instance_faulty_processor.restore_replicas()
         self.ensure_primaries_dropped()
+
         self.primaries = self.elector.process_selection(
             self.requiredNumberOfInstances,
             self.nodeReg, self.poolManager._ordered_node_ids)
+
+        pc = len(self.primaries)
+        rc = len(self.replicas)
+        if pc != rc:
+            raise LogicError('Inconsistent number or primaries ({}) and replicas ({})'
+                             .format(pc, rc))
 
         for i, primary_name in enumerate(self.primaries):
             if i == 0:
