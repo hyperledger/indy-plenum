@@ -31,7 +31,7 @@ class Printer:
 
 
 def chkPrinted(p, m):
-    assert m in [_[0] for _ in p.printeds]
+    assert m in [zsmsg.msg for zsmsg in p.printeds]
 
 
 class CollectingMsgsHandler:
@@ -39,9 +39,8 @@ class CollectingMsgsHandler:
         self.receivedMessages = []
 
     def handler(self, m):
-        msg, sender = m
-        self.receivedMessages.append(msg)
-        # print("Got message", msg)
+        self.receivedMessages.append(m.msg)
+        # print("Got message", m.msg)
 
 
 class CounterMsgsHandler:
@@ -50,10 +49,9 @@ class CounterMsgsHandler:
         self._received_from = {}
 
     def handler(self, m):
-        msg, sender = m
         self.receivedMsgCount += 1
-        self._received_from.setdefault(sender, 0)
-        self._received_from[sender] += 1
+        self._received_from.setdefault(m.frm, 0)
+        self._received_from[m.frm] += 1
 
     def check_received(self, msg_num):
         assert self.receivedMsgCount == msg_num

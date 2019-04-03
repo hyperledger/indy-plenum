@@ -1,7 +1,7 @@
 import inspect
 
 from plenum.common.metrics_collector import NullMetricsCollector
-from plenum.common.util import z85_to_friendly
+from plenum.common.util import z85_to_friendly, get_utc_epoch
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 
@@ -42,6 +42,23 @@ logger = getlogger()
 
 
 Quota = NamedTuple("Quota", [("count", int), ("size", int)])
+
+
+# TODO optimize: e.g. slots
+class ZStackMessage:
+
+    def __init__(self, frm: str, msg: str, ts: int = None):
+        self.frm = frm
+        self.ts = get_utc_epoch() if ts is None else ts
+        self.msg = msg
+
+    def __str__(self):
+        return ("(frm: {}, ts: {}, msg: {})"
+                .format(self.ts, self.frm, self.msg))
+
+    def __repr__(self):
+        return ("{}(frm='{}', ts={}, msg='{}')"
+                .format(self.__class__.__name__, self.ts, self.frm, self.msg))
 
 
 # TODO: Use Async io
@@ -461,7 +478,9 @@ class ZStack(NetworkInterface):
             return self.processReceived(pracLimit)
         return 0
 
-    def _verifyAndAppend(self, msg, ident):
+    def _verifyAndAppend(self, msg, ident, ts: int = None):
+        ts = get_utc_epoch() if ts is None else ts
+
         try:
             self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
@@ -472,7 +491,7 @@ class ZStack(NetworkInterface):
             logger.error("Got from {} {}".format(z85_to_friendly(frm), errstr))
             self.msgRejectHandler(errstr, frm)
             return False
-        self.rxMsgs.append((decoded, ident))
+        self.rxMsgs.append((ident, ts, decoded))
         return True
 
     def _receiveFromListener(self, quota: Quota) -> int:
@@ -555,7 +574,7 @@ class ZStack(NetworkInterface):
             if len(self.rxMsgs) == 0:
                 return num_processed
 
-            msg, ident = self.rxMsgs.popleft()
+            ident, ts, msg = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
 
@@ -575,7 +594,7 @@ class ZStack(NetworkInterface):
                 continue
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
-                self.msgHandler((msg, frm))
+                self.msgHandler(ZStackMessage(frm, msg, ts=ts))
         return num_processed + 1
 
     def doProcessReceived(self, msg, frm, ident):

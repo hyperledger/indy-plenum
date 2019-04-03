@@ -172,8 +172,7 @@ def test_high_load(set_info_log_level, tdir, looper, tconf):
     received_messages = []
 
     def handler(wrapped_message):
-        msg, sender = wrapped_message
-        received_messages.append(msg)
+        received_messages.append(wrapped_message.msg)
 
     def create_stack(name, handler=None):
         return ZStack(name, ha=genHa(), basedirpath=tdir,
@@ -213,10 +212,9 @@ def testZStackSendRecvHugeDataUnderLimit(set_info_log_level, tdir, looper, tconf
         pass
 
     def recvHandlerBeta(wrpMsg):
-        rmsg, frm = wrpMsg
         betaHandler[0] = True
-        assert frm == 'Alpha'
-        assert rmsg == msg
+        assert wrpMsg.frm == 'Alpha'
+        assert wrpMsg.msg == msg
 
     alpha = ZStack(names[0], ha=genHa(), basedirpath=tdir, msgHandler=recvHandlerAlpha, restricted=True,
                    config=adict(**tconf.__dict__), msgRejectHandler=None)
@@ -250,10 +248,9 @@ def testZStackSendHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
         pass
 
     def recvHandlerBeta(wrpMsg):
-        rmsg, frm = wrpMsg
         betaHandlers[0] = True
-        assert frm is not None
-        assert rmsg is not None
+        assert wrpMsg.frm is not None
+        assert wrpMsg.msg is not None
 
     def rejectHandlerBeta(reason, frm):
         betaHandlers[1] = True
@@ -295,10 +292,9 @@ def testZStackRecvHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
         pass
 
     def recvHandlerBeta(wrpMsg):
-        rmsg, frm = wrpMsg
         betaHandlers[0] = True
-        assert frm is not None
-        assert rmsg is not None
+        assert wrpMsg.frm is not None
+        assert wrpMsg.msg is not None
 
     def rejectHandlerBeta(reason, frm):
         betaHandlers[1] = True
