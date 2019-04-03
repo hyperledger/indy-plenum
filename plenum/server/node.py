@@ -2679,11 +2679,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.trace("{} got ordered requests from master replica"
                      .format(self))
 
-        logger.debug("{} executing Ordered batch {} {} of {} requests"
-                     .format(self.name,
-                             ordered.viewNo,
-                             ordered.ppSeqNo,
-                             len(ordered.valid_reqIdr)))
+        logger.info("{} executing Ordered batch {} {} of {} requests; state root {}; txn root {}"
+                    .format(self.name,
+                            ordered.viewNo,
+                            ordered.ppSeqNo,
+                            len(ordered.valid_reqIdr),
+                            ordered.stateRootHash,
+                            ordered.txnRootHash))
 
         self.executeBatch(ThreePcBatch.from_ordered(ordered),
                           ordered.valid_reqIdr,
@@ -3274,6 +3276,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, three_pc_batch.view_no, three_pc_batch.pp_seq_no,
                             three_pc_batch.ledger_id, three_pc_batch.state_root,
                             three_pc_batch.txn_root, [key for key in valid_reqs_keys]))
+        logger.info("{} committed batch request, view no {}, ppSeqNo {}, "
+                    "ledger {}, state root {}, txn root {}, requests: {}".
+                    format(self, three_pc_batch.view_no, three_pc_batch.pp_seq_no,
+                           three_pc_batch.ledger_id, three_pc_batch.state_root,
+                           three_pc_batch.txn_root, len(valid_reqs_keys)))
 
         for txn in committedTxns:
             self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,

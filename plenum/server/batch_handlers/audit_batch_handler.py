@@ -10,6 +10,9 @@ from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 class AuditBatchHandler(BatchRequestHandler):
@@ -20,16 +23,22 @@ class AuditBatchHandler(BatchRequestHandler):
         self.tracker = LedgerUncommittedTracker(None, self.ledger.uncommitted_root_hash, self.ledger.size)
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
-        self._add_to_ledger(three_pc_batch)
+        txn = self._add_to_ledger(three_pc_batch)
         self.tracker.apply_batch(None, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size)
+        logger.info("applied audit txn {}; uncommitted root hash is {}; uncommitted size is {}".
+                    format(str(txn), self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         _, _, txn_count = self.tracker.reject_batch()
         self.ledger.discardTxns(txn_count)
+        logger.info("rejected {} audit txns; uncommitted root hash is {}; uncommitted size is {}".
+                    format(txn_count, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
 
     def commit_batch(self, three_pc_batch, prev_handler_result=None):
         _, _, txns_count = self.tracker.commit_batch()
         _, committedTxns = self.ledger.commitTxns(txns_count)
+        logger.info("committed {} audit txns; uncommitted root hash is {}; uncommitted size is {}".
+                    format(txns_count, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
         return committedTxns
 
     def on_catchup_finished(self):
@@ -54,6 +63,7 @@ class AuditBatchHandler(BatchRequestHandler):
         # if PRE-PREPARE doesn't have audit txn (probably old code) - do nothing
         # TODO: remove this check after all nodes support audit ledger
         if not three_pc_batch.has_audit_txn:
+            logger.info("Has 3PC batch without audit ledger: {}".format(str(three_pc_batch)))
             return
 
         # 1. prepare AUDIT txn
@@ -66,6 +76,7 @@ class AuditBatchHandler(BatchRequestHandler):
 
         # 3. Add to the Ledger
         self.ledger.appendTxns([txn])
+        return txn
 
     def _create_audit_txn_data(self, three_pc_batch, last_audit_txn):
         # 1. general format and (view_no, pp_seq_no)
