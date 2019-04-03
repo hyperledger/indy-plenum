@@ -26,10 +26,10 @@ class SimpleZStackWithRecorder(SimpleZStack):
         self.recorder = Recorder(db)
         super().__init__(*args, **kwargs)
 
-    def _verifyAndAppend(self, msg, ident):
-        if super()._verifyAndAppend(msg, ident):
+    def _verifyAndAppend(self, msg, ident, ts: int):
+        if super()._verifyAndAppend(msg, ident, ts):
             logger.trace('{} recording incoming {} from {}'.format(self, msg, ident))
-            self.recorder.add_incoming(msg, ident)
+            self.recorder.add_incoming(msg, ident, ts)
 
     def transmit(self, msg, uid, timeout=None, serialized=False):
         status, err = super().transmit(msg, uid, timeout=timeout, serialized=serialized)

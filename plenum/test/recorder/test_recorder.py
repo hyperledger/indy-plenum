@@ -19,11 +19,11 @@ TestRunningTimeLimitSec = 350
 def test_add_to_recorder(recorder):
     last_check_time = recorder.get_now_key()
     time.sleep(1)
-    msg1, frm1 = 'm1', 'f1'
-    msg2, frm2 = 'm2', 'f2'
-    recorder.add_incoming(msg1, frm1)
+    msg1, frm1, ts1 = 'm1', 'f1', 1
+    msg2, frm2, ts2 = 'm2', 'f2', 2
+    recorder.add_incoming(msg1, frm1, ts1)
     time.sleep(3)
-    recorder.add_incoming(msg2, frm2)
+    recorder.add_incoming(msg2, frm2, ts2)
     time.sleep(2.1)
     msg3, to1, to11 = 'm3', 't1', 't11'
     msg4, to2 = 'm4', 't2'
@@ -38,10 +38,10 @@ def test_add_to_recorder(recorder):
         assert int(k.decode()) > int(last_check_time)
 
         if i == 0:
-            assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg1, frm1]])
+            assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg1, frm1, ts1]])
 
         if i == 1:
-            assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg2, frm2]])
+            assert v.decode() == json.dumps([[Recorder.INCOMING_FLAG, msg2, frm2, ts2]])
             assert int(k) - int(last_check_time) >= 3 * Recorder.TIME_FACTOR
 
         if i == 2:
@@ -61,21 +61,21 @@ def test_add_to_recorder(recorder):
 
 
 def test_get_list_from_recorder(recorder):
-    msg1, frm1 = 'm1', 'f1'
-    msg2, frm2 = 'm2', 'f2'
+    msg1, frm1, ts1 = 'm1', 'f1', 1
+    msg2, frm2, ts2 = 'm2', 'f2', 2
     msg3, to1, to11 = 'm3', 't1', 't11'
     # Decrease resolution
     recorder.TIME_FACTOR = 1
     time.sleep(1)
     recorder.add_outgoing(msg3, to1, to11)
-    recorder.add_incoming(msg1, frm1)
-    recorder.add_incoming(msg2, frm2)
+    recorder.add_incoming(msg1, frm1, ts1)
+    recorder.add_incoming(msg2, frm2, ts2)
     recorder.add_disconnecteds('a', 'b', 'c')
     for k, v in recorder.store.iterator(include_value=True):
         assert v.decode() == json.dumps([
-            [Recorder.OUTGOING_FLAG, 'm3', 't1', 't11'],
-            [Recorder.INCOMING_FLAG, 'm1', 'f1'],
-            [Recorder.INCOMING_FLAG, 'm2', 'f2'],
+            [Recorder.OUTGOING_FLAG, msg3, to1, to11],
+            [Recorder.INCOMING_FLAG, msg1, frm1, ts1],
+            [Recorder.INCOMING_FLAG, msg2, frm2, ts2],
             [Recorder.DISCONN_FLAG, 'a', 'b', 'c']
             ])
 
@@ -98,12 +98,12 @@ def test_register_play_targets(recorder):
 
 
 def test_recorded_parsings(recorder):
-    incoming = [[randomString(10), randomString(6)] for i in
+    incoming = [[randomString(10), randomString(6), i] for i in
                 range(3)]
     outgoing = [[randomString(10), randomString(6)] for i in
                 range(5)]
-    for m, f in incoming:
-        recorder.add_incoming(m, f)
+    for m, f, ts in incoming:
+        recorder.add_incoming(m, f, ts)
         time.sleep(0.01)
     for m, f in outgoing:
         recorder.add_outgoing(m, f)
@@ -139,7 +139,7 @@ def test_recorded_parsings(recorder):
 
 def test_recorder_get_next_incoming_only(recorder):
     incoming_count = 100
-    incoming = [(randomString(100), randomString(6)) for _ in
+    incoming = [(randomString(100), randomString(6), i) for i in
                 range(incoming_count)]
 
     while incoming:
@@ -176,7 +176,7 @@ def test_recorder_get_next(recorder):
     incoming_count = 100
     outgoing_count = 50
 
-    incoming = [(randomString(100), randomString(6)) for _ in range(incoming_count)]
+    incoming = [(randomString(100), randomString(6), i) for i in range(incoming_count)]
     outgoing = [(randomString(100), randomString(6)) for _ in range(outgoing_count)]
 
     while incoming or outgoing:

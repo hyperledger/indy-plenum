@@ -171,8 +171,8 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
         if n_msgs:
             for inc in n_msgs:
                 if Recorder.is_incoming(inc):
-                    msg, frm = to_bytes(inc[1]), to_bytes(inc[2])
-                    replaying_node.nodestack._verifyAndAppend(msg, frm)
+                    msg, frm, ts = to_bytes(inc[1]), to_bytes(inc[2])
+                    replaying_node.nodestack._verifyAndAppend(msg, frm, ts)
                 if Recorder.is_disconn(inc):
                     disconnecteds = inc[1:]
                     replaying_node.nodestack._connsChanged(set(), disconnecteds)
@@ -180,8 +180,9 @@ def replay_patched_node(looper, replaying_node, node_recorder, cr):
         if c_msgs:
             incomings = Recorder.filter_incoming(c_msgs)
             for inc in incomings:
-                msg, frm = to_bytes(inc[0]), to_bytes(inc[1])
-                replaying_node.clientstack._verifyAndAppend(msg, frm)
+                msg, frm, ts = to_bytes(inc[0]), to_bytes(inc[1])
+                # TODO seems tricky to pass correct timestamp
+                replaying_node.clientstack._verifyAndAppend(msg, frm, ts)
 
         looper.run(replaying_node.prod())
 

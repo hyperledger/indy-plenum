@@ -30,8 +30,8 @@ class Recorder:
     def get_now_key(self):
         return str(int(time.perf_counter() * self.TIME_FACTOR))
 
-    def add_incoming(self, msg, frm):
-        key, val = self.get_now_key(), self.create_db_val_for_incoming(msg, frm)
+    def add_incoming(self, msg, frm, ts: int):
+        key, val = self.get_now_key(), self.create_db_val_for_incoming(msg, frm, ts)
         self.add_to_store(key, val)
 
     def add_outgoing(self, msg, *to):
@@ -57,8 +57,8 @@ class Recorder:
         self.replay_targets[id] = target
 
     @staticmethod
-    def create_db_val_for_incoming(msg, frm):
-        return [Recorder.INCOMING_FLAG, msg, frm]
+    def create_db_val_for_incoming(msg, frm, ts: int):
+        return [Recorder.INCOMING_FLAG, msg, frm, ts]
 
     @staticmethod
     def create_db_val_for_outgoing(msg, *to):

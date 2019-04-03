@@ -13,17 +13,17 @@ def test_combined_recorder(tmpdir_factory):
     r1 = create_recorder_for_test(tmpdir_factory, 'r1')
     r2 = create_recorder_for_test(tmpdir_factory, 'r2')
 
-    msg1, frm1 = 'm1', 'f1'
-    msg2, frm2 = 'm2', 'f2'
+    msg1, frm1, t1 = 'm1', 'f1', 1
+    msg2, frm2, t2 = 'm2', 'f2', 2
     msg3, frm3 = 'm3', 'f3'
-    msg4, frm4 = 'm4', 'f4'
-    r1.add_incoming(msg1, frm1)
+    msg4, frm4, t4 = 'm4', 'f4', 4
+    r1.add_incoming(msg1, frm1, t1)
     time.sleep(.2)
-    r1.add_incoming(msg2, frm2)
+    r1.add_incoming(msg2, frm2, t2)
     time.sleep(.1)
     r2.add_outgoing(msg3, frm3)
     time.sleep(.1)
-    r1.add_incoming(msg4, frm4)
+    r1.add_incoming(msg4, frm4, t4)
     time.sleep(.1)
     r2.add_disconnecteds('a', 'b', 'c')
     time.sleep(.1)
@@ -49,16 +49,16 @@ def test_combined_recorder(tmpdir_factory):
         if vals:
             if i == 0:
                 # Incoming from r1
-                assert vals == [[[Recorder.INCOMING_FLAG, 'm1', 'f1']], []]
+                assert vals == [[[Recorder.INCOMING_FLAG, msg1, frm1, t1]], []]
             if i == 1:
                 # Incoming from r1
-                assert vals == [[[Recorder.INCOMING_FLAG, 'm2', 'f2']], []]
+                assert vals == [[[Recorder.INCOMING_FLAG, msg2, frm2, t2]], []]
             if i == 2:
                 # Outgoing from r2
-                assert vals == [[], [[Recorder.OUTGOING_FLAG, 'm3', 'f3']]]
+                assert vals == [[], [[Recorder.OUTGOING_FLAG, msg3, frm3]]]
             if i == 3:
                 # Incoming from r1
-                assert vals == [[[Recorder.INCOMING_FLAG, 'm4', 'f4']], []]
+                assert vals == [[[Recorder.INCOMING_FLAG, msg4, frm4, t4]], []]
             if i == 4:
                 # Disconnected from r2
                 assert vals == [[], [[Recorder.DISCONN_FLAG, 'a', 'b', 'c']]]
