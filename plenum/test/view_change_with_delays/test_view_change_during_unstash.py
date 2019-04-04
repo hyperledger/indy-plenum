@@ -2,10 +2,10 @@ from typing import Iterable
 
 import pytest
 
-from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
+from plenum.common.messages.node_messages import Prepare, Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
-from plenum.test.delayers import DEFAULT_DELAY, icDelay, cr_delay
+from plenum.test.delayers import icDelay, cr_delay, delay_3pc
 from plenum.test.helper import max_3pc_batch_limits, sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_replies, sdk_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -19,24 +19,6 @@ from stp_core.loop.eventually import eventually
 def tconf(tconf):
     with max_3pc_batch_limits(tconf, size=1) as tconf:
         yield tconf
-
-
-def delay_3pc_after(view_no, pp_seq_no, *args):
-    if not args:
-        args = (PrePrepare, Prepare, Commit)
-
-    def _delayer(msg_frm):
-        msg, frm = msg_frm
-        if not isinstance(msg, args):
-            return
-        if msg.viewNo != view_no:
-            return
-        if msg.ppSeqNo <= pp_seq_no:
-            return
-        return DEFAULT_DELAY
-
-    _delayer.__name__ = "delay_3pc_after({}, {}, {})".format(view_no, pp_seq_no, args)
-    return _delayer
 
 
 def check_nodes_ordered_till(nodes: Iterable, view_no: int, pp_seq_no: int):
@@ -66,15 +48,15 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
         assert node.master_replica.last_ordered_3pc == (0, 1)
 
     # Prevent ordering of some requests
-    start_delaying(all_stashers, delay_3pc_after(0, 7, Prepare, Commit))
+    start_delaying(all_stashers, delay_3pc(after=7, msgs=(Prepare, Commit)))
 
     # Stop ordering on slow node and send requests
-    slow_node_after_5 = start_delaying(slow_stasher, delay_3pc_after(0, 5, Commit))
-    slow_node_until_5 = start_delaying(slow_stasher, delay_3pc_after(0, 0))
+    slow_node_after_5 = start_delaying(slow_stasher, delay_3pc(after=5, msgs=Commit))
+    slow_node_until_5 = start_delaying(slow_stasher, delay_3pc(after=0))
     reqs_view_0 = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 8)
 
     # Make pool order first 2 batches and pause
-    pool_after_3 = start_delaying(other_stashers, delay_3pc_after(0, 3))
+    pool_after_3 = start_delaying(other_stashers, delay_3pc(after=3))
     looper.run(eventually(check_nodes_ordered_till, other_nodes, 0, 3))
 
     # Start catchup, continue ordering everywhere (except two last batches on slow node)
