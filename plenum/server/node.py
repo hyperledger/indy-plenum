@@ -2172,7 +2172,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if len(self.auditLedger.uncommittedTxns) > 0:
             raise LogicError('{} audit ledger has uncommitted txns after catching up ledger {}'.format(self, ledger_id))
 
-    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any, updateSeqNo = True):
+    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any, updateSeqNo=True):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
