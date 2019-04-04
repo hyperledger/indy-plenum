@@ -1835,6 +1835,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # This method is called periodically to check for any commits that
         # were stashed due to lack of commits before them and orders them if it
         # can
+
+        is_between_catchups_during_view_change = self.node.is_synced and self.node.view_change_in_progress
+        if not self.node.isParticipating and not is_between_catchups_during_view_change:
+            return
+
         self.logger.debug('{} trying to order from out of order commits. '
                           'Len(stashed_out_of_order_commits) == {}'
                           .format(self, len(self.stashed_out_of_order_commits)))
