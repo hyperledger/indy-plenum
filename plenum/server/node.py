@@ -2172,7 +2172,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if len(self.auditLedger.uncommittedTxns) > 0:
             raise LogicError('{} audit ledger has uncommitted txns after catching up ledger {}'.format(self, ledger_id))
 
-    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
+    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any, updateSeqNo=True):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
@@ -2184,7 +2184,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
-        self.updateSeqNoMap([txn], ledger_id)
+        if updateSeqNo:
+            self.updateSeqNoMap([txn], ledger_id)
         self._clear_request_for_txn(ledger_id, txn)
 
     def _clear_request_for_txn(self, ledger_id, txn):
