@@ -20,8 +20,10 @@ def node_doesnt_propagate(txnPoolNodeSet):
     propagate requests.
     """
 
-    def evilProcessPropagate(self, msg, frm):
-        logger.info("TEST: Evil {} is not processing PROPAGATE".format(self))
+    def evilProcessPropagate(self, msg):
+        logger.info(
+            "TEST: Evil {} is not processing PROPAGATE {}".format(self, msg)
+        )
 
     def evilPropagateRequest(self, request, clientName):
         logger.info("TEST: Evil {} is not PROPAGATing client request".

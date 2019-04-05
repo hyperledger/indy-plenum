@@ -29,11 +29,12 @@ def makeNodeFaulty(node, *behaviors):
 
 def changesRequest(node):
     def evilCreatePropagate(self,
-                            request: Request, identifier: str) -> Propagate:
+                            request: Request) -> Propagate:
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] = random.randint(10, 100000)
         request._digest = request.digest
+        identifier = request.frm
         if isinstance(identifier, bytes):
             identifier = identifier.decode()
         return Propagate(request.as_dict, identifier)
@@ -126,19 +127,21 @@ def sendDuplicate3PhaseMsg(
                           ppReq.digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash,
-                          ppReq.auditTxnRootHash)
+                          ppReq.auditTxnRootHash,
+                          frm=self.name)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self.addToPrepares(prepare, self.name)
+        self.addToPrepares(prepare)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
     def evilSendCommit(self, request):
         commit = Commit(self.instId,
                         request.viewNo,
-                        request.ppSeqNo)
+                        request.ppSeqNo,
+                        frm=self.name)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
-        self.addToCommits(commit, self.name)
+        self.addToCommits(commit)
         sendDup(self, commit, TPCStat.CommitSent, count)
 
     def sendDup(sender, msg, stat, count: int):
@@ -199,20 +202,22 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                           ppReq.ppTime,
                           digest,
                           ppReq.stateRootHash,
-                          ppReq.txnRootHash)
+                          ppReq.txnRootHash,
+                          frm=self.name)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self.addToPrepares(prepare, self.name)
+        self.addToPrepares(prepare)
         self.send(prepare, TPCStat.PrepareSent)
 
     def evilSendCommit(self, request):
         commit = Commit(self.instId,
                         request.viewNo,
-                        request.ppSeqNo)
+                        request.ppSeqNo,
+                        frm=self.name)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
         self.send(commit, TPCStat.CommitSent)
-        self.addToCommits(commit, self.name)
+        self.addToCommits(commit)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,

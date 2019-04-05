@@ -15,6 +15,8 @@ from stp_zmq.zstack import ZStack
 
 nodeCount = 4
 
+# TODO INDY-1983 fix tests
+
 
 @pytest.fixture(scope='function')
 def mock_schema_pool_state_root():
@@ -130,11 +132,13 @@ def test_process_pre_prepare_with_ordered_request(replica, pre_prepare):
 
 def test_suspicious_on_wrong_sub_seq_no(replica_with_requests, pre_prepare):
     pre_prepare.sub_seq_no = 1
+    # TODO INDY-1983 fix
     assert PP_SUB_SEQ_NO_WRONG == replica_with_requests._process_valid_preprepare(pre_prepare,
                                                                                   replica_with_requests.primaryName)
 
 
 def test_suspicious_on_not_final(replica_with_requests, pre_prepare):
     pre_prepare.final = False
+    # TODO INDY-1983 fix
     assert PP_NOT_FINAL == replica_with_requests._process_valid_preprepare(pre_prepare,
                                                                            replica_with_requests.primaryName)

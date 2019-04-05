@@ -48,18 +48,18 @@ class BackupInstanceFaultyProcessor:
                                Suspicions.BACKUP_PRIMARY_DISCONNECTED,
                                self.node.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED)
 
-    def process_backup_instance_faulty_msg(self,
-                                           backup_faulty: BackupInstanceFaulty,
-                                           frm: str) -> None:
+    def process_backup_instance_faulty_msg(
+        self,
+        backup_faulty: BackupInstanceFaulty
+    ) -> None:
         '''
         The method for processing BackupInstanceFaulty from nodes
         and removing replicas with performance were degraded
         :param backup_faulty: BackupInstanceFaulty message with instances for removing
-        :param frm:
         :return:
         '''
         logger.debug("{} receive BackupInstanceFaulty "
-                     "from {}: {}".format(self.node, frm, backup_faulty))
+                     "from {}: {}".format(self.node, backup_faulty.frm, backup_faulty))
         instances = getattr(backup_faulty, f.INSTANCES.nm)
         if getattr(backup_faulty, f.VIEW_NO.nm) != self.node.viewNo or \
                 self.node.master_replica.instId in instances:
@@ -79,8 +79,8 @@ class BackupInstanceFaultyProcessor:
         for inst_id in getattr(backup_faulty, f.INSTANCES.nm):
             if inst_id not in self.node.replicas.keys():
                 continue
-            self.backup_instances_faulty.setdefault(inst_id, dict()).setdefault(frm, 0)
-            self.backup_instances_faulty[inst_id][frm] += 1
+            self.backup_instances_faulty.setdefault(inst_id, dict()).setdefault(backup_faulty.frm, 0)
+            self.backup_instances_faulty[inst_id][backup_faulty.frm] += 1
             all_nodes_condition = self.node.quorums.backup_instance_faulty.is_reached(
                 len(self.backup_instances_faulty[inst_id].keys()))
             this_node_condition = (self.node.name in self.backup_instances_faulty[inst_id] and
@@ -101,8 +101,9 @@ class BackupInstanceFaultyProcessor:
                                                                instances))
         msg = BackupInstanceFaulty(self.node.viewNo,
                                    instances,
-                                   reason.code)
-        self.process_backup_instance_faulty_msg(msg, self.node.name)
+                                   reason.code,
+                                   frm=self.node.name)
+        self.process_backup_instance_faulty_msg(msg)
         self.node.send(msg)
 
     def __remove_replicas(self, degraded_backups, reason: Suspicion, removing_strategy):

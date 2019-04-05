@@ -28,11 +28,11 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
     orig_pp_method = slow_rep.processPrePrepare
     orig_p_method = slow_rep.processPrepare
 
-    def patched_pp(self, msg, sender):
-        stash_pp.append((msg, sender))
+    def patched_pp(self, msg):
+        stash_pp.append(msg)
 
-    def patched_p(self, msg, sender):
-        stash_p.append((msg, sender))
+    def patched_p(self, msg):
+        stash_p.append(msg)
 
     slow_rep.processPrePrepare = \
         types.MethodType(patched_pp, slow_rep)
@@ -47,10 +47,10 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
     looper.run(eventually(chk1, retryWait=1, timeout=timeout))
 
     for m, s in stash_pp:
-        orig_pp_method(m, s)
+        orig_pp_method(m)
 
     for m, s in stash_p:
-        orig_p_method(m, s)
+        orig_p_method(m)
 
     def chk2():
         assert len(slow_rep.commitsWaitingForPrepare) == 0

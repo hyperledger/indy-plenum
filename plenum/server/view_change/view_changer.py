@@ -351,7 +351,7 @@ class ViewChanger():
         self._send_view_change_done_message()
         self._start_selection()
 
-    def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
+    def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone):
         # if we already started a view change then do not decide on a new one
         if self.view_change_in_progress:
             return
@@ -364,27 +364,27 @@ class ViewChanger():
 
         if view_no not in self._next_view_indications:
             self._next_view_indications[view_no] = {}
-        self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
+        self._next_view_indications[view_no][future_vcd_msg.vcd_msg.frm] = future_vcd_msg.vcd_msg
         self._do_view_change_by_future_vcd(view_no)
 
     # __ EXTERNAL EVENTS __
 
-    def process_instance_change_msg(self, instChg: InstanceChange, frm: str) -> None:
+    def process_instance_change_msg(self, instChg: InstanceChange) -> None:
         """
         Validate and process an instance change request.
 
         :param instChg: the instance change request
-        :param frm: the name of the node that sent this `msg`
         """
-        if frm not in self.provider.connected_nodes():
+        if instChg.frm not in self.provider.connected_nodes():
             self.provider.discard(
                 instChg,
                 "received instance change request: {} from {} "
                 "which is not in connected list: {}".format(
-                    instChg, frm, self.provider.connected_nodes()), logger.info)
+                    instChg, instChg.frm, self.provider.connected_nodes()), logger.info)
             return
 
-        logger.info("{} received instance change request: {} from {}".format(self, instChg, frm))
+        logger.info("{} received instance change request: {} from {}"
+                    .format(self, instChg, instChg.frm))
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
@@ -401,7 +401,7 @@ class ViewChanger():
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
             #  found then change view even if master not degraded
-            self._on_verified_instance_change_msg(instChg, frm)
+            self._on_verified_instance_change_msg(instChg)
 
             if self.instance_changes.has_inst_chng_from(instChg.viewNo, self.name):
                 logger.info("{} received instance change message {} but has already "
@@ -411,24 +411,23 @@ class ViewChanger():
                             "find the master to be slow".format(self, instChg))
             else:
                 logger.display("{}{} found master degraded after receiving instance change"
-                               " message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
+                               " message from {}".format(VIEW_CHANGE_PREFIX, self, instChg.frm))
                 self.sendInstanceChange(instChg.viewNo)
 
-    def process_vchd_msg(self, msg: ViewChangeDone, sender: str) -> bool:
+    def process_vchd_msg(self, msg: ViewChangeDone) -> bool:
         """
         Processes ViewChangeDone messages. Once n-f messages have been
         received, decides on a primary for specific replica.
 
         :param msg: ViewChangeDone message
-        :param sender: the name of the node from which this message was sent
         """
         logger.info("{}'s primary selector started processing of ViewChangeDone msg from {} : {}".
-                    format(self.name, sender, msg))
+                    format(self.name, msg.frm, msg))
         view_no = msg.viewNo
         if self.view_no != view_no:
             self.provider.discard(msg, '{} got Primary from {} for view no {} '
                                        'whereas current view no is {}'.
-                                  format(self, sender, view_no, self.view_no),
+                                  format(self, msg.frm, view_no, self.view_no),
                                   logMethod=logger.info)
             return False
 
@@ -436,12 +435,12 @@ class ViewChanger():
         if new_primary_name == self.previous_master_primary:
             self.provider.discard(msg, '{} got Primary from {} for {} who was primary of '
                                        'master in previous view too'.
-                                  format(self, sender, new_primary_name),
+                                  format(self, msg.frm, new_primary_name),
                                   logMethod=logger.info)
             return False
 
         # Since a node can send ViewChangeDone more than one time
-        self._on_verified_view_change_done_msg(msg, sender)
+        self._on_verified_view_change_done_msg(msg)
         # TODO why do we check that after the message tracking
         if self.provider.has_primary():
             self.provider.discard(msg, "it already decided primary which is {}".
@@ -495,11 +494,12 @@ class ViewChanger():
             logger.info("{}{} metrics for monitor: {}"
                         .format(MONITORING_PREFIX, self,
                                 self.provider.pretty_metrics()))
-            msg = self._create_instance_change_msg(view_no, suspicion.code)
+            msg = self._create_instance_change_msg(
+                    view_no, suspicion.code, frm=self.name)
             self.send(msg)
             # record instance change vote for self and try to change the view
             # if quorum is reached
-            self._on_verified_instance_change_msg(msg, self.name)
+            self._on_verified_instance_change_msg(msg)
         else:
             logger.info("{} cannot send instance change sooner then {} seconds".format(self, cooldown))
 
@@ -509,14 +509,14 @@ class ViewChanger():
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
         self.insChngThrottler = Throttler(windowSize, ratchet.get, self._timer.get_current_time)
 
-    def _create_instance_change_msg(self, view_no, suspicion_code):
-        return InstanceChange(view_no, suspicion_code)
+    def _create_instance_change_msg(self, view_no, suspicion_code, **kwargs):
+        return InstanceChange(view_no, suspicion_code, **kwargs)
 
-    def _on_verified_instance_change_msg(self, msg, frm):
+    def _on_verified_instance_change_msg(self, msg):
         view_no = msg.viewNo
 
-        if not self.instance_changes.has_inst_chng_from(view_no, frm):
-            self.instance_changes.add_vote(msg, frm)
+        if not self.instance_changes.has_inst_chng_from(view_no, msg.frm):
+            self.instance_changes.add_vote(msg)
             if view_no > self.view_no:
                 self._start_view_change_by_instance_change(view_no)
 
@@ -593,25 +593,25 @@ class ViewChanger():
         # to finish the View Change and start selection.
         # This is especially critical for Propagate Primary mode (on receiving CURRENT_STATE by a new node).
         if self.view_no in self._next_view_indications:
-            for frm, vcd in self._next_view_indications[self.view_no].items():
+            for vcd in self._next_view_indications[self.view_no].values():
                 # we call _on_verified_view_change_done_msg, not process_vchd_msg,
                 # since we may be in propagate primary mode where some of validation inside process_vchd_msg
                 # is not correct (for example, checking that the new primary differs from the current one)
-                self._on_verified_view_change_done_msg(vcd, frm)
+                self._on_verified_view_change_done_msg(vcd)
 
         # remove all for previous views
         for view_no in tuple(self._next_view_indications.keys()):
             if view_no <= self.view_no:
                 del self._next_view_indications[view_no]
 
-    def _on_verified_view_change_done_msg(self, msg, frm):
+    def _on_verified_view_change_done_msg(self, msg):
         new_primary_name = msg.name
         ledger_summary = msg.ledgerInfo
 
         # TODO what is the case when node sends several different
         # view change done messages
         data = (new_primary_name, ledger_summary)
-        self._view_change_done[frm] = data
+        self._view_change_done[msg.frm] = data
 
     def _start_selection(self):
 
@@ -708,14 +708,20 @@ class ViewChanger():
         """
         new_primary_name = self.provider.next_primary_name()
         ledger_summary = self.provider.ledger_summary()
-        message = ViewChangeDone(self.view_no,
-                                 new_primary_name,
-                                 ledger_summary)
+        message = ViewChangeDone(
+            self.view_no,
+            new_primary_name,
+            ledger_summary,
+            frm=self.name
+        )
 
-        logger.info("{} is sending ViewChangeDone msg to all : {}".format(self, message))
+        logger.info(
+            "{} is sending ViewChangeDone msg to all : {}"
+            .format(self, message)
+        )
 
         self.send(message)
-        self._on_verified_view_change_done_msg(message, self.name)
+        self._on_verified_view_change_done_msg(message)
 
     # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:

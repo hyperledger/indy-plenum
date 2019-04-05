@@ -3,6 +3,7 @@ from typing import Mapping, NamedTuple, Dict
 
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.constants import REQKEY, FORCE, TXN_TYPE, OPERATION_SCHEMA_IS_STRICT
+from plenum.common.messages.message_base import NetworkMessage
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getTimeBasedId
@@ -10,7 +11,8 @@ from stp_core.types import Identifier
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 
 
-class Request:
+# TODO inherit MessageBase instead
+class Request(NetworkMessage):
     idr_delimiter = ','
 
     def __init__(self,
@@ -22,6 +24,10 @@ class Request:
                  protocolVersion: int = None,
                  # Intentionally omitting *args
                  **kwargs):
+
+        NetworkMessage.__init__(
+            self, kwargs.pop('frm', None), kwargs.pop('ts_rcv', None))
+
         self._identifier = identifier
         self.signature = signature
         self.signatures = signatures
@@ -138,6 +144,7 @@ class ReqKey(NamedTuple(REQKEY, [f.DIGEST])):
     pass
 
 
+# TODO INDY-1983 tests !!!
 class SafeRequest(Request, ClientMessageValidator):
     def __init__(self, **kwargs):
         ClientMessageValidator.__init__(self,

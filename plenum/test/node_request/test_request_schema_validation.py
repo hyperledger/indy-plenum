@@ -72,10 +72,11 @@ def test_schema_validation_for_request_from_client(validation_patched,
 
     validation_times_before = validation_times
     node.handleOneClientMsg((req, CLIENT_PUBLIC_KEY))
-    msg, frm = node.clientInBox.pop()  # pop the last added message
+    msg = node.clientInBox.pop()  # pop the last added message
     assert isinstance(msg, Request)
-    assert frm == CLIENT_PUBLIC_KEY
-    node.processRequest(msg, frm)
+    assert msg.frm == CLIENT_PUBLIC_KEY
+    # TODO INDY-1983
+    node.processRequest(msg)
     validation_times_after = validation_times
 
     # The request schema must be validated 2 times: the first time when
@@ -91,11 +92,11 @@ def test_request_schema_validation_for_propagate(validation_patched,
     other_node = txnPoolNodeSet[1]
 
     validation_times_before = validation_times
-    node.handleOneNodeMsg((propagate, other_node.name))
-    msg, frm = node.nodeInBox.pop()  # pop the last added message
-    assert isinstance(msg, Propagate)
-    assert frm == other_node.name
-    node.processPropagate(msg, frm)
+    node.handleOneNodeMsg(ZStackMessage(propagate, other_node.name))
+    m = node.nodeInBox.pop()  # pop the last added message
+    assert isinstance(m, Propagate)
+    assert m.frm == other_node.name
+    node.processPropagate(m)
     validation_times_after = validation_times
 
     # The request schema must be validated 2 times: the first time when

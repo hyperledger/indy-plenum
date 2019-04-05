@@ -59,9 +59,9 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
         if not self.is_preparing:
             logger.info("VCStartMsgStrategy: Starting prepare_view_change process")
             self._set_req_handlers()
-            vcs_msg = ViewChangeStartMessage(proposed_view_no)
+            vcs_msg = ViewChangeStartMessage(proposed_view_no, frm=self.node.name, ts_rcv=1)
             nodeInBox = self.node.nodeInBox
-            nodeInBox.append((vcs_msg, self.node.name))
+            nodeInBox.append(vcs_msg)
             self.is_preparing = True
 
     def on_strategy_complete(self):
@@ -76,9 +76,9 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
         types_3PC = (PrePrepare, Prepare, Commit, Ordered)
         while node.nodeInBox:
             m = node.nodeInBox.popleft()
-            if len(m) == 2 and isinstance(m[0], types_3PC) and \
-                m[0].viewNo == current_view_no and \
-                    m[0].instId == node.instances.masterId:
+            if isinstance(m.msg, types_3PC) and \
+                m.msg.viewNo == current_view_no and \
+                    m.msg.instId == node.instances.masterId:
                 await node.process_one_node_message(m)
             else:
                 stashed_not_3PC.append(m)
@@ -86,7 +86,7 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
 
     """Handler for processing ViewChangeStart message on node's nodeInBoxRouter"""
     @staticmethod
-    async def on_view_change_started(node, msg: ViewChangeStartMessage, frm):
+    async def on_view_change_started(node, msg: ViewChangeStartMessage):
         strategy = node.view_changer.pre_vc_strategy
         proposed_view_no = msg.proposed_view_no
         logger.info("VCStartMsgStrategy: got ViewChangeStartMessage with proposed_view_no: {}".format(proposed_view_no))

@@ -14,14 +14,14 @@ def test_receive_incorrect_catchup_request_with_end_greater_catchuptill(looper,
                                                                         sdk_wallet_client):
     end = 15
     catchup_till = 10
-    req = CatchupReq(ledger_id, 0, end, catchup_till)
+    req = CatchupReq(ledger_id, 0, end, catchup_till, frm="frm")
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               4)
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    ledger_manager.processCatchupReq(req, "frm")
+    ledger_manager.processCatchupReq(req)
     _check_call_discard(ledger_manager, "not able to service since "
                                         "end = {} greater than "
                                         "catchupTill = {}"
@@ -34,14 +34,14 @@ def test_receive_incorrect_catchup_request_with_start_greater_end(looper,
                                                                   sdk_wallet_client):
     start = 10
     end = 5
-    req = CatchupReq(ledger_id, start, end, 11)
+    req = CatchupReq(ledger_id, start, end, 11, frm="frm")
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               4)
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    ledger_manager.processCatchupReq(req, "frm")
+    ledger_manager.processCatchupReq(req)
     _check_call_discard(ledger_manager, "not able to service since "
                                         "start = {} greater than "
                                         "end = {}"
@@ -54,14 +54,14 @@ def test_receive_incorrect_catchup_request_with_catchuptill_greater_ledger_size(
         sdk_pool_handle,
         sdk_wallet_client):
     catchup_till = 100
-    req = CatchupReq(ledger_id, 0, 10, catchup_till)
+    req = CatchupReq(ledger_id, 0, 10, catchup_till, frm="frm")
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               4)
     ledger_manager = txnPoolNodeSet[0].ledgerManager
-    ledger_manager.processCatchupReq(req, "frm")
+    ledger_manager.processCatchupReq(req)
     ledger_size = ledger_manager.ledgerRegistry[ledger_id].ledger.size
     _check_call_discard(ledger_manager, "not able to service since "
                                         "catchupTill = {} greater than "

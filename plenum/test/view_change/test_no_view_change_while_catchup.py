@@ -16,7 +16,7 @@ def mode(request):
 
 def check_instance_change_count(nodes, expected_count):
     for node in nodes:
-        ic_count = sum(1 for msg in node.view_changer.inBox if isinstance(msg[0], InstanceChange))
+        ic_count = sum(1 for msg in node.view_changer.inBox if isinstance(msg, InstanceChange))
         assert expected_count == ic_count
 
 

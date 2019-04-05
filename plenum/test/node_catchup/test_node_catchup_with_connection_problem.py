@@ -31,7 +31,7 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
 
     node_to_disconnect = txnPoolNodeSet[-1]
 
-    def unpatch_after_call(status, frm):
+    def unpatch_after_call(status):
         global call_count
         call_count += 1
         if call_count >= lost_count:
@@ -88,7 +88,7 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     Test makes sure that the node eventually finishes catchup'''
     node_to_disconnect = txnPoolNodeSet[-1]
 
-    def unpatch_after_call(proof, frm):
+    def unpatch_after_call(proof):
         global call_count
         call_count += 1
         if call_count >= lost_count:

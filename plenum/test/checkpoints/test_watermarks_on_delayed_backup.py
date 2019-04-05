@@ -73,7 +73,7 @@ def break_backup_replica(txnPoolNodeSet):
     broken_replica = node.replicas[inst_id]
     non_broken_replica = node.replicas[0]
 
-    def fakeProcessPrePrepare(pre_prepare, sender):
+    def fakeProcessPrePrepare(pre_prepare):
         logger.warning(
             "{} is broken. 'processPrePrepare' does nothing".format(broken_replica.name))
 

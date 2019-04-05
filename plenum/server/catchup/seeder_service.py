@@ -21,8 +21,8 @@ class SeederService:
     def __repr__(self):
         return self._provider.node_name()
 
-    def process_ledger_status(self, status: LedgerStatus, frm: str):
-        logger.info("{} received ledger status: {} from {}".format(self, status, frm))
+    def process_ledger_status(self, status: LedgerStatus):
+        logger.info("{} received ledger status: {} from {}".format(self, status, status.frm))
 
         ledger_id, ledger = self._get_ledger_and_id(status)
 
@@ -33,21 +33,21 @@ class SeederService:
 
         if status.txnSeqNo < 0:
             self._provider.discard(status,
-                                   reason="Received negative sequence number from {}".format(frm),
+                                   reason="Received negative sequence number from {}".format(status.frm),
                                    logMethod=logger.warning)
             return
 
         if status.txnSeqNo >= ledger.size:
-            self._on_ledger_status_up_to_date(ledger_id, frm)
+            self._on_ledger_status_up_to_date(ledger_id, status.frm)
             return
 
         cons_proof = self._build_consistency_proof(ledger_id, status.txnSeqNo, ledger.size)
         if cons_proof:
-            logger.info("{} sending consistency proof: {} to {}".format(self, cons_proof, frm))
-            self._provider.send_to(cons_proof, frm)
+            logger.info("{} sending consistency proof: {} to {}".format(self, cons_proof, status.frm))
+            self._provider.send_to(cons_proof, status.frm)
 
-    def process_catchup_req(self, req: CatchupReq, frm: str):
-        logger.info("{} received catchup request: {} from {}".format(self, req, frm))
+    def process_catchup_req(self, req: CatchupReq):
+        logger.info("{} received catchup request: {} from {}".format(self, req, req.frm))
 
         ledger_id, ledger = self._get_ledger_and_id(req)
 
@@ -86,7 +86,7 @@ class SeederService:
         txns = SortedDict(txns)  # TODO: Do we really need them sorted on the sending side?
         rep = CatchupRep(ledger_id, txns, cons_proof)
         message_splitter = self._make_splitter_for_catchup_rep(ledger, req.catchupTill)
-        self._provider.send_to(rep, frm, message_splitter)
+        self._provider.send_to(rep, req.frm, message_splitter)
 
     def _get_ledger_and_id(self, req: Any) -> Tuple[int, Optional[Ledger]]:
         ledger_id = req.ledgerId

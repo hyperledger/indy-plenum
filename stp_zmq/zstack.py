@@ -47,18 +47,18 @@ Quota = NamedTuple("Quota", [("count", int), ("size", int)])
 # TODO optimize: e.g. slots
 class ZStackMessage:
 
-    def __init__(self, frm: str, msg: str, ts: int = None):
-        self.frm = frm
-        self.ts = get_utc_epoch() if ts is None else ts
+    def __init__(self, msg: str, frm: str, ts_rcv: int = None):
         self.msg = msg
+        self.frm = frm
+        self.ts_rcv = get_utc_epoch() if ts_rcv is None else ts_rcv
 
     def __str__(self):
-        return ("(frm: {}, ts: {}, msg: {})"
-                .format(self.ts, self.frm, self.msg))
+        return ("(frm: {}, ts_rcv: {}, msg: {})"
+                .format(self.ts_rcv, self.frm, self.msg))
 
     def __repr__(self):
-        return ("{}(frm='{}', ts={}, msg='{}')"
-                .format(self.__class__.__name__, self.ts, self.frm, self.msg))
+        return ("{}(frm='{}', ts_rcv={}, msg='{}')"
+                .format(self.__class__.__name__, self.ts_rcv, self.frm, self.msg))
 
 
 # TODO: Use Async io
@@ -491,7 +491,7 @@ class ZStack(NetworkInterface):
             logger.error("Got from {} {}".format(z85_to_friendly(frm), errstr))
             self.msgRejectHandler(errstr, frm)
             return False
-        self.rxMsgs.append((ident, ts, decoded))
+        self.rxMsgs.append((decoded, ident, ts))
         return True
 
     def _receiveFromListener(self, quota: Quota) -> int:
@@ -574,7 +574,7 @@ class ZStack(NetworkInterface):
             if len(self.rxMsgs) == 0:
                 return num_processed
 
-            ident, ts, msg = self.rxMsgs.popleft()
+            msg, ident, ts = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
 
@@ -594,7 +594,7 @@ class ZStack(NetworkInterface):
                 continue
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
-                self.msgHandler(ZStackMessage(frm, msg, ts=ts))
+                self.msgHandler(ZStackMessage(msg, frm, ts_rcv=ts))
         return num_processed + 1
 
     def doProcessReceived(self, msg, frm, ident):

@@ -66,22 +66,22 @@ class ConsProofService:
             self._request_ledger_status_from_nodes()
             self._schedule_reask_ledger_status()
 
-    def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
+    def process_ledger_status(self, ledger_status: LedgerStatus):
         if not self._can_process_ledger_status(ledger_status):
             return
 
         if self._is_ledger_old(ledger_status):
-            self._process_newer_ledger_status(ledger_status, frm)
+            self._process_newer_ledger_status(ledger_status, ledger_status.frm)
         else:
-            self._process_same_ledger_status(ledger_status, frm)
+            self._process_same_ledger_status(ledger_status, ledger_status.frm)
 
     @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
-    def process_consistency_proof(self, proof: ConsistencyProof, frm: str):
+    def process_consistency_proof(self, proof: ConsistencyProof):
         if not self._can_process_consistency_proof(proof):
             return
 
-        logger.info("{} received consistency proof: {} from {}".format(self, proof, frm))
-        self._cons_proofs[frm] = ConsistencyProof(*proof)
+        logger.info("{} received consistency proof: {} from {}".format(self, proof, proof.frm))
+        self._cons_proofs[proof.frm] = ConsistencyProof(*proof)
 
         if not self._is_catchup_needed():
             self._finish_no_catchup()
@@ -194,25 +194,25 @@ class ConsProofService:
 
         return True
 
-    def _process_newer_ledger_status(self, ledger_status: LedgerStatus, frm: str):
+    def _process_newer_ledger_status(self, ledger_status: LedgerStatus):
         # If we are behind the node which has sent the ledger status
         # then send our ledger status to it
         # in order to get the consistency proof from it
         my_ledger_status = build_ledger_status(self._ledger_id, self._provider)
-        self._provider.send_to(my_ledger_status, frm)
-        self._schedule_reask_last_cons_proof(frm)
+        self._provider.send_to(my_ledger_status, ledger_status.frm)
+        self._schedule_reask_last_cons_proof(ledger_status.frm)
 
-    def _process_same_ledger_status(self, ledger_status: LedgerStatus, frm: str):
+    def _process_same_ledger_status(self, ledger_status: LedgerStatus):
         # We are not behind the node which has sent the ledger status,
         # so our ledger is OK in comparison with that node
         # and we will not get a consistency proof from it
-        self._same_ledger_status.add(frm)
-        self._cons_proofs[frm] = None
+        self._same_ledger_status.add(ledger_status.frm)
+        self._cons_proofs[ledger_status.frm] = None
 
         # If we are even with the node which has sent the ledger status
         # then save the last txn master 3PC-key from it
         if self._is_ledger_same(ledger_status):
-            self._last_txn_3PC_key[frm] = (ledger_status.viewNo, ledger_status.ppSeqNo)
+            self._last_txn_3PC_key[ledger_status.frm] = (ledger_status.viewNo, ledger_status.ppSeqNo)
 
         if not self._is_catchup_needed():
             self._finish_no_catchup()

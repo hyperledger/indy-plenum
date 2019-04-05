@@ -98,7 +98,7 @@ class LedgerManager:
         self._node_leecher.start(is_initial)
 
     @measure_time(MetricsName.PROCESS_LEDGER_STATUS_TIME)
-    def processLedgerStatus(self, status: LedgerStatus, frm: str):
+    def processLedgerStatus(self, status: LedgerStatus):
         # TODO: vvv Move this into common LEDGER_STATUS validation
         if status.txnSeqNo < 0:
             return
@@ -108,26 +108,26 @@ class LedgerManager:
             return
         # TODO: ^^^
 
-        if self.nodestack.hasRemote(frm):
-            self._node_seeder_inbox.put_nowait((status, frm))
-            self._node_leecher_inbox.put_nowait((status, frm))
+        if self.nodestack.hasRemote(msg.frm):
+            self._node_seeder_inbox.put_nowait(status)
+            self._node_leecher_inbox.put_nowait(status)
         else:
-            self._client_seeder_inbox.put_nowait((status, frm))
+            self._client_seeder_inbox.put_nowait(status)
 
     @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
-    def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
-        self._node_leecher_inbox.put_nowait((proof, frm))
+    def processConsistencyProof(self, proof: ConsistencyProof):
+        self._node_leecher_inbox.put_nowait(proof)
 
     @measure_time(MetricsName.PROCESS_CATCHUP_REQ_TIME)
-    def processCatchupReq(self, req: CatchupReq, frm: str):
-        if self.nodestack.hasRemote(frm):
-            self._node_seeder_inbox.put_nowait((req, frm))
+    def processCatchupReq(self, req: CatchupReq):
+        if self.nodestack.hasRemote(req.frm):
+            self._node_seeder_inbox.put_nowait(req)
         else:
-            self._client_seeder_inbox.put_nowait((req, frm))
+            self._client_seeder_inbox.put_nowait(req)
 
     @measure_time(MetricsName.PROCESS_CATCHUP_REP_TIME)
-    def processCatchupRep(self, rep: CatchupRep, frm: str):
-        self._node_leecher_inbox.put_nowait((rep, frm))
+    def processCatchupRep(self, rep: CatchupRep):
+        self._node_leecher_inbox.put_nowait(rep)
 
     def _on_ledger_sync_start(self, msg: LedgerCatchupStart):
         pass

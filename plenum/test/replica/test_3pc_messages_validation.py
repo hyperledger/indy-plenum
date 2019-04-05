@@ -33,72 +33,66 @@ def test_node(
 
 
 def test_discard_process_three_phase_msg(test_node, looper):
-    sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
     view_no = test_node.viewNo
     pp_seq_no = 0  # should start with 1
-    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.process_three_phase_msg(msg, sender)
+    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id, frm="NodeSender")
+    replica.process_three_phase_msg(msg)
     checkDiscardMsg([replica, ], msg, INCORRECT_PP_SEQ_NO)
 
 
 def test_discard_process_three_phase_msg_for_old_view(test_node, looper):
-    sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
     view_no = test_node.viewNo - 1
     pp_seq_no = replica.last_ordered_3pc[1] + 1
-    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.process_three_phase_msg(msg, sender)
+    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id, frm="NodeSender")
+    replica.process_three_phase_msg(msg)
     checkDiscardMsg([replica, ], msg, OLD_VIEW)
 
 
 def test_discard_process_three_phase_already_ordered_msg(test_node, looper):
-    sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
     replica.last_ordered_3pc = (test_node.viewNo, 100)
     replica.update_watermark_from_3pc()
     view_no = test_node.viewNo
     pp_seq_no = replica.h
-    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.process_three_phase_msg(msg, sender)
+    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id, frm="NodeSender")
+    replica.process_three_phase_msg(msg)
     checkDiscardMsg([replica, ], msg, ALREADY_ORDERED)
 
 
 def test_process_three_phase_msg_with_catchup_stash(test_node, looper):
-    sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
     old_catchup_stashed_msgs = replica.stasher.num_stashed_catchup
     test_node.mode = Mode.syncing  # catchup in process
     view_no = test_node.viewNo
     pp_seq_no = replica.last_ordered_3pc[1] + 1
-    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.process_three_phase_msg(msg, sender)
+    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id, frm="NodeSender")
+    replica.process_three_phase_msg(msg)
     assert old_catchup_stashed_msgs + 1 == replica.stasher.num_stashed_catchup
 
 
 def test_process_three_phase_msg_and_stashed_future_view(test_node, looper):
-    sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
     old_stashed_future_view_msgs = replica.stasher.num_stashed_future_view
     view_no = test_node.viewNo + 1
     pp_seq_no = replica.last_ordered_3pc[1] + 1
-    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.process_three_phase_msg(msg, sender)
+    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id, frm="NodeSender")
+    replica.process_three_phase_msg(msg)
     assert old_stashed_future_view_msgs + 1 == replica.stasher.num_stashed_future_view
 
 
 def test_process_three_phase_msg_and_stashed_for_next_checkpoint(test_node, looper):
-    sender = "NodeSender"
     inst_id = 0
     replica = test_node.replicas[inst_id]
     old_stashed_watermarks_msgs = replica.stasher.num_stashed_watermarks
     view_no = test_node.viewNo
     pp_seq_no = replica.H + 1
-    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)
-    replica.process_three_phase_msg(msg, sender)
+    msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id, frm="NodeSender")
+    replica.process_three_phase_msg(msg)
     assert old_stashed_watermarks_msgs + 1 == replica.stasher.num_stashed_watermarks

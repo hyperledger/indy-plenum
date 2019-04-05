@@ -37,7 +37,7 @@ from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
-from stp_zmq.zstack import ZStack, Quota
+from stp_zmq.zstack import ZStack, ZStackMessage, Quota
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.hash_stores.hash_store import HashStore
@@ -441,7 +441,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def network_stacks_init(self, seed):
         kwargs = dict(stackParams=self.poolManager.nstack,
-                      msgHandler=self.handleOneNodeMsg,
+                      msgHandler=self.handleZStackNodeMsg,
                       registry=self.nodeReg,
                       metrics=self.metrics)
         cls = self.nodeStackClass
@@ -452,7 +452,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         kwargs = dict(
             stackParams=self.poolManager.cstack,
-            msgHandler=self.handleOneClientMsg,
+            msgHandler=self.handleZStackClientMsg,
             # TODO, Reject is used when dynamic validation fails, use Reqnack
             msgRejectHandler=self.reject_client_msg_handler,
             metrics=self.metrics)
@@ -999,11 +999,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = Mode.participating
 
     @property
-    def nodeStackClass(self) -> NetworkInterface:
+    def nodeStackClass(self) -> ZStack:
         return nodeStackClass
 
     @property
-    def clientStackClass(self) -> NetworkInterface:
+    def clientStackClass(self) -> ZStack:
         return clientStackClass
 
     def _add_pool_ledger(self):
@@ -1610,14 +1610,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
             self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
 
-    def _dispatch_stashed_msg(self, msg, frm):
+    def _dispatch_stashed_msg(self, msg):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
         if isinstance(msg, (InstanceChange, ViewChangeDone)):
-            self.sendToViewChanger(msg, frm)
+            self.sendToViewChanger(msg)
             return True
         elif isinstance(msg, ThreePhaseType):
-            self.sendToReplica(msg, frm)
+            self.sendToReplica(msg)
             return True
         else:
             return False
@@ -1627,8 +1627,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         i = 0
         while self.msgsForFutureReplicas[instId]:
-            msg, frm = self.msgsForFutureReplicas[instId].popleft()
-            if not self._dispatch_stashed_msg(msg, frm):
+            msg = self.msgsForFutureReplicas[instId].popleft()
+            if not self._dispatch_stashed_msg(msg):
                 self.discard(msg, reason="Unknown message type for replica id "
                                          "{}".format(instId),
                              logMethod=logger.warning)
@@ -1640,8 +1640,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
         i = 0
         while self.msgsForFutureViews[view_no]:
-            msg, frm = self.msgsForFutureViews[view_no].popleft()
-            if not self._dispatch_stashed_msg(msg, frm):
+            msg = self.msgsForFutureViews[view_no].popleft()
+            if not self._dispatch_stashed_msg(msg):
                 self.discard(msg,
                              reason="{}Unknown message type for view no {}"
                              .format(VIEW_CHANGE_PREFIX, view_no),
@@ -1764,7 +1764,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Accessing Replica directly should be prohibited
         return self.replicas._master_replica
 
-    def msgHasAcceptableInstId(self, msg, frm) -> bool:
+    def msgHasAcceptableInstId(self, msg) -> bool:
         """
         Return true if the instance id of message corresponds to a correct
         replica.
@@ -1779,7 +1779,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if instId >= self.requiredNumberOfInstances:
             if instId not in self.msgsForFutureReplicas:
                 self.msgsForFutureReplicas[instId] = deque()
-            self.msgsForFutureReplicas[instId].append((msg, frm))
+            self.msgsForFutureReplicas[instId].append(msg)
             logger.debug("{} queueing message {} for future protocol instance {}".format(self, msg, instId))
             return False
         return True
@@ -1787,7 +1787,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _is_initial_view_change_now(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
 
-    def msgHasAcceptableViewNo(self, msg, frm) -> bool:
+    def msgHasAcceptableViewNo(self, msg) -> bool:
         """
         Return true if the view no of message corresponds to the current view
         no or a view no in the future
@@ -1808,90 +1808,92 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
-            self.msgsForFutureViews[view_no].append((msg, frm))
+            self.msgsForFutureViews[view_no].append(msg)
             if isinstance(msg, ViewChangeDone):
                 future_vcd_msg = FutureViewChangeDone(vcd_msg=msg)
-                self.msgsToViewChanger.append((future_vcd_msg, frm))
+                self.msgsToViewChanger.append(future_vcd_msg)
         else:
             return True
         return False
 
     @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
-    def sendToReplica(self, msg, frm):
+    def sendToReplica(self, msg):
         """
         Send the message to the intended replica.
 
         :param msg: the message to send
-        :param frm: the name of the node which sent this `msg`
         """
         # TODO: discard or stash messages here instead of doing
         # this in msgHas* methods!!!
-        if self.msgHasAcceptableInstId(msg, frm):
-            self.replicas.pass_message((msg, frm), msg.instId)
+        if self.msgHasAcceptableInstId(msg):
+            self.replicas.pass_message(msg, msg.instId)
 
-    def sendToViewChanger(self, msg, frm):
+    def sendToViewChanger(self, msg):
         """
         Send the message to the intended view changer.
 
         :param msg: the message to send
-        :param frm: the name of the node which sent this `msg`
         """
         if (isinstance(msg, InstanceChange) or
-                self.msgHasAcceptableViewNo(msg, frm)):
+                self.msgHasAcceptableViewNo(msg)):
             logger.debug("{} sending message to view changer: {}".
-                         format(self, (msg, frm)))
-            self.msgsToViewChanger.append((msg, frm))
+                         format(self, (msg, msg.frm)))
+            self.msgsToViewChanger.append(msg)
 
-    def send_to_observer(self, msg, frm):
+    def send_to_observer(self, msg):
         """
         Send the message to the observer.
 
         :param msg: the message to send
-        :param frm: the name of the node which sent this `msg`
         """
-        logger.debug("{} sending message to observer: {}".
-                     format(self, (msg, frm)))
-        self._observer.append_input(msg, frm)
+        logger.debug(
+            "{} sending message to observer: {}"
+            .format(self, (msg, msg.frm))
+        )
+        self._observer.append_input(msg)
 
-    def handleOneNodeMsg(self, wrappedMsg):
+    def _handleOneNodeMsg(self, wrappedMsg: Tuple):
         """
         Validate and process one message from a node.
 
-        :param wrappedMsg: Tuple of message and the name of the node that sent
-        the message
+        :param wrappedMsg: Tuple of message, the name of the node that sent
+        the message and a receiving timestamp
         """
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
                 logger.trace("{} msg validated {}".format(self, wrappedMsg),
                              extra={"tags": ["node-msg-validation"]})
-                self.unpackNodeMsg(*vmsg)
+                self.unpackNodeMsg(vmsg)
             else:
                 logger.debug("{} invalidated msg {}".format(self, wrappedMsg),
                              extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
-            msg, frm = wrappedMsg
+            msg, _, _ = wrappedMsg
             self.discard(msg, ex, logger.info)
 
+    def handleZStackNodeMsg(self, zsmsg: ZStackMessage):
+        self._handleOneNodeMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
+
     @measure_time(MetricsName.VALIDATE_NODE_MSG_TIME)
-    def validateNodeMsg(self, wrappedMsg):
+    def validateNodeMsg(self, wrappedMsg: Tuple) -> MessageBase:
         """
         Validate another node's message sent to this node.
 
-        :param wrappedMsg: Tuple of message and the name of the node that sent
-        the message
-        :return: Tuple of message from node and name of the node
+        :param wrappedMsg: Tuple of message, the name of the node that sent
+        the message and a receiving timestamp
+        :return: validated node message
         """
-        msg, frm = wrappedMsg
+        msg, frm, ts_rcv = wrappedMsg
         if self.isNodeBlacklisted(frm):
             self.discard(str(msg)[:256], "received from blacklisted node {}".format(frm), logger.display)
             return None
 
         with self.metrics.measure_time(MetricsName.INT_VALIDATE_NODE_MSG_TIME):
             try:
-                message = node_message_factory.get_instance(**msg)
+                message = node_message_factory.get_instance(**msg, frm=frm, ts_rcv=ts_rcv)
             except (MissingNodeOp, InvalidNodeOp) as ex:
                 raise ex
             except Exception as ex:
@@ -1902,15 +1904,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         except BaseExc as ex:
             raise SuspiciousNode(frm, ex, message) from ex
         logger.debug("{} received node message from {}: {}".format(self, frm, message), extra={"cli": False})
-        return message, frm
+        return message
 
-    def unpackNodeMsg(self, msg, frm) -> None:
+    def unpackNodeMsg(self, msg: MessageBase) -> None:
         """
         If the message is a batch message validate each message in the batch,
         otherwise add the message to the node's inbox.
 
         :param msg: a node message
-        :param frm: the name of the node that sent this `msg`
         """
         # TODO: why do we unpack batches here? Batching is a feature of
         # a transport, it should be encapsulated.
@@ -1924,19 +1925,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     except Exception as ex:
                         logger.warning("Got error {} while processing {} message".format(ex, m))
                         continue
-                    self.handleOneNodeMsg((m, frm))
+                    self._handleOneNodeMsg((m, msg.frm, msg.ts_rcv))
         else:
-            self.postToNodeInBox(msg, frm)
+            self.postToNodeInBox(msg)
 
-    def postToNodeInBox(self, msg, frm):
+    # TODO INDY-1983 some base class for node messages
+    #   (seems MessageBase is that already ??? base class for both node and message)
+    def postToNodeInBox(self, msg: MessageBase):
         """
         Append the message to the node inbox
 
         :param msg: a node message
-        :param frm: the name of the node that sent this `msg`
         """
         logger.trace("{} appending to nodeInbox {}".format(self, msg))
-        self.nodeInBox.append((msg, frm))
+        self.nodeInBox.append(msg)
 
     @async_measure_time(MetricsName.PROCESS_NODE_INBOX_TIME)
     async def processNodeInBox(self):
@@ -1947,35 +1949,39 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             m = self.nodeInBox.popleft()
             await self.process_one_node_message(m)
 
-    async def process_one_node_message(self, m):
+    async def process_one_node_message(self, m: MessageBase):
         try:
             await self.nodeMsgRouter.handle(m)
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
+            # TODO INDY-1983 ??? pass the whole object
             self.discard(m, ex, logger.debug)
 
-    def handleOneClientMsg(self, wrappedMsg):
+    def _handleOneClientMsg(self, wrappedMsg: Tuple):
         """
         Validate and process a client message
 
-        :param wrappedMsg: a message from a client
+        :param wrappedMsg: Tuple of message, the address of the client that sent
+        the message and a receiving timestamp
         """
         try:
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
-                self.unpackClientMsg(*vmsg)
+                self.unpackClientMsg(vmsg)
         except BlowUp:
             raise
         except Exception as ex:
-            msg, frm = wrappedMsg
+            _, frm, _ = wrappedMsg
             friendly = friendlyEx(ex)
             if isinstance(ex, SuspiciousClient):
                 self.reportSuspiciousClient(frm, friendly)
 
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
-    def handleInvalidClientMsg(self, ex, wrappedMsg):
-        msg, frm = wrappedMsg
+    def handleZStackClientMsg(self, zsmsg: ZStackMessage):
+        self._handleOneClientMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
+
+    def handleInvalidClientMsg(self, ex, msg: Union[Request, MessageBase]):
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
         reason = self.reasonForClientFromException(ex)
@@ -1988,19 +1994,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
-        self.send_nack_to_client((identifier, reqId), reason, frm)
-        self.discard(wrappedMsg, friendly, logger.info, cliOutput=True)
-        self._specific_invalid_client_msg_handling(ex, msg, frm)
+        self.send_nack_to_client((identifier, reqId), reason, msg.frm)
+        self.discard(msg, friendly, logger.info, cliOutput=True)
+        self._specific_invalid_client_msg_handling(ex, msg)
 
-    def _specific_invalid_client_msg_handling(self, ex, msg, frm):
-        op = msg.get('op')
-        if (op == LEDGER_STATUS):
-            self._invalid_client_ledger_status_handling(ex, msg, frm)
+    def _specific_invalid_client_msg_handling(self, ex, msg: Union[Request, MessageBase]):
+        if (msg.get('op') == LEDGER_STATUS):
+            self._invalid_client_ledger_status_handling(ex, msg)
 
-    def _invalid_client_ledger_status_handling(self, ex, msg, frm):
+    def _invalid_client_ledger_status_handling(self, ex, msg: LedgerStatus):
         # This specific validation handles incorrect client LEDGER_STATUS message
         logger.info("{} received bad LEDGER_STATUS message from client {}. "
-                    "Reason: {}. ".format(self, frm, ex.args[0]))
+                    "Reason: {}. ".format(self, msg.frm, ex.args[0]))
         # Since client can't yet handle denial of LEDGER_STATUS,
         # node send his LEDGER_STATUS back
         self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
@@ -2009,15 +2014,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                           msg.get(f.PP_SEQ_NO.nm),
                                           msg.get(f.MERKLE_ROOT.nm),
                                           CURRENT_PROTOCOL_VERSION,
-                                          frm)
+                                          msg.frm)
 
-    def validateClientMsg(self, wrappedMsg):
+    # TODO INDY-1983 not the best name for the method that performs message
+    # transformation besides just validation
+    def validateClientMsg(self, wrappedMsg: Tuple) -> Union[Request, MessageBase]:
         """
         Validate a message sent by a client.
-        :param wrappedMsg: a message from a client
-        :return: Tuple of clientMessage and client address
+        :param wrappedMsg: Tuple of clientMessage, client address and a receiving timestamp
+        :return: validated client message
         """
-        msg, frm = wrappedMsg
+        msg, frm, ts_rcv = wrappedMsg
         if self.isClientBlacklisted(frm):
             self.discard(str(msg)[:256], "received from blacklisted client {}".format(frm), logger.display)
             return None
@@ -2036,7 +2043,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
                                        msg.get(f.REQ_ID.nm))
         try:
-            cMsg = cls(**msg)
+            # TODO INDY-1983 in case of MessageBase here we have
+            # different instantiation logic than in validateNodeMsg
+            cMsg = cls(**msg, frm=frm, ts_rcv=ts_rcv)
         except TypeError as ex:
             raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
                                        msg.get(f.REQ_ID.nm),
@@ -2061,15 +2070,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #     raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
-        return cMsg, frm
+        return cMsg
 
-    def unpackClientMsg(self, msg, frm):
+    # TODO why dict is expected as well
+    def unpackClientMsg(self, msg: Union[Request, MessageBase, dict]):
         """
         If the message is a batch message validate each message in the batch,
         otherwise add the message to the node's clientInBox.
         But node return a Nack message if View Change in progress
         :param msg: a client message
-        :param frm: the name of the client that sent this `msg`
         """
 
         if isinstance(msg, Batch):
@@ -2082,7 +2091,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if m in (ZStack.pingMessage, ZStack.pongMessage):
                     continue
                 m = self.clientstack.deserializeMsg(m)
-                self.handleOneClientMsg((m, frm))
+                self._handleOneClientMsg((m, msg.frm, msg.ts_rcv))
         else:
             msg_dict = msg.as_dict if isinstance(msg, Request) else msg
             if isinstance(msg_dict, dict):
@@ -2090,21 +2099,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.discard(msg_dict,
                                  reason="view change in progress",
                                  logMethod=logger.debug)
+                    # TODO seems it's not the best place where the following should happen
                     self.send_nack_to_client((idr_from_req_data(msg_dict),
                                               msg_dict.get(f.REQ_ID.nm, None)),
                                              "Client request is discarded since view "
-                                             "change is in progress", frm)
+                                             "change is in progress", msg.frm)
                     return
-            self.postToClientInBox(msg, frm)
+            self.postToClientInBox(msg)
 
-    def postToClientInBox(self, msg, frm):
+    def postToClientInBox(self, msg: Union[Request, MessageBase]):
         """
         Append the message to the node's clientInBox
 
         :param msg: a client message
-        :param frm: the name of the node that sent this `msg`
         """
-        self.clientInBox.append((msg, frm))
+        self.clientInBox.append(msg)
 
     async def processClientInBox(self):
         """
@@ -2113,17 +2122,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         signature check.
         """
         while self.clientInBox:
-            m = self.clientInBox.popleft()
-            req, frm = m
+            msg = self.clientInBox.popleft()
             logger.debug("{} processing {} request {}".
-                         format(self.clientstack.name, frm, req),
+                         format(self.clientstack.name, msg.frm, msg),
                          extra={"cli": True,
                                 "tags": ["node-msg-processing"]})
 
             try:
-                await self.clientMsgRouter.handle(m)
+                await self.clientMsgRouter.handle(msg)
             except InvalidClientMessageException as ex:
-                self.handleInvalidClientMsg(ex, m)
+                self.handleInvalidClientMsg(ex, msg)
 
     # TODO: change sending format from Reject to (digest, Reject)
     # if you will use this method
@@ -2443,7 +2451,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req_handler.applyForced(request)
 
     @measure_time(MetricsName.PROCESS_REQUEST_TIME)
-    def processRequest(self, request: Request, frm: str):
+    def processRequest(self, request: Request):
         """
         Handle a REQUEST from the client.
         If the request has already been executed, the node re-sends the reply to
@@ -2452,10 +2460,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         remaining nodes.
 
         :param request: the REQUEST from the client
-        :param frm: the name of the client that sent this REQUEST
         """
         logger.debug("{} received client request: {} from {}".
-                     format(self.name, request, frm))
+                     format(self.name, request, request.frm))
         self.nodeRequestSpikeMonitorData['accum'] += 1
 
         # TODO: What if client sends requests with same request id quickly so
@@ -2474,14 +2481,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txn_type = request.operation[TXN_TYPE]
 
         if self.is_action(txn_type):
-            self.process_action(request, frm)
+            self.process_action(request)
 
         elif txn_type == GET_TXN:
-            self.handle_get_txn_req(request, frm)
+            self.handle_get_txn_req(request)
             self.total_read_request_number += 1
 
         elif self.is_query(txn_type):
-            self.process_query(request, frm)
+            self.process_query(request)
             self.total_read_request_number += 1
 
         elif self.can_write_txn(txn_type):
@@ -2489,19 +2496,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if reply:
                 logger.debug("{} returning REPLY from already processed "
                              "REQUEST: {}".format(self, request))
-                self.transmitToClient(reply, frm)
+                self.transmitToClient(reply, request.frm)
                 return
 
             # If the node is not already processing the request
             if not self.isProcessingReq(request.key):
-                self.startedProcessingReq(request.key, frm)
+                self.startedProcessingReq(request.key, request.frm)
                 # forced request should be processed before consensus
                 self.handle_request_if_forced(request)
 
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
-            self.recordAndPropagate(request, frm)
-            self.send_ack_to_client((request.identifier, request.reqId), frm)
+            self.recordAndPropagate(request)
+            self.send_ack_to_client((request.identifier, request.reqId), request.frm)
 
         else:
             raise InvalidClientRequest(
@@ -2522,33 +2529,37 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def can_write_txn(self, txn_type):
         return True
 
-    def process_query(self, request: Request, frm: str):
+    def process_query(self, request: Request):
         # Process a read request from client
         handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         try:
             handler.doStaticValidation(request)
-            self.send_ack_to_client((request.identifier, request.reqId), frm)
+            self.send_ack_to_client(
+                (request.identifier, request.reqId), request.frm)
         except Exception as ex:
-            self.send_nack_to_client((request.identifier, request.reqId),
-                                     str(ex), frm)
+            self.send_nack_to_client(
+                (request.identifier, request.reqId),
+                str(ex),
+                request.frm
+            )
         result = handler.get_query_response(request)
-        self.transmitToClient(Reply(result), frm)
+        self.transmitToClient(Reply(result), request.frm)
 
-    def process_action(self, request, frm):
+    def process_action(self, request):
         # Process an execute action request
-        self.send_ack_to_client((request.identifier, request.reqId), frm)
+        self.send_ack_to_client((request.identifier, request.reqId), request.frm)
         try:
             self.actionReqHandler.validate(request)
             result = self.actionReqHandler.apply(request)
-            self.transmitToClient(Reply(result), frm)
+            self.transmitToClient(Reply(result), request.frm)
         except Exception as ex:
             self.transmitToClient(Reject(request.identifier,
                                          request.reqId,
-                                         str(ex)), frm)
+                                         str(ex)), request.frm)
 
     # noinspection PyUnusedLocal
     @measure_time(MetricsName.PROCESS_PROPAGATE_TIME)
-    def processPropagate(self, msg: Propagate, frm):
+    def processPropagate(self, msg: Propagate):
         """
         Process one propagateRequest sent to this node asynchronously
 
@@ -2556,8 +2567,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         it to all nodes after verifying the the signature.
         - Add the client to blacklist if its signature is invalid
 
-        :param msg: the propagateRequest
-        :param frm: the name of the node which sent this `msg`
+        :param msg: a propagate request message
         """
         logger.debug("{} received propagated request: {}".
                      format(self.name, msg))
@@ -2586,9 +2596,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.set_sender_for_req(request.key,
                                         clientName)
 
-        self.requests.add_propagate(request, frm)
+        self.requests.add_propagate(request, msg.frm)
 
-        self.propagate(request, clientName)
+        self.propagate(request)
         self.tryForwarding(request)
 
     def startedProcessingReq(self, key, frm):
@@ -2613,19 +2623,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_nack_to_client(self, req_key, reason, to_client):
         self.transmitToClient(RequestNack(*req_key, reason), to_client)
 
-    def handle_get_txn_req(self, request: Request, frm: str):
+    def handle_get_txn_req(self, request: Request):
         """
         Handle GET_TXN request
         """
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
         if ledger_id not in self.ledger_to_req_handler:
-            self.send_nack_to_client((request.identifier, request.reqId),
-                                     'Invalid ledger id {}'.format(ledger_id),
-                                     frm)
+            self.send_nack_to_client(
+                (request.identifier, request.reqId),
+                'Invalid ledger id {}'.format(ledger_id),
+                request.frm
+            )
             return
 
         seq_no = request.operation.get(DATA)
-        self.send_ack_to_client((request.identifier, request.reqId), frm)
+        self.send_ack_to_client(
+            (request.identifier, request.reqId), request.frm)
         ledger = self.getLedger(ledger_id)
 
         try:
@@ -3312,8 +3325,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  first_txn_seq_no,
                                                  last_txn_seq_no,
                                                  audit_txn_root,
-                                                 three_pc_batch.primaries)
-            self._observable.append_input(batch_committed_msg, self.name)
+                                                 three_pc_batch.primaries,
+                                                 frm=self.name)
+            self._observable.append_input(batch_committed_msg)
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):

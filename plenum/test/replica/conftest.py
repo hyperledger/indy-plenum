@@ -102,11 +102,11 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
         update_pre_prepare=lambda params, l_id: params,
-        validate_pre_prepare=lambda a, b: None,
-        validate_prepare=lambda a, b: None,
+        validate_pre_prepare=lambda a: None,
+        validate_prepare=lambda a: None,
         update_prepare=lambda a, b: a,
-        process_prepare=lambda a, b: None,
-        process_pre_prepare=lambda a, b: None,
+        process_prepare=lambda a: None,
+        process_pre_prepare=lambda a: None,
         process_order =lambda *args: None
     )
     replica = Replica(

@@ -18,7 +18,7 @@ def mode(request):
 
 
 def check_future_vcd_count(node, expected_count):
-    vcd_count = sum(1 for msg in node.view_changer.inBox if isinstance(msg[0], FutureViewChangeDone))
+    vcd_count = sum(1 for msg in node.view_changer.inBox if isinstance(msg, FutureViewChangeDone))
     assert expected_count == vcd_count
 
 

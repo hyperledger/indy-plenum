@@ -61,15 +61,15 @@ class Observable(HasActionQueue, MessageProcessor):
         """
         return await self._inbox_router.handleAll(self._inbox, limit)
 
-    def append_input(self, msg, sender):
-        self._inbox.append((msg, sender))
+    def append_input(self, msg):
+        self._inbox.append(msg)
 
     def get_output(self):
         return self._outbox.popleft() if self._outbox else None
 
     # PROCESS BatchCommitted from Node Actor (delegated to Policies)
 
-    def process_new_batch(self, msg: BatchCommitted, sender):
+    def process_new_batch(self, msg: BatchCommitted):
         for sync_policy in self.__sync_policies.values():
             sync_policy.process_new_batch(msg)
 

@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from plenum.common.exceptions import MismatchedMessageReplyException
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
+from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.txn_util import TxnUtilConfig
 from plenum.common.types import f
 from plenum.server import replica
@@ -15,25 +16,29 @@ logger = getlogger()
 
 class BaseHandler(metaclass=ABCMeta):
 
+    # TODO use just list of names from "plenum.common.types.f"
+    # instead of Map that is expected here now
     fields = NotImplemented
 
     def __init__(self, node):
         self.node = node
 
     @abstractmethod
-    def validate(self, **kwargs) -> bool:
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        pass
+
+    def _check(self, inner_msg: MessageBase, params: Dict[str, Any]) -> Any:
+        for field_name, type_name in self.fields.items():
+            if (not hasattr(inner_msg, type_name) or
+                    (getattr(inner_msg, type_name) != params[field_name])):
+                raise MismatchedMessageReplyException
+
+    @abstractmethod
+    def _requestor(self, params: Dict[str, Any]) -> Any:
         pass
 
     @abstractmethod
-    def create(self, msg: Dict, **kwargs) -> Any:
-        pass
-
-    @abstractmethod
-    def requestor(self, params: Dict[str, Any]) -> Any:
-        pass
-
-    @abstractmethod
-    def processor(self, validated_msg: object, params: Dict[str, Any], frm: str) -> None:
+    def _processor(self, inner_msg: MessageBase) -> None:
         pass
 
     def serve(self, msg: MessageReq):
@@ -42,33 +47,40 @@ class BaseHandler(metaclass=ABCMeta):
         for field_name, type_name in self.fields.items():
             params[field_name] = msg.params.get(type_name)
 
-        if not self.validate(**params):
+        if not self._validate(params):
             self.node.discard(msg, 'cannot serve request',
                               logMethod=logger.debug)
             return None
 
-        return self.requestor(params)
+        return self._requestor(params)
 
-    def process(self, msg: MessageRep, frm: str):
+    def process(self, msg: MessageRep):
         params = {}
 
         for field_name, type_name in self.fields.items():
             params[field_name] = msg.params.get(type_name)
 
-        if not self.validate(**params):
+        if not self._validate(params):
             self.node.discard(msg, 'cannot process message reply',
                               logMethod=logger.debug)
             return
 
         try:
-            valid_msg = self.create(msg.msg, **params)
-            self.processor(valid_msg, params, frm)
-        except TypeError:
+            # TODO msg.ts_rcv doesn't make sense here for inner message (msg.msg)
+            # thus it will impact logic of PrePrepare obsolescence
+            inner_msg = node_message_factory.get_instance(**msg.msg, msg.frm=frm, ts_rcv=None)
+        except (MissingNodeOp, InvalidNodeOp, TypeError) as ex:
             self.node.discard(msg, 'replied message has invalid structure',
                               logMethod=logger.warning)
+
+        try:
+            # check that inner message has the same values as in requested params
+            self._check(inner_msg, params)
         except MismatchedMessageReplyException:
             self.node.discard(msg, 'replied message does not satisfy query criteria',
                               logMethod=logger.warning)
+        else:
+            self._processor(inner_msg)
 
 
 class LedgerStatusHandler(BaseHandler):
@@ -76,20 +88,14 @@ class LedgerStatusHandler(BaseHandler):
         'ledger_id': f.LEDGER_ID.nm
     }
 
-    def validate(self, **kwargs) -> bool:
-        return kwargs['ledger_id'] in self.node.ledger_ids
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        return params['ledger_id'] in self.node.ledger_ids
 
-    def create(self, msg: Dict, **kwargs) -> LedgerStatus:
-        ls = LedgerStatus(**msg)
-        if ls.ledgerId != kwargs['ledger_id']:
-            raise MismatchedMessageReplyException
-        return ls
-
-    def requestor(self, params: Dict[str, Any]) -> LedgerStatus:
+    def _requestor(self, params: Dict[str, Any]) -> LedgerStatus:
         return self.node.getLedgerStatus(params['ledger_id'])
 
-    def processor(self, validated_msg: LedgerStatus, params: Dict[str, Any], frm: str) -> None:
-        self.node.ledgerManager.processLedgerStatus(validated_msg, frm=frm)
+    def _processor(self, inner_msg: LedgerStatus) -> None:
+        self.node.ledgerManager.processLedgerStatus(inner_msg)
 
 
 class ConsistencyProofHandler(BaseHandler):
@@ -99,29 +105,22 @@ class ConsistencyProofHandler(BaseHandler):
         'seq_no_end': f.SEQ_NO_END.nm
     }
 
-    def validate(self, **kwargs) -> bool:
-        return kwargs['ledger_id'] in self.node.ledger_ids and \
-            (isinstance(kwargs['seq_no_start'], int) and kwargs[
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        return params['ledger_id'] in self.node.ledger_ids and \
+            (isinstance(params['seq_no_start'], int) and params[
              'seq_no_start'] > 0) and \
-            (isinstance(kwargs['seq_no_end'], int) and kwargs[
+            (isinstance(params['seq_no_end'], int) and params[
              'seq_no_end'] > 0)
 
-    def create(self, msg: Dict, **kwargs) -> ConsistencyProof:
-        cp = ConsistencyProof(**msg)
-        if cp.ledgerId != kwargs['ledger_id'] \
-                or cp.seqNoStart != kwargs['seq_no_start'] \
-                or cp.seqNoEnd != kwargs['seq_no_end']:
-            raise MismatchedMessageReplyException
-        return cp
-
-    def requestor(self, params: Dict[str, Any]) -> ConsistencyProof:
+    def _requestor(self, params: Dict[str, Any]) -> ConsistencyProof:
         return self.node.ledgerManager._node_seeder._build_consistency_proof(
             params['ledger_id'],
             params['seq_no_start'],
-            params['seq_no_end'])
+            params['seq_no_end']
+        )
 
-    def processor(self, validated_msg: ConsistencyProof, params: Dict[str, Any], frm: str) -> None:
-        self.node.ledgerManager.processConsistencyProof(validated_msg, frm=frm)
+    def _processor(self, inner_msg: ConsistencyProof) -> None:
+        self.node.ledgerManager.processConsistencyProof(inner_msg)
 
 
 class PreprepareHandler(BaseHandler):
@@ -130,30 +129,23 @@ class PreprepareHandler(BaseHandler):
         'view_no': f.VIEW_NO.nm,
         'pp_seq_no': f.PP_SEQ_NO.nm
     }
+    msg_cls = Prepare
 
-    def validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] in self.node.replicas.keys() and \
-            kwargs['view_no'] == self.node.viewNo and \
-            isinstance(kwargs['pp_seq_no'], int) and \
-            kwargs['pp_seq_no'] > 0
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        return params['inst_id'] in self.node.replicas.keys() and \
+            params['view_no'] == self.node.viewNo and \
+            isinstance(params['pp_seq_no'], int) and \
+            params['pp_seq_no'] > 0
 
-    def create(self, msg: Dict, **kwargs) -> Optional[PrePrepare]:
-        pp = PrePrepare(**msg)
-        if pp.instId != kwargs['inst_id'] \
-                or pp.viewNo != kwargs['view_no'] \
-                or pp.ppSeqNo != kwargs['pp_seq_no']:
-            raise MismatchedMessageReplyException
-        return pp
-
-    def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
+    def _requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
         return self.node.replicas[params['inst_id']].sentPrePrepares.get((
-            params['view_no'], params['pp_seq_no']))
+            params['view_no'], params['pp_seq_no']
+        ))
 
-    def processor(self, validated_msg: PrePrepare, params: Dict[str, Any], frm: str) -> None:
-        inst_id = params['inst_id']
-        frm = replica.Replica.generateName(frm, inst_id)
-        self.node.replicas[inst_id].process_requested_pre_prepare(validated_msg,
-                                                                  sender=frm)
+    def _processor(self, inner_msg: PrePrepare) -> None:
+        self.node.replicas[inner_msg.instId].process_requested_pre_prepare(
+            inner_msg
+        )
 
 
 class PrepareHandler(BaseHandler):
@@ -163,29 +155,21 @@ class PrepareHandler(BaseHandler):
         'pp_seq_no': f.PP_SEQ_NO.nm
     }
 
-    def validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] in self.node.replicas.keys() and \
-            kwargs['view_no'] == self.node.viewNo and \
-            isinstance(kwargs['pp_seq_no'], int) and \
-            kwargs['pp_seq_no'] > 0
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        return params['inst_id'] in self.node.replicas.keys() and \
+            params['view_no'] == self.node.viewNo and \
+            isinstance(params['pp_seq_no'], int) and \
+            params['pp_seq_no'] > 0
 
-    def create(self, msg: Dict, **kwargs) -> Optional[Prepare]:
-        prepare = Prepare(**msg)
-        if prepare.instId != kwargs['inst_id'] \
-                or prepare.viewNo != kwargs['view_no'] \
-                or prepare.ppSeqNo != kwargs['pp_seq_no']:
-            raise MismatchedMessageReplyException
-        return prepare
-
-    def requestor(self, params: Dict[str, Any]) -> Prepare:
+    def _requestor(self, params: Dict[str, Any]) -> Prepare:
         return self.node.replicas[params['inst_id']].get_sent_prepare(
-            params['view_no'], params['pp_seq_no'])
+            params['view_no'], params['pp_seq_no']
+        )
 
-    def processor(self, validated_msg: Prepare, params: Dict[str, Any], frm: str) -> None:
-        inst_id = params['inst_id']
-        frm = replica.Replica.generateName(frm, inst_id)
-        self.node.replicas[inst_id].process_requested_prepare(validated_msg,
-                                                              sender=frm)
+    def _processor(self, inner_msg: Prepare) -> None:
+        self.node.replicas[inner_msg.instId].process_requested_prepare(
+            inner_msg
+        )
 
 
 class CommitHandler(BaseHandler):
@@ -195,29 +179,21 @@ class CommitHandler(BaseHandler):
         'pp_seq_no': f.PP_SEQ_NO.nm
     }
 
-    def validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] in self.node.replicas.keys() and \
-            kwargs['view_no'] == self.node.viewNo and \
-            isinstance(kwargs['pp_seq_no'], int) and \
-            kwargs['pp_seq_no'] > 0
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        return params['inst_id'] in self.node.replicas.keys() and \
+            params['view_no'] == self.node.viewNo and \
+            isinstance(params['pp_seq_no'], int) and \
+            params['pp_seq_no'] > 0
 
-    def create(self, msg: Dict, **kwargs) -> Optional[Commit]:
-        commit = Commit(**msg)
-        if commit.instId != kwargs['inst_id'] \
-                or commit.viewNo != kwargs['view_no'] \
-                or commit.ppSeqNo != kwargs['pp_seq_no']:
-            raise MismatchedMessageReplyException
-        return commit
-
-    def requestor(self, params: Dict[str, Any]) -> Commit:
+    def _requestor(self, params: Dict[str, Any]) -> Commit:
         return self.node.replicas[params['inst_id']].get_sent_commit(
-            params['view_no'], params['pp_seq_no'])
+            params['view_no'], params['pp_seq_no']
+        )
 
-    def processor(self, validated_msg: Commit, params: Dict[str, Any], frm: str) -> None:
-        inst_id = params['inst_id']
-        frm = replica.Replica.generateName(frm, inst_id)
-        self.node.replicas[inst_id].process_requested_commit(validated_msg,
-                                                             sender=frm)
+    def _processor(self, inner_msg: Commit) -> None:
+        self.node.replicas[instId].process_requested_commit(
+            inner_msg
+        )
 
 
 class PropagateHandler(BaseHandler):
@@ -225,17 +201,15 @@ class PropagateHandler(BaseHandler):
         'digest': f.DIGEST.nm
     }
 
-    def validate(self, **kwargs) -> bool:
-        return kwargs['digest'] is not None
+    def _validate(self, params: Dict[str, Any]) -> bool:
+        return params['digest'] is not None
 
-    def create(self, msg: Dict, **kwargs) -> Propagate:
-        ppg = Propagate(**msg)
-        request = TxnUtilConfig.client_request_class(**ppg.request)
-        if request.digest != kwargs['digest']:
+    def _check(self, inner_msg: Propagate, params: Dict[str, Any]) -> Propagate:
+        request = TxnUtilConfig.client_request_class(**inner_msg.request)
+        if request.digest != params['digest']:
             raise MismatchedMessageReplyException
-        return ppg
 
-    def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
+    def _requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
         req_key = params[f.DIGEST.nm]
         if req_key in self.node.requests and self.node.requests[req_key].finalised:
             sender_client = self.node.requestSender.get(req_key)
@@ -243,5 +217,5 @@ class PropagateHandler(BaseHandler):
             return self.node.createPropagate(req, sender_client)
         return None
 
-    def processor(self, validated_msg: Propagate, params: Dict[str, Any], frm: str) -> None:
-        self.node.processPropagate(validated_msg, frm)
+    def _processor(self, inner_msg: Propagate) -> None:
+        self.node.processPropagate(inner_msg)

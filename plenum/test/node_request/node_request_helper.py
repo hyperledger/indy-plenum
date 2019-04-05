@@ -90,7 +90,8 @@ def checkPrePrepared(looper,
                 0,
                 True,
                 primary.stateRootHash(POOL_LEDGER_ID),
-                primary.txnRootHash(AUDIT_LEDGER_ID)
+                primary.txnRootHash(AUDIT_LEDGER_ID),
+                frm=primary.name
             )
 
             passes = 0
@@ -99,7 +100,7 @@ def checkPrePrepared(looper,
                                   getAllArgs(npr, npr.processPrePrepare)
                                   if (param['pre_prepare'][0:3] +
                                       param['pre_prepare'][4:],
-                                      param['sender']) == (
+                                      param['pre_prepare'].frm_replica) == (
                                       expectedPrePrepareRequest[0:3] +
                                       expectedPrePrepareRequest[4:],
                                       primary.name)])
@@ -190,7 +191,7 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
             """
             for r in allReplicas:
                 for param in getAllArgs(r, Replica.processPrepare):
-                    sender = param['sender']
+                    sender = param['prepare'].frm_replica
                     assert sender != primary.name
 
         def allReplicasSeeCorrectNumberOfPREPAREs():
@@ -229,7 +230,7 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                                   param['prepare'].ppSeqNo) == (
                                   primary.instId, primary.viewNo,
                                   primary.lastPrePrepareSeqNo) and
-                              param['sender'] != primary.name])
+                              param['prepare'].frm_replica != primary.name])
 
             numOfMsgsWithZFN = nodeCount - 1
             numOfMsgsWithFaults = quorums.prepare.value

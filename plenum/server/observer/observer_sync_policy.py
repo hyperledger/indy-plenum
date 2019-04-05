@@ -18,7 +18,7 @@ class ObserverSyncPolicy(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def apply_data(self, msg, sender):
+    def apply_data(self, msg):
         pass
 
     @property

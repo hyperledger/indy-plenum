@@ -81,20 +81,20 @@ class CatchupRepService:
         timeout = self._catchup_timeout(len(reqs))
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
-    def process_catchup_rep(self, rep: CatchupRep, frm: str):
+    def process_catchup_rep(self, rep: CatchupRep):
         if not self._can_process_catchup_rep(rep):
             return
 
-        self._wait_catchup_rep_from.discard(frm)
+        self._wait_catchup_rep_from.discard(rep.frm)
 
         txns = self._get_interesting_txns_from_catchup_rep(rep)
         if len(txns) == 0:
             return
 
-        logger.info("{} found {} interesting transactions in the catchup from {}".format(self, len(txns), frm))
+        logger.info("{} found {} interesting transactions in the catchup from {}".format(self, len(txns), rep.frm))
         self.metrics.add_event(MetricsName.CATCHUP_TXNS_RECEIVED, len(txns))
 
-        self._received_catchup_replies_from[frm].append(rep)
+        self._received_catchup_replies_from[rep.frm].append(rep)
 
         txns_already_rcvd_in_catchup = self._merge_catchup_txns(self._received_catchup_txns, txns)
         logger.info("{} merged catchups, there are {} of them now, from {} to {}".

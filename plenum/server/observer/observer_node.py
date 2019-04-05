@@ -45,5 +45,5 @@ class NodeObserver(Observer, HasActionQueue, MessageProcessor):
         """
         return await self._inbox_router.handleAll(self._inbox, limit)
 
-    def append_input(self, msg, sender):
-        self._inbox.append((msg, sender))
+    def append_input(self, msg):
+        self._inbox.append(msg)

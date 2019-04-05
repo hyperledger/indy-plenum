@@ -19,7 +19,9 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
         'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
         '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
         0,
-        True
+        True,
+        frm='some_node',
+        ts_rcv=get_utc_epoch() + 1
     )
     prepare = Prepare(
         0,
@@ -28,11 +30,16 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
         get_utc_epoch(),
         'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
         'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
-        '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ')
+        '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
+        frm='some_node',
+        ts_rcv=get_utc_epoch() + 1
+    )
     commit = Commit(
         0,
         0,
-        1
+        1,
+        frm='some_node',
+        ts_rcv=get_utc_epoch() + 1
     )
     node.view_changer = node.newViewChanger()
     node.view_changer.pre_vc_strategy = VCStartMsgStrategy(node.view_changer, node)
@@ -42,19 +49,19 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     node.view_changer.start_view_change(1)
     assert len(node.nodeInBox) == 1
     m = node.nodeInBox[0]
-    assert isinstance(m[0], ViewChangeStartMessage)
+    assert isinstance(m.msg, ViewChangeStartMessage)
     """
-    Imitate that nodestack.service was called and 
+    Imitate that nodestack.service was called and
     those of next messages are put into nodeInBox queue
     """
-    node.nodeInBox.append((preprepare, 'some_node'))
-    node.nodeInBox.append((prepare, 'some_node'))
-    node.nodeInBox.append((commit, 'some_node'))
+    node.nodeInBox.append(preprepare)
+    node.nodeInBox.append(prepare)
+    node.nodeInBox.append(commit)
     assert len(node.master_replica.inBox) == 0
     """Imitate looper's work"""
     looper.run(node.serviceReplicas(None))
     """
-    Next looper's task must be processNodeInBox and 
+    Next looper's task must be processNodeInBox and
     all of 3PC messages must be moved to replica's inBox queue
     """
     looper.run(node.processNodeInBox())
@@ -62,10 +69,10 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     assert len(node.master_replica.inBox) == 4
     """Check the order of msgs"""
     m = node.master_replica.inBox.popleft()
-    assert isinstance(m[0], PrePrepare)
+    assert isinstance(m.msg, PrePrepare)
     m = node.master_replica.inBox.popleft()
-    assert isinstance(m[0], Prepare)
+    assert isinstance(m.msg, Prepare)
     m = node.master_replica.inBox.popleft()
-    assert isinstance(m[0], Commit)
+    assert isinstance(m.msg, Commit)
     m = node.master_replica.inBox.popleft()
     assert isinstance(m, ViewChangeContinueMessage)

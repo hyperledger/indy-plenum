@@ -69,7 +69,8 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=11,
                        seqNoEnd=15,
-                       digest='digest-11-15')
+                       digest='digest-11-15',
+                       frm=r.name.split(':')[0])
 
     replica.stashedRecvdCheckpoints[2][(16, 20)] = {}
     for r in others:
@@ -78,7 +79,8 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=16,
                        seqNoEnd=20,
-                       digest='digest-16-20')
+                       digest='digest-16-20',
+                       frm=r.name.split(':')[0])
 
     replica.stashedRecvdCheckpoints[2][(21, 25)] = {}
     replica.stashedRecvdCheckpoints[2][(21, 25)][others[0].name] = \
@@ -86,7 +88,8 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
                    viewNo=2,
                    seqNoStart=21,
                    seqNoEnd=25,
-                   digest='digest-21-25')
+                   digest='digest-21-25',
+                   frm=others[0].name)
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
@@ -137,7 +140,8 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=11,
                        seqNoEnd=15,
-                       digest='digest-11-15')
+                       digest='digest-11-15',
+                       frm=r.name.split(':')[0])
 
     replica.stashedRecvdCheckpoints[2][(16, 20)] = {}
     for r in others:
@@ -146,15 +150,18 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=16,
                        seqNoEnd=20,
-                       digest='digest-16-20')
+                       digest='digest-16-20',
+                       frm=r.name.split(':')[0])
 
     replica.stashedRecvdCheckpoints[2][(21, 25)] = {}
-    replica.stashedRecvdCheckpoints[2][(21, 25)][next(iter(others)).name] = \
+    r_name = next(iter(others)).name
+    replica.stashedRecvdCheckpoints[2][(21, 25)][r_name] = \
         Checkpoint(instId=1,
                    viewNo=2,
                    seqNoStart=21,
                    seqNoEnd=25,
-                   digest='digest-21-25')
+                   digest='digest-21-25',
+                   frm=r_name)
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)

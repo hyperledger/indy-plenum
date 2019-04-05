@@ -60,7 +60,7 @@ def broken_node_and_others(txnPoolNodeSet):
     node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
     other = [n for n in txnPoolNodeSet if n != node]
 
-    def brokenSendToReplica(msg, frm):
+    def brokenSendToReplica(msg):
         logger.warning(
             "{} is broken. 'sendToReplica' does nothing".format(node.name))
 

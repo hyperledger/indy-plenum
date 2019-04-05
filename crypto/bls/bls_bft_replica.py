@@ -15,66 +15,61 @@ class BlsBftReplica(metaclass=ABCMeta):
         self._is_master = is_master
 
     @abstractmethod
-    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
+    def validate_pre_prepare(self, pre_prepare: PrePrepare):
         '''
         Validates PrePrepare for correct BLS signatures.
         Raises SuspiciousNode exception if there are errors
-        :param pre_prepare: pre-prepare to be validated
         :param sender: sender's Node name
         :return:
         '''
         pass
 
     @abstractmethod
-    def validate_prepare(self, prepare: Prepare, sender):
+    def validate_prepare(self, prepare: Prepare):
         '''
         Validates Prepare for correct BLS signatures.
         Raises SuspiciousNode exception if there are errors
-        :param prepare: prepare to be validated
         :param sender: sender's Node name
         :return:
         '''
         pass
 
+    # TODO INDY-1983 commit.frm vs pre_prepare.frm
     @abstractmethod
-    def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
+    def validate_commit(self, commit: Commit, pre_prepare: PrePrepare):
         '''
         Validates Commit for correct BLS signatures.
         Raises SuspiciousNode exception if there are errors
         :param commit: commit to be validated
-        :param sender: sender's Node name
         :param pre_prepare: PrePrepare associated with the Commit
         :return:
         '''
         pass
 
     @abstractmethod
-    def process_pre_prepare(self, pre_prepare: PrePrepare, sender):
+    def process_pre_prepare(self, pre_prepare: PrePrepare):
         '''
         Performs BLS-related logic for a given PrePrepare (for example,
          saving multi-signature calculated by Pre-Prepare for last batches).
         :param pre_prepare: pre-prepare to be processed
-        :param sender: sender's Node name
         :return:
         '''
         pass
 
     @abstractmethod
-    def process_prepare(self, prepare: Prepare, sender):
+    def process_prepare(self, prepare: Prepare):
         '''
         Performs BLS-related logic for a given Prepare
         :param prepare: prepare to be processed
-        :param sender: sender's Node name
         :return:
         '''
         pass
 
     @abstractmethod
-    def process_commit(self, commit: Commit, sender):
+    def process_commit(self, commit: Commit):
         '''
         Performs BLS-related logic for a given Commit (for example, saving BLS signatures from this Commit)
         :param commit: commit to be processed
-        :param sender: sender's Node name
         :return:
         '''
         pass

@@ -245,21 +245,28 @@ def test_process_view_change_done(tdir, tconf):
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
-    msg = ViewChangeDone(viewNo=0,
-                         name='Node2',
-                         ledgerInfo=ledgerInfo)
+    # TODO INDY-1983 same payload
+    msgs = []
+    for i in range(3):
+        msgs.append(
+            ViewChangeDone(
+                viewNo=0,
+                name='Node2',
+                ledgerInfo=ledgerInfo,
+                frm='Node{}'.format(i + 1)
+            )
     node = FakeNode(str(tdir), tconf)
     quorum = node.view_changer.quorum
     for i in range(quorum):
-        node.view_changer.process_vchd_msg(msg, 'Node2')
+        node.view_changer.process_vchd_msg(msgs[1])  # Node2
     assert node.view_changer._view_change_done
     assert not node.is_primary_found()
 
-    node.view_changer.process_vchd_msg(msg, 'Node1')
+    node.view_changer.process_vchd_msg(msgs[0])  # Node1
     assert node.view_changer._view_change_done
     assert not node.is_primary_found()
 
-    node.view_changer.process_vchd_msg(msg, 'Node3')
+    node.view_changer.process_vchd_msg(msgs[2])  # Node3
     assert node.view_changer._verify_primary(msg.name, msg.ledgerInfo)
     node.view_changer._start_selection()
     assert node.view_changer._view_change_done
@@ -277,16 +284,17 @@ def test_get_msgs_for_lagged_nodes(tconf, tdir):
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3'),
     )
     messages = [
-        (ViewChangeDone(
+        ViewChangeDone(
             viewNo=0,
             name='Node2',
-            ledgerInfo=ledgerInfo),
-         'Node1'),
-        (ViewChangeDone(
+            ledgerInfo=ledgerInfo,
+            frm='Node1'),
+        ViewChangeDone(
             viewNo=0,
             name='Node3',
-            ledgerInfo=ledgerInfo),
-         'Node2')]
+            ledgerInfo=ledgerInfo,
+            frm='Node2')
+    ]
     node = FakeNode(str(tdir), tconf)
     for message in messages:
         node.view_changer.process_vchd_msg(*message)

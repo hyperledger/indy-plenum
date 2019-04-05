@@ -3,6 +3,7 @@ from operator import itemgetter
 from typing import Mapping
 
 from plenum.common.types import f
+from plenum.common.util import get_utc_epoch
 
 from plenum.common.constants import OP_FIELD_NAME, SCHEMA_IS_STRICT
 from plenum.common.exceptions import MissingProtocolVersionError
@@ -76,16 +77,32 @@ class MessageValidator(FieldValidator):
         return 'validation error [{}]:'.format(self.__class__.__name__)
 
 
-class MessageBase(Mapping, MessageValidator):
+class NetworkMessage:
+    def __init__(self, frm: str = None, ts_rcv: int = None):
+        self._frm = frm
+        self._ts_rcv = ts_rcv
+
+    @property
+    def frm(self):
+        return self._frm
+
+    @property
+    def ts_rcv(self):
+        return self._ts_rcv
+
+
+class MessageBase(Mapping, NetworkMessage, MessageValidator):
     typename = None
 
     def __init__(self, *args, **kwargs):
-        if args and kwargs:
-            raise ValueError("*args, **kwargs cannot be used together")
+        # op field is not required since there is self.typename
+        kwargs.pop(OP_FIELD_NAME, None)
 
-        if kwargs:
-            # op field is not required since there is self.typename
-            kwargs.pop(OP_FIELD_NAME, None)
+        NetworkMessage.__init__(
+            self, kwargs.pop('frm', None), kwargs.pop('ts_rcv', None))
+
+        if args and kwargs:
+            raise ValueError("*args, **kwargs cannot be used together for fields in schema")
 
         argsLen = len(args or kwargs)
         if self.schema_is_strict and argsLen > len(self.schema):

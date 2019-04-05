@@ -101,6 +101,7 @@ class Replicas:
         return number_of_processed_messages
 
     def pass_message(self, message, instance_id=None):
+        # TODO can we remove second arg and use always message.instId inside ?
         if instance_id is not None:
             if instance_id not in self._replicas.keys():
                 return

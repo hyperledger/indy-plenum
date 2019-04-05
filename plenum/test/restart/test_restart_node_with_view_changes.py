@@ -73,8 +73,8 @@ def test_restart_node_with_view_changes(tdir, tconf,
     global view_change_started_messages
     view_change_started_messages = []
 
-    def patch_on_view_change_started(node, msg, frm):
-        view_change_started_messages.append((node, msg, frm))
+    def patch_on_view_change_started(node, msg: ViewChangeStartMessage):
+        view_change_started_messages.append((node, msg))
 
     processor = partial(patch_on_view_change_started,
                         lagging_node)
@@ -107,9 +107,9 @@ def test_restart_node_with_view_changes(tdir, tconf,
     processor = partial(VCStartMsgStrategy.on_view_change_started,
                         lagging_node)
     lagging_node.nodeMsgRouter.add((ViewChangeStartMessage, processor))
-    for msg in view_change_started_messages:
-        lagging_node.view_changer.node.nodeInBox.append((msg[1],
-                                                         lagging_node.view_changer.node.name))
+    for (_, msg) in view_change_started_messages:
+        # TODO INDY-1983 before lagging_node was passed as frm that seems incorrect
+        lagging_node.view_changer.node.nodeInBox.append(msg)
 
     waitForViewChange(looper,
                       txnPoolNodeSet,

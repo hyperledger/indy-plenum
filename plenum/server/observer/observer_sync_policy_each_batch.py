@@ -35,12 +35,12 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
     def policy_type(self) -> str:
         return BATCH
 
-    def apply_data(self, msg, sender):
+    def apply_data(self, msg):
         if msg.msg_type != BATCH:
             raise PlenumValueError('msg.msg_type', msg.msg_type, BATCH)
 
         logger.debug("{} got BATCH {} from Observable Node {}"
-                     .format(OBSERVER_PREFIX, msg, sender))
+                     .format(OBSERVER_PREFIX, msg, msg.sender))
 
         # 1. make sure that the message is dict
         batch = msg.msg
@@ -52,7 +52,7 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
             return
 
         # 3. stash the batch
-        self._add_batch(batch, sender)
+        self._add_batch(batch, msg.sender)
 
         # 4. check that the batch can be applied
         # - this is the next expected batch (according to seq_nos)

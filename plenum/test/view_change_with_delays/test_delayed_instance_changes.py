@@ -11,14 +11,14 @@ nodeCount = 7
 def check_vcd_msgs(node, expected_count, expected_view_no):
     if expected_view_no not in node.msgsForFutureViews:
         raise AssertionError('no messages for expected view')
-    vcd_count = sum(1 for msg in node.msgsForFutureViews[expected_view_no] if isinstance(msg[0], ViewChangeDone))
+    vcd_count = sum(1 for msg in node.msgsForFutureViews[expected_view_no] if isinstance(msg, ViewChangeDone))
     assert expected_count == vcd_count
 
 
 def check_no_ic_msgs(node, expected_view_no):
     if expected_view_no not in node.msgsForFutureViews:
         raise AssertionError('no messages for expected view')
-    ic_count = sum(1 for msg in node.msgsForFutureViews[expected_view_no] if isinstance(msg[0], InstanceChange))
+    ic_count = sum(1 for msg in node.msgsForFutureViews[expected_view_no] if isinstance(msg, InstanceChange))
     assert ic_count == 0
 
 

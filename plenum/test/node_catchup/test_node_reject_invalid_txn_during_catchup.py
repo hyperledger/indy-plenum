@@ -95,12 +95,12 @@ def node_will_send_incorrect_catchup(node):
     )
 
 
-def _sendIncorrectTxns(self, req, frm):
+def _sendIncorrectTxns(self, req):
     ledgerId = getattr(req, f.LEDGER_ID.nm)
     if ledgerId == DOMAIN_LEDGER_ID:
         logger.info("{} being malicious and sending incorrect transactions"
                     " for catchup request {} from {}".
-                    format(self, req, frm))
+                    format(self, req, req.frm))
         start, end = getattr(req, f.SEQ_NO_START.nm), \
                      getattr(req, f.SEQ_NO_END.nm)
         ledger = self.ledgerRegistry[ledgerId].ledger
@@ -113,6 +113,6 @@ def _sendIncorrectTxns(self, req, frm):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, ledger.size)]
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
-                                   consProof), to=frm)
+                                   consProof), to=req.frm)
     else:
-        self.processCatchupReq(req, frm)
+        self.processCatchupReq(req)

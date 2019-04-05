@@ -10,6 +10,7 @@ logger = getlogger()
 Route = Tuple[Union[type, NamedTuple], Callable]
 
 
+# TODO INDY-1983 revert changes, seems they are not necessary
 class Router:
     """
     A simple router.
@@ -60,61 +61,58 @@ class Router:
         raise RuntimeError("unhandled msg: {}".format(o))
 
     # noinspection PyCallingNonCallable
-    def handleSync(self, msg: Any) -> Any:
+    def handleSync(self, msg: Any, key: Callable = None) -> Any:
         """
         Pass the message as an argument to the function defined in `routes`.
-        If the msg is a tuple, pass the values as multiple arguments to the function.
 
-        :param msg: tuple of object and callable
+        :param msg: a message to route
+        :param key (optional): callable to get route key. Defaults to message itself
+        :return: the result of execution of the function corresponding to this message's type
         """
-        # If a plain python tuple and not a named tuple, a better alternative
-        # would be to create a named entity with the 3 characteristics below
-        # TODO: non-obvious tuple, re-factor!
-        if isinstance(msg, tuple) and len(
-                msg) == 2 and not hasattr(msg, '_field_types'):
-            return self.getFunc(msg[0])(*msg)
-        else:
-            return self.getFunc(msg)(msg)
+        return self.getFunc(msg if key is None else key(msg))(msg)
 
-    async def handle(self, msg: Any) -> Any:
+    async def handle(self, msg: Any, key: Callable = None) -> Any:
         """
         Handle both sync and async functions.
 
-        :param msg: a message
+        :param msg: a message to route
+        :param key (optional): callable to get route key. Defaults to message itself
         :return: the result of execution of the function corresponding to this message's type
         """
-        res = self.handleSync(msg)
+        res = self.handleSync(msg, key)
         if isawaitable(res):
             return await res
         else:
             return res
 
-    async def handleAll(self, deq: deque, limit=None) -> int:
+    async def handleAll(self, deq: deque, limit=None, key: Callable = None) -> int:
         """
         Handle all items in a deque. Can call asynchronous handlers.
 
         :param deq: a deque of items to be handled by this router
-        :param limit: the number of items in the deque to the handled
+        :param limit (optional): the number of items in the deque to the handled
+        :param key (optional): callable to get route key. Defaults to message itself
         :return: the number of items handled successfully
         """
         count = 0
         while deq and (not limit or count < limit):
             count += 1
             item = deq.popleft()
-            await self.handle(item)
+            await self.handle(item, key)
         return count
 
-    def handleAllSync(self, deq: deque, limit=None) -> int:
+    def handleAllSync(self, deq: deque, limit=None, key: Callable = None) -> int:
         """
         Synchronously handle all items in a deque.
 
         :param deq: a deque of items to be handled by this router
         :param limit: the number of items in the deque to the handled
+        :param key (optional): callable to get route key. Defaults to message itself
         :return: the number of items handled successfully
         """
         count = 0
         while deq and (not limit or count < limit):
             count += 1
             msg = deq.popleft()
-            self.handleSync(msg)
+            self.handleSync(msg, key)
         return count

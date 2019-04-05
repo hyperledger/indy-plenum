@@ -18,6 +18,7 @@ from plenum.test.helper import create_pre_prepare_params, create_pre_prepare_no_
 
 whitelist = ['Indy Crypto error']
 
+# TODO INDY-1983
 
 @pytest.fixture()
 def bls_bft_replicas(txnPoolNodeSet):
@@ -219,10 +220,10 @@ def test_validate_pre_prepare_incorrect_multi_sig(bls_bft_replicas,
 
 
 def test_validate_prepare(bls_bft_replicas, state_root):
-    prepare = create_prepare((0, 0), state_root)
+    prepare = create_prepare((0, 0), state_root, frm=sender_bls_bft.node_id)
     for sender_bls_bft in bls_bft_replicas:
         for verifier_bls_bft in bls_bft_replicas:
-            assert not verifier_bls_bft.validate_prepare(prepare, sender_bls_bft.node_id)
+            assert not verifier_bls_bft.validate_prepare(prepare)
 
 
 def test_validate_commit_no_sigs(bls_bft_replicas):
@@ -308,9 +309,9 @@ def test_process_pre_prepare_multisig(bls_bft_replicas, pre_prepare_with_bls):
 
 def test_process_prepare(bls_bft_replicas, state_root):
     for sender_bls_bft in bls_bft_replicas:
-        prepare = create_prepare((0, 0), state_root)
+        prepare = create_prepare((0, 0), state_root, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            verifier_bls_bft.process_prepare(prepare, sender_bls_bft.node_id)
+            verifier_bls_bft.process_prepare(prepare)
 
 
 def test_process_commit_no_sigs(bls_bft_replicas):

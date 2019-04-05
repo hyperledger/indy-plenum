@@ -24,7 +24,7 @@ def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, txnPoolNodeSet):
                 args = getAllArgs(node, ViewChanger.process_instance_change_msg)
                 assert len(args) == 5
                 for arg in args:
-                    assert arg['frm'] == maliciousNode.name
+                    assert arg['instChg'].frm == maliciousNode.name
 
     numOfNodes = len(txnPoolNodeSet)
     instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(

@@ -27,7 +27,7 @@ class MessageReqProcessor:
         }
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REQ_TIME)
-    def process_message_req(self, msg: MessageReq, frm):
+    def process_message_req(self, msg: MessageReq):
         # Assumes a shared memory architecture. In case of multiprocessing,
         # RPC architecture, use deques to communicate the message and node will
         # maintain a unique internal message id to correlate responses.
@@ -43,17 +43,17 @@ class MessageReqProcessor:
                 f.MSG_TYPE.nm: msg_type,
                 f.PARAMS.nm: msg.params,
                 f.MSG.nm: resp
-            }), names=[frm, ])
+            }), names=[msg.frm, ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
-    def process_message_rep(self, msg: MessageRep, frm):
+    def process_message_rep(self, msg: MessageRep):
         msg_type = msg.msg_type
         if msg.msg is None:
             logger.debug('{} got null response for requested {} from {}'.
-                         format(self, msg_type, frm))
+                         format(self, msg_type, msg.frm))
             return
         handler = self.handlers[msg_type]
-        handler.process(msg, frm)
+        handler.process(msg)
 
     @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def request_msg(self, typ, params: Dict, frm: List[str] = None):

@@ -540,6 +540,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             tm = self.last_accepted_pre_prepare_time
         return tm
 
+    # TODO INDY-1983 remove if possible
     @staticmethod
     def generateName(nodeName: str, instId: int):
         """
@@ -759,17 +760,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self.isPrimary if self.isMsgForCurrentView(msg) \
             else self.is_primary_in_view(msg.viewNo)
 
-    def isMsgFromPrimary(self, msg, sender: str) -> bool:
+    def isMsgFromPrimary(self, msg) -> bool:
         """
         Return whether this message was from primary replica
         :param msg:
-        :param sender:
         :return:
         """
         if self.isMsgForCurrentView(msg):
-            return self.primaryName == sender
+            return self.primaryName == msg.frm_replica
         try:
-            return self.primaryNames[msg.viewNo] == sender
+            return self.primaryNames[msg.viewNo] == msg.frm_replica
         except KeyError:
             return False
 
@@ -1037,7 +1037,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
-    def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
+    def process_three_phase_msg(self, msg: ThreePhaseMsg):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
         Dispatch the request only if primary has already been decided, otherwise
@@ -1045,23 +1045,25 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param msg: the Three Phase message, one of PRE-PREPARE, PREPARE,
             COMMIT
-        :param sender: name of the node that sent this message
         """
-        sender = self.generateName(sender, self.instId)
-
         result, reason = self.validator.validate_3pc_msg(msg)
         if result == DISCARD:
-            self.discard(msg, "{} discard message {} from {} "
-                              "with the reason: {}".format(self, msg, sender, reason),
-                         self.logger.trace)
+            self.discard(
+                msg,
+                (
+                 "{} discard message {} from {} "
+                 "with the reason: {}"
+                 .format(self, msg, msg.frm_replica, reason)
+                ),
+                self.logger.trace)
         elif result == PROCESS:
-            self.threePhaseRouter.handleSync((msg, sender))
+            self.threePhaseRouter.handleSync(msg)
         else:
             self.logger.debug("{} stashing 3 phase message {} with "
                               "the reason: {}".format(self, msg, reason))
-            self.stasher.stash((msg, sender), result)
+            self.stasher.stash(msg, result)
 
-    def _process_valid_preprepare(self, pre_prepare, sender):
+    def _process_valid_preprepare(self, pre_prepare):
         self.first_batch_after_catchup = False
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
         old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
@@ -1114,7 +1116,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if self.isMaster:
             # BLS multi-sig:
-            self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
+            self._bls_bft_replica.process_pre_prepare(pre_prepare)
             self.logger.trace("{} saved shared multi signature for "
                               "root".format(self, old_state_root))
 
@@ -1129,16 +1131,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.PROCESS_PREPREPARE_TIME,
                           MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
-    def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
+    def processPrePrepare(self, pre_prepare: PrePrepare):
         """
         Validate and process provided PRE-PREPARE, create and
         broadcast PREPARE for it.
 
         :param pre_prepare: message
-        :param sender: name of the node that sent this message
         """
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
-        self.logger.debug("{} received PRE-PREPARE{} from {}".format(self, key, sender))
+        self.logger.debug(
+            "{} received PRE-PREPARE{} from {}"
+            .format(self, key, pre_prepare.frm_replica)
+        )
 
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
@@ -1146,13 +1150,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
         def report_suspicious(reason):
-            ex = SuspiciousNode(sender, reason, pre_prepare)
+            ex = SuspiciousNode(pre_prepare.frm_replica, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
 
-        why_not = self._can_process_pre_prepare(pre_prepare, sender)
+        why_not = self._can_process_pre_prepare(pre_prepare)
         if why_not is None:
             why_not_applied = \
-                self._process_valid_preprepare(pre_prepare, sender)
+                self._process_valid_preprepare(pre_prepare)
             if why_not_applied is not None:
                 if why_not_applied == PP_APPLY_REJECT_WRONG:
                     report_suspicious(Suspicions.PPR_REJECT_WRONG)
@@ -1204,11 +1208,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             bad_reqs = absents | non_fin
             for req in bad_reqs:
                 if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
-                    self.logger.info("Request digest {} already ordered. Discard {} "
-                                     "from {}".format(req, pre_prepare, sender))
+                    self.logger.info(
+                        "Request digest {} already ordered. Discard {} "
+                        "from {}".format(req, pre_prepare, pre_prepare.frm_replica)
+                    )
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
                     return
-            self.enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
+            self.enqueue_pre_prepare(pre_prepare, bad_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is
             # present and sufficient PREPAREs and PRE-PREPARE are present,
@@ -1230,11 +1236,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                         "going to request".format(self, seq_frm, seq_to))
                     self._request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
-            self.enqueue_pre_prepare(pre_prepare, sender)
+            self.enqueue_pre_prepare(pre_prepare)
             self._setup_last_ordered_for_non_master()
         elif why_not == PP_CHECK_WRONG_TIME:
             key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
-            item = (pre_prepare, sender, False)
+            item = (pre_prepare, pre_prepare.frm_replica, False)
             self.pre_prepares_stashed_for_incorrect_time[key] = item
             report_suspicious(Suspicions.PPR_TIME_WRONG)
         elif why_not == BlsBftReplica.PPR_BLS_MULTISIG_WRONG:
@@ -1255,21 +1261,23 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.PROCESS_PREPARE_TIME,
                           MetricsName.BACKUP_PROCESS_PREPARE_TIME)
-    def processPrepare(self, prepare: Prepare, sender: str) -> None:
+    def processPrepare(self, prepare: Prepare) -> None:
         """
         Validate and process the PREPARE specified.
         If validation is successful, create a COMMIT and broadcast it.
 
         :param prepare: a PREPARE msg
-        :param sender: name of the node that sent the PREPARE
         """
         key = (prepare.viewNo, prepare.ppSeqNo)
-        self.logger.debug("{} received PREPARE{} from {}".format(self, key, sender))
+        self.logger.debug(
+            "{} received PREPARE{} from {}"
+            .format(self, key, prepare.frm_replica)
+        )
 
         # TODO move this try/except up higher
         try:
-            if self.validatePrepare(prepare, sender):
-                self.addToPrepares(prepare, sender)
+            if self.validatePrepare(prepare):
+                self.addToPrepares(prepare)
                 self.stats.inc(TPCStat.PrepareRcvd)
                 self.logger.debug("{} processed incoming PREPARE {}".format(
                     self, (prepare.viewNo, prepare.ppSeqNo)))
@@ -1282,20 +1290,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.PROCESS_COMMIT_TIME,
                           MetricsName.BACKUP_PROCESS_COMMIT_TIME)
-    def processCommit(self, commit: Commit, sender: str) -> None:
+    def processCommit(self, commit: Commit) -> None:
         """
         Validate and process the COMMIT specified.
         If validation is successful, return the message to the node.
 
         :param commit: an incoming COMMIT message
-        :param sender: name of the node that sent the COMMIT
         """
         self.logger.debug("{} received COMMIT{} from {}".format(
-            self, (commit.viewNo, commit.ppSeqNo), sender))
+            self, (commit.viewNo, commit.ppSeqNo), commit.frm_replica))
 
-        if self.validateCommit(commit, sender):
+        if self.validateCommit(commit):
             self.stats.inc(TPCStat.CommitRcvd)
-            self.addToCommits(commit, sender)
+            self.addToCommits(commit)
             self.logger.debug("{} processed incoming COMMIT{}".format(
                 self, (commit.viewNo, commit.ppSeqNo)))
 
@@ -1340,12 +1347,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
-        prepare = Prepare(*params)
+        prepare = Prepare(*params, frm=self.name)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
             prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
-        self.addToPrepares(prepare, self.name)
+        self.addToPrepares(prepare)
 
     @measure_replica_time(MetricsName.SEND_COMMIT_TIME,
                           MetricsName.BACKUP_SEND_COMMIT_TIME)
@@ -1369,13 +1376,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pre_prepare = self.getPrePrepare(*key_3pc)
             params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
-        commit = Commit(*params)
+        commit = Commit(*params, frm=self.name)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
             commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
-        self.addToCommits(commit, self.name)
+        self.addToCommits(commit)
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
         """
@@ -1489,17 +1496,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         return None
 
-    def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
+    def _can_process_pre_prepare(self, pre_prepare: PrePrepare) -> Optional[int]:
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
 
         :param pre_prepare: a PRE-PREPARE msg to process
-        :param sender: the name of the node that sent the PRE-PREPARE msg
         """
         # TODO: Check whether it is rejecting PRE-PREPARE from previous view
 
         # PRE-PREPARE should not be sent from non primary
-        if not self.isMsgFromPrimary(pre_prepare, sender):
+        if not self.isMsgFromPrimary(pre_prepare):
             return PP_CHECK_NOT_FROM_PRIMARY
 
         # Already has a PRE-PREPARE with same 3 phase key
@@ -1532,8 +1538,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return PP_CHECK_INCORRECT_POOL_STATE_ROOT
 
         # BLS multi-sig:
-        status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
-                                                            sender)
+        status = self._bls_bft_replica.validate_pre_prepare(pre_prepare)
         if status is not None:
             return status
         return None
@@ -1570,12 +1575,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
 
-    def validatePrepare(self, prepare: Prepare, sender: str) -> bool:
+    def validatePrepare(self, prepare: Prepare) -> bool:
         """
         Return whether the PREPARE specified is valid.
 
         :param prepare: the PREPARE to validate
-        :param sender: the name of the node that sent the PREPARE
         :return: True if PREPARE is valid, False otherwise
         """
         key = (prepare.viewNo, prepare.ppSeqNo)
@@ -1587,46 +1591,47 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # PRE-PREPARE request, then proceed
 
         # PREPARE should not be sent from primary
-        if self.isMsgFromPrimary(prepare, sender):
-            raise SuspiciousNode(sender, Suspicions.PR_FRM_PRIMARY, prepare)
+        if self.isMsgFromPrimary(prepare):
+            # TODO INDY-1983 'frm' might be passed
+            raise SuspiciousNode(prepare.frm_replica, Suspicions.PR_FRM_PRIMARY, prepare)
 
         # If non primary replica
         if primaryStatus is False:
-            if self.prepares.hasPrepareFrom(prepare, sender):
+            if self.prepares.hasPrepareFrom(prepare, prepare.frm_replica):
                 raise SuspiciousNode(
-                    sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+                    prepare.frm_replica, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE not received for the PREPARE, might be slow
             # network
             if not ppReq:
-                self.enqueue_prepare(prepare, sender)
+                self.enqueue_prepare(prepare)
                 self._setup_last_ordered_for_non_master()
                 return False
         # If primary replica
         if primaryStatus is True:
-            if self.prepares.hasPrepareFrom(prepare, sender):
+            if self.prepares.hasPrepareFrom(prepare, prepare.frm_replica):
                 raise SuspiciousNode(
-                    sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+                    prepare.frm_replica, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE was not sent for this PREPARE, certainly
             # malicious behavior
             elif not ppReq:
                 raise SuspiciousNode(
-                    sender, Suspicions.UNKNOWN_PR_SENT, prepare)
+                    prepare.frm_replica, Suspicions.UNKNOWN_PR_SENT, prepare)
 
         if primaryStatus is None and not ppReq:
-            self.enqueue_prepare(prepare, sender)
+            self.enqueue_prepare(prepare)
             self._setup_last_ordered_for_non_master()
             return False
 
         if prepare.digest != ppReq.digest:
-            raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
+            raise SuspiciousNode(prepare.frm_replica, Suspicions.PR_DIGEST_WRONG, prepare)
         elif prepare.stateRootHash != ppReq.stateRootHash:
-            raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
+            raise SuspiciousNode(prepare.frm_replica, Suspicions.PR_STATE_WRONG,
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
-            raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+            raise SuspiciousNode(prepare.frm_replica, Suspicions.PR_TXN_WRONG,
                                  prepare)
         elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
-            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
+            raise SuspiciousNode(prepare.frm_replica, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                  prepare)
 
         try:
@@ -1635,15 +1640,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.warning('{} encountered exception in replica '
                                 'hook {} : {}'.
                                 format(self, ReplicaHooks.VALIDATE_PR, ex))
-            raise SuspiciousNode(sender, Suspicions.PR_PLUGIN_EXCEPTION,
+            raise SuspiciousNode(prepare.frm_replica, Suspicions.PR_PLUGIN_EXCEPTION,
                                  prepare)
 
         # BLS multi-sig:
-        self._bls_bft_replica.validate_prepare(prepare, sender)
+        self._bls_bft_replica.validate_prepare(prepare)
 
         return True
 
-    def addToPrepares(self, prepare: Prepare, sender: str):
+    def addToPrepares(self, prepare: Prepare):
         """
         Add the specified PREPARE to this replica's list of received
         PREPAREs and try sending COMMIT
@@ -1651,9 +1656,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param prepare: the PREPARE to add to the list
         """
         # BLS multi-sig:
-        self._bls_bft_replica.process_prepare(prepare, sender)
+        self._bls_bft_replica.process_prepare(prepare)
 
-        self.prepares.addVote(prepare, sender)
+        self.prepares.addVote(prepare, prepare.frm_replica)
         self.dequeue_commits(prepare.viewNo, prepare.ppSeqNo)
         self.tryCommit(prepare)
 
@@ -1722,7 +1727,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return False, 'has already sent COMMIT for {}'.format(prepare)
         return True, ''
 
-    def validateCommit(self, commit: Commit, sender: str) -> bool:
+    def validateCommit(self, commit: Commit) -> bool:
         """
         Return whether the COMMIT specified is valid.
 
@@ -1731,20 +1736,22 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         key = (commit.viewNo, commit.ppSeqNo)
         if not self.has_prepared(key):
-            self.enqueue_commit(commit, sender)
+            self.enqueue_commit(commit)
             return False
 
-        if self.commits.hasCommitFrom(commit, sender):
-            raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
+        if self.commits.hasCommitFrom(commit, commit.frm_replica):
+            # TODO INDY-1983 may pass just 'frm' here
+            raise SuspiciousNode(commit.frm_replica, Suspicions.DUPLICATE_CM_SENT, commit)
 
         # BLS multi-sig:
         pre_prepare = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-        why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
+        why_not = self._bls_bft_replica.validate_commit(commit, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             self.logger.warning("{} discard Commit message from "
-                                "{}:{}".format(self, sender, commit))
-            raise SuspiciousNode(sender,
+                                "{}:{}".format(self, commit.frm_replica, commit))
+            # TODO INDY-1983 may pass just 'frm' here
+            raise SuspiciousNode(commit.frm,
                                  Suspicions.CM_BLS_SIG_WRONG,
                                  commit)
         elif why_not is not None:
@@ -1753,18 +1760,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         return True
 
-    def addToCommits(self, commit: Commit, sender: str):
+    def addToCommits(self, commit: Commit):
         """
         Add the specified COMMIT to this replica's list of received
         commit requests.
 
         :param commit: the COMMIT to add to the list
-        :param sender: the name of the node that sent the COMMIT
         """
         # BLS multi-sig:
-        self._bls_bft_replica.process_commit(commit, sender)
+        self._bls_bft_replica.process_commit(commit)
 
-        self.commits.addVote(commit, sender)
+        self.commits.addVote(commit, commit.frm_replica)
         self.tryOrder(commit)
 
     def canOrder(self, commit: Commit) -> Tuple[bool, Optional[str]]:
@@ -2006,34 +2012,34 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
                           MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
-    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
+    def process_checkpoint(self, msg: Checkpoint) -> bool:
         """
         Process checkpoint messages
 
         :return: whether processed (True) or stashed (False)
         """
-        self.logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
+        self.logger.info('{} processing checkpoint {} from {}'.format(self, msg, msg.frm_replica))
         result, reason = self.validator.validate_checkpoint_msg(msg)
         if result == DISCARD:
             self.discard(msg, "{} discard message {} from {} "
-                              "with the reason: {}".format(self, msg, sender, reason),
+                              "with the reason: {}".format(self, msg, msg.frm_replica, reason),
                          self.logger.trace)
         elif result == PROCESS:
-            self._do_process_checkpoint(msg, sender)
+            self._do_process_checkpoint(msg)
         else:
             self.logger.debug("{} stashing checkpoint message {} with "
                               "the reason: {}".format(self, msg, reason))
-            self.stasher.stash((msg, sender), result)
+            self.stasher.stash(msg, result)
             return False
         return True
 
-    def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
+    def _do_process_checkpoint(self, msg: Checkpoint) -> bool:
         seqNoEnd = msg.seqNoEnd
         seqNoStart = msg.seqNoStart
         key = (seqNoStart, seqNoEnd)
 
         if key not in self.checkpoints or not self.checkpoints[key].digest:
-            self.stashCheckpoint(msg, sender)
+            self.stashCheckpoint(msg)
             self._remove_stashed_checkpoints(self.last_ordered_3pc)
             self.__start_catchup_if_needed()
             return False
@@ -2043,10 +2049,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # ordered 3PC is communicated during view change
         if self.isMaster and checkpoint_state.digest != msg.digest:
             self.logger.warning("{} received an incorrect digest {} for "
-                                "checkpoint {} from {}".format(self, msg.digest, key, sender))
+                                "checkpoint {} from {}".format(self, msg.digest, key, msg.frm_replica))
             return True
 
-        checkpoint_state.receivedDigests[sender] = msg.digest
+        checkpoint_state.receivedDigests[msg.frm_replica] = msg.digest
         self.checkIfCheckpointStable(key)
         return True
 
@@ -2161,15 +2167,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self, ckState.receivedDigests.keys()))
             return False
 
-    def stashCheckpoint(self, ck: Checkpoint, sender: str):
-        self.logger.debug('{} stashing {} from {}'.format(self, ck, sender))
+    def stashCheckpoint(self, ck: Checkpoint):
+        self.logger.debug(
+            '{} stashing {} from {}'
+            .format(self, ck, ck.frm_replica)
+        )
         seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
         if ck.viewNo not in self.stashedRecvdCheckpoints:
             self.stashedRecvdCheckpoints[ck.viewNo] = {}
         stashed_for_view = self.stashedRecvdCheckpoints[ck.viewNo]
         if (seqNoStart, seqNoEnd) not in stashed_for_view:
             stashed_for_view[seqNoStart, seqNoEnd] = {}
-        stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
+        stashed_for_view[seqNoStart, seqNoEnd][ck.frm_replica] = ck
 
     def _clear_prev_view_pre_prepares(self):
         to_remove = []
@@ -2214,8 +2223,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     and key in self.stashedRecvdCheckpoints[view_no] \
                     and sender in self.stashedRecvdCheckpoints[view_no][key]:
                 if self.process_checkpoint(
-                        self.stashedRecvdCheckpoints[view_no][key].pop(sender),
-                        sender):
+                        self.stashedRecvdCheckpoints[view_no][key].pop(sender)):
                     consumed += 1
                 # Note that if `process_checkpoint` returned False then the
                 # checkpoint from `sender` was re-stashed back to
@@ -2344,20 +2352,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.requested_prepares.pop((view_no, pp_seq_no), None)
         self.requested_commits.pop((view_no, pp_seq_no), None)
 
-    def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
+    def enqueue_pre_prepare(self, ppMsg: PrePrepare,
                             nonFinReqs: Set = None):
         if nonFinReqs:
             self.logger.info("{} - Queueing pre-prepares due to unavailability of finalised "
-                             "requests. PrePrepare {} from {}".format(self, ppMsg, sender))
-            self.prePreparesPendingFinReqs.append((ppMsg, sender, nonFinReqs))
+                             "requests. PrePrepare {} from {}".format(self, ppMsg, ppMsg.frm_replica))
+            self.prePreparesPendingFinReqs.append((ppMsg, ppMsg.frm_replica, nonFinReqs))
         else:
             # Possible exploit, an malicious party can send an invalid
             # pre-prepare and over-write the correct one?
             self.logger.info("Queueing pre-prepares due to unavailability of previous pre-prepares. {} from {}".
-                             format(ppMsg, sender))
+                             format(ppMsg, ppMsg.frm_replica))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (
-                ppMsg, sender)
+                ppMsg, ppMsg.frm_replica)
 
+    # TODO INDY-1983 improve containers where sender is part of keys
     def dequeue_pre_prepares(self):
         """
         Dequeue any received PRE-PREPAREs that did not have finalized requests
@@ -2391,18 +2400,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.discard(pp, "Pre-Prepare from a previous view",
                              self.logger.debug)
                 continue
-            self.logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
-            self.process_three_phase_msg(pp, sender)
+            self.logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, pp.frm_replica))
+            self.process_three_phase_msg(pp)
             r += 1
         return r
 
-    def enqueue_prepare(self, pMsg: Prepare, sender: str):
+    def enqueue_prepare(self, pMsg: Prepare):
         key = (pMsg.viewNo, pMsg.ppSeqNo)
-        self.logger.debug("{} queueing prepare due to unavailability of PRE-PREPARE. "
-                          "Prepare {} for key {} from {}".format(self, pMsg, key, sender))
+        self.logger.debug(
+            "{} queueing prepare due to unavailability of PRE-PREPARE. "
+            "Prepare {} for key {} from {}"
+            .format(self, pMsg, key, pMsg.frm_replica)
+        )
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
-        self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
+        self.preparesWaitingForPrePrepare[key].append((pMsg, pMsg.frm_replica))
         if key not in self.pre_prepares_stashed_for_incorrect_time:
             if self.isMaster or self.last_ordered_3pc[1] != 0:
                 self._request_pre_prepare_for_prepare(key)
@@ -2418,19 +2430,22 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
                 self.logger.debug("{} popping stashed PREPARE{}".format(self, key))
-                self.process_three_phase_msg(prepare, sender)
+                self.process_three_phase_msg(prepare)
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
             self.logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
                               " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
-    def enqueue_commit(self, request: Commit, sender: str):
+    def enqueue_commit(self, request: Commit):
         key = (request.viewNo, request.ppSeqNo)
-        self.logger.debug("{} - Queueing commit due to unavailability of PREPARE. "
-                          "Request {} with key {} from {}".format(self, request, key, sender))
+        self.logger.debug(
+            "{} - Queueing commit due to unavailability of PREPARE. "
+            "Request {} with key {} from {}"
+            .format(self, request, key, request.frm_replica)
+        )
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
-        self.commitsWaitingForPrepare[key].append((request, sender))
+        self.commitsWaitingForPrepare[key].append((request, request.frm_replica))
 
     def dequeue_commits(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
@@ -2445,7 +2460,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
                 self.logger.debug("{} popping stashed COMMIT{}".format(self, key))
-                self.process_three_phase_msg(commit, sender)
+                self.process_three_phase_msg(commit)
 
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
@@ -2601,15 +2616,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return (*acceptable, {s for s, state in prepares.items()
                               if state == acceptable})
 
-    def _process_requested_three_phase_msg(self, msg: object,
-                                           sender: List[str],
+    # TODO INDY-1983 expected type of msg
+    def _process_requested_three_phase_msg(self, msg: MessageBase,
                                            stash: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]],
                                            get_saved: Optional[Callable[[int, int], Optional[MessageBase]]] = None):
         if msg is None:
-            self.logger.debug('{} received null from {}'.format(self, sender))
+            self.logger.debug('{} received null from {}'.format(self, msg.frm_replica))
             return
         key = (msg.viewNo, msg.ppSeqNo)
-        self.logger.debug('{} received requested msg ({}) from {}'.format(self, key, sender))
+        self.logger.debug('{} received requested msg ({}) from {}'.format(self, key, msg.frm_replica))
 
         if key not in stash:
             self.logger.debug('{} had either not requested this msg or already '
@@ -2630,20 +2645,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
             else None
         if stashed_data is None or curr_data == stashed_data:
-            return self.process_three_phase_msg(msg, sender)
+            return self.process_three_phase_msg(msg)
 
         self.discard(msg, reason='{} does not have expected state {}'.
                      format(THREE_PC_PREFIX, stashed_data),
                      logMethod=self.logger.warning)
 
-    def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
-        return self._process_requested_three_phase_msg(pp, sender, self.requested_pre_prepares, self.getPrePrepare)
+    def process_requested_pre_prepare(self, pp: PrePrepare):
+        return self._process_requested_three_phase_msg(pp, self.requested_pre_prepares, self.getPrePrepare)
 
-    def process_requested_prepare(self, prepare: Prepare, sender: str):
-        return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
+    def process_requested_prepare(self, prepare: Prepare):
+        return self._process_requested_three_phase_msg(prepare, self.requested_prepares)
 
-    def process_requested_commit(self, commit: Commit, sender: str):
-        return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
+    def process_requested_commit(self, commit: Commit):
+        return self._process_requested_three_phase_msg(commit, self.requested_commits)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
         """
@@ -2703,7 +2718,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
                 stashed_pp[key] = (pp, sender, True)
-                self.process_three_phase_msg(pp, sender)
+                self.process_three_phase_msg(pp)
                 return True
         return False
 

@@ -288,9 +288,9 @@ class TestNodeCore(StackedTester):
         state = self.getState(DOMAIN_LEDGER_ID)
         return TestCoreAuthnr(state=state)
 
-    def processRequest(self, request, frm):
+    def processRequest(self, request):
         if request.operation[TXN_TYPE] == 'get_buy':
-            self.send_ack_to_client(request.key, frm)
+            self.send_ack_to_client(request.key, request.frm)
 
             identifier = request.identifier
             req_id = request.reqId
@@ -304,9 +304,9 @@ class TestNodeCore(StackedTester):
                 "buy": result
             }
 
-            self.transmitToClient(Reply(res), frm)
+            self.transmitToClient(Reply(res), request.frm)
         else:
-            super().processRequest(request, frm)
+            super().processRequest(request)
 
 
 node_spyables = [Node.handleOneNodeMsg,

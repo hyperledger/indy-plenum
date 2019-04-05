@@ -196,7 +196,7 @@ class Propagator:
         self.metrics = metrics
 
     # noinspection PyUnresolvedReferences
-    def propagate(self, request: Request, clientName):
+    def propagate(self, request: Request):
         """
         Broadcast a PROPAGATE to all other nodes
 
@@ -207,14 +207,14 @@ class Propagator:
         else:
             with self.metrics.measure_time(MetricsName.SEND_PROPAGATE_TIME):
                 self.requests.add_propagate(request, self.name)
-                propagate = self.createPropagate(request, clientName)
-                logger.debug("{} propagating request {} from client {}".format(self, request.key, clientName),
+                propagate = self.createPropagate(request)
+                logger.debug("{} propagating request {} from client {}".format(self, request.key, request.frm),
                              extra={"cli": True, "tags": ["node-propagate"]})
                 self.send(propagate)
 
     @staticmethod
     def createPropagate(
-            request: Union[Request, dict], client_name) -> Propagate:
+            request: Union[Request, dict], client_name: None) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -228,6 +228,10 @@ class Propagator:
         logger.trace("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.as_dict if isinstance(request, Request) else \
             request
+        # might be se in scope of Propagate request logic
+        if client_name is None:
+            client_name = request.frm
+        # TODO why is it possible
         if isinstance(client_name, bytes):
             client_name = client_name.decode()
         return Propagate(request, client_name)
@@ -281,15 +285,14 @@ class Propagator:
         self.requests.mark_as_forwarded(request, num_replicas)
 
     # noinspection PyUnresolvedReferences
-    def recordAndPropagate(self, request: Request, clientName):
+    def recordAndPropagate(self, request: Request):
         """
         Record the request in the list of requests and propagate.
 
         :param request:
-        :param clientName:
         """
         self.requests.add(request)
-        self.propagate(request, clientName)
+        self.propagate(request)
         self.tryForwarding(request)
 
     def tryForwarding(self, request: Request):

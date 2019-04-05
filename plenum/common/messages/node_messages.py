@@ -21,7 +21,21 @@ from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FI
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
-class Nomination(MessageBase):
+class ReplicaMessage(MessageBase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if f.INST_ID.nm not in self._fields:
+            raise ValueError("{}: {} is not found in schema"
+                             .format(self.__class__.__name__, f.INST_ID.nm))
+
+    @property
+    def frm_replica(self):
+        return "{}:{}".format(self.frm, self._fields[f.INST_ID.nm]))
+
+
+
+class Nomination(ReplicaMessage):
     typename = NOMINATE
 
     schema = (
@@ -41,7 +55,7 @@ class Batch(MessageBase):
     )
 
 
-class Reelection(MessageBase):
+class Reelection(ReplicaMessage):
     typename = REELECTION
 
     schema = (
@@ -52,7 +66,7 @@ class Reelection(MessageBase):
     )
 
 
-class Primary(MessageBase):
+class Primary(ReplicaMessage):
     typename = PRIMARY
 
     schema = (
@@ -109,7 +123,7 @@ class PoolLedgerTxns(MessageBase):
     )
 
 
-class Ordered(MessageBase):
+class Ordered(ReplicaMessage):
     typename = ORDERED
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -139,7 +153,7 @@ class Propagate(MessageBase):
     )
 
 
-class PrePrepare(MessageBase):
+class PrePrepare(ReplicaMessage):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
@@ -166,7 +180,7 @@ class PrePrepare(MessageBase):
     typename = PREPREPARE
 
 
-class Prepare(MessageBase):
+class Prepare(ReplicaMessage):
     typename = PREPARE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -182,7 +196,7 @@ class Prepare(MessageBase):
     )
 
 
-class Commit(MessageBase):
+class Commit(ReplicaMessage):
     typename = COMMIT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -196,7 +210,7 @@ class Commit(MessageBase):
     )
 
 
-class Checkpoint(MessageBase):
+class Checkpoint(ReplicaMessage):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -377,7 +391,7 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
 ])
 
 
-class BatchCommitted(MessageBase):
+class BatchCommitted(ReplicaMessage):
     """
     Purpose: pass to Observable after each batch is committed
     (so that Observable can propagate the data to Observers using ObservedData msg)

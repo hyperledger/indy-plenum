@@ -29,14 +29,15 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       sdk_wallet_client,
+                                       frm=node.name)
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
-            .append((prepare, node.name))
+            .append((prepare, prepare.frm_replica))
     replica.first_batch_after_catchup = True
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
@@ -56,11 +57,12 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       sdk_wallet_client,
+                                       frm=node.name)
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
-            .append((prepare, node.name))
+            .append((prepare, prepare.frm_replica))
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
@@ -80,13 +82,14 @@ def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       sdk_wallet_client,
+                                       frm=txnPoolNodeSet[-1].name)
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
-        .append((prepare, txnPoolNodeSet[-1].name))
+        .append((prepare, prepare.frm_replica))
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
@@ -105,14 +108,15 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       sdk_wallet_client,
+                                       frm=node.name)
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
-            .append((prepare, node.name))
+            .append((prepare, prepare.frm_replica))
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
@@ -132,41 +136,47 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       sdk_wallet_client,
+                                       frm=node.name)
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
     replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
-            .append((prepare, node.name))
+            .append((prepare, prepare.frm_replica))
 
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == last_ordered_3pc
 
 
 def _create_prepare_and_preprepare(inst_id, pp_sq_no, view_no, timestamp,
-                                   sdk_wallet_client):
+                                   sdk_wallet_client, **kwargs):
     time = int(timestamp)
     req_idr = ["random request digest"]
-    preprepare = PrePrepare(inst_id,
-                            pp_sq_no,
-                            view_no,
-                            time,
-                            req_idr,
-                            init_discarded(),
-                            "123",
-                            1,
-                            None,
-                            None,
-                            0,
-                            True)
-    prepare = Prepare(inst_id,
-                      pp_sq_no,
-                      view_no,
-                      time,
-                      "321",
-                      None,
-                      None
-                      )
+    preprepare = PrePrepare(
+        inst_id,
+        pp_sq_no,
+        view_no,
+        time,
+        req_idr,
+        init_discarded(),
+        "123",
+        1,
+        None,
+        None,
+        0,
+        True,
+        **kwargs
+    )
+    prepare = Prepare(
+        inst_id,
+        pp_sq_no,
+        view_no,
+        time,
+        "321",
+        None,
+        None,
+        **kwargs
+    )
     return preprepare, prepare

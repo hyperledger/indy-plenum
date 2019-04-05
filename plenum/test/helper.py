@@ -1220,11 +1220,11 @@ def create_commit_with_bls_sig(req_key, bls_sig):
     return Commit(*params)
 
 
-def create_commit_bls_sig(bls_bft, req_key, pre_prepare):
+def create_commit_bls_sig(bls_bft, req_key, pre_prepare, **kwargs):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
     params = bls_bft.update_commit(params, pre_prepare)
-    return Commit(*params)
+    return Commit(*params, **kwargs)
 
 
 def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
@@ -1249,10 +1249,10 @@ def create_prepare_from_pre_prepare(pre_prepare):
     return Prepare(*params)
 
 
-def create_prepare(req_key, state_root, inst_id=0):
+def create_prepare(req_key, state_root, inst_id=0, **kwargs):
     view_no, pp_seq_no = req_key
     params = create_prepare_params(view_no, pp_seq_no, state_root, inst_id=inst_id)
-    return Prepare(*params)
+    return Prepare(*params, **kwargs)
 
 
 def generate_state_root():

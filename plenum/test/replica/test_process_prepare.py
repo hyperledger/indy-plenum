@@ -7,6 +7,7 @@ from plenum.test.helper import generate_state_root
 
 nodeCount = 7
 
+# TODO INDY-1983 fix tests
 PRIMARY_NAME = "Alpha:0"
 NON_PRIMARY_NAME = "Gamma:0"
 OTHER_NON_PRIMARY_NAME = "Beta:0"

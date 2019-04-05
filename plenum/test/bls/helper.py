@@ -86,10 +86,11 @@ def process_commits_for_key(key, pre_prepare, bls_bfts):
         commit = create_commit_bls_sig(
             sender_bls_bft,
             key,
-            pre_prepare)
+            pre_prepare,
+            frm=sender_bls_bft.node_id
+        )
         for verifier_bls_bft in bls_bfts:
-            verifier_bls_bft.process_commit(commit,
-                                            sender_bls_bft.node_id)
+            verifier_bls_bft.process_commit(commit)
 
 
 def process_ordered(key, bls_bfts, pre_prepare, quorums):
@@ -105,9 +106,10 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
         commit = create_commit_bls_sig(
             bls_bft_with_commit,
             key,
-            pre_prepare
+            pre_prepare,
+            frm=bls_bft_with_commit.node_id
         )
-        creator.process_commit(commit, bls_bft_with_commit.node_id)
+        creator.process_commit(commit)
 
     if not creator._can_calculate_multi_sig(key, quorums):
         return None

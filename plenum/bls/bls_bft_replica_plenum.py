@@ -34,7 +34,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     # ----VALIDATE----
 
     @measure_time(MetricsName.BLS_VALIDATE_PREPREPARE_TIME)
-    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
+    def validate_pre_prepare(self, pre_prepare: PrePrepare):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
                 pre_prepare.blsMultiSig is None:
             return
@@ -43,16 +43,16 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if not self._validate_multi_sig(multi_sig):
             return BlsBftReplica.PPR_BLS_MULTISIG_WRONG
 
-    def validate_prepare(self, prepare: Prepare, sender):
+    def validate_prepare(self, prepare: Prepare):
         pass
 
     @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
-    def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
+    def validate_commit(self, commit: Commit, pre_prepare: PrePrepare):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
             return
 
-        if not self._validate_signature(sender, commit.blsSig, pre_prepare):
+        if not self._validate_signature(commit.blsSig, pre_prepare):
             return BlsBftReplica.CM_BLS_SIG_WRONG
 
     # ----CREATE/UPDATE----
@@ -96,15 +96,15 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----PROCESS----
 
-    def process_pre_prepare(self, pre_prepare: PrePrepare, sender):
+    def process_pre_prepare(self, pre_prepare: PrePrepare):
         # does not matter which ledger id is current PPR for
         # mult-sig is for domain ledger anyway
         self._save_multi_sig_shared(pre_prepare)
 
-    def process_prepare(self, prepare: Prepare, sender):
+    def process_prepare(self, prepare: Prepare):
         pass
 
-    def process_commit(self, commit: Commit, sender):
+    def process_commit(self, commit: Commit):
         if f.BLS_SIG.nm not in commit:
             return
         if commit.blsSig is None:
@@ -113,7 +113,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         key_3PC = (commit.viewNo, commit.ppSeqNo)
         if key_3PC not in self._signatures:
             self._signatures[key_3PC] = {}
-        self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
+        self._signatures[key_3PC][self.get_node_name(commit.frm_replica)] = commit.blsSig
 
     def process_order(self, key, quorums, pre_prepare):
         if not self._can_process_ledger(pre_prepare.ledgerId):
@@ -157,9 +157,9 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         return self._bls_bft.bls_crypto_verifier\
             .verify_key_proof_of_possession(key_proof, pk)
 
-    def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
+    def _validate_signature(self, bls_sig, pre_prepare: PrePrepare):
         pool_root_hash = self._get_pool_root_hash(pre_prepare, serialize=False)
-        sender_node = self.get_node_name(sender)
+        sender_node = self.get_node_name(pre_prepare.frm_replica)
         pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node, pool_root_hash)
         if not pk:
             return False
@@ -170,7 +170,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if not result:
             logger.info("Incorrect bls signature {} in commit for "
                         "{} public key: '{}' and message: '{}' from "
-                        "pre-prepare: {}".format(bls_sig, sender, pk,
+                        "pre-prepare: {}".format(bls_sig, pre_prepare.frm_replica, pk,
                                                  message, pre_prepare))
         return result
 

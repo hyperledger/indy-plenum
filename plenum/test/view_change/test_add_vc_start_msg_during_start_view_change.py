@@ -29,12 +29,12 @@ def test_add_vc_start_msg_during_start_view_change(txnPoolNodeSet,
     """
     assert txnPoolNodeSet[0].viewNo == proposed_view_no
     looper.removeProdable(delayed_node)
-    delayed_node.nodeInBox.append((InstanceChange(1, 25), 'Alpha'))
-    delayed_node.nodeInBox.append((InstanceChange(1, 25), 'Beta'))
-    delayed_node.nodeInBox.append((InstanceChange(1, 25), 'Gamma'))
+    delayed_node.nodeInBox.append(InstanceChange(1, 25, frm='Alpha', ts_rsc=1))
+    delayed_node.nodeInBox.append(InstanceChange(1, 25, frm='Beta', ts_rsc=2))
+    delayed_node.nodeInBox.append(InstanceChange(1, 25, frm='Gamma', ts_rsc=3))
     delayed_node.processNodeInBox = functools.partial(Node.processNodeInBox, delayed_node)
     looper.run(delayed_node.processNodeInBox())
     looper.run(delayed_node.serviceViewChanger(None))
     assert len(delayed_node.nodeInBox) == 1
     m = delayed_node.nodeInBox.popleft()
-    assert isinstance(m[0], ViewChangeStartMessage)
+    assert isinstance(m.msg, ViewChangeStartMessage)

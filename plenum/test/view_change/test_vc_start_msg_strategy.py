@@ -93,9 +93,9 @@ def test_add_vc_start_msg(pre_vc_strategy):
     """Check, that ViewChangeStartMessage is added to nodeInBox queue"""
     assert len(pre_vc_strategy.node.nodeInBox) == 1
     m = pre_vc_strategy.node.nodeInBox.popleft()
-    assert len(m) == 2
-    assert m[1] == pre_vc_strategy.node.name
-    assert isinstance(m[0], ViewChangeStartMessage)
+    assert isinstance(m, MessageBase)
+    assert m.frm == pre_vc_strategy.node.name
+    assert isinstance(m.msg, ViewChangeStartMessage)
 
 
 def test_do_not_add_vcs_msg_if_is_preparing_true(pre_vc_strategy):
@@ -131,8 +131,8 @@ def test_add_vc_continued_msg_on_view_change_started(pre_vc_strategy, looper):
 def test_stash_not_3PC_msgs(pre_vc_strategy, looper):
     node = pre_vc_strategy.node
     pre_vc_strategy.view_changer.view_no = 1
-    m1 = (InstanceChange(3, 25), "Beta")
-    m2 = (InstanceChange(3, 25), "Gamma")
+    m1 = InstanceChange(3, 25, frm='Beta', ts_rcv=1)
+    m2 = InstanceChange(3, 25, frm='Gamma', ts_rcv=2)
     assert len(pre_vc_strategy.stashedNodeInBox) == 0
     node.nodeInBox.append(m1)
     node.nodeInBox.append(m2)
@@ -148,8 +148,8 @@ def test_stash_not_3PC_msgs(pre_vc_strategy, looper):
 def test_the_same_order_as_in_NodeInBox_after_vc_continued(pre_vc_strategy):
     replica = pre_vc_strategy.replica
     pre_vc_strategy.view_changer.view_no = 1
-    m1 = (InstanceChange(3, 25), "Beta")
-    m2 = (InstanceChange(3, 25), "Gamma")
+    m1 = InstanceChange(3, 25, frm='Beta', ts_rcv=1)
+    m2 = InstanceChange(3, 25, frm='Gamma', ts_rcv=2)
     pre_vc_strategy.stashedNodeInBox.append(m1)
     pre_vc_strategy.stashedNodeInBox.append(m2)
     assert len(pre_vc_strategy.node.nodeInBox) == 0
@@ -184,10 +184,10 @@ def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
         '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ')
     inst_change = InstanceChange(1, 25)
     m = node.nodeInBox.popleft()
-    assert isinstance(m[0], ViewChangeStartMessage)
+    assert isinstance(m.msg, ViewChangeStartMessage)
     node.nodestack.addRemote('someNode', genHa(), b'1DYuELN<SHbv1?NJ=][4De%^Hge887B0I!s<YGdD', 'pubkey')
-    node.nodestack.rxMsgs.append((json.dumps(prepare._asdict()), 'pubkey'))
-    node.nodestack.rxMsgs.append((json.dumps(inst_change._asdict()), 'pubkey'))
+    node.nodestack.rxMsgs.append((json.dumps(prepare._asdict()), 'pubkey', 1))
+    node.nodestack.rxMsgs.append((json.dumps(inst_change._asdict()), 'pubkey', 2))
     node.msgHasAcceptableViewNo = lambda *args, **kwargs: True
     """While processing ViewChangeStartMessage from nodeInBox queue, should be:
     - move msgs from rxMsgs queue to nodeInBox queue
@@ -196,8 +196,8 @@ def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
     - all not 3PC msgs will be stashed in strategy queue"""
     looper.run(node.process_one_node_message(m))
     m = node.master_replica.inBox.popleft()
-    assert isinstance(m[0], Prepare)
+    assert isinstance(m.msg, Prepare)
     m = node.master_replica.inBox.popleft()
     assert isinstance(m, ViewChangeContinueMessage)
     m = node.view_changer.pre_vc_strategy.stashedNodeInBox.popleft()
-    assert isinstance(m[0], InstanceChange)
+    assert isinstance(m.msg, InstanceChange)

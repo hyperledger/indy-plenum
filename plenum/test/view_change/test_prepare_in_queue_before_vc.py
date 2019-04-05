@@ -50,11 +50,9 @@ def not_processing_prepare(node):
         self.nodeIbStasher.process()
         for i in range(len(self.nodeInBox)):
             m = self.nodeInBox.popleft()
-            if isinstance(m, tuple) and len(
-                    m) == 2 and not hasattr(m, '_field_types') and \
-                    (isinstance(m[0], Prepare) or isinstance(m[0], Commit)):
-                stashed_msgs.append((json.dumps(m[0]._asdict()),
-                                     get_ident(self.nodestack, m[1])))
+            if (isinstance(m.msg, Prepare) or isinstance(m.msg, Commit)):
+                stashed_msgs.append((json.dumps(m.msg._asdict()),
+                                     get_ident(self.nodestack, m.frm, m.ts_rcv)))
                 continue
             await self.process_one_node_message(m)
 

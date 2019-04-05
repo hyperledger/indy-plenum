@@ -48,13 +48,13 @@ def testSendRequestWithoutSignatureFails(looper, txnPoolNodeSet,
     for n in txnPoolNodeSet:
         params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
         ex = params['ex']
-        msg, _ = params['wrappedMsg']
+        msg = params['msg']
         assert isinstance(ex, MissingSignature)
         assert msg.get(f.IDENTIFIER.nm) == obj_req.identifier
 
         params = n.spylog.getLastParams(Node.discard)
         reason = params["reason"]
-        (msg, frm) = params["msg"]
+        msg = params["msg"]
         assert msg == json_req
         assert msg.get(f.IDENTIFIER.nm) == obj_req.identifier
         assert "MissingSignature" in reason

@@ -38,12 +38,12 @@ def instance_change_provider(tconf, node_status_db, time_provider):
 def test_add_first_vote(instance_change_provider):
     frm = "Node1"
     view_no = 1
-    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
+    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm)
 
     assert not instance_change_provider.has_view(view_no)
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
 
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg)
 
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
@@ -54,18 +54,18 @@ def test_old_ic_discard(instance_change_provider, tconf, time_provider):
     frm = "Node1"
     view_no = 1
     quorum = 2
-    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
+    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm)
 
     time_provider.value = 0
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg)
     time_provider.value += tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1
     assert not instance_change_provider.has_view(view_no)
 
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg)
     time_provider.value += tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
 
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg)
     time_provider.value += tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1
     assert not instance_change_provider.has_quorum(view_no, quorum)
 
@@ -77,11 +77,12 @@ def test_equal_votes_dont_accumulate_when_added(instance_change_provider,
     quorum = 2
     time_provider.value = 0
     second_vote_time = 1
-    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
+    msg1 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm1)
+    msg2 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm2)
 
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg1)
     time_provider.value = second_vote_time
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg2)
 
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
@@ -98,11 +99,13 @@ def test_too_old_messages_dont_count_towards_quorum(instance_change_provider,
     view_no = 1
     quorum = 2
     time_provider.value = 0
-    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
+    # TODO INDY-1983 same payload
+    msg1 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm1)
+    msg2 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm2)
 
-    instance_change_provider.add_vote(msg, frm1)
+    instance_change_provider.add_vote(msg1)
     time_provider.value += (tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL / 2)
-    instance_change_provider.add_vote(msg, frm2)
+    instance_change_provider.add_vote(msg2)
     assert instance_change_provider.has_quorum(view_no, quorum)
 
     time_provider.value += (tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL / 2) + 1
@@ -121,21 +124,25 @@ def test_instance_changes_has_quorum_when_enough_distinct_votes_are_added(instan
 
     assert not instance_change_provider.has_quorum(view_no, quorum)
     for i in range(quorum):
-        instance_change_provider.add_vote(InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code),
-                                          "Node{}".format(i))
+        instance_change_provider.add_vote(
+            InstanceChange(
+                view_no, Suspicions.PRIMARY_DEGRADED.code,
+                frm="Node{}".format(i)
+            )
+        )
     assert instance_change_provider.has_quorum(view_no, quorum)
 
 
 def test_update_instance_changes_in_db(instance_change_provider, tconf, node_status_db, time_provider):
     frm = "Node1"
     view_no = 1
-    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code)
+    msg = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm)
 
     assert not instance_change_provider.has_view(view_no)
     assert not instance_change_provider.has_inst_chng_from(view_no, frm)
     assert not _is_view_in_db(view_no, instance_change_provider)
 
-    instance_change_provider.add_vote(msg, frm)
+    instance_change_provider.add_vote(msg)
     assert instance_change_provider.has_view(view_no)
     assert instance_change_provider.has_inst_chng_from(view_no, frm)
     assert _is_view_in_db(view_no, instance_change_provider)
@@ -209,9 +216,9 @@ def test_remove_view(instance_change_provider):
     view_no = 2
 
     instance_change_provider.add_vote(InstanceChange(view_no - 1,
-                                                     Suspicions.PRIMARY_DEGRADED.code), frm)
+                                                     Suspicions.PRIMARY_DEGRADED.code, frm=frm))
     instance_change_provider.add_vote(InstanceChange(view_no,
-                                                     Suspicions.PRIMARY_DEGRADED.code), frm)
+                                                     Suspicions.PRIMARY_DEGRADED.code, frm=frm))
 
     assert instance_change_provider.has_view(view_no - 1)
     assert instance_change_provider.has_view(view_no)

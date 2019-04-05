@@ -14,23 +14,27 @@ class Comparable(metaclass=ABCMeta):
     def cmp(cls, v1: 'Comparable', v2: 'Comparable') -> int:
         """ Compares two instances. """
 
+    # TODO INDY-1983 tests
+    def _is_subclass(self, other: 'Comparable'):
+        return issubclass(other.__class__, self.__class__):
+
     def __lt__(self, other: 'Comparable') -> bool:
-        return self.cmp(self, other) < 0
+        return self._is_subclass(other) && self.cmp(self, other) < 0
 
     def __gt__(self, other: 'Comparable') -> bool:
-        return self.cmp(self, other) > 0
+        return self._is_subclass(other) && self.cmp(self, other) > 0
 
     def __eq__(self, other: 'Comparable') -> bool:
-        return self.cmp(self, other) == 0
+        return self._is_subclass(other) && self.cmp(self, other) == 0
 
     def __le__(self, other: 'Comparable') -> bool:
-        return self.cmp(self, other) <= 0
+        return self._is_subclass(other) && self.cmp(self, other) <= 0
 
     def __ge__(self, other: 'Comparable') -> bool:
-        return self.cmp(self, other) >= 0
+        return self._is_subclass(other) && self.cmp(self, other) >= 0
 
     def __ne__(self, other: 'Comparable') -> bool:
-        return self.cmp(self, other) != 0
+        return self._is_subclass(other) && self.cmp(self, other) != 0
 
 
 class VersionBase(Comparable):

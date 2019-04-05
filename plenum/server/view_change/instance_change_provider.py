@@ -39,12 +39,12 @@ class InstanceChangeProvider:
         self._node_status_db = node_status_db
         self._fill_cache_by_db()
 
-    def add_vote(self, msg: InstanceChange, voter: str):
+    def add_vote(self, msg: InstanceChange):
         view_no = msg.viewNo
         vote = Vote(timestamp=self._time_provider(),
                     reason=msg.reason)
         # add to cache
-        self._cache.add(view_no, voter, vote)
+        self._cache.add(view_no, msg.frm, vote)
         # add to db
         self._update_db_from_cache(view_no)
 
