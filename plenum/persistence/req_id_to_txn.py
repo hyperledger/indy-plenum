@@ -13,15 +13,16 @@ class ReqIdrToTxn:
     def __init__(self, keyValueStorage: KeyValueStorage):
         self._keyValueStorage = keyValueStorage
 
-    def add(self, digest, ledger_id, seq_no):
-        self._keyValueStorage.put(digest, self._create_value(ledger_id, seq_no))
+    def add(self, payload_digest, ledger_id, seq_no, digest):
+        self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no, digest))
 
     def addBatch(self, batch):
-        self._keyValueStorage.setBatch([(digest, self._create_value(ledger_id,
-                                                                    seq_no))
-                                        for digest, ledger_id, seq_no in batch])
+        self._keyValueStorage.setBatch([(payload_digest, self._create_value(ledger_id,
+                                                                            seq_no,
+                                                                            digest))
+                                        for payload_digest, ledger_id, seq_no, digest in batch])
 
-    def get(self, digest):
+    def get(self, payload_digest):
         """
         Return leger_id, seq_no of transaction that was a result
         of last request with this digest
@@ -29,17 +30,17 @@ class ReqIdrToTxn:
         :return: leger_id, seq_no
         """
         try:
-            val = self._keyValueStorage.get(digest)
+            val = self._keyValueStorage.get(payload_digest)
             return self._parse_value(val.decode())
         except (KeyError, ValueError):
-            return None, None
+            return None, None, None
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
-        return int(parse_data[0]), int(parse_data[1])
+        return int(parse_data[0]), int(parse_data[1]), str(parse_data[2])
 
-    def _create_value(self, ledger_id, seq_no):
-        return str(ledger_id) + self.delimiter + str(seq_no)
+    def _create_value(self, ledger_id, seq_no, payload_digest):
+        return str(ledger_id) + self.delimiter + str(seq_no) + self.delimiter + str(payload_digest)
 
     @property
     def size(self):

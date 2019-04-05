@@ -652,10 +652,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.isMaster:
             return
         reqs_for_remove = []
-        for key in self.requests:
-            ledger_id, seq_no = self.node.seqNoDB.get(key)
+        for req in self.requests.values():
+            ledger_id, seq_no, digest = self.node.seqNoDB.get(req.payload_digest)
             if seq_no is not None:
-                reqs_for_remove.append((key, ledger_id, seq_no))
+                if digest != req.digest:
+                    raise LogicError('Digests must be equeal')
+                reqs_for_remove.append((req.digest, ledger_id, seq_no))
         for key, ledger_id, seq_no in reqs_for_remove:
             self.requests.ordered_by_replica(key)
             self.requests.free(key)
@@ -1203,7 +1205,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                                       len(non_fin), non_fin_str))
             bad_reqs = absents | non_fin
             for req in bad_reqs:
-                if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
+                if req not in self.requests and self.node.seqNoDB.get(req) != (None, None, None):
                     self.logger.info("Request digest {} already ordered. Discard {} "
                                      "from {}".format(req, pre_prepare, sender))
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)

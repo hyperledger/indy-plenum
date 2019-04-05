@@ -79,7 +79,7 @@ from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
-    get_txn_time, get_digest, TxnUtilConfig
+    get_txn_time, get_digest, TxnUtilConfig, get_payload_digest
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -2399,6 +2399,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         operation = request.operation
         req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
         req_handler.validate(request)
+
+        # Digest validation
+        ledger = self.getLedger(self.ledger_id_for_request(request))
+        for txn in ledger.uncommittedTxns:
+            if get_payload_digest(txn) == request.payload_digest:
+                raise InvalidClientMessageException(request.identifier, request.reqId,
+                                                    'Trying write request with different signatures')
+        ledger_id, seq_no, digest = self.seqNoDB.get(request.payload_digest)
+        if ledger_id is not None and seq_no is not None and digest is not None:
+            raise InvalidClientMessageException(request.identifier, request.reqId,
+                                                'Trying write request with same payload_digest')
+
         self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
     def applyReq(self, request: Request, cons_time: int):
@@ -2424,7 +2436,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 logger.warning("Could not apply stashed requests due to non-existent requests")
                 return
-            _, seq_no = self.seqNoDB.get(req.digest)
+            _, seq_no, _ = self.seqNoDB.get(req.payload_digest)
             if seq_no is None:
                 requests.append(req)
         three_pc_batch = ThreePcBatch.from_ordered(ordered)
@@ -2487,7 +2499,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif self.can_write_txn(txn_type):
             reply = self.getReplyFromLedgerForRequest(request)
             if reply:
-                logger.debug("{} returning REPLY from already processed "
+                logger.debug("{} returning reply from already processed "
                              "REQUEST: {}".format(self, request))
                 self.transmitToClient(reply, frm)
                 return
@@ -2567,7 +2579,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         clientName = msg.senderClient
 
         if not self.isProcessingReq(request.key):
-            ledger_id, seq_no = self.seqNoDB.get(request.key)
+            ledger_id, seq_no, _ = self.seqNoDB.get(request.payload_digest)
             if ledger_id is not None and seq_no is not None:
                 self._clean_req_from_verified(request)
                 logger.debug("{} ignoring propagated request {} "
@@ -3302,7 +3314,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
-            self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
+            self.seqNoDB.addBatch((get_payload_digest(txn), ledger_id, get_seq_no(txn), get_digest(txn))
                                   for txn in committedTxns)
 
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
@@ -3611,10 +3623,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send(msg, *rids, message_splitter=message_splitter)
 
     def getReplyFromLedgerForRequest(self, request):
-        ledger_id, seq_no = self.seqNoDB.get(request.digest)
-        if ledger_id is not None and seq_no is not None:
-            ledger = self.getLedger(ledger_id)
-            return self.getReplyFromLedger(ledger, seq_no)
+        ledger_id, seq_no, digest = self.seqNoDB.get(request.payload_digest)
+        if ledger_id is not None and seq_no is not None and digest is not None:
+            if request.digest == digest:
+                ledger = self.getLedger(ledger_id)
+                return self.getReplyFromLedger(ledger, seq_no)
+            else:
+                return RequestNack(request.identifier, request.reqId,
+                                   'Same txn was already ordered with different signatures')
         else:
             return None
 
