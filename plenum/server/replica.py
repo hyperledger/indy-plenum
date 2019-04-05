@@ -653,11 +653,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         reqs_for_remove = []
         for req in self.requests.values():
-            ledger_id, seq_no, digest = self.node.seqNoDB.get(req.payload_digest)
+            ledger_id, seq_no, digest = self.node.seqNoDB.get(req.request.payload_digest)
             if seq_no is not None:
-                if digest != req.digest:
-                    raise LogicError('Digests must be equeal')
-                reqs_for_remove.append((req.digest, ledger_id, seq_no))
+                if digest != req.request.digest:
+                    raise LogicError('Digests must be equal')
+                reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
         for key, ledger_id, seq_no in reqs_for_remove:
             self.requests.ordered_by_replica(key)
             self.requests.free(key)

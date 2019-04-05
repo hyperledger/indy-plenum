@@ -10,20 +10,20 @@ from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sd
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
-from plenum.common.util import randomString
+from plenum.common.util import randomString, hexToFriendly
+from plenum.test.pool_transactions.helper import prepare_node_request
 from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope='function')
-def op(looper, sdk_wallet_stewards):
+def op(looper, sdk_wallet_stewards, txnPoolNodeSet):
     wh, did = sdk_wallet_stewards[0]
     seed = randomString(32)
     new_steward_did, new_steward_verkey = looper.loop.run_until_complete(
         create_and_store_my_did(wh, json.dumps({'seed': seed})))
-    op = {'type': '1',
-          'dest': new_steward_did,
-          'verkey': new_steward_verkey,
-          'role': None}
+    op = {'type': '0',
+          'dest': hexToFriendly(txnPoolNodeSet[0].nodestack.verhex)
+          }
     return op
 
 
@@ -34,23 +34,18 @@ def test_send_same_txn_with_different_signatures_in_separate_batches(
 
     wh, did = sdk_wallet_stewards[0]
 
-    req = json.dumps(sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
-                                     identifier=did).as_dict)
-    req1 = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
-    req_obj1 = Request(**json.loads(req1))
+    node_request = looper.loop.run_until_complete(
+        prepare_node_request(did,
+                             new_node_name=txnPoolNodeSet[0].name,
+                             destination=hexToFriendly(txnPoolNodeSet[0].nodestack.verhex),
+                             services=[]))
 
-    req2 = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req1)
-    req_obj2 = Request(**json.loads(req2))
 
-    assert req_obj1.payload_digest == req_obj2.payload_digest
-    assert req_obj1.digest != req_obj2.digest
 
-    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1])
-    sdk_get_and_check_replies(looper, rep1)
-
+    req2 = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], node_request)
     rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2])
-    with pytest.raises(RequestNackedException):
-        sdk_get_and_check_replies(looper, rep2)
+    sdk_get_and_check_replies(looper, rep2)
+    a = 10
 
 
 def test_send_same_txn_with_different_signatures_in_one_batch(
