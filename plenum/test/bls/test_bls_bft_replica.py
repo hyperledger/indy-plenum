@@ -18,8 +18,6 @@ from plenum.test.helper import create_pre_prepare_params, create_pre_prepare_no_
 
 whitelist = ['Indy Crypto error']
 
-# TODO INDY-1983
-
 @pytest.fixture()
 def bls_bft_replicas(txnPoolNodeSet):
     bls_bft_replicas = []

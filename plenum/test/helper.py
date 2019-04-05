@@ -1237,7 +1237,7 @@ def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
             '1' * 32]
 
 
-def create_prepare_from_pre_prepare(pre_prepare):
+def create_prepare_from_pre_prepare(pre_prepare, **kwargs):
     params = [pre_prepare.instId,
               pre_prepare.viewNo,
               pre_prepare.ppSeqNo,
@@ -1246,7 +1246,7 @@ def create_prepare_from_pre_prepare(pre_prepare):
               pre_prepare.stateRootHash,
               pre_prepare.txnRootHash,
               pre_prepare.auditTxnRootHash]
-    return Prepare(*params)
+    return Prepare(*params, **kwargs)
 
 
 def create_prepare(req_key, state_root, inst_id=0, **kwargs):

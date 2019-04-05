@@ -86,6 +86,10 @@ class NetworkMessage:
     def frm(self):
         return self._frm
 
+    @frm.setter
+    def frm(self, frm):
+        self._frm = frm.split(':')[0]
+
     @property
     def ts_rcv(self):
         return self._ts_rcv

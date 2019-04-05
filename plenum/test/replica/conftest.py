@@ -167,10 +167,13 @@ def pre_prepare(replica, state_roots, txn_roots, multi_sig, fake_requests):
                                        pool_state_root=state_roots[POOL_LEDGER_ID],
                                        audit_txn_root=txn_roots[AUDIT_LEDGER_ID],
                                        reqs=fake_requests)
-    pp = PrePrepare(*params)
+    marker = request.node.get_marker('pre_prepare_frm')
+    pp = PrePrepare(*params, frm=marker.args[0].split(':')[0] if marker else None)
     return pp
 
 
 @pytest.fixture(scope="function")
 def prepare(pre_prepare):
-    return create_prepare_from_pre_prepare(pre_prepare)
+    marker = request.node.get_marker('prepare_frm')
+    return create_prepare_from_pre_prepare(
+        pre_prepare, frm=marker.args[0].split(':')[0] if marker else None)

@@ -108,7 +108,7 @@ class LedgerManager:
             return
         # TODO: ^^^
 
-        if self.nodestack.hasRemote(msg.frm):
+        if self.nodestack.hasRemote(status.frm):
             self._node_seeder_inbox.put_nowait(status)
             self._node_leecher_inbox.put_nowait(status)
         else:

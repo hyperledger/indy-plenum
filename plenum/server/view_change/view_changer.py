@@ -495,7 +495,7 @@ class ViewChanger():
                         .format(MONITORING_PREFIX, self,
                                 self.provider.pretty_metrics()))
             msg = self._create_instance_change_msg(
-                    view_no, suspicion.code, frm=self.name)
+                view_no, suspicion.code, frm=self.name)
             self.send(msg)
             # record instance change vote for self and try to change the view
             # if quorum is reached

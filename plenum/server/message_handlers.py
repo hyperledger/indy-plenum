@@ -1,7 +1,10 @@
 from typing import Dict, Any, Optional
 from abc import ABCMeta, abstractmethod
 
-from plenum.common.exceptions import MismatchedMessageReplyException
+from plenum.common.exceptions import (
+    MismatchedMessageReplyException, MissingNodeOp, InvalidNodeOp
+)
+from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
 from plenum.common.messages.node_message_factory import node_message_factory
@@ -68,7 +71,7 @@ class BaseHandler(metaclass=ABCMeta):
         try:
             # TODO msg.ts_rcv doesn't make sense here for inner message (msg.msg)
             # thus it will impact logic of PrePrepare obsolescence
-            inner_msg = node_message_factory.get_instance(**msg.msg, msg.frm=frm, ts_rcv=None)
+            inner_msg = node_message_factory.get_instance(**msg.msg, frm=msg.frm, ts_rcv=None)
         except (MissingNodeOp, InvalidNodeOp, TypeError) as ex:
             self.node.discard(msg, 'replied message has invalid structure',
                               logMethod=logger.warning)
@@ -191,7 +194,7 @@ class CommitHandler(BaseHandler):
         )
 
     def _processor(self, inner_msg: Commit) -> None:
-        self.node.replicas[instId].process_requested_commit(
+        self.node.replicas[inner_msg.instId].process_requested_commit(
             inner_msg
         )
 

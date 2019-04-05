@@ -1050,11 +1050,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if result == DISCARD:
             self.discard(
                 msg,
-                (
-                 "{} discard message {} from {} "
+                ("{} discard message {} from {} "
                  "with the reason: {}"
-                 .format(self, msg, msg.frm_replica, reason)
-                ),
+                 .format(self, msg, msg.frm_replica, reason)),
                 self.logger.trace)
         elif result == PROCESS:
             self.threePhaseRouter.handleSync(msg)

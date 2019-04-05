@@ -31,8 +31,7 @@ class ReplicaMessage(MessageBase):
 
     @property
     def frm_replica(self):
-        return "{}:{}".format(self.frm, self._fields[f.INST_ID.nm]))
-
+        return "{}:{}".format(self.frm, self._fields[f.INST_ID.nm])
 
 
 class Nomination(ReplicaMessage):

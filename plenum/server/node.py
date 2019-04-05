@@ -5,7 +5,7 @@ from binascii import unhexlify
 from collections import deque
 from contextlib import closing
 from functools import partial
-from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
+from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable, Union
 
 import gc
 import psutil
@@ -19,6 +19,7 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time
 from plenum.common.timer import QueueTimer
 from plenum.common.transactions import PlenumTransactions
+from plenum.common.messages.message_base import MessageBase
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -2662,7 +2663,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             result[DATA] = txn.result
             result[f.SEQ_NO.nm] = get_seq_no(txn.result)
 
-        self.transmitToClient(Reply(result), frm)
+        self.transmitToClient(Reply(result), request.frm)
 
     @measure_time(MetricsName.PROCESS_ORDERED_TIME)
     def processOrdered(self, ordered: Ordered):

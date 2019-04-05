@@ -36,7 +36,8 @@ def mock_schema_audit_txn_root():
 
 def test_process_pre_prepare_validation(replica_with_requests,
                                         pre_prepare):
-    replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
+    pre_prepare.frm = replica_with_requests.primaryName
+    replica_with_requests.processPrePrepare(pre_prepare)
 
 
 def test_process_pre_prepare_validation_old_schema_no_pool(replica_with_requests,
@@ -46,8 +47,8 @@ def test_process_pre_prepare_validation_old_schema_no_pool(replica_with_requests
     deserialized_pp = ZStack.deserializeMsg(serialized_pp)
     assert f.POOL_STATE_ROOT_HASH.nm not in PrePrepare.schema
 
-    pp = PrePrepare(**deserialized_pp)
-    replica_with_requests.processPrePrepare(pp, replica_with_requests.primaryName)
+    pp = PrePrepare(**deserialized_pp, frm=replica_with_requests.primaryName)
+    replica_with_requests.processPrePrepare(pp)
 
 
 def test_process_pre_prepare_validation_old_schema_no_audit(replica_with_requests,
@@ -57,8 +58,8 @@ def test_process_pre_prepare_validation_old_schema_no_audit(replica_with_request
     deserialized_pp = ZStack.deserializeMsg(serialized_pp)
     assert f.AUDIT_TXN_ROOT_HASH.nm not in PrePrepare.schema
 
-    pp = PrePrepare(**deserialized_pp)
-    replica_with_requests.processPrePrepare(pp, replica_with_requests.primaryName)
+    pp = PrePrepare(**deserialized_pp, frm=replica_with_requests.primaryName)
+    replica_with_requests.processPrePrepare(pp)
 
 
 def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_requests,
@@ -75,10 +76,10 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_request
                                                    pool_state_root="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4",
                                                    audit_txn_root=txn_roots[AUDIT_LEDGER_ID],
                                                    reqs=fake_requests)
-    pre_prepare = PrePrepare(*pre_prepare_params)
+    pre_prepare = PrePrepare(*pre_prepare_params, frm=replica_with_requests.primaryName)
 
     with pytest.raises(SuspiciousNode):
-        replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
+        replica_with_requests.processPrePrepare(pre_prepare)
 
 
 def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests,
@@ -95,10 +96,10 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests
                                                    # INVALID!
                                                    audit_txn_root="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4",
                                                    reqs=fake_requests)
-    pre_prepare = PrePrepare(*pre_prepare_params)
+    pre_prepare = PrePrepare(*pre_prepare_params, frm=replica_with_requests.primaryName)
 
     with pytest.raises(SuspiciousNode):
-        replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
+        replica_with_requests.processPrePrepare(pre_prepare)
 
 
 def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
@@ -110,7 +111,8 @@ def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
 
     replica.node.request_propagates = request_propagates
 
-    replica.processPrePrepare(pre_prepare, replica.primaryName)
+    pre_prepare.frm = replica.primaryName
+    replica.processPrePrepare(pre_prepare)
     assert (pre_prepare, replica.primaryName, set(pre_prepare.reqIdr)) in replica.prePreparesPendingFinReqs
 
 
@@ -126,7 +128,8 @@ def test_process_pre_prepare_with_ordered_request(replica, pre_prepare):
     replica.node.request_propagates = request_propagates
 
     with pytest.raises(SuspiciousNode):
-        replica.processPrePrepare(pre_prepare, replica.primaryName)
+        pre_prepare.frm = replica.primaryName
+        replica.processPrePrepare(pre_prepare)
     assert (pre_prepare, replica.primaryName, set(pre_prepare.reqIdr)) not in replica.prePreparesPendingFinReqs
 
 
