@@ -649,7 +649,6 @@ class ViewChanger():
             self.provider.start_catchup()
             return
 
-        self.provider.ensure_primaries_dropped()
         self.provider.select_primaries()
 
         if self.view_change_in_progress:

@@ -2177,7 +2177,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if len(self.auditLedger.uncommittedTxns) > 0:
             raise LogicError('{} audit ledger has uncommitted txns after catching up ledger {}'.format(self, ledger_id))
 
-    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
+    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any, updateSeqNo=True):
         rh = self.postRecvTxnFromCatchup(ledger_id, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
@@ -2189,7 +2189,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
-        self.updateSeqNoMap([txn], ledger_id)
+        if updateSeqNo:
+            self.updateSeqNoMap([txn], ledger_id)
         self._clear_request_for_txn(ledger_id, txn)
 
     def _clear_request_for_txn(self, ledger_id, txn):
@@ -3116,10 +3117,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # If you want to refactor primaries selection,
         # please take a look at https://jira.hyperledger.org/browse/INDY-1946
 
+        self.backup_instance_faulty_processor.restore_replicas()
         self.ensure_primaries_dropped()
+
         self.primaries = self.elector.process_selection(
             self.requiredNumberOfInstances,
             self.nodeReg, self.poolManager._ordered_node_ids)
+
+        pc = len(self.primaries)
+        rc = len(self.replicas)
+        if pc != rc:
+            raise LogicError('Inconsistent number or primaries ({}) and replicas ({})'
+                             .format(pc, rc))
 
         for i, primary_name in enumerate(self.primaries):
             if i == 0:
