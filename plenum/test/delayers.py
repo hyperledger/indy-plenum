@@ -193,7 +193,9 @@ def msg_rep_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):
 
 
 def delay_for_view(viewNo: int, delay: float = DEFAULT_DELAY):
-    return delayerMsgTuple(delay, MessageBase, viewFilter=viewNo)
+    d = delayerMsgTuple(delay, MessageBase, viewFilter=viewNo)
+    d.__name__ = "view_no" + str(viewNo)
+    return d
 
 
 def delay(what, frm, to, howlong):
