@@ -4,6 +4,10 @@ from abc import ABCMeta, abstractmethod
 from plenum.common.exceptions import (
     MismatchedMessageReplyException, MissingNodeOp, InvalidNodeOp
 )
+from plenum.common.constants import (
+    OP_FIELD_NAME, PROPAGATE, COMMIT, PREPREPARE, PREPARE,
+    LEDGER_STATUS, CONSISTENCY_PROOF
+)
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
@@ -22,6 +26,7 @@ class BaseHandler(metaclass=ABCMeta):
     # TODO use just list of names from "plenum.common.types.f"
     # instead of Map that is expected here now
     fields = NotImplemented
+    typename = NotImplemented
 
     def __init__(self, node):
         self.node = node
@@ -71,22 +76,25 @@ class BaseHandler(metaclass=ABCMeta):
         try:
             # TODO msg.ts_rcv doesn't make sense here for inner message (msg.msg)
             # thus it will impact logic of PrePrepare obsolescence
-            inner_msg = node_message_factory.get_instance(**msg.msg, frm=msg.frm, ts_rcv=None)
+            kwargs = msg.msg
+            kwargs[OP_FIELD_NAME] = self.typename
+            inner_msg = node_message_factory.get_instance(**kwargs, frm=msg.frm, ts_rcv=None)
         except (MissingNodeOp, InvalidNodeOp, TypeError) as ex:
             self.node.discard(msg, 'replied message has invalid structure',
                               logMethod=logger.warning)
-
-        try:
-            # check that inner message has the same values as in requested params
-            self._check(inner_msg, params)
-        except MismatchedMessageReplyException:
-            self.node.discard(msg, 'replied message does not satisfy query criteria',
-                              logMethod=logger.warning)
         else:
-            self._processor(inner_msg)
+            try:
+                # check that inner message has the same values as in requested params
+                self._check(inner_msg, params)
+            except MismatchedMessageReplyException:
+                self.node.discard(msg, 'replied message does not satisfy query criteria',
+                                  logMethod=logger.warning)
+            else:
+                self._processor(inner_msg)
 
 
 class LedgerStatusHandler(BaseHandler):
+    typename = LEDGER_STATUS
     fields = {
         'ledger_id': f.LEDGER_ID.nm
     }
@@ -102,6 +110,7 @@ class LedgerStatusHandler(BaseHandler):
 
 
 class ConsistencyProofHandler(BaseHandler):
+    typename = CONSISTENCY_PROOF
     fields = {
         'ledger_id': f.LEDGER_ID.nm,
         'seq_no_start': f.SEQ_NO_START.nm,
@@ -127,6 +136,7 @@ class ConsistencyProofHandler(BaseHandler):
 
 
 class PreprepareHandler(BaseHandler):
+    typename = PREPREPARE
     fields = {
         'inst_id': f.INST_ID.nm,
         'view_no': f.VIEW_NO.nm,
@@ -152,6 +162,7 @@ class PreprepareHandler(BaseHandler):
 
 
 class PrepareHandler(BaseHandler):
+    typename = PREPARE
     fields = {
         'inst_id': f.INST_ID.nm,
         'view_no': f.VIEW_NO.nm,
@@ -176,6 +187,7 @@ class PrepareHandler(BaseHandler):
 
 
 class CommitHandler(BaseHandler):
+    typename = COMMIT
     fields = {
         'inst_id': f.INST_ID.nm,
         'view_no': f.VIEW_NO.nm,
@@ -200,6 +212,7 @@ class CommitHandler(BaseHandler):
 
 
 class PropagateHandler(BaseHandler):
+    typename = PROPAGATE
     fields = {
         'digest': f.DIGEST.nm
     }

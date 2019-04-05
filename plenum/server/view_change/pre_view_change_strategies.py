@@ -76,9 +76,9 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
         types_3PC = (PrePrepare, Prepare, Commit, Ordered)
         while node.nodeInBox:
             m = node.nodeInBox.popleft()
-            if isinstance(m.msg, types_3PC) and \
+            if isinstance(m, types_3PC) and \
                 m.msg.viewNo == current_view_no and \
-                    m.msg.instId == node.instances.masterId:
+                    m.instId == node.instances.masterId:
                 await node.process_one_node_message(m)
             else:
                 stashed_not_3PC.append(m)

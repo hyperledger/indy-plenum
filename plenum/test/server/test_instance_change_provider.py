@@ -77,8 +77,8 @@ def test_equal_votes_dont_accumulate_when_added(instance_change_provider,
     quorum = 2
     time_provider.value = 0
     second_vote_time = 1
-    msg1 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm1)
-    msg2 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm2)
+    msg1 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm)
+    msg2 = InstanceChange(view_no, Suspicions.PRIMARY_DEGRADED.code, frm=frm)
 
     instance_change_provider.add_vote(msg1)
     time_provider.value = second_vote_time

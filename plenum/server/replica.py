@@ -1345,7 +1345,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
-        prepare = Prepare(*params, frm=self.name)
+        prepare = Prepare(*params, frm=self.node.name)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
             prepare = rv if rv is not None else prepare
@@ -1374,7 +1374,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pre_prepare = self.getPrePrepare(*key_3pc)
             params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
-        commit = Commit(*params, frm=self.name)
+        commit = Commit(*params, frm=self.node.name)
         if self.isMaster:
             rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
             commit = rv if rv is not None else commit

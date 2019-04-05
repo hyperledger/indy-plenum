@@ -71,9 +71,9 @@ class ConsProofService:
             return
 
         if self._is_ledger_old(ledger_status):
-            self._process_newer_ledger_status(ledger_status, ledger_status.frm)
+            self._process_newer_ledger_status(ledger_status)
         else:
-            self._process_same_ledger_status(ledger_status, ledger_status.frm)
+            self._process_same_ledger_status(ledger_status)
 
     @measure_time(MetricsName.PROCESS_CONSISTENCY_PROOF_TIME)
     def process_consistency_proof(self, proof: ConsistencyProof):

@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
 from plenum.common.messages.fields import NonNegativeNumberField, AnyValueField, HexField, BooleanField, Base58Field
-from plenum.common.messages.message_base import MessageBase
+from plenum.common.messages.message_base import MessageBase, NetworkMessage
 from plenum.common.messages.node_message_factory import MessageFactory, NodeMessageFactory
 from plenum.test.input_validation.stub_messages import Message1, Message2, Message3, Message4
 
@@ -43,21 +43,27 @@ def test_message_factory_stub_module_is_loaded(factory):
 
 
 def test_message_factory_set_non_message_class_fails(factory):
-    class NonMessageClass:
+    class NonMessageClassMsgData:
         pass
 
+    class NonMessageClass(NetworkMessage):
+        msg_data_cls = NonMessageClassMsgData
+
     with pytest.raises(ValueError):
-        factory.set_message_class(NonMessageClass)
+        factory.set_message_class(NonMessageClassMsgData, NonMessageClass)
 
 
 def test_message_factory_set_message_class_can_add_message_class(factory):
-    class ANewMessageClass(MessageBase):
+    class ANewMessageClassMsgData(MessageBase):
         typename = 'NewMessage'
         schema = (
             ('a', NonNegativeNumberField()),
         )
 
-    factory.set_message_class(ANewMessageClass)
+    class ANewMessageClass(NetworkMessage):
+        msg_data_cls = ANewMessageClassMsgData
+
+    factory.set_message_class(ANewMessageClassMsgData, ANewMessageClass)
     msg = {'op': 'NewMessage', 'a': 0}
     assert isinstance(factory.get_instance(**msg), ANewMessageClass)
 

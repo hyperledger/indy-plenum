@@ -109,7 +109,7 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
 
 
 def getRepliesFromClientInbox(inbox, reqId) -> list:
-    return list({_: msg for msg, _ in inbox if
+    return list({_: msg for msg in inbox if
                  msg[OP_FIELD_NAME] == REPLY and msg[f.RESULT.nm]
                  [f.REQ_ID.nm] == reqId}.values())
 
@@ -1207,17 +1207,17 @@ def create_commit_params(view_no, pp_seq_no, inst_id=0):
     return [inst_id, view_no, pp_seq_no]
 
 
-def create_commit_no_bls_sig(req_key, inst_id=0):
+def create_commit_no_bls_sig(req_key, inst_id=0, **kwargs):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no, inst_id=inst_id)
-    return Commit(*params)
+    return Commit(*params, **kwargs)
 
 
-def create_commit_with_bls_sig(req_key, bls_sig):
+def create_commit_with_bls_sig(req_key, bls_sig, **kwargs):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
     params.append(bls_sig)
-    return Commit(*params)
+    return Commit(*params, **kwargs)
 
 
 def create_commit_bls_sig(bls_bft, req_key, pre_prepare, **kwargs):

@@ -2,6 +2,7 @@ from typing import Dict, List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
     PROPAGATE, PREPARE, COMMIT
+from plenum.common.messages.message_base import NetworkMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep
 from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
 from plenum.common.types import f
@@ -35,6 +36,9 @@ class MessageReqProcessor:
         handler = self.handlers[msg_type]
         resp = handler.serve(msg)
 
+        if not isinstance(resp, NetworkMessage):
+            raise TypeError("'resp' should be instance of 'NetworkMessage'")
+
         if not resp:
             return
 
@@ -42,7 +46,7 @@ class MessageReqProcessor:
             self.sendToNodes(MessageRep(**{
                 f.MSG_TYPE.nm: msg_type,
                 f.PARAMS.nm: msg.params,
-                f.MSG.nm: resp
+                f.MSG.nm: resp.msg_data
             }), names=[msg.frm, ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)

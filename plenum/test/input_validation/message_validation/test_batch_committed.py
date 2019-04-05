@@ -5,7 +5,7 @@ import pytest
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.messages.fields import IterableField, \
     LedgerIdField, NonNegativeNumberField, MerkleRootField, TimestampField
-from plenum.common.messages.node_messages import BatchCommitted
+from plenum.common.messages.node_messages import BatchCommittedMsgData
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import sdk_random_request_objects, generate_state_root
 
@@ -66,16 +66,16 @@ def create_invalid_batch_committed_as_dict():
 
 
 def test_hash_expected_type():
-    assert BatchCommitted.typename == "BATCH_COMMITTED"
+    assert BatchCommittedMsgData.typename == "BATCH_COMMITTED"
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(BatchCommitted.schema).keys()
+    actual_field_names = OrderedDict(BatchCommittedMsgData.schema).keys()
     assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():
-    schema = dict(BatchCommitted.schema)
+    schema = dict(BatchCommittedMsgData.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)
 

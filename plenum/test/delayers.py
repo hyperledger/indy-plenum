@@ -15,9 +15,9 @@ DEFAULT_DELAY = 600
 
 def delayer(seconds, op, senderFilter=None, instFilter: int = None):
     def inner(rx):
-        msg, frm = rx
+        msg = rx
         if msg[OP_FIELD_NAME] == op and \
-                (not senderFilter or frm == senderFilter) and \
+                (not senderFilter or msg.frm == senderFilter) and \
                 (instFilter is None or (f.INST_ID.nm in msg and msg[
                     f.INST_ID.nm] == instFilter)):
             return seconds
@@ -25,6 +25,7 @@ def delayer(seconds, op, senderFilter=None, instFilter: int = None):
     return inner
 
 
+# TODO INDY-1983 rename since it doesn't wraps any tuples now
 def delayerMsgTuple(seconds, opType, senderFilter=None,
                     instFilter: int = None,
                     ledgerFilter: int = None):
@@ -39,9 +40,17 @@ def delayerMsgTuple(seconds, opType, senderFilter=None,
     """
 
     def inner(wrappedMsg):
-        msg, frm = wrappedMsg
+        msg = wrappedMsg
+
+        #from stp_core.common.log import getlogger
+        #logger = getlogger()
+        #logger.debug(
+        #        "HERE {} {} {} ({} {} {})"
+        #        .format(msg.typename, msg.frm, msg._fields.get(f.INST_ID.nm, None),
+        #        opType, senderFilter, instFilter)
+        #)
         if isinstance(msg, opType) and \
-                (not senderFilter or frm == senderFilter) and \
+                (not senderFilter or msg.frm == senderFilter) and \
                 (instFilter is None or
                  (f.INST_ID.nm in msg._fields and
                   getattr(msg, f.INST_ID.nm) == instFilter)) and \

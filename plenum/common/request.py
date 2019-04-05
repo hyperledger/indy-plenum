@@ -12,7 +12,7 @@ from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 
 
 # TODO inherit MessageBase instead
-class Request(NetworkMessage):
+class RequestMsgData:
     idr_delimiter = ','
 
     def __init__(self,
@@ -24,9 +24,6 @@ class Request(NetworkMessage):
                  protocolVersion: int = None,
                  # Intentionally omitting *args
                  **kwargs):
-
-        NetworkMessage.__init__(
-            self, kwargs.pop('frm', None), kwargs.pop('ts_rcv', None))
 
         self._identifier = identifier
         self.signature = signature
@@ -129,7 +126,7 @@ class Request(NetworkMessage):
 
     @staticmethod
     def gen_idr_from_sigs(signatures: Dict):
-        return Request.idr_delimiter.join(sorted(signatures.keys()))
+        return RequestMsgData.idr_delimiter.join(sorted(signatures.keys()))
 
     def add_signature(self, identifier, signature):
         if not isinstance(self.signatures, Dict):
@@ -140,14 +137,35 @@ class Request(NetworkMessage):
         return hash(self.serialized())
 
 
+class Request(NetworkMessage):
+    msg_data_cls = RequestMsgData
+
+    @classmethod
+    def fromState(cls, state):
+        msg_data = RequestMsgData.fromState(state)
+        return cls(msg_data=msg_data)
+
+    @staticmethod
+    def gen_req_id(*args, **kwargs):
+        return RequestMsgData.gen_req_id(*args, **kwargs)
+
+    @staticmethod
+    def gen_idr_from_sigs(*args, **kwargs):
+        return RequestMsgData.gen_idr_from_sigs(*args, **kwargs)
+
+
 class ReqKey(NamedTuple(REQKEY, [f.DIGEST])):
     pass
 
 
 # TODO INDY-1983 tests !!!
-class SafeRequest(Request, ClientMessageValidator):
+class SafeRequestMsgData(Request, ClientMessageValidator):
     def __init__(self, **kwargs):
         ClientMessageValidator.__init__(self,
                                         operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT)
         self.validate(kwargs)
         Request.__init__(self, **kwargs)
+
+
+class SafeRequest(Request):
+    msg_data_cls = SafeRequestMsgData

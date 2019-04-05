@@ -19,7 +19,7 @@ from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetrics
     async_measure_time, measure_time
 from plenum.common.timer import QueueTimer
 from plenum.common.transactions import PlenumTransactions
-from plenum.common.messages.message_base import MessageBase
+from plenum.common.messages.message_base import MessageBase, NetworkMessage
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -1953,12 +1953,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     async def process_one_node_message(self, m: MessageBase):
         try:
             await self.nodeMsgRouter.handle(m)
+
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
             # TODO INDY-1983 ??? pass the whole object
             self.discard(m, ex, logger.debug)
 
-    def handleOneCLientMsg(self, wrappedMsg: Tuple):
+    def handleOneClientMsg(self, wrappedMsg: Tuple):
         """
         Validate and process a client message
 
@@ -1967,7 +1968,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         try:
             vmsg = self.validateClientMsg(wrappedMsg)
-            if vmsg:
+            if vmsg is not None:
                 self.unpackClientMsg(vmsg)
         except BlowUp:
             raise
@@ -1980,9 +1981,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleZStackClientMsg(self, zsmsg: ZStackMessage):
-        self.handleOneCLientMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
+        self.handleOneClientMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
 
-    def handleInvalidClientMsg(self, ex, msg: Union[Request, MessageBase]):
+    def handleInvalidClientMsg(self, ex, wrappedMsg: Tuple):
+        msg, frm, _ = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
         reason = self.reasonForClientFromException(ex)
@@ -1995,18 +1997,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
-        self.send_nack_to_client((identifier, reqId), reason, msg.frm)
+        self.send_nack_to_client((identifier, reqId), reason, frm)
         self.discard(msg, friendly, logger.info, cliOutput=True)
-        self._specific_invalid_client_msg_handling(ex, msg)
+        self._specific_invalid_client_msg_handling(ex, msg, frm)
 
-    def _specific_invalid_client_msg_handling(self, ex, msg: Union[Request, MessageBase]):
+    def _specific_invalid_client_msg_handling(self, ex, msg, frm):
         if (msg.get('op') == LEDGER_STATUS):
-            self._invalid_client_ledger_status_handling(ex, msg)
+            self._invalid_client_ledger_status_handling(ex, msg, frm)
 
-    def _invalid_client_ledger_status_handling(self, ex, msg: LedgerStatus):
+    def _invalid_client_ledger_status_handling(self, ex, msg, frm):
         # This specific validation handles incorrect client LEDGER_STATUS message
         logger.info("{} received bad LEDGER_STATUS message from client {}. "
-                    "Reason: {}. ".format(self, msg.frm, ex.args[0]))
+                    "Reason: {}. ".format(self, frm, ex.args[0]))
         # Since client can't yet handle denial of LEDGER_STATUS,
         # node send his LEDGER_STATUS back
         self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
@@ -2015,7 +2017,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                           msg.get(f.PP_SEQ_NO.nm),
                                           msg.get(f.MERKLE_ROOT.nm),
                                           CURRENT_PROTOCOL_VERSION,
-                                          msg.frm)
+                                          frm)
 
     # TODO INDY-1983 not the best name for the method that performs message
     # transformation besides just validation
@@ -2092,7 +2094,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if m in (ZStack.pingMessage, ZStack.pongMessage):
                     continue
                 m = self.clientstack.deserializeMsg(m)
-                self.handleOneCLientMsg((m, msg.frm, msg.ts_rcv))
+                self.handleOneClientMsg((m, msg.frm, msg.ts_rcv))
         else:
             msg_dict = msg.as_dict if isinstance(msg, Request) else msg
             if isinstance(msg_dict, dict):
@@ -3615,10 +3617,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @measure_time(MetricsName.NODE_SEND_TIME)
     def send(self,
-             msg: Any,
+             msg: NetworkMessage,
              *rids: Iterable[int],
              signer: Signer = None,
              message_splitter=None):
+
+        if not isinstance(msg, NetworkMessage):
+            raise TypeError("'msg' should be instance of 'NetworkMessage'")
 
         if rids:
             remoteNames = [self.nodestack.remotes[rid].name for rid in rids]
@@ -3631,7 +3636,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.debug("{} sending message {} to {} recipients: {}".
                      format(self, msg, recipientsNum, remoteNames))
-        self.nodestack.send(msg, *rids, signer=signer, message_splitter=message_splitter)
+        self.nodestack.send(msg.msg_data, *rids, signer=signer, message_splitter=message_splitter)
 
     def sendToNodes(self, msg: Any, names: Iterable[str] = None, message_splitter=None):
         # TODO: This method exists in `Client` too, refactor to avoid

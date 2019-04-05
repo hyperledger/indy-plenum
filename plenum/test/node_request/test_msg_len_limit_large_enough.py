@@ -35,4 +35,4 @@ def test_msg_len_limit_large_enough_for_preprepare():
         0,
         True)
 
-    assert len(ZStack.serializeMsg(pp)) <= config.MSG_LEN_LIMIT
+    assert len(ZStack.serializeMsg(pp.msg_data)) <= config.MSG_LEN_LIMIT

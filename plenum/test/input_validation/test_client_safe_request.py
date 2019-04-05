@@ -29,7 +29,7 @@ def test_minimal_valid(operation):
     assert SafeRequest(identifier="1" * 16,
                        reqId=1,
                        operation=operation,
-                       protocolVersion=CURRENT_PROTOCOL_VERSION)
+                       protocolVersion=CURRENT_PROTOCOL_VERSION) is not None
 
 
 def test_with_signature_valid(operation):
@@ -37,14 +37,14 @@ def test_with_signature_valid(operation):
                        reqId=1,
                        operation=operation,
                        signature="signature",
-                       protocolVersion=CURRENT_PROTOCOL_VERSION)
+                       protocolVersion=CURRENT_PROTOCOL_VERSION) is not None
 
 
 def test_with_version_valid(operation):
     assert SafeRequest(identifier="1" * 16,
                        reqId=1,
                        operation=operation,
-                       protocolVersion=CURRENT_PROTOCOL_VERSION)
+                       protocolVersion=CURRENT_PROTOCOL_VERSION) is not None
 
 
 def test_all_valid(operation):
@@ -52,7 +52,7 @@ def test_all_valid(operation):
                        reqId=1,
                        operation=operation,
                        signature="signature",
-                       protocolVersion=CURRENT_PROTOCOL_VERSION)
+                       protocolVersion=CURRENT_PROTOCOL_VERSION) is not None
 
 
 def test_all_identifier_invalid(operation):

@@ -52,7 +52,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             # TODO: It's optional for now
             return
 
-        if not self._validate_signature(commit.blsSig, pre_prepare):
+        if not self._validate_signature(commit.frm_replica, commit.blsSig, pre_prepare):
             return BlsBftReplica.CM_BLS_SIG_WRONG
 
     # ----CREATE/UPDATE----
@@ -157,9 +157,9 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         return self._bls_bft.bls_crypto_verifier\
             .verify_key_proof_of_possession(key_proof, pk)
 
-    def _validate_signature(self, bls_sig, pre_prepare: PrePrepare):
+    def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
         pool_root_hash = self._get_pool_root_hash(pre_prepare, serialize=False)
-        sender_node = self.get_node_name(pre_prepare.frm_replica)
+        sender_node = self.get_node_name(sender)
         pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node, pool_root_hash)
         if not pk:
             return False
@@ -170,7 +170,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if not result:
             logger.info("Incorrect bls signature {} in commit for "
                         "{} public key: '{}' and message: '{}' from "
-                        "pre-prepare: {}".format(bls_sig, pre_prepare.frm_replica, pk,
+                        "pre-prepare: {}".format(bls_sig, sender, pk,
                                                  message, pre_prepare))
         return result
 

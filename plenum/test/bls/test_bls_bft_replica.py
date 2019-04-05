@@ -184,15 +184,15 @@ def test_update_commit_without_bls_crypto_signer(bls_bft_replicas, fake_pre_prep
 def test_validate_pre_prepare_no_sigs(bls_bft_replicas, pre_prepare_no_bls):
     for sender_bls_bft_replica in bls_bft_replicas:
         for verifier_bls_bft_replica in bls_bft_replicas:
-            assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_no_bls,
-                                                                     sender_bls_bft_replica.node_id)
+            pp = PrePrepare(*pre_prepare_no_bls, frm=sender_bls_bft_replica.node_id)
+            assert not verifier_bls_bft_replica.validate_pre_prepare(pp)
 
 
 def test_validate_pre_prepare_correct_multi_sig(bls_bft_replicas, pre_prepare_with_bls):
     for sender_bls_bft_replica in bls_bft_replicas:
         for verifier_bls_bft_replica in bls_bft_replicas:
-            assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls,
-                                                                     sender_bls_bft_replica.node_id)
+            pp = PrePrepare(*pre_prepare_with_bls, frm=sender_bls_bft_replica.node_id)
+            assert not verifier_bls_bft_replica.validate_pre_prepare(pp)
 
 
 def test_validate_pre_prepare_does_not_use_committed_pool_state(bls_bft_replicas,
@@ -203,8 +203,8 @@ def test_validate_pre_prepare_does_not_use_committed_pool_state(bls_bft_replicas
             monkeypatch.setattr(verifier_bls_bft_replica._bls_bft.bls_key_register,
                                 'get_pool_root_hash_committed',
                                 lambda: None)
-            assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls,
-                                                                     sender_bls_bft_replica.node_id)
+            pp = PrePrepare(*pre_prepare_with_bls, frm=sender_bls_bft_replica.node_id)
+            assert not verifier_bls_bft_replica.validate_pre_prepare(pp)
             monkeypatch.undo()
 
 
@@ -212,59 +212,64 @@ def test_validate_pre_prepare_incorrect_multi_sig(bls_bft_replicas,
                                                   pre_prepare_with_incorrect_bls):
     for sender_bls_bft in bls_bft_replicas:
         for verifier_bls_bft in bls_bft_replicas:
-            status = verifier_bls_bft.validate_pre_prepare(pre_prepare_with_incorrect_bls,
-                                                           sender_bls_bft.node_id)
+            pp = PrePrepare(*pre_prepare_with_incorrect_bls, frm=sender_bls_bft.node_id)
+            status = verifier_bls_bft.validate_pre_prepare(pp)
             assert status == BlsBftReplica.PPR_BLS_MULTISIG_WRONG
 
 
 def test_validate_prepare(bls_bft_replicas, state_root):
-    prepare = create_prepare((0, 0), state_root, frm=sender_bls_bft.node_id)
     for sender_bls_bft in bls_bft_replicas:
+        prepare = create_prepare((0, 0), state_root, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
             assert not verifier_bls_bft.validate_prepare(prepare)
 
 
 def test_validate_commit_no_sigs(bls_bft_replicas):
     key = (0, 0)
-    commit = create_commit_no_bls_sig(key)
     for sender_bls_bft in bls_bft_replicas:
+        commit = create_commit_no_bls_sig(key, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            assert not verifier_bls_bft.validate_commit(commit,
-                                                        sender_bls_bft.node_id,
-                                                        state_root)
+            assert not verifier_bls_bft.validate_commit(commit, state_root)
 
 
 def test_validate_commit_correct_sig_first_time(bls_bft_replicas, pre_prepare_no_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_no_bls)
+        commit = create_commit_bls_sig(
+            sender_bls_bft,
+            key, pre_prepare_no_bls,
+            frm=sender_bls_bft.node_id
+        )
+        pp = PrePrepare(*pre_prepare_no_bls, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            assert not verifier_bls_bft.validate_commit(commit,
-                                                        sender_bls_bft.node_id,
-                                                        pre_prepare_no_bls)
+            assert not verifier_bls_bft.validate_commit(commit, pp)
 
 
 def test_validate_commit_correct_sig_second_time(bls_bft_replicas, pre_prepare_with_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
+        commit = create_commit_bls_sig(
+            sender_bls_bft, key, pre_prepare_with_bls,
+            frm=sender_bls_bft.node_id
+        )
+        pp = PrePrepare(*pre_prepare_with_bls, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            assert verifier_bls_bft.validate_commit(commit,
-                                                    sender_bls_bft.node_id,
-                                                    pre_prepare_with_bls) is None
+            assert verifier_bls_bft.validate_commit(commit, pp) is None
 
 
 def test_validate_commit_does_not_use_committed_pool_state(bls_bft_replicas, pre_prepare_with_bls, monkeypatch):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_with_bls)
+        commit = create_commit_bls_sig(
+            sender_bls_bft, key, pre_prepare_with_bls,
+            frm=sender_bls_bft.node_id
+        )
+        pp = PrePrepare(*pre_prepare_with_bls, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
             monkeypatch.setattr(verifier_bls_bft._bls_bft.bls_key_register,
                                 'get_pool_root_hash_committed',
                                 lambda: None)
-            assert verifier_bls_bft.validate_commit(commit,
-                                                    sender_bls_bft.node_id,
-                                                    pre_prepare_with_bls) is None
+            assert verifier_bls_bft.validate_commit(commit, pp) is None
             monkeypatch.undo()
 
 
@@ -272,22 +277,23 @@ def test_validate_commit_incorrect_sig(bls_bft_replicas, pre_prepare_with_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
         fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
-        commit = create_commit_with_bls_sig(key, fake_sig)
+        commit = create_commit_with_bls_sig(key, fake_sig, frm=sender_bls_bft.node_id)
+        pp = PrePrepare(*pre_prepare_with_bls, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            status = verifier_bls_bft.validate_commit(commit,
-                                                      sender_bls_bft.node_id,
-                                                      pre_prepare_with_bls)
+            status = verifier_bls_bft.validate_commit(commit, pp)
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
 def test_validate_commit_incorrect_value(bls_bft_replicas, pre_prepare_incorrect, pre_prepare_no_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_incorrect)
+        commit = create_commit_bls_sig(
+            sender_bls_bft, key, pre_prepare_incorrect,
+            frm=sender_bls_bft.node_id
+        )
+        pp = PrePrepare(*pre_prepare_no_bls, frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            status = verifier_bls_bft.validate_commit(commit,
-                                                      sender_bls_bft.node_id,
-                                                      pre_prepare_no_bls)
+            status = verifier_bls_bft.validate_commit(commit, pp)
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
@@ -296,13 +302,15 @@ def test_validate_commit_incorrect_value(bls_bft_replicas, pre_prepare_incorrect
 def test_process_pre_prepare_no_multisig(bls_bft_replicas, pre_prepare_no_bls):
     for sender_bls_bft in bls_bft_replicas:
         for verifier_bls_bft in bls_bft_replicas:
-            verifier_bls_bft.process_pre_prepare(pre_prepare_no_bls, sender_bls_bft.node_id)
+            pp = PrePrepare(*pre_prepare_no_bls, frm=sender_bls_bft.node_id)
+            verifier_bls_bft.process_pre_prepare(pp)
 
 
 def test_process_pre_prepare_multisig(bls_bft_replicas, pre_prepare_with_bls):
     for sender_bls_bft in bls_bft_replicas:
         for verifier_bls_bft in bls_bft_replicas:
-            verifier_bls_bft.process_pre_prepare(pre_prepare_with_bls, sender_bls_bft.node_id)
+            pp = PrePrepare(*pre_prepare_with_bls, frm=sender_bls_bft.node_id)
+            verifier_bls_bft.process_pre_prepare(pp)
 
 
 def test_process_prepare(bls_bft_replicas, state_root):
@@ -314,19 +322,20 @@ def test_process_prepare(bls_bft_replicas, state_root):
 
 def test_process_commit_no_sigs(bls_bft_replicas):
     for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_no_bls_sig((0, 0))
+        commit = create_commit_no_bls_sig((0, 0), frm=sender_bls_bft.node_id)
         for verifier_bls_bft in bls_bft_replicas:
-            verifier_bls_bft.process_commit(commit,
-                                            sender_bls_bft.node_id)
+            verifier_bls_bft.process_commit(commit)
 
 
 def test_process_commit_with_sigs(bls_bft_replicas, pre_prepare_no_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
-        commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_no_bls)
+        commit = create_commit_bls_sig(
+            sender_bls_bft, key, pre_prepare_no_bls,
+            frm=sender_bls_bft.node_id
+        )
         for verifier_bls_bft in bls_bft_replicas:
-            verifier_bls_bft.process_commit(commit,
-                                            sender_bls_bft.node_id)
+            verifier_bls_bft.process_commit(commit)
 
 
 def test_process_order(bls_bft_replicas, pre_prepare_no_bls, quorums):
@@ -459,7 +468,8 @@ def test_multi_sig_saved_locally_for_ordered(bls_bft_replicas, pre_prepare_no_bl
 def test_multi_sig_saved_shared_with_pre_prepare(bls_bft_replicas, quorums, pre_prepare_with_bls):
     multi_sigs = []
     for bls_bft_replica in bls_bft_replicas:
-        bls_bft_replica.process_pre_prepare(pre_prepare_with_bls, bls_bft_replicas[0].node_id)
+        pp = PrePrepare(*pre_prepare_with_bls, frm=bls_bft_replicas[0].node_id)
+        bls_bft_replica.process_pre_prepare(pp)
         multi_sig = bls_bft_replica._bls_bft.bls_store.get(pre_prepare_with_bls.stateRootHash)
         assert multi_sig
         multi_sigs.append(multi_sig)
@@ -477,12 +487,12 @@ def test_preprepare_multisig_replaces_saved(bls_bft_replicas, quorums,
         commit = create_commit_bls_sig(
             sender_bls_bft_replica,
             key,
-            pre_prepare_no_bls)
+            pre_prepare_no_bls,
+            frm=sender_bls_bft_replica.node_id)
         for verifier_bls_bft_replica in bls_bft_replicas:
             # use 3 of 4 commits only
             if verifier_bls_bft_replica != sender_bls_bft_replica:
-                verifier_bls_bft_replica.process_commit(commit,
-                                                        sender_bls_bft_replica.node_id)
+                verifier_bls_bft_replica.process_commit(commit)
     process_ordered(key, bls_bft_replicas, pre_prepare_no_bls, quorums)
 
     # get locally calculated multi-sigs
@@ -495,7 +505,8 @@ def test_preprepare_multisig_replaces_saved(bls_bft_replicas, quorums,
     # the local ones must be overridden
     multi_sigs = []
     for bls_bft_replica in bls_bft_replicas:
-        bls_bft_replica.process_pre_prepare(pre_prepare_with_bls, bls_bft_replicas[0].node_id)
+        pp = PrePrepare(*pre_prepare_with_bls, frm=bls_bft_replicas[0].node_id)
+        bls_bft_replica.process_pre_prepare(pp)
         multi_sig = bls_bft_replica._bls_bft.bls_store.get(state_root)
         local_multi_sig = local_multi_sigs[bls_bft_replica.node_id]
         assert multi_sig

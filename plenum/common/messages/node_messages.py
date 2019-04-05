@@ -15,13 +15,13 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
     IntegerField
 from plenum.common.messages.message_base import \
-    MessageBase
+    MessageBase, NetworkMessage
 from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
-class ReplicaMessage(MessageBase):
+class ReplicaMessage(NetworkMessage):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,7 +34,7 @@ class ReplicaMessage(MessageBase):
         return "{}:{}".format(self.frm, self._fields[f.INST_ID.nm])
 
 
-class Nomination(ReplicaMessage):
+class NominationMsgData(MessageBase):
     typename = NOMINATE
 
     schema = (
@@ -45,7 +45,11 @@ class Nomination(ReplicaMessage):
     )
 
 
-class Batch(MessageBase):
+class Nomination(ReplicaMessage):
+    msg_data_cls = NominationMsgData
+
+
+class BatchMsgData(MessageBase):
     typename = BATCH
 
     schema = (
@@ -54,7 +58,11 @@ class Batch(MessageBase):
     )
 
 
-class Reelection(ReplicaMessage):
+class Batch(NetworkMessage):
+    msg_data_cls = BatchMsgData
+
+
+class ReelectionMsgData(MessageBase):
     typename = REELECTION
 
     schema = (
@@ -65,7 +73,11 @@ class Reelection(ReplicaMessage):
     )
 
 
-class Primary(ReplicaMessage):
+class Reelection(ReplicaMessage):
+    msg_data_cls = ReelectionMsgData
+
+
+class PrimaryMsgData(MessageBase):
     typename = PRIMARY
 
     schema = (
@@ -76,8 +88,12 @@ class Primary(ReplicaMessage):
     )
 
 
+class Primary(ReplicaMessage):
+    msg_data_cls = PrimaryMsgData
+
+
 # TODO implement actual rules
-class BlacklistMsg(MessageBase):
+class BlacklistMsgMsgData(MessageBase):
     typename = BLACKLIST
     schema = (
         (f.SUSP_CODE.nm, AnyValueField()),
@@ -85,8 +101,12 @@ class BlacklistMsg(MessageBase):
     )
 
 
+class BlacklistMsg(NetworkMessage):
+    msg_data_cls = BlacklistMsgMsgData
+
+
 # TODO implement actual rules
-class RequestAck(MessageBase):
+class RequestAckMsgData(MessageBase):
     typename = REQACK
     schema = (
         (f.IDENTIFIER.nm, AnyValueField()),
@@ -94,8 +114,12 @@ class RequestAck(MessageBase):
     )
 
 
+class RequestAck(NetworkMessage):
+    msg_data_cls = RequestAckMsgData
+
+
 # TODO implement actual rules
-class RequestNack(MessageBase):
+class RequestNackMsgData(MessageBase):
     typename = REQNACK
     schema = (
         (f.IDENTIFIER.nm, AnyValueField()),
@@ -104,8 +128,12 @@ class RequestNack(MessageBase):
     )
 
 
+class RequestNack(NetworkMessage):
+    msg_data_cls = RequestNackMsgData
+
+
 # TODO implement actual rules
-class Reject(MessageBase):
+class RejectMsgData(MessageBase):
     typename = REJECT
     schema = (
         (f.IDENTIFIER.nm, AnyValueField()),
@@ -114,15 +142,23 @@ class Reject(MessageBase):
     )
 
 
+class Reject(NetworkMessage):
+    msg_data_cls = RejectMsgData
+
+
 # TODO implement actual rules
-class PoolLedgerTxns(MessageBase):
+class PoolLedgerTxnsMsgData(MessageBase):
     typename = POOL_LEDGER_TXNS
     schema = (
         (f.TXN.nm, AnyValueField()),
     )
 
 
-class Ordered(ReplicaMessage):
+class PoolLedgerTxns(NetworkMessage):
+    msg_data_cls = PoolLedgerTxnsMsgData
+
+
+class OrderedMsgData(MessageBase):
     typename = ORDERED
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -143,7 +179,11 @@ class Ordered(ReplicaMessage):
     )
 
 
-class Propagate(MessageBase):
+class Ordered(ReplicaMessage):
+    msg_data_cls = OrderedMsgData
+
+
+class PropagateMsgData(MessageBase):
     typename = PROPAGATE
     schema = (
         (f.REQUEST.nm, ClientMessageValidator(
@@ -152,7 +192,11 @@ class Propagate(MessageBase):
     )
 
 
-class PrePrepare(ReplicaMessage):
+class Propagate(NetworkMessage):
+    msg_data_cls = PropagateMsgData
+
+
+class PrePrepareMsgData(MessageBase):
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
@@ -179,7 +223,11 @@ class PrePrepare(ReplicaMessage):
     typename = PREPREPARE
 
 
-class Prepare(ReplicaMessage):
+class PrePrepare(ReplicaMessage):
+    msg_data_cls = PrePrepareMsgData
+
+
+class PrepareMsgData(MessageBase):
     typename = PREPARE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -195,7 +243,11 @@ class Prepare(ReplicaMessage):
     )
 
 
-class Commit(ReplicaMessage):
+class Prepare(ReplicaMessage):
+    msg_data_cls = PrepareMsgData
+
+
+class CommitMsgData(MessageBase):
     typename = COMMIT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -209,7 +261,11 @@ class Commit(ReplicaMessage):
     )
 
 
-class Checkpoint(ReplicaMessage):
+class Commit(ReplicaMessage):
+    msg_data_cls = CommitMsgData
+
+
+class CheckpointMsgData(MessageBase):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -220,8 +276,12 @@ class Checkpoint(ReplicaMessage):
     )
 
 
+class Checkpoint(ReplicaMessage):
+    msg_data_cls = CheckpointMsgData
+
+
 # TODO implement actual rules
-class CheckpointState(MessageBase):
+class CheckpointStateMsgData(MessageBase):
     typename = CHECKPOINT_STATE
     schema = (
         (f.SEQ_NO.nm, AnyValueField()),
@@ -232,15 +292,23 @@ class CheckpointState(MessageBase):
     )
 
 
+class CheckpointState(NetworkMessage):
+    msg_data_cls = CheckpointStateMsgData
+
+
 # TODO implement actual rules
-class Reply(MessageBase):
+class ReplyMsgData(MessageBase):
     typename = REPLY
     schema = (
         (f.RESULT.nm, AnyValueField()),
     )
 
 
-class InstanceChange(MessageBase):
+class Reply(NetworkMessage):
+    msg_data_cls = ReplyMsgData
+
+
+class InstanceChangeMsgData(MessageBase):
     typename = INSTANCE_CHANGE
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
@@ -248,7 +316,11 @@ class InstanceChange(MessageBase):
     )
 
 
-class BackupInstanceFaulty(MessageBase):
+class InstanceChange(NetworkMessage):
+    msg_data_cls = InstanceChangeMsgData
+
+
+class BackupInstanceFaultyMsgData(MessageBase):
     typename = BACKUP_INSTANCE_FAULTY
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
@@ -257,7 +329,11 @@ class BackupInstanceFaulty(MessageBase):
     )
 
 
-class LedgerStatus(MessageBase):
+class BackupInstanceFaulty(NetworkMessage):
+    msg_data_cls = BackupInstanceFaultyMsgData
+
+
+class LedgerStatusMsgData(MessageBase):
     """
     Purpose: spread status of ledger copy on a specific node.
     When node receives this message and see that it has different
@@ -275,7 +351,11 @@ class LedgerStatus(MessageBase):
     )
 
 
-class ConsistencyProof(MessageBase):
+class LedgerStatus(NetworkMessage):
+    msg_data_cls = LedgerStatusMsgData
+
+
+class ConsistencyProofMsgData(MessageBase):
     typename = CONSISTENCY_PROOF
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -289,7 +369,11 @@ class ConsistencyProof(MessageBase):
     )
 
 
-class CatchupReq(MessageBase):
+class ConsistencyProof(NetworkMessage):
+    msg_data_cls = ConsistencyProofMsgData
+
+
+class CatchupReqMsgData(MessageBase):
     typename = CATCHUP_REQ
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -299,7 +383,11 @@ class CatchupReq(MessageBase):
     )
 
 
-class CatchupRep(MessageBase):
+class CatchupReq(NetworkMessage):
+    msg_data_cls = CatchupReqMsgData
+
+
+class CatchupRepMsgData(MessageBase):
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -311,7 +399,11 @@ class CatchupRep(MessageBase):
     )
 
 
-class ViewChangeDone(MessageBase):
+class CatchupRep(NetworkMessage):
+    msg_data_cls = CatchupRepMsgData
+
+
+class ViewChangeDoneMsgData(MessageBase):
     """
     Node sends this kind of message when view change steps done and it is
     ready to switch to the new primary.
@@ -329,7 +421,11 @@ class ViewChangeDone(MessageBase):
     )
 
 
-class CurrentState(MessageBase):
+class ViewChangeDone(NetworkMessage):
+    msg_data_cls = ViewChangeDoneMsgData
+
+
+class CurrentStateMsgData(MessageBase):
     """
     Node sends this kind of message for nodes which
     suddenly reconnected (lagged). It contains information about current
@@ -343,6 +439,10 @@ class CurrentState(MessageBase):
     )
 
 
+class CurrentState(NetworkMessage):
+    msg_data_cls = CurrentStateMsgData
+
+
 """
 The choice to do a generic 'request message' feature instead of a specific
 one was debated. It has some pros and some cons. We wrote up the analysis in
@@ -351,7 +451,7 @@ lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
 """
 
 
-class MessageReq(MessageBase):
+class MessageReqMsgData(MessageBase):
     """
     Purpose: ask node for any message
     """
@@ -364,7 +464,11 @@ class MessageReq(MessageBase):
     )
 
 
-class MessageRep(MessageBase):
+class MessageReq(NetworkMessage):
+    msg_data_cls = MessageReqMsgData
+
+
+class MessageRepMsgData(MessageBase):
     """
     Purpose: respond to a node for any requested message
     """
@@ -372,10 +476,14 @@ class MessageRep(MessageBase):
     # according to `msg_type`
     typename = MESSAGE_RESPONSE
     schema = (
-        (f.MSG_TYPE.nm, ChooseField(values=MessageReq.allowed_types)),
+        (f.MSG_TYPE.nm, ChooseField(values=MessageReqMsgData.allowed_types)),
         (f.PARAMS.nm, AnyMapField()),
         (f.MSG.nm, AnyField())
     )
+
+
+class MessageRep(NetworkMessage):
+    msg_data_cls = MessageRepMsgData
 
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)
@@ -390,7 +498,7 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
 ])
 
 
-class BatchCommitted(ReplicaMessage):
+class BatchCommittedMsgData(MessageBase):
     """
     Purpose: pass to Observable after each batch is committed
     (so that Observable can propagate the data to Observers using ObservedData msg)
@@ -415,7 +523,11 @@ class BatchCommitted(ReplicaMessage):
     )
 
 
-class ObservedData(MessageBase):
+class BatchCommitted(ReplicaMessage):
+    msg_data_cls = BatchCommittedMsgData
+
+
+class ObservedDataMsgData(MessageBase):
     """
     Purpose: propagate data from Validators to Observers
     """
@@ -442,6 +554,10 @@ class ObservedData(MessageBase):
             "The message type must be {} ".format(expected_type_cls.typename))
 
 
+class ObservedData(NetworkMessage):
+    msg_data_cls = ObservedDataMsgData
+
+
 class FutureViewChangeDone:
     """
     Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
@@ -452,15 +568,23 @@ class FutureViewChangeDone:
         self.vcd_msg = vcd_msg
 
 
-class ViewChangeStartMessage(MessageBase):
+class ViewChangeStartMessageMsgData(MessageBase):
     typename = VIEW_CHANGE_START
     schema = (
         (PROPOSED_VIEW_NO, IntegerField()),
     )
 
 
-class ViewChangeContinueMessage(MessageBase):
+class ViewChangeStartMessage(NetworkMessage):
+    msg_data_cls = ViewChangeStartMessageMsgData
+
+
+class ViewChangeContinueMessageMsgData(MessageBase):
     typename = VIEW_CHANGE_CONTINUE
     schema = (
         (PROPOSED_VIEW_NO, IntegerField()),
     )
+
+
+class ViewChangeContinueMessage(NetworkMessage):
+    msg_data_cls = ViewChangeContinueMessageMsgData

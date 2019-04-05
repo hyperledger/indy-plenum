@@ -30,13 +30,19 @@ class MessageFactory:
 
     @classmethod
     def __get_message_classes(cls, classes_module):
-        classes = {}
+        msg_data_classes = {}
+        msg_classes = {}
         for x in dir(classes_module):
             obj = getattr(classes_module, x)
-            doesnt_fit_reason = cls.__check_obj_fits(obj)
-            if doesnt_fit_reason is None:
-                classes.update({obj.typename: obj})
-        return classes
+            # msg data classes
+            if cls.__check_obj_fits_msg_data(obj) is None:
+                msg_data_classes.update({obj.typename: obj})
+            # network msg classes
+            # TODO INDY-1983 tests
+            elif cls.__check_obj_fits_network_msg(obj) is None:
+                msg_classes.update({obj.msg_data_cls.typename: obj})
+        # TODO INDY-1983 check that each msg_class relates to some known msg data class
+        return msg_classes
 
     def get_instance(self, **message_raw):
         message_op = message_raw.get(OP_FIELD_NAME, None)
@@ -56,22 +62,29 @@ class MessageFactory:
     def __msg_without_op_field(msg):
         return {k: v for k, v in msg.items() if k != OP_FIELD_NAME}
 
-    def set_message_class(self, message_class):
-        doesnt_fit_reason = self.__check_obj_fits(message_class)
+    def set_message_class(self, message_class, network_msg_class):
+        doesnt_fit_reason = self.__check_obj_fits_msg_data(message_class)
         if doesnt_fit_reason:
             raise ValueError(
                 "'message_class' value {} is incorrect: {}"
                 .format(message_class, doesnt_fit_reason)
             )
 
-        self.__classes.update({message_class.typename: message_class})
+        doesnt_fit_reason = self.__check_obj_fits_network_msg(network_msg_class)
+        if doesnt_fit_reason:
+            raise ValueError(
+                "network_msg_class' value {} is incorrect: {}"
+                .format(network_msg_class, doesnt_fit_reason)
+            )
+
+        self.__classes.update({message_class.typename: network_msg_class})
 
     @staticmethod
     def __get_module_by_name(module_name):
         return sys.modules.get(module_name, None)
 
     @staticmethod
-    def __check_obj_fits(obj):
+    def __check_obj_fits_msg_data(obj):
         if not getattr(obj, "schema", None):
             return "must have a non empty 'schema'"
         if not getattr(obj, "typename", None):
@@ -80,17 +93,22 @@ class MessageFactory:
         if not issubclass(obj, MessageBase):
             return "must be a subclass of 'MessageBase'"
 
+    @staticmethod
+    def __check_obj_fits_network_msg(obj):
+        if not getattr(obj, "msg_data_cls", None):
+            return "must have a non empty 'msg_data_cls'"
+
     # TODO: it is a workaround which helps extend some fields from
     # downstream projects, should be removed after we find a better way
     # to do this
     def update_schemas_by_field_type(self, old_field_type, new_field_type):
         for cls in self.__classes.values():
             new_schema = []
-            for name, field in cls.schema:
+            for name, field in cls.msg_data_cls.schema:
                 field = self._transform_field(
                     field, old_field_type, new_field_type)
                 new_schema.append((name, field))
-            cls.schema = tuple(new_schema)
+            cls.msg_data_cls.schema = tuple(new_schema)
 
     def _transform_field(self, field, old_field_type, new_field_type):
         if isinstance(field, old_field_type):

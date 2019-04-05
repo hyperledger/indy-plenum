@@ -255,6 +255,7 @@ def test_process_view_change_done(tdir, tconf):
                 ledgerInfo=ledgerInfo,
                 frm='Node{}'.format(i + 1)
             )
+        )
     node = FakeNode(str(tdir), tconf)
     quorum = node.view_changer.quorum
     for i in range(quorum):

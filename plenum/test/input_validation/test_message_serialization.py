@@ -13,7 +13,7 @@ def test_that_service_fields_not_being_serialized():
 
     message = LedgerStatus(
         1, 10, None, None, "AwgQhPR9cgRubttBGjRruCRMLhZFBffbejbPipj7WBBm", CURRENT_PROTOCOL_VERSION)
-    serialized = ZStack.serializeMsg(message)
+    serialized = ZStack.serializeMsg(message.msg_data)
     deserialized = ZStack.deserializeMsg(serialized)
     service_fields = {'typename', 'schema', 'optional', 'nullable'}
     assert service_fields - set(deserialized) == service_fields
@@ -33,8 +33,8 @@ def test_serialization_of_submessages_to_dict():
         f.PARAMS.nm: {"ledger_id": 1, f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION},
         f.MSG.nm: message,
     })
-    serialized_message = ZStack.serializeMsg(message).decode()
-    serialized_message_reply = ZStack.serializeMsg(message_rep).decode()
+    serialized_message = ZStack.serializeMsg(message.msg_data).decode()
+    serialized_message_reply = ZStack.serializeMsg(message_rep.msg_data).decode()
 
     # check that submessage (LedgerStatus) is serialized to the same dict as
     # it were a common message
