@@ -95,7 +95,7 @@ class NetworkMessage:
         return self._ts_rcv
 
 
-class MessageBase(Mapping, NetworkMessage, MessageValidator):
+class MessageBase(Mapping, MessageValidator, NetworkMessage):
     typename = None
 
     def __init__(self, *args, **kwargs):

@@ -157,7 +157,7 @@ def multi_sig(fake_multi_sig, request):
 
 
 @pytest.fixture(scope="function")
-def pre_prepare(replica, state_roots, txn_roots, multi_sig, fake_requests):
+def pre_prepare(replica, state_roots, txn_roots, multi_sig, fake_requests, request):
     params = create_pre_prepare_params(state_root=state_roots[DOMAIN_LEDGER_ID],
                                        ledger_id=DOMAIN_LEDGER_ID,
                                        txn_root=txn_roots[DOMAIN_LEDGER_ID],
@@ -173,7 +173,7 @@ def pre_prepare(replica, state_roots, txn_roots, multi_sig, fake_requests):
 
 
 @pytest.fixture(scope="function")
-def prepare(pre_prepare):
+def prepare(pre_prepare, request):
     marker = request.node.get_marker('prepare_frm')
     return create_prepare_from_pre_prepare(
         pre_prepare, frm=marker.args[0].split(':')[0] if marker else None)

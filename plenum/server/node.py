@@ -1853,7 +1853,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
         self._observer.append_input(msg)
 
-    def _handleOneNodeMsg(self, wrappedMsg: Tuple):
+    def handleOneNodeMsg(self, wrappedMsg: Tuple):
         """
         Validate and process one message from a node.
 
@@ -1876,7 +1876,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(msg, ex, logger.info)
 
     def handleZStackNodeMsg(self, zsmsg: ZStackMessage):
-        self._handleOneNodeMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
+        self.handleOneNodeMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
 
     @measure_time(MetricsName.VALIDATE_NODE_MSG_TIME)
     def validateNodeMsg(self, wrappedMsg: Tuple) -> MessageBase:
@@ -1926,7 +1926,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     except Exception as ex:
                         logger.warning("Got error {} while processing {} message".format(ex, m))
                         continue
-                    self._handleOneNodeMsg((m, msg.frm, msg.ts_rcv))
+                    self.handleOneNodeMsg((m, msg.frm, msg.ts_rcv))
         else:
             self.postToNodeInBox(msg)
 
@@ -1958,7 +1958,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO INDY-1983 ??? pass the whole object
             self.discard(m, ex, logger.debug)
 
-    def _handleOneClientMsg(self, wrappedMsg: Tuple):
+    def handleOneCLientMsg(self, wrappedMsg: Tuple):
         """
         Validate and process a client message
 
@@ -1980,7 +1980,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleZStackClientMsg(self, zsmsg: ZStackMessage):
-        self._handleOneClientMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
+        self.handleOneCLientMsg((zsmsg.msg, zsmsg.frm, zsmsg.ts_rcv))
 
     def handleInvalidClientMsg(self, ex, msg: Union[Request, MessageBase]):
         exc = ex.__cause__ if ex.__cause__ else ex
@@ -2092,7 +2092,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if m in (ZStack.pingMessage, ZStack.pongMessage):
                     continue
                 m = self.clientstack.deserializeMsg(m)
-                self._handleOneClientMsg((m, msg.frm, msg.ts_rcv))
+                self.handleOneCLientMsg((m, msg.frm, msg.ts_rcv))
         else:
             msg_dict = msg.as_dict if isinstance(msg, Request) else msg
             if isinstance(msg_dict, dict):

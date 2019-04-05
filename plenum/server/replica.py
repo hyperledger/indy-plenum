@@ -1145,7 +1145,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
         req_idrs = {f.REQ_IDR.nm: [key for key in pre_prepare.reqIdr]}
-        pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
+        pre_prepare = updateNamedTuple(pre_prepare, **req_idrs, frm=pre_prepare.frm, ts_rcv=pre_prepare.ts_rcv)
 
         def report_suspicious(reason):
             ex = SuspiciousNode(pre_prepare.frm_replica, reason, pre_prepare)
