@@ -355,15 +355,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             self.quota_control = StaticQuotaControl(node_quota=node_quota, client_quota=client_quota)
 
-        # Ordered requests received from replicas while the node was not
-        # participating
-        self.stashedOrderedReqs = deque()
-
-        # Set of (identifier, reqId) of all transactions that were received
-        # while catching up. Used to detect overlap between stashed requests
-        # and received replies while catching up.
-        # self.reqsFromCatchupReplies = set()
-
         # Any messages that are intended for view numbers higher than the
         # current view.
         self.msgsForFutureViews = {}
@@ -2158,17 +2149,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.audit_handler.on_catchup_finished()
 
     def preLedgerCatchUp(self, ledger_id):
-        # Process any Ordered requests. This causes less transactions to be
-        # requested during catchup. Also commits any uncommitted state that
-        # can be committed
-        logger.info('{} going to process any ordered requests before starting catchup.'.format(self))
-        self.force_process_ordered()
-        self.processStashedOrderedReqs()
-
-        # revert uncommitted txns and state for unordered requests
-        r = self.master_replica.revert_unordered_batches()
-        logger.info('{} reverted {} batches before starting catch up for ledger {}'.format(self, r, ledger_id))
-
         if len(self.auditLedger.uncommittedTxns) > 0:
             raise LogicError(
                 '{} audit ledger has uncommitted txns before catching up ledger {}'.format(self, ledger_id))
@@ -2246,10 +2226,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
         if self.view_change_in_progress:
             self._process_replica_messages()
-
-        # TODO: Maybe a slight optimisation is to check result of
-        # `self.num_txns_caught_up_in_last_catchup()`
-        self.processStashedOrderedReqs()
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic
@@ -2420,26 +2396,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
-
-    def apply_stashed_reqs(self, ordered):
-        request_ids = ordered.valid_reqIdr
-        requests = []
-        for req_key in request_ids:
-            if req_key in self.requests:
-                req = self.requests[req_key].finalised
-            else:
-                logger.warning("Could not apply stashed requests due to non-existent requests")
-                return
-            _, seq_no = self.seqNoDB.get(req.digest)
-            if seq_no is None:
-                requests.append(req)
-        three_pc_batch = ThreePcBatch.from_ordered(ordered)
-        self.apply_reqs(requests, three_pc_batch)
-
-    def apply_reqs(self, requests, three_pc_batch: ThreePcBatch):
-        for req in requests:
-            self.applyReq(req, three_pc_batch.pp_time)
-        self.onBatchCreated(three_pc_batch)
 
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
@@ -2730,11 +2686,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
-        if self.isParticipating:
+        if self.master_replica.validator.can_order():
             self.processOrdered(msg)
         else:
-            logger.info("{} stashing {} since mode is {}".format(self, msg, self.mode))
-            self.stashedOrderedReqs.append(msg)
+            logger.info("{} can not process Ordered message {} since mode is {}".format(self, msg, self.mode))
 
     def processEscalatedException(self, ex):
         """
@@ -2838,7 +2793,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
-        self.metrics.add_event(MetricsName.STASHED_ORDERED_REQS, len(self.stashedOrderedReqs))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
 
@@ -3450,37 +3404,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         req_authnr = ReqAuthenticator()
         req_authnr.register_authenticator(self.init_core_authenticator())
         return req_authnr
-
-    def processStashedOrderedReqs(self):
-        i = 0
-        while self.stashedOrderedReqs:
-            msg = self.stashedOrderedReqs.popleft()
-            if msg.instId == 0:
-                if compare_3PC_keys(
-                        (msg.viewNo,
-                         msg.ppSeqNo),
-                        self.ledgerManager.last_caught_up_3PC) >= 0:
-                    logger.info(
-                        '{} ignoring stashed ordered msg {} since ledger '
-                        'manager has last_caught_up_3PC as {}'.format(
-                            self, msg, self.ledgerManager.last_caught_up_3PC))
-                    continue
-                logger.info(
-                    '{} applying stashed Ordered msg {}'.format(self, msg))
-                # Since the PRE-PREPAREs ans PREPAREs corresponding to these
-                # stashed ordered requests was not processed.
-                self.apply_stashed_reqs(msg)
-
-            self.processOrdered(msg)
-            i += 1
-
-        logger.info(
-            "{} processed {} stashed ordered requests".format(
-                self, i))
-        # Resetting monitor after executing all stashed requests so no view
-        # change can be proposed
-        self.monitor.reset()
-        return i
 
     def ensureKeysAreSetup(self):
         """

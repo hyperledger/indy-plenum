@@ -1821,8 +1821,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # were stashed due to lack of commits before them and orders them if it
         # can
 
-        is_between_catchups_during_view_change = self.node.is_synced and self.node.view_change_in_progress
-        if not self.node.isParticipating and not is_between_catchups_during_view_change:
+        if not self.validator.can_order():
             return
 
         self.logger.debug('{} trying to order from out of order commits. '
