@@ -3299,7 +3299,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
 
-        if self.db_manager.ledgers[three_pc_batch.ledger_id].uncommittedRootHash is None:
+        if self.db_manager.ledgers[AUDIT_LEDGER_ID].uncommittedRootHash is None:
             # if we order request during view change
             # in between catchup rounds, then the 3PC batch will not be applied,
             # since it was reverted before catchup started, and only COMMITs were
