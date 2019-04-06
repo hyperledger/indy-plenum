@@ -108,7 +108,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
         update_prepare=lambda a, b: a,
         process_prepare=lambda a, b: None,
         process_pre_prepare=lambda a, b: None,
-        process_order =lambda *args: None
+        process_order=lambda *args: None
     )
     replica = Replica(
         node, instId=inst_id, isMaster=inst_id == 0,
@@ -135,6 +135,12 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
 
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
+    return replica
+
+
+@pytest.fixture(scope='function')
+def primary_replica(replica):
+    replica.primaryName = replica.name
     return replica
 
 

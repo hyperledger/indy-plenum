@@ -708,13 +708,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        return False if self.view_changer is None \
-            else self.view_changer.view_change_in_progress
+        if self.view_changer is None:
+            return False
+        return self.view_changer.view_change_in_progress
 
     @property
     def pre_view_change_in_progress(self):
-        return False if self.view_changer is None \
-            else self.view_changer.pre_view_change_in_progress
+        if self.view_changer is None:
+            return False
+        return self.view_changer.pre_view_change_in_progress
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -2397,6 +2399,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           cons_time=cons_time, ledger_id=ledger_id,
                           seq_no=seq_no, txn=txn)
 
+    def apply_stashed_reqs(self, three_pc_batch):
+        request_ids = three_pc_batch.valid_digests
+        requests = []
+        for req_key in request_ids:
+            if req_key in self.requests:
+                req = self.requests[req_key].finalised
+            else:
+                logger.warning("Could not apply stashed requests due to non-existent requests")
+                return
+            _, seq_no = self.seqNoDB.get(req.digest)
+            if seq_no is None:
+                requests.append(req)
+        self.apply_reqs(requests, three_pc_batch)
+
+    def apply_reqs(self, requests, three_pc_batch: ThreePcBatch):
+        for req in requests:
+            self.applyReq(req, three_pc_batch.pp_time)
+        self.onBatchCreated(three_pc_batch)
+
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
             req_handler = self.get_req_handler(
@@ -2689,7 +2710,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.master_replica.validator.can_order():
             self.processOrdered(msg)
         else:
-            logger.info("{} can not process Ordered message {} since mode is {}".format(self, msg, self.mode))
+            logger.warning("{} can not process Ordered message {} since mode is {}".format(self, msg, self.mode))
 
     def processEscalatedException(self, ex):
         """
@@ -3277,6 +3298,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
+
+        if self.db_manager.ledgers[three_pc_batch.ledger_id].uncommittedRootHash is None:
+            # if we order request during view change
+            # in between catchup rounds, then the 3PC batch will not be applied,
+            # since it was reverted before catchup started, and only COMMITs were
+            # processed in between catchup that led to this ORDERED msg
+            self.apply_stashed_reqs(three_pc_batch)
+
         reqHandler = self.get_req_handler(three_pc_batch.ledger_id)
         committedTxns = reqHandler.commit(len(three_pc_batch.valid_digests),
                                           three_pc_batch.state_root, three_pc_batch.txn_root,

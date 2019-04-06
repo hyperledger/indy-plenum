@@ -107,6 +107,9 @@ class ReplicaValidator:
             return False
         if self.replica.viewNo < self.replica.last_ordered_3pc[0]:
             return False
+        if self.replica.viewNo == self.replica.last_ordered_3pc[0] and \
+                self.replica.lastPrePrepareSeqNo < self.replica.last_ordered_3pc[1]:
+            return False
         return True
 
     def can_order(self):

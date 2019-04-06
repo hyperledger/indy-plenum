@@ -34,7 +34,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
     10. Reset Ledger Status on Nodes1-3
     11. Check that 3 nodes finished VC while Node4 is syncing and not finished
     12. Reset CatchupRep on Node4
-    13. Check that Node4 finished VC, and there was just 1 round of cacth-up (edited)
+    13. Check that Node4 finished VC, and there was just 1 round of catch-up
     """
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]

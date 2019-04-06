@@ -145,17 +145,12 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
 
         ledger_id = batch[f.LEDGER_ID.nm]
         three_pc_batch = ThreePcBatch.from_batch_committed_dict(batch)
-        self._apply_reqs(reqs, three_pc_batch)
+        self._node.apply_reqs(reqs, three_pc_batch)
 
         # We need hashes in apply and str in commit
         three_pc_batch.txn_root = Ledger.hashToStr(three_pc_batch.txn_root)
         three_pc_batch.state_root = Ledger.hashToStr(three_pc_batch.state_root)
         self._node.get_executer(ledger_id)(three_pc_batch)
-
-    def _apply_reqs(self, requests, three_pc_batch: ThreePcBatch):
-        for req in requests:
-            self._node.applyReq(req, three_pc_batch.pp_time)
-        self._node.onBatchCreated(three_pc_batch)
 
     def _process_stashed_messages(self):
         while True:

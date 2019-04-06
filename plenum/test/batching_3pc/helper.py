@@ -73,6 +73,10 @@ def add_txns_to_ledger_before_order(replica, reqs):
             ledger_id = DOMAIN_LEDGER_ID
             catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
 
+            # simulate catchup start
+            replica.revert_unordered_batches()
+            ledger_manager.preCatchupClbk(ledger_id)
+
             # simulate audit ledger catchup
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
                                                            state_root=pp.stateRootHash,
@@ -80,36 +84,21 @@ def add_txns_to_ledger_before_order(replica, reqs):
                                                            primaries=self.node.primaries,
                                                            valid_digests=pp.reqIdr)
             node.audit_handler.post_batch_applied(three_pc_batch)
-            node.audit_handler.commit_batch(FakeSomething())
+            node.audit_handler.commit_batch(three_pc_batch)
 
-            ledger_manager.preCatchupClbk(ledger_id)
+            # simulate domain ledger catchup
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             for req in reqs:
                 txn = append_txn_metadata(reqToTxn(req), txn_time=pp.ppTime)
                 catchup_rep_service._add_txn(txn)
+
+            # simulate catchup finish
             ledger_manager._on_ledger_sync_complete(LedgerCatchupComplete(
                 ledger_id=DOMAIN_LEDGER_ID,
                 num_caught_up=len(reqs)))
             ledger_manager._on_catchup_complete(NodeCatchupComplete())
+
             replica.added = True
-
-        return origMethod(commit)
-
-    replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
-
-
-def start_precatchup_before_order(replica):
-    called = False
-    origMethod = replica.tryOrder
-
-    def tryOrderAndAddTxns(self, commit):
-        nonlocal called
-        canOrder, _ = self.canOrder(commit)
-
-        if not called and canOrder:
-            ledger_manager = replica.node.ledgerManager
-            ledger_manager.preCatchupClbk(DOMAIN_LEDGER_ID)
-            called = True
 
         return origMethod(commit)
 

@@ -159,7 +159,7 @@ class ViewChanger():
         self._next_view_indications = {}
 
         self._view_change_in_progress = False
-        self._pre_view_change_in_progress = False
+        self.pre_view_change_in_progress = False
 
         self.previous_view_no = None
         self.previous_master_primary = None
@@ -225,14 +225,6 @@ class ViewChanger():
     @view_change_in_progress.setter
     def view_change_in_progress(self, value: bool):
         self._view_change_in_progress = value
-
-    @property
-    def pre_view_change_in_progress(self) -> bool:
-        return self._pre_view_change_in_progress
-
-    @pre_view_change_in_progress.setter
-    def pre_view_change_in_progress(self, value: bool):
-        self._pre_view_change_in_progress = value
 
     @property
     def quorum(self) -> int:

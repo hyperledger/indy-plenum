@@ -23,8 +23,9 @@ def validator(replica, inst_id):
     return ReplicaValidator(replica=replica)
 
 
-def make_primary(replica):
-    replica.primaryName = replica.name
+@pytest.fixture(scope='function')
+def primary_validator(primary_replica, inst_id):
+    return ReplicaValidator(replica=primary_replica)
 
 
 def create_3pc_msgs(view_no, pp_seq_no, inst_id):
@@ -285,11 +286,10 @@ def test_check_ordered_not_participating(validator, pp_seq_no, result):
         assert validator.validate_3pc_msg(msg) == result
 
 
-def test_can_send_3pc_batch_by_primary_only(validator):
-    assert not validator.can_send_3pc_batch()
-
-    make_primary(validator.replica)
-    assert validator.can_send_3pc_batch()
+def test_can_send_3pc_batch_by_primary_only(primary_validator):
+    assert primary_validator.can_send_3pc_batch()
+    primary_validator.replica.primaryName = "SomeNode:0"
+    assert not primary_validator.can_send_3pc_batch()
 
 
 @pytest.mark.parametrize('mode', [
@@ -300,10 +300,9 @@ def test_can_send_3pc_batch_by_primary_only(validator):
     Mode.synced,
     Mode.participating
 ])
-def test_can_send_3pc_batch_not_participating(validator, mode):
-    make_primary(validator.replica)
-    validator.replica.node.mode = mode
-    result = validator.can_send_3pc_batch()
+def test_can_send_3pc_batch_not_participating(primary_validator, mode):
+    primary_validator.replica.node.mode = mode
+    result = primary_validator.can_send_3pc_batch()
     assert result == (mode == Mode.participating)
 
 
@@ -315,11 +314,10 @@ def test_can_send_3pc_batch_not_participating(validator, mode):
     Mode.synced,
     Mode.participating
 ])
-def test_can_send_3pc_batch_pre_view_change(validator, mode):
-    make_primary(validator.replica)
-    validator.replica.node.pre_view_change_in_progress = True
-    validator.replica.node.mode = mode
-    assert not validator.can_send_3pc_batch()
+def test_can_send_3pc_batch_pre_view_change(primary_validator, mode):
+    primary_validator.replica.node.pre_view_change_in_progress = True
+    primary_validator.replica.node.mode = mode
+    assert not primary_validator.can_send_3pc_batch()
 
 
 @pytest.mark.parametrize('mode', [
@@ -330,11 +328,25 @@ def test_can_send_3pc_batch_pre_view_change(validator, mode):
     Mode.synced,
     Mode.participating
 ])
-def test_can_send_3pc_batch_old_view(validator, mode):
-    make_primary(validator.replica)
-    validator.replica.last_ordered_3pc = (validator.replica.viewNo + 1, 0)
-    validator.replica.node.mode = mode
-    assert not validator.can_send_3pc_batch()
+def test_can_send_3pc_batch_old_view(primary_validator, mode):
+    primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo + 1, 0)
+    primary_validator.replica.node.mode = mode
+    assert not primary_validator.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced,
+    Mode.participating
+])
+def test_can_send_3pc_batch_old_pp_seq_no_for_view(primary_validator, mode):
+    primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, 100)
+    primary_validator.replica.lastPrePrepareSeqNo = 0
+    primary_validator.replica.node.mode = mode
+    assert not primary_validator.can_send_3pc_batch()
 
 
 def test_can_order(validator):
