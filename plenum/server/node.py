@@ -2670,7 +2670,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              ordered.stateRootHash,
                              ordered.txnRootHash))
 
-        self.executeBatch(ThreePcBatch.from_ordered(ordered),
+        three_pc_batch = ThreePcBatch.from_ordered(ordered)
+        if self.db_manager.ledgers[AUDIT_LEDGER_ID].uncommittedRootHash is None:
+            # if we order request during view change
+            # in between catchup rounds, then the 3PC batch will not be applied,
+            # since it was reverted before catchup started, and only COMMITs were
+            # processed in between catchup that led to this ORDERED msg
+            logger.info("{} applying stashed requests for batch {} {} of {} requests; state root {}; txn root {}"
+                        .format(self.name,
+                                three_pc_batch.view_no,
+                                three_pc_batch.pp_seq_no,
+                                len(three_pc_batch.valid_digests),
+                                three_pc_batch.state_root,
+                                three_pc_batch.txn_root))
+
+            self.apply_stashed_reqs(three_pc_batch)
+
+        self.executeBatch(three_pc_batch,
                           ordered.valid_reqIdr,
                           ordered.invalid_reqIdr,
                           ordered.auditTxnRootHash)
@@ -3298,22 +3314,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
-
-        if self.db_manager.ledgers[AUDIT_LEDGER_ID].uncommittedRootHash is None:
-            # if we order request during view change
-            # in between catchup rounds, then the 3PC batch will not be applied,
-            # since it was reverted before catchup started, and only COMMITs were
-            # processed in between catchup that led to this ORDERED msg
-            logger.info("{} applying stashed requests for batch {} {} of {} requests; state root {}; txn root {}"
-                        .format(self.name,
-                                three_pc_batch.view_no,
-                                three_pc_batch.pp_seq_no,
-                                len(three_pc_batch.valid_digests),
-                                three_pc_batch.state_root,
-                                three_pc_batch.txn_root))
-
-            self.apply_stashed_reqs(three_pc_batch)
-
         reqHandler = self.get_req_handler(three_pc_batch.ledger_id)
         committedTxns = reqHandler.commit(len(three_pc_batch.valid_digests),
                                           three_pc_batch.state_root, three_pc_batch.txn_root,

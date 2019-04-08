@@ -4,10 +4,11 @@ import pytest as pytest
 
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE, LEDGER_STATUS
 from plenum.common.startable import Mode
-from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay, lsDelay, cpDelay, cs_delay
+from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay
 from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp, sdk_send_random_request, \
     sdk_get_and_check_replies
-from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
@@ -106,6 +107,9 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                                                          1)
                    for n in txnPoolNodeSet)
         assert slow_node.catchup_rounds_without_txns == 1
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
 
 
 def _check_nodes_stashed(nodes, old_stashed, new_stashed):
