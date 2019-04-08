@@ -324,7 +324,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.forward,
                  Node.send,
                  Node.checkPerformance,
-                 Node.processStashedOrderedReqs,
                  Node.lost_master_primary,
                  Node.propose_view_change,
                  Node.getReplyFromLedger,
@@ -344,8 +343,7 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.transmitToClient,
                  Node.has_ordered_till_last_prepared_certificate,
-                 Node.on_inconsistent_3pc_state,
-                 Node.apply_stashed_reqs
+                 Node.on_inconsistent_3pc_state
                  ]
 
 

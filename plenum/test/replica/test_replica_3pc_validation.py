@@ -1,9 +1,6 @@
-import functools
-
 import pytest
 
 from plenum.common.startable import Mode
-from plenum.server.node import Node
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, STASH_VIEW, STASH_WATERMARKS, \
@@ -24,6 +21,11 @@ def viewNo(tconf, request):
 @pytest.fixture(scope='function')
 def validator(replica, inst_id):
     return ReplicaValidator(replica=replica)
+
+
+@pytest.fixture(scope='function')
+def primary_validator(primary_replica, inst_id):
+    return ReplicaValidator(replica=primary_replica)
 
 
 def create_3pc_msgs(view_no, pp_seq_no, inst_id):
@@ -113,16 +115,40 @@ def test_check_previous_view_view_change_no_prep_cert(validator):
     (Mode.synced, (PROCESS, None)),
     (Mode.participating, (PROCESS, None))
 ])
-def test_check_catchup_modes_in_view_change_for_prep_cert(validator, result, mode):
+def test_check_catchup_modes_in_view_change_for_prep_cert_for_commit(validator, result, mode):
     pp_seq_no = 10
     validator.replica.node.view_change_in_progress = True
     validator.replica.node.mode = mode
     validator.replica.last_prepared_before_view_change = (validator.view_no - 1,
                                                           pp_seq_no)
-    for msg in create_3pc_msgs(view_no=validator.view_no - 1,
-                               pp_seq_no=pp_seq_no,
-                               inst_id=validator.inst_id):
-        assert validator.validate_3pc_msg(msg) == result
+    commit = create_commit_no_bls_sig(req_key=(validator.view_no - 1, pp_seq_no),
+                                      inst_id=validator.inst_id)
+    assert validator.validate_3pc_msg(commit) == result
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced,
+    Mode.participating
+])
+def test_check_catchup_modes_in_view_change_for_prep_cert_for_non_commit(validator, mode):
+    pp_seq_no = 10
+    validator.replica.node.view_change_in_progress = True
+    validator.replica.node.mode = mode
+    validator.replica.last_prepared_before_view_change = (validator.view_no - 1,
+                                                          pp_seq_no)
+    pre_prepare = create_pre_prepare_no_bls(generate_state_root(),
+                                            view_no=validator.view_no - 1,
+                                            pp_seq_no=pp_seq_no,
+                                            inst_id=validator.inst_id)
+    prepare = create_prepare(req_key=(validator.view_no - 1, pp_seq_no),
+                             state_root=generate_state_root(),
+                             inst_id=validator.inst_id)
+    assert validator.validate_3pc_msg(pre_prepare) == (DISCARD, OLD_VIEW)
+    assert validator.validate_3pc_msg(prepare) == (DISCARD, OLD_VIEW)
 
 
 @pytest.mark.parametrize('pp_seq_no, result', [
@@ -135,13 +161,29 @@ def test_check_catchup_modes_in_view_change_for_prep_cert(validator, result, mod
     (12, (DISCARD, GREATER_PREP_CERT)),
     (100, (DISCARD, GREATER_PREP_CERT)),
 ])
-def test_check_previous_view_view_change_prep_cert(validator, pp_seq_no, result):
+def test_check_previous_view_view_change_prep_cert_commit(validator, pp_seq_no, result):
     validator.replica.node.view_change_in_progress = True
     validator.replica.last_prepared_before_view_change = (validator.view_no - 1, 10)
-    for msg in create_3pc_msgs(view_no=validator.view_no - 1,
-                               pp_seq_no=pp_seq_no,
-                               inst_id=validator.inst_id):
-        assert validator.validate_3pc_msg(msg) == result
+    commit = create_commit_no_bls_sig(req_key=(validator.view_no - 1, pp_seq_no),
+                                      inst_id=validator.inst_id)
+    assert validator.validate_3pc_msg(commit) == result
+
+
+@pytest.mark.parametrize('pp_seq_no', [
+    1, 9, 10, 11, 12, 100
+])
+def test_check_previous_view_view_change_prep_cert_non_commit(validator, pp_seq_no):
+    validator.replica.node.view_change_in_progress = True
+    validator.replica.last_prepared_before_view_change = (validator.view_no - 1, 10)
+    pre_prepare = create_pre_prepare_no_bls(generate_state_root(),
+                                            view_no=validator.view_no - 1,
+                                            pp_seq_no=pp_seq_no,
+                                            inst_id=validator.inst_id)
+    prepare = create_prepare(req_key=(validator.view_no - 1, pp_seq_no),
+                             state_root=generate_state_root(),
+                             inst_id=validator.inst_id)
+    assert validator.validate_3pc_msg(pre_prepare) == (DISCARD, OLD_VIEW)
+    assert validator.validate_3pc_msg(prepare) == (DISCARD, OLD_VIEW)
 
 
 @pytest.mark.parametrize('pp_seq_no, result', [
@@ -242,3 +284,88 @@ def test_check_ordered_not_participating(validator, pp_seq_no, result):
                                pp_seq_no=pp_seq_no,
                                inst_id=validator.inst_id):
         assert validator.validate_3pc_msg(msg) == result
+
+
+def test_can_send_3pc_batch_by_primary_only(primary_validator):
+    assert primary_validator.can_send_3pc_batch()
+    primary_validator.replica.primaryName = "SomeNode:0"
+    assert not primary_validator.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced,
+    Mode.participating
+])
+def test_can_send_3pc_batch_not_participating(primary_validator, mode):
+    primary_validator.replica.node.mode = mode
+    result = primary_validator.can_send_3pc_batch()
+    assert result == (mode == Mode.participating)
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced,
+    Mode.participating
+])
+def test_can_send_3pc_batch_pre_view_change(primary_validator, mode):
+    primary_validator.replica.node.pre_view_change_in_progress = True
+    primary_validator.replica.node.mode = mode
+    assert not primary_validator.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced,
+    Mode.participating
+])
+def test_can_send_3pc_batch_old_view(primary_validator, mode):
+    primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo + 1, 0)
+    primary_validator.replica.node.mode = mode
+    assert not primary_validator.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced,
+    Mode.participating
+])
+def test_can_send_3pc_batch_old_pp_seq_no_for_view(primary_validator, mode):
+    primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, 100)
+    primary_validator.replica.lastPrePrepareSeqNo = 0
+    primary_validator.replica.node.mode = mode
+    assert not primary_validator.can_send_3pc_batch()
+
+
+def test_can_order(validator):
+    assert validator.can_order()
+
+
+@pytest.mark.parametrize('mode', [
+    Mode.starting,
+    Mode.discovering,
+    Mode.discovered,
+    Mode.syncing,
+    Mode.synced
+])
+def test_cant_order_not_participating(validator, mode):
+    validator.replica.node.mode = mode
+    assert not validator.can_order()
+
+
+def test_can_order_synced_and_view_change(validator):
+    validator.replica.node.mode = Mode.synced
+    validator.replica.node.view_change_in_progress = True
+    assert validator.can_order()

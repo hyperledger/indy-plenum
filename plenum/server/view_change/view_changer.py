@@ -159,6 +159,7 @@ class ViewChanger():
         self._next_view_indications = {}
 
         self._view_change_in_progress = False
+        self.pre_view_change_in_progress = False
 
         self.previous_view_no = None
         self.previous_master_primary = None
@@ -570,6 +571,7 @@ class ViewChanger():
         # implementations - we need to make this logic pluggable
 
         if self.pre_vc_strategy and (not continue_vc):
+            self.pre_view_change_in_progress = True
             self.pre_vc_strategy.prepare_view_change(proposed_view_no)
             return
         elif self.pre_vc_strategy:
@@ -577,6 +579,7 @@ class ViewChanger():
 
         self.previous_view_no = self.view_no
         self.view_no = proposed_view_no
+        self.pre_view_change_in_progress = False
         self.view_change_in_progress = True
         self.previous_master_primary = self.provider.current_primary_name()
         self.set_defaults()

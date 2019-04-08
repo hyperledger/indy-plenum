@@ -31,6 +31,7 @@ class ReplicaFakeNode(FakeSomething):
             utc_epoch=lambda *args: get_utc_epoch(),
             mode=Mode.participating,
             view_change_in_progress=False,
+            pre_view_change_in_progress=False,
             requests=Requests(),
             onBatchCreated=lambda self, *args, **kwargs: True,
             applyReq=lambda self, *args, **kwargs: True,
@@ -107,7 +108,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
         update_prepare=lambda a, b: a,
         process_prepare=lambda a, b: None,
         process_pre_prepare=lambda a, b: None,
-        process_order =lambda *args: None
+        process_order=lambda *args: None
     )
     replica = Replica(
         node, instId=inst_id, isMaster=inst_id == 0,
@@ -134,6 +135,12 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
 
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
 
+    return replica
+
+
+@pytest.fixture(scope='function')
+def primary_replica(replica):
+    replica.primaryName = replica.name
     return replica
 
 
