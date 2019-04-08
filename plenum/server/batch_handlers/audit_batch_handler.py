@@ -98,7 +98,7 @@ class AuditBatchHandler(BatchRequestHandler):
 
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
-            self.__fill_ledger_root_hash(txn, three_pc_batch, lid, last_audit_txn)
+            self.__fill_ledger_root_hash(txn, lid, ledger, last_audit_txn)
 
         # 4. state root hash
         txn[AUDIT_TXN_STATE_ROOT][three_pc_batch.ledger_id] = Ledger.hashToStr(three_pc_batch.state_root)
@@ -108,13 +108,12 @@ class AuditBatchHandler(BatchRequestHandler):
 
         return txn
 
-    def __fill_ledger_root_hash(self, txn, three_pc_batch, lid, last_audit_txn):
-        target_ledger_id = three_pc_batch.ledger_id
+    def __fill_ledger_root_hash(self, txn, lid, ledger, last_audit_txn):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
 
         # 1. ledger is changed in this batch => root_hash
-        if lid == target_ledger_id:
-            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(three_pc_batch.txn_root)
+        if ledger.uncommittedTxns:
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommittedRootHash)
 
         # 2. This ledger is never audited, so do not add the key
         elif last_audit_txn_data is None or lid not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
