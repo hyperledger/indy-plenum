@@ -292,6 +292,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # instance is
         self._primaryName = None  # type: Optional[str]
 
+        # PRE-PREPAREs timestamps stored by non primary replica to check
+        # obsolescence of incoming PrePrepares.
+        # Dictionary:
+        #   key: Tuple[pre-prepare, sender]
+        #   value: timestamp
+        self.pre_prepare_tss = {}
+
         # PRE-PREPAREs that are waiting to be processed but do not have the
         # corresponding request finalised. Happens when replica has not been
         # forwarded the request by the node but is getting 3 phase messages.
@@ -428,6 +435,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # This is emptied on view change. With each PRE-PREPARE, a flag is
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
+        # TODO INDY-1983 why is it not cleaned during gc
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
         self._bls_bft_replica = bls_bft_replica
@@ -1049,11 +1057,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         sender = self.generateName(sender, self.instId)
 
+        pp_key = (msg, sender) if isinstance(msg, PrePrepare) else None
+        if pp_key and (pp_key not in self.pre_prepare_tss):
+            self.pre_prepare_tss[pp_key] = self.utc_epoch
+
         result, reason = self.validator.validate_3pc_msg(msg)
         if result == DISCARD:
             self.discard(msg, "{} discard message {} from {} "
                               "with the reason: {}".format(self, msg, sender, reason),
                          self.logger.trace)
+            if pp_key:
+                del self.pre_prepare_tss[pp_key]
         elif result == PROCESS:
             self.threePhaseRouter.handleSync((msg, sender))
         else:
@@ -1148,6 +1162,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         def report_suspicious(reason):
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
+            if reason != Suspicions.PPR_TIME_WRONG:
+                del self.pre_prepare_tss[pre_prepare, sender]
 
         why_not = self._can_process_pre_prepare(pre_prepare, sender)
         if why_not is None:
@@ -1171,6 +1187,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     return
                 elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
+            else:
+                del self.pre_prepare_tss[pre_prepare, sender]
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1506,6 +1524,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
+        if not self.is_pre_prepare_time_acceptable(pre_prepare, sender):
+            return PP_CHECK_WRONG_TIME
+
         if not self.node.isParticipating:
             # Let the node stash the pre-prepare
             # TODO: The next processed pre-prepare needs to take consider if
@@ -1519,9 +1540,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if self.nonFinalisedReqs(pre_prepare.reqIdr):
             return PP_CHECK_REQUEST_NOT_FINALIZED
-
-        if not self.is_pre_prepare_time_acceptable(pre_prepare):
-            return PP_CHECK_WRONG_TIME
 
         if not self.__is_next_pre_prepare(pre_prepare.viewNo,
                                           pre_prepare.ppSeqNo):
@@ -2188,6 +2206,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
+        for (pp, sender) in self.prePreparesPendingPrevPP:
+            if pp.viewNo < self.viewNo:
+                del self.pre_prepare_tss[pp, sender]
+
     def stashed_checkpoints_with_quorum(self):
         end_pp_seq_numbers = []
         quorum = self.quorums.checkpoint
@@ -2650,7 +2672,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def process_requested_commit(self, commit: Commit, sender: str):
         return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
 
-    def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
+    def is_pre_prepare_time_correct(self, pp: PrePrepare, sender: str) -> bool:
         """
         Check if this PRE-PREPARE is not older than (not checking for greater
         than since batches maybe sent in less than 1 second) last PRE-PREPARE
@@ -2660,9 +2682,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         return ((self.last_accepted_pre_prepare_time is None or
                  pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+                ((pp, sender) in self.pre_prepare_tss.get) and
+                (abs(pp.ppTime - self.pre_prepare_tss.get[pp, sender]) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
-    def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
+    def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """
         Returns True or False depending on the whether the time in PRE-PREPARE
         is acceptable. Can return True if time is not acceptable but sufficient
@@ -2674,7 +2697,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if key in self.requested_pre_prepares:
             # Special case for requested PrePrepares
             return True
-        correct = self.is_pre_prepare_time_correct(pp)
+        correct = self.is_pre_prepare_time_correct(pp, sender)
         if not correct:
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
