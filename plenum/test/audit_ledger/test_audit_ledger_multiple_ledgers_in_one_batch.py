@@ -5,6 +5,7 @@ from plenum.common.transactions import PlenumTransactions
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.test.helper import sdk_gen_request
 
+
 def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     node = txnPoolNodeSet[0]
     audit_batch_handler = node.audit_handler
