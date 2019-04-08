@@ -1260,8 +1260,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.closeAllKVStores()
 
         self._info_tool.stop()
-
         self.mode = None
+        self.execute_hook(NodeHooks.POST_NODE_STOPPED)
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
