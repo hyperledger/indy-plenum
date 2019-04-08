@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.constants import BATCH
 from plenum.common.messages.fields import AnyValueField, ChooseField
-from plenum.common.messages.node_messages import ObservedData
+from plenum.common.messages.node_messages import ObservedDataMsgData, ObservedData
 from plenum.test.input_validation.message_validation.test_batch_committed import create_valid_batch_committed, \
     create_valid_batch_committed_as_dict, create_invalid_batch_committed, create_invalid_batch_committed_as_dict
 
@@ -15,16 +15,16 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
 
 
 def test_hash_expected_type():
-    assert ObservedData.typename == "OBSERVED_DATA"
+    assert ObservedDataMsgData.typename == "OBSERVED_DATA"
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(ObservedData.schema).keys()
+    actual_field_names = OrderedDict(ObservedDataMsgData.schema).keys()
     assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():
-    schema = dict(ObservedData.schema)
+    schema = dict(ObservedDataMsgData.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)
 

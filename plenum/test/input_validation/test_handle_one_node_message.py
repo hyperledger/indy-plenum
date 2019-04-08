@@ -12,4 +12,4 @@ def test_unpack_node_msg_with_str_as_msg_in_batch(create_node_and_not_start):
     node.unpackNodeMsg(batch)
     assert len(node.nodeInBox) == 1
     m = node.nodeInBox.pop()
-    assert isinstance(m.msg, InstanceChange)
+    assert isinstance(m, InstanceChange)

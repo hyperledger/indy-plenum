@@ -3,7 +3,7 @@ from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, IterableField, LimitedLengthStringField, \
     TimestampField, MerkleRootField, BlsMultiSignatureField, AnyMapField, SerializedValueField, BooleanField
-from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.messages.node_messages import PrePrepareMsgData
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
@@ -26,15 +26,15 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
 
 
 def test_has_expected_type():
-    assert PrePrepare.typename == "PREPREPARE"
+    assert PrePrepareMsgData.typename == "PREPREPARE"
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(PrePrepare.schema).keys()
+    actual_field_names = OrderedDict(PrePrepareMsgData.schema).keys()
     assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():
-    schema = dict(PrePrepare.schema)
+    schema = dict(PrePrepareMsgData.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)

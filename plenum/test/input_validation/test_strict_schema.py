@@ -130,4 +130,4 @@ def test_client_safe_req_not_strict_by_default():
               f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION,
               "some_new_field1": "some_new_value1",
               "some_new_field2": "some_new_value2"}
-    assert SafeRequest(**kwargs)
+    assert SafeRequest(**kwargs) is not None

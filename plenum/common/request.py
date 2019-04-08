@@ -138,6 +138,8 @@ class RequestMsgData:
 
 
 class Request(NetworkMessage):
+    idr_delimiter = RequestMsgData.idr_delimiter
+
     msg_data_cls = RequestMsgData
 
     @classmethod

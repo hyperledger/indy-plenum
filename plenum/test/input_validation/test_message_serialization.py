@@ -31,7 +31,7 @@ def test_serialization_of_submessages_to_dict():
     message_rep = MessageRep(**{
         f.MSG_TYPE.nm: "LEDGER_STATUS",
         f.PARAMS.nm: {"ledger_id": 1, f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION},
-        f.MSG.nm: message,
+        f.MSG.nm: message.msg_data,
     })
     serialized_message = ZStack.serializeMsg(message.msg_data).decode()
     serialized_message_reply = ZStack.serializeMsg(message_rep.msg_data).decode()
@@ -45,6 +45,6 @@ def test_serialization_of_submessages_to_dict():
         **ZStack.deserializeMsg(serialized_message))
     deserialized_submessage = LedgerStatus(
         **ZStack.deserializeMsg(serialized_message_reply)[f.MSG.nm])
-    assert message == deserialized_message
-    assert message_rep.msg == deserialized_submessage
-    assert message == deserialized_submessage
+    assert message.msg_data == deserialized_message.msg_data
+    assert message_rep.msg == deserialized_submessage.msg_data
+    assert message.msg_data == deserialized_submessage.msg_data

@@ -3,7 +3,7 @@ import pytest
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, MerkleRootField, ProtocolVersionField
-from plenum.common.messages.node_messages import LedgerStatus
+from plenum.common.messages.node_messages import LedgerStatusMsgData
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
@@ -16,15 +16,15 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
 
 
 def test_hash_expected_type():
-    assert LedgerStatus.typename == "LEDGER_STATUS"
+    assert LedgerStatusMsgData.typename == "LEDGER_STATUS"
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(LedgerStatus.schema).keys()
+    actual_field_names = OrderedDict(LedgerStatusMsgData.schema).keys()
     assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():
-    schema = dict(LedgerStatus.schema)
+    schema = dict(LedgerStatusMsgData.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)

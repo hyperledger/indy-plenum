@@ -5,7 +5,7 @@ import pytest
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.messages.fields import IterableField, \
     LedgerIdField, NonNegativeNumberField, MerkleRootField, TimestampField
-from plenum.common.messages.node_messages import BatchCommittedMsgData
+from plenum.common.messages.node_messages import BatchCommittedMsgData, BatchCommitted
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import sdk_random_request_objects, generate_state_root
 

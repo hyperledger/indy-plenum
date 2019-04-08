@@ -137,7 +137,7 @@ class NetworkMessage:
         return self.msg_data[key]
 
     def __dir__(self):
-        return dir(self)
+        return dir(self.msg_data)
 
     def __contains__(self, key):
         return key in self.msg_data
