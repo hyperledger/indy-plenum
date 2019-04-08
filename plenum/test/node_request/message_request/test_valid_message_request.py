@@ -4,7 +4,7 @@ from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
     PREPREPARE, PREPARE, PROPAGATE, COMMIT, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     AnyMapField, MessageRep, AnyField, LedgerStatus, ConsistencyProof, \
-    PrePrepare, Prepare, Propagate, Commit
+    PrePrepare, Prepare, Propagate, Commit, MessageReqMsgData
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import countDiscarded, init_discarded
@@ -20,7 +20,7 @@ whitelist = [invalid_type_discard_log, ]
 
 patched_schema = (
     (f.MSG_TYPE.nm, ChooseField(values={'invalid_type'} |
-                                       MessageReq.allowed_types)),
+                                       MessageReqMsgData.allowed_types)),
     (f.PARAMS.nm, AnyMapField())
 )
 
