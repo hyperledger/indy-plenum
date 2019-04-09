@@ -1,4 +1,3 @@
-from indy_common.transactions import IndyTransactions
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, \
     TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO
 from plenum.common.ledger import Ledger
@@ -20,7 +19,7 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     }
     nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
     domain_request_handler.apply(nym_req, 10000)
-    op2 = {TXN_TYPE: IndyTransactions.POOL_CONFIG.value}
+    op2 = {TXN_TYPE: "111"}
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
@@ -46,7 +45,7 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     }
     nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
     domain_request_handler.apply(nym_req, 10000)
-    op2 = {TXN_TYPE: IndyTransactions.POOL_CONFIG.value}
+    op2 = {TXN_TYPE: "111"}
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
@@ -80,7 +79,7 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     }
     nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
     domain_request_handler.apply(nym_req, 10000)
-    op2 = {TXN_TYPE: IndyTransactions.POOL_CONFIG.value}
+    op2 = {TXN_TYPE: "111"}
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
@@ -93,13 +92,13 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
 
     # Checking rare case -- batch from two ledgers, that were never audited before
     op2 = {
-        TXN_TYPE: IndyTransactions.NODE.value,
+        TXN_TYPE: PlenumTransactions.NODE.value,
         TARGET_NYM: "000000000000000000000000Trustee1"
     }
     node_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     pool_request_handler.apply(node_req, 10000)
 
-    op2 = {TXN_TYPE: IndyTransactions.POOL_CONFIG.value}
+    op2 = {TXN_TYPE: "111"}
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
