@@ -1,6 +1,7 @@
 import random
 from typing import Iterable, List
 
+from plenum.common.messages.message_base import MessageBase
 from plenum.common.request import Request
 
 from plenum.common.messages.node_messages import Nomination, Reelection, Primary, \
@@ -27,7 +28,8 @@ def delayer(seconds, op, senderFilter=None, instFilter: int = None):
 
 def delayerMsgTuple(seconds, opType, senderFilter=None,
                     instFilter: int = None,
-                    ledgerFilter: int = None):
+                    ledgerFilter: int = None,
+                    viewFilter: int = None):
     """
     Used for nodeInBoxStasher
 
@@ -47,10 +49,13 @@ def delayerMsgTuple(seconds, opType, senderFilter=None,
                   getattr(msg, f.INST_ID.nm) == instFilter)) and \
                 (ledgerFilter is None or
                  f.LEDGER_ID.nm in msg._fields and
-                 getattr(msg, f.LEDGER_ID.nm) == ledgerFilter):
+                 getattr(msg, f.LEDGER_ID.nm) == ledgerFilter) and \
+                (viewFilter is None or
+                 f.VIEW_NO.nm in msg._fields and
+                 getattr(msg, f.VIEW_NO.nm) == viewFilter):
             return seconds
 
-    if hasattr(opType, 'typename'):
+    if hasattr(opType, 'typename') and opType.typename is not None:
         inner.__name__ = opType.typename
     else:
         inner.__name__ = opType.__name__
@@ -118,14 +123,14 @@ def cDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str 
         delay, Commit, instFilter=instId, senderFilter=sender_filter)
 
 
-def icDelay(delay: float = DEFAULT_DELAY):
+def icDelay(delay: float = DEFAULT_DELAY, viewNo: int = None):
     # Delayer of INSTANCE-CHANGE requests
-    return delayerMsgTuple(delay, InstanceChange)
+    return delayerMsgTuple(delay, InstanceChange, viewFilter=viewNo)
 
 
-def vcd_delay(delay: float = DEFAULT_DELAY):
+def vcd_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
     # Delayer of VIEW_CHANGE_DONE requests
-    return delayerMsgTuple(delay, ViewChangeDone)
+    return delayerMsgTuple(delay, ViewChangeDone, viewFilter=viewNo)
 
 
 def cs_delay(delay: float = DEFAULT_DELAY):
@@ -185,6 +190,12 @@ def msg_rep_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):
 
     specific_msgs.__name__ = MESSAGE_RESPONSE
     return specific_msgs
+
+
+def delay_for_view(viewNo: int, delay: float = DEFAULT_DELAY):
+    d = delayerMsgTuple(delay, MessageBase, viewFilter=viewNo)
+    d.__name__ = "view_no" + str(viewNo)
+    return d
 
 
 def delay(what, frm, to, howlong):
@@ -250,6 +261,16 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
     delay_messages('3pc', nodes, inst_id, delay, min_delay, max_delay)
 
 
+def all_delay(delay: float = DEFAULT_DELAY, no_check_delays=[]):
+    def inner(msg):
+        for d in no_check_delays:
+            if d(msg):
+                return 0
+        return delay
+
+    return inner
+
+
 def reset_delays_and_process_delayeds(nodes):
     for node in nodes:
         node.reset_delays_and_process_delayeds()
@@ -258,4 +279,3 @@ def reset_delays_and_process_delayeds(nodes):
 def reset_delays_and_process_delayeds_for_client(nodes):
     for node in nodes:
         node.reset_delays_and_process_delayeds_for_clients()
-

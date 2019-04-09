@@ -25,20 +25,20 @@ class AuditBatchHandler(BatchRequestHandler):
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         txn = self._add_to_ledger(three_pc_batch)
         self.tracker.apply_batch(None, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size)
-        logger.info("applied audit txn {}; uncommitted root hash is {}; uncommitted size is {}".
-                    format(str(txn), self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
+        logger.debug("applied audit txn {}; uncommitted root hash is {}; uncommitted size is {}".
+                     format(str(txn), self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         _, _, txn_count = self.tracker.reject_batch()
         self.ledger.discardTxns(txn_count)
-        logger.info("rejected {} audit txns; uncommitted root hash is {}; uncommitted size is {}".
-                    format(txn_count, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
+        logger.debug("rejected {} audit txns; uncommitted root hash is {}; uncommitted size is {}".
+                     format(txn_count, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
 
     def commit_batch(self, three_pc_batch, prev_handler_result=None):
         _, _, txns_count = self.tracker.commit_batch()
         _, committedTxns = self.ledger.commitTxns(txns_count)
-        logger.info("committed {} audit txns; uncommitted root hash is {}; uncommitted size is {}".
-                    format(txns_count, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
+        logger.debug("committed {} audit txns; uncommitted root hash is {}; uncommitted size is {}".
+                     format(txns_count, self.ledger.uncommitted_root_hash, self.ledger.uncommitted_size))
         return committedTxns
 
     def on_catchup_finished(self):
