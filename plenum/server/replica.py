@@ -295,7 +295,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # PRE-PREPAREs timestamps stored by non primary replica to check
         # obsolescence of incoming PrePrepares.
         # Dictionary:
-        #   key: Tuple[pre-prepare, sender]
+        #   key: Tuple[(pp.viewNo, pp.seqNo), sender]
         #   value: timestamp
         self.pre_prepare_tss = {}
 
@@ -1057,8 +1057,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         sender = self.generateName(sender, self.instId)
 
-        pp_key = (msg, sender) if isinstance(msg, PrePrepare) else None
+        pp_key = (((msg.viewNo, msg.ppSeqNo), sender) if
+                  isinstance(msg, PrePrepare) else None)
+
         if pp_key and (pp_key not in self.pre_prepare_tss):
+            # TODO more clean solution to set timestamps earlier (e.g. in zstack)
             self.pre_prepare_tss[pp_key] = self.utc_epoch
 
         result, reason = self.validator.validate_3pc_msg(msg)
@@ -1154,6 +1157,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} received PRE-PREPARE{} from {}".format(self, key, sender))
 
+        if (key, sender) not in self.pre_prepare_tss:
+            raise LogicError(
+                "{} no timestamp information for the PrePrepare {}"
+                .format(self, (key, sender))
+            )
+
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
         req_idrs = {f.REQ_IDR.nm: [key for key in pre_prepare.reqIdr]}
@@ -1163,7 +1172,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
             if reason != Suspicions.PPR_TIME_WRONG:
-                del self.pre_prepare_tss[pre_prepare, sender]
+                del self.pre_prepare_tss[key, sender]
 
         why_not = self._can_process_pre_prepare(pre_prepare, sender)
         if why_not is None:
@@ -1188,7 +1197,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
             else:
-                del self.pre_prepare_tss[pre_prepare, sender]
+                del self.pre_prepare_tss[key, sender]
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -2206,9 +2215,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
-        for (pp, sender) in self.prePreparesPendingPrevPP:
-            if pp.viewNo < self.viewNo:
-                del self.pre_prepare_tss[pp, sender]
+        for ((v, p), sender) in self.pre_prepare_tss:
+            if v < self.viewNo:
+                self.pre_prepare_tss.pop(((v, p), sender), None)
 
     def stashed_checkpoints_with_quorum(self):
         end_pp_seq_numbers = []
@@ -2682,8 +2691,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         return ((self.last_accepted_pre_prepare_time is None or
                  pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                ((pp, sender) in self.pre_prepare_tss.get) and
-                (abs(pp.ppTime - self.pre_prepare_tss.get[pp, sender]) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+                (((pp.viewNo, pp.ppSeqNo), sender) in self.pre_prepare_tss) and
+                (abs(pp.ppTime - self.pre_prepare_tss[(pp.viewNo, pp.ppSeqNo), sender]) <=
+                    self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """

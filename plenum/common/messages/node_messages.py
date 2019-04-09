@@ -21,6 +21,8 @@ from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FI
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
+# TODO set of calsses are not hashable but MessageBase expects that
+
 class Nomination(MessageBase):
     typename = NOMINATE
 
