@@ -246,7 +246,7 @@ class CoreAuthMixin:
                           EmptyIdentifier):
                     ex = ex(req_data.get(f.IDENTIFIER.nm), req_data.get(f.SIG.nm))
                 raise ex
-        else:
+        if f.SIG.nm in req_data:
             signatures = req_data[f.SIGS.nm]
         return self.authenticate_multi(to_serialize, signatures=signatures,
                                        threshold=threshold, verifier=verifier)
