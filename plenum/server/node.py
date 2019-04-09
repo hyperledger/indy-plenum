@@ -56,7 +56,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
@@ -2396,20 +2396,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         State based validation
         """
         self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
-        operation = request.operation
-        req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
-        req_handler.validate(request)
 
         # Digest validation
+        ledger_id, seq_no, digest = self.seqNoDB.get(request.payload_digest)
+        if ledger_id is not None and seq_no is not None and digest is not None:
+            raise SuspiciousPrePrepare('Trying write request with different signatures')
+
         ledger = self.getLedger(self.ledger_id_for_request(request))
         for txn in ledger.uncommittedTxns:
             if get_payload_digest(txn) == request.payload_digest:
-                raise InvalidClientMessageException(request.identifier, request.reqId,
-                                                    'Trying write request with different signatures')
-        ledger_id, seq_no, digest = self.seqNoDB.get(request.payload_digest)
-        if ledger_id is not None and seq_no is not None and digest is not None:
-            raise InvalidClientMessageException(request.identifier, request.reqId,
-                                                'Trying write request with same payload_digest')
+                raise SuspiciousPrePrepare('Trying write request with different signatures')
+
+        operation = request.operation
+        req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
+        req_handler.validate(request)
 
         self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 

@@ -16,13 +16,17 @@ class ReqIdrToTxn:
     def add(self, payload_digest, ledger_id, seq_no, digest):
         self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no, digest))
 
-    def addBatch(self, batch):
-        self._keyValueStorage.setBatch([(payload_digest, self._create_value(ledger_id,
-                                                                            seq_no,
-                                                                            digest))
-                                        for payload_digest, ledger_id, seq_no, digest in batch])
+    def addBatch(self, batch, full_digest: bool = False):
+        if full_digest:
+            self._keyValueStorage.setBatch([(digest, str(payload_digest))
+                                            for payload_digest, ledger_id, seq_no, digest in batch])
+        else:
+            self._keyValueStorage.setBatch([(payload_digest, self._create_value(ledger_id,
+                                                                                seq_no,
+                                                                                digest))
+                                            for payload_digest, ledger_id, seq_no, digest in batch])
 
-    def get(self, payload_digest):
+    def get(self, some_digest, full_digest: bool = False):
         """
         Return leger_id, seq_no of transaction that was a result
         of last request with this digest
@@ -30,10 +34,11 @@ class ReqIdrToTxn:
         :return: leger_id, seq_no
         """
         try:
-            val = self._keyValueStorage.get(payload_digest)
-            return self._parse_value(val.decode())
+            val = self._keyValueStorage.get(some_digest)
+            val = val.decode()
+            return val if full_digest else self._parse_value(val)
         except (KeyError, ValueError):
-            return None, None, None
+            return None if full_digest else None, None, None
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
