@@ -1,15 +1,21 @@
 import pytest
 import asyncio
 
+from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay, cDelay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_request.test_timestamp.helper import get_timestamp_suspicion_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
+from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
 
-PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 3  # TODO lower / higher value ?
+# TODO better to use non hard coded value of nodes number
+# but for now it would be tricky since tconf can't depend on txnPoolNodeSet
+
+# should be big enough to pass PP during normal ordering flow
+PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS = waits.expectedPrepareTime(4)
 
 
 @pytest.fixture(scope="module")
@@ -20,7 +26,7 @@ def tconf(tconf):
     tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS = old_value
 
 
-def test_pp_obsolescence_for_lagging_node(tdir, tconf,
+def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
                                      sdk_pool_handle,
@@ -36,11 +42,14 @@ def test_pp_obsolescence_for_lagging_node(tdir, tconf,
         # Order request on all nodes except lagging one
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 1)
-        # TODO use some of waits instead
         looper.run(asyncio.sleep(delay))
 
     # Now delayed 3PC messages reach lagging node, so any transactions missed during
     # catch up can be ordered, ensure that all nodes will have same data after that
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
-    assert get_timestamp_suspicion_count(lagging_node) == 0
+    pp_count = get_count(lagging_node.master_replica,
+        lagging_node.master_replica.processPrePrepare)
+
+    assert pp_count > 0
+    assert get_timestamp_suspicion_count(lagging_node) == pp_count
