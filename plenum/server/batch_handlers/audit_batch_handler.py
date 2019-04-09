@@ -100,9 +100,6 @@ class AuditBatchHandler(BatchRequestHandler):
             # TODO: support setting for multiple ledgers
             self.__fill_ledger_root_hash(txn, lid, ledger, last_audit_txn)
 
-        # 4. state root hash
-        txn[AUDIT_TXN_STATE_ROOT][three_pc_batch.ledger_id] = Ledger.hashToStr(three_pc_batch.state_root)
-
         # 5. set primaries field
         self.__fill_primaries(txn, three_pc_batch, last_audit_txn)
 
@@ -114,16 +111,19 @@ class AuditBatchHandler(BatchRequestHandler):
         # 1. it is the first batch and we have something
         if last_audit_txn_data is None and ledger.uncommitted_size:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 
         # 1.1. Rare case -- we have previous audit txns but don't have this ledger i.e. new plugins
         elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid] is None and \
                 len(ledger.uncommittedTxns):
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 
         # 2. Usual case -- this ledger was updated since the last audit txn
         elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid] is not None and \
                 ledger.uncommitted_size > last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid]:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 
         # 3. This ledger is never audited, so do not add the key
         elif last_audit_txn_data is None or lid not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
