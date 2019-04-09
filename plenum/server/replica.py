@@ -293,11 +293,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._primaryName = None  # type: Optional[str]
 
         # PRE-PREPAREs timestamps stored by non primary replica to check
-        # obsolescence of incoming PrePrepares.
+        # obsolescence of incoming PrePrepares. Pre-prepares with the same
+        # 3PC key are not merged since we need to keep incoming timestamps
+        # for each new PP from every nodes separately.
         # Dictionary:
-        #   key: Tuple[(pp.viewNo, pp.seqNo), sender]
-        #   value: timestamp
-        self.pre_prepare_tss = {}
+        #   key: Tuple[pp.viewNo, pp.seqNo]
+        #   value: Dict[PrePrepare, Tuple[sender, timestamp]]
+        self.pre_prepare_tss = defaultdict(dict)
 
         # PRE-PREPAREs that are waiting to be processed but do not have the
         # corresponding request finalised. Happens when replica has not been
@@ -1056,17 +1058,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pp_key = (((msg.viewNo, msg.ppSeqNo), sender) if
                   isinstance(msg, PrePrepare) else None)
 
-        if pp_key and (pp_key not in self.pre_prepare_tss):
-            # TODO more clean solution to set timestamps earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key] = self.utc_epoch
+        # the same PrePrepare might come here multiple times
+        if (pp_key and (pp_key not in self.pre_prepare_tss) and
+                msg not in self.pre_prepare_tss[pp_key]):
+            # TODO more clean solution would be to set timestamps
+            # earlier (e.g. in zstack)
+            self.pre_prepare_tss[pp_key][msg] = (sender, self.utc_epoch)
 
         result, reason = self.validator.validate_3pc_msg(msg)
         if result == DISCARD:
             self.discard(msg, "{} discard message {} from {} "
                               "with the reason: {}".format(self, msg, sender, reason),
                          self.logger.trace)
-            if pp_key:
-                del self.pre_prepare_tss[pp_key]
         elif result == PROCESS:
             self.threePhaseRouter.handleSync((msg, sender))
         else:
@@ -1153,12 +1156,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} received PRE-PREPARE{} from {}".format(self, key, sender))
 
-        if (key, sender) not in self.pre_prepare_tss:
-            raise LogicError(
-                "{} no timestamp information for the PrePrepare {}"
-                .format(self, (key, sender))
-            )
-
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
         req_idrs = {f.REQ_IDR.nm: [key for key in pre_prepare.reqIdr]}
@@ -1167,8 +1164,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         def report_suspicious(reason):
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.node.reportSuspiciousNodeEx(ex)
-            if reason != Suspicions.PPR_TIME_WRONG:
-                del self.pre_prepare_tss[key, sender]
 
         why_not = self._can_process_pre_prepare(pre_prepare, sender)
         if why_not is None:
@@ -1192,8 +1187,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     return
                 elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
-            else:
-                del self.pre_prepare_tss[key, sender]
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -2199,10 +2192,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
-        for ((v, p), sender) in self.pre_prepare_tss:
-            if v < self.viewNo:
-                self.pre_prepare_tss.pop(((v, p), sender), None)
-
     def stashed_checkpoints_with_quorum(self):
         end_pp_seq_numbers = []
         quorum = self.quorums.checkpoint
@@ -2262,16 +2251,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.info("{} cleaning up till {}".format(self, till3PCKey))
         tpcKeys = set()
         reqKeys = set()
-        for key3PC, pp in self.sentPrePrepares.items():
+
+        for key3PC, pps in self.pre_prepare_tss.items():
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
-                for reqKey in pp.reqIdr:
-                    reqKeys.add(reqKey)
-        for key3PC, pp in self.prePrepares.items():
-            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
-                tpcKeys.add(key3PC)
-                for reqKey in pp.reqIdr:
-                    reqKeys.add(reqKey)
+                for pp in pps:
+                    for reqKey in pp.reqIdr:
+                        reqKeys.add(reqKey)
 
         self.logger.trace("{} found {} 3-phase keys to clean".
                           format(self, len(tpcKeys)))
@@ -2279,6 +2265,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           format(self, len(reqKeys)))
 
         to_clean_up = (
+            self.pre_prepare_tss,
             self.sentPrePrepares,
             self.prePrepares,
             self.prepares,
@@ -2287,7 +2274,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.requested_pre_prepares,
             self.requested_prepares,
             self.requested_commits,
-            self.pre_prepares_stashed_for_incorrect_time,
+            self.pre_prepares_stashed_for_incorrect_time
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -2673,10 +2660,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param pp:
         :return:
         """
+        tpcKey = (pp.viewNo, pp.ppSeqNo)
         return ((self.last_accepted_pre_prepare_time is None or
                  pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                (((pp.viewNo, pp.ppSeqNo), sender) in self.pre_prepare_tss) and
-                (abs(pp.ppTime - self.pre_prepare_tss[(pp.viewNo, pp.ppSeqNo), sender]) <=
+                (tpcKey in self.pre_prepare_tss) and (pp in self.pre_prepare_tss[tpcKey]) and
+                (abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp][1]) <=
                     self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
