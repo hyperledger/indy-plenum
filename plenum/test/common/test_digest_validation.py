@@ -82,8 +82,5 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
     pps = txnPoolNodeSet[0].master_replica.sentPrePrepares
     pp = pps[pps.keys()[-1]]
     idrs = pp.reqIdr
-    assert len(idrs) == 2
+    assert len(idrs) == 1
     assert req_obj1.digest in idrs
-    assert req_obj2.digest in idrs
-    # second request was discarded
-    assert pp.discarded == '[1]'

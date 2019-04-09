@@ -67,7 +67,7 @@ def testLoggingTxnStateForInvalidRequest(
         sdk_get_and_check_replies(looper, [request_couple])
 
     assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
-    request = json.loads(nym_request)
+    request = request_couple[0]
     req_id = str(request[f.REQ_ID.nm])
     digest = get_key_from_req(request)
     assert any(digest in record.getMessage() for record in logsPropagate)
@@ -89,8 +89,8 @@ def testLoggingTxnStateWhenCommitFails(
         prepare_nym_request(sdk_wallet_steward, seed,
                             "name", None))
 
-    sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
-                                       sdk_pool_handle, nym_request)
+    req_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
+                                                    sdk_pool_handle, nym_request)
 
     class SomeError(Exception):
         pass
@@ -129,7 +129,7 @@ def testLoggingTxnStateWhenCommitFails(
         eventually(checkSufficientExceptionsHappend,
                    retryWait=1, timeout=timeout))
 
-    request = json.loads(nym_request)
+    request = req_couple[0]
     digest = get_key_from_req(request)
     assert any(digest in record.getMessage() for record in logsPropagate)
     assert any(digest in record.getMessage() for record in logsOrdered)

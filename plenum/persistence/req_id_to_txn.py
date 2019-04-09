@@ -16,14 +16,13 @@ class ReqIdrToTxn:
     def add(self, payload_digest, ledger_id, seq_no, digest):
         self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no, digest))
 
-    def addBatch(self, batch, full_digest: bool = False):
-        if full_digest:
+    def addBatch(self, batch, full_digest: bool = True):
+        self._keyValueStorage.setBatch([(payload_digest, self._create_value(ledger_id,
+                                                                            seq_no,
+                                                                            digest))
+                                        for payload_digest, ledger_id, seq_no, digest in batch])
+        if full_digest is False:
             self._keyValueStorage.setBatch([(digest, str(payload_digest))
-                                            for payload_digest, ledger_id, seq_no, digest in batch])
-        else:
-            self._keyValueStorage.setBatch([(payload_digest, self._create_value(ledger_id,
-                                                                                seq_no,
-                                                                                digest))
                                             for payload_digest, ledger_id, seq_no, digest in batch])
 
     def get(self, some_digest, full_digest: bool = False):

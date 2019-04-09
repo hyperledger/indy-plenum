@@ -980,6 +980,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             key = self.requestQueues[ledger_id].pop(0)
             if key in self.requests:
                 fin_req = self.requests[key].finalised
+                malicious_req = False
                 try:
                     self.processReqDuringBatch(fin_req,
                                                tm)
@@ -988,9 +989,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                         'will reject'.format(self, ex, fin_req))
                     rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
                     invalid_indices.append(idx)
+                except SuspiciousPrePrepare:
+                    malicious_req = True
                 finally:
-                    reqs.append(fin_req)
-                idx += 1
+                    if not malicious_req:
+                        reqs.append(fin_req)
+                if not malicious_req:
+                    idx += 1
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
