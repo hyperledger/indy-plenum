@@ -1532,13 +1532,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.is_pre_prepare_time_acceptable(pre_prepare, sender):
             return PP_CHECK_WRONG_TIME
 
-        if not self.node.isParticipating:
-            # Let the node stash the pre-prepare
-            # TODO: The next processed pre-prepare needs to take consider if
-            # the last pre-prepare was stashed or not since stashed requests
-            # do not make change to state or ledger
-            return None
-
         if compare_3PC_keys((pre_prepare.viewNo, pre_prepare.ppSeqNo),
                             self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
