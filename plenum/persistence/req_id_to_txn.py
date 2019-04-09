@@ -37,7 +37,7 @@ class ReqIdrToTxn:
             val = val.decode()
             return val if full_digest else self._parse_value(val)
         except (KeyError, ValueError):
-            return None if full_digest else None, None, None
+            return None if full_digest else (None, None, None)
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
