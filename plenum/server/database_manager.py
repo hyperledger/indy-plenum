@@ -10,11 +10,17 @@ class DatabaseManager():
     def __init__(self):
         self.databases = {}  # type: Dict[int, Database]
         self.stores = {}
+        self._init_db_list()
+
+    def _init_db_list(self):
+        self._ledgers = {lid: db.ledger for lid, db in self.databases.items()}
+        self._states = {lid: db.state for lid, db in self.databases.items()}
 
     def register_new_database(self, lid, ledger: Ledger, state: Optional[State] = None):
         if lid in self.databases:
             raise LogicError('Trying to add already existing database')
         self.databases[lid] = Database(ledger, state)
+        self._init_db_list()
 
     def get_database(self, lid):
         if lid not in self.databases:
@@ -43,13 +49,11 @@ class DatabaseManager():
 
     @property
     def states(self):
-        # TODO: change this. Too inefficient to build dict every time
-        return {lid: db.state for lid, db in self.databases.items()}
+        return self._states
 
     @property
     def ledgers(self):
-        # TODO: change this. Too inefficient to build dict every time
-        return {lid: db.ledger for lid, db in self.databases.items()}
+        return self._ledgers
 
     @property
     def bls_store(self):

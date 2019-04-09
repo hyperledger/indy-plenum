@@ -1,3 +1,4 @@
+from plenum.common.messages.node_messages import Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
@@ -43,6 +44,8 @@ class ReplicaValidator:
         if view_no < self.replica.viewNo - 1:
             return DISCARD, OLD_VIEW
         if view_no == self.replica.viewNo - 1:
+            if not isinstance(msg, Commit):
+                return DISCARD, OLD_VIEW
             if not node.view_change_in_progress:
                 return DISCARD, OLD_VIEW
             if self.replica.last_prepared_before_view_change is None:
@@ -52,7 +55,7 @@ class ReplicaValidator:
         if view_no == self.replica.viewNo and node.view_change_in_progress:
             return STASH_VIEW, FUTURE_VIEW
 
-        # If Catchup in View Change finished then process a message
+        # If Catchup in View Change finished then process Commit messages
         if node.is_synced and node.view_change_in_progress:
             return PROCESS, None
 
@@ -94,3 +97,25 @@ class ReplicaValidator:
             return STASH_CATCH_UP, CATCHING_UP
 
         return PROCESS, None
+
+    def can_send_3pc_batch(self):
+        if not self.replica.isPrimary:
+            return False
+        if not self.replica.node.isParticipating:
+            return False
+        if self.replica.node.pre_view_change_in_progress:
+            return False
+        if self.replica.viewNo < self.replica.last_ordered_3pc[0]:
+            return False
+        if self.replica.viewNo == self.replica.last_ordered_3pc[0] and \
+                self.replica.lastPrePrepareSeqNo < self.replica.last_ordered_3pc[1]:
+            return False
+        return True
+
+    def can_order(self):
+        node = self.replica.node
+        if node.isParticipating:
+            return True
+        if node.is_synced and node.view_change_in_progress:
+            return True
+        return False

@@ -142,9 +142,6 @@ class FakeNode:
     def doneProcessingReq(self, key):
         pass
 
-    def processStashedOrderedReqs(self):
-        pass
-
     def is_catchup_needed(self):
         return False
 

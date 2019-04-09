@@ -149,9 +149,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
         )
     )
 
-    # check that the node was able to order requests stashed during catch-up
-    # do not check for audit ledger since we didn't catch-up audit ledger when txns were ordering durinf catch-up
-    waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check='check_audit', customTimeout=5)
+    waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
 
 
 def get_stashed_checkpoints(node):
