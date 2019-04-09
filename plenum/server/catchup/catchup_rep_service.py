@@ -390,8 +390,7 @@ class CatchupRepService:
         try:
             logger.info("{} verifying proof for {}, {}, {}, {}, {}".
                         format(self, temp_tree.tree_size, final_size,
-                               temp_tree.root_hash, Ledger.strToHash(final_hash),
-                               [Ledger.strToHash(p) for p in proof]))
+                               temp_tree.root_hash, final_hash, proof))
             verified = self._provider.verifier(self._ledger_id).verify_tree_consistency(
                 temp_tree.tree_size,
                 final_size,

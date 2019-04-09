@@ -261,10 +261,11 @@ def delay_3pc(view_no: int = 0,
             return
         if msg.viewNo != view_no:
             return
-        if after is not None and msg.ppSeqNo > after:
-            return DEFAULT_DELAY
-        if before is not None and msg.ppSeqNo < before:
-            return DEFAULT_DELAY
+        if after is not None and msg.ppSeqNo <= after:
+            return
+        if before is not None and msg.ppSeqNo >= before:
+            return
+        return DEFAULT_DELAY
 
     _delayer.__name__ = "delay_3pc({}, {}, {}, {})".format(view_no, after, before, msgs)
     return _delayer
