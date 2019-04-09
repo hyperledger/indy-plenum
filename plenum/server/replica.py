@@ -1225,7 +1225,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
             # for absents we can only check full digest
             for full_key in absents:
-                if self.node.seqNoDB.get(full_key, full_digest=True) != None:
+                if self.node.seqNoDB.get(full_key, full_digest=True) is not None:
                     signal_suspicious(full_key)
                     return
 
