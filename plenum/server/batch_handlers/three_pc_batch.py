@@ -23,6 +23,9 @@ class ThreePcBatch:
         self.valid_digests = valid_digests
         self.has_audit_txn = has_audit_txn
 
+    def __repr__(self) -> str:
+        return str(self.__dict__)
+
     @staticmethod
     def from_pre_prepare(pre_prepare, state_root, txn_root, primaries, valid_digests):
         return ThreePcBatch(ledger_id=pre_prepare.ledgerId,

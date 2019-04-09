@@ -4,12 +4,7 @@ from binascii import hexlify
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import ThreePhaseType
 from plenum.common.startable import Mode
-from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.util import check_if_all_equal_in_list
-from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.test.testing_utils import FakeSomething
-from plenum.server.catchup.catchup_rep_service import LedgerCatchupComplete
-from plenum.server.catchup.utils import NodeCatchupComplete
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
@@ -58,62 +53,6 @@ def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
 
         assert len(stateRoots) == 1
         assert len(txnRoots) == 1
-
-
-def add_txns_to_ledger_before_order(replica, reqs):
-    replica.added = False
-    origMethod = replica.tryOrder
-
-    def tryOrderAndAddTxns(self, commit):
-        canOrder, _ = self.canOrder(commit)
-        node = replica.node
-        if not replica.added and canOrder:
-            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-            ledger_manager = node.ledgerManager
-            ledger_id = DOMAIN_LEDGER_ID
-            catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
-
-            # simulate audit ledger catchup
-            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
-                                                           state_root=pp.stateRootHash,
-                                                           txn_root=pp.txnRootHash,
-                                                           primaries=self.node.primaries,
-                                                           valid_digests=pp.reqIdr)
-            node.audit_handler.post_batch_applied(three_pc_batch)
-            node.audit_handler.commit_batch(FakeSomething())
-
-            ledger_manager.preCatchupClbk(ledger_id)
-            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-            for req in reqs:
-                txn = append_txn_metadata(reqToTxn(req), txn_time=pp.ppTime)
-                catchup_rep_service._add_txn(txn)
-            ledger_manager._on_ledger_sync_complete(LedgerCatchupComplete(
-                ledger_id=DOMAIN_LEDGER_ID,
-                num_caught_up=len(reqs)))
-            ledger_manager._on_catchup_complete(NodeCatchupComplete())
-            replica.added = True
-
-        return origMethod(commit)
-
-    replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
-
-
-def start_precatchup_before_order(replica):
-    called = False
-    origMethod = replica.tryOrder
-
-    def tryOrderAndAddTxns(self, commit):
-        nonlocal called
-        canOrder, _ = self.canOrder(commit)
-
-        if not called and canOrder:
-            ledger_manager = replica.node.ledgerManager
-            ledger_manager.preCatchupClbk(DOMAIN_LEDGER_ID)
-            called = True
-
-        return origMethod(commit)
-
-    replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
 
 
 def make_node_syncing(replica, three_phase_type: ThreePhaseType):

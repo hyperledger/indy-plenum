@@ -637,12 +637,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             lst = self.last_prepared_certificate_in_view()
             self.last_prepared_before_view_change = lst
             self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
-        # It can be that last_ordered_3pc was set for the previous view, since it's set during catch-up
-        # Example: a Node has last_ordered = (1, 300), and then the whole pool except this node restarted
-        # The new viewNo is 0, but last_ordered is (1, 300), so all new requests will be discarded by this Node
-        # if we don't reset last_ordered_3pc
-        if self.viewNo <= self.last_ordered_3pc[0]:
-            self.last_ordered_3pc = (self.viewNo, 0)
 
     def on_view_change_done(self):
         if self.isMaster:
@@ -808,6 +802,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
     def send_3pc_batch(self):
+        if not self.validator.can_send_3pc_batch():
+            return 0
+
         sent_batches = set()
 
         # 1. send 3PC batches with requests for every ledger
@@ -1034,10 +1031,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :return: the number of messages successfully processed
         """
         # TODO should handle SuspiciousNode here
-        r = self.dequeue_pre_prepares() if self.node.isParticipating else 0
+        r = self.dequeue_pre_prepares()
         r += self.inBoxRouter.handleAllSync(self.inBox, limit)
-        r += self.send_3pc_batch() if (self.isPrimary and
-                                       self.node.isParticipating) else 0
+        r += self.send_3pc_batch()
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
@@ -1536,13 +1532,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
-        if not self.node.isParticipating:
-            # Let the node stash the pre-prepare
-            # TODO: The next processed pre-prepare needs to take consider if
-            # the last pre-prepare was stashed or not since stashed requests
-            # do not make change to state or ledger
-            return None
-
         if compare_3PC_keys((pre_prepare.viewNo, pre_prepare.ppSeqNo),
                             self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
@@ -1594,8 +1583,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param ppReq: any object with identifier and requestId attributes
         """
-        if not self.node.isParticipating:
-            return False, 'node is not participating'
         if self.has_sent_prepare(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
@@ -1743,8 +1730,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param prepare: the PREPARE
         """
-        if not self.node.isParticipating:
-            return False, 'node is not participating'
         quorum = self.quorums.prepare.value
         if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
@@ -1865,6 +1850,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # This method is called periodically to check for any commits that
         # were stashed due to lack of commits before them and orders them if it
         # can
+
+        if not self.validator.can_order():
+            return
+
         self.logger.debug('{} trying to order from out of order commits. '
                           'Len(stashed_out_of_order_commits) == {}'
                           .format(self, len(self.stashed_out_of_order_commits)))
@@ -2701,11 +2690,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return True
         correct = self.is_pre_prepare_time_correct(pp)
         if not correct:
-            self.logger.warning('{} found {} to have incorrect time.'.format(self, pp))
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
                 self.logger.debug('{} marking time as correct for {}'.format(self, pp))
                 correct = True
+            else:
+                self.logger.warning('{} found {} to have incorrect time.'.format(self, pp))
         return correct
 
     def _process_stashed_pre_prepare_for_time_if_possible(
