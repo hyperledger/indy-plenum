@@ -109,9 +109,7 @@ class ConsProofService:
 
         till = CatchupTill(start_size=cons_proof.seqNoStart,
                            final_size=cons_proof.seqNoEnd,
-                           final_hash=cons_proof.newMerkleRoot,
-                           view_no=cons_proof.viewNo,
-                           pp_seq_no=cons_proof.ppSeqNo) if cons_proof else None
+                           final_hash=cons_proof.newMerkleRoot) if cons_proof else None
         self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
 
     def _finish_no_catchup(self):
@@ -138,9 +136,9 @@ class ConsProofService:
                 most_common_element
                 for most_common_element, freq in
                 Counter(self._last_txn_3PC_key.values()).most_common()
-                if self._quorum.ledger_status_last_3PC.is_reached(freq) and
-                most_common_element[0] is not None and
-                most_common_element[1] is not None
+                if
+                self._quorum.ledger_status_last_3PC.is_reached(
+                    freq) and most_common_element[0] is not None and most_common_element[1] is not None
             ]
 
         if len(quorumed_3PC_keys) == 0:

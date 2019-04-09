@@ -110,6 +110,7 @@ AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
 AUDIT_TXN_LEDGERS_SIZE = "ledgerSize"
 AUDIT_TXN_LEDGER_ROOT = "ledgerRoot"
 AUDIT_TXN_STATE_ROOT = "stateRoot"
+AUDIT_TXN_PRIMARIES = "primaries"
 
 
 # State proof fields
@@ -254,6 +255,7 @@ class NodeHooks(UniqueSet):
     POST_BATCH_REJECTED = 14
     PRE_BATCH_COMMITTED = 15
     POST_BATCH_COMMITTED = 16
+    POST_NODE_STOPPED = 17
 
 
 class ReplicaHooks(UniqueSet):

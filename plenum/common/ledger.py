@@ -122,9 +122,8 @@ class Ledger(_Ledger):
             self.uncommittedTree = self.treeWithAppliedTxns(
                 self.uncommittedTxns)
             self.uncommittedRootHash = self.uncommittedTree.root_hash
-        logger.info('Discarding {} txns and root hash {} and new root hash '
-                    'is {}. {} are still uncommitted'.
-                    format(count, old_hash, self.uncommittedRootHash,
+        logger.info('Discarding {} txns and root hash {} and new root hash is {}. {} are still uncommitted'.
+                    format(count, Ledger.hashToStr(old_hash), Ledger.hashToStr(self.uncommittedRootHash),
                            len(self.uncommittedTxns)))
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
@@ -160,3 +159,10 @@ class Ledger(_Ledger):
         if self.size > 0:
             return self.getBySeqNo(self.size)
         return None
+
+    def get_by_seq_no_uncommitted(self, seq_no):
+        if seq_no > self.uncommitted_size:
+            raise KeyError
+        if seq_no > self.size:
+            return self.uncommittedTxns[seq_no - self.size - 1]
+        return self.getBySeqNo(seq_no)

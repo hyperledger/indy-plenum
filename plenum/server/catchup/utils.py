@@ -13,9 +13,7 @@ logger = getlogger()
 CatchupTill = NamedTuple('CatchupTill',
                          [('start_size', int),
                           ('final_size', int),
-                          ('final_hash', str),
-                          ('view_no', int),  # TODO: Remove view_no/pp_seq_no after INDY-1946 is implemented
-                          ('pp_seq_no', int)])
+                          ('final_hash', str)])
 
 LedgerCatchupStart = NamedTuple('LedgerCatchupStart',
                                 [('ledger_id', int),
@@ -23,8 +21,7 @@ LedgerCatchupStart = NamedTuple('LedgerCatchupStart',
 
 LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
                                    [('ledger_id', int),
-                                    ('num_caught_up', int),
-                                    ('last_3pc', Optional[Tuple[int, int]])])
+                                    ('num_caught_up', int)])
 
 NodeCatchupComplete = NamedTuple('NodeCatchupComplete', [])
 
@@ -55,11 +52,6 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    # TODO: Delete when INDY-1946 gets implemented
-    def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-        pass
-
-    @abstractmethod
     def update_txn_with_extra_data(self, txn: dict) -> dict:
         pass
 
@@ -72,7 +64,7 @@ class CatchupDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
+    def notify_catchup_complete(self, ledger_id: int):
         pass
 
     @abstractmethod
@@ -101,12 +93,9 @@ def build_ledger_status(ledger_id: int, provider: CatchupDataProvider):
     if ledger is None:
         raise ValueError("Cannot get ledger {} to build LEDGER_STATUS".format(ledger_id))
 
-    # TODO: Delete when INDY-1946 gets implemented
-    three_pc_key = provider.three_phase_key_for_txn_seq_no(ledger_id, ledger.size)
-    view_no, pp_seq_no = three_pc_key if three_pc_key else (None, None)
     return LedgerStatus(ledger_id,
                         ledger.size,
-                        view_no,
-                        pp_seq_no,
+                        0,
+                        0,
                         ledger.root_hash,
                         CURRENT_PROTOCOL_VERSION)

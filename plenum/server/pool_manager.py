@@ -58,11 +58,11 @@ class PoolManager:
         """
 
     @abstractmethod
-    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
+    def get_rank_of(self, node_id, node_reg, node_ids) -> Optional[int]:
         """Return node rank among active pool validators by id
 
         :param node_id: node's id
-        :param nodeReg: (optional) node registry to operate with. If not specified,
+        :param node_reg: (optional) node registry to operate with. If not specified,
                         current one is used.
         :return: rank of the node or None if not found
         """
@@ -71,17 +71,17 @@ class PoolManager:
     def rank(self) -> Optional[int]:
         # Nodes have a total order defined in them, rank is the node's
         # position in that order
-        return self.get_rank_of(self.id)
+        return self.get_rank_of(self.id, self.nodeReg, self._ordered_node_ids)
 
     @abstractmethod
-    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
+    def get_name_by_rank(self, rank, node_reg, node_ids) -> Optional[str]:
         # Needed for communicating primary name to others and also nodeReg
         # uses node names (alias) and not ids
         # TODO: Should move to using node ids and not node names (alias)
         """Return node name (alias) by rank among active pool validators
 
         :param rank: rank of the node
-        :param nodeReg: (optional) node registry to operate with. If not specified,
+        :param node_reg: (optional) node registry to operate with. If not specified,
                         current one is used.
         :return: name of the node or None if not found
         """
@@ -295,6 +295,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if self.name != nodeName:
                     self.connectNewRemote({DATA: node_info,
                                            TARGET_NYM: nodeNym}, nodeName, self.node)
+                else:
+                    logger.debug("{} adding itself to node registry".
+                                 format(self.name))
 
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
@@ -384,30 +387,28 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if node_services is not None:
             self._ordered_node_services[node_nym] = node_services
 
-    def node_ids_ordered_by_rank(self, nodeReg=None) -> List:
-        if nodeReg is None:
-            nodeReg = self.nodeReg
-        return [nym for nym, name in self._ordered_node_ids.items()
-                if name in nodeReg]
+    def node_ids_ordered_by_rank(self, node_reg, node_ids) -> List:
+        return [nym for nym, name in node_ids.items()
+                if name in node_reg]
 
-    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
+    def get_rank_of(self, node_id, node_reg, node_ids) -> Optional[int]:
         if self.id is None:
             # This can happen if a non-genesis node starts
             return None
-        return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg))
+        return self._get_rank(node_id, self.node_ids_ordered_by_rank(node_reg, node_ids))
 
-    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
-        for nym, nm in self._ordered_node_ids.items():
+    def get_rank_by_name(self, name, node_reg, node_ids) -> Optional[int]:
+        for nym, nm in node_ids.items():
             if name == nm:
-                return self.get_rank_of(nym, nodeReg)
+                return self.get_rank_of(nym, node_reg, node_ids)
 
-    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
+    def get_name_by_rank(self, rank, node_reg, node_ids) -> Optional[str]:
         try:
-            nym = self.node_ids_ordered_by_rank(nodeReg)[rank]
+            nym = self.node_ids_ordered_by_rank(node_reg, node_ids)[rank]
         except IndexError:
             return None
         else:
-            return self._ordered_node_ids[nym]
+            return node_ids[nym]
 
     def get_nym_by_name(self, node_name) -> Optional[str]:
         for nym, name in self._ordered_node_ids.items():

@@ -38,7 +38,8 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         return self._node.mode
 
     def next_primary_name(self) -> str:
-        return self._node.elector._next_primary_node_name_for_master()
+        return self._node.elector._next_primary_node_name_for_master(
+            self._node.nodeReg, self._node.nodeIds)
 
     def current_primary_name(self) -> str:
         return self._node.master_primary_name
@@ -76,17 +77,17 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def notify_view_change_complete(self):
         self._node.on_view_change_complete()
 
-    def notify_initial_propose_view_change(self):
-        self._node.schedule_initial_propose_view_change()
-
     def start_catchup(self):
         self._node.start_catchup()
 
     def restore_backup_replicas(self):
         self._node.backup_instance_faulty_processor.restore_replicas()
 
-    def select_primaries(self, node_reg):
-        self._node.select_primaries(node_reg)
+    def select_primaries(self):
+        self._node.select_primaries()
+
+    def ensure_primaries_dropped(self):
+        self._node.ensure_primaries_dropped()
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)

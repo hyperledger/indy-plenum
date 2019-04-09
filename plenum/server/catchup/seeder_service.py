@@ -132,9 +132,7 @@ class SeederService:
         new_root = ledger.tree.merkle_tree_hash(0, seq_no_end)
         new_root = Ledger.hashToStr(new_root)
 
-        # TODO: Delete when INDY-1946 gets implemented
-        three_pc_key = self._provider.three_phase_key_for_txn_seq_no(ledger_id, seq_no_end)
-        view_no, pp_seq_no = three_pc_key if three_pc_key else (0, 0)
+        view_no, pp_seq_no = (0, 0)
 
         return ConsistencyProof(ledger_id,
                                 seq_no_start,

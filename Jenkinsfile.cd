@@ -1,9 +1,10 @@
 #!groovy
 
-// TODO remove after shared libs refactoring
-@Library('SovrinHelpers@v1.2.1') _
+@Library('SovrinHelpers@v2.0.1') _
 
-def name = 'indy-plenum'
+
+String name = 'indy-plenum'
+String pkgName = name
 
 def plenumTestUbuntu = { offset, increment ->
     try {
@@ -200,22 +201,73 @@ def stateTestWindowsNoDocker = {
     }
 }
 
-def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
+def buildDebUbuntu = { releaseVersion, sourcePath, packageVersion=null, missedPkgs=false ->
     def volumeName = "$name-deb-u1604"
+    packageVersion = packageVersion ?: releaseVersion
+
     if (env.BRANCH_NAME != '' && env.BRANCH_NAME != 'master') {
         volumeName = "${volumeName}.${BRANCH_NAME}"
     }
     if (sh(script: "docker volume ls -q | grep -q '^$volumeName\$'", returnStatus: true) == 0) {
         sh "docker volume rm $volumeName"
     }
+
+    // TODO build only missed ones
     dir('build-scripts/ubuntu-1604') {
-        sh "./build-$name-docker.sh \"$sourcePath\" $releaseVersion $volumeName"
-        sh "./build-3rd-parties-docker.sh $volumeName"
+        sh "./build-$name-docker.sh \"$sourcePath\" $releaseVersion $volumeName $packageVersion"
+        if (missedPkgs == [pkgName]) {
+            echo "Skip 3rd parties building"
+        } else {
+            sh "./build-3rd-parties-docker.sh $volumeName"
+        }
     }
     return "$volumeName"
 }
 
 def options = new TestAndPublishOptions()
+
+options.setApprovers(['QA'])
+options.setNotifEmails([
+    QA: [
+        to: "${env.INDY_NODE_QA_RECIPIENTS ?: ''}",
+        cc: "${env.INDY_NODE_RECIPIENTS ?: ''}"
+    ],
+    success: [
+        to: "${env.INDY_NODE_RECIPIENTS ?: ''}"
+    ],
+    fail: [
+        to: "${env.INDY_NODE_RECIPIENTS ?: ''}"
+    ]
+])
+options.setPkgName(pkgName)
+
+// TODO duplicates list from build scripts
+options.setPkgDeps([
+    'rocksdb': '5.8.8',
+    'python3-ioflo': '1.5.4',
+    'python3-orderedset': '2.0',
+    'python3-base58': '1.0.0',
+    'python3-prompt-toolkit': '0.57',
+    'python3-rlp': '0.5.1',
+    'python3-sha3': '0.2.1',
+    'python3-libnacl': '1.6.1',
+    'python3-six': '1.11.0',
+    'python3-portalocker': '0.5.7',
+    'python3-sortedcontainers': '1.5.7',
+    'python3-setuptools': '38.5.2',
+    'python3-dateutil': '2.6.1',
+    'python3-semver': '2.7.9',
+    'python3-pygments': '2.2.0',
+    'python3-psutil': '5.4.3',
+    'python3-pyzmq': '17.0.0',
+    'python3-intervaltree': '2.1.0',
+    'python3-jsonpickle': '0.9.6',
+    'python3-rocksdb': '0.6.9',
+    'python3-pympler': '0.5',
+    'python3-packaging': '19.0'
+])
+
+
 options.setPrContexts([env.INDY_GITHUB_PR_REQUIRED_CONTEXT ?: "ci/hyperledger-jenkins/pr-merge"])
 testAndPublish(
     name,
@@ -226,5 +278,5 @@ testAndPublish(
         ledger: ledgerTestUbuntu,
         stp: stpTestUbuntu]
     ],
-    true, options, [ubuntu: buildDebUbuntu]
+    true, options, [ubuntu: buildDebUbuntu], 'plenum'
 )

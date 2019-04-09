@@ -20,7 +20,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     ordered but stashed
     Example scenario
     prepared (1, 4)
-    startViewChange
+    start_view_change
     start_catchup
     ...
     ....

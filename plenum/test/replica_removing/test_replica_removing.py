@@ -11,15 +11,15 @@ from plenum.test.replica_removing.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange, \
+    freshness
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, \
     get_master_primary_node, get_last_master_non_primary_node
 
 from plenum.test.checkpoints.conftest import chkFreqPatched
 
 logger = getlogger()
-CHK_FREQ = 2
-
+CHK_FREQ = 3
 
 @pytest.fixture(scope="function")
 def view_change(txnPoolNodeSet, looper):
@@ -148,7 +148,7 @@ def test_unordered_request_freed_on_replica_removal(looper,
         assert len(node.requests) == 1
         forwardedToAfter = next(iter(node.requests.values())).forwardedTo
         assert forwardedToAfter == forwardedToBefore - 1
-        chkChkpoints(txnPoolNodeSet, 0)
+        chkChkpoints(txnPoolNodeSet, 1)
 
     sdk_get_replies(looper, req)
     chkChkpoints(txnPoolNodeSet, 1)

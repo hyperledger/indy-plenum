@@ -62,7 +62,7 @@ class CatchupRepService:
 
         if self._ledger.size >= self._catchup_till.final_size:
             logger.info('{} found that ledger {} does not need catchup'.format(self, self._ledger_id))
-            self._finish(last_3pc=(catchup_till.view_no, catchup_till.pp_seq_no))
+            self._finish()
             return
 
         eligible_nodes = self._provider.eligible_nodes()
@@ -109,7 +109,7 @@ class CatchupRepService:
         self._received_catchup_txns = txns_already_rcvd_in_catchup[num_processed:]
 
         if self._ledger.size >= self._catchup_till.final_size:
-            self._finish((self._catchup_till.view_no, self._catchup_till.pp_seq_no))
+            self._finish()
 
     def _finish(self, last_3pc: Optional[Tuple[int, int]] = None):
         num_caught_up = self._catchup_till.final_size - self._catchup_till.start_size if self._catchup_till else 0
@@ -119,14 +119,13 @@ class CatchupRepService:
         self._is_working = False
         self._received_catchup_txns.clear()
         self._received_catchup_replies_from.clear()
-        self._provider.notify_catchup_complete(self._ledger_id, last_3pc)
+        self._provider.notify_catchup_complete(self._ledger_id)
 
         logger.info("{}{} completed catching up ledger {}, caught up {} in total"
                     .format(CATCH_UP_PREFIX, self, self._ledger_id, num_caught_up),
                     extra={'cli': True})
         self._output.put_nowait(LedgerCatchupComplete(ledger_id=self._ledger_id,
-                                                      num_caught_up=num_caught_up,
-                                                      last_3pc=last_3pc))
+                                                      num_caught_up=num_caught_up))
 
     def _gen_catchup_reqs(self, catchup_till: CatchupTill):
         # TODO: This needs to be optimised, there needs to be a minimum size

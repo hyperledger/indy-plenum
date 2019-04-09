@@ -17,11 +17,11 @@ def create_node_and_not_start(testNodeClass,
                               tdirWithNodeKeepInited):
     with ExitStack() as exitStack:
         node = exitStack.enter_context(create_new_test_node(testNodeClass,
-                                node_config_helper_class,
-                                "Alpha",
-                                tconf,
-                                tdir,
-                                allPluginsPath))
+                                                            node_config_helper_class,
+                                                            "Alpha",
+                                                            tconf,
+                                                            tdir,
+                                                            allPluginsPath))
         yield node
         node.stop()
 

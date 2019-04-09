@@ -65,7 +65,8 @@ def testNodeRejectingInvalidTxns(looper, sdk_pool_handle, sdk_wallet_client,
     # have to skip seqno_db check because the txns are not executed
     # on the new node
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
-                         customTimeout=timeout)
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     assert new_node.isNodeBlacklisted(bad_node.name)
 

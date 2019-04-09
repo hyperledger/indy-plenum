@@ -13,7 +13,6 @@ from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 nodeCount = 7
 
 
-@pytest.mark.skip(reason='INDY-1720')
 def test_promotion_leads_to_primary_inconsistency(looper,
                                                   txnPoolNodeSet,
                                                   tdir,
@@ -69,11 +68,12 @@ def test_promotion_leads_to_primary_inconsistency(looper,
     promote_node(looper, steward_3, sdk_pool_handle, node_3)
     txnPoolNodeSet.append(node_3)
     looper.run(checkNodesConnected(txnPoolNodeSet))
+    ensureElectionsDone(looper, txnPoolNodeSet, instances_list=[0, 1, 2])
 
     # Node 3 able to do ordering
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
     view_number = checkViewNoForNodes(txnPoolNodeSet)
-    assert view_number == starting_view_number + 1
+    assert view_number == starting_view_number + 2
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     # But it has different primary, cause it uses nodeReg without itself to calculate primaries

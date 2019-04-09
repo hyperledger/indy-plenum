@@ -26,7 +26,6 @@ class Quorums:
         self.view_change = Quorum(n - f)
         self.election = Quorum(n - f)
         self.view_change_done = Quorum(n - f)
-        self.propagate_primary = Quorum(f + 1)
         self.same_consistency_proof = Quorum(f + 1)
         self.consistency_proof = Quorum(f + 1)
         self.ledger_status = Quorum(n - f - 1)

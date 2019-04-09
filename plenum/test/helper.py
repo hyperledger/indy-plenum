@@ -17,13 +17,15 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
 import asyncio
 
-from indy.ledger import sign_and_submit_request, sign_request, submit_request
+from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_node_request, \
+    build_pool_config_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
@@ -59,6 +61,10 @@ logger = getlogger()
 def ordinal(n):
     return "%d%s" % (
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
+
+
+def random_string(length: int) -> str:
+    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
 
 
 def send_reqs_batches_and_get_suff_replies(
@@ -469,6 +475,11 @@ def check_seqno_db_equality(db1, db2):
            {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}
 
 
+def check_primaries_equality(node1, node2):
+    assert node1.primaries == node2.primaries, \
+        "{} != {}".format(node1.primaries, node2.primaries)
+
+
 def check_last_ordered_3pc(node1, node2):
     master_replica_1 = node1.master_replica
     master_replica_2 = node2.master_replica
@@ -476,6 +487,21 @@ def check_last_ordered_3pc(node1, node2):
         "{} != {}".format(master_replica_1.last_ordered_3pc,
                           master_replica_2.last_ordered_3pc)
     return master_replica_1.last_ordered_3pc
+
+
+def check_last_ordered_3pc_backup(node1, node2):
+    assert len(node1.replicas) == len(node2.replicas)
+    for i in range(1, len(node1.replicas)):
+        replica1 = node1.replicas[i]
+        replica2 = node2.replicas[i]
+        assert replica1.last_ordered_3pc == replica2.last_ordered_3pc, \
+            "{}: {} != {}: {}".format(replica1, replica1.last_ordered_3pc,
+                                      replica2, replica2.last_ordered_3pc)
+
+
+def check_view_no(node1, node2):
+    assert node1.viewNo == node2.viewNo, \
+        "{} != {}".format(node1.viewNo, node2.viewNo)
 
 
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
@@ -491,6 +517,15 @@ def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
         assert n.master_replica.last_ordered_3pc == last_ordered_3pc, \
             "{} != {}".format(n.master_replica.last_ordered_3pc,
                               last_ordered_3pc)
+
+
+def check_last_ordered_3pc_on_backup(nodes, last_ordered_3pc):
+    for n in nodes:
+        for i, r in n.replicas.items():
+            if i != 0:
+                assert r.last_ordered_3pc == last_ordered_3pc, \
+                    "{} != {}".format(r.last_ordered_3pc,
+                                      last_ordered_3pc)
 
 
 def randomText(size):
@@ -724,6 +759,29 @@ def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
                    **kwargs)
 
 
+def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
+    _, new_steward_did = sdk_wallet_new_steward
+
+    node_ip = '{}.{}.{}.{}'.format(
+        random.randint(1, 240),
+        random.randint(1, 240),
+        random.randint(1, 240),
+        random.randint(1, 240))
+    data = {
+        'alias': node_alias,
+        'client_port': 50001,
+        'node_port': 50002,
+        'node_ip': node_ip,
+        'client_ip': node_ip,
+        'services': []
+    }
+
+    req = looper.loop.run_until_complete(
+        build_node_request(new_steward_did, node_did, json.dumps(data)))
+
+    return Request(**json.loads(req))
+
+
 def sdk_random_request_objects(count, protocol_version, identifier=None,
                                **kwargs):
     ops = random_requests(count)
@@ -768,6 +826,31 @@ def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
 def sdk_send_random_request(looper, pool_h, sdk_wallet):
     rets = sdk_send_random_requests(looper, pool_h, sdk_wallet, 1)
     return rets[0]
+
+
+def sdk_send_random_pool_requests(looper, pool_h, sdk_wallet_new_steward, count: int):
+    node_alias = random_string(7)
+    node_did = SimpleSigner(seed=random_string(32).encode()).identifier
+
+    reqs = [sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did) for _ in range(count)]
+    return [sdk_sign_and_submit_req_obj(looper, pool_h, sdk_wallet_new_steward, req) for req in reqs]
+
+
+def sdk_send_random_pool_and_domain_requests(looper, pool_h, sdk_wallet_new_steward, count: int):
+    node_alias = random_string(7)
+    node_did = SimpleSigner(seed=random_string(32).encode()).identifier
+
+    req_gens = [
+        lambda: sdk_gen_request(random_requests(1)[0], identifier=sdk_wallet_new_steward[1]),
+        lambda: sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did),
+    ]
+
+    res = []
+    for i in range(count):
+        req = req_gens[i % len(req_gens)]()
+        res.append(sdk_sign_and_submit_req_obj(looper, pool_h, sdk_wallet_new_steward, req))
+        looper.runFor(0.1)  # Give nodes some time to start ordering, so that requests are really alternating
+    return res
 
 
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
@@ -1052,6 +1135,14 @@ def freshness(tconf, enabled, timeout):
     yield tconf
     tconf.UPDATE_STATE_FRESHNESS = old_update_state
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_timeout
+
+
+@contextmanager
+def primary_disconnection_time(tconf, value):
+    old_tolarate_disconnection = tconf.ToleratePrimaryDisconnection
+    tconf.ToleratePrimaryDisconnection = value
+    yield tconf
+    tconf.ToleratePrimaryDisconnection = old_tolarate_disconnection
 
 
 @contextmanager

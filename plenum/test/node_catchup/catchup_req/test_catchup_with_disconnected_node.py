@@ -71,6 +71,7 @@ def test_catchup_with_disconnected_node(tdir, tconf,
     txnPoolNodeSet[-1] = restarted_node
     looper.run(checkNodesConnected([*rest_nodes[:-1], restarted_node]))
 
-    waitNodeDataEquality(looper, *[*rest_nodes[:-1], restarted_node], customTimeout=120)
+    waitNodeDataEquality(looper, *[*rest_nodes[:-1], restarted_node], customTimeout=120,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     assert len(logs_catchup_req) - old_catchup_req <= 1
     assert len(logs_request_txns) - old_request_txns <= 1
