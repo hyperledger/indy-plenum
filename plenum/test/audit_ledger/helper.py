@@ -17,11 +17,13 @@ def check_audit_ledger_updated(audit_size_initial, nodes, audit_txns_added):
 def check_audit_txn(txn,
                     view_no, pp_seq_no,
                     seq_no, txn_time,
-                    ledger_id, txn_root, state_root,
+                    txn_roots, state_roots,
                     pool_size, domain_size, config_size,
                     last_domain_seqno, last_pool_seqno, last_config_seqno,
                     primaries):
     expectedLedgerRoots = {}
+    txn_roots = {k: Ledger.hashToStr(v) for k, v in txn_roots.items()}
+    state_roots = {k: Ledger.hashToStr(v) for k, v in state_roots.items()}
     # we expect deltas here, that is a difference from the current audit ledger txn to
     # the audit txn where the corresponding ledger was updated
     if last_domain_seqno:
@@ -30,7 +32,7 @@ def check_audit_txn(txn,
         expectedLedgerRoots[0] = seq_no - last_pool_seqno
     if last_config_seqno:
         expectedLedgerRoots[2] = seq_no - last_config_seqno
-    expectedLedgerRoots[ledger_id] = Ledger.hashToStr(txn_root)
+    expectedLedgerRoots.update(txn_roots)
 
     expected = {
         "reqSignature": {},
@@ -45,9 +47,7 @@ def check_audit_txn(txn,
                     1: domain_size,
                     2: config_size
                 },
-                "stateRoot": {
-                    ledger_id: Ledger.hashToStr(state_root),
-                },
+                "stateRoot": state_roots,
                 "primaries": primaries
 
             },
