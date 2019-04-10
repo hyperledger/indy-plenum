@@ -114,7 +114,12 @@ class MessageBase(Mapping, MessageValidator):
         return input_as_dict
 
     def __getattr__(self, item):
-        return self._fields[item]
+        if item in self._fields:
+            return self._fields[item]
+        raise AttributeError(
+            "'{}' object has no attribute '{}'"
+            .format(self.__class__.__name__, item)
+        )
 
     def __getitem__(self, key):
         values = list(self._fields.values())
