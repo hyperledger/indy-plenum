@@ -98,18 +98,22 @@ class AuditBatchHandler(BatchRequestHandler):
 
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
-            self.__fill_ledger_root_hash(txn, lid, ledger, last_audit_txn)
+            self.__fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
 
         # 5. set primaries field
         self.__fill_primaries(txn, three_pc_batch, last_audit_txn)
 
         return txn
 
-    def __fill_ledger_root_hash(self, txn, lid, ledger, last_audit_txn):
+    def __fill_ledger_root_hash(self, txn, lid, ledger, last_audit_txn, three_pc_batch):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
 
+        if lid == three_pc_batch.ledger_id:
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
+
         # 1. it is the first batch and we have something
-        if last_audit_txn_data is None and ledger.uncommitted_size:
+        elif last_audit_txn_data is None and ledger.uncommitted_size:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
             txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 

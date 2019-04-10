@@ -31,7 +31,7 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     batch = get_3PC_batch(domain_root_hash)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
-    append_txn_to_ledger(txn_data, node._auditLedger)
+    append_txn_to_ledger(txn_data, node._auditLedger, 1)
 
     assert txn_data[AUDIT_TXN_LEDGER_ROOT][1] == domain_root_hash
     assert txn_data[AUDIT_TXN_LEDGER_ROOT][2] == config_root_hash
@@ -88,7 +88,7 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     batch = get_3PC_batch(domain_root_hash)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
-    append_txn_to_ledger(txn_data, node._auditLedger)
+    append_txn_to_ledger(txn_data, node._auditLedger, 2)
 
     # Checking rare case -- batch from two ledgers, that were never audited before
     op2 = {
@@ -107,7 +107,7 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     config_root_hash = Ledger.hashToStr(node._configLedger.uncommittedRootHash)
     config_state_root = Ledger.hashToStr(node.states[2].headHash)
 
-    batch = get_3PC_batch(pool_root_hash)
+    batch = get_3PC_batch(pool_root_hash, ledger_id=0)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
 
@@ -119,17 +119,17 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     assert txn_data[AUDIT_TXN_STATE_ROOT][2] == config_state_root
 
 
-def append_txn_to_ledger(txn_data, ledger):
+def append_txn_to_ledger(txn_data, ledger, seq_no):
     txn = {
         TXN_PAYLOAD: {
             TXN_PAYLOAD_DATA: txn_data
         },
         TXN_METADATA: {
-            TXN_METADATA_SEQ_NO: 1
+            TXN_METADATA_SEQ_NO: seq_no
         }
     }
     ledger.appendTxns([txn])
 
 
-def get_3PC_batch(root_hash):
-    return ThreePcBatch(1, 0, 0, 1, 5000, root_hash, "", ["Alpha", "Beta"], [])
+def get_3PC_batch(root_hash, ledger_id=1):
+    return ThreePcBatch(ledger_id, 0, 0, 1, 5000, root_hash, "", ["Alpha", "Beta"], [])
