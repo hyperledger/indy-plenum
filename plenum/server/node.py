@@ -2336,6 +2336,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledgerId == POOL_LEDGER_ID and not self.poolLedger:
             # Since old style nodes don't know have pool ledger
             return None
+        if ledgerId not in self.ledger_ids:
+            return None
         return self.build_ledger_status(ledgerId)
 
     def sendLedgerStatus(self, nodeName: str, ledgerId: int):

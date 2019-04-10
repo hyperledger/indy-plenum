@@ -2,19 +2,14 @@ import pytest
 
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.exceptions import CommonSdkIOException
-from plenum.test.helper import sdk_gen_request, \
-    sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_send_signed_requests, \
+from plenum.test.plugin.demo_plugin.helper import successful_op
+from plenum.test.helper import sdk_send_signed_requests, \
     sdk_sign_request_strings, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
 from stp_core.loop.eventually import eventually
 
-
-def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
-    req_obj = sdk_gen_request(op, identifier=sdk_wallet[1])
-    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle,
-                                      sdk_wallet, req_obj)
-    sdk_get_reply(looper, req)
+whitelist = ["Can't parse req_id or op from message", ]
 
 
 def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
