@@ -4,6 +4,7 @@ from enum import unique, IntEnum
 from functools import partial
 from hashlib import sha256
 from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
+import itertools
 
 import math
 
@@ -437,7 +438,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # This is emptied on view change. With each PRE-PREPARE, a flag is
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
-        # TODO INDY-1983 why is it not cleaned during gc
         self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
         self._bls_bft_replica = bls_bft_replica
@@ -1059,10 +1059,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   isinstance(msg, PrePrepare) else None)
 
         # the same PrePrepare might come here multiple times
-        if (pp_key and msg not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and (msg, sender) not in self.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key][msg] = (sender, self.utc_epoch)
+            self.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
 
         result, reason = self.validator.validate_3pc_msg(msg)
         if result == DISCARD:
@@ -2251,10 +2251,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         tpcKeys = set()
         reqKeys = set()
 
-        for key3PC, pps in self.pre_prepare_tss.items():
+        for key3PC, pp in itertools.chain(
+            self.sentPrePrepares.items(),
+            self.prePrepares.items()
+        ):
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
-                for pp in pps:
+                for reqKey in pp.reqIdr:
+                    reqKeys.add(reqKey)
+
+        for key3PC, pp_dict in self.pre_prepare_tss.items():
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+                tpcKeys.add(key3PC)
+                for (pp, _) in pp_dict:
                     for reqKey in pp.reqIdr:
                         reqKeys.add(reqKey)
 
@@ -2660,11 +2669,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :return:
         """
         tpcKey = (pp.viewNo, pp.ppSeqNo)
-        return ((self.last_accepted_pre_prepare_time is None or
-                 pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                (tpcKey in self.pre_prepare_tss) and (pp in self.pre_prepare_tss[tpcKey]) and
-                (abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp][1]) <=
-                    self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+
+        if (self.last_accepted_pre_prepare_time and
+                pp.ppTime < self.last_accepted_pre_prepare_time):
+            return False
+        elif ((tpcKey not in self.pre_prepare_tss) or
+                ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
+            return False
+        else:
+            return (
+                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+            )
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """
