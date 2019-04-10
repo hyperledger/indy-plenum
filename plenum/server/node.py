@@ -1076,6 +1076,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledger_id is not None:
             self.txn_type_to_ledger_id[txn_type] = ledger_id
 
+    def unregister_txn_type(self, txn_type, ledger_id):
+        if txn_type not in self.txn_type_to_req_handler:
+            raise ValueError('txn_type {} is not registered'.format(txn_type))
+        del self.txn_type_to_req_handler[txn_type]
+        if ledger_id is not None:
+            del self.txn_type_to_ledger_id[txn_type]
+
+    def unregister_req_handler(self, req_handler: RequestHandler,
+                               ledger_id: int = None):
+        if ledger_id is not None and ledger_id in self.ledger_to_req_handler:
+            del self.ledger_to_req_handler[ledger_id]
+        for txn_type in req_handler.operation_types:
+            self.unregister_txn_type(txn_type, ledger_id)
+
     def register_executer(self, ledger_id: int, executer: Callable):
         self.requestExecuter[ledger_id] = executer
 
