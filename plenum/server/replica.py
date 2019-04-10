@@ -299,7 +299,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # for each new PP from every nodes separately.
         # Dictionary:
         #   key: Tuple[pp.viewNo, pp.seqNo]
-        #   value: Dict[PrePrepare, Tuple[sender, timestamp]]
+        #   value: Dict[Tuple[PrePrepare, sender], timestamp]
         self.pre_prepare_tss = defaultdict(dict)
 
         # PRE-PREPAREs that are waiting to be processed but do not have the
