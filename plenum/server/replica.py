@@ -1055,12 +1055,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         sender = self.generateName(sender, self.instId)
 
-        pp_key = (((msg.viewNo, msg.ppSeqNo), sender) if
+        pp_key = ((msg.viewNo, msg.ppSeqNo) if
                   isinstance(msg, PrePrepare) else None)
 
         # the same PrePrepare might come here multiple times
-        if (pp_key and (pp_key not in self.pre_prepare_tss) and
-                msg not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and msg not in self.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
             self.pre_prepare_tss[pp_key][msg] = (sender, self.utc_epoch)
