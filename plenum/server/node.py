@@ -2250,8 +2250,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_change_in_progress:
             return self.is_catchup_needed_during_view_change()
 
-        # If we already have audit ledger we don't need any more catchups
+        # If we already have audit ledger we don't need any more catch-ups
         if self.auditLedger.size > 0:
+            return False
+
+        # If we didn't catch up anything during last round we don't need any more rounds
+        if self.num_txns_caught_up_in_last_catchup() == 0:
             return False
 
         # Otherwise check if enough time has passed
