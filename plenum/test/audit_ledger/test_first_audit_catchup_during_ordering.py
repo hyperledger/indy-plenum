@@ -40,7 +40,7 @@ def test_first_audit_catchup_during_ordering(tdir, tconf, looper, txnPoolNodeSet
     # Prevent lagging node from catching up domain ledger (and finishing catchup)
     with delay_rules(other_stashers, delay_domain_ledger_catchup()):
         # Start catchup on lagging node
-        lagging_node.ledgerManager.start_catchup()
+        lagging_node.start_catchup()
         assert lagging_node_state() == NodeLeecherService.State.SyncingAudit
 
         # Ensure that audit ledger is caught up by lagging node
