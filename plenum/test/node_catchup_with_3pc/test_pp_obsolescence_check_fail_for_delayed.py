@@ -26,6 +26,8 @@ def tconf(tconf):
     tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS = old_value
 
 
+# TODO this test should actually fail someday when ts for PP is set
+# before node level processing (e.g. in zstack)
 def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
