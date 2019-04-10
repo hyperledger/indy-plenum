@@ -10,12 +10,10 @@ from plenum.test.stasher import delay_rules
 from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
-
-# TODO better to use non hard coded value of nodes number
-# but for now it would be tricky since tconf can't depend on txnPoolNodeSet
+nodeCount = 4
 
 # should be big enough to pass PP during normal ordering flow
-PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS = waits.expectedPrepareTime(4)
+PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS = waits.expectedPrepareTime(nodeCount)
 
 
 @pytest.fixture(scope="module")
@@ -26,8 +24,7 @@ def tconf(tconf):
     tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS = old_value
 
 
-# TODO this test should actually fail someday when ts for PP is set
-# before node level processing (e.g. in zstack)
+# TODO INDY-2047: this test should actually fail once the bug is fixed
 def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
@@ -46,8 +43,9 @@ def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
                                   sdk_pool_handle, sdk_wallet_client, 1)
         looper.run(asyncio.sleep(delay))
 
-    # Now delayed 3PC messages reach lagging node, so any transactions missed during
-    # catch up can be ordered, ensure that all nodes will have same data after that
+    # Now delayed 3PC messages reach lagging node, so any delayed transactions
+    # can be processed (PrePrepare would be discarded but requested after that),
+    # ensure that all nodes will have same data after that
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     pp_count = get_count(lagging_node.master_replica,

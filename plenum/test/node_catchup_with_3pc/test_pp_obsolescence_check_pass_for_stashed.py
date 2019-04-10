@@ -10,12 +10,10 @@ from plenum.test.node_request.test_timestamp.helper import get_timestamp_suspici
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 
-
-# TODO better to use non hard coded value of nodes number
-# but for now it would be tricky since tconf can't depend on txnPoolNodeSet
+nodeCount = 4
 
 # should be big enough to pass PP during normal ordering flow
-PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS = waits.expectedPrepareTime(4)
+PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS = waits.expectedPrepareTime(nodeCount)
 
 
 @pytest.fixture(scope="module")
@@ -47,9 +45,8 @@ def test_stashed_pp_pass_obsolescence_check(tdir, tconf,
     def lagging_node_state() -> NodeLeecherService.State:
         return lagging_node.ledgerManager._node_leecher._state
 
-    # fill domain ledger with some requests
-    # (workaround for known issues with AUDIT ledger)
-    # TODO add task number
+    # TODO INDY-2047: fills domain ledger with some requests
+    # as a workaround for the issue
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
