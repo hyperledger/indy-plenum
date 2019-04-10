@@ -5,7 +5,7 @@ from plenum.test.testing_utils import FakeSomething
 
 
 def check_apply_audit_txn(alh,
-                          txns_count, ledger_id,
+                          txns_count, ledger_ids,
                           view_no, pp_sq_no, txn_time, seq_no,
                           pool_size, domain_size, config_size,
                           last_pool_seqno, last_domain_seqno, last_config_seqno,
@@ -15,7 +15,7 @@ def check_apply_audit_txn(alh,
     size_before = alh.ledger.size
 
     do_apply_audit_txn(alh,
-                       txns_count=txns_count, ledger_id=ledger_id,
+                       txns_count=txns_count, ledger_id=ledger_ids[0],
                        view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time)
 
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
@@ -25,9 +25,12 @@ def check_apply_audit_txn(alh,
     check_audit_txn(txn=txn,
                     view_no=view_no, pp_seq_no=pp_sq_no,
                     seq_no=seq_no, txn_time=txn_time,
-                    ledger_id=ledger_id,
-                    txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
-                    state_root=db_manager.get_state(ledger_id).headHash,
+                    txn_roots={
+                        ledger_id: db_manager.get_ledger(ledger_id).uncommitted_root_hash for ledger_id in ledger_ids
+                    },
+                    state_roots={
+                        ledger_id: db_manager.get_state(ledger_id).headHash for ledger_id in ledger_ids
+                    },
                     pool_size=pool_size, domain_size=domain_size, config_size=config_size,
                     last_pool_seqno=last_pool_seqno,
                     last_domain_seqno=last_domain_seqno,
@@ -38,7 +41,7 @@ def check_apply_audit_txn(alh,
 def test_apply_audit_ledger_txn_pool_ledger(alh,
                                             initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
-                          txns_count=10, ledger_id=POOL_LEDGER_ID,
+                          txns_count=10, ledger_ids=[POOL_LEDGER_ID, DOMAIN_LEDGER_ID],
                           view_no=1, pp_sq_no=10, txn_time=10000, seq_no=1,
                           pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
                           config_size=initial_config_size,
@@ -49,7 +52,7 @@ def test_apply_audit_ledger_txn_pool_ledger(alh,
 def test_apply_audit_ledger_txn_domain_ledger(alh,
                                               initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
-                          txns_count=15, ledger_id=DOMAIN_LEDGER_ID,
+                          txns_count=15, ledger_ids=[DOMAIN_LEDGER_ID, POOL_LEDGER_ID],
                           view_no=1, pp_sq_no=12, txn_time=10006, seq_no=1,
                           pool_size=initial_pool_size, domain_size=initial_domain_size + 15,
                           config_size=initial_config_size,
@@ -60,7 +63,7 @@ def test_apply_audit_ledger_txn_domain_ledger(alh,
 def test_apply_audit_ledger_txn_config_ledger(alh,
                                               initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
-                          txns_count=20, ledger_id=CONFIG_LEDGER_ID,
+                          txns_count=20, ledger_ids=[CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID, POOL_LEDGER_ID],
                           view_no=1, pp_sq_no=15, txn_time=10008, seq_no=1,
                           pool_size=initial_pool_size, domain_size=initial_domain_size,
                           config_size=initial_config_size + 20,
@@ -72,7 +75,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                                              initial_domain_size, initial_pool_size, initial_config_size):
     # 1. add domain txn
     check_apply_audit_txn(alh=alh,
-                          txns_count=10, ledger_id=DOMAIN_LEDGER_ID,
+                          txns_count=10, ledger_ids=[DOMAIN_LEDGER_ID, POOL_LEDGER_ID],
                           view_no=2, pp_sq_no=5, txn_time=500, seq_no=1,
                           pool_size=initial_pool_size, domain_size=initial_domain_size + 10,
                           config_size=initial_config_size,
@@ -81,7 +84,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
 
     # 2. add pool txn
     check_apply_audit_txn(alh=alh,
-                          txns_count=6, ledger_id=POOL_LEDGER_ID,
+                          txns_count=6, ledger_ids=[POOL_LEDGER_ID],
                           view_no=2, pp_sq_no=6, txn_time=502, seq_no=2,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 10,
                           config_size=initial_config_size,
@@ -90,7 +93,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
 
     # 3. add config txn
     check_apply_audit_txn(alh=alh,
-                          txns_count=8, ledger_id=CONFIG_LEDGER_ID,
+                          txns_count=8, ledger_ids=[CONFIG_LEDGER_ID],
                           view_no=2, pp_sq_no=7, txn_time=502, seq_no=3,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 10,
                           config_size=initial_config_size + 8,
@@ -99,7 +102,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
 
     # 4. add domain txn
     check_apply_audit_txn(alh=alh,
-                          txns_count=2, ledger_id=DOMAIN_LEDGER_ID,
+                          txns_count=2, ledger_ids=[DOMAIN_LEDGER_ID],
                           view_no=2, pp_sq_no=8, txn_time=550, seq_no=4,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 12,
                           config_size=initial_config_size + 8,
@@ -108,7 +111,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
 
     # 5. add domain txn
     check_apply_audit_txn(alh=alh,
-                          txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
+                          txns_count=7, ledger_ids=[DOMAIN_LEDGER_ID],
                           view_no=2, pp_sq_no=9, txn_time=551, seq_no=5,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 19,
                           config_size=initial_config_size + 8,
@@ -117,7 +120,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
 
     # 6. add pool txn
     check_apply_audit_txn(alh=alh,
-                          txns_count=5, ledger_id=POOL_LEDGER_ID,
+                          txns_count=5, ledger_ids=[POOL_LEDGER_ID],
                           view_no=2, pp_sq_no=10, txn_time=551, seq_no=6,
                           pool_size=initial_pool_size + 11, domain_size=initial_domain_size + 19,
                           config_size=initial_config_size + 8,
@@ -135,6 +138,9 @@ def test_reject_batch(alh, db_manager,
                        view_no=3, pp_sq_no=37, txn_time=11112)
     txn_root_hash_1 = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash_1 = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+
+    txn_root_hash_2_pre = db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash
+    state_root_hash_2_pre = db_manager.get_state(POOL_LEDGER_ID).headHash
 
     do_apply_audit_txn(alh,
                        txns_count=6, ledger_id=POOL_LEDGER_ID,
@@ -161,9 +167,12 @@ def test_reject_batch(alh, db_manager,
     check_audit_txn(txn=alh.ledger.get_last_txn(),
                     view_no=3, pp_seq_no=39,
                     seq_no=3, txn_time=11114,
-                    ledger_id=CONFIG_LEDGER_ID,
-                    txn_root=txn_root_hash_3,
-                    state_root=state_root_hash_3,
+                    txn_roots={
+                        CONFIG_LEDGER_ID: txn_root_hash_3,
+                    },
+                    state_roots={
+                        CONFIG_LEDGER_ID: state_root_hash_3,
+                    },
                     pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 5,
                     config_size=initial_config_size + 7,
                     last_pool_seqno=2,
@@ -177,9 +186,12 @@ def test_reject_batch(alh, db_manager,
     check_audit_txn(txn=alh.ledger.get_last_txn(),
                     view_no=3, pp_seq_no=38,
                     seq_no=2, txn_time=11113,
-                    ledger_id=POOL_LEDGER_ID,
-                    txn_root=txn_root_hash_2,
-                    state_root=state_root_hash_2,
+                    txn_roots={
+                        POOL_LEDGER_ID: txn_root_hash_2,
+                    },
+                    state_roots={
+                        POOL_LEDGER_ID: state_root_hash_2,
+                    },
                     pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 5,
                     config_size=initial_config_size,
                     last_pool_seqno=None,
@@ -193,9 +205,14 @@ def test_reject_batch(alh, db_manager,
     check_audit_txn(txn=alh.ledger.get_last_txn(),
                     view_no=3, pp_seq_no=37,
                     seq_no=1, txn_time=11112,
-                    ledger_id=DOMAIN_LEDGER_ID,
-                    txn_root=txn_root_hash_1,
-                    state_root=state_root_hash_1,
+                    txn_roots={
+                        DOMAIN_LEDGER_ID: txn_root_hash_1,
+                        POOL_LEDGER_ID: txn_root_hash_2_pre
+                    },
+                    state_roots={
+                        DOMAIN_LEDGER_ID: state_root_hash_1,
+                        POOL_LEDGER_ID: state_root_hash_2_pre
+                    },
                     pool_size=initial_pool_size, domain_size=initial_domain_size + 5, config_size=initial_config_size,
                     last_pool_seqno=None,
                     last_domain_seqno=None,
@@ -226,9 +243,14 @@ def test_transform_txn_for_catchup_rep(alh, db_manager,
     check_audit_txn(txn=transformed_audit_txn,
                     view_no=0, pp_seq_no=1,
                     seq_no=1, txn_time=10000,
-                    ledger_id=DOMAIN_LEDGER_ID,
-                    txn_root=db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash,
-                    state_root=db_manager.get_state(DOMAIN_LEDGER_ID).headHash,
+                    txn_roots={
+                        DOMAIN_LEDGER_ID: db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash,
+                        POOL_LEDGER_ID: db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash,
+                    },
+                    state_roots={
+                        DOMAIN_LEDGER_ID: db_manager.get_state(DOMAIN_LEDGER_ID).headHash,
+                        POOL_LEDGER_ID: db_manager.get_state(POOL_LEDGER_ID).headHash,
+                    },
                     pool_size=initial_pool_size,
                     domain_size=initial_domain_size + 10,
                     config_size=initial_config_size,
@@ -247,6 +269,8 @@ def test_commit_one_batch(alh, db_manager,
                        view_no=3, pp_sq_no=35, txn_time=11111)
     txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
+    pool_txn_root_hash = db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash
+    pool_state_root_hash = db_manager.get_state(POOL_LEDGER_ID).headHash
     alh.commit_batch(FakeSomething())
 
     assert alh.ledger.uncommitted_size == alh.ledger.size
@@ -254,9 +278,14 @@ def test_commit_one_batch(alh, db_manager,
     check_audit_txn(txn=alh.ledger.get_last_committed_txn(),
                     view_no=3, pp_seq_no=35,
                     seq_no=initial_seq_no + 1, txn_time=11111,
-                    ledger_id=DOMAIN_LEDGER_ID,
-                    txn_root=txn_root_hash,
-                    state_root=state_root_hash,
+                    txn_roots={
+                        DOMAIN_LEDGER_ID: txn_root_hash,
+                        POOL_LEDGER_ID: pool_txn_root_hash
+                    },
+                    state_roots={
+                        DOMAIN_LEDGER_ID: state_root_hash,
+                        POOL_LEDGER_ID: pool_state_root_hash
+                    },
                     pool_size=initial_pool_size, domain_size=initial_domain_size + 7, config_size=initial_config_size,
                     last_pool_seqno=None,
                     last_domain_seqno=None,
