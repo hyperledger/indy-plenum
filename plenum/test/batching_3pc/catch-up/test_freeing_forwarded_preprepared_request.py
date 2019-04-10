@@ -49,7 +49,10 @@ def test_freeing_forwarded_preprepared_request(
 
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
 
-    looper.run(eventually(lambda: assertExp(len(behind_node.requests) == req_num)))
+    def _check():
+        assert len(behind_node.requests) == req_num
+
+    looper.run(eventually(_check))
     assert all(r.executed for r in behind_node.requests.values() if behind_node.seqNoDB.get(r.request.key)[1])
 
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,

@@ -9,7 +9,8 @@ from plenum.common.types import f
 from plenum.server.replica import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import create_pre_prepare_params
-from plenum.test.replica.helper import expect_suspicious
+from plenum.test.replica.conftest import pre_prepare as _pre_prepare
+from plenum.test.replica.helper import expect_suspicious, register_pp_ts
 from plenum.test.testing_utils import FakeSomething
 from stp_zmq.zstack import ZStack
 
@@ -32,6 +33,12 @@ def mock_schema_audit_txn_root():
     PrePrepare.schema = old_schema
 
 
+@pytest.fixture(scope="function")
+def pre_prepare(replica, _pre_prepare):
+    register_pp_ts(replica, _pre_prepare, replica.primaryName)
+    return _pre_prepare
+
+
 def test_process_pre_prepare_validation(replica_with_requests,
                                         pre_prepare):
     replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
@@ -45,6 +52,7 @@ def test_process_pre_prepare_validation_old_schema_no_pool(replica_with_requests
     assert f.POOL_STATE_ROOT_HASH.nm not in PrePrepare.schema
 
     pp = PrePrepare(**deserialized_pp)
+    register_pp_ts(replica_with_requests, pp, replica_with_requests.primaryName)
     replica_with_requests.processPrePrepare(pp, replica_with_requests.primaryName)
 
 
@@ -56,6 +64,7 @@ def test_process_pre_prepare_validation_old_schema_no_audit(replica_with_request
     assert f.AUDIT_TXN_ROOT_HASH.nm not in PrePrepare.schema
 
     pp = PrePrepare(**deserialized_pp)
+    register_pp_ts(replica_with_requests, pp, replica_with_requests.primaryName)
     replica_with_requests.processPrePrepare(pp, replica_with_requests.primaryName)
 
 
@@ -74,6 +83,7 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_request
                                                    audit_txn_root=txn_roots[AUDIT_LEDGER_ID],
                                                    reqs=fake_requests)
     pre_prepare = PrePrepare(*pre_prepare_params)
+    register_pp_ts(replica_with_requests, pre_prepare, replica_with_requests.primaryName)
 
     with pytest.raises(SuspiciousNode):
         replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
@@ -94,6 +104,7 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests
                                                    audit_txn_root="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4",
                                                    reqs=fake_requests)
     pre_prepare = PrePrepare(*pre_prepare_params)
+    register_pp_ts(replica_with_requests, pre_prepare, replica_with_requests.primaryName)
 
     with pytest.raises(SuspiciousNode):
         replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
