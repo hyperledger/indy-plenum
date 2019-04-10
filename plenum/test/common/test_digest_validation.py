@@ -6,9 +6,9 @@ from indy.did import create_and_store_my_did
 from plenum.common.exceptions import RequestNackedException
 from plenum.common.request import Request
 from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sdk_send_signed_requests, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, sdk_random_request_objects
 
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 
 from plenum.common.util import randomString
 from stp_core.loop.eventually import eventually
@@ -84,3 +84,20 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
     idrs = pp.reqIdr
     assert len(idrs) == 1
     assert req_obj1.digest in idrs
+
+
+def test_second_digest_is_written(
+        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards):
+    req = json.dumps(sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])[0].as_dict)
+    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
+    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req)
+    sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req]))
+
+    req = Request(**json.loads(req))
+
+    ledger_id, _, full_digest = txnPoolNodeSet[0].seqNoDB.get(req.payload_digest)
+    assert ledger_id == DOMAIN_LEDGER_ID
+    assert full_digest == req.digest
+
+    payload_digest = txnPoolNodeSet[0].seqNoDB.get(req.digest, full_digest=True)
+    assert payload_digest == req.payload_digest
