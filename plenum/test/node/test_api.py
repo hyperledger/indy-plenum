@@ -55,4 +55,4 @@ def test_seq_no_db_updates_by_default(test_node):
     }
 
     test_node.postTxnFromCatchupAddedToLedger(2, test_txn)
-    assert oldSize + 1 == test_node.seqNoDB.size
+    assert oldSize + 2 == test_node.seqNoDB.size

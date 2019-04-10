@@ -648,7 +648,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         reqs_for_remove = []
         for req in self.requests.values():
-            ledger_id, seq_no, digest = self.node.seqNoDB.get(req.request.payload_digest)
+            ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)
             if seq_no is not None:
                 reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
         for key, ledger_id, seq_no in reqs_for_remove:
@@ -1077,23 +1077,22 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 1. APPLY
         reqs, invalid_indices, rejects, suspicious = self._apply_pre_prepare(pre_prepare)
 
-        # 2. CHECK FOR SUSPICIOUS PREPREPARE
-        if suspicious:
-            return PP_REQUEST_ALREADY_ORDERED
-
-        # 3. CHECK IF MORE CHUNKS NEED TO BE APPLIED FURTHER BEFORE VALIDATION
+        # 2. CHECK IF MORE CHUNKS NEED TO BE APPLIED FURTHER BEFORE VALIDATION
         if pre_prepare.sub_seq_no != 0:
             return PP_SUB_SEQ_NO_WRONG
 
         if not pre_prepare.final:
             return PP_NOT_FINAL
 
-        # 4. VALIDATE APPLIED
+        # 3. VALIDATE APPLIED
         invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
-        why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
-                                                             reqs, invalid_indices, invalid_from_pp)
+        if suspicious:
+            why_not_applied = PP_REQUEST_ALREADY_ORDERED
+        else:
+            why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
+                                                                 reqs, invalid_indices, invalid_from_pp)
 
-        # 5. IF NOT VALID AFTER APPLYING - REVERT
+        # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
             if self.isMaster:
                 self.revert(pre_prepare.ledgerId,
@@ -1101,7 +1100,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                             len(pre_prepare.reqIdr) - len(invalid_indices))
             return why_not_applied
 
-        # 6. EXECUTE HOOK
+        # 5. EXECUTE HOOK
         if self.isMaster:
             try:
                 self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
@@ -1114,7 +1113,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                             len(pre_prepare.reqIdr) - len(invalid_from_pp))
                 return PP_APPLY_HOOK_ERROR
 
-        # 7. TRACK APPLIED
+        # 6. TRACK APPLIED
         self.outBox.extend(rejects)
         self.addToPrePrepares(pre_prepare)
 
@@ -1220,13 +1219,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
             # checking for payload digest is more effective
             for payload_key in non_fin_payload:
-                if self.node.seqNoDB.get(payload_key) != (None, None, None):
+                if self.node.seqNoDB.get_by_payload_digest(payload_key) != (None, None):
                     signal_suspicious(payload_key)
                     return
 
             # for absents we can only check full digest
             for full_key in absents:
-                if self.node.seqNoDB.get(full_key, full_digest=True) is not None:
+                if self.node.seqNoDB.get_by_full_digest(full_key) is not None:
                     signal_suspicious(full_key)
                     return
 

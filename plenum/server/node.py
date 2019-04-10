@@ -2382,14 +2382,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
 
         # Digest validation
-        ledger_id, seq_no, digest = self.seqNoDB.get(request.payload_digest)
-        if ledger_id is not None and seq_no is not None and digest is not None:
-            raise SuspiciousPrePrepare('Trying write request with different signatures')
+        ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
+        if ledger_id is not None and seq_no is not None:
+            raise SuspiciousPrePrepare('Trying to order already ordered request')
 
         ledger = self.getLedger(self.ledger_id_for_request(request))
         for txn in ledger.uncommittedTxns:
             if get_payload_digest(txn) == request.payload_digest:
-                raise SuspiciousPrePrepare('Trying write request with different signatures')
+                raise SuspiciousPrePrepare('Trying to order already ordered request')
 
         operation = request.operation
         req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
@@ -2420,7 +2420,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 logger.warning("Could not apply stashed requests due to non-existent requests")
                 return
-            _, seq_no, _ = self.seqNoDB.get(req.payload_digest)
+            _, seq_no = self.seqNoDB.get_by_payload_digest(req.payload_digest)
             if seq_no is None:
                 requests.append(req)
         self.apply_reqs(requests, three_pc_batch)
@@ -2562,7 +2562,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         clientName = msg.senderClient
 
         if not self.isProcessingReq(request.key):
-            ledger_id, seq_no, _ = self.seqNoDB.get(request.payload_digest)
+            ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
             if ledger_id is not None and seq_no is not None:
                 self._clean_req_from_verified(request)
                 logger.debug("{} ignoring propagated request {} "
@@ -3504,7 +3504,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_STATE_WRONG,
                                      Suspicions.PPR_PLUGIN_EXCEPTION,
                                      Suspicions.PPR_SUB_SEQ_NO_WRONG,
-                                     Suspicions.PPR_NOT_FINAL)):
+                                     Suspicions.PPR_NOT_FINAL,
+                                     Suspicions.PPR_WITH_ORDERED_REQUEST)):
             logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
 
@@ -3599,9 +3600,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send(msg, *rids, message_splitter=message_splitter)
 
     def getReplyFromLedgerForRequest(self, request):
-        ledger_id, seq_no, digest = self.seqNoDB.get(request.payload_digest)
-        if ledger_id is not None and seq_no is not None and digest is not None:
-            if request.digest == digest:
+        ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
+        if ledger_id is not None and seq_no is not None:
+            if self.seqNoDB.get_by_full_digest(request.digest) is not None:
                 ledger = self.getLedger(ledger_id)
                 return self.getReplyFromLedger(ledger, seq_no)
             else:

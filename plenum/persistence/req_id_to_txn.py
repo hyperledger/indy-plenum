@@ -1,5 +1,8 @@
 import string
 
+from collections import Iterable
+
+from common.exceptions import LogicError
 from storage.kv_store import KeyValueStorage
 
 
@@ -14,40 +17,47 @@ class ReqIdrToTxn:
         self._keyValueStorage = keyValueStorage
 
     def add(self, payload_digest, ledger_id, seq_no, digest):
-        self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no, digest))
+        self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no))
+        self._keyValueStorage.put(digest, payload_digest)
 
     def addBatch(self, batch, full_digest: bool = True):
         payload = []
         full = []
         for payload_digest, ledger_id, seq_no, digest in batch:
             payload.append((payload_digest, self._create_value(ledger_id,
-                                                               seq_no,
-                                                               digest)))
+                                                               seq_no)))
             full.append((digest, str(payload_digest)))
         self._keyValueStorage.setBatch(payload)
         if full_digest:
             self._keyValueStorage.setBatch(full)
 
-    def get(self, some_digest, full_digest: bool = False):
-        """
-        Return leger_id, seq_no of transaction that was a result
-        of last request with this digest
-        :param digest: digest of request
-        :return: leger_id, seq_no
-        """
+    def get_by_payload_digest(self, payload_digest):
         try:
-            val = self._keyValueStorage.get(some_digest)
+            val = self._keyValueStorage.get(payload_digest)
             val = val.decode()
-            return val if full_digest else self._parse_value(val)
+            result = self._parse_value(val)
+            if not (result, Iterable) or len(result) != 2:
+                raise LogicError('SeqNoDB must store payload_digest => ledger_id and seq_no')
+            return result
         except (KeyError, ValueError):
-            return None if full_digest else (None, None, None)
+            return None, None
+
+    def get_by_full_digest(self, payload_digest):
+        try:
+            val = self._keyValueStorage.get(payload_digest)
+            result = val.decode()
+            if not (result, str):
+                raise LogicError('SeqNoDB must store full_digest => payload_digest')
+            return result
+        except (KeyError, ValueError):
+            return None
 
     def _parse_value(self, val: string):
         parse_data = val.split(self.delimiter)
-        return int(parse_data[0]), int(parse_data[1]), str(parse_data[2])
+        return int(parse_data[0]), int(parse_data[1])
 
-    def _create_value(self, ledger_id, seq_no, payload_digest):
-        return str(ledger_id) + self.delimiter + str(seq_no) + self.delimiter + str(payload_digest)
+    def _create_value(self, ledger_id, seq_no):
+        return str(ledger_id) + self.delimiter + str(seq_no)
 
     @property
     def size(self):
