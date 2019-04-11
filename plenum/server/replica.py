@@ -2263,9 +2263,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for key3PC, pp_dict in self.pre_prepare_tss.items():
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
-                for (pp, _) in pp_dict:
-                    for reqKey in pp.reqIdr:
-                        reqKeys.add(reqKey)
+                # TODO INDY-1983: was found that it adds additional
+                # requests to clean, need to explore why
+                #for (pp, _) in pp_dict:
+                #    for reqKey in pp.reqIdr:
+                #        reqKeys.add(reqKey)
 
         self.logger.trace("{} found {} 3-phase keys to clean".
                           format(self, len(tpcKeys)))
