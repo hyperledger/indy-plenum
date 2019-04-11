@@ -111,7 +111,8 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests
 
 
 def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
-    replica.node.seqNoDB = FakeSomething(get=lambda req: (None, None))
+    replica.node.seqNoDB = FakeSomething(get_by_full_digest=lambda req: None,
+                                         get_by_payload_digest=lambda req: (None, None))
     replica.nonFinalisedReqs = lambda a: set(pre_prepare.reqIdr)
 
     def request_propagates(reqs):
@@ -126,7 +127,8 @@ def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
 def test_process_pre_prepare_with_ordered_request(replica, pre_prepare):
     expect_suspicious(replica, Suspicions.PPR_WITH_ORDERED_REQUEST.code)
 
-    replica.node.seqNoDB = FakeSomething(get=lambda req: (1, 1))
+    replica.node.seqNoDB = FakeSomething(get_by_full_digest=lambda req: 'sample',
+                                         get_by_payload_digest=lambda req: (1, 1))
     replica.nonFinalisedReqs = lambda a: pre_prepare.reqIdr
 
     def request_propagates(reqs):

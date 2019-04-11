@@ -14,11 +14,11 @@ class Request:
     idr_delimiter = ','
 
     def __init__(self,
-                 identifier: Identifier=None,
-                 reqId: int=None,
-                 operation: Mapping=None,
-                 signature: str=None,
-                 signatures: Dict[str, str]=None,
+                 identifier: Identifier = None,
+                 reqId: int = None,
+                 operation: Mapping = None,
+                 signature: str = None,
+                 signatures: Dict[str, str] = None,
                  protocolVersion: int = None,
                  # Intentionally omitting *args
                  **kwargs):
@@ -29,6 +29,7 @@ class Request:
         self.operation = operation
         self.protocolVersion = protocolVersion
         self._digest = None
+        self._payload_digest = None
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
             if nm in kwargs:
                 setattr(self, nm, kwargs[nm])
@@ -38,6 +39,12 @@ class Request:
         if self._digest is None:
             self._digest = self.getDigest()
         return self._digest
+
+    @property
+    def payload_digest(self):
+        if self._payload_digest is None:
+            self._payload_digest = self.getPayloadDigest()
+        return self._payload_digest
 
     @property
     def as_dict(self):
@@ -50,7 +57,7 @@ class Request:
         if self.signatures is not None:
             rv[f.SIGS.nm] = self.signatures
         if self.signature is not None:
-                rv[f.SIG.nm] = self.signature
+            rv[f.SIG.nm] = self.signature
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
             if hasattr(self, nm):
                 rv[nm] = getattr(self, nm)
@@ -71,10 +78,21 @@ class Request:
     def getDigest(self):
         return sha256(serialize_msg_for_signing(self.signingState())).hexdigest()
 
+    def getPayloadDigest(self):
+        return sha256(serialize_msg_for_signing(self.signingPayloadState())).hexdigest()
+
     def __getstate__(self):
         return self.__dict__
 
     def signingState(self, identifier=None):
+        state = self.signingPayloadState(identifier)
+        if self.signatures is not None:
+            state[f.SIGS.nm] = self.signatures
+        if self.signature is not None:
+            state[f.SIG.nm] = self.signature
+        return state
+
+    def signingPayloadState(self, identifier=None):
         # TODO: separate data, metadata and signature, so that we don't
         # need to have this kind of messages
         dct = {

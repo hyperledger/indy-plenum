@@ -141,7 +141,7 @@ def primary_replica(replica):
 
 @pytest.fixture(scope='function')
 def replica_with_requests(replica, fake_requests):
-    replica._apply_pre_prepare = lambda a: (fake_requests, [], [])
+    replica._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         replica.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         replica.requests.add(req)
