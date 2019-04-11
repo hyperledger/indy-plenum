@@ -2254,12 +2254,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.auditLedger.size > 0:
             return False
 
-        # If we didn't catch up anything during last round we don't need any more rounds
-        if self.num_txns_caught_up_in_last_catchup() == 0:
-            return False
-
-        # Otherwise check if enough time has passed
-        return not self.is_catch_up_limit(self.config.MIN_TIMEOUT_INITIAL_CATCHUP_WITHOUT_AUDIT)
+        # Do a catchup until there are no more new transactions
+        return self.num_txns_caught_up_in_last_catchup() > 0
 
     def is_catchup_needed_during_view_change(self) -> bool:
         """
