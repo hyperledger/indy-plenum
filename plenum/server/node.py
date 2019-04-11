@@ -818,7 +818,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = time.perf_counter()
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
@@ -2261,17 +2260,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.elector.on_catchup_complete()
 
     def is_catchup_needed(self) -> bool:
+        # More than one catchup may be needed during the current ViewChange protocol
+        if self.view_change_in_progress:
+            return self.is_catchup_needed_during_view_change()
+
+        # If we already have audit ledger we don't need any more catch-ups
+        if self.auditLedger.size > 0:
+            return False
+
+        # Do a catchup until there are no more new transactions
+        return self.num_txns_caught_up_in_last_catchup() > 0
+
+    def is_catchup_needed_during_view_change(self) -> bool:
         """
         Check if received a quorum of view change done messages and if yes
         check if caught up till the
         Check if all requests ordered till last prepared certificate
         Check if last catchup resulted in no txns
         """
-        # More than one catchup may be needed during the current ViewChange protocol
-        # No more catchup is needed if this is a common catchup (not part of View Change)
-        if not self.view_change_in_progress:
-            return False
-
         if self.caught_up_for_current_view():
             logger.info('{} is caught up for the current view {}'.format(self, self.viewNo))
             return False
@@ -2282,7 +2288,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.info('{} ordered till last prepared certificate'.format(self))
                 return False
 
-        if self.is_catch_up_limit():
+        if self.is_catch_up_limit(self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
+            # No more 3PC messages will be processed since maximum catchup
+            # rounds have been done
+            self.master_replica.last_prepared_before_view_change = None
             return False
 
         return True
@@ -2313,14 +2322,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
 
-    def is_catch_up_limit(self):
+    def is_catch_up_limit(self, timeout: float):
         ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE:
+        if ts_since_catch_up_start >= timeout:
             logger.info('{} has completed {} catchup rounds for {} seconds'.
                         format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
-            # No more 3PC messages will be processed since maximum catchup
-            # rounds have been done
-            self.master_replica.last_prepared_before_view_change = None
             return True
         return False
 
@@ -3195,6 +3201,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{} does not start the catchup procedure '
                         'because another catchup is in progress'.format(self))
             return
+
+        if self._catch_up_start_ts == 0:
+            self._catch_up_start_ts = time.perf_counter()
         self._do_start_catchup(just_started)
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
