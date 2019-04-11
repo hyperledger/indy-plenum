@@ -311,7 +311,7 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
-    assert [req.digest, ] in \
+    assert (req.digest,) in \
            [p["ppReq"].reqIdr for p in prePreparesSent]
 
 
@@ -328,8 +328,8 @@ def checkPrepareReqSent(replica: TestReplica, key: str,
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
-    assert [key] in args
-    idx = args.index([key])
+    assert (key,) in args
+    idx = args.index((key,))
     assert rv[idx]
 
 

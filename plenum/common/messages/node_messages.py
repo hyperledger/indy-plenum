@@ -1,4 +1,4 @@
-from typing import TypeVar, NamedTuple
+from typing import TypeVar, NamedTuple, Dict
 
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     BLACKLIST, REQACK, REQNACK, REJECT, \
@@ -20,6 +20,8 @@ from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
+
+# TODO set of classes are not hashable but MessageBase expects that
 
 class Nomination(MessageBase):
     typename = NOMINATE
@@ -164,6 +166,16 @@ class PrePrepare(MessageBase):
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
+
+    def _post_process(self, input_as_dict: Dict) -> Dict:
+        # make validated input hashable
+        input_as_dict[f.REQ_IDR.nm] = tuple(input_as_dict[f.REQ_IDR.nm])
+
+        bls = input_as_dict.get(f.BLS_MULTI_SIG.nm, None)
+        if bls is not None:
+            input_as_dict[f.BLS_MULTI_SIG.nm] = (bls[0], tuple(bls[1]), tuple(bls[2]))
+
+        return input_as_dict
 
 
 class Prepare(MessageBase):

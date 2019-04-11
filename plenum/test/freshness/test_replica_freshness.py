@@ -78,7 +78,7 @@ def check_and_pop_freshness_pre_prepare(replica, ledger_id):
     msg = replica.outBox.popleft()
     assert isinstance(msg, PrePrepare)
     assert msg.ledgerId == ledger_id
-    assert msg.reqIdr == []
+    assert msg.reqIdr == tuple()
 
 
 def test_no_freshness_pre_prepare_when_disabled(tconf, primary_replica):

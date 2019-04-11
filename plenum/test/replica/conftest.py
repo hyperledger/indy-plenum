@@ -54,11 +54,6 @@ def viewNo(tconf, request):
 
 
 @pytest.fixture(scope='function')
-def mock_timestamp():
-    return MockTimestamp()
-
-
-@pytest.fixture(scope='function')
 def ledger_ids():
     return [POOL_LEDGER_ID]
 
