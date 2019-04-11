@@ -2265,7 +2265,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 tpcKeys.add(key3PC)
                 # TODO INDY-1983: was found that it adds additional
                 # requests to clean, need to explore why
-                #for (pp, _) in pp_dict:
+                # for (pp, _) in pp_dict:
                 #    for reqKey in pp.reqIdr:
                 #        reqKeys.add(reqKey)
 
