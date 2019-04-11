@@ -22,7 +22,7 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier
+    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
@@ -201,6 +201,7 @@ PP_APPLY_HOOK_ERROR = 11
 PP_SUB_SEQ_NO_WRONG = 12
 PP_NOT_FINAL = 13
 PP_APPLY_AUDIT_HASH_MISMATCH = 15
+PP_REQUEST_ALREADY_ORDERED = 16
 
 
 def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
@@ -646,10 +647,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.isMaster:
             return
         reqs_for_remove = []
-        for key in self.requests:
-            ledger_id, seq_no = self.node.seqNoDB.get(key)
+        for req in self.requests.values():
+            ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)
             if seq_no is not None:
-                reqs_for_remove.append((key, ledger_id, seq_no))
+                reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
         for key, ledger_id, seq_no in reqs_for_remove:
             self.requests.ordered_by_replica(key)
             self.requests.free(key)
@@ -976,6 +977,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             key = self.requestQueues[ledger_id].pop(0)
             if key in self.requests:
                 fin_req = self.requests[key].finalised
+                malicious_req = False
                 try:
                     self.processReqDuringBatch(fin_req,
                                                tm)
@@ -984,9 +986,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                         'will reject'.format(self, ex, fin_req))
                     rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
                     invalid_indices.append(idx)
+                except SuspiciousPrePrepare:
+                    malicious_req = True
                 finally:
-                    reqs.append(fin_req)
-                idx += 1
+                    if not malicious_req:
+                        reqs.append(fin_req)
+                if not malicious_req:
+                    idx += 1
             else:
                 self.logger.debug('{} found {} in its request queue but the '
                                   'corresponding request was removed'.format(self, key))
@@ -1069,7 +1075,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 old_txn_root))
 
         # 1. APPLY
-        reqs, invalid_indices, rejects = self._apply_pre_prepare(pre_prepare)
+        reqs, invalid_indices, rejects, suspicious = self._apply_pre_prepare(pre_prepare)
 
         # 2. CHECK IF MORE CHUNKS NEED TO BE APPLIED FURTHER BEFORE VALIDATION
         if pre_prepare.sub_seq_no != 0:
@@ -1080,8 +1086,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # 3. VALIDATE APPLIED
         invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
-        why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
-                                                             reqs, invalid_indices, invalid_from_pp)
+        if suspicious:
+            why_not_applied = PP_REQUEST_ALREADY_ORDERED
+        else:
+            why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
+                                                                 reqs, invalid_indices, invalid_from_pp)
 
         # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
@@ -1167,6 +1176,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     return
                 elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
+                elif why_not_applied == PP_REQUEST_ALREADY_ORDERED:
+                    report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1181,11 +1192,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
             absents = set()
             non_fin = set()
+            non_fin_payload = set()
             for key in pre_prepare.reqIdr:
-                if key not in self.requests:
+                req = self.requests.get(key)
+                if req is None:
                     absents.add(key)
-                elif not self.requests[key].finalised:
+                elif not req.finalised:
                     non_fin.add(key)
+                    non_fin_payload.add(req.request.payload_digest)
             absent_str = ', '.join(str(key) for key in absents)
             non_fin_str = ', '.join(
                 '{} ({} : {})'.format(str(key),
@@ -1197,13 +1211,25 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 "{} of them don't have enough propagates: {}.".format(self, pre_prepare.ledgerId,
                                                                       len(absents), absent_str,
                                                                       len(non_fin), non_fin_str))
-            bad_reqs = absents | non_fin
-            for req in bad_reqs:
-                if req not in self.requests and self.node.seqNoDB.get(req) != (None, None):
-                    self.logger.info("Request digest {} already ordered. Discard {} "
-                                     "from {}".format(req, pre_prepare, sender))
-                    report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+
+            def signal_suspicious(req):
+                self.logger.info("Request digest {} already ordered. Discard {} "
+                                 "from {}".format(req, pre_prepare, sender))
+                report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+
+            # checking for payload digest is more effective
+            for payload_key in non_fin_payload:
+                if self.node.seqNoDB.get_by_payload_digest(payload_key) != (None, None):
+                    signal_suspicious(payload_key)
                     return
+
+            # for absents we can only check full digest
+            for full_key in absents:
+                if self.node.seqNoDB.get_by_full_digest(full_key) is not None:
+                    signal_suspicious(full_key)
+                    return
+
+            bad_reqs = absents | non_fin
             self.enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is
@@ -1433,6 +1459,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         idx = 0
         rejects = []
         invalid_indices = []
+        suspicious = False
 
         # 1. apply each request
         for req_key in pre_prepare.reqIdr:
@@ -1440,11 +1467,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             try:
                 self.processReqDuringBatch(req,
                                            pre_prepare.ppTime)
-            except (InvalidClientMessageException, UnknownIdentifier) as ex:
+            except (InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare) as ex:
                 self.logger.warning('{} encountered exception {} while processing {}, '
                                     'will reject'.format(self, ex, req))
                 rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
                 invalid_indices.append(idx)
+                if isinstance(ex, SuspiciousPrePrepare):
+                    suspicious = True
             finally:
                 reqs.append(req)
             idx += 1
@@ -1461,7 +1490,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                                reqs, invalid_indices))
             self.node.onBatchCreated(three_pc_batch)
 
-        return reqs, invalid_indices, rejects
+        return reqs, invalid_indices, rejects, suspicious
 
     def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
                                       reqs, invalid_indices, invalid_from_pp) -> Optional[int]:

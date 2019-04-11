@@ -7,7 +7,8 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, FORCE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_SIGNATURE, TXN_METADATA, TXN_SIGNATURE_TYPE, ED25519, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
-    TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID, CURRENT_PROTOCOL_VERSION
+    TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID, CURRENT_PROTOCOL_VERSION, \
+    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -94,7 +95,7 @@ def get_reply_txntype(result):
 def get_reply_nym(result):
     if TARGET_NYM in result:
         return result[TARGET_NYM]
-    elif TXN_PAYLOAD in result and TXN_PAYLOAD_DATA in result[TXN_PAYLOAD] and\
+    elif TXN_PAYLOAD in result and TXN_PAYLOAD_DATA in result[TXN_PAYLOAD] and \
             TARGET_NYM in result[TXN_PAYLOAD][TXN_PAYLOAD_DATA]:
         return result[TXN_PAYLOAD][TXN_PAYLOAD_DATA][TARGET_NYM]
 
@@ -126,6 +127,10 @@ def get_req_id(txn):
 
 def get_digest(txn):
     return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_DIGEST, None)
+
+
+def get_payload_digest(txn):
+    return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, None)
 
 
 def get_seq_no(txn):
@@ -183,13 +188,15 @@ def set_payload_data(txn, data):
     return txn
 
 
-def append_payload_metadata(txn, frm=None, req_id=None, digest=None):
+def append_payload_metadata(txn, frm=None, req_id=None, digest=None, payload_digest=None):
     if frm is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = frm
     if req_id is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = req_id
     if digest is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST] = digest
+    if payload_digest is not None:
+        txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST] = payload_digest
     return txn
 
 
@@ -225,6 +232,7 @@ def reqToTxn(req):
     if isinstance(req, Request):
         req_data = req.as_dict
         req_data[f.DIGEST.nm] = req.digest
+        req_data[f.PAYLOAD_DIGEST.nm] = req.payload_digest
     else:
         raise TypeError(
             "Expected dict or str as input, but got: {}".format(type(req)))
@@ -267,7 +275,8 @@ def do_req_to_txn(req_data, req_op):
     append_payload_metadata(result,
                             frm=req_data.pop(f.IDENTIFIER.nm, None),
                             req_id=req_data.pop(f.REQ_ID.nm, None),
-                            digest=req_data.pop(f.DIGEST.nm, None))
+                            digest=req_data.pop(f.DIGEST.nm, None),
+                            payload_digest=req_data.pop(f.PAYLOAD_DIGEST.nm, None))
 
     # 4. Fill Payload data
     set_payload_data(result, req_op)
