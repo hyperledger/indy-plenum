@@ -107,9 +107,13 @@ class ReplicaValidator:
             return False
         if self.replica.viewNo < self.replica.last_ordered_3pc[0]:
             return False
-        if self.replica.viewNo == self.replica.last_ordered_3pc[0] and \
-                self.replica.lastPrePrepareSeqNo < self.replica.last_ordered_3pc[1]:
-            return False
+        if self.replica.viewNo == self.replica.last_ordered_3pc[0]:
+            if self.replica.lastPrePrepareSeqNo < self.replica.last_ordered_3pc[1]:
+                return False
+            if self.replica.config.Max3PCBatchesInFlight is not None:
+                batches_in_flight = self.replica.lastPrePrepareSeqNo - self.replica.last_ordered_3pc[1]
+                if batches_in_flight > self.replica.config.Max3PCBatchesInFlight:
+                    return False
         return True
 
     def can_order(self):
