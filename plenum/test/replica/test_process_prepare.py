@@ -4,6 +4,8 @@ from plenum.common.exceptions import SuspiciousNode
 from plenum.common.util import updateNamedTuple
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import generate_state_root
+from plenum.test.replica.conftest import pre_prepare as _pre_prepare
+from plenum.test.replica.helper import register_pp_ts
 
 nodeCount = 7
 
@@ -33,6 +35,12 @@ def r(replica_with_requests, request):
     else:
         replica_with_requests.name = OTHER_NON_PRIMARY_NAME
     return replica_with_requests
+
+
+@pytest.fixture(scope="function")
+def pre_prepare(r, _pre_prepare):
+    register_pp_ts(r, _pre_prepare, r.primaryName)
+    return _pre_prepare
 
 
 def test_process_valid_prepare(r, pre_prepare, prepare):

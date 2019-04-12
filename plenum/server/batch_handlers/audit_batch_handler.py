@@ -98,33 +98,46 @@ class AuditBatchHandler(BatchRequestHandler):
 
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
-            self.__fill_ledger_root_hash(txn, three_pc_batch, lid, last_audit_txn)
-
-        # 4. state root hash
-        txn[AUDIT_TXN_STATE_ROOT][three_pc_batch.ledger_id] = Ledger.hashToStr(three_pc_batch.state_root)
+            self.__fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
 
         # 5. set primaries field
         self.__fill_primaries(txn, three_pc_batch, last_audit_txn)
 
         return txn
 
-    def __fill_ledger_root_hash(self, txn, three_pc_batch, lid, last_audit_txn):
-        target_ledger_id = three_pc_batch.ledger_id
+    def __fill_ledger_root_hash(self, txn, lid, ledger, last_audit_txn, three_pc_batch):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
 
-        # 1. ledger is changed in this batch => root_hash
-        if lid == target_ledger_id:
-            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(three_pc_batch.txn_root)
+        if lid == three_pc_batch.ledger_id:
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 
-        # 2. This ledger is never audited, so do not add the key
+        # 1. it is the first batch and we have something
+        elif last_audit_txn_data is None and ledger.uncommitted_size:
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
+
+        # 1.1. Rare case -- we have previous audit txns but don't have this ledger i.e. new plugins
+        elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid] is None and \
+                len(ledger.uncommittedTxns):
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
+
+        # 2. Usual case -- this ledger was updated since the last audit txn
+        elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid] is not None and \
+                ledger.uncommitted_size > last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid]:
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
+            txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
+
+        # 3. This ledger is never audited, so do not add the key
         elif last_audit_txn_data is None or lid not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT]:
             return
 
-        # 3. ledger is not changed in last batch => delta = delta + 1
+        # 4. ledger is not changed in last batch => delta = delta + 1
         elif isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid], int):
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid] + 1
 
-        # 4. ledger is changed in last batch but not changed now => delta = 1
+        # 5. ledger is changed in last batch but not changed now => delta = 1
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = 1
 

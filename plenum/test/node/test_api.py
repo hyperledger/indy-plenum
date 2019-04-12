@@ -2,7 +2,8 @@ import pytest
 
 from common.exceptions import LogicError
 from plenum.common.constants import TXN_TYPE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_PAYLOAD_METADATA_DIGEST, \
-    TXN_PAYLOAD_TYPE, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, TXN_METADATA, TXN_METADATA_SEQ_NO
+    TXN_PAYLOAD_TYPE, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, TXN_METADATA, TXN_METADATA_SEQ_NO, \
+    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST
 from plenum.common.request import Request
 
 
@@ -25,7 +26,8 @@ def test_seq_no_db_updates(test_node):
         TXN_PAYLOAD: {
             TXN_PAYLOAD_TYPE: "2",
             TXN_PAYLOAD_METADATA: {
-                TXN_PAYLOAD_METADATA_DIGEST: "11222"
+                TXN_PAYLOAD_METADATA_DIGEST: "11222",
+                TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST: "112222",
             },
             TXN_PAYLOAD_DATA: {}
         }
@@ -42,6 +44,7 @@ def test_seq_no_db_updates_by_default(test_node):
             TXN_PAYLOAD_TYPE: "2",
             TXN_PAYLOAD_METADATA: {
                 TXN_PAYLOAD_METADATA_DIGEST: "11222",
+                TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST: "112222",
                 TXN_PAYLOAD_METADATA_REQ_ID: "12"
             },
             TXN_PAYLOAD_DATA: {}
@@ -52,4 +55,4 @@ def test_seq_no_db_updates_by_default(test_node):
     }
 
     test_node.postTxnFromCatchupAddedToLedger(2, test_txn)
-    assert oldSize + 1 == test_node.seqNoDB.size
+    assert oldSize + 2 == test_node.seqNoDB.size

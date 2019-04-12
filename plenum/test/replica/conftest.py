@@ -54,11 +54,6 @@ def viewNo(tconf, request):
 
 
 @pytest.fixture(scope='function')
-def mock_timestamp():
-    return MockTimestamp()
-
-
-@pytest.fixture(scope='function')
 def ledger_ids():
     return [POOL_LEDGER_ID]
 
@@ -146,7 +141,7 @@ def primary_replica(replica):
 
 @pytest.fixture(scope='function')
 def replica_with_requests(replica, fake_requests):
-    replica._apply_pre_prepare = lambda a: (fake_requests, [], [])
+    replica._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         replica.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         replica.requests.add(req)

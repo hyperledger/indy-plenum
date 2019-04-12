@@ -14,3 +14,8 @@ def expect_suspicious(replica, suspicious_code):
         raise ex
 
     replica.node.reportSuspiciousNodeEx = reportSuspiciousNodeEx
+
+def register_pp_ts(replica, pp, sender):
+    tpcKey = (pp.viewNo, pp.ppSeqNo)
+    ppKey = (pp, sender)
+    replica.pre_prepare_tss[tpcKey][ppKey] = replica.get_time_for_3pc_batch()

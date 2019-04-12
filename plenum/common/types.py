@@ -22,6 +22,7 @@ class f:  # provides a namespace for reusable field constants
     ROUND = Field("round", int)
     IDENTIFIER = Field('identifier', str)
     DIGEST = Field('digest', str)
+    PAYLOAD_DIGEST = Field('payloadDigest', str)
     DIGESTS = Field('digests', List[str])
     RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
     SEQ_NO = Field('seqNo', int)

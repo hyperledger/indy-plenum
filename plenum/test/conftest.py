@@ -67,6 +67,7 @@ from plenum.test.test_node import TestNode, Pool, \
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.INFO)
+logging.getLogger("indy").setLevel(logging.WARNING)
 logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
@@ -275,7 +276,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'last try...',
                      'has uninitialised socket',
                      'to have incorrect time',
-                     'time not acceptable'
+                     'time not acceptable',
+                     'IndyError'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -294,7 +296,7 @@ def logcapture(request, whitelist, concerningLogLevels):
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
         if not (isBenign or isTest):
-            msg = str(record.msg)
+            msg = str(record.message if record.message else record.msg)
             # TODO combine whitelisted with '|' and use one regex for msg
             isWhiteListed = any(re.search(w, msg)
                                 for w in whiteListedExceptions)
@@ -306,7 +308,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                         fv.stopall()
                     if isinstance(fv, Prodable):
                         fv.stop()
-                raise BlowUp("{}: {} ".format(record.levelname, record.msg))
+                raise BlowUp("{}: {} ".format(record.levelname, msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)

@@ -56,7 +56,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
@@ -79,7 +79,7 @@ from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
-    get_txn_time, get_digest, TxnUtilConfig
+    get_txn_time, get_digest, TxnUtilConfig, get_payload_digest
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
     PLUGIN_TYPE_PROCESSING, OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
@@ -818,7 +818,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
-        self._catch_up_start_ts = time.perf_counter()
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
@@ -1075,6 +1074,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_type_to_req_handler[txn_type] = req_handler
         if ledger_id is not None:
             self.txn_type_to_ledger_id[txn_type] = ledger_id
+
+    def unregister_txn_type(self, txn_type, ledger_id):
+        if txn_type not in self.txn_type_to_req_handler:
+            raise ValueError('txn_type {} is not registered'.format(txn_type))
+        del self.txn_type_to_req_handler[txn_type]
+        if ledger_id is not None:
+            del self.txn_type_to_ledger_id[txn_type]
+
+    def unregister_req_handler(self, req_handler: RequestHandler,
+                               ledger_id: int = None):
+        if ledger_id is not None and ledger_id in self.ledger_to_req_handler:
+            del self.ledger_to_req_handler[ledger_id]
+        for txn_type in req_handler.operation_types:
+            self.unregister_txn_type(txn_type, ledger_id)
 
     def register_executer(self, ledger_id: int, executer: Callable):
         self.requestExecuter[ledger_id] = executer
@@ -2247,17 +2260,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.elector.on_catchup_complete()
 
     def is_catchup_needed(self) -> bool:
+        # More than one catchup may be needed during the current ViewChange protocol
+        if self.view_change_in_progress:
+            return self.is_catchup_needed_during_view_change()
+
+        # If we already have audit ledger we don't need any more catch-ups
+        if self.auditLedger.size > 0:
+            return False
+
+        # Do a catchup until there are no more new transactions
+        return self.num_txns_caught_up_in_last_catchup() > 0
+
+    def is_catchup_needed_during_view_change(self) -> bool:
         """
         Check if received a quorum of view change done messages and if yes
         check if caught up till the
         Check if all requests ordered till last prepared certificate
         Check if last catchup resulted in no txns
         """
-        # More than one catchup may be needed during the current ViewChange protocol
-        # No more catchup is needed if this is a common catchup (not part of View Change)
-        if not self.view_change_in_progress:
-            return False
-
         if self.caught_up_for_current_view():
             logger.info('{} is caught up for the current view {}'.format(self, self.viewNo))
             return False
@@ -2268,7 +2288,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.info('{} ordered till last prepared certificate'.format(self))
                 return False
 
-        if self.is_catch_up_limit():
+        if self.is_catch_up_limit(self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
+            # No more 3PC messages will be processed since maximum catchup
+            # rounds have been done
+            self.master_replica.last_prepared_before_view_change = None
             return False
 
         return True
@@ -2299,14 +2322,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
 
-    def is_catch_up_limit(self):
+    def is_catch_up_limit(self, timeout: float):
         ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if ts_since_catch_up_start >= self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE:
+        if ts_since_catch_up_start >= timeout:
             logger.info('{} has completed {} catchup rounds for {} seconds'.
                         format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
-            # No more 3PC messages will be processed since maximum catchup
-            # rounds have been done
-            self.master_replica.last_prepared_before_view_change = None
             return True
         return False
 
@@ -2335,6 +2355,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getLedgerStatus(self, ledgerId: int):
         if ledgerId == POOL_LEDGER_ID and not self.poolLedger:
             # Since old style nodes don't know have pool ledger
+            return None
+        if ledgerId not in self.ledger_ids:
             return None
         return self.build_ledger_status(ledgerId)
 
@@ -2380,9 +2402,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         State based validation
         """
         self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
+
+        # Digest validation
+        ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
+        if ledger_id is not None and seq_no is not None:
+            raise SuspiciousPrePrepare('Trying to order already ordered request')
+
+        ledger = self.getLedger(self.ledger_id_for_request(request))
+        for txn in ledger.uncommittedTxns:
+            if get_payload_digest(txn) == request.payload_digest:
+                raise SuspiciousPrePrepare('Trying to order already ordered request')
+
         operation = request.operation
         req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
         req_handler.validate(request)
+
         self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
     def applyReq(self, request: Request, cons_time: int):
@@ -2408,7 +2442,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 logger.warning("Could not apply stashed requests due to non-existent requests")
                 return
-            _, seq_no = self.seqNoDB.get(req.digest)
+            _, seq_no = self.seqNoDB.get_by_payload_digest(req.payload_digest)
             if seq_no is None:
                 requests.append(req)
         self.apply_reqs(requests, three_pc_batch)
@@ -2470,7 +2504,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif self.can_write_txn(txn_type):
             reply = self.getReplyFromLedgerForRequest(request)
             if reply:
-                logger.debug("{} returning REPLY from already processed "
+                logger.debug("{} returning reply from already processed "
                              "REQUEST: {}".format(self, request))
                 self.transmitToClient(reply, frm)
                 return
@@ -2550,7 +2584,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         clientName = msg.senderClient
 
         if not self.isProcessingReq(request.key):
-            ledger_id, seq_no = self.seqNoDB.get(request.key)
+            ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
             if ledger_id is not None and seq_no is not None:
                 self._clean_req_from_verified(request)
                 logger.debug("{} ignoring propagated request {} "
@@ -3167,6 +3201,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{} does not start the catchup procedure '
                         'because another catchup is in progress'.format(self))
             return
+
+        if self._catch_up_start_ts == 0:
+            self._catch_up_start_ts = time.perf_counter()
         self._do_start_catchup(just_started)
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
@@ -3309,7 +3346,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
-            self.seqNoDB.addBatch((get_digest(txn), ledger_id, get_seq_no(txn))
+            self.seqNoDB.addBatch((get_payload_digest(txn), ledger_id, get_seq_no(txn), get_digest(txn))
                                   for txn in committedTxns)
 
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
@@ -3492,7 +3529,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_STATE_WRONG,
                                      Suspicions.PPR_PLUGIN_EXCEPTION,
                                      Suspicions.PPR_SUB_SEQ_NO_WRONG,
-                                     Suspicions.PPR_NOT_FINAL)):
+                                     Suspicions.PPR_NOT_FINAL,
+                                     Suspicions.PPR_WITH_ORDERED_REQUEST,
+                                     Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                     Suspicions.PPR_BLS_MULTISIG_WRONG,
+                                     Suspicions.PPR_TIME_WRONG,
+                                     )):
             logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
 
@@ -3587,10 +3629,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send(msg, *rids, message_splitter=message_splitter)
 
     def getReplyFromLedgerForRequest(self, request):
-        ledger_id, seq_no = self.seqNoDB.get(request.digest)
+        ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
         if ledger_id is not None and seq_no is not None:
-            ledger = self.getLedger(ledger_id)
-            return self.getReplyFromLedger(ledger, seq_no)
+            if self.seqNoDB.get_by_full_digest(request.digest) is not None:
+                ledger = self.getLedger(ledger_id)
+                return self.getReplyFromLedger(ledger, seq_no)
+            else:
+                return RequestNack(request.identifier, request.reqId,
+                                   'Same txn was already ordered with different signatures or pluggable fields')
         else:
             return None
 
