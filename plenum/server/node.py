@@ -3509,7 +3509,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
                                      Suspicions.PPR_BLS_MULTISIG_WRONG,
                                      Suspicions.PPR_TIME_WRONG,
-                                     Suspicions.DUPLICATE_PPR_SENT
                                      )):
             logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
