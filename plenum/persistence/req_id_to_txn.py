@@ -36,7 +36,7 @@ class ReqIdrToTxn:
             val = self._keyValueStorage.get(payload_digest)
             val = val.decode()
             result = self._parse_value(val)
-            if not (result, Iterable) or len(result) != 2:
+            if not isinstance(result, Iterable) or len(result) != 2:
                 raise LogicError('SeqNoDB must store payload_digest => ledger_id and seq_no')
             return result
         except (KeyError, ValueError):
@@ -46,7 +46,7 @@ class ReqIdrToTxn:
         try:
             val = self._keyValueStorage.get(payload_digest)
             result = val.decode()
-            if not (result, str):
+            if not isinstance(result, str):
                 raise LogicError('SeqNoDB must store full_digest => payload_digest')
             return result
         except (KeyError, ValueError):

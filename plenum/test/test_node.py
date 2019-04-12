@@ -343,8 +343,8 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.transmitToClient,
                  Node.has_ordered_till_last_prepared_certificate,
-                 Node.on_inconsistent_3pc_state
-                 ]
+                 Node.on_inconsistent_3pc_state,
+                 Node.sendToViewChanger, ]
 
 
 @spyable(methods=node_spyables)
