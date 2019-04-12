@@ -24,7 +24,7 @@ class NodeLeecherService:
         SyncingConfig = 4
         SyncingOthers = 5
 
-    _state_to_ledger = {
+    state_to_ledger = {
         State.PreSyncingPool: POOL_LEDGER_ID,
         State.SyncingAudit: AUDIT_LEDGER_ID,
         State.SyncingPool: POOL_LEDGER_ID,
@@ -106,7 +106,7 @@ class NodeLeecherService:
             self._sync_next_ledger()
 
     def _validate_catchup_complete(self, msg: LedgerCatchupComplete):
-        ledger_id = self._state_to_ledger.get(self._state)
+        ledger_id = self.state_to_ledger.get(self._state)
         state_name = self._state.name
         if self._state == self.State.SyncingOthers:
             ledger_id = self._current_ledger
@@ -160,7 +160,7 @@ class NodeLeecherService:
             self._sync_next_ledger()
             return
 
-        self._catchup_ledger(self._state_to_ledger[state])
+        self._catchup_ledger(self.state_to_ledger[state])
 
     def _catchup_ledger(self, ledger_id: int):
         leecher = self._leechers[ledger_id]
