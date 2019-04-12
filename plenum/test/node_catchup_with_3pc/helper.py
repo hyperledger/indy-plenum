@@ -10,24 +10,16 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
-TEST_PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 2.5
-
 
 @contextmanager
 def patched_out_of_order_commits_interval(tconf):
     old = tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL
-    tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = TEST_PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL
+    tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 10000
     yield tconf
     tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = old
 
 
-def delay_catchup(ledger_id: int):
-    _delayer = cr_delay(ledger_filter=ledger_id)
-    _delayer.__name__ = "delay_catchup({})".format(ledger_id)
-    return _delayer
-
-
-def check_catchup_with_skipped_commits_received_before_catchup(ledger_id,
+def check_catchup_with_skipped_commits_received_before_catchup(catchup_state,
                                                                looper,
                                                                txnPoolNodeSet,
                                                                sdk_pool_handle,
@@ -36,8 +28,14 @@ def check_catchup_with_skipped_commits_received_before_catchup(ledger_id,
     lagging_stasher = lagging_node.nodeIbStasher
     other_nodes = txnPoolNodeSet[:-1]
 
-    def check_lagging_node_done_catchup():
-        assert lagging_node.ledgerManager._node_leecher._state == NodeLeecherService.State.Idle
+    def delay_catchup(catchup_state: NodeLeecherService.State):
+        ledger_id = NodeLeecherService.state_to_ledger[catchup_state]
+        _delayer = cr_delay(ledger_filter=ledger_id)
+        _delayer.__name__ = "delay_catchup({})".format(ledger_id)
+        return _delayer
+
+    def check_lagging_node_catchup_state(state: NodeLeecherService.State):
+        assert lagging_node.ledgerManager._node_leecher._state == state
 
     def check_nodes_ordered_till(nodes: Iterable, view_no: int, pp_seq_no: int):
         for node in nodes:
@@ -63,15 +61,18 @@ def check_catchup_with_skipped_commits_received_before_catchup(ledger_id,
     looper.run(eventually(check_nodes_ordered_till, [lagging_node], 0, init_pp_seq_no + 2))
     assert lagging_node.master_replica.last_ordered_3pc == (0, init_pp_seq_no + 2)
 
-    with delay_rules(lagging_stasher, delay_catchup(ledger_id)):
+    with delay_rules(lagging_stasher, delay_catchup(catchup_state)):
         # Start catchup
         lagging_node.start_catchup()
 
-        # Give a chance for process_stashed_out_of_order_commits to fire before POOL_LEDGER is actually caught up
-        looper.runFor(TEST_PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL + 0.5)
+        # Wait until catchup reaches desired state
+        looper.run(eventually(check_lagging_node_catchup_state, catchup_state))
+
+        # Emulate scheduled action
+        lagging_node.master_replica.process_stashed_out_of_order_commits()
 
     # Ensure that audit ledger is caught up by lagging node
-    looper.run(eventually(check_lagging_node_done_catchup))
+    looper.run(eventually(check_lagging_node_catchup_state, NodeLeecherService.State.Idle))
 
     # Ensure that all nodes will eventually have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
