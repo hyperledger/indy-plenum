@@ -1,13 +1,13 @@
 from logging import getLogger
-from typing import List, Iterable
+from typing import Iterable
 
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID, PREPREPARE, PREPARE, COMMIT
+from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.node_messages import Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
-from plenum.test.delayers import cr_delay, delay_3pc, msg_rep_delay
+from plenum.test.delayers import cr_delay, delay_3pc
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests, sdk_get_and_check_replies, \
     max_3pc_batch_limits
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
