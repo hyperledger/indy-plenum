@@ -9,6 +9,7 @@ from plenum.common.messages.node_messages import InstanceChange
 
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.node import Node
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getPrimaryReplica
 from plenum.common.exceptions import RequestNackedException, SuspiciousPrePrepare
 from plenum.common.request import Request, ReqKey
@@ -44,6 +45,11 @@ def malicious_dynamic_validation(self, request: Request):
     req_handler.validate(request)
 
     self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
+
+
+def wait_one_batch(node, before):
+    assert node.replicas[0].last_ordered_3pc[1] == before[0] + 1
+    assert node.replicas[1].last_ordered_3pc[1] == before[1] + 1
 
 
 @pytest.fixture(scope='function')
@@ -99,7 +105,8 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
         looper, txnPoolNodeSet, sdk_pool_handle, two_requests, tconf):
     req1, req2 = two_requests
 
-    lo_before = txnPoolNodeSet[0].master_replica.last_ordered_3pc[1]
+    lo_before = (txnPoolNodeSet[0].replicas[0].last_ordered_3pc[1],
+                 txnPoolNodeSet[0].replicas[1].last_ordered_3pc[1])
 
     old_reqs = len(txnPoolNodeSet[0].requests)
     with max_3pc_batch_limits(tconf, size=2):
@@ -108,10 +115,7 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
         # We need to check for ordering this way, cause sdk do not allow
         # track two requests with same reqId at the same time
-        def wait_one_batch(before):
-            assert txnPoolNodeSet[0].master_replica.last_ordered_3pc[1] == before + 1
-
-        looper.run(eventually(wait_one_batch, lo_before))
+        looper.run(eventually(wait_one_batch, txnPoolNodeSet[0], lo_before))
 
     assert len(txnPoolNodeSet[0].requests) == old_reqs + 2
 
@@ -127,6 +131,10 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
     req1s, req2s = two_requests
     req1 = Request(**json.loads(req1s))
     req2 = Request(**json.loads(req2s))
+
+    lo_before = (txnPoolNodeSet[0].replicas[0].last_ordered_3pc[1],
+                 txnPoolNodeSet[0].replicas[1].last_ordered_3pc[1])
+
     for node in txnPoolNodeSet[0:2]:
         req_state = node.requests.add(req1)
         req_state.propagates['Alpha'] = req1
@@ -134,6 +142,7 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
         req_state.propagates['Gamma'] = req1
         req_state.propagates['Delta'] = req1
         node.tryForwarding(req1)
+        assert node.requests[req1.key].forwarded
 
     for node in txnPoolNodeSet[2:4]:
         req_state = node.requests.add(req2)
@@ -142,6 +151,14 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
         req_state.propagates['Gamma'] = req2
         req_state.propagates['Delta'] = req2
         node.tryForwarding(req2)
+        assert node.requests[req2.key].forwarded
+
+    looper.run(eventually(wait_one_batch, txnPoolNodeSet[0], lo_before))
+    for node in txnPoolNodeSet[0:2]:
+        assert node.spylog.count(node.request_propagates) == 0
+    for node in txnPoolNodeSet[2:4]:
+        assert node.spylog.count(node.request_propagates) == 1
+        node.spylog.getAll(node.request_propagates)
 
     req1s = sdk_send_signed_requests(sdk_pool_handle, [req1s])
     sdk_get_and_check_replies(looper, req1s)
@@ -150,6 +167,8 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, req2s)
     e.match('Same txn was already ordered with different signatures')
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
 def test_suspicious_primary_send_same_request_with_different_signatures(
