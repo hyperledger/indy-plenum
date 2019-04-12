@@ -3611,7 +3611,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return self.getReplyFromLedger(ledger, seq_no)
             else:
                 return RequestNack(request.identifier, request.reqId,
-                                   'Same txn was already ordered with different signatures')
+                                   'Same txn was already ordered with different signatures or pluggable fields')
         else:
             return None
 

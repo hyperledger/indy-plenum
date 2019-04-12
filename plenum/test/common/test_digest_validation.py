@@ -98,7 +98,7 @@ def test_send_same_txn_with_different_signatures_in_separate_batches(
     rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2])
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, rep2)
-    e.match('Same txn was already ordered with different signatures')
+    e.match('Same txn was already ordered with different signatures or pluggable fields')
 
 
 def test_send_same_txn_with_different_signatures_in_one_batch(
@@ -157,7 +157,7 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
     for node in txnPoolNodeSet[0:2]:
         assert node.spylog.count(node.request_propagates) == 0
     for node in txnPoolNodeSet[2:4]:
-        assert node.spylog.count(node.request_propagates) == 1
+        assert node.spylog.count(node.request_propagates) >= 1
         node.spylog.getAll(node.request_propagates)
 
     req1s = sdk_send_signed_requests(sdk_pool_handle, [req1s])
@@ -166,7 +166,7 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
     req2s = sdk_send_signed_requests(sdk_pool_handle, [req2s])
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, req2s)
-    e.match('Same txn was already ordered with different signatures')
+    e.match('Same txn was already ordered with different signatures or pluggable fields')
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
