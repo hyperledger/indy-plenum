@@ -128,7 +128,7 @@ class ClientMessageValidator(MessageValidator):
         super().validate(dct)
         if dct.get(f.SIGS.nm) and dct.get(f.SIG.nm):
             self._raise_invalid_message(
-                'Missing both signatures and identifier')
+                'Request must not contains both fields "signatures" and "signature"')
         if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
             self._raise_invalid_message(
                 'Missing both signatures and identifier')
