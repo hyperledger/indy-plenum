@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Iterable
 
 from plenum.common.messages.node_messages import Commit
@@ -8,6 +9,16 @@ from plenum.test.helper import sdk_send_random_pool_requests, sdk_get_and_check_
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
+
+TEST_PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 2.5
+
+
+@contextmanager
+def patched_out_of_order_commits_interval(tconf):
+    old = tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL
+    tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = TEST_PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL
+    yield tconf
+    tconf.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = old
 
 
 def delay_catchup(ledger_id: int):
@@ -57,7 +68,7 @@ def check_catchup_with_skipped_commits_received_before_catchup(ledger_id,
         lagging_node.start_catchup()
 
         # Give a chance for process_stashed_out_of_order_commits to fire before POOL_LEDGER is actually caught up
-        looper.runFor(3.0)
+        looper.runFor(TEST_PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL + 0.5)
 
     # Ensure that audit ledger is caught up by lagging node
     looper.run(eventually(check_lagging_node_done_catchup))
