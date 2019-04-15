@@ -388,3 +388,6 @@ REPLICA_STASH_LIMIT = 100000
 
 # Time, which we wait before request propagate, when discovered unfinalized preprepare
 PROPAGATE_REQUEST_DELAY = 2
+
+# Intrval between attempts to process stashed out of order commits
+PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 1  # seconds

@@ -1828,7 +1828,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if viewNo not in self.stashed_out_of_order_commits:
                 self.stashed_out_of_order_commits[viewNo] = {}
             self.stashed_out_of_order_commits[viewNo][ppSeqNo] = commit
-            self.startRepeating(self.process_stashed_out_of_order_commits, 1)
+            self.startRepeating(self.process_stashed_out_of_order_commits,
+                                self.config.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL)
             return False, "stashing {} since out of order". \
                 format(commit)
 
