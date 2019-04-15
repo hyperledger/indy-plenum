@@ -1,5 +1,5 @@
 import random
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.request import Request
@@ -259,6 +259,27 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
                        max_delay=None):
     # Delay 3 phase commit message
     delay_messages('3pc', nodes, inst_id, delay, min_delay, max_delay)
+
+
+def delay_3pc(view_no: int = 0,
+              after: Optional[int] = None,
+              before: Optional[int] = None,
+              msgs = (PrePrepare, Prepare, Commit)):
+
+    def _delayer(msg_frm):
+        msg, frm = msg_frm
+        if not isinstance(msg, msgs):
+            return
+        if msg.viewNo != view_no:
+            return
+        if after is not None and msg.ppSeqNo <= after:
+            return
+        if before is not None and msg.ppSeqNo >= before:
+            return
+        return DEFAULT_DELAY
+
+    _delayer.__name__ = "delay_3pc({}, {}, {}, {})".format(view_no, after, before, msgs)
+    return _delayer
 
 
 def all_delay(delay: float = DEFAULT_DELAY, no_check_delays=[]):
