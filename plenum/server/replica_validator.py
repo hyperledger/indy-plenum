@@ -115,7 +115,7 @@ class ReplicaValidator:
             # to send a batch in new view as soon as possible
             if self.replica.config.Max3PCBatchesInFlight is not None:
                 batches_in_flight = self.replica.lastPrePrepareSeqNo - self.replica.last_ordered_3pc[1]
-                if batches_in_flight > self.replica.config.Max3PCBatchesInFlight:
+                if batches_in_flight >= self.replica.config.Max3PCBatchesInFlight:
                     return False
         return True
 
