@@ -7,9 +7,9 @@ from plenum.common.txn_util import get_type, set_type, get_payload_data, \
 from plenum.common.util import SortedDict
 
 
-@pytest.fixture(params=['current', 'legacy'])
-def txn(request):
-    txn = {
+@pytest.fixture()
+def txn():
+    return {
         "reqSignature": {
             "type": "ED25519",
             "values": [{
@@ -40,13 +40,17 @@ def txn(request):
         },
         "ver": "1"
     }
-    if request.param == 'legacy':
-        txn["txn"]["metadata"] = {
-            "from": "6ouriXMZkLeHsuXrN1X1fd",
-            "reqId": 1513945121191691,
-            "digest": "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
-        }
-    return txn
+
+
+@pytest.fixture()
+def legacy_txn(txn):
+    result = txn
+    result["txn"]["metadata"] = {
+        "from": "6ouriXMZkLeHsuXrN1X1fd",
+        "reqId": 1513945121191691,
+        "digest": "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
+    }
+    return result
 
 
 def test_get_type(txn):
@@ -125,3 +129,11 @@ def test_get_digest(txn):
 
 def test_get_payload_digest(txn):
     assert get_payload_digest(txn) == "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
+
+
+def test_get_digest_old(legacy_txn):
+    assert get_digest(legacy_txn) == "d3a6c519da23eacfc3e8dc3d3394fdb9ca1d8819bb9628f1fa6187c7e6dcf602"
+
+
+def test_get_payload_digest_old(legacy_txn):
+    assert get_payload_digest(legacy_txn) == "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"

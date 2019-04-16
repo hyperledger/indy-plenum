@@ -138,18 +138,20 @@ def get_digest(txn):
         return digest
 
     # Trying to restore full digest
+    # WARNING: This can still fail in following cases:
+    # 1) original request contained just one signature as part of signatures field
+    # 2) request contained some additional fields needed by plugins
 
     op = get_payload_data(txn).copy()
     op[TXN_TYPE] = get_type(txn)
 
-    # TODO: Handle multisigs correctly
     sig_values = txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES]
     if len(sig_values) == 1:
         sig = sig_values[0][TXN_SIGNATURE_VALUE]
         sigs = None
     else:
         sig = None
-        sigs = None
+        sigs = {sig[TXN_SIGNATURE_FROM]: sig[TXN_SIGNATURE_VALUE] for sig in sig_values}
 
     req = Request(identifier=get_from(txn),
                   reqId=get_req_id(txn),
