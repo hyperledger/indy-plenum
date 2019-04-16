@@ -1,7 +1,14 @@
+import json
+
 import pytest
 
-from plenum.common.txn_util import transform_to_new_format
+from plenum.common.constants import TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_PAYLOAD_METADATA_DIGEST, \
+    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST
+from plenum.common.request import Request
+from plenum.common.txn_util import transform_to_new_format, reqToTxn, get_payload_digest, get_digest
+from plenum.common.types import f, OPERATION
 from plenum.common.util import SortedDict
+from plenum.test.helper import sdk_signed_random_requests
 
 
 @pytest.fixture(
@@ -83,3 +90,25 @@ def test_new_txn_format(old_and_expected):
     old, new_expected = old_and_expected
     new = SortedDict(transform_to_new_format(old, 143))
     assert new == new_expected
+
+
+def test_old_txn_metadata_digest_fallback(looper, sdk_wallet_client):
+    # Create signed request
+    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
+    req = json.loads(reqs[0])
+    req = Request(identifier=req.get(f.IDENTIFIER.nm, None),
+                  reqId=req.get(f.REQ_ID.nm, None),
+                  operation=req.get(OPERATION, None),
+                  signature=req.get(f.SIG.nm, None),
+                  signatures=req.get(f.SIGS.nm, None),
+                  protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None))
+
+    # Create transaction with legacy digest format
+    txn = reqToTxn(req)
+    metadata = txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]
+    metadata[TXN_PAYLOAD_METADATA_DIGEST] = metadata[TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST]
+    del metadata[TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST]
+
+    # Check that digests are still can be extracted correctly
+    assert get_payload_digest(txn) == req.payload_digest
+    assert get_digest(txn) == req.digest

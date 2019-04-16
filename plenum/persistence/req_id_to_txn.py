@@ -43,9 +43,9 @@ class ReqIdrToTxn:
         except (KeyError, ValueError):
             return None, None
 
-    def get_by_full_digest(self, payload_digest):
+    def get_by_full_digest(self, full_digest):
         try:
-            val = self._keyValueStorage.get(payload_digest)
+            val = self._keyValueStorage.get(full_digest)
             result = val.decode()
             if not isinstance(result, str):
                 raise LogicError('SeqNoDB must store full_digest => payload_digest')
