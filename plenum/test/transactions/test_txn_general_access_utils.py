@@ -132,7 +132,7 @@ def test_get_payload_digest(txn):
 
 
 def test_get_digest_old(legacy_txn):
-    assert get_digest(legacy_txn) == "d3a6c519da23eacfc3e8dc3d3394fdb9ca1d8819bb9628f1fa6187c7e6dcf602"
+    assert get_digest(legacy_txn) == None
 
 
 def test_get_payload_digest_old(legacy_txn):

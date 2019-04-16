@@ -118,7 +118,7 @@ def test_old_txn_metadata_digest_fallback(looper, sdk_wallet_client):
 
     # Check that digests still can be extracted correctly
     assert get_payload_digest(txn) == req.payload_digest
-    assert get_digest(txn) == req.digest
+    assert get_digest(txn) == None
 
 
 def test_old_txn_metadata_multisig_digest_fallback(looper, sdk_wallet_client, sdk_wallet_client2):
@@ -131,4 +131,4 @@ def test_old_txn_metadata_multisig_digest_fallback(looper, sdk_wallet_client, sd
 
     # Check that digests still can be extracted correctly
     assert get_payload_digest(txn) == req.payload_digest
-    assert get_digest(txn) == req.digest
+    assert get_digest(txn) == None
