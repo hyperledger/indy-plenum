@@ -12,10 +12,7 @@ def test_is_next_pre_prepare(replica):
     replica._last_ordered_3pc = (1, 2)
 
     assert replica.viewNo != pp_view_no
-    with pytest.raises(LogicError) as excinfo:
-        replica._Replica__is_next_pre_prepare(pp_view_no, pp_seq_no)
-    assert (("{} is not equal to current view_no {}"
-             .format(pp_view_no, replica.viewNo)) in str(excinfo.value))
+    assert not replica._Replica__is_next_pre_prepare(pp_view_no, pp_seq_no)
 
 
 def test_last_prepared_certificate_in_view(replica):
