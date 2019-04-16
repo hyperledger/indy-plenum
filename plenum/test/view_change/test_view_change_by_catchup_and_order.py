@@ -23,8 +23,10 @@ def tconf(tconf):
 def test_view_change_by_order_stashed_on_all(txnPoolNodeSet, looper,
                                              sdk_pool_handle, sdk_wallet_steward):
     '''
-    The COMMITS for prepared certificates are delayed on ll nodes and come during view change,
-    so that all nodes finish view change by processing Commits and Ordered msgs during view change.
+    - COMMITS are delayed on all nodes
+    - All nodes starts a view change with a prepared certificate (for delayed message)
+    - COMMITS come during view change for all nodes,
+    - So all nodes finish view change by processing Commits and Ordered msgs during view change (in between rounds of catchup).
     '''
     all_stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
@@ -60,9 +62,11 @@ def test_view_change_by_order_stashed_on_all(txnPoolNodeSet, looper,
 def test_view_change_by_order_stashed_on_3_nodes_and_catchup_on_1_node(txnPoolNodeSet, looper,
                                                                        sdk_pool_handle, sdk_wallet_steward):
     '''
-    The COMMITS for prepared certificates are delayed on ll nodes and come during view change for 3 nodes,
-    so that these 3 nodes finish view change by processing Commits and Ordered msgs during view change.
-    The lagging node receives these msgs during catch-up (as part of view change) ans also finishes view change.
+    - COMMITS are delayed on all nodes
+    - All nodes starts a view change with a prepared certificate (for delayed message)
+    - COMMITS come during view change for 3 nodes
+    - So these 3 nodes finish view change by processing Commits and Ordered msgs during view change (in between rounds of catchup).
+    - The lagging (4th) node receives missing txns as part of catch-up (during view change) and also finishes view change.
     '''
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
