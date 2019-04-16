@@ -39,7 +39,7 @@ def check_last_prepared_certificate_on_quorum(nodes, num):
 def check_last_prepared_certificate(nodes, num):
     # Check that last_prepared_certificate reaches some 3PC key on all nodes
     for n in nodes:
-        assert n.master_replica.last_prepared_certificate_in_view() == num
+        assert n.master_replica.last_prepared_before_view_change == num
 
 
 def check_view_change_done(nodes, view_no):
