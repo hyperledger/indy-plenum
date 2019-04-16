@@ -98,10 +98,14 @@ def test_req_drop_on_preprepare_phase_on_non_primary_and_then_ordered(
     def check_propagates_requested():
         # Node should have received delayed PrePrepare
         assert len(recvdPrePrepareForInstId(lagged_node, 0)) >= 1
-        # Check that PROPAGATEs are requested by both replicas as PrePrepare has been
+        # Check that PROPAGATEs are requested by at least one replica as PrePrepare has been
         # received for request that was dropped.
+        # We can check that the number of requested propagates is more or equal to 1,
+        # since the first replica who sees non-finalized requests sends MessageReq for Propagates,
+        # and it can receive Propagates before a PrePrepare for the next replica is received,
+        # so that the for the second replica all requests will be already finalized.
         tmp = getAllArgs(lagged_node, TestNode.request_propagates)
-        assert len(tmp) == 2
+        assert len(tmp) >= 1
 
     timeout = howlong
     looper.run(eventually(check_propagates_requested, retryWait=.5, timeout=timeout))
