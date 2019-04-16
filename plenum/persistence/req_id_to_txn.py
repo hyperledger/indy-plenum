@@ -26,8 +26,7 @@ class ReqIdrToTxn:
         for payload_digest, ledger_id, seq_no, digest in batch:
             payload.append((payload_digest, self._create_value(ledger_id,
                                                                seq_no)))
-            if digest is not None:
-                full.append((digest, str(payload_digest)))
+            full.append((digest, str(payload_digest)))
         self._keyValueStorage.setBatch(payload)
         if full_digest:
             self._keyValueStorage.setBatch(full)

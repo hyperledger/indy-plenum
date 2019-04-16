@@ -127,16 +127,44 @@ def get_req_id(txn):
 
 def get_digest(txn):
     metadata = txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]
+
+    # If there is no digest in metadata then it was meant to be so
+    digest = metadata.get(TXN_PAYLOAD_METADATA_DIGEST, None)
+    if digest is None:
+        return None
+
+    # Digest means full digest only if there is also a payload digest
     if TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST in metadata:
-        return metadata.get(TXN_PAYLOAD_METADATA_DIGEST, None)
-    return None
+        return digest
+
+    # Trying to restore full digest
+
+    op = get_payload_data(txn).copy()
+    op[TXN_TYPE] = get_type(txn)
+
+    # TODO: Handle multisigs correctly
+    sig_values = txn[TXN_SIGNATURE][TXN_SIGNATURE_VALUES]
+    if len(sig_values) == 1:
+        sig = sig_values[0][TXN_SIGNATURE_VALUE]
+        sigs = None
+    else:
+        sig = None
+        sigs = None
+
+    req = Request(identifier=get_from(txn),
+                  reqId=get_req_id(txn),
+                  operation=op,
+                  signature=sig,
+                  signatures=sigs,
+                  protocolVersion=get_protocol_version(txn))
+    return req.getDigest()
 
 
 def get_payload_digest(txn):
     metadata = txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]
     payload_digest = metadata.get(TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, None)
     if payload_digest is None:
-        payload_digest = metadata.get(TXN_PAYLOAD_METADATA_DIGEST)
+        payload_digest = metadata.get(TXN_PAYLOAD_METADATA_DIGEST, None)
     return payload_digest
 
 
