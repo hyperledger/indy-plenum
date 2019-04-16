@@ -144,14 +144,6 @@ class InvalidKey(Exception):
     reason = 'invalid key'
 
 
-class IdentifierNotInSignatures(SigningException, ReqInfo):
-    code = 143
-    reason = 'The identifier is not contained in signatures'
-
-    def __init__(self, *args, **kwargs):
-        ReqInfo.__init__(self, *args, **kwargs)
-
-
 class SuspiciousNode(BaseExc):
     def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
         node = node.decode() if isinstance(node, bytes) else node

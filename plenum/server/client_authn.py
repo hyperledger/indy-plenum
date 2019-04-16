@@ -11,7 +11,7 @@ from plenum.common.exceptions import EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, CouldNotAuthenticate, \
     InvalidSignatureFormat, UnknownIdentifier, \
-    InsufficientSignatures, InsufficientCorrectSignatures, InvalidIdentifier, IdentifierNotInSignatures
+    InsufficientSignatures, InsufficientCorrectSignatures
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
 from plenum.server.action_req_handler import ActionReqHandler
@@ -246,11 +246,8 @@ class CoreAuthMixin:
                           EmptyIdentifier):
                     ex = ex(req_data.get(f.IDENTIFIER.nm), req_data.get(f.SIG.nm))
                 raise ex
-        if f.SIGS.nm in req_data:
-            signatures = req_data[f.SIGS.nm]
-            identifier = identifier or req_data.get(f.IDENTIFIER.nm, None)
-            if identifier and identifier not in signatures:
-                raise IdentifierNotInSignatures(identifier, signatures)
+        else:
+            signatures = req_data.get(f.SIGS.nm, None)
         return self.authenticate_multi(to_serialize, signatures=signatures,
                                        threshold=threshold, verifier=verifier)
 
