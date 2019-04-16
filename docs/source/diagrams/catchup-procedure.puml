@@ -14,7 +14,7 @@ end note
 Node4 -> Node4: Process all ORDERED msgs
 note right Node4
     <b>Process and execute all ORDERED msgs
-    before catch-up is stated and the uncommitted state is reverted
+    before catch-up is started and the uncommitted state is reverted
 end note
 
 Node4 -> Node4: Revert unordered 3PC batches on Master replica

@@ -19,7 +19,7 @@ system, whereas Fabric is general purpose.
 
 ## Technical Overview of Indy Plenum
 
-Refer to our documentation site at [indy.readthedocs](https://indy.readthedocs.io/projects/plenum/en/latest/index.html) for the most current documentation and walkthroughs. 
+Refer to our documentation site at [indy.readthedocs.io](https://indy.readthedocs.io/projects/plenum/en/latest/index.html) for the most current documentation and walkthroughs. 
 
 Please find the general overview of the system in [Overview of the system](docs/source/main.md).
 
