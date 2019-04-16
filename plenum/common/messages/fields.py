@@ -124,7 +124,7 @@ class NonEmptyStringField(FieldBase):
 
 
 class LimitedLengthStringField(FieldBase):
-    _base_types = (str,)
+    _base_types = (str, type(None))
 
     def __init__(self, max_length: int, can_be_empty=False, **kwargs):
         if not max_length > 0:
@@ -136,7 +136,7 @@ class LimitedLengthStringField(FieldBase):
     def _specific_validation(self, val):
         if not val and not self._can_be_empty:
             return 'empty string'
-        if len(val) > self._max_length:
+        if val and len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
