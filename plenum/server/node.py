@@ -3530,7 +3530,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_PLUGIN_EXCEPTION,
                                      Suspicions.PPR_SUB_SEQ_NO_WRONG,
                                      Suspicions.PPR_NOT_FINAL,
-                                     Suspicions.PPR_WITH_ORDERED_REQUEST)):
+                                     Suspicions.PPR_WITH_ORDERED_REQUEST,
+                                     Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                     Suspicions.PPR_BLS_MULTISIG_WRONG,
+                                     Suspicions.PPR_TIME_WRONG,
+                                     )):
             logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
             self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
 
@@ -3632,7 +3636,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return self.getReplyFromLedger(ledger, seq_no)
             else:
                 return RequestNack(request.identifier, request.reqId,
-                                   'Same txn was already ordered with different signatures')
+                                   'Same txn was already ordered with different signatures or pluggable fields')
         else:
             return None
 

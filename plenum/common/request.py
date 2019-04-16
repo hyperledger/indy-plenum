@@ -90,6 +90,10 @@ class Request:
             state[f.SIGS.nm] = self.signatures
         if self.signature is not None:
             state[f.SIG.nm] = self.signature
+        for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
+            val = getattr(self, nm, None)
+            if getattr(self, nm, None):
+                state[nm] = val
         return state
 
     def signingPayloadState(self, identifier=None):
