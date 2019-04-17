@@ -73,7 +73,7 @@ class LedgerLeecherService:
     def start(self,
               request_ledger_statuses: bool = True,
               till: Optional[CatchupTill] = None,
-              nodes_txns: Optional[Dict[str, int]] = None):
+              nodes_ledger_sizes: Optional[Dict[str, int]] = None):
 
         self._catchup_till = till
         self._num_txns_caught_up = 0
@@ -88,7 +88,7 @@ class LedgerLeecherService:
                 till = None
             self._start_catchup(LedgerCatchupStart(ledger_id=self._ledger_id,
                                                    catchup_till=till,
-                                                   nodes_txns=nodes_txns))
+                                                   nodes_ledger_sizes=nodes_ledger_sizes))
 
     def reset(self):
         self._state = LedgerState.not_synced
@@ -108,4 +108,4 @@ class LedgerLeecherService:
 
     def _start_catchup(self, msg: LedgerCatchupStart):
         self._output.put_nowait(msg)
-        self._catchup_rep_service.start(msg.catchup_till)
+        self._catchup_rep_service.start(msg)

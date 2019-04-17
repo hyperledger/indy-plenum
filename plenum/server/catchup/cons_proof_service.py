@@ -103,9 +103,9 @@ class ConsProofService:
                            final_size=cons_proof.seqNoEnd,
                            final_hash=cons_proof.newMerkleRoot) if cons_proof else None
 
-        nodes_txns = {frm: proof.seqNoEnd
-                      for frm, proof in self._cons_proofs.items()
-                      if proof is not None}
+        nodes_ledger_sizes = {frm: proof.seqNoEnd
+                              for frm, proof in self._cons_proofs.items()
+                              if proof is not None}
 
         # Stop requesting last consistency proofs and ledger statuses.
         self._is_working = False
@@ -117,7 +117,7 @@ class ConsProofService:
 
         self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id,
                                                    catchup_till=till,
-                                                   nodes_txns=nodes_txns))
+                                                   nodes_ledger_sizes=nodes_ledger_sizes))
 
     def _finish_no_catchup(self):
         root = Ledger.hashToStr(self._ledger.tree.root_hash)

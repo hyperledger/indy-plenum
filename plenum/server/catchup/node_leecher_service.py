@@ -48,7 +48,7 @@ class NodeLeecherService:
 
         self._state = self.State.Idle
         self._catchup_till = {}  # type: Dict[int, CatchupTill]
-        self._nodes_ledger_size = {}  # type: Dict[int, Dict[str, int]]
+        self._nodes_ledger_sizes = {}  # type: Dict[int, Dict[str, int]]
 
         # TODO: Get rid of this, theoretically most ledgers can be synced in parallel
         self._current_ledger = None  # type: Optional[int]
@@ -81,7 +81,7 @@ class NodeLeecherService:
             leecher.reset()
 
         self._catchup_till.clear()
-        self._nodes_ledger_size.clear()
+        self._nodes_ledger_sizes.clear()
         if is_initial:
             self._enter_state(self.State.PreSyncingPool)
         else:
@@ -91,7 +91,7 @@ class NodeLeecherService:
         return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
 
     def _on_ledger_catchup_start(self, msg: LedgerCatchupStart):
-        self._nodes_ledger_size[msg.ledger_id] = msg.nodes_txns
+        self._nodes_ledger_sizes[msg.ledger_id] = msg.nodes_ledger_sizes
 
     def _on_ledger_catchup_complete(self, msg: LedgerCatchupComplete):
         if not self._validate_catchup_complete(msg):
@@ -177,7 +177,7 @@ class NodeLeecherService:
             leecher.start()
         else:
             leecher.start(till=catchup_till,
-                          nodes_txns=self._calc_nodes_txns(ledger_id))
+                          nodes_ledger_sizes=self._calc_nodes_ledger_sizes(ledger_id))
 
     def _calc_catchup_till(self) -> Dict[int, CatchupTill]:
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
@@ -223,12 +223,12 @@ class NodeLeecherService:
 
         return catchup_till
 
-    def _calc_nodes_txns(self, ledger_id: int) -> Dict[str, int]:
-        result = self._nodes_ledger_size.get(ledger_id)
+    def _calc_nodes_ledger_sizes(self, ledger_id: int) -> Dict[str, int]:
+        result = self._nodes_ledger_sizes.get(ledger_id)
         if result is not None:
             return result
 
-        nodes_audit_size = self._nodes_ledger_size[AUDIT_LEDGER_ID]
+        nodes_audit_size = self._nodes_ledger_sizes[AUDIT_LEDGER_ID]
         if nodes_audit_size is None:
             return {}
 

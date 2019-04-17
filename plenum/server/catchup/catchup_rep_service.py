@@ -10,7 +10,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.timer import TimerService
-from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, CatchupTill
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, CatchupTill, LedgerCatchupStart
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -36,6 +36,7 @@ class CatchupRepService:
         self._provider = provider
         self._is_working = False
         self._catchup_till = None  # type: Optional[CatchupTill]
+        self._nodes_ledger_sizes = None  # type: Optional[Dict[str, int]]
 
         # Nodes are added in this set when the current node sent a CatchupReq
         # for them and waits a CatchupRep message.
@@ -50,13 +51,14 @@ class CatchupRepService:
     def is_working(self) -> bool:
         return self._is_working
 
-    def start(self, catchup_till: Optional[CatchupTill]):
-        logger.info("{} started catching up till {}".format(self, catchup_till))
+    def start(self, msg: Optional[LedgerCatchupStart]):
+        logger.info("{} started catching with {}".format(self, msg))
 
         self._is_working = True
-        self._catchup_till = catchup_till
+        self._catchup_till = msg.catchup_till if msg else None
+        self._nodes_ledger_sizes = msg.nodes_ledger_sizes if msg else None
 
-        if catchup_till is None:
+        if self._catchup_till is None:
             self._finish()
             return
 
@@ -71,7 +73,7 @@ class CatchupRepService:
                         ' found any connected nodes'.format(CATCH_UP_PREFIX, self, self._ledger_id))
             return
 
-        reqs = self._gen_catchup_reqs(catchup_till)
+        reqs = self._gen_catchup_reqs(self._catchup_till)
         if len(reqs) == 0:
             return
 
@@ -149,16 +151,16 @@ class CatchupRepService:
 
     @staticmethod
     def _build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
-                            nodes_txns: Dict[str, int]) -> Dict[str, CatchupReq]:
+                            nodes_ledger_sizes: Dict[str, int]) -> Dict[str, CatchupReq]:
         # Utility
-        def find_node_idx(nodes_txns: List[Tuple[str, int]], max_seq_no: int) -> int:
-            for i, (_, txns) in enumerate(nodes_txns):
-                if txns >= max_seq_no:
+        def find_node_idx(nodes_ledger_sizes: List[Tuple[str, int]], max_seq_no: int) -> int:
+            for i, (_, size) in enumerate(nodes_ledger_sizes):
+                if size >= max_seq_no:
                     return i
 
-        def find_next_best_node_idx(nodes_txns: List[Tuple[str, int]], exclude_idx) -> int:
+        def find_next_best_node_idx(nodes_ledger_sizes: List[Tuple[str, int]], exclude_idx) -> int:
             idx_txns = ((idx, txns)
-                        for idx, (_, txns) in enumerate(nodes_txns)
+                        for idx, (_, txns) in enumerate(nodes_ledger_sizes)
                         if idx != exclude_idx)
             return max(idx_txns, key=lambda v: v[1])[0]
 
@@ -166,34 +168,34 @@ class CatchupRepService:
         # Register nodes having more than needed transactions as having only
         # needed transactions to reduce ability to manipulate distribution
         # of catchup requests by malicious nodes
-        nodes_txns = [(node_id, min(txns, end_seq_no))
-                      for node_id, txns in nodes_txns.items()
-                      if txns > start_seq_no]
+        nodes_ledger_sizes = [(node_id, min(txns, end_seq_no))
+                              for node_id, txns in nodes_ledger_sizes.items()
+                              if txns > start_seq_no]
 
         # Shuffle nodes so that catchup requests will be sent randomly
-        shuffle(nodes_txns)
+        shuffle(nodes_ledger_sizes)
 
         reqs = {}
         pos = end_seq_no
-        while len(nodes_txns) > 0:
-            txns_to_catchup = (pos - start_seq_no) // len(nodes_txns)
+        while len(nodes_ledger_sizes) > 0:
+            txns_to_catchup = (pos - start_seq_no) // len(nodes_ledger_sizes)
 
-            node_index = find_node_idx(nodes_txns, pos)
-            if len(nodes_txns) > 1:
-                next_node_index = find_next_best_node_idx(nodes_txns, node_index)
-                next_node_txns = nodes_txns[next_node_index][1]
-                if pos - txns_to_catchup > next_node_txns:
-                    txns_to_catchup = pos - next_node_txns
+            node_index = find_node_idx(nodes_ledger_sizes, pos)
+            if len(nodes_ledger_sizes) > 1:
+                next_node_index = find_next_best_node_idx(nodes_ledger_sizes, node_index)
+                next_node_ledger_size = nodes_ledger_sizes[next_node_index][1]
+                if pos - txns_to_catchup > next_node_ledger_size:
+                    txns_to_catchup = pos - next_node_ledger_size
 
             if txns_to_catchup > 0:
-                node_id = nodes_txns[node_index][0]
+                node_id = nodes_ledger_sizes[node_index][0]
                 reqs[node_id] = CatchupReq(ledgerId=ledger_id,
                                            seqNoStart=pos - txns_to_catchup + 1,
                                            seqNoEnd=pos,
                                            catchupTill=end_seq_no)
                 pos -= txns_to_catchup
 
-            del nodes_txns[node_index]
+            del nodes_ledger_sizes[node_index]
 
         return reqs
 
