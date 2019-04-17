@@ -20,7 +20,7 @@ def check_audit_txn(txn,
                     txn_roots, state_roots,
                     pool_size, domain_size, config_size,
                     last_domain_seqno, last_pool_seqno, last_config_seqno,
-                    primaries):
+                    primaries, other_sizes={}):
     expectedLedgerRoots = {}
     txn_roots = {k: Ledger.hashToStr(v) for k, v in txn_roots.items()}
     state_roots = {k: Ledger.hashToStr(v) for k, v in state_roots.items()}
@@ -33,6 +33,12 @@ def check_audit_txn(txn,
     if last_config_seqno:
         expectedLedgerRoots[2] = seq_no - last_config_seqno
     expectedLedgerRoots.update(txn_roots)
+    ledger_size = {
+        0: pool_size,
+        1: domain_size,
+        2: config_size
+    }
+    ledger_size.update(other_sizes)
 
     expected = {
         "reqSignature": {},
@@ -42,11 +48,7 @@ def check_audit_txn(txn,
                 "ver": "1",
                 "viewNo": view_no,
                 "ppSeqNo": pp_seq_no,
-                "ledgerSize": {
-                    0: pool_size,
-                    1: domain_size,
-                    2: config_size
-                },
+                "ledgerSize": ledger_size,
                 "stateRoot": state_roots,
                 "primaries": primaries
 

@@ -1,7 +1,11 @@
+from indy_node.test.request_handlers.helper import get_fake_ledger
+
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, DEFAULT_PRIMARIES
 from plenum.test.testing_utils import FakeSomething
+from state.pruning_state import PruningState
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 def check_apply_audit_txn(alh,
@@ -9,7 +13,7 @@ def check_apply_audit_txn(alh,
                           view_no, pp_sq_no, txn_time, seq_no,
                           pool_size, domain_size, config_size,
                           last_pool_seqno, last_domain_seqno, last_config_seqno,
-                          primaries):
+                          primaries, other_sizes={}):
     db_manager = alh.database_manager
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
@@ -35,7 +39,8 @@ def check_apply_audit_txn(alh,
                     last_pool_seqno=last_pool_seqno,
                     last_domain_seqno=last_domain_seqno,
                     last_config_seqno=last_config_seqno,
-                    primaries=primaries)
+                    primaries=primaries,
+                    other_sizes=other_sizes)
 
 
 def test_apply_audit_ledger_txn_pool_ledger(alh,
@@ -47,6 +52,27 @@ def test_apply_audit_ledger_txn_pool_ledger(alh,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
                           primaries=DEFAULT_PRIMARIES)
+
+
+def test_apply_audit_ledger_txn_new_ledger(alh, node,
+                                            initial_domain_size, initial_pool_size, initial_config_size):
+    check_apply_audit_txn(alh=alh,
+                          txns_count=10, ledger_ids=[POOL_LEDGER_ID, DOMAIN_LEDGER_ID],
+                          view_no=1, pp_sq_no=10, txn_time=10000, seq_no=1,
+                          pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
+                          config_size=initial_config_size,
+                          last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
+                          primaries=DEFAULT_PRIMARIES)
+
+    alh.database_manager.register_new_database(10000, get_fake_ledger(), PruningState(KeyValueStorageInMemory()))
+
+    check_apply_audit_txn(alh=alh,
+                          txns_count=10, ledger_ids=[10000],
+                          view_no=1, pp_sq_no=10, txn_time=10000, seq_no=2,
+                          pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
+                          config_size=initial_config_size,
+                          last_pool_seqno=1, last_domain_seqno=1, last_config_seqno=None,
+                          primaries=1, other_sizes={10000: 1})
 
 
 def test_apply_audit_ledger_txn_domain_ledger(alh,
