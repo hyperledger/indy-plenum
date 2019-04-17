@@ -52,7 +52,7 @@ class CatchupRepService:
         return self._is_working
 
     def start(self, msg: Optional[LedgerCatchupStart]):
-        logger.info("{} started catching with {}".format(self, msg))
+        logger.info("{} started catching up with {}".format(self, msg))
 
         self._is_working = True
         self._catchup_till = msg.catchup_till if msg else None
@@ -74,10 +74,7 @@ class CatchupRepService:
             return
 
         reqs = self._gen_catchup_reqs(self._catchup_till)
-        if len(reqs) == 0:
-            return
-
-        for (req, to) in zip(reqs, eligible_nodes):
+        for to, req in reqs.items():
             self._send_catchup_req(req, to)
 
         timeout = self._catchup_timeout(len(reqs))
@@ -130,6 +127,22 @@ class CatchupRepService:
                                                       num_caught_up=num_caught_up))
 
     def _gen_catchup_reqs(self, catchup_till: CatchupTill):
+        eligible_nodes = self._provider.eligible_nodes()
+        nodes_ledger_sizes = {node_id: size
+                              for node_id, size in self._nodes_ledger_sizes.items()
+                              if node_id in eligible_nodes}
+
+        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
+        # since ordered requests might have been executed after receiving
+        # sufficient ConsProof in `preCatchupClbk`
+        return self._build_catchup_reqs(self._ledger_id,
+                                        self._catchup_till.start_size,
+                                        self._catchup_till.final_size,
+                                        nodes_ledger_sizes)
+
+    @staticmethod
+    def _build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
+                            nodes_ledger_sizes: Dict[str, int]) -> Dict[str, CatchupReq]:
         # TODO: This needs to be optimised, there needs to be a minimum size
         # of catchup requests so if a node is trying to catchup only 50 txns
         # from 10 nodes, each of thise 10 nodes will servce 5 txns and prepare
@@ -140,18 +153,7 @@ class CatchupRepService:
         # reduces and 25 txns can be read of a single chunk probably
         # (if txns dont span across multiple chunks). A practical value of this
         # "minimum size" is some multiple of chunk size of the ledger
-        node_count = len(self._provider.eligible_nodes())
-        if node_count == 0:
-            logger.info('{} did not find any connected to nodes to send CatchupReq'.format(self))
-            return
-        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
-        # since ordered requests might have been executed after receiving
-        # sufficient ConsProof in `preCatchupClbk`
-        return self.__gen_catchup_reqs(catchup_till.start_size, catchup_till.final_size, node_count)
 
-    @staticmethod
-    def _build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
-                            nodes_ledger_sizes: Dict[str, int]) -> Dict[str, CatchupReq]:
         # Utility
         def find_node_idx(nodes_ledger_sizes: List[Tuple[str, int]], max_seq_no: int) -> int:
             for i, (_, size) in enumerate(nodes_ledger_sizes):
@@ -197,20 +199,6 @@ class CatchupRepService:
 
             del nodes_ledger_sizes[node_index]
 
-        return reqs
-
-    def __gen_catchup_reqs(self, start, end, node_count):
-        batch_length = math.ceil((end - start) / node_count)
-        reqs = []
-        s = start + 1
-        e = min(s + batch_length - 1, end)
-        for i in range(node_count):
-            req = CatchupReq(self._ledger_id, s, e, end)
-            reqs.append(req)
-            s = e + 1
-            e = min(s + batch_length - 1, end)
-            if s > end:
-                break
         return reqs
 
     def _catchup_timeout(self, num_requests: int):
