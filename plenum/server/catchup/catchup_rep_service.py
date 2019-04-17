@@ -73,11 +73,11 @@ class CatchupRepService:
                         ' found any connected nodes'.format(CATCH_UP_PREFIX, self, self._ledger_id))
             return
 
-        reqs = self._gen_catchup_reqs(self._catchup_till)
-        for to, req in reqs.items():
-            self._send_catchup_req(req, to)
-
-        timeout = self._catchup_timeout(len(reqs))
+        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
+        # since ordered requests might have been executed after receiving
+        # sufficient ConsProof in `preCatchupClbk`
+        reqs = self._send_catchup_reqs(self._catchup_till.start_size, self._catchup_till.final_size)
+        timeout = self._catchup_timeout(reqs)
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
     def process_catchup_rep(self, rep: CatchupRep, frm: str):
@@ -126,22 +126,25 @@ class CatchupRepService:
         self._output.put_nowait(LedgerCatchupComplete(ledger_id=self._ledger_id,
                                                       num_caught_up=num_caught_up))
 
-    def _gen_catchup_reqs(self, catchup_till: CatchupTill):
+    def _send_catchup_reqs(self, start_seq_no: int, end_seq_no: int) -> int:
         eligible_nodes = self._provider.eligible_nodes()
         nodes_ledger_sizes = {node_id: size
                               for node_id, size in self._nodes_ledger_sizes.items()
                               if node_id in eligible_nodes}
 
-        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
-        # since ordered requests might have been executed after receiving
-        # sufficient ConsProof in `preCatchupClbk`
-        return self._build_catchup_reqs(self._ledger_id,
-                                        self._catchup_till.start_size,
+        reqs = self._build_catchup_reqs(self._ledger_id,
+                                        start_seq_no, end_seq_no,
                                         self._catchup_till.final_size,
                                         nodes_ledger_sizes)
+        for to, req in reqs.items():
+            self._send_catchup_req(req, to)
+
+        return len(reqs)
+
 
     @staticmethod
-    def _build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
+    def _build_catchup_reqs(ledger_id: int,
+                            start_seq_no: int, end_seq_no: int, catchup_till: int,
                             nodes_ledger_sizes: Dict[str, int]) -> Dict[str, CatchupReq]:
         # TODO: This needs to be optimised, there needs to be a minimum size
         # of catchup requests so if a node is trying to catchup only 50 txns
@@ -155,14 +158,14 @@ class CatchupRepService:
         # "minimum size" is some multiple of chunk size of the ledger
 
         # Utility
-        def find_node_idx(nodes_ledger_sizes: List[Tuple[str, int]], max_seq_no: int) -> int:
-            for i, (_, size) in enumerate(nodes_ledger_sizes):
+        def find_node_idx(ledger_sizes: List[Tuple[str, int]], max_seq_no: int) -> int:
+            for i, (_, size) in enumerate(ledger_sizes):
                 if size >= max_seq_no:
                     return i
 
-        def find_next_best_node_idx(nodes_ledger_sizes: List[Tuple[str, int]], exclude_idx) -> int:
-            idx_txns = ((idx, txns)
-                        for idx, (_, txns) in enumerate(nodes_ledger_sizes)
+        def find_next_best_node_idx(ledger_sizes: List[Tuple[str, int]], exclude_idx) -> int:
+            idx_txns = ((idx, size)
+                        for idx, (_, size) in enumerate(ledger_sizes)
                         if idx != exclude_idx)
             return max(idx_txns, key=lambda v: v[1])[0]
 
@@ -170,9 +173,9 @@ class CatchupRepService:
         # Register nodes having more than needed transactions as having only
         # needed transactions to reduce ability to manipulate distribution
         # of catchup requests by malicious nodes
-        nodes_ledger_sizes = [(node_id, min(txns, end_seq_no))
-                              for node_id, txns in nodes_ledger_sizes.items()
-                              if txns > start_seq_no]
+        nodes_ledger_sizes = [(node_id, min(size, end_seq_no))
+                              for node_id, size in nodes_ledger_sizes.items()
+                              if size >= start_seq_no]
 
         # Shuffle nodes so that catchup requests will be sent randomly
         shuffle(nodes_ledger_sizes)
@@ -180,7 +183,7 @@ class CatchupRepService:
         reqs = {}
         pos = end_seq_no
         while len(nodes_ledger_sizes) > 0:
-            txns_to_catchup = (pos - start_seq_no) // len(nodes_ledger_sizes)
+            txns_to_catchup = (pos - start_seq_no + 1) // len(nodes_ledger_sizes)
 
             node_index = find_node_idx(nodes_ledger_sizes, pos)
             if len(nodes_ledger_sizes) > 1:
@@ -194,7 +197,7 @@ class CatchupRepService:
                 reqs[node_id] = CatchupReq(ledgerId=ledger_id,
                                            seqNoStart=pos - txns_to_catchup + 1,
                                            seqNoEnd=pos,
-                                           catchupTill=end_seq_no)
+                                           catchupTill=catchup_till)
                 pos -= txns_to_catchup
 
             del nodes_ledger_sizes[node_index]
