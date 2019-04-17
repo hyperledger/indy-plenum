@@ -54,27 +54,6 @@ def test_apply_audit_ledger_txn_pool_ledger(alh,
                           primaries=DEFAULT_PRIMARIES)
 
 
-def test_apply_audit_ledger_txn_new_ledger(alh, node,
-                                            initial_domain_size, initial_pool_size, initial_config_size):
-    check_apply_audit_txn(alh=alh,
-                          txns_count=10, ledger_ids=[POOL_LEDGER_ID, DOMAIN_LEDGER_ID],
-                          view_no=1, pp_sq_no=10, txn_time=10000, seq_no=1,
-                          pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
-                          config_size=initial_config_size,
-                          last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=DEFAULT_PRIMARIES)
-
-    integrate_plugin_in_node(node)
-
-    check_apply_audit_txn(alh=alh,
-                          txns_count=15, ledger_ids=[DOMAIN_LEDGER_ID],
-                          view_no=1, pp_sq_no=12, txn_time=10006, seq_no=2,
-                          pool_size=initial_pool_size+10, domain_size=initial_domain_size + 15,
-                          config_size=initial_config_size,
-                          last_pool_seqno=1, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=1, other_sizes={AUCTION_LEDGER_ID: 0})
-
-
 def test_apply_audit_ledger_txn_domain_ledger(alh,
                                               initial_domain_size, initial_pool_size, initial_config_size):
     check_apply_audit_txn(alh=alh,
@@ -374,3 +353,24 @@ def test_audit_not_reverted_if_pre_prepare_doesnt_have_audit(alh, db_manager):
 
     assert alh.ledger.uncommitted_size == uncommited_size_after_1st
     assert alh.ledger.size == size_after_1st
+
+
+def test_apply_audit_ledger_txn_new_ledger(alh, node,
+                                            initial_domain_size, initial_pool_size, initial_config_size):
+    check_apply_audit_txn(alh=alh,
+                          txns_count=10, ledger_ids=[POOL_LEDGER_ID],
+                          view_no=1, pp_sq_no=10, txn_time=10000, seq_no=2,
+                          pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
+                          config_size=initial_config_size,
+                          last_pool_seqno=None, last_domain_seqno=1, last_config_seqno=None,
+                          primaries=1)
+
+    integrate_plugin_in_node(node)
+
+    check_apply_audit_txn(alh=alh,
+                          txns_count=15, ledger_ids=[DOMAIN_LEDGER_ID],
+                          view_no=1, pp_sq_no=12, txn_time=10006, seq_no=3,
+                          pool_size=initial_pool_size+10, domain_size=initial_domain_size + 15,
+                          config_size=initial_config_size,
+                          last_pool_seqno=2, last_domain_seqno=None, last_config_seqno=None,
+                          primaries=2, other_sizes={AUCTION_LEDGER_ID: 0})
