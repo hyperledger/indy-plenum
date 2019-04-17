@@ -18,7 +18,7 @@ CatchupTill = NamedTuple('CatchupTill',
 LedgerCatchupStart = NamedTuple('LedgerCatchupStart',
                                 [('ledger_id', int),
                                  ('catchup_till', Optional[CatchupTill]),
-                                 ('nodes_ledger_sizes', Dict[str,int])])
+                                 ('nodes_ledger_sizes', Dict[str, int])])
 
 LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
                                    [('ledger_id', int),
