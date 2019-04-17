@@ -143,7 +143,6 @@ class CatchupRepService:
 
         return len(reqs)
 
-
     @staticmethod
     def _build_catchup_reqs(ledger_id: int,
                             start_seq_no: int, end_seq_no: int, catchup_till: int,
