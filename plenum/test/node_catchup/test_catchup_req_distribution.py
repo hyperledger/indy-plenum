@@ -1,51 +1,61 @@
 from random import randint, shuffle
-from typing import Dict
+from typing import Dict, List, Tuple, Optional
 
 from plenum.common.messages.node_messages import CatchupReq
 
 
 def build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
                        pool_txns: Dict[str, int]) -> Dict[str, CatchupReq]:
+    # Utility
+    def find_node_idx(nodes_txns: List[Tuple[str, int]], max_seq_no: int) -> int:
+        for i, (_, txns) in enumerate(nodes_txns):
+            if txns >= max_seq_no:
+                return i
+
+    def find_next_best_node_idx(nodes_txns: List[Tuple[str, int]], exclude_idx) -> int:
+        idx_txns = ((idx, txns)
+                    for idx, (_, txns) in enumerate(nodes_txns)
+                    if idx != exclude_idx)
+        return max(idx_txns, key=lambda v: v[1])[0]
+
     # Gather all nodes that have transactions we potentially need.
     # Register nodes having more than needed transactions as having only
     # needed transactions to reduce ability to manipulate distribution
     # of catchup requests by malicious nodes
-    txns_nodes = [(min(txns, end_seq_no), node_id)
+    nodes_txns = [(node_id, min(txns, end_seq_no))
                   for node_id, txns in pool_txns.items()
                   if txns > start_seq_no]
 
-    # Shuffle nodes so that catchup requests will be sent randomly if some
-    # nodes have same number of transactions. This randomness is kept since
-    # default sort implementation in python is stable. Also sort in descending
-    # order to prioritize nodes that have most transactions.
-    shuffle(txns_nodes)
-    txns_nodes.sort(key=lambda v: -v[0])
+    # Shuffle nodes so that catchup requests will be sent randomly
+    shuffle(nodes_txns)
 
     reqs = {}
     pos = end_seq_no
-    while len(txns_nodes) > 0:
-        txns_to_catchup = (pos - start_seq_no) // len(txns_nodes)
+    while len(nodes_txns) > 0:
+        txns_to_catchup = (pos - start_seq_no) // len(nodes_txns)
 
-        if len(txns_nodes) > 1:
-            next_node_txns = txns_nodes[1][0]
+        node_index = find_node_idx(nodes_txns, pos)
+        if len(nodes_txns) > 1:
+            next_node_index = find_next_best_node_idx(nodes_txns, node_index)
+            next_node_txns = nodes_txns[next_node_index][1]
             if pos - txns_to_catchup > next_node_txns:
                 txns_to_catchup = pos - next_node_txns
 
         if txns_to_catchup > 0:
-            cur_node_id = txns_nodes[0][1]
-            reqs[cur_node_id] = CatchupReq(ledgerId=ledger_id,
-                                           seqNoStart=pos - txns_to_catchup + 1,
-                                           seqNoEnd=pos,
-                                           catchupTill=end_seq_no)
+            node_id = nodes_txns[node_index][0]
+            reqs[node_id] = CatchupReq(ledgerId=ledger_id,
+                                       seqNoStart=pos - txns_to_catchup + 1,
+                                       seqNoEnd=pos,
+                                       catchupTill=end_seq_no)
             pos -= txns_to_catchup
 
-        del txns_nodes[0]
+        del nodes_txns[node_index]
 
     return reqs
 
 
 def test_catchup_req_distribution_invariants():
-    for _ in range(5000):
+    for _ in range(2000):
         # Setup
         num_nodes = randint(4, 10)
         pool_txns = {str(idx + 1): randint(0, 1000) for idx in range(num_nodes)}
