@@ -104,7 +104,7 @@ class ConsProofService:
                            final_hash=cons_proof.newMerkleRoot) if cons_proof else None
 
         nodes_txns = {frm: proof.seqNoEnd
-                      for frm, proof in self._cons_proofs
+                      for frm, proof in self._cons_proofs.items()
                       if proof is not None}
 
         # Stop requesting last consistency proofs and ledger statuses.
