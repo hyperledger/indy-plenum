@@ -48,7 +48,7 @@ class NodeLeecherService:
 
         self._state = self.State.Idle
         self._catchup_till = {}  # type: Dict[int, CatchupTill]
-        self._nodes_txns = {}  # type: Dict[int, Dict[str, int]]
+        self._nodes_ledger_size = {}  # type: Dict[int, Dict[str, int]]
 
         # TODO: Get rid of this, theoretically most ledgers can be synced in parallel
         self._current_ledger = None  # type: Optional[int]
@@ -81,7 +81,7 @@ class NodeLeecherService:
             leecher.reset()
 
         self._catchup_till.clear()
-        self._nodes_txns.clear()
+        self._nodes_ledger_size.clear()
         if is_initial:
             self._enter_state(self.State.PreSyncingPool)
         else:
@@ -91,7 +91,7 @@ class NodeLeecherService:
         return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
 
     def _on_ledger_catchup_start(self, msg: LedgerCatchupStart):
-        self._nodes_txns[msg.ledger_id] = msg.nodes_txns
+        self._nodes_ledger_size[msg.ledger_id] = msg.nodes_txns
 
     def _on_ledger_catchup_complete(self, msg: LedgerCatchupComplete):
         if not self._validate_catchup_complete(msg):
@@ -223,11 +223,32 @@ class NodeLeecherService:
 
         return catchup_till
 
-    def _calc_nodes_txns(self, ledger_id: int):
-        result = self._nodes_txns.get(ledger_id)
+    def _calc_nodes_txns(self, ledger_id: int) -> Dict[str, int]:
+        result = self._nodes_ledger_size.get(ledger_id)
         if result is not None:
             return result
 
+        nodes_audit_size = self._nodes_ledger_size[AUDIT_LEDGER_ID]
+        if nodes_audit_size is None:
+            return {}
+
         result = {}
+        audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
+        for node_id, audit_seq_no in nodes_audit_size.items():
+            if audit_seq_no > audit_ledger.size:
+                logger.error("{} doesn't have enough txns in audit ledger, need {}, have {}".
+                             format(self, audit_seq_no, audit_ledger.size))
+                continue
+
+            audit_txn = audit_ledger.getBySeqNo(audit_seq_no)
+            audit_txn = get_payload_data(audit_txn)
+            ledger_size = audit_txn[AUDIT_TXN_LEDGERS_SIZE].get(ledger_id)
+            if ledger_size is None:
+                logger.error("{} has corrupted audit ledger: "
+                             "it doesn't contain any info on size of ledger_id {} at audit txn {}".
+                             format(self, ledger_id, audit_seq_no))
+                continue
+
+            result[node_id] = ledger_size
 
         return result
