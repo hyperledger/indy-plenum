@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import Reply, RequestNack
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
@@ -20,7 +20,7 @@ def write_request(node, req):
     node.domainLedger.append_txns_metadata(txns)
     node.domainLedger.appendTxns(txns)
     node.domainLedger.commitTxns(len(txns))
-    node.updateSeqNoMap(txns, 1)
+    node.updateSeqNoMap(txns, DOMAIN_LEDGER_ID)
 
 
 def deserialize_req(req):

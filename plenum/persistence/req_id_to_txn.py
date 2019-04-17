@@ -18,7 +18,8 @@ class ReqIdrToTxn:
 
     def add(self, payload_digest, ledger_id, seq_no, digest):
         self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no))
-        self._keyValueStorage.put(digest, payload_digest)
+        if digest is not None:
+            self._keyValueStorage.put(self._full_digest_key(digest), payload_digest)
 
     def addBatch(self, batch, full_digest: bool = True):
         payload = []
