@@ -99,7 +99,7 @@ class Replica3PRouter(Router):
         try:
             super().handleSync(msg)
         except SuspiciousNode as ex:
-            self.replica.node.reportSuspiciousNodeEx(ex)
+            self.replica.report_suspicious_node(ex)
 
 
 class IntervalList:
@@ -1171,7 +1171,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         def report_suspicious(reason):
             ex = SuspiciousNode(sender, reason, pre_prepare)
-            self.node.reportSuspiciousNodeEx(ex)
+            self.report_suspicious_node(ex)
 
         why_not = self._can_process_pre_prepare(pre_prepare, sender)
         if why_not is None:
@@ -1319,7 +1319,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # handled and possibly logged higher
                 self.logger.trace("{} cannot process incoming PREPARE".format(self))
         except SuspiciousNode as ex:
-            self.node.reportSuspiciousNodeEx(ex)
+            self.report_suspicious_node(ex)
 
     @measure_replica_time(MetricsName.PROCESS_COMMIT_TIME,
                           MetricsName.BACKUP_PROCESS_COMMIT_TIME)
@@ -2928,3 +2928,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def get_valid_req_ids_from_all_requests(self, reqs, invalid_indices):
         return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
+
+    def report_suspicious_node(self, ex):
+        if self.isMaster:
+            self.node.reportSuspiciousNodeEx(ex)
+        else:
+            self.warn_suspicious_backup(ex.node, ex.reason, ex.code)
+
+    def warn_suspicious_backup(self, nodeName, reason, code):
+        self.logger.warning("backup replica {} raised suspicion on node {} for {}; suspicion code "
+                            "is {}".format(self, nodeName, reason, code))
