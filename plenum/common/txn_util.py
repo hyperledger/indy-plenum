@@ -126,11 +126,22 @@ def get_req_id(txn):
 
 
 def get_digest(txn):
-    return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_DIGEST, None)
+    metadata = txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]
+
+    # Digest means full digest only if there is also a payload digest
+    if TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST in metadata:
+        return metadata.get(TXN_PAYLOAD_METADATA_DIGEST, None)
+
+    # Otherwise we don't have full digest and cannot restore it
+    return None
 
 
 def get_payload_digest(txn):
-    return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, None)
+    metadata = txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]
+    payload_digest = metadata.get(TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, None)
+    if payload_digest is None:
+        payload_digest = metadata.get(TXN_PAYLOAD_METADATA_DIGEST, None)
+    return payload_digest
 
 
 def get_seq_no(txn):

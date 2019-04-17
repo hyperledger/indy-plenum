@@ -18,7 +18,8 @@ class ReqIdrToTxn:
 
     def add(self, payload_digest, ledger_id, seq_no, digest):
         self._keyValueStorage.put(payload_digest, self._create_value(ledger_id, seq_no))
-        self._keyValueStorage.put(digest, payload_digest)
+        if digest is not None:
+            self._keyValueStorage.put(self._full_digest_key(digest), payload_digest)
 
     def addBatch(self, batch, full_digest: bool = True):
         payload = []
@@ -26,7 +27,8 @@ class ReqIdrToTxn:
         for payload_digest, ledger_id, seq_no, digest in batch:
             payload.append((payload_digest, self._create_value(ledger_id,
                                                                seq_no)))
-            full.append((digest, str(payload_digest)))
+            if digest is not None:
+                full.append((self._full_digest_key(digest), str(payload_digest)))
         self._keyValueStorage.setBatch(payload)
         if full_digest:
             self._keyValueStorage.setBatch(full)
@@ -42,9 +44,9 @@ class ReqIdrToTxn:
         except (KeyError, ValueError):
             return None, None
 
-    def get_by_full_digest(self, payload_digest):
+    def get_by_full_digest(self, full_digest):
         try:
-            val = self._keyValueStorage.get(payload_digest)
+            val = self._keyValueStorage.get(self._full_digest_key(full_digest))
             result = val.decode()
             if not isinstance(result, str):
                 raise LogicError('SeqNoDB must store full_digest => payload_digest')
@@ -65,3 +67,7 @@ class ReqIdrToTxn:
 
     def close(self):
         self._keyValueStorage.close()
+
+    @staticmethod
+    def _full_digest_key(digest: str):
+        return "full:{}".format(digest)
