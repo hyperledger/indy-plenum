@@ -1,39 +1,51 @@
-from random import randint
-from typing import Dict, Tuple
-
-import math
-import pytest
+from random import randint, shuffle
+from typing import Dict
 
 from plenum.common.messages.node_messages import CatchupReq
 
 
-def __gen_catchup_reqs(ledger_id, start, end, node_count):
-    batch_length = math.ceil((end - start) / node_count)
-    reqs = []
-    s = start + 1
-    e = min(s + batch_length - 1, end)
-    for i in range(node_count):
-        req = CatchupReq(ledger_id, s, e, end)
-        reqs.append(req)
-        s = e + 1
-        e = min(s + batch_length - 1, end)
-        if s > end:
-            break
+def build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
+                       pool_txns: Dict[str, int]) -> Dict[str, CatchupReq]:
+    # Gather all nodes that have transactions we potentially need.
+    # Register nodes having more than needed transactions as having only
+    # needed transactions to reduce ability to manipulate distribution
+    # of catchup requests by malicious nodes
+    txns_nodes = [(min(txns, end_seq_no), node_id)
+                  for node_id, txns in pool_txns.items()
+                  if txns > start_seq_no]
+
+    # Shuffle nodes so that catchup requests will be sent randomly if some
+    # nodes have same number of transactions. This randomness is kept since
+    # default sort implementation in python is stable. Also sort in descending
+    # order to prioritize nodes that have most transactions.
+    shuffle(txns_nodes)
+    txns_nodes.sort(key=lambda v: -v[0])
+
+    reqs = {}
+    pos = end_seq_no
+    while len(txns_nodes) > 0:
+        txns_to_catchup = (pos - start_seq_no) // len(txns_nodes)
+
+        if len(txns_nodes) > 1:
+            next_node_txns = txns_nodes[1][0]
+            if pos - txns_to_catchup > next_node_txns:
+                txns_to_catchup = pos - next_node_txns
+
+        if txns_to_catchup > 0:
+            cur_node_id = txns_nodes[0][1]
+            reqs[cur_node_id] = CatchupReq(ledgerId=ledger_id,
+                                           seqNoStart=pos - txns_to_catchup + 1,
+                                           seqNoEnd=pos,
+                                           catchupTill=end_seq_no)
+            pos -= txns_to_catchup
+
+        del txns_nodes[0]
+
     return reqs
 
 
-def build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
-                       pool_txns: Dict[str, int]) -> Dict[str, CatchupReq]:
-    txns_to_catchup = end_seq_no - start_seq_no
-    if txns_to_catchup == 0:
-        return {}
-
-    reqs = __gen_catchup_reqs(ledger_id, start_seq_no, end_seq_no, len(pool_txns))
-    return {node_id: req for node_id, req in zip(pool_txns.keys(), reqs)}
-
-
 def test_catchup_req_distribution_invariants():
-    for _ in range(1000):
+    for _ in range(5000):
         # Setup
         num_nodes = randint(4, 10)
         pool_txns = {str(idx + 1): randint(0, 1000) for idx in range(num_nodes)}
@@ -42,7 +54,7 @@ def test_catchup_req_distribution_invariants():
         catchup_from = pool_txns[node_id]
         del pool_txns[node_id]
         catchup_reqs = build_catchup_reqs(1, catchup_from, catchup_till, pool_txns)
-        context = "from {} to {}\npool {}\ncatchup reqs {}".\
+        context = "from {} to {}\npool {}\ncatchup reqs {}". \
             format(catchup_from, catchup_till, pool_txns, catchup_reqs)
 
         # Gather all requested transactions
@@ -57,9 +69,9 @@ def test_catchup_req_distribution_invariants():
             assert len(catchup_reqs) > 0, context
             assert txns_requested[0] == catchup_from + 1, context
             assert txns_requested[-1] == catchup_till, context
-            assert len(txns_requested) == catchup_till - catchup_from, context
             for a, b in zip(txns_requested, txns_requested[1:]):
                 assert b - a == 1, context
+            assert len(txns_requested) == catchup_till - catchup_from, context
         else:
             assert len(catchup_reqs) == 0, context
             assert len(txns_requested) == 0, context
