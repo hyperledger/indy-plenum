@@ -1433,12 +1433,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if last_pp_view_no > view_no:
             return False
         if last_pp_view_no < view_no:
-            # TODO: strange assumption here ???
             if view_no != self.viewNo:
-                raise LogicError(
-                    "{} 'view_no' {} is not equal to current view_no {}"
-                    .format(self, view_no, self.viewNo)
-                )
+                return False
             last_pp_seq_no = 0
         if pp_seq_no - last_pp_seq_no > 1:
             return False
