@@ -1,8 +1,8 @@
-from indy_node.test.request_handlers.helper import get_fake_ledger
-
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
 from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, DEFAULT_PRIMARIES
+from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
+from plenum.test.plugin.demo_plugin.main import integrate_plugin_in_node
 from plenum.test.testing_utils import FakeSomething
 from state.pruning_state import PruningState
 from storage.kv_in_memory import KeyValueStorageInMemory
@@ -64,15 +64,15 @@ def test_apply_audit_ledger_txn_new_ledger(alh, node,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
                           primaries=DEFAULT_PRIMARIES)
 
-    alh.database_manager.register_new_database(10000, get_fake_ledger(), PruningState(KeyValueStorageInMemory()))
+    integrate_plugin_in_node(node)
 
     check_apply_audit_txn(alh=alh,
-                          txns_count=10, ledger_ids=[10000],
-                          view_no=1, pp_sq_no=10, txn_time=10000, seq_no=2,
-                          pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
+                          txns_count=15, ledger_ids=[DOMAIN_LEDGER_ID],
+                          view_no=1, pp_sq_no=12, txn_time=10006, seq_no=2,
+                          pool_size=initial_pool_size+10, domain_size=initial_domain_size + 15,
                           config_size=initial_config_size,
-                          last_pool_seqno=1, last_domain_seqno=1, last_config_seqno=None,
-                          primaries=1, other_sizes={10000: 1})
+                          last_pool_seqno=1, last_domain_seqno=None, last_config_seqno=None,
+                          primaries=1, other_sizes={AUCTION_LEDGER_ID: 0})
 
 
 def test_apply_audit_ledger_txn_domain_ledger(alh,
