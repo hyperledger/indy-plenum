@@ -124,7 +124,7 @@ class NonEmptyStringField(FieldBase):
 
 
 class LimitedLengthStringField(FieldBase):
-    _base_types = (str, type(None))
+    _base_types = (str, )
 
     def __init__(self, max_length: int, can_be_empty=False, **kwargs):
         if not max_length > 0:
