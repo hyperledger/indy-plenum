@@ -254,6 +254,8 @@ REMOTES_MESSAGE_QUOTA = 100
 Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
+# Max allowed number of 3PC batches in flight (or None to disable limit)
+Max3PCBatchesInFlight = None
 
 UPDATE_STATE_FRESHNESS = True
 STATE_FRESHNESS_UPDATE_INTERVAL = 300  # in secs
@@ -388,3 +390,6 @@ REPLICA_STASH_LIMIT = 100000
 
 # Time, which we wait before request propagate, when discovered unfinalized preprepare
 PROPAGATE_REQUEST_DELAY = 2
+
+# Intrval between attempts to process stashed out of order commits
+PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 1  # seconds

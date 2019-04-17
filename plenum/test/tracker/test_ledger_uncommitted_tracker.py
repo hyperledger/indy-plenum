@@ -60,7 +60,7 @@ def test_apply_batch_with_zero_ledger_size(tracker):
 
 def test_apply_error_with_invalid_ledger_size(tracker, state_root, txn_root):
     with pytest.raises(PlenumValueError):
-        tracker.apply_batch(state_root, txn_root, random.randint(-99, 0))
+        tracker.apply_batch(state_root, txn_root, random.randint(-99, -1))
 
 
 def test_reject_one(tracker,

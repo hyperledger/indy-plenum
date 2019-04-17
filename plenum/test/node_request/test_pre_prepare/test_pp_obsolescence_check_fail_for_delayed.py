@@ -53,4 +53,4 @@ def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
         lagging_node.master_replica.processPrePrepare)
 
     assert pp_count > 0
-    assert get_timestamp_suspicion_count(lagging_node) == pp_count
+    assert get_timestamp_suspicion_count(lagging_node) == 1
