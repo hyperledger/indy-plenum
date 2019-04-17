@@ -7,8 +7,6 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
 from plenum.test.test_node import get_master_primary_node
 from plenum.test.view_change.helper import start_stopped_node, ensure_view_change_by_primary_restart
 
-TestRunningTimeLimitSec = 150
-
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
