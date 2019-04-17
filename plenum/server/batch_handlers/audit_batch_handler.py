@@ -118,13 +118,13 @@ class AuditBatchHandler(BatchRequestHandler):
             txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 
         # 1.1. Rare case -- we have previous audit txns but don't have this ledger i.e. new plugins
-        elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid] is None and \
+        elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE].get(lid, None) is None and \
                 len(ledger.uncommittedTxns):
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
             txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)
 
         # 2. Usual case -- this ledger was updated since the last audit txn
-        elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid] is not None and \
+        elif last_audit_txn_data is not None and last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE].get(lid, None) is not None and \
                 ledger.uncommitted_size > last_audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][lid]:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = Ledger.hashToStr(ledger.uncommitted_root_hash)
             txn[AUDIT_TXN_STATE_ROOT][lid] = Ledger.hashToStr(self.database_manager.get_state(lid).headHash)

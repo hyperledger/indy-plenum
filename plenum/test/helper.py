@@ -797,6 +797,15 @@ def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     return reqs
 
 
+def sdk_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
+    reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    for sdk_wallet in sdk_wallets:
+        wallet_h, did = sdk_wallet
+        reqs_str = [looper.loop.run_until_complete(multi_sign_request(wallet_h, did, req))
+                    for req in reqs_str]
+    return reqs_str
+
+
 def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req) for req in reqs]
