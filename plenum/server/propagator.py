@@ -49,6 +49,10 @@ class ReqState:
         # !side affect! if `req` is an instance of a child of `Request` class
         # here we construct the parent from child it is rather implicit that
         # `finalised` contains not the same type than `propagates` has
+
+        # That is needed to create payload digest before cloning req to finalised
+        req.payload_digest
+
         self.finalised = Request.fromState(req.__getstate__())
         self.added_ts = None
         self.finalised_ts = time.perf_counter()
