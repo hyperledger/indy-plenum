@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Optional, Tuple, NamedTuple
+from typing import Dict, Optional
 
 from plenum.common.channel import TxChannel, RxChannel, create_direct_channel, Router
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, \
@@ -9,7 +9,8 @@ from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
 from plenum.common.txn_util import get_payload_data
 from plenum.server.catchup.ledger_leecher_service import LedgerLeecherService
-from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete, CatchupTill
+from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete, CatchupTill, \
+    LedgerCatchupStart
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -47,13 +48,16 @@ class NodeLeecherService:
 
         self._state = self.State.Idle
         self._catchup_till = {}  # type: Dict[int, CatchupTill]
+        self._nodes_txns = {}  # type: Dict[int, Dict[str, int]]
 
         # TODO: Get rid of this, theoretically most ledgers can be synced in parallel
         self._current_ledger = None  # type: Optional[int]
 
         self._leecher_outbox, self._leecher_outbox_rx = create_direct_channel()
         self._leecher_outbox_rx.subscribe(lambda msg: output.put_nowait(msg))
-        Router(self._leecher_outbox_rx).add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
+        router = Router(self._leecher_outbox_rx)
+        router.add(LedgerCatchupStart, self._on_ledger_catchup_start)
+        router.add(LedgerCatchupComplete, self._on_ledger_catchup_complete)
 
         self._leechers = {}  # type: Dict[int, LedgerLeecherService]
 
@@ -77,6 +81,7 @@ class NodeLeecherService:
             leecher.reset()
 
         self._catchup_till.clear()
+        self._nodes_txns.clear()
         if is_initial:
             self._enter_state(self.State.PreSyncingPool)
         else:
@@ -84,6 +89,9 @@ class NodeLeecherService:
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
         return sum(leecher.num_txns_caught_up for leecher in self._leechers.values())
+
+    def _on_ledger_catchup_start(self, msg: LedgerCatchupStart):
+        self._nodes_txns[msg.ledger_id] = msg.nodes_txns
 
     def _on_ledger_catchup_complete(self, msg: LedgerCatchupComplete):
         if not self._validate_catchup_complete(msg):
@@ -168,7 +176,8 @@ class NodeLeecherService:
         if catchup_till is None:
             leecher.start()
         else:
-            leecher.start(till=catchup_till)
+            leecher.start(till=catchup_till,
+                          nodes_txns=self._calc_nodes_txns(ledger_id))
 
     def _calc_catchup_till(self) -> Dict[int, CatchupTill]:
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
@@ -213,3 +222,12 @@ class NodeLeecherService:
                                                   final_hash=final_hash)
 
         return catchup_till
+
+    def _calc_nodes_txns(self, ledger_id: int):
+        result = self._nodes_txns.get(ledger_id)
+        if result is not None:
+            return result
+
+        result = {}
+
+        return result
