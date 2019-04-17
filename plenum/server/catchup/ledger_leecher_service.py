@@ -82,7 +82,9 @@ class LedgerLeecherService:
             # TODO: This is an attempt to mimic old behaviour more closely
             if till.start_size == till.final_size:
                 till = None
-            self._start_catchup(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
+            self._start_catchup(LedgerCatchupStart(ledger_id=self._ledger_id,
+                                                   catchup_till=till,
+                                                   nodes_txns={}))
 
     def reset(self):
         self._state = LedgerState.not_synced

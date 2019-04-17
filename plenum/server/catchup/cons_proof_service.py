@@ -110,7 +110,9 @@ class ConsProofService:
         till = CatchupTill(start_size=cons_proof.seqNoStart,
                            final_size=cons_proof.seqNoEnd,
                            final_hash=cons_proof.newMerkleRoot) if cons_proof else None
-        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
+        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id,
+                                                   catchup_till=till,
+                                                   nodes_txns={}))
 
     def _finish_no_catchup(self):
         root = Ledger.hashToStr(self._ledger.tree.root_hash)

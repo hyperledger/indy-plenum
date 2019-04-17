@@ -149,7 +149,7 @@ class CatchupRepService:
 
     @staticmethod
     def _build_catchup_reqs(ledger_id: int, start_seq_no: int, end_seq_no: int,
-                            pool_txns: Dict[str, int]) -> Dict[str, CatchupReq]:
+                            nodes_txns: Dict[str, int]) -> Dict[str, CatchupReq]:
         # Utility
         def find_node_idx(nodes_txns: List[Tuple[str, int]], max_seq_no: int) -> int:
             for i, (_, txns) in enumerate(nodes_txns):
@@ -167,7 +167,7 @@ class CatchupRepService:
         # needed transactions to reduce ability to manipulate distribution
         # of catchup requests by malicious nodes
         nodes_txns = [(node_id, min(txns, end_seq_no))
-                      for node_id, txns in pool_txns.items()
+                      for node_id, txns in nodes_txns.items()
                       if txns > start_seq_no]
 
         # Shuffle nodes so that catchup requests will be sent randomly
