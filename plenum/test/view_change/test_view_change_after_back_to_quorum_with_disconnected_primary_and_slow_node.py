@@ -1,9 +1,12 @@
 import pytest
 
+from plenum.common.constants import LEDGER_STATUS
 from plenum.server.view_change.view_changer import ViewChanger
+from plenum.test.delayers import msg_rep_delay
 from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.stasher import delay_rules
 from plenum.test.test_node import get_master_primary_node
 from plenum.test.view_change.helper import start_stopped_node, ensure_view_change_by_primary_restart
 
@@ -69,16 +72,23 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
     # to choose a new one.
     restartedNode = start_stopped_node(non_primary_to_stop, looper, tconf,
                                        tdir, allPluginsPath,
-                                       delay_instance_change_msgs=False)
+                                       delay_instance_change_msgs=False,
+                                       start=False)
+    # 5. delay catchup on Delat for more that INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT,
+    # so that Delta proposes INSTANCE_CHANGE from view=0 to view=1
+    # (it doesn't yet know that the current view is 1, since it hasn't yet finished catchup)
+    with delay_rules(restartedNode.nodeIbStasher, msg_rep_delay(types_to_delay=[LEDGER_STATUS])):
+        looper.add(restartedNode)
+        looper.runFor(tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT + 5)
 
     remaining_nodes = remaining_nodes + [restartedNode]
 
-    # 5. Check that view change happened eventually because
-    # Delta may re-send InstanceChang for view=2 after it finished catchup
+    # 6. Check that view change happened eventually because
+    # Delta re-send InstanceChang for view=2 after it finished catchup
     waitForViewChange(looper, remaining_nodes, expectedViewNo=(view_no + 1),
                       customTimeout=3 * tconf.VIEW_CHANGE_TIMEOUT)
 
-    # 6. ensure pool is working properly
+    # 7. ensure pool is working properly
     sdk_send_random_and_check(looper, remaining_nodes, sdk_pool_handle,
                               sdk_wallet_client, 3)
     ensure_all_nodes_have_same_data(looper, nodes=remaining_nodes)
