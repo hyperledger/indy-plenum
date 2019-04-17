@@ -33,17 +33,19 @@ def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
     with delay_rules(all_stashers,
                      delay_3pc(view_no=1, before=4, msgs=PrePrepare),
                      msg_rep_delay(types_to_delay=[PREPREPARE])):
-        # 2. do view change for
+        # 2. do view change for view=1
         ensure_view_change(looper, txnPoolNodeSet)
         ensureElectionsDone(looper, txnPoolNodeSet)
 
+        # 3. send requests
         sdk_send_random_requests(looper, sdk_pool_handle,
                                  sdk_wallet_steward, 10)
         looper.run(eventually(check_missing_pre_prepares, txnPoolNodeSet, 2, timeout=20))
 
+        # 4. do view change for view=2
         ensure_view_change(looper, txnPoolNodeSet)
 
-    # 3. ensure everything is fine
+    # 5. ensure everything is fine
     ensureElectionsDone(looper, txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

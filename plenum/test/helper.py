@@ -46,7 +46,7 @@ from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica
+    getPrimaryReplica, getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -1295,11 +1295,8 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
 
 
 def check_missing_pre_prepares(nodes, count):
-    # primary_master_replica = getPrimaryReplica(nodes, 0)
-    # assert all(count <= len(node.master_replica.prePreparesPendingPrevPP)
-    #            for node in nodes
-    #            if primary_master_replica != node.master_replica)
-    assert len(nodes[0].master_replica.prePreparesPendingPrevPP) >= count
+    assert all(count <= len(replica.prePreparesPendingPrevPP)
+               for replica in getNonPrimaryReplicas(nodes, instId=0))
 
 
 class MockTimestamp:
