@@ -1285,6 +1285,14 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
     return pre_prepare + prepares + commits
 
 
+def check_missing_pre_prepares(nodes, count):
+    # primary_master_replica = getPrimaryReplica(nodes, 0)
+    # assert all(count <= len(node.master_replica.prePreparesPendingPrevPP)
+    #            for node in nodes
+    #            if primary_master_replica != node.master_replica)
+    assert len(nodes[0].master_replica.prePreparesPendingPrevPP) >= count
+
+
 class MockTimestamp:
     def __init__(self, value=datetime.utcnow()):
         self.value = value
