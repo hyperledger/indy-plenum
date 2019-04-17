@@ -3,7 +3,7 @@ import pytest
 from plenum.common.constants import NYM, NODE
 from plenum.common.txn_util import get_type, set_type, get_payload_data, \
     get_from, get_req_id, get_seq_no, get_txn_id, \
-    get_txn_time, get_version, get_digest, get_protocol_version
+    get_txn_time, get_version, get_digest, get_protocol_version, get_payload_digest
 from plenum.common.util import SortedDict
 
 
@@ -26,7 +26,8 @@ def txn():
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
                 "reqId": 1513945121191691,
-                "digest":  "d0b78a4216cb2407934cafc87be06a1baffc809ded7558c9c08da227a4e92507",
+                "digest":  "d3a6c519da23eacfc3e8dc3d3394fdb9ca1d8819bb9628f1fa6187c7e6dcf602",
+                "payloadDigest": "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
             },
 
             "protocolVersion": "2",
@@ -39,6 +40,17 @@ def txn():
         },
         "ver": "1"
     }
+
+
+@pytest.fixture()
+def legacy_txn(txn):
+    result = txn
+    result["txn"]["metadata"] = {
+        "from": "6ouriXMZkLeHsuXrN1X1fd",
+        "reqId": 1513945121191691,
+        "digest": "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
+    }
+    return result
 
 
 def test_get_type(txn):
@@ -112,4 +124,16 @@ def test_get_protocol_version(txn):
 
 
 def test_get_digest(txn):
-    assert get_digest(txn) == "d0b78a4216cb2407934cafc87be06a1baffc809ded7558c9c08da227a4e92507"
+    assert get_digest(txn) == "d3a6c519da23eacfc3e8dc3d3394fdb9ca1d8819bb9628f1fa6187c7e6dcf602"
+
+
+def test_get_payload_digest(txn):
+    assert get_payload_digest(txn) == "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
+
+
+def test_get_digest_old(legacy_txn):
+    assert get_digest(legacy_txn) == None
+
+
+def test_get_payload_digest_old(legacy_txn):
+    assert get_payload_digest(legacy_txn) == "58232927bdccad16998a284e807a4e256d138a894c2bf41bbbf9db7cfab59c9c"
