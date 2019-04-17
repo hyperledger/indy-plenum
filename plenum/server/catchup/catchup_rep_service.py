@@ -76,7 +76,8 @@ class CatchupRepService:
         # TODO: Consider setting start to `max(ledger.size, consProof.start)`
         # since ordered requests might have been executed after receiving
         # sufficient ConsProof in `preCatchupClbk`
-        reqs = self._send_catchup_reqs(self._catchup_till.start_size, self._catchup_till.final_size)
+        reqs = self._send_catchup_reqs(self._provider.eligible_nodes(),
+                                       self._catchup_till.start_size, self._catchup_till.final_size)
         timeout = self._catchup_timeout(reqs)
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
@@ -126,8 +127,8 @@ class CatchupRepService:
         self._output.put_nowait(LedgerCatchupComplete(ledger_id=self._ledger_id,
                                                       num_caught_up=num_caught_up))
 
-    def _send_catchup_reqs(self, start_seq_no: int, end_seq_no: int) -> int:
-        eligible_nodes = self._provider.eligible_nodes()
+    def _send_catchup_reqs(self, eligible_nodes: List[str],
+                           start_seq_no: int, end_seq_no: int) -> int:
         nodes_ledger_sizes = {node_id: size
                               for node_id, size in self._nodes_ledger_sizes.items()
                               if node_id in eligible_nodes}
@@ -137,7 +138,8 @@ class CatchupRepService:
                                         self._catchup_till.final_size,
                                         nodes_ledger_sizes)
         for to, req in reqs.items():
-            self._send_catchup_req(req, to)
+            self._wait_catchup_rep_from.add(to)
+            self._provider.send_to(req, to)
 
         return len(reqs)
 
@@ -146,17 +148,6 @@ class CatchupRepService:
     def _build_catchup_reqs(ledger_id: int,
                             start_seq_no: int, end_seq_no: int, catchup_till: int,
                             nodes_ledger_sizes: Dict[str, int]) -> Dict[str, CatchupReq]:
-        # TODO: This needs to be optimised, there needs to be a minimum size
-        # of catchup requests so if a node is trying to catchup only 50 txns
-        # from 10 nodes, each of thise 10 nodes will servce 5 txns and prepare
-        # a consistency proof for other txns. This is bad for the node catching
-        #  up as it involves more network traffic and more computation to verify
-        # so many consistency proofs and for the node serving catchup reqs. But
-        # if the node sent only 2 catchup requests the network traffic greatly
-        # reduces and 25 txns can be read of a single chunk probably
-        # (if txns dont span across multiple chunks). A practical value of this
-        # "minimum size" is some multiple of chunk size of the ledger
-
         # Utility
         def find_node_idx(ledger_sizes: List[Tuple[str, int]], max_seq_no: int) -> int:
             for i, (_, size) in enumerate(ledger_sizes):
@@ -183,7 +174,10 @@ class CatchupRepService:
         reqs = {}
         pos = end_seq_no
         while len(nodes_ledger_sizes) > 0:
-            txns_to_catchup = (pos - start_seq_no + 1) // len(nodes_ledger_sizes)
+            txns_left = pos - start_seq_no + 1
+            txns_to_catchup = txns_left // len(nodes_ledger_sizes)
+            txns_to_catchup = max(5, txns_to_catchup)  # Always try to ask some minimum number of txns per node
+            txns_to_catchup = min(txns_left, txns_to_catchup)  # But no more than number of txns left
 
             node_index = find_node_idx(nodes_ledger_sizes, pos)
             if len(nodes_ledger_sizes) > 1:
@@ -207,10 +201,6 @@ class CatchupRepService:
     def _catchup_timeout(self, num_requests: int):
         return num_requests * self._config.CatchupTransactionsTimeout
 
-    def _send_catchup_req(self, msg: CatchupReq, to: str):
-        self._wait_catchup_rep_from.add(to)
-        self._provider.send_to(msg, to)
-
     def _num_missing_txns(self):
         if self._catchup_till is None:
             return 0
@@ -229,6 +219,7 @@ class CatchupRepService:
 
         logger.info("{} requesting {} missing transactions after timeout".format(self, num_missing))
         eligible_nodes = self._provider.eligible_nodes()
+        # TODO: Need better way to detect nodes that are not responding?
         if not self._wait_catchup_rep_from.issuperset(eligible_nodes):
             eligible_nodes = [n for n in eligible_nodes
                               if n not in self._wait_catchup_rep_from]
@@ -244,70 +235,48 @@ class CatchupRepService:
                          "move ahead.".format(CATCH_UP_PREFIX, self))
             return
 
-        # Shuffling order of nodes so that catchup requests don't go to
-        # the same nodes. This is done to avoid scenario where a node
-        # does not reply at all.
-        # TODO: Need some way to detect nodes that are not responding.
-        shuffle(eligible_nodes)
-        batchSize = math.ceil(num_missing / len(eligible_nodes))
-        cReqs = []
-        lastSeenSeqNo = self._ledger.size
-        leftMissing = num_missing
+        last_seen_seq_no = self._ledger.size
+        left_missing = num_missing
+        reqs = 0
 
         start = self._catchup_till.start_size
         end = self._catchup_till.final_size
 
-        def addReqsForMissing(frm, to):
-            # Add Catchup requests for missing transactions.
-            # `frm` and `to` are inclusive
-            missing = to - frm + 1
-            numBatches = int(math.ceil(missing / batchSize))
-            for i in range(numBatches):
-                s = frm + (i * batchSize)
-                e = min(to, frm + ((i + 1) * batchSize) - 1)
-                req = CatchupReq(self._ledger_id, s, e, end)
-                logger.info("{} creating catchup request {} to {} till {}".format(self, s, e, end))
-                cReqs.append(req)
-            return missing
+        def send_reqs_for_missing(frm, to):
+            nonlocal left_missing, reqs
+            left_missing -= to - frm + 1
+            reqs += self._send_catchup_reqs(eligible_nodes, frm, to)
 
         txns = self._received_catchup_txns
         for seqNo, txn in txns:
-            if (seqNo - lastSeenSeqNo) != 1:
-                missing = addReqsForMissing(lastSeenSeqNo + 1, seqNo - 1)
-                leftMissing -= missing
-            lastSeenSeqNo = seqNo
+            if (seqNo - last_seen_seq_no) != 1:
+                send_reqs_for_missing(last_seen_seq_no + 1, seqNo - 1)
+            last_seen_seq_no = seqNo
 
         # If still missing some transactions from request has not been
         # sent then either `catchUpReplies` was empty or it did not have
         #  transactions till `end`
-        if leftMissing > 0:
+        if left_missing > 0:
             logger.info("{} still missing {} transactions after "
-                        "looking at receivedCatchUpReplies".format(self, leftMissing))
+                        "looking at receivedCatchUpReplies".format(self, left_missing))
             # `catchUpReplies` was empty
-            if lastSeenSeqNo == self._ledger.size:
-                missing = addReqsForMissing(self._ledger.size + 1, end)
-                leftMissing -= missing
+            if last_seen_seq_no == self._ledger.size:
+                send_reqs_for_missing(self._ledger.size + 1, end)
             # did not have transactions till `end`
-            elif lastSeenSeqNo != end:
-                missing = addReqsForMissing(lastSeenSeqNo + 1, end)
-                leftMissing -= missing
+            elif last_seen_seq_no != end:
+                send_reqs_for_missing(last_seen_seq_no + 1, end)
             else:
                 logger.error("{}{} still missing {} transactions. "
                              "Something happened which was not thought "
                              "of. {} {} {}"
-                             .format(CATCH_UP_PREFIX, self, leftMissing,
-                                     start, end, lastSeenSeqNo))
-            if leftMissing:
+                             .format(CATCH_UP_PREFIX, self, left_missing,
+                                     start, end, last_seen_seq_no))
+            if left_missing:
                 logger.error("{}{} still missing {} transactions. {} {} {}"
-                             .format(CATCH_UP_PREFIX, self, leftMissing,
-                                     start, end, lastSeenSeqNo))
+                             .format(CATCH_UP_PREFIX, self, left_missing,
+                                     start, end, last_seen_seq_no))
 
-        numElgNodes = len(eligible_nodes)
-        for i, req in enumerate(cReqs):
-            nodeName = eligible_nodes[i % numElgNodes]
-            self._send_catchup_req(req, nodeName)
-
-        timeout = int(self._catchup_timeout(len(cReqs)))
+        timeout = int(self._catchup_timeout(reqs))
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
     def _can_process_catchup_rep(self, rep: CatchupRep) -> bool:
