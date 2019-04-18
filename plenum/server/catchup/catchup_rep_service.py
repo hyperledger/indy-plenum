@@ -131,7 +131,13 @@ class CatchupRepService:
                            start_seq_no: int, end_seq_no: int) -> int:
         nodes_ledger_sizes = {node_id: size
                               for node_id, size in self._nodes_ledger_sizes.items()
-                              if node_id in eligible_nodes}
+                              if node_id in eligible_nodes and size >= start_seq_no}
+
+        if len(nodes_ledger_sizes) == 0:
+            logger.error("{} cannot send catchup requests from {} to {} because "
+                         "no nodes from eligible list {} contain needed transactions: {}".
+                         format(self, start_seq_no, end_seq_no, eligible_nodes, self._nodes_ledger_sizes))
+            return 0
 
         reqs = self._build_catchup_reqs(self._ledger_id,
                                         start_seq_no, end_seq_no,

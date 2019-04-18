@@ -235,10 +235,9 @@ class NodeLeecherService:
         result = {}
         audit_ledger = self._provider.ledger(AUDIT_LEDGER_ID)
         for node_id, audit_seq_no in nodes_audit_size.items():
-            if audit_seq_no > audit_ledger.size:
-                logger.error("{} doesn't have enough txns in audit ledger, need {}, have {}".
-                             format(self, audit_seq_no, audit_ledger.size))
-                continue
+            # It can happen so that during catching up audit ledger we caught up
+            # less transactions than some nodes reported
+            audit_seq_no = min(audit_seq_no, audit_ledger.size)
 
             audit_txn = audit_ledger.getBySeqNo(audit_seq_no)
             audit_txn = get_payload_data(audit_txn)
