@@ -11,6 +11,12 @@ note over Node1, Node4
     <b>Catch-up of Node4
 end note
 
+Node4 -> Node4: Process all ORDERED msgs
+note right Node4
+    <b>Process and execute all ORDERED msgs
+    before catch-up is started and the uncommitted state is reverted
+end note
+
 Node4 -> Node4: Revert unordered 3PC batches on Master replica
 note right Node4
     <b>Revert</b> applied but not yet ordered
@@ -19,12 +25,14 @@ end note
 
 Node4 -> Node4: mode = starting
 note right Node4
-    <b>- While mode != participating (mode != synced if view change in progress)
+    <b>- While mode != participating
         - Replicas do not generate, send or process any 3PC messages
         - All 3PC messages are stashed (in received order)
-        - Node will stash ORDEREDs coming from Replicas
-          <i>(node will process stashed ORDEREDs in safe way at some pre-defined steps
-          <i>of catch-up procedure).
+        - No ORDERED msgs are processed
+    <b>- Exception: mode=synced and view change in progress
+        - COMMITs below last_prepared_certificate are processed
+        - ORDERED msgs are processed (the requests will be re-applied since
+        the uncommitted state was reverted before catch-up/view-change)
 
 end note
 
@@ -138,15 +146,6 @@ end note
 note over Node1, Node4
     <b> STEP 2:  Request and apply transactions from other nodes
 end note
-
-    Node4 -> Node4: Process stashed ORDEREDs
-    note right Node4
-        <b>Process accumulated stashed ORDEREDs:
-        For each stashed ORDERED:
-            If ORDERED is from Master replica:
-                - re-apply 3PC batch,
-                - execute 3PC batch
-    end note
 
     alt Ledger is audit
         Node4 -> Node4: mode = discovering
@@ -305,20 +304,22 @@ loop For each replica
     Node4 -> Node4: Unstash all 3PC messages stashed during catchup
 end loop
 
-Node4 -> Node4: Process stashed ORDEREDs
-note right Node4
-    <b>Process accumulated stashed ORDEREDs:
-    For each stashed ORDERED:
-        If ORDERED is from Master replica:
-            - re-apply 3PC batch,
-            - execute 3PC batch
-end note
-
 Node4 -> Node4: mode = synced
 
 alt view change in progress
     loop For each replica
         Node4 -> Node4: process unstashed 3PC messages before starting next catch-up
+        note right Node4
+            Only COMMITS less than last prepared certificate will be processed
+        end note
+        Node4 -> Node4: process ORDERED msgs
+        alt audit ledger is empty when processing ORDERED msg
+            Node4 -> Node4: re-apply 3PC batch
+            note right Node4
+                re-apply 3PC batch since uncommitted state was reverted
+                for this batch before catchup, but ORDERED msg was created only during catch-up
+            end note
+        end alt
     end loop
 
     Node4 -> Node4: Check if next catch-up is needed

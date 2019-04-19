@@ -3099,10 +3099,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.display("{} primary has been disconnected for too long".format(self))
 
-        if not self.isReady():
+        if not self.isReady() or not self.is_synced:
             logger.info('{} The node is not ready yet '
                         'so view change will not be proposed now, but re-scheduled.'.format(self))
-            # self._schedule_view_change()
+            self._schedule_view_change()
             return
 
         self.view_changer.on_primary_loss()

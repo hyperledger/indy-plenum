@@ -1,5 +1,6 @@
 import types
 
+from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.common.util import randomString
 from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.types import HA
@@ -378,3 +379,10 @@ def nodes_received_ic(nodes, frm, view_no=1):
     for n in nodes:
         assert n.view_changer.instance_changes.has_inst_chng_from(view_no,
                                                                  frm.name)
+
+def check_prepare_certificate(nodes, ppSeqNo):
+    for node in nodes:
+        key = (node.viewNo, ppSeqNo)
+        quorum = node.master_replica.quorums.prepare.value
+        assert node.master_replica.prepares.hasQuorum(ThreePhaseKey(*key),
+                                                       quorum)
