@@ -614,8 +614,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # decided.
                 return
             self._gc_before_new_view()
-            if self.viewNo > 0 and self.last_ordered_3pc[1] == 0:
+            if self.__should_reset_watermarks_before_new_view():
                 self._reset_watermarks_before_new_view()
+
+    def __should_reset_watermarks_before_new_view(self):
+        if self.viewNo <= 0:
+            return False
+        if self.last_ordered_3pc[0] == self.viewNo and self.last_ordered_3pc[1] > 0:
+            return False
+        return True
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1

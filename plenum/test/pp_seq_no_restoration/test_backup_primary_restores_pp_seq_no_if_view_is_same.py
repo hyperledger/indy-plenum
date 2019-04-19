@@ -34,7 +34,8 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
     seq_no = 7 if view_no == 0 else 8
 
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, seq_no)),
+        eventually(lambda r: assertExp(r.last_ordered_3pc == (view_no, seq_no)),
+                   replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
