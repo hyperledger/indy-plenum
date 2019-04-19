@@ -27,11 +27,11 @@ def tconf(tconf):
     tconf.CHK_FREQ = old_chk_freq
 
 
-def test_restart_node_with_view_changes(tdir, tconf,
-                                        looper,
-                                        txnPoolNodeSet,
-                                        sdk_pool_handle,
-                                        sdk_wallet_client):
+def test_watermarks_after_view_change(tdir, tconf,
+                                      looper,
+                                      txnPoolNodeSet,
+                                      sdk_pool_handle,
+                                      sdk_wallet_client):
     """
     Delay commit, checkpoint, InstanceChange and ViewChangeDone messages for lagging_node.
     Start ViewChange.
