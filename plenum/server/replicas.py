@@ -200,7 +200,7 @@ class Replicas:
                 continue
 
             # get pre-prepare sender
-            prepre_sender = replica.primaryNames[viewNo]
+            prepre_sender = replica.primaryNames.get(viewNo, 'UNKNOWN')
 
             # get prepares info
             prepares = replica.prepares[(viewNo, ppSeqNo)][0] \
