@@ -46,7 +46,7 @@ from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica
+    getPrimaryReplica, getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -1292,6 +1292,11 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
     # The primary node receives the same number of messages. Doesn't get pre-prepare,
     # but gets one more prepare
     return pre_prepare + prepares + commits
+
+
+def check_missing_pre_prepares(nodes, count):
+    assert all(count <= len(replica.prePreparesPendingPrevPP)
+               for replica in getNonPrimaryReplicas(nodes, instId=0))
 
 
 class MockTimestamp:
