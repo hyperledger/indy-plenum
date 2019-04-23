@@ -13,4 +13,5 @@ class PlenumTransactions(Transactions):
     # components.
     NODE = "0"
     NYM = "1"
+    AUDIT = "2"
     GET_TXN = "3"

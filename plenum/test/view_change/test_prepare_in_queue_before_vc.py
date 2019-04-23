@@ -40,16 +40,18 @@ def not_processing_prepare(node):
         """
         Process the messages in the node inbox asynchronously.
         """
+
         def get_ident(nodestack, node_name):
             ha = nodestack.remotes.get(node_name)
             for k, v in nodestack.remotesByKeys.items():
                 if v == ha:
                     return k
+
         self.nodeIbStasher.process()
         for i in range(len(self.nodeInBox)):
             m = self.nodeInBox.popleft()
             if isinstance(m, tuple) and len(
-                m) == 2 and not hasattr(m, '_field_types') and \
+                    m) == 2 and not hasattr(m, '_field_types') and \
                     (isinstance(m[0], Prepare) or isinstance(m[0], Commit)):
                 stashed_msgs.append((json.dumps(m[0]._asdict()),
                                      get_ident(self.nodestack, m[1])))
@@ -72,13 +74,14 @@ def test_prepare_in_queue_before_vc(looper,
     4. Compare last_ordered_3pc_key and last_prepared_certificate. Last_prepared_certificate must be greater then last ordered
     5. ppSeqNo in last_prepared_certificate must be at least as ppSeqNo for queued Prepares msgs in nodeInBox queue
     """
+
     def chk_quorumed_prepares_count(prepares, count):
         pp_qourum = slow_node.quorums.prepare.value
         assert len([pp for key, pp in prepares.items() if prepares.hasQuorum(pp.msg, pp_qourum)]) == count
 
-    def patched_startViewChange(self, *args, **kwargs):
+    def patched_start_view_change(self, *args, **kwargs):
         self.node.processNodeInBox = functools.partial(TestNode.processNodeInBox, self.node)
-        ViewChanger.startViewChange(self, *args, **kwargs)
+        ViewChanger.start_view_change(self, *args, **kwargs)
         while stashed_msgs:
             self.node.nodestack.rxMsgs.append(stashed_msgs.popleft())
 
@@ -100,7 +103,7 @@ def test_prepare_in_queue_before_vc(looper,
     """Delay view_change_done messages"""
     slow_node.nodeIbStasher.delay(vcd_delay(100))
     """Patch on_view_change_start method for reverting processNodeInBox method"""
-    slow_node.view_changer.startViewChange = functools.partial(patched_startViewChange, slow_node.view_changer)
+    slow_node.view_changer.start_view_change = functools.partial(patched_start_view_change, slow_node.view_changer)
     """Initiate view change"""
     ensure_view_change(looper, txnPoolNodeSet)
     """Last prepared certificate should take into account Prepares in nodeInBox queue too"""

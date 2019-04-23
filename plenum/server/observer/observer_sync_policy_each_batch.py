@@ -3,10 +3,12 @@ from heapq import heappush, heappop
 from logging import getLogger
 
 from common.exceptions import PlenumValueError
+from ledger.ledger import Ledger
 from plenum.common.constants import BATCH, OBSERVER_PREFIX
 from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.common.util import mostCommonElement
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicy
 
 logger = getLogger()
@@ -141,18 +143,14 @@ class ObserverSyncPolicyEachBatch(ObserverSyncPolicy):
     def _do_apply_batch(self, batch):
         reqs = [Request(**req_dict) for req_dict in batch[f.REQUESTS.nm]]
 
-        pp_time = batch[f.PP_TIME.nm]
         ledger_id = batch[f.LEDGER_ID.nm]
-        state_root = batch[f.STATE_ROOT.nm]
-        txn_root = batch[f.TXN_ROOT.nm]
+        three_pc_batch = ThreePcBatch.from_batch_committed_dict(batch)
+        self._node.apply_reqs(reqs, three_pc_batch)
 
-        self._node.apply_reqs(reqs,
-                              pp_time,
-                              ledger_id)
-        self._node.get_executer(ledger_id)(pp_time,
-                                           reqs,
-                                           state_root,
-                                           txn_root)
+        # We need hashes in apply and str in commit
+        three_pc_batch.txn_root = Ledger.hashToStr(three_pc_batch.txn_root)
+        three_pc_batch.state_root = Ledger.hashToStr(three_pc_batch.state_root)
+        self._node.get_executer(ledger_id)(three_pc_batch)
 
     def _process_stashed_messages(self):
         while True:

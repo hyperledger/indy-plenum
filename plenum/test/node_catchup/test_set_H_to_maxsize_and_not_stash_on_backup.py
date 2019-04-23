@@ -46,7 +46,8 @@ def test_set_H_greater_then_last_ppseqno(looper,
     """Adding new node, for scheduling propagate primary procedure"""
     new_node = add_new_node(looper, txnPoolNodeSet, sdk_pool_handle,
                             sdk_wallet_steward, tdir, tconf, allPluginsPath)
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
     """Check, that backup replicas set watermark as (0, maxInt)"""
     # Check, replica.h is set from last_ordered_3PC and replica.H is set to maxsize
     for r in new_node.replicas.values():
@@ -61,7 +62,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     for r in new_node.replicas.values():
         assert r.stasher.num_stashed_watermarks == 0
 
-    """Force view change and check, that all backup replicas setup H as a default
+    """Force view change and check, that all backup replicas setup H as a default<
     (not propagate primary logic)"""
     """This need to ensure, that next view_change does not break watermark setting logic"""
 

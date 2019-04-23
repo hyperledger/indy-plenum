@@ -36,9 +36,8 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("send at least one checkpoint")
-    assert nodes_do_not_have_checkpoints(*active_nodes)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 2 * checkpoint_size)
+                              sdk_wallet_steward, 2 * checkpoint_size - 1)
     assert nodes_have_checkpoints(*active_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
@@ -55,12 +54,14 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     ensureElectionsDone(looper=looper, nodes=active_nodes,
                         instances_list=range(2), customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
-    ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=active_nodes,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
 
     logger.info("Check if the pool is able to process requests")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 10 * checkpoint_size)
-    ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=active_nodes,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
     assert nodes_have_checkpoints(*active_nodes)
 
 

@@ -4,10 +4,11 @@ import pytest as pytest
 
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE, LEDGER_STATUS
 from plenum.common.startable import Mode
-from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay, lsDelay, cpDelay, cs_delay
+from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay
 from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp, sdk_send_random_request, \
     sdk_get_and_check_replies
-from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
@@ -34,7 +35,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
     10. Reset Ledger Status on Nodes1-3
     11. Check that 3 nodes finished VC while Node4 is syncing and not finished
     12. Reset CatchupRep on Node4
-    13. Check that Node4 finished VC, and there was just 1 round of cacth-up (edited)
+    13. Check that Node4 finished VC, and there was just 1 round of catch-up
     """
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
@@ -73,14 +74,14 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
 
                     for n in txnPoolNodeSet:
                         n.view_changer.on_master_degradation()
-                    looper.run(eventually(lambda: assertExp(slow_node.mode == Mode.syncing)))
+                    looper.run(eventually(lambda: assertExp(slow_node.mode == Mode.discovering)))
 
                     # Reset delay Commit messages for all nodes.
                     for n in txnPoolNodeSet:
                         n.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
                     assert slow_node.view_change_in_progress
-                    assert slow_node.mode == Mode.syncing
+                    assert slow_node.mode == Mode.discovering
                     looper.run(eventually(_check_nodes_stashed,
                                           fast_nodes,
                                           old_stashed,
@@ -102,10 +103,13 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
         ensureElectionsDone(looper=looper,
                             nodes=txnPoolNodeSet)
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
-        assert all(n.master_replica.last_ordered_3pc == (last_ordered[0],
-                                                         last_ordered[1] + 2)
+        assert all(n.master_replica.last_ordered_3pc == (view_no + 1,
+                                                         1)
                    for n in txnPoolNodeSet)
         assert slow_node.catchup_rounds_without_txns == 1
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
 
 
 def _check_nodes_stashed(nodes, old_stashed, new_stashed):

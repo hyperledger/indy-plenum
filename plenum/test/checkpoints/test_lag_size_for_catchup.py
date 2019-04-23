@@ -1,13 +1,12 @@
 from logging import getLogger
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.replica import Replica
 from plenum.test import waits
 
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    checkNodeDataForInequality
+    checkNodeDataForInequality, get_number_of_completed_catchups
 from plenum.test.test_node import getNonPrimaryReplicas
 
 logger = getLogger()
@@ -68,16 +67,7 @@ def test_lag_size_for_catchup(
                                            sdk_wallet_client,
                                            reqs_for_checkpoint)
 
-    waitNodeDataEquality(looper, slow_node, *other_nodes)
+    waitNodeDataEquality(looper, slow_node, *other_nodes, exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Verify that the slow node has caught up
     assert get_number_of_completed_catchups(slow_node) > completed_catchups_before_reqs
-
-
-def get_number_of_completed_catchups(node):
-    cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(
-            node.ledgerManager.catchupCompleted):
-        if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
-            cnt += 1
-    return cnt

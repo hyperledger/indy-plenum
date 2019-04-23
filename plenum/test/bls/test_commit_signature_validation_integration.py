@@ -1,5 +1,7 @@
 from contextlib import contextmanager
 
+from orderedset._orderedset import OrderedSet
+
 from plenum.common.constants import STEWARD_STRING
 from plenum.test.helper import sdk_send_random_request, get_key_from_req, sdk_get_and_check_replies, \
     sdk_send_random_and_check
@@ -13,15 +15,14 @@ def ord_delay(nodes):
     delay_msgs = dict()
     processing_methods = dict()
     for n in nodes:
-        delay_msgs.setdefault(n.name, [])
+        delay_msgs.setdefault(n.name, OrderedSet())
         processing_methods[n.name] = n.try_processing_ordered
-        n.try_processing_ordered = lambda msg: delay_msgs[n.name].append(msg)
+        n.try_processing_ordered = lambda msg: delay_msgs[n.name].add(msg)
 
     yield
 
     for n in nodes:
         n.try_processing_ordered = processing_methods[n.name]
-        delay_msgs[n.name].reverse()
         for msg in delay_msgs[n.name]:
             n.try_processing_ordered(msg)
 

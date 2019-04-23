@@ -84,7 +84,7 @@ class MultiSignature:
         """
         if not isinstance(signature, str):
             raise PlenumTypeError('signature', signature, str)
-        if not isinstance(participants, list):
+        if not isinstance(participants, (list, tuple)):
             raise PlenumTypeError('participants', participants, list)
         if not participants:
             raise ValueError("'participants' list shouldn't be empty")

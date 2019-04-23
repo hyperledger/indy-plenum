@@ -47,6 +47,9 @@ class Replicas:
                                description),
                        extra={"tags": ["node-replica"]})
 
+        logger.info('reset monitor due to replica addition')
+        self._monitor.reset()
+
     def remove_replica(self, inst_id: int):
         if inst_id not in self._replicas:
             return
@@ -197,7 +200,7 @@ class Replicas:
                 continue
 
             # get pre-prepare sender
-            prepre_sender = replica.primaryNames[viewNo]
+            prepre_sender = replica.primaryNames.get(viewNo, 'UNKNOWN')
 
             # get prepares info
             prepares = replica.prepares[(viewNo, ppSeqNo)][0] \

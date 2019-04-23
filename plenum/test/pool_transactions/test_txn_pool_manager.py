@@ -4,9 +4,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
 
-from plenum.common.metrics_collector import MetricsName
-
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, assertExp
 
 from plenum.common.txn_util import get_type, get_payload_data
 
@@ -25,13 +23,6 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
     alive_pool = list(txnPoolNodeSet)
     alive_pool.remove(demoted_node)
 
-    def get_node_prods_count(node):
-        return node.metrics._accumulators[MetricsName.NODE_PROD_TIME].count
-
-    def is_prods_run(node, old, diff):
-        new = get_node_prods_count(node)
-        assert old + diff <= new
-
     demote_node(looper, sdk_wallet_stewards[2], sdk_pool_handle, demoted_node)
     demote_node(looper, sdk_wallet_stewards[2], sdk_pool_handle, demoted_node)
 
@@ -49,14 +40,10 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_stewards[0], request_count)
 
-    old = get_node_prods_count(txnPoolNodeSet[0])
-
-    # Let primary node make 2 prod runs so we make sure that
-    # node did not appear in network reconnection
-    looper.run(eventually(is_prods_run, txnPoolNodeSet[0], old, 2))
-
-    assert txnPoolNodeSet[0].domainLedger.size - request_count == \
-           demoted_node.domainLedger.size
+    looper.run(
+        eventually(
+            lambda: assertExp(txnPoolNodeSet[0].domainLedger.size - request_count == \
+                              demoted_node.domainLedger.size)))
 
 
 def test_get_nym_by_name(txnPoolNodeSet, pool_node_txns):

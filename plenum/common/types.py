@@ -22,6 +22,7 @@ class f:  # provides a namespace for reusable field constants
     ROUND = Field("round", int)
     IDENTIFIER = Field('identifier', str)
     DIGEST = Field('digest', str)
+    PAYLOAD_DIGEST = Field('payloadDigest', str)
     DIGESTS = Field('digests', List[str])
     RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
     SEQ_NO = Field('seqNo', int)
@@ -53,6 +54,7 @@ class f:  # provides a namespace for reusable field constants
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("stateRootHash", str)
     POOL_STATE_ROOT_HASH = Field("poolStateRootHash", str)
+    AUDIT_TXN_ROOT_HASH = Field("auditTxnRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     BLS_SIG = Field("blsSig", str)
     BLS_MULTI_SIG = Field("blsMultiSig", str)
@@ -79,6 +81,7 @@ class f:  # provides a namespace for reusable field constants
     FINAL = Field('final', bool)
     VALID_REQ_IDR = Field("valid_reqIdr", List[str])
     INVALID_REQ_IDR = Field("invalid_reqIdr", List[str])
+    PRIMARIES = Field("primaries", List[str])
 
 
 OPERATION = 'operation'

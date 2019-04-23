@@ -7,6 +7,7 @@ from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.primary_selection.test_primary_selector import FakeNode
+from plenum.test.testing_utils import FakeSomething
 
 
 class FakeReplicas:
@@ -407,3 +408,12 @@ def test_process_backup_instance_faulty_msg_quorum_for_different_replicas(backup
     assert len(node.replicas.remove_replica_calls) == 1
     assert node.replicas.remove_replica_calls[0] == instance_to_remove
     assert nodes.issubset(backup_instance_faulty_processor.backup_instances_faulty[instance_not_removed].keys())
+
+
+def test_quorum_collection(tdir):
+    node = FakeNode(tdir)
+    proc = BackupInstanceFaultyProcessor(node)
+    backup_faulty = BackupInstanceFaulty(0, [1], Suspicions.BACKUP_PRIMARY_DEGRADED.code)
+    proc.process_backup_instance_faulty_msg(backup_faulty, 'someone')
+
+    assert len(proc.backup_instances_faulty[1].keys()) == 1

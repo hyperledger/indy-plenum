@@ -28,7 +28,7 @@ RUN apt-get update -y && apt-get install -y \
 RUN pip3 install -U setuptools
 
 # install fpm
-RUN gem install --no-ri --no-rdoc fpm
+RUN gem install --no-ri --no-rdoc rake fpm
 
 WORKDIR /root
 

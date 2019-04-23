@@ -81,6 +81,13 @@ class Suspicions:
     PPR_POOL_STATE_ROOT_HASH_WRONG = Suspicion(41, "Pre-Prepare message has "
                                                    "incorrect pool state root hash")
     PPR_WITH_ORDERED_REQUEST = Suspicion(42, "Pre-Prepare message has already ordered requests")
+    STATE_SIGS_ARE_NOT_UPDATED = Suspicion(43, "State signatures are not updated for too long")
+    PPR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(44, "Pre-Prepare message has "
+                                                  "incorrect audit ledger transaction root hash")
+    PR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(45, "Prepare message has "
+                                                 "incorrect audit ledger transaction root hash")
+
+    REPLICAS_COUNT_CHANGED = Suspicion(46, "Replica's count changed")
 
     @classmethod
     def get_list(cls):

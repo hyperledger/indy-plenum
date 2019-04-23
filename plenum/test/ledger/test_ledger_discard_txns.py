@@ -1,4 +1,12 @@
+import pytest
+
+from common.exceptions import LogicError
 from plenum.test.ledger.conftest import create_txns, TXNS_IN_BATCH
+
+
+def test_discard_notempty_no_uncommitted(ledger):
+    with pytest.raises(LogicError):
+        ledger.discardTxns(1)
 
 
 def test_discard_empty_no_uncommitted(ledger):

@@ -27,6 +27,6 @@ def test_no_propagated_future_view_change_while_view_change(txnPoolNodeSet, loop
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
         # check that lagged node recived 3 Future VCD, but didn't start new view change
-        assert len(other_nodes) + initial_vhdc ==\
+        assert len(other_nodes) + initial_vhdc == \
                lagged_node.view_changer.spylog.count(lagged_node.view_changer.process_future_view_vchd_msg.__name__)
         assert old_view_no == checkViewNoForNodes([lagged_node])

@@ -5,6 +5,7 @@ from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import check_last_3pc_master, \
     waitNodeDataEquality
+from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
 TestRunningTimeLimitSec = 125
@@ -13,7 +14,7 @@ TestRunningTimeLimitSec = 125
 def chk_if_equal_txn_to_3pc(nodes, count=None):
     txn_to_tpc = []
     for node in nodes:
-        txn_to_tpc.append(node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID])
+        txn_to_tpc.append(node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID][0])
     assert check_if_all_equal_in_list(txn_to_tpc)
     if count is not None:
         assert len(txn_to_tpc[0]) == count
@@ -53,15 +54,22 @@ def pre_check(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client)
                           tconf.ProcessedBatchMapsToKeep))
 
 
+@pytest.mark.skip('Functionality removed in INDY-1946')
 def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet, pre_check,
                                            sdk_node_created_after_some_txns):
     _, new_node, sdk_pool_handle, new_steward_wallet_handle = \
         sdk_node_created_after_some_txns
     txnPoolNodeSet.append(new_node)
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     # Check the new node has set same `last_3pc_ordered` for master as others
     check_last_3pc_master(new_node, txnPoolNodeSet[:4])
-    chk_if_equal_txn_to_3pc(txnPoolNodeSet[:4])
+
+    # check that the node has the same primaries
+    ensureElectionsDone(looper=looper,
+                        nodes=txnPoolNodeSet)
+
     # Requests still processed
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 2)

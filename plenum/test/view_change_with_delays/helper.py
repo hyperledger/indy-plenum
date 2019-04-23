@@ -42,6 +42,12 @@ def check_last_prepared_certificate(nodes, num):
         assert n.master_replica.last_prepared_certificate_in_view() == num
 
 
+def check_last_prepared_certificate_after_view_change_start(nodes, num):
+    # Check that last_prepared_certificate reaches some 3PC key on all nodes
+    for n in nodes:
+        assert n.master_replica.last_prepared_before_view_change == num
+
+
 def check_view_change_done(nodes, view_no):
     # Check that view change is done and view_no is not less than target
     for n in nodes:

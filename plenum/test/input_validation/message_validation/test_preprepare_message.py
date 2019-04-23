@@ -19,6 +19,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("sub_seq_no", NonNegativeNumberField),
     ("final", BooleanField),
     ("poolStateRootHash", MerkleRootField),
+    ("auditTxnRootHash", MerkleRootField),
     ("blsMultiSig", BlsMultiSignatureField),
     ('plugin_fields', AnyMapField)
 ])
