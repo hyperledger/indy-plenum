@@ -39,18 +39,18 @@ def inst_id(request):
 
 
 @pytest.fixture(scope='function')
-def replica_with_valid_requests(replica):
+def replica_with_valid_requests(primary_replica):
     requests = {ledger_id: sdk_random_request_objects(1, identifier="did",
                                                       protocol_version=CURRENT_PROTOCOL_VERSION)[0]
                 for ledger_id in LEDGER_IDS}
 
     def patched_consume_req_queue_for_pre_prepare(ledger_id, tm, view_no, pp_seq_no):
-        reqs = [requests[ledger_id]] if len(replica.requestQueues[ledger_id]) > 0 else []
+        reqs = [requests[ledger_id]] if len(primary_replica.requestQueues[ledger_id]) > 0 else []
         return [reqs, [], []]
 
-    replica.consume_req_queue_for_pre_prepare = patched_consume_req_queue_for_pre_prepare
+    primary_replica.consume_req_queue_for_pre_prepare = patched_consume_req_queue_for_pre_prepare
 
-    return replica, requests
+    return primary_replica, requests
 
 
 def set_current_time(replica, ts):
@@ -78,79 +78,79 @@ def check_and_pop_freshness_pre_prepare(replica, ledger_id):
     msg = replica.outBox.popleft()
     assert isinstance(msg, PrePrepare)
     assert msg.ledgerId == ledger_id
-    assert msg.reqIdr == []
+    assert msg.reqIdr == tuple()
 
 
-def test_no_freshness_pre_prepare_when_disabled(tconf, replica):
+def test_no_freshness_pre_prepare_when_disabled(tconf, primary_replica):
     with freshness(tconf, enabled=False, timeout=FRESHNESS_TIMEOUT):
-        assert len(replica.outBox) == 0
+        assert len(primary_replica.outBox) == 0
 
-        replica.send_3pc_batch()
-        assert len(replica.outBox) == 0
+        primary_replica.send_3pc_batch()
+        assert len(primary_replica.outBox) == 0
 
-        set_current_time(replica, FRESHNESS_TIMEOUT + 1)
-        replica.send_3pc_batch()
-        assert len(replica.outBox) == 0
-
-
-def test_no_freshness_pre_prepare_for_non_master(tconf, replica):
-    replica.isMaster = False
-    replica.instId = 1
-    assert len(replica.outBox) == 0
-
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 0
-
-    set_current_time(replica, FRESHNESS_TIMEOUT + 1)
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 0
+        set_current_time(primary_replica, FRESHNESS_TIMEOUT + 1)
+        primary_replica.send_3pc_batch()
+        assert len(primary_replica.outBox) == 0
 
 
-def test_freshness_pre_prepare_initially(replica):
-    assert len(replica.outBox) == 0
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 0
+def test_no_freshness_pre_prepare_for_non_master(tconf, primary_replica):
+    primary_replica.isMaster = False
+    primary_replica.instId = 1
+    assert len(primary_replica.outBox) == 0
+
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 0
+
+    set_current_time(primary_replica, FRESHNESS_TIMEOUT + 1)
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 0
+
+
+def test_freshness_pre_prepare_initially(primary_replica):
+    assert len(primary_replica.outBox) == 0
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 0
 
 
 @pytest.mark.parametrize('ts', [
     0, 1, FRESHNESS_TIMEOUT, -1, -FRESHNESS_TIMEOUT
 ])
-def test_freshness_pre_prepare_before_timeout(replica, ts):
-    assert len(replica.outBox) == 0
-    set_current_time(replica, ts)
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 0
+def test_freshness_pre_prepare_before_timeout(primary_replica, ts):
+    assert len(primary_replica.outBox) == 0
+    set_current_time(primary_replica, ts)
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 0
 
 
-def test_freshness_pre_prepare_after_timepout(replica):
-    assert len(replica.outBox) == 0
-    replica.send_3pc_batch()
-    set_current_time(replica, FRESHNESS_TIMEOUT + 1)
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 3
+def test_freshness_pre_prepare_after_timeout(primary_replica):
+    assert len(primary_replica.outBox) == 0
+    primary_replica.send_3pc_batch()
+    set_current_time(primary_replica, FRESHNESS_TIMEOUT + 1)
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 3
 
-    check_and_pop_freshness_pre_prepare(replica, POOL_LEDGER_ID)
-    check_and_pop_freshness_pre_prepare(replica, DOMAIN_LEDGER_ID)
-    check_and_pop_freshness_pre_prepare(replica, CONFIG_LEDGER_ID)
+    check_and_pop_freshness_pre_prepare(primary_replica, POOL_LEDGER_ID)
+    check_and_pop_freshness_pre_prepare(primary_replica, DOMAIN_LEDGER_ID)
+    check_and_pop_freshness_pre_prepare(primary_replica, CONFIG_LEDGER_ID)
 
 
-def test_freshness_pre_prepare_not_resend_before_next_timeout(replica):
-    assert len(replica.outBox) == 0
+def test_freshness_pre_prepare_not_resend_before_next_timeout(primary_replica):
+    assert len(primary_replica.outBox) == 0
 
-    set_current_time(replica, FRESHNESS_TIMEOUT + 1)
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 3
+    set_current_time(primary_replica, FRESHNESS_TIMEOUT + 1)
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 3
 
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 3
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 3
 
-    set_current_time(replica, FRESHNESS_TIMEOUT + 1 + FRESHNESS_TIMEOUT)
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 3
+    set_current_time(primary_replica, FRESHNESS_TIMEOUT + 1 + FRESHNESS_TIMEOUT)
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 3
 
-    set_current_time(replica, FRESHNESS_TIMEOUT + 1 + FRESHNESS_TIMEOUT + 1)
-    replica.send_3pc_batch()
-    assert len(replica.outBox) == 6
+    set_current_time(primary_replica, FRESHNESS_TIMEOUT + 1 + FRESHNESS_TIMEOUT + 1)
+    primary_replica.send_3pc_batch()
+    assert len(primary_replica.outBox) == 6
 
 
 @pytest.mark.parametrize('ordered, refreshed', [

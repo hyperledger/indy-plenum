@@ -254,13 +254,11 @@ REMOTES_MESSAGE_QUOTA = 100
 Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
+# Max allowed number of 3PC batches in flight (or None to disable limit)
+Max3PCBatchesInFlight = None
 
 UPDATE_STATE_FRESHNESS = True
 STATE_FRESHNESS_UPDATE_INTERVAL = 300  # in secs
-
-# Each node keeps a map of PrePrepare sequence numbers and the corresponding
-# txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
-ProcessedBatchMapsToKeep = 1000
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent
@@ -294,7 +292,6 @@ MAX_STACK_RESTART_TIME_DEVIATION = 300  # seconds
 VIEW_CHANGE_TIMEOUT = 420  # seconds
 INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
-MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
 
 # permissions for keyring dirs/files
@@ -393,3 +390,6 @@ REPLICA_STASH_LIMIT = 100000
 
 # Time, which we wait before request propagate, when discovered unfinalized preprepare
 PROPAGATE_REQUEST_DELAY = 2
+
+# Intrval between attempts to process stashed out of order commits
+PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 1  # seconds

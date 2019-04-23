@@ -23,14 +23,20 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 1,
                         seq_no=initial_seq_no + 1, txn_time=node.master_replica.last_accepted_pre_prepare_time,
-                        ledger_id=DOMAIN_LEDGER_ID,
-                        txn_root=node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash,
-                        state_root=node.getState(DOMAIN_LEDGER_ID).committedHeadHash,
+                        txn_roots={
+                            POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash,
+                            DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash
+                        },
+                        state_roots={
+                            POOL_LEDGER_ID: node.getState(POOL_LEDGER_ID).committedHeadHash,
+                            DOMAIN_LEDGER_ID: node.getState(DOMAIN_LEDGER_ID).committedHeadHash
+                        },
                         pool_size=initial_pool_size, domain_size=initial_domain_size + 1,
                         config_size=initial_config_size,
                         last_pool_seqno=None,
                         last_domain_seqno=None,
-                        last_config_seqno=None)
+                        last_config_seqno=None,
+                        primaries=node.primaries)
 
     # 2d domain txn
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -41,14 +47,18 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 2,
                         seq_no=initial_seq_no + 2, txn_time=node.master_replica.last_accepted_pre_prepare_time,
-                        ledger_id=DOMAIN_LEDGER_ID,
-                        txn_root=node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash,
-                        state_root=node.getState(DOMAIN_LEDGER_ID).committedHeadHash,
+                        txn_roots={
+                            DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash
+                        },
+                        state_roots={
+                            DOMAIN_LEDGER_ID: node.getState(DOMAIN_LEDGER_ID).committedHeadHash
+                        },
                         pool_size=initial_pool_size, domain_size=initial_domain_size + 2,
                         config_size=initial_config_size,
-                        last_pool_seqno=None,
+                        last_pool_seqno=1,
                         last_domain_seqno=None,
-                        last_config_seqno=None)
+                        last_config_seqno=None,
+                        primaries=1)
 
     # 1st pool txn
     sdk_change_bls_key(looper, txnPoolNodeSet,
@@ -62,14 +72,18 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 3,
                         seq_no=initial_seq_no + 3, txn_time=node.master_replica.last_accepted_pre_prepare_time,
-                        ledger_id=POOL_LEDGER_ID,
-                        txn_root=node.getLedger(POOL_LEDGER_ID).tree.root_hash,
-                        state_root=node.getState(POOL_LEDGER_ID).committedHeadHash,
+                        txn_roots={
+                            POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash
+                        },
+                        state_roots={
+                            POOL_LEDGER_ID: node.getState(POOL_LEDGER_ID).committedHeadHash
+                        },
                         pool_size=initial_pool_size + 1, domain_size=initial_domain_size + 2,
                         config_size=initial_config_size,
-                        last_pool_seqno=None,
+                        last_pool_seqno=1,
                         last_domain_seqno=2,
-                        last_config_seqno=None)
+                        last_config_seqno=None,
+                        primaries=2)
 
     # 2d pool txn
     sdk_change_bls_key(looper, txnPoolNodeSet,
@@ -83,14 +97,18 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 4,
                         seq_no=initial_seq_no + 4, txn_time=node.master_replica.last_accepted_pre_prepare_time,
-                        ledger_id=POOL_LEDGER_ID,
-                        txn_root=node.getLedger(POOL_LEDGER_ID).tree.root_hash,
-                        state_root=node.getState(POOL_LEDGER_ID).committedHeadHash,
+                        txn_roots={
+                            POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash
+                        },
+                        state_roots={
+                            POOL_LEDGER_ID: node.getState(POOL_LEDGER_ID).committedHeadHash
+                        },
                         pool_size=initial_pool_size + 2, domain_size=initial_domain_size + 2,
                         config_size=initial_config_size,
-                        last_pool_seqno=None,
+                        last_pool_seqno=2,
                         last_domain_seqno=2,
-                        last_config_seqno=None)
+                        last_config_seqno=None,
+                        primaries=3)
 
     # one more domain txn
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -101,11 +119,15 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 5,
                         seq_no=initial_seq_no + 5, txn_time=node.master_replica.last_accepted_pre_prepare_time,
-                        ledger_id=DOMAIN_LEDGER_ID,
-                        txn_root=node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash,
-                        state_root=node.getState(DOMAIN_LEDGER_ID).committedHeadHash,
+                        txn_roots={
+                            DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash
+                        },
+                        state_roots={
+                            DOMAIN_LEDGER_ID: node.getState(DOMAIN_LEDGER_ID).committedHeadHash
+                        },
                         pool_size=initial_pool_size + 2, domain_size=initial_domain_size + 3,
                         config_size=initial_config_size,
                         last_pool_seqno=4,
                         last_domain_seqno=None,
-                        last_config_seqno=None)
+                        last_config_seqno=None,
+                        primaries=4)

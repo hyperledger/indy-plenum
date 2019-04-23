@@ -61,7 +61,7 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
             dict_for_compare['nodes_store'] = domain_ledger.tree.hashStore.nodesFile.db_file.read()
             domain_ledger.tree.hashStore.nodesFile.db_file.seek(c_pos)
         elif tconf.hashStore['type'] == HS_LEVELDB or tconf.hashStore['type'] == HS_ROCKSDB:
-            dict_for_compare['leaves_store'] = domain_ledger.tree.hashStore.\
+            dict_for_compare['leaves_store'] = domain_ledger.tree.hashStore. \
                 readLeafs(1, domain_ledger.tree.hashStore.leafCount)
             dict_for_compare['nodes_store'] = domain_ledger.tree.hashStore. \
                 readNodes(1, domain_ledger.tree.hashStore.nodeCount)

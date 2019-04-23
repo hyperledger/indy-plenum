@@ -93,11 +93,17 @@ Relevant code:
 - BlsStore: `plenum/bls/bls_store.py`
 
 #### 5. Request to Transaction Mapping Database
-- This database stores the mapping `request_digest -> ledger_id<delimiter>seq_no` in a key value store.
-- Each client request is uniquely identified by a `digest`.
+- This database stores the following mappings in a key value store:
+    - `request_payload_digest -> ledger_id<delimiter>seq_no`
+    - `request_full_digest -> request_payload_digest`
+- Each client request is uniquely identified by a `payload_digest` (without sigantures and plugin fields).
+- `full_digest` is calculated against payload, as well as multi-signatures and plugin fields.
 - When this request is ordered (consensus successfully completes), it is stored in the ledger and assigned a sequence number.
-- One use case is that the client can ask any node to give it the transaction corresponding to a request key `digest`, 
-and the node will use this database to get the sequence number and then use the sequence number to get the transaction from the ledger. 
+- One use case is that the client can ask any node to give it the transaction corresponding to a request key (`payload_digest`), 
+and the node will use this database to get the sequence number and then use the sequence number to get the transaction from the ledger.
+- The storage also protects against the following malicious actions:
+    - writing duplicate transactions (with the same payload)
+    - writing transactions with the same payload, but different multi-signatures
 - Storage name: `seq_no_db`
  
 Relevant code:

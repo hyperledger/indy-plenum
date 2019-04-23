@@ -110,6 +110,7 @@ AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
 AUDIT_TXN_LEDGERS_SIZE = "ledgerSize"
 AUDIT_TXN_LEDGER_ROOT = "ledgerRoot"
 AUDIT_TXN_STATE_ROOT = "stateRoot"
+AUDIT_TXN_PRIMARIES = "primaries"
 
 
 # State proof fields
@@ -155,6 +156,7 @@ TXN_PAYLOAD_METADATA = "metadata"
 TXN_PAYLOAD_METADATA_FROM = "from"
 TXN_PAYLOAD_METADATA_REQ_ID = "reqId"
 TXN_PAYLOAD_METADATA_DIGEST = "digest"
+TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST = "payloadDigest"
 TXN_METADATA = "txnMetadata"
 TXN_METADATA_TIME = "txnTime"
 TXN_METADATA_ID = "txnId"
@@ -254,6 +256,7 @@ class NodeHooks(UniqueSet):
     POST_BATCH_REJECTED = 14
     PRE_BATCH_COMMITTED = 15
     POST_BATCH_COMMITTED = 16
+    POST_NODE_STOPPED = 17
 
 
 class ReplicaHooks(UniqueSet):

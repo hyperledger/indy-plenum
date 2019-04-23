@@ -7,6 +7,7 @@ from plenum.test.stasher import delay_rules
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.checkpoints.conftest import chkFreqPatched
+from plenum.test.replica.helper import register_pp_ts
 
 logger = getlogger()
 CHK_FREQ = 1
@@ -32,6 +33,7 @@ def test_replica_received_preprepare_with_ordered_request(looper,
 
     replica.node.discard = discard
 
+    register_pp_ts(replica, pp, sender)
     replica.processPrePrepare(pp, sender)
 
     assert 0 == replica.node.spylog.count(Node.request_propagates) - start_request_propagate_count

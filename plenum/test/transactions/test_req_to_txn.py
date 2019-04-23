@@ -24,14 +24,16 @@ def req_and_expected(request, looper, sdk_wallet_client):
         #     req.pop('signature')
         if request.param == 'no_protocol_vers':
             req.pop('protocolVersion')
-        digest = Request(
+        r = Request(
             req.get(f.IDENTIFIER.nm, None),
             req.get(f.REQ_ID.nm, None),
             req.get(OPERATION, None),
             req.get(f.SIG.nm, None),
             req.get(f.SIGS.nm, None),
             req.get(f.PROTOCOL_VERSION.nm, None)
-        ).digest
+        )
+        digest = r.digest
+        payload_digest = r.payload_digest
         sign = req.get(f.SIG.nm)
     else:
         req = Request(operation=op, reqId=1513945121191691,
@@ -47,6 +49,7 @@ def req_and_expected(request, looper, sdk_wallet_client):
         if request.param == 'no_protocol_vers':
             req.protocolVersion = None
         digest = req.digest
+        payload_digest = req.payload_digest
 
     new_expected = SortedDict({
         "reqSignature": {
@@ -80,6 +83,8 @@ def req_and_expected(request, looper, sdk_wallet_client):
         new_expected["txn"].pop("protocolVersion", None)
     if digest is not None:
         new_expected["txn"]["metadata"]["digest"] = digest
+    if payload_digest is not None:
+        new_expected["txn"]["metadata"]["payloadDigest"] = payload_digest
 
     return req, new_expected
 

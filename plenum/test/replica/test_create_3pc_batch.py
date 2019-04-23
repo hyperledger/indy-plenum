@@ -10,7 +10,7 @@ nodeCount = 4
 def test_create_3pc_batch_with_empty_requests(replica):
     pp = replica.create_3pc_batch(0)
     assert pp is not None
-    assert pp.reqIdr == []
+    assert pp.reqIdr == tuple()
 
 
 def test_create_3pc_batch(replica_with_requests, fake_requests, txn_roots, state_roots):
@@ -31,7 +31,7 @@ def test_create_3pc_batch(replica_with_requests, fake_requests, txn_roots, state
         assert pre_prepare_msg.ledgerId == ledger_id
         assert pre_prepare_msg.viewNo == replica_with_requests.viewNo
         assert pre_prepare_msg.instId == replica_with_requests.instId
-        assert pre_prepare_msg.reqIdr == [req.digest for req in fake_requests]
+        assert pre_prepare_msg.reqIdr == tuple(req.digest for req in fake_requests)
 
 
 def test_reqidr_ordered_regardless_validation_result(replica_with_requests, fake_requests):
@@ -47,4 +47,4 @@ def test_reqidr_ordered_regardless_validation_result(replica_with_requests, fake
     pre_prepare_msg = replica_with_requests.create_3pc_batch(DOMAIN_LEDGER_ID)
     invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare_msg.discarded)
     assert len(invalid_from_pp) == len(fake_requests) / 2
-    assert pre_prepare_msg.reqIdr == [res.key for res in fake_requests]
+    assert pre_prepare_msg.reqIdr == tuple(res.key for res in fake_requests)

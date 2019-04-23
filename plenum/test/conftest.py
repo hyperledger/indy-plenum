@@ -67,6 +67,7 @@ from plenum.test.test_node import TestNode, Pool, \
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.INFO)
+logging.getLogger("indy").setLevel(logging.WARNING)
 logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
@@ -275,7 +276,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'last try...',
                      'has uninitialised socket',
                      'to have incorrect time',
-                     'time not acceptable'
+                     'time not acceptable',
+                     'IndyError'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -294,7 +296,7 @@ def logcapture(request, whitelist, concerningLogLevels):
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
         if not (isBenign or isTest):
-            msg = str(record.msg)
+            msg = str(record.message if record.message else record.msg)
             # TODO combine whitelisted with '|' and use one regex for msg
             isWhiteListed = any(re.search(w, msg)
                                 for w in whiteListedExceptions)
@@ -306,7 +308,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                         fv.stopall()
                     if isinstance(fv, Prodable):
                         fv.stop()
-                raise BlowUp("{}: {} ".format(record.levelname, record.msg))
+                raise BlowUp("{}: {} ".format(record.levelname, msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
@@ -1155,7 +1157,8 @@ def sdk_node_set_with_node_added_after_some_txns(
 def sdk_new_node_caught_up(txnPoolNodeSet,
                            sdk_node_set_with_node_added_after_some_txns):
     looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     check_last_3pc_master(new_node, txnPoolNodeSet[:4])
 
     # Check if catchup done once

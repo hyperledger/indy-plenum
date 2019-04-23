@@ -55,9 +55,6 @@ def create_fake_catchup_rep_service(ledger: Ledger):
         def eligible_nodes(self) -> List[str]:
             pass
 
-        def three_phase_key_for_txn_seq_no(self, ledger_id: int, seq_no: int) -> Tuple[int, int]:
-            pass
-
         def update_txn_with_extra_data(self, txn: dict) -> dict:
             pass
 
@@ -67,7 +64,7 @@ def create_fake_catchup_rep_service(ledger: Ledger):
         def notify_catchup_start(self, ledger_id: int):
             pass
 
-        def notify_catchup_complete(self, ledger_id: int, last_3pc: Tuple[int, int]):
+        def notify_catchup_complete(self, ledger_id: int):
             pass
 
         def notify_transaction_added_to_ledger(self, ledger_id: int, txn: dict):
@@ -113,14 +110,14 @@ def test_missing_txn_request(ledger_no_genesis):
 
     # Ledger is already ahead
     ct = CatchupTill(start_size=1, final_size=10,
-                     final_hash='Gv9AdSeib9EnBakfpgkU79dPMtjcnFWXvXeiCX4QAgAC', view_no=0, pp_seq_no=0)
+                     final_hash='Gv9AdSeib9EnBakfpgkU79dPMtjcnFWXvXeiCX4QAgAC')
     service._catchup_till = ct
     service._received_catchup_txns = [(i, {}) for i in range(1, 15)]
     assert service._num_missing_txns() == 0
 
     # Ledger is behind but catchup replies present
     ct = CatchupTill(start_size=1, final_size=30,
-                     final_hash='EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC', view_no=0, pp_seq_no=0)
+                     final_hash='EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC')
     service._catchup_till = ct
     service._received_catchup_txns = [(i, {}) for i in range(21, 31)]
     assert service._num_missing_txns() == 0
@@ -129,7 +126,7 @@ def test_missing_txn_request(ledger_no_genesis):
 
     # Ledger is behind
     ct = CatchupTill(start_size=1, final_size=30,
-                     final_hash='EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC', view_no=0, pp_seq_no=0)
+                     final_hash='EEUnqHf2GWEpvmibiXDCZbNDSpuRgqdvCpJjgp3KFbNC')
     service._catchup_till = ct
     service._received_catchup_txns = [(i, {}) for i in range(21, 26)]
     assert service._num_missing_txns() == 5

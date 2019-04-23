@@ -39,7 +39,8 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(replicas_synced, new_node))

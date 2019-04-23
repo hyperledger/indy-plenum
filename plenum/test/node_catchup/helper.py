@@ -6,10 +6,11 @@ import pytest
 from plenum.common.constants import AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, \
     Checkpoint
-from plenum.common.util import check_if_all_equal_in_list
+from plenum.common.util import check_if_all_equal_in_list, getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
-    check_seqno_db_equality, assertEquality, check_last_ordered_3pc
+    check_seqno_db_equality, assertEquality, check_last_ordered_3pc, check_primaries_equality, check_view_no, \
+    check_last_ordered_3pc_backup
 from plenum.test.test_node import TestNode
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -21,7 +22,8 @@ logger = getlogger()
 #  ledgers to be equal
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: TestNode,
-                             exclude_from_check=None):
+                             exclude_from_check=None,
+                             include_in_check=None):
     def chk_ledger_and_state(first_node, second_node, ledger_id):
         checkLedgerEquality(first_node.getLedger(ledger_id),
                             second_node.getLedger(ledger_id))
@@ -32,15 +34,30 @@ def checkNodeDataForEquality(node: TestNode,
     # Checks for node's ledgers and state's to be equal
     check_audit_ledger = not exclude_from_check or ('check_audit' not in exclude_from_check)
     for n in otherNodes:
-        if exclude_from_check and 'check_last_ordered_3pc' not in exclude_from_check:
+        if not exclude_from_check or 'check_last_ordered_3pc' not in exclude_from_check:
             check_last_ordered_3pc(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
 
-        if exclude_from_check and 'check_seqno_db' not in exclude_from_check:
+        if include_in_check and 'check_last_ordered_3pc_backup' in include_in_check:
+            check_last_ordered_3pc_backup(node, n)
+        else:
+            logger.debug("Excluding check_last_ordered_3pc_backup check")
+
+        if not exclude_from_check or 'check_view_no' not in exclude_from_check:
+            check_view_no(node, n)
+        else:
+            logger.debug("Excluding check_view_no check")
+
+        if not exclude_from_check or 'check_seqno_db' not in exclude_from_check:
             check_seqno_db_equality(node.seqNoDB, n.seqNoDB)
         else:
             logger.debug("Excluding check_seqno_db_equality check")
+
+        if not exclude_from_check or 'check_primaries' not in exclude_from_check:
+            check_primaries_equality(node, n)
+        else:
+            logger.debug("Excluding check_primaries_equality check")
 
         for ledger_id in n.ledgerManager.ledgerRegistry:
             if not check_audit_ledger and ledger_id == AUDIT_LEDGER_ID:
@@ -60,7 +77,8 @@ def waitNodeDataEquality(looper,
                          referenceNode: TestNode,
                          *otherNodes: TestNode,
                          customTimeout=None,
-                         exclude_from_check=None):
+                         exclude_from_check=None,
+                         include_in_check=None):
     """
     Wait for node ledger to become equal
 
@@ -69,7 +87,8 @@ def waitNodeDataEquality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    kwargs = {'exclude_from_check': exclude_from_check}
+    kwargs = {'exclude_from_check': exclude_from_check,
+              'include_in_check': include_in_check}
     looper.run(eventually(partial(checkNodeDataForEquality, **kwargs),
                           referenceNode,
                           *otherNodes,

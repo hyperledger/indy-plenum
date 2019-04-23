@@ -131,6 +131,7 @@ def test_node_catchup_after_restart_with_txns(
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
               2 * delay_catchup_reply
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
-                         customTimeout=timeout)
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     send_and_chk(LedgerState.synced)

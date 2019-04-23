@@ -72,7 +72,8 @@ def test_replica_removing_after_node_started(looper,
                                                                 allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     looper.run(eventually(check_replica_removed,
                           new_node,
                           start_replicas_count,

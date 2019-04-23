@@ -158,11 +158,15 @@ rectangle "Caches" {
     database database5 [
     <b>Request to Transaction: <color blue>seq_no_db</color></b>
 
-    <i>RequestKey (digest) -> transaction seqNo</i> mapping.
+    <i>RequestKey (payload_digest) -> ledger_id : transaction seqNo</i> mapping.
+    <i>full_payload_digest (with signatures and plugin fields) -> payload_digest mapping.
 
     It's used to check if request is already ordered
-    (written to the ledger) and return the data from
-    the ledger for such write requests.
+    (written to the ledger).
+    This is needed to
+        - return the data from the ledger for already written requests.
+        - protection against writing duplicate txns
+        - protection against writing the same txn but with different multi-signatures
     ]
 
     database database4 [

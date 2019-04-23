@@ -307,6 +307,10 @@ class PoolLedgerTimeoutException(Exception):
     pass
 
 
+class SuspiciousPrePrepare(Exception):
+    pass
+
+
 class MissingProtocolVersionError(TypeError):
     def __init__(self, message):
         super().__init__(

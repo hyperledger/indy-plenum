@@ -1,4 +1,4 @@
-from typing import TypeVar, NamedTuple
+from typing import TypeVar, NamedTuple, Dict
 
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     BLACKLIST, REQACK, REQNACK, REJECT, \
@@ -20,6 +20,8 @@ from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
+
+# TODO set of classes are not hashable but MessageBase expects that
 
 class Nomination(MessageBase):
     typename = NOMINATE
@@ -124,6 +126,8 @@ class Ordered(MessageBase):
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
+        (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -162,6 +166,16 @@ class PrePrepare(MessageBase):
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
+
+    def _post_process(self, input_as_dict: Dict) -> Dict:
+        # make validated input hashable
+        input_as_dict[f.REQ_IDR.nm] = tuple(input_as_dict[f.REQ_IDR.nm])
+
+        bls = input_as_dict.get(f.BLS_MULTI_SIG.nm, None)
+        if bls is not None:
+            input_as_dict[f.BLS_MULTI_SIG.nm] = (bls[0], tuple(bls[1]), tuple(bls[2]))
+
+        return input_as_dict
 
 
 class Prepare(MessageBase):
@@ -395,6 +409,8 @@ class BatchCommitted(MessageBase):
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
+        (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
     )
 
 
@@ -430,9 +446,9 @@ class FutureViewChangeDone:
     Purpose: sent from Node to ViewChanger to indicate that other nodes finished ViewChange to one of the next view
     In particular, it's sent when CURRENT_STATE (with primary propagation) is processed.
     """
-    def __init__(self, vcd_msg: ViewChangeDone, from_current_state: bool) -> None:
+
+    def __init__(self, vcd_msg: ViewChangeDone) -> None:
         self.vcd_msg = vcd_msg
-        self.from_current_state = from_current_state
 
 
 class ViewChangeStartMessage(MessageBase):

@@ -1,5 +1,6 @@
 import types
 
+from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.common.util import randomString
 from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.types import HA
@@ -183,7 +184,8 @@ def ensure_several_view_change(looper, nodes, vc_count=1,
 
 def ensure_view_change_by_primary_restart(
         looper, nodes,
-        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None):
+        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None,
+        exclude_from_check=None):
     """
     This method stops current primary for a while to force a view change
 
@@ -215,7 +217,8 @@ def ensure_view_change_by_primary_restart(
     logger.debug("Ensure all nodes are connected")
     looper.run(checkNodesConnected(nodes))
     logger.debug("Ensure all nodes have the same data")
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes,
+                                    exclude_from_check=exclude_from_check)
 
     return nodes
 
@@ -335,7 +338,6 @@ def view_change_in_between_3pc_random_delays(
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)
 
 
-
 def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
                  tdir, tconf, all_plugins_path, name=None):
     node_name = name or "Psi"
@@ -348,7 +350,8 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
     looper.run(checkNodesConnected(nodes))
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
     waitNodeDataEquality(looper, new_node, *nodes[:-1],
-                         customTimeout=timeout)
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     sdk_pool_refresh(looper, sdk_pool_handle)
     return new_node
 
@@ -376,3 +379,10 @@ def nodes_received_ic(nodes, frm, view_no=1):
     for n in nodes:
         assert n.view_changer.instance_changes.has_inst_chng_from(view_no,
                                                                  frm.name)
+
+def check_prepare_certificate(nodes, ppSeqNo):
+    for node in nodes:
+        key = (node.viewNo, ppSeqNo)
+        quorum = node.master_replica.quorums.prepare.value
+        assert node.master_replica.prepares.hasQuorum(ThreePhaseKey(*key),
+                                                       quorum)

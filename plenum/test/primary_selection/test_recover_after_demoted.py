@@ -35,7 +35,8 @@ def test_restart_primaries_then_demote(
                                                           tconf,
                                                           tdir,
                                                           allPluginsPath,
-                                                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                                                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT,
+                                                          exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # ensure pool is working properly
     sdk_send_random_and_check(looper, pool_of_nodes, sdk_pool_handle,
@@ -47,7 +48,8 @@ def test_restart_primaries_then_demote(
                                                           tconf,
                                                           tdir,
                                                           allPluginsPath,
-                                                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                                                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT,
+                                                          exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # ensure pool is working properly
     sdk_send_random_and_check(looper, pool_of_nodes, sdk_pool_handle,
