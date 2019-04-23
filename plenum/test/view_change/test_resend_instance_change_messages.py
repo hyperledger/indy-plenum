@@ -40,7 +40,7 @@ def test_resend_instance_change_messages(looper,
     looper.run(eventually(partial(check_count_connected_node, txnPoolNodeSet, 4),
                           timeout=5,
                           acceptableExceptions=[AssertionError]))
-    looper.runFor(2*tconf.INSTANCE_CHANGE_TIMEOUT)
+    looper.runFor(2 * tconf.INSTANCE_CHANGE_TIMEOUT)
     assert set([n.view_changer.instance_change_rounds for n in txnPoolNodeSet]) == {1}
 
     looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)

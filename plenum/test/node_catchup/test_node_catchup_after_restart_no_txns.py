@@ -30,7 +30,8 @@ def test_node_catchup_after_restart_no_txns(
     It would then use the `LedgerStatus` to catchup
     """
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_set_with_node_added_after_some_txns
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(new_node, new_node.poolManager.txnSeqNo))
@@ -58,7 +59,8 @@ def test_node_catchup_after_restart_no_txns(
     looper.run(eventually(chk, retryWait=1))
 
     # sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     # Did not receive any consistency proofs
     assert get_count(new_node.ledgerManager,
                      new_node.ledgerManager.processConsistencyProof) == 0

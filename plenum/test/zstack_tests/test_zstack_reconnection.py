@@ -60,7 +60,8 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet,
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventually(checkFlakyConnected, True, retryWait=2, timeout=50))
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=2)
-    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 10)

@@ -42,6 +42,7 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.CATCHUP_TXNS_SENT,
             MetricsName.CATCHUP_TXNS_RECEIVED,
 
+            MetricsName.GC_GEN2_TIME,
             MetricsName.GC_UNCOLLECTABLE_OBJECTS,
             MetricsName.GC_GEN2_COLLECTED_OBJECTS,
 
@@ -54,6 +55,7 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.PROCESS_CATCHUP_REP_TIME,
             MetricsName.NODE_CHECK_NODE_REQUEST_SPIKE,
             MetricsName.NODE_SEND_REJECT_TIME,
+            MetricsName.AUTH_RULES_FROM_STATE_COUNT,
 
             # Obsolete metrics
             MetricsName.DESERIALIZE_DURING_UNPACK_TIME,
@@ -61,6 +63,8 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             # TODO: reduce monitor window so these events are also captured
             MetricsName.MONITOR_AVG_THROUGHPUT,
             MetricsName.BACKUP_MONITOR_AVG_THROUGHPUT,
+            MetricsName.MONITOR_AVG_LATENCY,
+            MetricsName.BACKUP_MONITOR_AVG_LATENCY,
 
             # Temporary metrics
             MetricsName.STORAGE_IDR_CACHE_READERS,

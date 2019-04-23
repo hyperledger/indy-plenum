@@ -126,6 +126,15 @@ class ClientMessageValidator(MessageValidator):
 
     def validate(self, dct):
         super().validate(dct)
-        if not (dct.get(f.IDENTIFIER.nm) or dct.get(f.SIGS.nm)):
+        identifier = dct.get(f.IDENTIFIER.nm, None)
+        signatures = dct.get(f.SIGS.nm, None)
+        signature = dct.get(f.SIG.nm, None)
+        if signatures and signature:
+            self._raise_invalid_message(
+                'Request must not contains both fields "signatures" and "signature"')
+        if identifier and signatures and identifier not in signatures:
+            self._raise_invalid_message(
+                'The identifier is not contained in signatures')
+        if not (identifier or signatures):
             self._raise_invalid_message(
                 'Missing both signatures and identifier')

@@ -1,6 +1,6 @@
 from plenum.common.request import Request
 from plenum.common.util import get_utc_epoch
-from plenum.server.replica_validator_enums import OLD_VIEW
+from plenum.server.replica_validator_enums import OLD_VIEW, ALREADY_ORDERED
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
@@ -50,7 +50,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                          inst_id=inst_id)
     sender.send(three_pc, rid_x_node)
     looper.run(eventually(checkDiscardMsg, [new_node.replicas[inst_id], ], three_pc,
-                          OLD_VIEW,
+                          ALREADY_ORDERED,
                           retryWait=1, timeout=messageTimeout))
 
     # TODO: the same check for ViewChangeDone

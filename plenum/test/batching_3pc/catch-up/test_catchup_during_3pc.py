@@ -1,33 +1,57 @@
 import pytest
-from plenum.test.batching_3pc.helper import add_txns_to_ledger_before_order, checkNodesHaveSameRoots
-from plenum.test.test_node import getNonPrimaryReplicas
-import json
-from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check
+
+from plenum.common.startable import Mode
+from plenum.test import waits
+from plenum.test.delayers import cDelay
+from plenum.test.node_catchup.helper import waitNodeDataEquality, ensure_all_nodes_have_same_data
+from plenum.test.helper import sdk_send_random_requests, check_last_ordered_3pc_on_master, assertExp, \
+    sdk_send_random_and_check, sdk_get_replies, max_3pc_batch_limits
+from plenum.test.stasher import delay_rules
+from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope="module")
-def tconf(tconf, request):
-    oldSize = tconf.Max3PCBatchSize
-    oldTimeout = tconf.Max3PCBatchWait
-    tconf.Max3PCBatchSize = 10
-    tconf.Max3PCBatchWait = 1
-
-    def reset():
-        tconf.Max3PCBatchSize = oldSize
-        tconf.Max3PCBatchWait = oldTimeout
-
-    request.addfinalizer(reset)
-    return tconf
+def tconf(tconf):
+    with max_3pc_batch_limits(tconf, size=10) as tconf:
+        yield tconf
 
 
 def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
-    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, tconf.Max3PCBatchSize)
-    non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
+    '''
+    1) Send 1 3PC batch + 2 reqs
+    2) Delay commits on one node
+    3) Make sure the batch is ordered on all nodes except the lagged one
+    4) start catchup of the lagged node
+    5) Make sure that all nodes are equal
+    6) Send more requests that we have 3 batches in total
+    7) Make sure that all nodes are equal
+    '''
 
-    # Simulate catch-up (add txns to ledger):
-    # add txns corresponding to the requests after we got enough COMMITs to
-    # order, but before ordering.
-    add_txns_to_ledger_before_order(
-        non_primary_replica, [json.loads(req) for req in reqs[:tconf.Max3PCBatchSize]])
-    sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
-    checkNodesHaveSameRoots(txnPoolNodeSet)
+    lagging_node = txnPoolNodeSet[-1]
+    rest_nodes = txnPoolNodeSet[:-1]
+
+    with delay_rules(lagging_node.nodeIbStasher, cDelay()):
+        sdk_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+                                            sdk_wallet_client, tconf.Max3PCBatchSize + 2)
+
+        looper.run(
+            eventually(check_last_ordered_3pc_on_master, rest_nodes, (0, 1))
+        )
+
+        lagging_node.start_catchup()
+
+        looper.run(
+            eventually(
+                lambda: assertExp(lagging_node.mode == Mode.participating), retryWait=1,
+                timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
+            )
+        )
+
+        waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
+
+    sdk_get_replies(looper, sdk_reqs)
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, 2 * tconf.Max3PCBatchSize - 2)
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

@@ -143,3 +143,15 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         """
         Called when starting election for a particular protocol instance
         """
+
+    @abstractmethod
+    def on_catchup_complete(self):
+        """
+        Select primaries after catchup completed
+        """
+
+    @abstractmethod
+    def process_selection(self, instance_count, node_reg, node_ids):
+        """
+        Return primaries set for current view_no
+        """

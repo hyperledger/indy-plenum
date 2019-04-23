@@ -44,22 +44,6 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet,
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
-def testNonStewardCannotAddNode(looper, txnPoolNodeSet, sdk_pool_handle,
-                                sdk_wallet_client, tdir, tconf,
-                                allPluginsPath):
-    new_node_name = "Epsilon"
-    with pytest.raises(RequestRejectedException) as e:
-        sdk_add_new_node(looper,
-                         sdk_pool_handle,
-                         sdk_wallet_client,
-                         new_node_name,
-                         tdir,
-                         tconf,
-                         allPluginsPath)
-    assert 'is not a steward so cannot add a ' in e._excinfo[1].args[0]
-    sdk_pool_refresh(looper, sdk_pool_handle)
-
-
 def testClientConnectsToNewNode(looper,
                                 sdk_pool_handle,
                                 txnPoolNodeSet,

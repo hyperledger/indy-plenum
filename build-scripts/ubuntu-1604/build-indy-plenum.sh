@@ -3,6 +3,7 @@
 INPUT_PATH=$1
 VERSION=$2
 OUTPUT_PATH=${3:-.}
+PACKAGE_VERSION=${4:-$VERSION}
 
 PACKAGE_NAME=indy-plenum
 
@@ -31,6 +32,7 @@ fpm --input-type "python" \
     --after-install "postinst" \
     --before-remove "prerm" \
     --name ${PACKAGE_NAME} \
+    --version ${PACKAGE_VERSION} \
     --package ${OUTPUT_PATH} \
     ${TMP_DIR}
 

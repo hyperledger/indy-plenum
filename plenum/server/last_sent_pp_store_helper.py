@@ -1,15 +1,10 @@
-from typing import NamedTuple, Optional
+from typing import Optional, Dict
 
 from common.serializers.serialization import node_status_db_serializer
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-PrePrepareKey = NamedTuple("PrePrepareKey",
-                           [("inst_id", int),
-                            ("view_no", int),
-                            ("pp_seq_no", int)])
 
 
 class LastSentPpStoreHelper:
@@ -18,9 +13,12 @@ class LastSentPpStoreHelper:
         self.node = node
 
     def store_last_sent_pp_seq_no(self, inst_id: int, pp_seq_no: int):
-        self._save_last_sent_pp_key(PrePrepareKey(inst_id=inst_id,
-                                                  view_no=self.node.viewNo,
-                                                  pp_seq_no=pp_seq_no))
+        stored = self._try_load_last_stored()
+        if stored is False:
+            return
+        new_store = stored or {}
+        new_store[str(inst_id)] = (self.node.viewNo, pp_seq_no)
+        self._save_last_stored(new_store)
 
     def erase_last_sent_pp_seq_no(self):
         logger.info("{} erasing stored lastSentPrePrepare".format(self.node))
@@ -30,63 +28,61 @@ class LastSentPpStoreHelper:
     def try_restore_last_sent_pp_seq_no(self):
         logger.info("{} trying to restore lastPrePrepareSeqNo".format(self.node))
 
-        try:
-            last_sent_pp_key = self._load_last_sent_pp_key()
-        except Exception as e:
-            logger.warning("{} cannot unpack inst_id, view_no, pp_seq_no "
-                           "from stored lastSentPrePrepare: {}"
-                           .format(self.node, e))
+        stored = self._try_load_last_stored()
+        if stored is False:
+            return stored
+
+        if stored is None:
             return False
 
-        if last_sent_pp_key is None:
-            return False
+        someone_restored = False
+        for inst_id, pair_3pc in stored.items():
+            if self._can_restore_last_sent_pp_seq_no(int(inst_id), pair_3pc):
+                self._restore_last_stored(int(inst_id), pair_3pc)
+                someone_restored = True
+        return someone_restored
 
-        if self._can_restore_last_sent_pp_seq_no(last_sent_pp_key):
-            self._restore_last_sent_pp_seq_no(last_sent_pp_key)
-            return True
-        else:
-            return False
-
-    def _can_restore_last_sent_pp_seq_no(self, last_sent_pp_key: PrePrepareKey) -> bool:
-        if last_sent_pp_key.view_no != self.node.viewNo:
+    def _can_restore_last_sent_pp_seq_no(self, inst_id, pair_3pc) -> bool:
+        stored = (inst_id, pair_3pc)
+        if pair_3pc[0] != self.node.viewNo:
             logger.info("{} ignoring stored {} because current view no is {}"
-                        .format(self.node, last_sent_pp_key, self.node.viewNo))
+                        .format(self.node, stored, self.node.viewNo))
             return False
 
-        if last_sent_pp_key.inst_id not in self.node.replicas.keys():
+        if inst_id not in self.node.replicas.keys():
             logger.info("{} ignoring stored {} because it does not have replica for instance {}"
-                        .format(self.node, last_sent_pp_key, last_sent_pp_key.inst_id))
+                        .format(self.node, stored, inst_id))
             return False
 
-        replica = self.node.replicas[last_sent_pp_key.inst_id]
+        replica = self.node.replicas[inst_id]
 
-        if replica.isPrimary is not True:
+        if replica.isPrimary is None:
             logger.info("{} ignoring stored {} because it is not primary in instance {}"
-                        .format(self.node, last_sent_pp_key, last_sent_pp_key.inst_id))
+                        .format(self.node, stored, inst_id))
             return False
 
         if replica.isMaster:
             logger.warning("{} ignoring stored {} because master's primary "
                            "restores lastPrePrepareSeqNo using catch-up"
-                           .format(self.node, last_sent_pp_key))
+                           .format(self.node, stored))
             return False
 
         return True
 
-    def _restore_last_sent_pp_seq_no(self, last_sent_pp_key: PrePrepareKey):
+    def _restore_last_stored(self, inst_id, pair_3pc):
+        stored = (inst_id, pair_3pc)
         logger.info("{} restoring lastPrePrepareSeqNo from {}"
-                    .format(self.node, last_sent_pp_key))
-        replica = self.node.replicas[last_sent_pp_key.inst_id]
-        replica.lastPrePrepareSeqNo = last_sent_pp_key.pp_seq_no
-        replica.last_ordered_3pc = (last_sent_pp_key.view_no, last_sent_pp_key.pp_seq_no)
+                    .format(self.node, stored))
+        replica = self.node.replicas[inst_id]
+        replica.lastPrePrepareSeqNo = pair_3pc[1]
+        replica.last_ordered_3pc = (pair_3pc[0], pair_3pc[1])
         replica.update_watermark_from_3pc()
 
-    def _save_last_sent_pp_key(self, pp_key: PrePrepareKey):
-        value_as_dict = pp_key._asdict()
-        serialized_value = node_status_db_serializer.serialize(value_as_dict)
+    def _save_last_stored(self, value: Dict):
+        serialized_value = node_status_db_serializer.serialize(value)
         self.node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE, serialized_value)
 
-    def _load_last_sent_pp_key(self) -> Optional[PrePrepareKey]:
+    def _load_last_sent_pp_key(self) -> Optional[Dict]:
         if LAST_SENT_PRE_PREPARE not in self.node.nodeStatusDB:
             logger.info("{} did not find stored lastSentPrePrepare"
                         .format(self.node))
@@ -95,14 +91,28 @@ class LastSentPpStoreHelper:
         serialized_value = self.node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)
         logger.info("{} found stored lastSentPrePrepare value {}"
                     .format(self.node, serialized_value))
-        value_as_dict = node_status_db_serializer.deserialize(serialized_value)
-        pp_key = PrePrepareKey(**value_as_dict)
+        stored = node_status_db_serializer.deserialize(serialized_value)
 
-        if not isinstance(pp_key.inst_id, int):
-            raise TypeError("inst_id must be of int type")
-        if not isinstance(pp_key.view_no, int):
-            raise TypeError("view_no must be of int type")
-        if not isinstance(pp_key.pp_seq_no, int):
-            raise TypeError("pp_seq_no must be of int type")
+        if not stored or not isinstance(stored, dict):
+            raise TypeError("stored pp_store has wrong format")
+        for inst_id, pair_3pc in stored.items():
+            if not inst_id.isdigit():
+                raise TypeError("inst_id must be of int type")
+            if len(pair_3pc) != 2:
+                raise TypeError("extra data found")
+            if not isinstance(pair_3pc[0], int):
+                raise TypeError("view_no must be of int type")
+            if not isinstance(pair_3pc[1], int):
+                raise TypeError("pp_seq_no must be of int type")
 
-        return pp_key
+        return stored
+
+    def _try_load_last_stored(self):
+        try:
+            stored = self._load_last_sent_pp_key()
+        except Exception as e:
+            logger.warning("{} cannot unpack inst_id, view_no, pp_seq_no "
+                           "from stored lastSentPrePrepare: {}"
+                           .format(self.node, e))
+            return False
+        return stored

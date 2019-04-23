@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from operator import itemgetter
-from typing import Mapping
+from typing import Mapping, Dict
 
 from plenum.common.types import f
 
@@ -100,6 +100,8 @@ class MessageBase(Mapping, MessageValidator):
 
         self.validate(input_as_dict)
 
+        input_as_dict = self._post_process(input_as_dict)
+
         self._fields = OrderedDict(
             (name, input_as_dict[name])
             for name, _ in self.schema
@@ -108,8 +110,16 @@ class MessageBase(Mapping, MessageValidator):
     def _join_with_schema(self, args):
         return dict(zip(map(itemgetter(0), self.schema), args))
 
+    def _post_process(self, input_as_dict: Dict) -> Dict:
+        return input_as_dict
+
     def __getattr__(self, item):
-        return self._fields[item]
+        if item in self._fields:
+            return self._fields[item]
+        raise AttributeError(
+            "'{}' object has no attribute '{}'"
+            .format(self.__class__.__name__, item)
+        )
 
     def __getitem__(self, key):
         values = list(self._fields.values())

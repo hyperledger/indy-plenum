@@ -1,24 +1,23 @@
 from json import JSONDecodeError
+from typing import Dict
 
 import pytest
 
 from common.serializers.serialization import node_status_db_serializer
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 from plenum.common.util import getNoInstances
-from plenum.server.last_sent_pp_store_helper import PrePrepareKey
-from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica, \
-    getNonPrimaryReplicas
+from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change
 
 nodeCount = 7
 
 
-def pack_pp_key(value: PrePrepareKey) -> bytes:
-    return node_status_db_serializer.serialize(value._asdict())
+def pack_pp_key(value: Dict) -> bytes:
+    return node_status_db_serializer.serialize(value)
 
 
-def unpack_pp_key(value: bytes) -> PrePrepareKey:
-    return PrePrepareKey(**node_status_db_serializer.deserialize(value))
+def unpack_pp_key(value: bytes) -> Dict:
+    return node_status_db_serializer.deserialize(value)
 
 
 @pytest.fixture(scope="module")
@@ -53,40 +52,33 @@ def replica_with_unknown_primary_status(txnPoolNodeSet, setup):
 
 def test_store_last_sent_pp_seq_no_if_some_stored(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          pack_pp_key(PrePrepareKey(inst_id=1,
-                                                    view_no=2,
-                                                    pp_seq_no=5)))
+                          pack_pp_key({1: [2, 5]}))
 
     node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(inst_id=1,
                                                              pp_seq_no=6)
 
     assert unpack_pp_key(node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)) == \
-           PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=6)
+           {'1': [2, 6]}
 
 
 def test_store_last_sent_pp_seq_no_if_none_stored(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
 
     node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(inst_id=1,
                                                              pp_seq_no=6)
 
     assert unpack_pp_key(node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)) == \
-           PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=6)
+           {'1': [2, 6]}
 
 
 def test_erase_last_sent_pp_seq_no_if_some_stored(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          pack_pp_key(PrePrepareKey(inst_id=1,
-                                                    view_no=2,
-                                                    pp_seq_no=5)))
+                          pack_pp_key({'1': [2, 5]}))
 
     node.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
@@ -95,7 +87,6 @@ def test_erase_last_sent_pp_seq_no_if_some_stored(
 
 def test_erase_last_sent_pp_seq_no_if_none_stored(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
 
     node.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
@@ -105,14 +96,11 @@ def test_erase_last_sent_pp_seq_no_if_none_stored(
 
 def test_try_restore_last_sent_pp_seq_no_if_relevant_stored(
         tconf, txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          pack_pp_key(PrePrepareKey(inst_id=1,
-                                                    view_no=2,
-                                                    pp_seq_no=5)))
+                          pack_pp_key({1: [2, 5]}))
 
     node.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
 
@@ -124,14 +112,11 @@ def test_try_restore_last_sent_pp_seq_no_if_relevant_stored(
 
 def test_try_restore_last_sent_pp_seq_no_if_irrelevant_stored(
         tconf, txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          pack_pp_key(PrePrepareKey(inst_id=2,
-                                                    view_no=1,
-                                                    pp_seq_no=9)))
+                          pack_pp_key({2: [1, 9]}))
 
     node.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
 
@@ -143,7 +128,6 @@ def test_try_restore_last_sent_pp_seq_no_if_irrelevant_stored(
 
 def test_try_restore_last_sent_pp_seq_no_if_none_stored(
         tconf, txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
@@ -158,14 +142,11 @@ def test_try_restore_last_sent_pp_seq_no_if_none_stored(
 
 def test_try_restore_last_sent_pp_seq_no_if_invalid_stored(
         tconf, txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          pack_pp_key(PrePrepareKey(inst_id=1,
-                                                    view_no=2,
-                                                    pp_seq_no=5))[:-1])
+                          pack_pp_key({1: [2, 5]})[:-1])
 
     node.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
 
@@ -177,92 +158,73 @@ def test_try_restore_last_sent_pp_seq_no_if_invalid_stored(
 
 def test_cannot_restore_last_sent_pp_seq_no_if_another_view(
         txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
 
     can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=1, view_no=1, pp_seq_no=5))
+        1, [1, 5])
 
     assert can is False
 
 
 def test_cannot_restore_last_sent_pp_seq_no_if_replica_absent(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     assert node.viewNo == 2
     absent_replica_index = getNoInstances(nodeCount)
 
     can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=absent_replica_index, view_no=2, pp_seq_no=5))
+        absent_replica_index, [2, 5])
 
     assert can is False
 
 
-def test_cannot_restore_last_sent_pp_seq_no_if_replica_not_primary(
-        txnPoolNodeSet, view_no_set, setup):
-
-    replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=1)[0]
-    node = replica.node
-    assert node.viewNo == 2
-
-    can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=5))
-
-    assert can is False
-
-
-def test_cannot_restore_last_sent_pp_seq_no_if_replica_primary_status_unknown(
+def test_cannot_restore_last_sent_pp_seq_no_if_replica_status_unknown(
         view_no_set, setup, replica_with_unknown_primary_status):
-
     replica = replica_with_unknown_primary_status
     assert replica.instId == 1
     node = replica.node
     assert node.viewNo == 2
 
     can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=5))
+        1, [2, 5])
 
     assert can is False
 
 
 def test_cannot_restore_last_sent_pp_seq_no_if_replica_is_master(
         txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=0)
     node = replica.node
     assert node.viewNo == 2
 
     can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=0, view_no=2, pp_seq_no=5))
+        0, [2, 5])
 
     assert can is False
 
 
 def test_can_restore_last_sent_pp_seq_no_if_relevant(
         txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
 
     can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=5))
+        1, [2, 5])
 
     assert can is True
 
 
 def test_restore_last_sent_pp_seq_no(
         tconf, txnPoolNodeSet, view_no_set, setup):
-
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)
     node = replica.node
     assert node.viewNo == 2
 
-    node.last_sent_pp_store_helper._restore_last_sent_pp_seq_no(
-        PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=5))
+    node.last_sent_pp_store_helper._restore_last_stored(
+        1, [2, 5])
 
     for replica in node.replicas.values():
         if replica.instId == 1:
@@ -279,7 +241,6 @@ def test_restore_last_sent_pp_seq_no(
 
 def test_can_load_absent_last_sent_pre_preapre_key(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
 
     pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -289,7 +250,6 @@ def test_can_load_absent_last_sent_pre_preapre_key(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_empty_value(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE, b'')
 
@@ -299,12 +259,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_empty_value(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_not_valid_dict(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'view_no': 2,
-                                                               'pp_seq_no': 5})[:-1])
+                          node_status_db_serializer.serialize({1: [2, 5]})[:-1])
 
     with pytest.raises(JSONDecodeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -312,7 +269,6 @@ def test_cannot_load_last_sent_pre_preapre_key_if_not_valid_dict(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_none(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
                           node_status_db_serializer.serialize(None))
@@ -323,7 +279,6 @@ def test_cannot_load_last_sent_pre_preapre_key_if_none(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_dict_has_no_entries(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
                           node_status_db_serializer.serialize({}))
@@ -334,11 +289,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_dict_has_no_entries(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_inst_id_missed(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'view_no': 2,
-                                                               'pp_seq_no': 5}))
+                          node_status_db_serializer.serialize([2, 5]))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -346,11 +299,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_inst_id_missed(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_view_no_missed(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'pp_seq_no': 5}))
+                          node_status_db_serializer.serialize([1, 5]))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -358,11 +309,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_view_no_missed(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_pp_seq_no_missed(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'view_no': 2}))
+                          node_status_db_serializer.serialize([1, 2]))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -370,13 +319,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_pp_seq_no_missed(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_json_has_extra_fields(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'view_no': 2,
-                                                               'pp_seq_no': 5,
-                                                               'ledger_id': 1}))
+                          node_status_db_serializer.serialize({'1': [2, 5, 1]}))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -384,12 +329,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_json_has_extra_fields(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_inst_id_is_not_int(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': None,
-                                                               'view_no': 2,
-                                                               'pp_seq_no': 5}))
+                          node_status_db_serializer.serialize({None: [2, 5]}))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -397,12 +339,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_inst_id_is_not_int(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_view_no_is_not_int(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'view_no': '',
-                                                               'pp_seq_no': 5}))
+                          node_status_db_serializer.serialize({1: ['', 5]}))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -410,12 +349,9 @@ def test_cannot_load_last_sent_pre_preapre_key_if_view_no_is_not_int(
 
 def test_cannot_load_last_sent_pre_preapre_key_if_pp_seq_not_int(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'view_no': 2,
-                                                               'pp_seq_no': 5.0}))
+                          node_status_db_serializer.serialize({'1': [2, 5.0]}))
 
     with pytest.raises(TypeError):
         pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
@@ -423,13 +359,10 @@ def test_cannot_load_last_sent_pre_preapre_key_if_pp_seq_not_int(
 
 def test_can_load_valid_last_sent_pre_preapre_key_if_valid(
         txnPoolNodeSet, view_no_set, setup):
-
     node = txnPoolNodeSet[0]
     node.nodeStatusDB.put(LAST_SENT_PRE_PREPARE,
-                          node_status_db_serializer.serialize({'inst_id': 1,
-                                                               'view_no': 2,
-                                                               'pp_seq_no': 5}))
+                          node_status_db_serializer.serialize({'1': [2, 5]}))
 
     pp_key = node.last_sent_pp_store_helper._load_last_sent_pp_key()
 
-    assert pp_key == PrePrepareKey(inst_id=1, view_no=2, pp_seq_no=5)
+    assert pp_key == {'1': [2, 5]}

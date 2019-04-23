@@ -19,10 +19,9 @@ nodeCount = 4
 backup_inst_id = 1
 
 
-def test_node_erases_last_sent_pp_key_on_pool_restart(
+def test_node_not_erases_last_sent_pp_key_on_pool_restart(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
         tconf, tdir, allPluginsPath, chkFreqPatched):
-
     # Get a node with a backup primary replica and the rest of the nodes
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
     node = replica.node
@@ -47,6 +46,12 @@ def test_node_erases_last_sent_pp_key_on_pool_restart(
     # Ensure that there is a stored last sent PrePrepare key on the node
     assert LAST_SENT_PRE_PREPARE in node.nodeStatusDB
 
+    # Save old state
+    old_view_no = node.viewNo
+    old_is_primary = replica.isPrimary
+    old_last_pp = replica.lastPrePrepareSeqNo
+    old_last_ordered = replica.last_ordered_3pc
+
     # Restart all the nodes in the pool and wait for primary elections done
     all_nodes = copy(txnPoolNodeSet)
     for n in all_nodes:
@@ -65,19 +70,19 @@ def test_node_erases_last_sent_pp_key_on_pool_restart(
     node = nodeByName(txnPoolNodeSet, node.name)
     replica = node.replicas[backup_inst_id]
 
-    # Verify that the node has erased the stored last sent PrePrepare key
-    assert LAST_SENT_PRE_PREPARE not in node.nodeStatusDB
+    # Verify that the node has not erased the stored last sent PrePrepare key
+    assert LAST_SENT_PRE_PREPARE in node.nodeStatusDB
 
     # Verify correspondingly that after the pool restart the replica
-    # (which must again be the primary in its instance) has not restored
-    # lastPrePrepareSeqNo, not adjusted last_ordered_3pc and not shifted
+    # (which must again be the primary in its instance) has restored
+    # lastPrePrepareSeqNo, adjusted last_ordered_3pc and shifted
     # the watermarks
-    assert node.viewNo == 0
-    assert replica.isPrimary
-    assert replica.lastPrePrepareSeqNo == 0
-    assert replica.last_ordered_3pc == (0, 0)
-    assert replica.h == 0
-    assert replica.H == 0 + LOG_SIZE
+    assert node.viewNo == old_view_no
+    assert replica.isPrimary == old_is_primary
+    assert replica.lastPrePrepareSeqNo == old_last_pp
+    assert replica.last_ordered_3pc == old_last_ordered
+    assert replica.h == replica.last_ordered_3pc[1]
+    assert replica.H == replica.last_ordered_3pc[1] + LOG_SIZE
 
     # Send a 3PC-batch and ensure that the replica orders it
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
@@ -86,6 +91,7 @@ def test_node_erases_last_sent_pp_key_on_pool_restart(
                                timeout=tconf.Max3PCBatchWait)
 
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (0, 1)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc ==
+                                     (old_last_ordered[0], old_last_ordered[1] + 1)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

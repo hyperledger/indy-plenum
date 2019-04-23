@@ -1,5 +1,7 @@
 from logging import getLogger
 
+import sys
+
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas
@@ -36,7 +38,7 @@ def test_watermarks_restored_after_stable(
                                          num_reqs=1 * 9, num_batches=9)
     assert broken_replica.last_ordered_3pc == (0, 0)
     assert broken_replica.h == 0
-    assert broken_replica.H == 20
+    assert broken_replica.H == sys.maxsize
     assert non_broken_replica.last_ordered_3pc == (0, 9)
     assert non_broken_replica.h == 5
     assert non_broken_replica.H == 25
