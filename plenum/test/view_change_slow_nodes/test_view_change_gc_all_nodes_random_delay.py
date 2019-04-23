@@ -56,7 +56,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     ensure_view_change_complete(looper, txnPoolNodeSet)
 
     viewNo = checkViewNoForNodes(txnPoolNodeSet, viewNo + 1)
-    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    looper.run(eventually(check_nodes_last_ordered_3pc, txnPoolNodeSet, (viewNo, 1)))
     check_nodes_requests_size(txnPoolNodeSet, 0)
 
     # 3 slow processing 3PC messages for all nodes (all replica instances)
@@ -93,7 +93,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     # another view change could happen because of slow nodes
     assert viewNoNew - viewNo in (1, 2)
     viewNo = viewNoNew
-    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, (last_ordered_3pc[0] + 1, 1))
     check_nodes_requests_size(txnPoolNodeSet, 1)
 
     # 5 reset delays and wait for replies
@@ -105,7 +105,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     sdk_get_replies(looper, [requests])
 
     checkViewNoForNodes(txnPoolNodeSet, viewNo)
-    last_ordered_3pc = (viewNo, 1)
+    last_ordered_3pc = (viewNo, 2)
     check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
     check_nodes_requests_size(txnPoolNodeSet, 1)
 
@@ -114,5 +114,5 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     ensure_view_change_complete(looper, txnPoolNodeSet)
 
     viewNo = checkViewNoForNodes(txnPoolNodeSet, viewNo + 1)
-    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, (last_ordered_3pc[0] + 1, 1))
     check_nodes_requests_size(txnPoolNodeSet, 0)

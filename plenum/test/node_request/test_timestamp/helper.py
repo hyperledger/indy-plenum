@@ -22,9 +22,6 @@ def make_clock_faulty(node, clock_slow_by_sec=None, ppr_always_wrong=True):
     node.master_replica.get_time_for_3pc_batch = types.MethodType(utc_epoch, node.master_replica)
 
     if ppr_always_wrong:
-        def ppr_time_is_wrong(self, pp):
-            return False
-
         for repl in node.replicas.values():
             repl.is_pre_prepare_time_correct = types.MethodType(
-                ppr_time_is_wrong, repl)
+                lambda *x, **y: False, repl)

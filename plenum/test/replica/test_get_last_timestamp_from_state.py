@@ -36,7 +36,8 @@ def test_get_last_ordered_timestamp_after_catchup(looper,
                                             tdir, allPluginsPath)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     ts_from_state = node_to_disconnect.master_replica._get_last_timestamp_from_state(DOMAIN_LEDGER_ID)
     assert ts_from_state == get_txn_time(reply['result'])
     assert ts_from_state != get_txn_time(reply_before['result'])

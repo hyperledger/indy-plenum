@@ -80,15 +80,15 @@ class BackupInstanceFaultyProcessor:
             if inst_id not in self.node.replicas.keys():
                 continue
             self.backup_instances_faulty.setdefault(inst_id, dict()).setdefault(frm, 0)
-            self.backup_instances_faulty[inst_id].setdefault(self.node.name, 0)
             self.backup_instances_faulty[inst_id][frm] += 1
-            if not self.node.quorums.backup_instance_faulty.is_reached(
-                    len(self.backup_instances_faulty[inst_id].keys())) \
-                    and not self.node.quorums.backup_instance_faulty.is_reached(
-                    self.backup_instances_faulty[inst_id][self.node.name]):
-                continue
-            self.node.replicas.remove_replica(inst_id)
-            self.backup_instances_faulty.pop(inst_id)
+            all_nodes_condition = self.node.quorums.backup_instance_faulty.is_reached(
+                len(self.backup_instances_faulty[inst_id].keys()))
+            this_node_condition = (self.node.name in self.backup_instances_faulty[inst_id] and
+                                   self.node.quorums.backup_instance_faulty.is_reached(
+                                       self.backup_instances_faulty[inst_id][self.node.name]))
+            if all_nodes_condition or this_node_condition:
+                self.node.replicas.remove_replica(inst_id)
+                self.backup_instances_faulty.pop(inst_id)
 
     def __send_backup_instance_faulty(self, instances: List[int],
                                       reason: Suspicion):

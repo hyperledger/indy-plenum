@@ -36,9 +36,14 @@ class TrackedMsgs(dict):
         key = self._get_key(msg)
         return key in self and voter in self[key].voters
 
-    def _has_enough_votes(self, msg, count) -> bool:
+    def _votes_count(self, msg) -> int:
         key = self._get_key(msg)
-        return self._has_msg(msg) and len(self[key].voters) >= count
+        if key not in self:
+            return 0
+        return len(self[key].voters)
+
+    def _has_enough_votes(self, msg, count) -> bool:
+        return self._votes_count(msg) >= count
 
 
 class Prepares(TrackedMsgs):
@@ -108,64 +113,3 @@ class Commits(TrackedMsgs):
 
     def hasQuorum(self, commit: Commit, quorum: int) -> bool:
         return self._has_enough_votes(commit, quorum)
-
-
-InstanceChangesVotes = NamedTuple("InstanceChangesVotes", [
-    ("voters", Dict[str, int]),
-    ("msg", Optional[Any])])
-
-
-class InstanceChanges(TrackedMsgs):
-    """
-    Stores senders of received instance change requests. Key is the view
-    no and and value is the set of senders
-    Does not differentiate between reason for view change. Maybe it should,
-    but the current assumption is that since a malicious node can raise
-    different suspicions on different nodes, its ok to consider all suspicions
-    that can trigger a view change as equal
-    """
-
-    def __init__(self, config, time_provider: Callable = time.perf_counter) -> None:
-        self._outdated_ic_interval = \
-            config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL
-        self._time_provider = time_provider
-        super().__init__()
-
-    def _new_vote_msg(self, msg):
-        return InstanceChangesVotes(voters=dict(), msg=msg)
-
-    def _get_key(self, msg):
-        return msg if isinstance(msg, int) else msg.viewNo
-
-    def add_vote(self, msg, voter: str):
-        # This method can't use _add_message() because
-        # the voters collection is a dict.
-        key = self._get_key(msg)
-        if key not in self:
-            self[key] = self._new_vote_msg(msg)
-        self[key].voters[voter] = self._time_provider()
-
-    def has_view(self, view_no: int) -> bool:
-        self._update_votes(view_no)
-        return super()._has_msg(view_no)
-
-    def has_inst_chng_from(self, view_no: int, voter: str) -> bool:
-        self._update_votes(view_no)
-        return super()._has_vote(view_no, voter)
-
-    def has_quorum(self, view_no: int, quorum: int) -> bool:
-        self._update_votes(view_no)
-        return self._has_enough_votes(view_no, quorum)
-
-    def _update_votes(self, view_no: int):
-        if self._outdated_ic_interval <= 0 or view_no not in self:
-            return
-        for voter, vote_time in dict(self[view_no].voters).items():
-            now = self._time_provider()
-            if vote_time < now - self._outdated_ic_interval:
-                logger.info("Discard InstanceChange from {} for ViewNo {} "
-                            "because it is out of date (was received {}sec "
-                            "ago)".format(voter, view_no, int(now - vote_time)))
-                del self[view_no].voters[voter]
-            if not self[view_no].voters:
-                del self[view_no]

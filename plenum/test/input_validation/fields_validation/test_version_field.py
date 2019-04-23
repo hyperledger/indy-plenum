@@ -1,9 +1,17 @@
 import pytest
 
+from common.version import DigitDotVersion
 from plenum.common.messages.fields import VersionField
 from plenum.config import VERSION_FIELD_LIMIT
 
-validator = VersionField(components_number=(2, 3,), max_length=VERSION_FIELD_LIMIT)
+
+class VersionTestCls(DigitDotVersion):
+    def __init__(self, version: str, **kwargs):
+        super().__init__(version, parts_num=(2, 3), **kwargs)
+
+
+max_length = 20
+validator = VersionField(version_cls=VersionTestCls, max_length=max_length)
 
 
 def test_empty_version():

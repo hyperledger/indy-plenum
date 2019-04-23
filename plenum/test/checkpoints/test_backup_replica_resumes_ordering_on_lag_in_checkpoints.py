@@ -27,7 +27,8 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc == (view_no, 1)),
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -50,12 +51,12 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # for catch-up number of checkpoints
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
-                             reqs_for_checkpoint - 2)
+                             reqs_for_checkpoint - 3)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Ensure that the replica has not ordered any batches
     # after the very first one
-    assert slow_replica.last_ordered_3pc == (view_no, 1)
+    assert slow_replica.last_ordered_3pc == (view_no, 2)
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == 0
@@ -85,8 +86,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # Ensure that the replica has adjusted last_ordered_3pc to the end
     # of the last checkpoint
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc ==
-                                     (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ)),
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == \
+                        (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -112,8 +114,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc ==
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc ==
                                      (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 1)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -136,7 +139,8 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc == (view_no, 1)),
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
+                   slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -154,6 +158,10 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     # Receive further Commits from now on
     slow_replica.node.nodeIbStasher.drop_delayeds()
     slow_replica.node.nodeIbStasher.resetDelays()
+    looper.run(
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
+                   slow_replica,
+                   timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
@@ -174,7 +182,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
 
     # Ensure that the replica has not ordered any batches
     # after the very first one
-    assert slow_replica.last_ordered_3pc == (view_no, 1)
+    assert slow_replica.last_ordered_3pc == (view_no, 2)
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == 0
@@ -188,9 +196,9 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
 
     # Ensure that the replica has ordered the batch for the last sent request
     looper.run(
-        eventually(lambda: assertExp(slow_replica.last_ordered_3pc ==
-                                     (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 1)),
-                   retryWait=1,
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == \
+                        (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 2)),
+                   slow_replica,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
     # Ensure that the watermarks have been shifted so that the lower watermark
@@ -206,6 +214,6 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
 
     looper.run(
         eventually(lambda: assertExp(slow_replica.last_ordered_3pc ==
-                                     (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 2)),
+                                     (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 3)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

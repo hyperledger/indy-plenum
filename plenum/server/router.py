@@ -3,6 +3,10 @@ from inspect import isawaitable
 from typing import Callable, Any, NamedTuple, Union, Iterable
 from typing import Tuple
 
+from stp_core.common.log import getlogger
+
+logger = getlogger()
+
 Route = Tuple[Union[type, NamedTuple], Callable]
 
 
@@ -47,12 +51,13 @@ class Router:
         :param o: the object to process
         :return: the next function
         """
-        try:
-            return next(
-                func for cls, func in self.routes.items()
-                if isinstance(o, cls))
-        except StopIteration:
-            raise RuntimeError("unhandled msg: {}".format(o))
+        for cls, func in self.routes.items():
+            if isinstance(o, cls):
+                return func
+        logger.error("Unhandled msg {}, available handlers are:".format(o))
+        for cls in self.routes.keys():
+            logger.error("   {}".format(cls))
+        raise RuntimeError("unhandled msg: {}".format(o))
 
     # noinspection PyCallingNonCallable
     def handleSync(self, msg: Any) -> Any:

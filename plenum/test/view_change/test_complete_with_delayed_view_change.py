@@ -33,7 +33,7 @@ def not_processing_view_change_done(node):
         for i in range(len(self.nodeInBox)):
             m = self.nodeInBox.popleft()
             if isinstance(m, tuple) and len(
-                m) == 2 and not hasattr(m, '_field_types') and \
+                    m) == 2 and not hasattr(m, '_field_types') and \
                     isinstance(m[0], (ViewChangeDone, InstanceChange)) and \
                     m[0].viewNo > self.viewNo:
                 if isinstance(m[0], ViewChangeDone):

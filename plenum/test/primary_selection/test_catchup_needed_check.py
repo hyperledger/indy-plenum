@@ -8,6 +8,7 @@ from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
 from plenum.test.spy_helpers import getAllReturnVals
+from plenum.test.stasher import delay_rules
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
@@ -43,44 +44,51 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
     orig_method = bad_node.master_replica.process_three_phase_msg
 
     # Bad node does not process any 3 Commit messages, equivalent to messages
-    bad_node.nodeIbStasher.delay(cDelay(1000))
+    with delay_rules(bad_node.nodeIbStasher, cDelay()):
 
-    # Delay LEDGER_STAUS on slow node, so that only MESSAGE_REQUEST(LEDGER_STATUS) is sent, and the
-    # node catch-ups 2 times.
-    # Otherwise other nodes may receive multiple LEDGER_STATUSes from slow node, and return Consistency proof for all
-    # missing txns, so no stashed ones are applied
-    bad_node.nodeIbStasher.delay(lsDelay(1000))
+        # Delay LEDGER_STAUS on slow node, so that only MESSAGE_REQUEST(LEDGER_STATUS) is sent, and the
+        # node catch-ups 2 times.
+        # Otherwise other nodes may receive multiple LEDGER_STATUSes from slow node, and return Consistency proof for all
+        # missing txns, so no stashed ones are applied
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6 * Max3PCBatchSize)
-    waitNodeDataInequality(looper, bad_node, *other_nodes)
+        bad_node.nodeIbStasher.delay(lsDelay(1000))
 
-    # Patch all nodes to return ConsistencyProof of a smaller ledger to the
-    # bad node but only once, so that the bad_node needs to do catchup again.
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 6 * Max3PCBatchSize)
+        waitNodeDataInequality(looper, bad_node, *other_nodes)
 
-    make_a_node_catchup_twice(bad_node, other_nodes, DOMAIN_LEDGER_ID,
-                              Max3PCBatchSize)
+        # Patch all nodes to return ConsistencyProof of a smaller ledger to the
+        # bad node but only once, so that the bad_node needs to do catchup again.
 
-    def is_catchup_needed_count():
-        return len(getAllReturnVals(bad_node, bad_node.is_catchup_needed,
-                                    compare_val_to=True))
+        make_a_node_catchup_twice(bad_node, other_nodes, DOMAIN_LEDGER_ID,
+                                  Max3PCBatchSize)
 
-    def is_catchup_not_needed_count():
-        return len(getAllReturnVals(bad_node, bad_node.is_catchup_needed,
-                                    compare_val_to=False))
+        def is_catchup_needed_count():
+            return len(getAllReturnVals(bad_node, bad_node.is_catchup_needed,
+                                        compare_val_to=True))
 
-    def has_ordered_till_last_prepared_certificate_count():
-        return len(getAllReturnVals(bad_node,
-                                    bad_node.has_ordered_till_last_prepared_certificate,
-                                    compare_val_to=True))
+        def is_catchup_not_needed_count():
+            return len(getAllReturnVals(bad_node, bad_node.is_catchup_needed,
+                                        compare_val_to=False))
 
-    old_count_1 = is_catchup_needed_count()
-    old_count_2 = has_ordered_till_last_prepared_certificate_count()
-    old_count_3 = is_catchup_not_needed_count()
-    ensure_view_change(looper, txnPoolNodeSet)
-    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
-    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+        def has_ordered_till_last_prepared_certificate_count():
+            return len(getAllReturnVals(bad_node,
+                                        bad_node.has_ordered_till_last_prepared_certificate,
+                                        compare_val_to=True))
 
-    assert is_catchup_needed_count() > old_count_1
-    assert is_catchup_not_needed_count() > old_count_3
-    # The bad_node caught up due to ordering till last prepared certificate
-    assert has_ordered_till_last_prepared_certificate_count() > old_count_2
+        old_count_1 = is_catchup_needed_count()
+        old_count_2 = has_ordered_till_last_prepared_certificate_count()
+        old_count_3 = is_catchup_not_needed_count()
+        ensure_view_change(looper, txnPoolNodeSet)
+        checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
+        ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
+                                        exclude_from_check=['check_last_ordered_3pc',
+                                                            'check_audit',
+                                                            'check_last_ordered_3pc_backup'])
+
+        assert is_catchup_needed_count() > old_count_1
+        assert is_catchup_not_needed_count() > old_count_3
+        # The bad_node caught up due to ordering till last prepared certificate
+        assert has_ordered_till_last_prepared_certificate_count() > old_count_2
+
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
+                                    exclude_from_check=['check_last_ordered_3pc_backup'])

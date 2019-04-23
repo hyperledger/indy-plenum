@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
 from plenum.common.messages.node_messages import Checkpoint, CheckpointState
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica
@@ -75,6 +76,11 @@ def test_checkpoints_removed_on_master_non_primary_replica_after_catchup(
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
+    audit_ledger = node.getLedger(AUDIT_LEDGER_ID)
+    txn_with_last_seq_no = {'txn': {'data': {AUDIT_TXN_VIEW_NO: 2,
+                                             AUDIT_TXN_PP_SEQ_NO: 20,
+                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
+    audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
     node.allLedgersCaughtUp()
 
     assert len(replica.checkpoints) == 0
@@ -137,13 +143,18 @@ def test_checkpoints_removed_on_backup_non_primary_replica_after_catchup(
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
+    audit_ledger = node.getLedger(AUDIT_LEDGER_ID)
+    txn_with_last_seq_no = {'txn': {'data': {AUDIT_TXN_VIEW_NO: 2,
+                                             AUDIT_TXN_PP_SEQ_NO: 20,
+                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
+    audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
     node.allLedgersCaughtUp()
 
     assert len(replica.checkpoints) == 0
     assert len(replica.stashedRecvdCheckpoints) == 0
 
 
-def test_checkpoints_not_removed_on_backup_primary_replica_after_catchup(
+def test_checkpoints_removed_on_backup_primary_replica_after_catchup(
         chkFreqPatched, txnPoolNodeSet, view_setup, clear_checkpoints):
 
     replica = getPrimaryReplica(txnPoolNodeSet, 1)
@@ -176,11 +187,16 @@ def test_checkpoints_not_removed_on_backup_primary_replica_after_catchup(
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
+    audit_ledger = node.getLedger(AUDIT_LEDGER_ID)
+    txn_with_last_seq_no = {'txn': {'data': {AUDIT_TXN_VIEW_NO: 2,
+                                             AUDIT_TXN_PP_SEQ_NO: 20,
+                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
+    audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
     node.allLedgersCaughtUp()
 
-    assert len(replica.checkpoints) == 2
-    assert (11, 15) in replica.checkpoints
-    assert (16, 20) in replica.checkpoints
+    assert len(replica.checkpoints) == 0
+    assert (11, 15) not in replica.checkpoints
+    assert (16, 20) not in replica.checkpoints
 
     assert len(replica.stashedRecvdCheckpoints) == 1
     assert 2 in replica.stashedRecvdCheckpoints

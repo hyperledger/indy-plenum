@@ -197,7 +197,7 @@ class Wallet:
         # QUESTION: `self.ids[idr]` would be overwritten if same identifier
         # is used to send 2 requests, why is `IdData` persisted?
         # self.ids[idr] = IdData(idData.signer, req.reqId)
-        req.signature = self.signMsg(msg=req.signingState(identifier=idr),
+        req.signature = self.signMsg(msg=req.signingPayloadState(identifier=idr),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
 
@@ -220,7 +220,7 @@ class Wallet:
 
     def do_multi_sig_on_req(self, request: Request, identifier: str):
         idr = self.requiredIdr(idr=identifier)
-        signature = self.signMsg(msg=request.signingState(identifier),
+        signature = self.signMsg(msg=request.signingPayloadState(identifier),
                                  identifier=idr)
         request.add_signature(idr, signature)
 

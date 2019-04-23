@@ -166,7 +166,7 @@ class DomainRequestHandler(LedgerRequestHandler):
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
 
-    def get_value_from_state(self, path, head_hash=None, with_proof=False):
+    def get_value_from_state(self, path, head_hash=None, with_proof=False, multi_sig=None):
         '''
         Get a value (and proof optionally)for the given path in state trie.
         Does not return the proof is there is no aggregate signature for it.
@@ -175,48 +175,16 @@ class DomainRequestHandler(LedgerRequestHandler):
         :param get_value: whether to return the value
         :return: a state proof or None
         '''
-        root_hash = head_hash if head_hash else self.state.committedHeadHash
-        encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+        if not multi_sig and with_proof:
+            root_hash = head_hash if head_hash else self.state.committedHeadHash
+            encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
-        if not with_proof:
-            return self.state.get_for_root_hash(root_hash, path), None
-
-        multi_sig = self.bls_store.get(encoded_root_hash)
-        if not multi_sig:
-            # Just return the value and not proof
-            try:
-                return self.state.get_for_root_hash(root_hash, path), None
-            except KeyError:
-                return None, None
-        else:
-            try:
-                proof, value = self.state.generate_state_proof(key=path,
-                                                               root=self.state.get_head_by_hash(root_hash),
-                                                               serialize=True,
-                                                               get_value=True)
-                value = self.state.get_decoded(value) if value else value
-                encoded_proof = proof_nodes_serializer.serialize(proof)
-                proof = {
-                    ROOT_HASH: encoded_root_hash,
-                    MULTI_SIGNATURE: multi_sig.as_dict(),
-                    PROOF_NODES: encoded_proof
-                }
-                return value, proof
-            except KeyError:
-                return None, None
+            multi_sig = self.bls_store.get(encoded_root_hash)
+        return super().get_value_from_state(path, head_hash, with_proof, multi_sig)
 
     @staticmethod
-    def make_result(request, data, last_seq_no, update_time, proof):
-        result = {**request.operation, **{
-            DATA: data,
-            f.IDENTIFIER.nm: request.identifier,
-            f.REQ_ID.nm: request.reqId,
-            f.SEQ_NO.nm: last_seq_no,
-            TXN_TIME: update_time
-        }}
-        if proof and request.protocolVersion and \
-                request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
-            result[STATE_PROOF] = proof
-
-        # Do not inline please, it makes debugging easier
+    def make_domain_result(request, data, last_seq_no=None, update_time=None, proof=None):
+        result = LedgerRequestHandler.make_result(request, data, proof=proof)
+        result[f.SEQ_NO.nm] = last_seq_no
+        result[TXN_TIME] = update_time
         return result

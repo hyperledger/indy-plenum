@@ -14,8 +14,12 @@ partition Node {
     elseif (Signature Verification) then (not passed)
         #pink:NACK>
     elseif (Already in Ledger) then (yes)
-        :Get From Ledger;
-        #lightgreen:REPLY>
+        if (Same Signatures) then (same)
+            :Get From Ledger;
+            #lightgreen:REPLY>
+        else (differ)
+            #pink:NACK>
+        endif
     else (no)
         :Propagate;
         #lightgreen:ACK>

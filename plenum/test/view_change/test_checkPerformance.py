@@ -18,7 +18,8 @@ def fake_monitor():
 def fake_node(fake_node):
     @contextmanager
     def measure_time(*args):
-        yield 
+        yield
+
     fake_node.instances = Instances()
     fake_node.instances.add(0)
     fake_node.spylog = []
@@ -70,7 +71,7 @@ def test_not_send_if_not_new_ordered_reqs(fake_node,
 
 
 def test_not_send_if_master_Id_is_None(fake_node,
-                                      testNodeClass):
+                                       testNodeClass):
     fake_node.isParticipating = True
     fake_node.view_change_in_progress = False
     fake_node._update_new_ordered_reqs_count = lambda: True

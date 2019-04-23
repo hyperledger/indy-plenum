@@ -8,7 +8,7 @@ logger = getlogger()
 
 class Throttler:
 
-    def __init__(self, windowSize, delayFunction=None):
+    def __init__(self, windowSize, delayFunction=None, get_current_time=time.perf_counter):
         """
         Limits rate of actions performed in a unit of time (window)
 
@@ -22,6 +22,7 @@ class Throttler:
 
         self.windowSize = windowSize
         self.delayFunction = delayFunction if delayFunction else self._defaultDelayFunction
+        self.get_current_time = get_current_time
         self.actionsLog = []
 
     def acquire(self):
@@ -30,7 +31,7 @@ class Throttler:
 
         :return: True and 0.0 if lock successfully acquired or False and number of seconds to wait before the next try
         """
-        now = time.perf_counter()
+        now = self.get_current_time()
         logger.debug("now: {}, len(actionsLog): {}".format(
             now, len(self.actionsLog)))
         self._trimActionsLog(now)
