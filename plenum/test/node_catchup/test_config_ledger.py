@@ -196,4 +196,5 @@ def test_restarted_node_catches_up_config_ledger_txns(looper,
     txnPoolNodeSet[-1] = restarted_node
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    waitNodeDataEquality(looper, restarted_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, restarted_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])

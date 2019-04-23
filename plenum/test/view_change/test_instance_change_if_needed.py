@@ -31,7 +31,7 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
     times = 5
     for _ in range(times):
         looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
-        fake_view_changer._serviceActions()
+        fake_view_changer.node.timer.service()
 
     # As long as primary would be disconnected, view_changer
     # would continue to send INSTANCE_CHANGE_MESSAGE
@@ -43,14 +43,14 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
 
     for _ in range(times):
         looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
-        fake_view_changer._serviceActions()
+        fake_view_changer.node.timer.service()
         # Instance change counter dropped because primary
         # reconnected and we do not send INSTANCE_CHANGE anymore
         assert fake_view_changer.instance_change_rounds == 0
 
 
 def test_send_instance_change_if_needed_can_view_change(fake_view_changer):
-    fake_view_changer.is_primary_disconnected = lambda: True
+    fake_view_changer.provider.is_primary_disconnected = lambda: True
     fake_view_changer._canViewChange = lambda proposedViewNo: (True, None)
 
     old_instance_change_rounds = fake_view_changer.instance_change_rounds
@@ -67,7 +67,7 @@ def test_send_instance_change_if_needed_can_view_change(fake_view_changer):
 
 
 def test_send_instance_change_if_needed_view_no(fake_view_changer):
-    fake_view_changer.is_primary_disconnected = lambda: True
+    fake_view_changer.provider.is_primary_disconnected = lambda: True
     fake_view_changer._canViewChange = lambda proposedViewNo: (False, None)
     old_instance_change_rounds = fake_view_changer.instance_change_rounds
 
@@ -84,7 +84,7 @@ def test_send_instance_change_if_needed_view_no(fake_view_changer):
 
 def test_send_instance_change_if_needed_primary_disconnected(fake_view_changer):
     fake_view_changer._canViewChange = lambda proposedViewNo: (False, None)
-    fake_view_changer.is_primary_disconnected = lambda: False
+    fake_view_changer.provider.is_primary_disconnected = lambda: False
     old_instance_change_rounds = fake_view_changer.instance_change_rounds
 
     fake_view_changer.send_instance_change_if_needed(fake_view_changer.view_no + 1, Suspicions.PRIMARY_DISCONNECTED)
@@ -92,7 +92,7 @@ def test_send_instance_change_if_needed_primary_disconnected(fake_view_changer):
     # No INSTANCE_CHANGE was send
     assert old_instance_change_rounds == fake_view_changer.instance_change_rounds
 
-    fake_view_changer.is_primary_disconnected = lambda: True
+    fake_view_changer.provider.is_primary_disconnected = lambda: True
     fake_view_changer.send_instance_change_if_needed(fake_view_changer.view_no + 1, Suspicions.PRIMARY_DISCONNECTED)
 
     # No INSTANCE_CHANGE was send

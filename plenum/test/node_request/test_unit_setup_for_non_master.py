@@ -37,6 +37,7 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
+    replica.first_batch_after_catchup = True
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 

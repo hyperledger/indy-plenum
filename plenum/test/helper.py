@@ -17,12 +17,15 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from plenum.common.signer_simple import SimpleSigner
+from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
 import asyncio
 
-from indy.ledger import sign_and_submit_request, sign_request, submit_request
+from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_node_request, \
+    build_pool_config_request, multi_sign_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
@@ -37,12 +40,13 @@ from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.node import Node
+from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica
+    getPrimaryReplica, getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -57,6 +61,10 @@ logger = getlogger()
 def ordinal(n):
     return "%d%s" % (
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
+
+
+def random_string(length: int) -> str:
+    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
 
 
 def send_reqs_batches_and_get_suff_replies(
@@ -303,7 +311,7 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
-    assert [req.digest, ] in \
+    assert (req.digest,) in \
            [p["ppReq"].reqIdr for p in prePreparesSent]
 
 
@@ -320,8 +328,8 @@ def checkPrepareReqSent(replica: TestReplica, key: str,
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
-    assert [key] in args
-    idx = args.index([key])
+    assert (key,) in args
+    idx = args.index((key,))
     assert rv[idx]
 
 
@@ -444,6 +452,7 @@ def assertFunc(func):
 def checkLedgerEquality(ledger1, ledger2):
     assertLength(ledger1, ledger2.size)
     assertEquality(ledger1.root_hash, ledger2.root_hash)
+    assertEquality(ledger1.uncommitted_root_hash, ledger2.uncommitted_root_hash)
 
 
 def checkAllLedgersEqual(*ledgers):
@@ -452,6 +461,8 @@ def checkAllLedgersEqual(*ledgers):
 
 
 def checkStateEquality(state1, state2):
+    if state1 is None:
+        return state2 is None
     assertEquality(state1.as_dict, state2.as_dict)
     assertEquality(state1.committedHeadHash, state2.committedHeadHash)
     assertEquality(state1.committedHead, state2.committedHead)
@@ -464,6 +475,11 @@ def check_seqno_db_equality(db1, db2):
            {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}
 
 
+def check_primaries_equality(node1, node2):
+    assert node1.primaries == node2.primaries, \
+        "{} != {}".format(node1.primaries, node2.primaries)
+
+
 def check_last_ordered_3pc(node1, node2):
     master_replica_1 = node1.master_replica
     master_replica_2 = node2.master_replica
@@ -471,6 +487,21 @@ def check_last_ordered_3pc(node1, node2):
         "{} != {}".format(master_replica_1.last_ordered_3pc,
                           master_replica_2.last_ordered_3pc)
     return master_replica_1.last_ordered_3pc
+
+
+def check_last_ordered_3pc_backup(node1, node2):
+    assert len(node1.replicas) == len(node2.replicas)
+    for i in range(1, len(node1.replicas)):
+        replica1 = node1.replicas[i]
+        replica2 = node2.replicas[i]
+        assert replica1.last_ordered_3pc == replica2.last_ordered_3pc, \
+            "{}: {} != {}: {}".format(replica1, replica1.last_ordered_3pc,
+                                      replica2, replica2.last_ordered_3pc)
+
+
+def check_view_no(node1, node2):
+    assert node1.viewNo == node2.viewNo, \
+        "{} != {}".format(node1.viewNo, node2.viewNo)
 
 
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
@@ -486,6 +517,15 @@ def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
         assert n.master_replica.last_ordered_3pc == last_ordered_3pc, \
             "{} != {}".format(n.master_replica.last_ordered_3pc,
                               last_ordered_3pc)
+
+
+def check_last_ordered_3pc_on_backup(nodes, last_ordered_3pc):
+    for n in nodes:
+        for i, r in n.replicas.items():
+            if i != 0:
+                assert r.last_ordered_3pc == last_ordered_3pc, \
+                    "{} != {}".format(r.last_ordered_3pc,
+                                      last_ordered_3pc)
 
 
 def randomText(size):
@@ -719,6 +759,29 @@ def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
                    **kwargs)
 
 
+def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
+    _, new_steward_did = sdk_wallet_new_steward
+
+    node_ip = '{}.{}.{}.{}'.format(
+        random.randint(1, 240),
+        random.randint(1, 240),
+        random.randint(1, 240),
+        random.randint(1, 240))
+    data = {
+        'alias': node_alias,
+        'client_port': 50001,
+        'node_port': 50002,
+        'node_ip': node_ip,
+        'client_ip': node_ip,
+        'services': []
+    }
+
+    req = looper.loop.run_until_complete(
+        build_node_request(new_steward_did, node_did, json.dumps(data)))
+
+    return Request(**json.loads(req))
+
+
 def sdk_random_request_objects(count, protocol_version, identifier=None,
                                **kwargs):
     ops = random_requests(count)
@@ -734,12 +797,26 @@ def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     return reqs
 
 
+def sdk_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
+    reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    for sdk_wallet in sdk_wallets:
+        wallet_h, did = sdk_wallet
+        reqs_str = [looper.loop.run_until_complete(multi_sign_request(wallet_h, did, req))
+                    for req in reqs_str]
+    return reqs_str
+
+
 def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req) for req in reqs]
     reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
             for req in reqs_str]
     return reqs
+
+
+def sdk_multisign_request_object(looper, sdk_wallet, req):
+    wh, did = sdk_wallet
+    return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
 
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
@@ -763,6 +840,31 @@ def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
 def sdk_send_random_request(looper, pool_h, sdk_wallet):
     rets = sdk_send_random_requests(looper, pool_h, sdk_wallet, 1)
     return rets[0]
+
+
+def sdk_send_random_pool_requests(looper, pool_h, sdk_wallet_new_steward, count: int):
+    node_alias = random_string(7)
+    node_did = SimpleSigner(seed=random_string(32).encode()).identifier
+
+    reqs = [sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did) for _ in range(count)]
+    return [sdk_sign_and_submit_req_obj(looper, pool_h, sdk_wallet_new_steward, req) for req in reqs]
+
+
+def sdk_send_random_pool_and_domain_requests(looper, pool_h, sdk_wallet_new_steward, count: int):
+    node_alias = random_string(7)
+    node_did = SimpleSigner(seed=random_string(32).encode()).identifier
+
+    req_gens = [
+        lambda: sdk_gen_request(random_requests(1)[0], identifier=sdk_wallet_new_steward[1]),
+        lambda: sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did),
+    ]
+
+    res = []
+    for i in range(count):
+        req = req_gens[i % len(req_gens)]()
+        res.append(sdk_sign_and_submit_req_obj(looper, pool_h, sdk_wallet_new_steward, req))
+        looper.runFor(0.1)  # Give nodes some time to start ordering, so that requests are really alternating
+    return res
 
 
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
@@ -1010,18 +1112,25 @@ def perf_monitor_disabled(tconf):
 
 
 @contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None):
+def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None, ic_timeout=None):
     old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
     old_propose_timeout = tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT
+    old_propagate_request_delay = tconf.PROPAGATE_REQUEST_DELAY
+    old_ic_timeout = tconf.INSTANCE_CHANGE_TIMEOUT
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
         0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = vc_timeout if propose_timeout is None else propose_timeout
+    tconf.PROPAGATE_REQUEST_DELAY = 0
+    if ic_timeout is not None:
+        tconf.INSTANCE_CHANGE_TIMEOUT = ic_timeout
     yield tconf
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
+    tconf.PROPAGATE_REQUEST_DELAY = old_propagate_request_delay
+    tconf.INSTANCE_CHANGE_TIMEOUT = old_ic_timeout
 
 
 @contextmanager
@@ -1044,6 +1153,14 @@ def freshness(tconf, enabled, timeout):
     yield tconf
     tconf.UPDATE_STATE_FRESHNESS = old_update_state
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_timeout
+
+
+@contextmanager
+def primary_disconnection_time(tconf, value):
+    old_tolarate_disconnection = tconf.ToleratePrimaryDisconnection
+    tconf.ToleratePrimaryDisconnection = value
+    yield tconf
+    tconf.ToleratePrimaryDisconnection = old_tolarate_disconnection
 
 
 @contextmanager
@@ -1070,32 +1187,37 @@ def create_pre_prepare_params(state_root,
                               view_no=0,
                               pool_state_root=None,
                               pp_seq_no=0,
-                              inst_id=0):
+                              inst_id=0,
+                              audit_txn_root=None,
+                              reqs=None):
+    digest = Replica.batchDigest(reqs) if reqs is not None else "random digest"
+    req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
     params = [inst_id,
               view_no,
               pp_seq_no,
               timestamp or get_utc_epoch(),
-              ["random request digest"],
+              req_idrs,
               init_discarded(0),
-              "random digest",
+              digest,
               ledger_id,
               state_root,
               txn_root or '1' * 32,
               0,
-              True]
-    if pool_state_root is not None:
-        params.append(pool_state_root)
+              True,
+              pool_state_root or generate_state_root(),
+              audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     return params
 
 
-def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0):
+def create_pre_prepare_no_bls(state_root, view_no=0, pool_state_root=None, pp_seq_no=0, inst_id=0, audit_txn_root=None):
     params = create_pre_prepare_params(state_root=state_root,
                                        view_no=view_no,
                                        pool_state_root=pool_state_root,
                                        pp_seq_no=pp_seq_no,
-                                       inst_id=inst_id)
+                                       inst_id=inst_id,
+                                       audit_txn_root=audit_txn_root)
     return PrePrepare(*params)
 
 
@@ -1133,6 +1255,18 @@ def create_prepare_params(view_no, pp_seq_no, state_root, inst_id=0):
             '1' * 32]
 
 
+def create_prepare_from_pre_prepare(pre_prepare):
+    params = [pre_prepare.instId,
+              pre_prepare.viewNo,
+              pre_prepare.ppSeqNo,
+              pre_prepare.ppTime,
+              pre_prepare.digest,
+              pre_prepare.stateRootHash,
+              pre_prepare.txnRootHash,
+              pre_prepare.auditTxnRootHash]
+    return Prepare(*params)
+
+
 def create_prepare(req_key, state_root, inst_id=0):
     view_no, pp_seq_no = req_key
     params = create_prepare_params(view_no, pp_seq_no, state_root, inst_id=inst_id)
@@ -1160,9 +1294,28 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
     return pre_prepare + prepares + commits
 
 
+def check_missing_pre_prepares(nodes, count):
+    assert all(count <= len(replica.prePreparesPendingPrevPP)
+               for replica in getNonPrimaryReplicas(nodes, instId=0))
+
+
 class MockTimestamp:
     def __init__(self, value=datetime.utcnow()):
         self.value = value
 
     def __call__(self):
         return self.value
+
+
+class MockTimer(QueueTimer):
+    def __init__(self, get_current_time: Optional[MockTimestamp] = None):
+        self._ts = get_current_time if get_current_time else MockTimestamp(0)
+        QueueTimer.__init__(self, self._ts)
+
+    def advance(self, seconds):
+        self._ts.value += seconds
+        self.service()
+
+    def update_time(self, value):
+        self._ts.value = value
+        self.service()

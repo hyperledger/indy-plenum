@@ -51,7 +51,7 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(
 
     initialDomainLedgerSize = slowNode.domainLedger.size
     oldStashCount = slowReplica.stasher.num_stashed_watermarks
-
+    slowReplica.H = LOG_SIZE
     # 1. Send requests more than fit between the watermarks on the slow node
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_for_logsize + 2)
 

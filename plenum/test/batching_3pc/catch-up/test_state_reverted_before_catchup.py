@@ -1,5 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import cDelay
+from plenum.test.delayers import cDelay, cpDelay
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check, \
@@ -39,8 +39,9 @@ def test_unordered_state_reverted_before_catchup(
     # EXECUTE
 
     # Delay commit requests on the node
-    delay_c = 60
-    non_primary_node.nodeIbStasher.delay(cDelay(delay_c))
+    non_primary_node.nodeIbStasher.delay(cDelay())
+    # Delay Consistency proofs to not finish catchup
+    non_primary_node.nodeIbStasher.delay(cpDelay())
 
     # send requests
     reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
@@ -56,7 +57,7 @@ def test_unordered_state_reverted_before_catchup(
         ledger_id).headHash
 
     # start catchup
-    non_primary_node.ledgerManager.preCatchupClbk(ledger_id)
+    non_primary_node.start_catchup()
 
     committed_ledger_reverted = non_primary_ledger.tree.root_hash
     uncommitted_ledger_reverted = non_primary_ledger.uncommittedRootHash

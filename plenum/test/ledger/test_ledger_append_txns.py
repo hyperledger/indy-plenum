@@ -29,16 +29,17 @@ def test_append_txns_does_not_changed_committed(ledger_with_batches_appended):
     assert committed_root == ledger.root_hash
 
 
-def test_append_txns_uncommitted_size(ledger_with_batches_appended):
+def test_append_txns_uncommitted_size(ledger_with_batches_appended, inital_size):
     ledger = ledger_with_batches_appended
     assert len(ledger.uncommittedTxns) == NUM_BATCHES * TXNS_IN_BATCH
-    assert ledger.uncommitted_size == NUM_BATCHES * TXNS_IN_BATCH
+    assert ledger.uncommitted_size == inital_size + NUM_BATCHES * TXNS_IN_BATCH
     assert ledger.uncommittedRootHash != ledger.root_hash
 
 
-def test_append_txns_uncommitted_root(ledger_with_batches_appended):
+def test_append_txns_uncommitted_root(ledger_with_batches_appended, inital_root_hash):
     ledger = ledger_with_batches_appended
-    assert ledger.uncommittedRootHash != ledger.root_hash
+    assert ledger.uncommittedRootHash != ledger.tree.root_hash
+    assert ledger.uncommitted_root_hash == ledger.uncommittedRootHash
 
 
 def test_append_txns_correct_seq_nos(ledger_with_batches_appended):

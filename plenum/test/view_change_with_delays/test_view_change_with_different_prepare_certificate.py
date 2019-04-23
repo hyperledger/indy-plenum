@@ -1,21 +1,13 @@
 import sys
 
 from plenum.common.constants import PREPREPARE
-from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.test.delayers import ppDelay, msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_request
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change.helper import check_prepare_certificate
 from stp_core.loop.eventually import eventually
-
-
-def check_prepare_certificate(nodes, ppSeqNo):
-    for node in nodes:
-        key = (node.viewNo, ppSeqNo)
-        quorum = node.master_replica.quorums.prepare.value
-        assert node.master_replica.prepares.hasQuorum(ThreePhaseKey(*key),
-                                                       quorum)
 
 
 def test_view_change_with_different_prepare_certificate(looper, txnPoolNodeSet,

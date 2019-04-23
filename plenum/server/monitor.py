@@ -238,6 +238,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.latency_avg_for_backup_cls = self.config.LatencyAveragingStrategyClass
         self.latency_measurement_cls = self.config.LatencyMeasurementCls
         self.throughput_avg_strategy_cls = self.config.throughput_averaging_strategy_class
+        self.backup_throughput_avg_strategy_cls = self.config.backup_throughput_averaging_strategy_class
 
         self.acc_monitor = None
 
@@ -559,7 +560,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 if thr is not None:
                     thrs.append(thr)
             if thrs:
-                other_thrp = self.throughput_avg_strategy_cls.get_avg(thrs)
+                if desired_inst_id == self.instances.masterId:
+                    other_thrp = self.throughput_avg_strategy_cls.get_avg(thrs)
+                else:
+                    other_thrp = self.backup_throughput_avg_strategy_cls.get_avg(thrs)
             else:
                 other_thrp = None
         else:

@@ -46,4 +46,5 @@ def test_observer_node(txnPoolNodeSet,
     # check that Delta is in sync with other Nodes.
     checkNodeDataForEquality(observer_node,
                              *other_nodes,
-                             exclude_from_check=['check_last_ordered_3pc'])
+                             exclude_from_check=['check_last_ordered_3pc',
+                                                 'check_last_ordered_3pc_backup'])

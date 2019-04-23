@@ -68,7 +68,8 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
     looper.add(node_to_disconnect)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
 
 def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
@@ -124,7 +125,8 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     looper.add(node_to_disconnect)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
 
 def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
@@ -153,16 +155,11 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
                                             tdir, allPluginsPath)
     txnPoolNodeSet[-1] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+    waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # check cancel of schedule with requesting ledger statuses and consistency proofs
-
-    assert len(node_to_disconnect.ledgerManager.request_ledger_status_action_ids) == 0
-    for action, aids in node_to_disconnect.ledgerManager.scheduled.items():
-        if getCallableName(action) == 'reask_for_ledger_status':
-            assert len(aids) == 0
-
-    assert len(node_to_disconnect.ledgerManager.request_consistency_proof_action_ids) == 0
-    for action, aids in node_to_disconnect.ledgerManager.scheduled.items():
-        if getCallableName(action) == 'reask_for_last_consistency_proof':
-            assert len(aids) == 0
+    for event in node_to_disconnect.timer._events:
+        name = event.callback.__name__
+        assert name != '_reask_for_ledger_status'
+        assert name != '_reask_for_last_consistency_proof'

@@ -12,7 +12,6 @@ backup_inst_id = 1
 
 def test_node_erases_last_sent_pp_key_on_view_change(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
-
     # Get a node with a backup primary replica
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
     node = replica.node
@@ -36,7 +35,8 @@ def test_node_erases_last_sent_pp_key_on_view_change(
     ensureElectionsDone(looper, txnPoolNodeSet)
 
     # Verify that the node has erased the stored last sent PrePrepare key
-    assert LAST_SENT_PRE_PREPARE not in node.nodeStatusDB
+    for value in node.last_sent_pp_store_helper._load_last_sent_pp_key().values():
+        assert value == [node.viewNo, 1]
 
     # Send a 3PC-batch and ensure that the replica orders it
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
@@ -45,6 +45,6 @@ def test_node_erases_last_sent_pp_key_on_view_change(
                                timeout=tconf.Max3PCBatchWait)
 
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, 1)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, 2)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

@@ -73,4 +73,5 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
     # Partitioned node should have the same ledger and state as others
     # eventually
     waitNodeDataEquality(looper, partitioned_node,
-                         *[n for n in txnPoolNodeSet if n != partitioned_node])
+                         *[n for n in txnPoolNodeSet if n != partitioned_node],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])

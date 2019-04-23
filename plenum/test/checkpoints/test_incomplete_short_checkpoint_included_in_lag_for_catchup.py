@@ -1,6 +1,5 @@
 from logging import getLogger
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.replica import Replica
 from plenum.test import waits
@@ -9,7 +8,7 @@ from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    checkNodeDataForInequality
+    checkNodeDataForInequality, get_number_of_completed_catchups
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
 
@@ -43,7 +42,7 @@ def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
     # Epsilon did not participate in ordering of the batch with EpsilonSteward
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
@@ -94,16 +93,7 @@ def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
                                            sdk_wallet_client,
                                            reqs_for_checkpoint)
 
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Verify that the new node has caught up
     assert get_number_of_completed_catchups(new_node) > completed_catchups_before_reqs
-
-
-def get_number_of_completed_catchups(node):
-    cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(
-            node.ledgerManager.catchupCompleted):
-        if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
-            cnt += 1
-    return cnt

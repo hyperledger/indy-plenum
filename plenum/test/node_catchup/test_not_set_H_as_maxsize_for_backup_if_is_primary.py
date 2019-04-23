@@ -54,6 +54,7 @@ def test_not_set_H_as_maxsize_for_backup_if_is_primary(looper,
                                         allPluginsPath)
     txnPoolNodeSet[2] = restarted_node
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+    # Gamma catchup 1 txn
     assert restarted_node.replicas._replicas[1].isPrimary
-    assert restarted_node.replicas._replicas[1].h == 0
-    assert restarted_node.replicas._replicas[1].H == LOG_SIZE
+    assert restarted_node.replicas._replicas[1].h == 1
+    assert restarted_node.replicas._replicas[1].H == LOG_SIZE + 1

@@ -34,10 +34,10 @@ def test_pp_seq_no_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
 
     new_view_no = ensure_view_change(looper, txnPoolNodeSet)
     assert new_view_no > old_view_no
-    chk(5)  # no new requests yet, so last ordered 3PC is (0,5)
+    chk(1)  # After view_change, master primary must initiate 3pc batch
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
-    chk(1)  # new request for new view => last ordered 3PC is (0,1)
+    chk(2)  # new request for new view => last ordered 3PC is (0,2)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
-    chk(6)
+    chk(7)

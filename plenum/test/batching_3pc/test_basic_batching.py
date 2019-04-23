@@ -3,7 +3,6 @@ import pytest
 from plenum.common.exceptions import UnauthorizedClientRequest, RequestRejectedException
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
-from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
 from plenum.common.request import Request
