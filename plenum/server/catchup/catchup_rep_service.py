@@ -73,9 +73,6 @@ class CatchupRepService:
                         ' found any connected nodes'.format(CATCH_UP_PREFIX, self, self._ledger_id))
             return
 
-        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
-        # since ordered requests might have been executed after receiving
-        # sufficient ConsProof in `preCatchupClbk`
         reqs = self._send_catchup_reqs(self._provider.eligible_nodes(),
                                        self._catchup_till.start_size, self._catchup_till.final_size)
         timeout = self._catchup_timeout(reqs)
@@ -188,6 +185,9 @@ class CatchupRepService:
 
             node_index = find_node_idx(nodes_ledger_sizes, pos)
             if len(nodes_ledger_sizes) > 1:
+                # If we have more than one node left to request data from then it may be needed to
+                # adjust number of txns requested from current node so that we don't ask next node
+                # for txns that it doesn't have
                 next_node_index = find_next_best_node_idx(nodes_ledger_sizes, node_index)
                 next_node_ledger_size = nodes_ledger_sizes[next_node_index][1]
                 if pos - txns_to_catchup > next_node_ledger_size:
