@@ -324,7 +324,8 @@ def test_can_send_3pc_batch_old_pp_seq_no_for_view(primary_validator, mode):
 
 
 @pytest.mark.parametrize('initial_seq_no', [0, 3, 8, 13])
-def test_can_send_multiple_3pc_batches(primary_validator, initial_seq_no):
+def test_can_send_multiple_3pc_batches(primary_validator, initial_seq_no, monkeypatch):
+    monkeypatch.setattr(primary_validator.replica.config, 'Max3PCBatchesInFlight', None)
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, initial_seq_no)
     primary_validator.replica.lastPrePrepareSeqNo = initial_seq_no + 10
     assert primary_validator.can_send_3pc_batch()
