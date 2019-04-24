@@ -189,6 +189,10 @@ class NodeLeecherService:
         last_audit_txn = get_payload_data(last_audit_txn)
         for ledger_id, final_size in last_audit_txn[AUDIT_TXN_LEDGERS_SIZE].items():
             ledger = self._provider.ledger(ledger_id)
+            if ledger is None:
+                logger.warning("{} has audit ledger with references to nonexistent ledger with ID {}".
+                               format(self, ledger_id))
+                continue
             start_size = ledger.size
 
             final_hash = last_audit_txn[AUDIT_TXN_LEDGER_ROOT].get(ledger_id)

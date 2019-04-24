@@ -46,7 +46,7 @@ from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica
+    getPrimaryReplica, getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -1112,21 +1112,25 @@ def perf_monitor_disabled(tconf):
 
 
 @contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None):
+def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None, ic_timeout=None):
     old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
     old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
     old_propose_timeout = tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT
     old_propagate_request_delay = tconf.PROPAGATE_REQUEST_DELAY
+    old_ic_timeout = tconf.INSTANCE_CHANGE_TIMEOUT
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
         0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = vc_timeout if propose_timeout is None else propose_timeout
     tconf.PROPAGATE_REQUEST_DELAY = 0
+    if ic_timeout is not None:
+        tconf.INSTANCE_CHANGE_TIMEOUT = ic_timeout
     yield tconf
     tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
     tconf.PROPAGATE_REQUEST_DELAY = old_propagate_request_delay
+    tconf.INSTANCE_CHANGE_TIMEOUT = old_ic_timeout
 
 
 @contextmanager
@@ -1288,6 +1292,11 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
     # The primary node receives the same number of messages. Doesn't get pre-prepare,
     # but gets one more prepare
     return pre_prepare + prepares + commits
+
+
+def check_missing_pre_prepares(nodes, count):
+    assert all(count <= len(replica.prePreparesPendingPrevPP)
+               for replica in getNonPrimaryReplicas(nodes, instId=0))
 
 
 class MockTimestamp:

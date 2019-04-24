@@ -83,12 +83,8 @@ def test_catchup_without_vc_and_no_primary_on_master(replica, tconf):
     emulate_catchup(replica, ppSeqNo)
     # select_primaries after allLedgersCaughtUp
     emulate_select_primaries(replica)
-    if replica.viewNo == 0:
-        assert replica.h == ppSeqNo
-        assert replica.H == ppSeqNo + tconf.LOG_SIZE
-    else:
-        assert replica.h == 0
-        assert replica.H == tconf.LOG_SIZE
+    assert replica.h == ppSeqNo
+    assert replica.H == ppSeqNo + tconf.LOG_SIZE
 
 
 def test_catchup_without_vc_and_no_primary_on_backup(replica, tconf):
@@ -140,12 +136,8 @@ def test_view_change_no_propagate_primary_on_master(replica, tconf):
     # next calls emulate simple view_change procedure (replica's watermark related steps)
     emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
-    if replica.viewNo > 0:
-        assert replica.h == 0
-        assert replica.H == tconf.LOG_SIZE
-    else:
-        assert replica.h == ppSeqNo
-        assert replica.H == ppSeqNo + tconf.LOG_SIZE
+    assert replica.h == ppSeqNo
+    assert replica.H == ppSeqNo + tconf.LOG_SIZE
 
 
 def test_view_change_no_propagate_primary_on_backup(replica, tconf):
