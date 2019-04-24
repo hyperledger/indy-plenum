@@ -245,12 +245,10 @@ class NodeLeecherService:
 
             audit_txn = audit_ledger.getBySeqNo(audit_seq_no)
             audit_txn = get_payload_data(audit_txn)
-            ledger_size = audit_txn[AUDIT_TXN_LEDGERS_SIZE].get(ledger_id)
-            if ledger_size is None:
-                logger.error("{} has corrupted audit ledger: "
-                             "it doesn't contain any info on size of ledger_id {} at audit txn {}".
-                             format(self, ledger_id, audit_seq_no))
-                continue
+            # Not having a reference to some ledger in audit txn can be a valid
+            # case if we just installed a plugin that adds a new ledger, but
+            # no audit txns were written yet
+            ledger_size = audit_txn[AUDIT_TXN_LEDGERS_SIZE].get(ledger_id, 0)
 
             result[node_id] = ledger_size
 
