@@ -27,16 +27,18 @@ def tconf(tconf):
     tconf.CHK_FREQ = old_chk_freq
 
 
-def test_watermarks_after_view_change(tdir, tconf,
-                                      looper,
-                                      txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client):
+def test_watermarks_after_view_change_catchup_under_watermarks(tdir, tconf,
+                                                               looper,
+                                                               txnPoolNodeSet,
+                                                               sdk_pool_handle,
+                                                               sdk_wallet_client):
     """
     Delay commit, checkpoint, InstanceChange and ViewChangeDone messages for lagging_node.
     Start ViewChange.
     Check that ViewChange finished.
+    Pool order txns to (1, 3) - 1 finalized checkpoint, [2, 6] - watermarks
     Reset delays.
+    Pool order txns to (1, 5) - 2 finalized checkpoint, [4, 8] - watermarks
     Check that lagging_node can order transactions and has same data with other nodes.
     """
     lagging_node = txnPoolNodeSet[-1]
@@ -51,8 +53,8 @@ def test_watermarks_after_view_change(tdir, tconf,
                           customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet)))
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet[:-1])
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, 6)
+                                  sdk_wallet_client, 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+                              sdk_wallet_client, 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
