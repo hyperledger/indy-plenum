@@ -18,7 +18,7 @@ def test_catchup_req_distribution_invariants():
         start_seq_no = pool_txns[node_id] + 1
         end_seq_no = randint(start_seq_no - 1, max(pool_txns.values()))
         catchup_till = randint(end_seq_no, max(pool_txns.values()))
-        catchup_batch_size = randint(1, 10)
+        catchup_batch_size = randint(0, 10)
         del pool_txns[node_id]
         catchup_reqs = CatchupRepService._build_catchup_reqs(1,
                                                              start_seq_no,
