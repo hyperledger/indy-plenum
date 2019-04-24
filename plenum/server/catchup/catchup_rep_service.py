@@ -142,7 +142,8 @@ class CatchupRepService:
         reqs = self._build_catchup_reqs(self._ledger_id,
                                         start_seq_no, end_seq_no,
                                         self._catchup_till.final_size,
-                                        nodes_ledger_sizes)
+                                        nodes_ledger_sizes,
+                                        self._config.CATCHUP_BATCH_SIZE)
         for to, req in reqs.items():
             self._wait_catchup_rep_from.add(to)
             self._provider.send_to(req, to)
@@ -152,7 +153,8 @@ class CatchupRepService:
     @staticmethod
     def _build_catchup_reqs(ledger_id: int,
                             start_seq_no: int, end_seq_no: int, catchup_till: int,
-                            nodes_ledger_sizes: Dict[str, int]) -> Dict[str, CatchupReq]:
+                            nodes_ledger_sizes: Dict[str, int],
+                            catchup_batch_size: int = 5) -> Dict[str, CatchupReq]:
         # Utility
         def find_node_idx(ledger_sizes: List[Tuple[str, int]], max_seq_no: int) -> int:
             for i, (_, size) in enumerate(ledger_sizes):
@@ -181,7 +183,7 @@ class CatchupRepService:
         while len(nodes_ledger_sizes) > 0:
             txns_left = pos - start_seq_no + 1
             txns_to_catchup = txns_left // len(nodes_ledger_sizes)
-            txns_to_catchup = max(5, txns_to_catchup)  # Always try to ask some minimum number of txns per node
+            txns_to_catchup = max(catchup_batch_size, txns_to_catchup)  # Always try to ask some minimum number of txns per node
             txns_to_catchup = min(txns_left, txns_to_catchup)  # But no more than number of txns left
 
             node_index = find_node_idx(nodes_ledger_sizes, pos)

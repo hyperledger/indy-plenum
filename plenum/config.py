@@ -294,6 +294,8 @@ INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
 
+CATCHUP_BATCH_SIZE = 5  # Minimum number of txns in single catchup request
+
 # permissions for keyring dirs/files
 WALLET_DIR_MODE = 0o700  # drwx------
 WALLET_FILE_MODE = 0o600  # -rw-------
