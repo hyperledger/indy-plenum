@@ -131,10 +131,11 @@ class CatchupRepService:
                               if node_id in eligible_nodes and size >= start_seq_no}
 
         if len(nodes_ledger_sizes) == 0:
-            logger.error("{} cannot send catchup requests from {} to {} because "
-                         "no nodes from eligible list {} contain needed transactions: {}".
-                         format(self, start_seq_no, end_seq_no, eligible_nodes, self._nodes_ledger_sizes))
-            return 0
+            logger.warning("{} no eligible nodes found containing transactions from {} to {},"
+                           "trying all eligible nodes {} as a last resort,"
+                           "last data on available txns was {}".
+                           format(self, start_seq_no, end_seq_no, eligible_nodes, self._nodes_ledger_sizes))
+            nodes_ledger_sizes = {node_id: end_seq_no for node_id in eligible_nodes}
 
         reqs = self._build_catchup_reqs(self._ledger_id,
                                         start_seq_no, end_seq_no,
