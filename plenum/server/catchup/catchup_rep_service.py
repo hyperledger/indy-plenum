@@ -74,7 +74,7 @@ class CatchupRepService:
             return
 
         reqs = self._send_catchup_reqs(self._provider.eligible_nodes(),
-                                       self._catchup_till.start_size, self._catchup_till.final_size)
+                                       self._catchup_till.start_size + 1, self._catchup_till.final_size)
         timeout = self._catchup_timeout(reqs)
         self._timer.schedule(timeout, self._request_txns_if_needed)
 
