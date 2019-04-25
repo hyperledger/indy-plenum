@@ -2179,8 +2179,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
-                rh.ts_store.set(get_txn_time(txn),
-                                state.headHash)
+                timestamp = get_txn_time(txn)
+                if timestamp is not None:
+                    rh.ts_store.set(timestamp, state.headHash)
             logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
