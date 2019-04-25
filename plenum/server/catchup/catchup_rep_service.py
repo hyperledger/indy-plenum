@@ -178,7 +178,7 @@ class CatchupRepService:
 
         reqs = {}
         pos = end_seq_no
-        while len(nodes_ledger_sizes) > 0:
+        while len(nodes_ledger_sizes) > 0 and pos >= start_seq_no:
             txns_left = pos - start_seq_no + 1
             txns_to_catchup = txns_left // len(nodes_ledger_sizes)
             txns_to_catchup = max(catchup_batch_size, txns_to_catchup)  # Always try to ask some minimum number of txns per node
