@@ -1077,7 +1077,7 @@ def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
 
 
 def sdk_json_to_request_object(json_req):
-    return Request(identifier=json_req['identifier'],
+    return Request(identifier=json_req.get('identifier', None),
                    reqId=json_req['reqId'],
                    operation=json_req['operation'],
                    signature=json_req['signature'] if 'signature' in json_req else None,
