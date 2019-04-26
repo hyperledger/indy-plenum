@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 from plenum.test import waits
@@ -9,6 +11,16 @@ nodeCount = 4
 
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old = tconf.Max3PCBatchesInFlight
+    # This test requires lots of batches in flight (actually 8) in order to function properly,
+    # so we allow any number to simplify things
+    tconf.Max3PCBatchesInFlight = None
+    yield tconf
+    tconf.Max3PCBatchesInFlight = old
 
 
 def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
