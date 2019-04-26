@@ -261,16 +261,28 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
     delay_messages('3pc', nodes, inst_id, delay, min_delay, max_delay)
 
 
-def delay_3pc(view_no: int = 0,
+def delay_3pc(view_no: int = None,
               after: Optional[int] = None,
               before: Optional[int] = None,
-              msgs = (PrePrepare, Prepare, Commit)):
+              msgs = (PrePrepare, Prepare, Commit),
+              delay_message_reps: bool = True):
+
+    typenames = [m.typename for m in msgs] \
+        if isinstance(msgs, tuple) \
+        else [msgs.typename]
 
     def _delayer(msg_frm):
         msg, frm = msg_frm
-        if not isinstance(msg, msgs):
+        if isinstance(msg, MessageRep):
+            if not delay_message_reps:
+                return
+            if msg.msg_type not in typenames:
+                return
+            msg = msg.msg
+        elif not isinstance(msg, msgs):
             return
-        if msg.viewNo != view_no:
+
+        if view_no is not None and msg.viewNo != view_no:
             return
         if after is not None and msg.ppSeqNo <= after:
             return
