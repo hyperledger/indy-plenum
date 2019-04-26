@@ -281,12 +281,14 @@ def delay_3pc(view_no: int = None,
             msg = msg.msg
         elif not isinstance(msg, msgs):
             return
+        else:
+            msg = msg._asdict()
 
-        if view_no is not None and msg.viewNo != view_no:
+        if view_no is not None and msg[f.VIEW_NO.nm] != view_no:
             return
-        if after is not None and msg.ppSeqNo <= after:
+        if after is not None and msg[f.PP_SEQ_NO.nm] <= after:
             return
-        if before is not None and msg.ppSeqNo >= before:
+        if before is not None and msg[f.PP_SEQ_NO.nm] >= before:
             return
         return DEFAULT_DELAY
 
