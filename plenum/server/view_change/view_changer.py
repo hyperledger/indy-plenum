@@ -754,4 +754,5 @@ class ViewChanger():
 
     def is_state_fresh_enough(self):
         threshold = self.config.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT * self.config.STATE_FRESHNESS_UPDATE_INTERVAL
-        return self.provider.state_freshness() < threshold
+        return self.provider.state_freshness() < threshold or (not self.view_change_in_progress and
+                                                               not Mode.is_done_syncing(self.provider.node_mode()))
