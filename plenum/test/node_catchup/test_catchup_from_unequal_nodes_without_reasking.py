@@ -32,8 +32,9 @@ def test_catchup_from_unequal_nodes_without_reasking(looper,
                                                      txnPoolNodeSet,
                                                      sdk_pool_handle,
                                                      sdk_wallet_client):
-    lagged_node_1 = txnPoolNodeSet[-1]
-    lagged_node_2 = txnPoolNodeSet[-2]
+    # Node numbers are selected so that test fails when using old algo
+    lagged_node_1 = txnPoolNodeSet[2]
+    lagged_node_2 = txnPoolNodeSet[-1]
     with delay_rules_without_processing(lagged_node_1.nodeIbStasher, delay_3pc()):
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
 
