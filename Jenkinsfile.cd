@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('SovrinHelpers@v2.0.1') _
+@Library('SovrinHelpers@v2.0.5') _
 
 
 String name = 'indy-plenum'
@@ -242,7 +242,7 @@ options.setNotifEmails([
 options.setPkgName(pkgName)
 
 // TODO duplicates list from build scripts
-options.setPkgDeps([
+options.setBuiltPkgs([
     'rocksdb': '5.8.8',
     'python3-ioflo': '1.5.4',
     'python3-orderedset': '2.0',
