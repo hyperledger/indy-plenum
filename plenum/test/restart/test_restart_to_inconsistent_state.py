@@ -8,7 +8,6 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change_complete
 
 nodeCount = 4
-TestRunningTimeLimitSec = 150
 
 
 @pytest.fixture(scope="module")

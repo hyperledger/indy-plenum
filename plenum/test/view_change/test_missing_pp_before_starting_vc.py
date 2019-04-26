@@ -1,8 +1,7 @@
 import pytest
 
-from plenum.common.constants import PREPREPARE
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.test.delayers import msg_rep_delay, delay_3pc
+from plenum.test.delayers import delay_3pc
 from plenum.test.helper import sdk_send_random_requests, check_missing_pre_prepares, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -31,8 +30,7 @@ def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
 
     # 1. delay PrePrepares with ppSeqNo<4
     with delay_rules(all_stashers,
-                     delay_3pc(view_no=1, before=4, msgs=PrePrepare),
-                     msg_rep_delay(types_to_delay=[PREPREPARE])):
+                     delay_3pc(view_no=1, before=4, msgs=PrePrepare)):
         # 2. do view change for view=1
         ensure_view_change(looper, txnPoolNodeSet)
         ensureElectionsDone(looper, txnPoolNodeSet)

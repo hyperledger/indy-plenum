@@ -20,7 +20,6 @@ from plenum.test.batching_3pc.conftest import tconf
 logger = getlogger()
 
 Max3PCBatchSize = 1
-TestRunningTimeLimitSec = 150
 
 
 def test_node_request_consistency_proof(tdir, tconf,
