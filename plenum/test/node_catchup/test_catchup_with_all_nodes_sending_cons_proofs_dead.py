@@ -31,11 +31,11 @@ def tconf(tconf):
         tconf.CATCHUP_BATCH_SIZE = old_catchup_batch_size
 
 
-def test_catchup_with_only_one_available_node(looper,
-                                              txnPoolNodeSet,
-                                              sdk_pool_handle,
-                                              sdk_wallet_client,
-                                              logsearch):
+def test_catchup_with_all_nodes_sending_cons_proofs_dead(looper,
+                                                         txnPoolNodeSet,
+                                                         sdk_pool_handle,
+                                                         sdk_wallet_client,
+                                                         logsearch):
     lagging_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
 
@@ -54,9 +54,10 @@ def test_catchup_with_only_one_available_node(looper,
     # Make sure number of cons proofs gathered when all nodes are
     assert len(audit_catchup_service._nodes_ledger_sizes) == 3
 
-    # Allow catchup requests only from one of responded nodes
-    node_id = choice(list(audit_catchup_service._nodes_ledger_sizes.keys()))
-    stop_delaying_and_process(catchup_reqs[node_id])
+    # Allow catchup requests only from nodes that didn't respond first
+    for node_id, node_reqs in catchup_reqs.items():
+        if node_id not in audit_catchup_service._nodes_ledger_sizes:
+            stop_delaying_and_process(node_reqs)
 
     # Check catchup finishes successfully, and there were reasks
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
