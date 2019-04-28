@@ -4,6 +4,9 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE, STASH_WATERMARKS, \
     STASH_CATCH_UP, STASH_VIEW
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 class ReplicaValidator:
@@ -116,6 +119,8 @@ class ReplicaValidator:
             if self.replica.config.Max3PCBatchesInFlight is not None:
                 batches_in_flight = self.replica.lastPrePrepareSeqNo - self.replica.last_ordered_3pc[1]
                 if batches_in_flight >= self.replica.config.Max3PCBatchesInFlight:
+                    logger.info("{} not creating new batch because there already {} in flight out of {} allowed".
+                                format(self.replica, batches_in_flight, self.replica.config.Max3PCBatchesInFlight))
                     return False
         return True
 

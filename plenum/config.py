@@ -255,7 +255,7 @@ Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
 # Max allowed number of 3PC batches in flight (or None to disable limit)
-Max3PCBatchesInFlight = None
+Max3PCBatchesInFlight = 4
 
 UPDATE_STATE_FRESHNESS = True
 STATE_FRESHNESS_UPDATE_INTERVAL = 300  # in secs
