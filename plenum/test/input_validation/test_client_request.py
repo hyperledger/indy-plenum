@@ -1,7 +1,10 @@
 import pytest
+import hashlib
 
 from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, \
     VERKEY, CURRENT_PROTOCOL_VERSION
+from plenum.common.util import get_utc_epoch
+from plenum.common.messages.fields import TimestampField
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from plenum.test.input_validation.constants import TEST_TARGET_NYM
@@ -17,7 +20,7 @@ def validator(request):
                                   schema_is_strict=schema_is_strict)
 
 
-@pytest.fixture()
+@pytest.fixture
 def operation():
     return {
         TXN_TYPE: NYM,
@@ -26,7 +29,7 @@ def operation():
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def operation_invalid():
     return {
         TXN_TYPE: NYM,
@@ -35,13 +38,29 @@ def operation_invalid():
     }
 
 
-@pytest.fixture()
-def request_dict(operation):
+@pytest.fixture
+def taa():
+    return {
+        f.TAA_AML_TYPE.nm: 'some-aml',
+        f.TAA_HASH.nm: hashlib.sha256(b'some-taa').hexdigest(),
+        f.TAA_TIME.nm: get_utc_epoch(),
+    }
+
+
+@pytest.fixture
+def taa_invalid(taa):
+    taa[f.TAA_TIME.nm] = TimestampField._oldest_time - 1
+    return taa
+
+
+@pytest.fixture
+def request_dict(operation, taa):
     return {f.IDENTIFIER.nm: "1" * 16,
             f.REQ_ID.nm: 1,
             OPERATION: operation,
             f.SIG.nm: "signature",
             f.DIGEST.nm: "digest",
+            f.TAA_META.nm: taa,
             f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
 
 
@@ -67,6 +86,15 @@ def test_with_digest_valid(validator, operation):
                 f.REQ_ID.nm: 1,
                 OPERATION: operation,
                 f.DIGEST.nm: "digest",
+                f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
+    validator.validate(req_dict)
+
+
+def test_with_taa_valid(validator, operation, taa):
+    req_dict = {f.IDENTIFIER.nm: "1" * 16,
+                f.REQ_ID.nm: 1,
+                OPERATION: operation,
+                f.TAA_META.nm: taa,
                 f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
     validator.validate(req_dict)
 
@@ -148,6 +176,16 @@ def test_all_digest_invalid(validator, request_dict):
     with pytest.raises(TypeError) as ex_info:
         validator.validate(request_dict)
     ex_info.match('empty string \(digest=\)')
+
+
+def test_all_taa_invalid(validator, request_dict, taa_invalid):
+    request_dict[f.TAA_META.nm] = taa_invalid
+    with pytest.raises(
+            TypeError,
+            match=("should be greater than {}"
+                   .format(TimestampField._oldest_time))
+    ):
+        validator.validate(request_dict)
 
 
 def test_all_version_invalid(validator, request_dict):

@@ -282,7 +282,6 @@ def do_req_to_txn(req_data, req_op):
         req_data.pop(f.SIGS.nm, None)
 
     # 3. Fill Payload metadata
-
     append_payload_metadata(result,
                             frm=req_data.pop(f.IDENTIFIER.nm, None),
                             req_id=req_data.pop(f.REQ_ID.nm, None),
