@@ -20,6 +20,7 @@ class Request:
                  signature: str = None,
                  signatures: Dict[str, str] = None,
                  protocolVersion: int = None,
+                 txnAuthrAgrmtMeta: Dict = None,
                  # Intentionally omitting *args
                  **kwargs):
         self._identifier = identifier
@@ -28,6 +29,7 @@ class Request:
         self.reqId = reqId
         self.operation = operation
         self.protocolVersion = protocolVersion
+        self.txnAuthrAgrmtMeta = txnAuthrAgrmtMeta
         self._digest = None
         self._payload_digest = None
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
@@ -63,6 +65,8 @@ class Request:
                 rv[nm] = getattr(self, nm)
         if self.protocolVersion is not None:
             rv[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        if self.txnAuthrAgrmtMeta is not None:
+            rv[f.TAA_META.nm] = self.txnAuthrAgrmtMeta
         return rv
 
     def __eq__(self, other):
@@ -106,6 +110,8 @@ class Request:
         }
         if self.protocolVersion is not None:
             dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        if self.txnAuthrAgrmtMeta is not None:
+            dct[f.TAA_META.nm] = self.txnAuthrAgrmtMeta
         return dct
 
     def __setstate__(self, state):

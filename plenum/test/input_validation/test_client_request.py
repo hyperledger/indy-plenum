@@ -1,14 +1,8 @@
 import pytest
-import hashlib
 
-from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, \
-    VERKEY, CURRENT_PROTOCOL_VERSION
-from plenum.common.util import get_utc_epoch
-from plenum.common.messages.fields import TimestampField
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
-from plenum.test.input_validation.constants import TEST_TARGET_NYM
-from plenum.test.input_validation.constants import TEST_VERKEY_ABBREVIATED
 
 
 @pytest.fixture(params=['operation_schema_is_strict', 'operation_schema_is_not_strict',
@@ -18,39 +12,6 @@ def validator(request):
     schema_is_strict = request.param == 'schema_is_strict'
     return ClientMessageValidator(operation_schema_is_strict=operation_schema_is_strict,
                                   schema_is_strict=schema_is_strict)
-
-
-@pytest.fixture
-def operation():
-    return {
-        TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM,
-        VERKEY: TEST_VERKEY_ABBREVIATED
-    }
-
-
-@pytest.fixture
-def operation_invalid():
-    return {
-        TXN_TYPE: NYM,
-        TARGET_NYM: "1",
-        VERKEY: TEST_VERKEY_ABBREVIATED
-    }
-
-
-@pytest.fixture
-def taa():
-    return {
-        f.TAA_AML_TYPE.nm: 'some-aml',
-        f.TAA_HASH.nm: hashlib.sha256(b'some-taa').hexdigest(),
-        f.TAA_TIME.nm: get_utc_epoch(),
-    }
-
-
-@pytest.fixture
-def taa_invalid(taa):
-    taa[f.TAA_TIME.nm] = TimestampField._oldest_time - 1
-    return taa
 
 
 @pytest.fixture
@@ -181,9 +142,7 @@ def test_all_digest_invalid(validator, request_dict):
 def test_all_taa_invalid(validator, request_dict, taa_invalid):
     request_dict[f.TAA_META.nm] = taa_invalid
     with pytest.raises(
-            TypeError,
-            match=("should be greater than {}"
-                   .format(TimestampField._oldest_time))
+        TypeError, match=("should be greater than")
     ):
         validator.validate(request_dict)
 
