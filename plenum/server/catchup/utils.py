@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Callable, List, Iterable, NamedTuple
+from typing import Optional, Any, Callable, List, Iterable, NamedTuple, Dict
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
@@ -17,7 +17,8 @@ CatchupTill = NamedTuple('CatchupTill',
 
 LedgerCatchupStart = NamedTuple('LedgerCatchupStart',
                                 [('ledger_id', int),
-                                 ('catchup_till', Optional[CatchupTill])])
+                                 ('catchup_till', Optional[CatchupTill]),
+                                 ('nodes_ledger_sizes', Dict[str, int])])
 
 LedgerCatchupComplete = NamedTuple('LedgerCatchupComplete',
                                    [('ledger_id', int),

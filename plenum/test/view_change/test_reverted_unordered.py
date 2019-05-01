@@ -10,8 +10,6 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
-TestRunningTimeLimitSec = 150
-
 
 def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     """

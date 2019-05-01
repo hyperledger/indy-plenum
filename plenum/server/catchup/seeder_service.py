@@ -58,6 +58,12 @@ class SeederService:
         start = req.seqNoStart
         end = req.seqNoEnd
 
+        if start < 1:
+            self._provider.discard(req,
+                                   reason="not able to service since start {} is zero or less".
+                                   format(start), logMethod=logger.debug)
+            return
+
         if start > end:
             self._provider.discard(req,
                                    reason="not able to service since start = {} greater than end = {}"

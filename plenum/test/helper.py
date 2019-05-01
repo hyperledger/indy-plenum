@@ -445,6 +445,10 @@ def assertExp(condition):
     assert condition
 
 
+def assert_eq(actual, expected):
+    assert actual == expected
+
+
 def assertFunc(func):
     assert func()
 

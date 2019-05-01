@@ -231,7 +231,7 @@ enableStdOutLogging = True
 # OPTIONS RELATED TO TESTS
 
 # TODO test 60sec
-TestRunningTimeLimitSec = 100
+TestRunningTimeLimitSec = 150
 
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
@@ -255,7 +255,7 @@ Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
 # Max allowed number of 3PC batches in flight (or None to disable limit)
-Max3PCBatchesInFlight = None
+Max3PCBatchesInFlight = 4
 
 UPDATE_STATE_FRESHNESS = True
 STATE_FRESHNESS_UPDATE_INTERVAL = 300  # in secs
@@ -293,6 +293,8 @@ VIEW_CHANGE_TIMEOUT = 420  # seconds
 INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
+
+CATCHUP_BATCH_SIZE = 5  # Minimum number of txns in single catchup request
 
 # permissions for keyring dirs/files
 WALLET_DIR_MODE = 0o700  # drwx------
