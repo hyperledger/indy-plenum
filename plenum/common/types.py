@@ -87,7 +87,7 @@ class f:  # provides a namespace for reusable field constants
     TAA_META = Field(TXN_PAYLOAD_METADATA_TAA, str)
     TAA_AML_TYPE = Field("acceptanceMechanismType", str)
     TAA_HASH = Field("hash", str)
-    TAA_TIME = Field("timeOfAcceptance", float)
+    TAA_ACCEPTANCE_TIME = Field("timeOfAcceptance", float)
 
 
 OPERATION = 'operation'

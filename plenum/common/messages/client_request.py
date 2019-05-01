@@ -100,7 +100,7 @@ class ClientTAA(MessageValidator):
     schema = (
         (f.TAA_AML_TYPE.nm, LimitedLengthStringField(max_length=TAA_AML_TYPE_FIELD_LIMIT)),
         (f.TAA_HASH.nm, Sha256HexField()),
-        (f.TAA_TIME.nm, TimestampField()),
+        (f.TAA_ACCEPTANCE_TIME.nm, TimestampField()),
     )
 
 

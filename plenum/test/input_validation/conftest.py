@@ -34,11 +34,11 @@ def taa():
     return {
         f.TAA_AML_TYPE.nm: 'some-aml',
         f.TAA_HASH.nm: hashlib.sha256(b'some-taa').hexdigest(),
-        f.TAA_TIME.nm: get_utc_epoch(),
+        f.TAA_ACCEPTANCE_TIME.nm: get_utc_epoch(),
     }
 
 
 @pytest.fixture
 def taa_invalid(taa):
-    taa[f.TAA_TIME.nm] = TimestampField._oldest_time - 1
+    taa[f.TAA_ACCEPTANCE_TIME.nm] = TimestampField._oldest_time - 1
     return taa
