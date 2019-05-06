@@ -61,25 +61,25 @@ class SeederService:
         if start < 1:
             self._provider.discard(req,
                                    reason="not able to service since start {} is zero or less".
-                                   format(start), logMethod=logger.debug)
+                                   format(start), logMethod=logger.warning)
             return
 
         if start > end:
             self._provider.discard(req,
                                    reason="not able to service since start = {} greater than end = {}"
-                                   .format(start, end), logMethod=logger.debug)
+                                   .format(start, end), logMethod=logger.warning)
             return
 
         if end > req.catchupTill:
             self._provider.discard(req,
                                    reason="not able to service since end = {} greater than catchupTill = {}"
-                                   .format(end, req.catchupTill), logMethod=logger.debug)
+                                   .format(end, req.catchupTill), logMethod=logger.warning)
             return
 
         if req.catchupTill > ledger.size:
             self._provider.discard(req,
                                    reason="not able to service since catchupTill = {} greater than ledger size = {}"
-                                   .format(req.catchupTill, ledger.size), logMethod=logger.debug)
+                                   .format(req.catchupTill, ledger.size), logMethod=logger.warning)
             return
 
         cons_proof = ledger.tree.consistency_proof(end, req.catchupTill)
