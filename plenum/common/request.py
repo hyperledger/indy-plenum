@@ -145,7 +145,7 @@ class Request:
 
     @staticmethod
     def gen_idr_from_sigs(signatures: Dict):
-        return Request.idr_delimiter.join(sorted(signatures.keys()))
+        return Request.idr_delimiter.join(sorted(signatures.keys())) if signatures else None
 
     def add_signature(self, identifier, signature):
         if not isinstance(self.signatures, Dict):
