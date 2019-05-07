@@ -1,10 +1,12 @@
 import pytest
 
+from plenum.common.constants import AUDIT_LEDGER_ID
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import delay_3pc, lsDelay
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
+from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assertExp
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.stasher import delay_rules_without_processing, start_delaying
+from plenum.test.stasher import delay_rules_without_processing, delay_rules
+from stp_core.loop.eventually import eventually
 
 nodeCount = 7
 
@@ -45,11 +47,16 @@ def test_catchup_from_unequal_nodes_without_reasking(looper,
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 7)
             ensure_all_nodes_have_same_data(looper, normal_nodes, custom_timeout=30)
 
-            # Make sure that we will receive cons proof from lagging node before all other nodes
-            start_delaying(normal_stashers, lsDelay(delay=0.5))
+            # Perform catchup, while making sure that cons proof from lagging node is received
+            # before cons proofs from normal nodes, so lagging node can participate in catchup
+            with delay_rules(normal_stashers, lsDelay()):
+                lagged_node_1.start_catchup()
 
-            # Perform catchup and make sure it completes successfully
-            lagged_node_1.start_catchup()
+                node_leecher = lagged_node_1.ledgerManager._node_leecher
+                audit_cons_proof_service = node_leecher._leechers[AUDIT_LEDGER_ID]._cons_proof_service
+                looper.run(eventually(lambda: assertExp(lagged_node_2.name in audit_cons_proof_service._cons_proofs)))
+
+            # Make sure catchup finishes successfully
             ensure_all_nodes_have_same_data(looper, set(txnPoolNodeSet) - {lagged_node_2},
                                             custom_timeout=30)
             assert lagged_node_1.ledgerManager._node_leecher._state == NodeLeecherService.State.Idle
