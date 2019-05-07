@@ -7,9 +7,9 @@ from plenum.common.messages.client_request import ClientTAAAcceptance
 
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
-    ("acceptanceMechanismType", LimitedLengthStringField),
-    ("hash", Sha256HexField),
-    ("timeOfAcceptance", TimestampField),
+    ("taaDigest", Sha256HexField),
+    ("mechanism", LimitedLengthStringField),
+    ("time", TimestampField),
 ])
 
 
