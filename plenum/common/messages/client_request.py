@@ -8,11 +8,12 @@ from plenum.common.messages.fields import NetworkIpAddressField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
-    ProtocolVersionField, LedgerIdField, Base58Field
+    ProtocolVersionField, LedgerIdField, Base58Field, \
+    Sha256HexField, TimestampField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
-    SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT
+    SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT, TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT
 
 
 class ClientNodeOperationData(MessageValidator):
@@ -94,6 +95,17 @@ class ClientOperationField(MessageValidator):
             op.validate(dct)
 
 
+class ClientTAAAcceptance(MessageValidator):
+    """ Transaction Author Agreement metadata. """
+    schema = (
+        (f.TAA_ACCEPTANCE_DIGEST.nm, Sha256HexField()),
+        (f.TAA_ACCEPTANCE_MECHANISM.nm,
+            LimitedLengthStringField(
+                max_length=TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT)),
+        (f.TAA_ACCEPTANCE_TIME.nm, TimestampField()),
+    )
+
+
 class ClientMessageValidator(MessageValidator):
     schema = (
         (f.IDENTIFIER.nm, IdentifierField(optional=True, nullable=True)),
@@ -104,6 +116,7 @@ class ClientMessageValidator(MessageValidator):
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT,
                                                optional=True)),
         (f.PROTOCOL_VERSION.nm, ProtocolVersionField()),
+        (f.TAA_ACCEPTANCE.nm, ClientTAAAcceptance(optional=True)),
         (f.SIGS.nm, MapField(IdentifierField(),
                              SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
                              optional=True, nullable=True)),

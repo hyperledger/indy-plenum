@@ -1,11 +1,8 @@
 import pytest
 
-from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, \
-    VERKEY, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
-from plenum.test.input_validation.constants import TEST_TARGET_NYM
-from plenum.test.input_validation.constants import TEST_VERKEY_ABBREVIATED
 
 
 @pytest.fixture(params=['operation_schema_is_strict', 'operation_schema_is_not_strict',
@@ -17,31 +14,14 @@ def validator(request):
                                   schema_is_strict=schema_is_strict)
 
 
-@pytest.fixture()
-def operation():
-    return {
-        TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM,
-        VERKEY: TEST_VERKEY_ABBREVIATED
-    }
-
-
-@pytest.fixture()
-def operation_invalid():
-    return {
-        TXN_TYPE: NYM,
-        TARGET_NYM: "1",
-        VERKEY: TEST_VERKEY_ABBREVIATED
-    }
-
-
-@pytest.fixture()
-def request_dict(operation):
+@pytest.fixture
+def request_dict(operation, taa_acceptance):
     return {f.IDENTIFIER.nm: "1" * 16,
             f.REQ_ID.nm: 1,
             OPERATION: operation,
             f.SIG.nm: "signature",
             f.DIGEST.nm: "digest",
+            f.TAA_ACCEPTANCE.nm: taa_acceptance,
             f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
 
 
@@ -67,6 +47,15 @@ def test_with_digest_valid(validator, operation):
                 f.REQ_ID.nm: 1,
                 OPERATION: operation,
                 f.DIGEST.nm: "digest",
+                f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
+    validator.validate(req_dict)
+
+
+def test_with_taa_acceptance_valid(validator, operation, taa_acceptance):
+    req_dict = {f.IDENTIFIER.nm: "1" * 16,
+                f.REQ_ID.nm: 1,
+                OPERATION: operation,
+                f.TAA_ACCEPTANCE.nm: taa_acceptance,
                 f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
     validator.validate(req_dict)
 
@@ -148,6 +137,15 @@ def test_all_digest_invalid(validator, request_dict):
     with pytest.raises(TypeError) as ex_info:
         validator.validate(request_dict)
     ex_info.match('empty string \(digest=\)')
+
+
+def test_all_taa_acceptance_invalid(
+        validator, request_dict, taa_acceptance_invalid):
+    request_dict[f.TAA_ACCEPTANCE.nm] = taa_acceptance_invalid
+    with pytest.raises(
+        TypeError, match=("should be greater than")
+    ):
+        validator.validate(request_dict)
 
 
 def test_all_version_invalid(validator, request_dict):
