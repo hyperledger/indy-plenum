@@ -1,7 +1,12 @@
+from _sha256 import sha256
+from typing import Optional
+
+from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
-    GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TRUSTEE
+    GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
+from plenum.common.txn_util import get_type, get_payload_data
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 
@@ -27,21 +32,55 @@ class ConfigReqHandler(LedgerRequestHandler):
         typ = operation.get(TXN_TYPE)
         if typ == TXN_AUTHOR_AGREEMENT:
             version = operation[TXN_AUTHOR_AGREEMENT_VERSION]
-            if self.state.get(":taa:v:{}".format(version), isCommitted=False) is not None:
+            if self.get_taa_digest(version, isCommitted=False) is not None:
                 raise InvalidClientRequest(req.identifier, req.reqId,
                                            "Changing existing version of transaction author agreement is forbidden")
-
-    def updateState(self, txns, isCommitted=False):
-        pass
 
     def authorize(self, req: Request):
         typ = req.operation.get(TXN_TYPE)
 
         if typ in [TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML] \
-                and not self.is_trustee(req.identifier):
+                and not self._is_trustee(req.identifier):
             raise UnauthorizedClientRequest(req.identifier, req.reqId,
                                             "Only trustee can update transaction author agreement and AML")
 
-    def is_trustee(self, nym: str):
+    def updateState(self, txns, isCommitted=False):
+        for txn in txns:
+            typ = get_type(txn)
+            payload = get_payload_data(txn)
+            if typ == TXN_AUTHOR_AGREEMENT:
+                self.update_txn_author_agreement(payload)
+
+    def update_txn_author_agreement(self, payload):
+        version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
+        text = payload[TXN_AUTHOR_AGREEMENT_TEXT]
+        digest = self._taa_digest(version, text)
+
+        self.state.set(self._state_path_taa_latest(), digest)
+        self.state.set(self._state_path_taa_version(version), digest)
+        self.state.set(self._state_path_taa_digest(digest), config_state_serializer.serialize(payload))
+
+    def get_taa_digest(self, version: Optional[str] = None, isCommitted: bool = True):
+        path = self._state_path_taa_latest() if version is None \
+            else self._state_path_taa_version(version)
+        return self.state.get(path, isCommitted=isCommitted)
+
+    @staticmethod
+    def _state_path_taa_latest():
+        return "taa:v:latest".encode()
+
+    @staticmethod
+    def _state_path_taa_version(version: str):
+        return "taa:v:{version}".format(version=version).encode()
+
+    @staticmethod
+    def _state_path_taa_digest(digest: str):
+        return "taa:d:{digest}".format(digest=digest).encode()
+
+    @staticmethod
+    def _taa_digest(version: str, text: str) -> str:
+        return sha256('{}{}'.format(version, text).encode()).hexdigest()
+
+    def _is_trustee(self, nym: str):
         return bool(DomainRequestHandler.get_role(self._domain_state, nym,
                                                   TRUSTEE, isCommitted=False))
