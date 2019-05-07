@@ -126,9 +126,11 @@ class CatchupRepService:
 
     def _send_catchup_reqs(self, eligible_nodes: List[str],
                            start_seq_no: int, end_seq_no: int) -> int:
+        # TODO: Can we do better and use start_seq_no as lower bound here
+        #  instead of catchup_till.final_size?
         nodes_ledger_sizes = {node_id: size
                               for node_id, size in self._nodes_ledger_sizes.items()
-                              if node_id in eligible_nodes and size >= start_seq_no}
+                              if node_id in eligible_nodes and size >= self._catchup_till.final_size}
 
         if len(nodes_ledger_sizes) == 0:
             logger.warning("{} no eligible nodes found containing transactions from {} to {},"
