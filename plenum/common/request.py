@@ -20,6 +20,7 @@ class Request:
                  signature: str = None,
                  signatures: Dict[str, str] = None,
                  protocolVersion: int = None,
+                 taaAcceptance: Dict = None,
                  # Intentionally omitting *args
                  **kwargs):
         self._identifier = identifier
@@ -28,6 +29,7 @@ class Request:
         self.reqId = reqId
         self.operation = operation
         self.protocolVersion = protocolVersion
+        self.taaAcceptance = taaAcceptance
         self._digest = None
         self._payload_digest = None
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
@@ -63,6 +65,8 @@ class Request:
                 rv[nm] = getattr(self, nm)
         if self.protocolVersion is not None:
             rv[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        if self.taaAcceptance is not None:
+            rv[f.TAA_ACCEPTANCE.nm] = self.taaAcceptance
         return rv
 
     def __eq__(self, other):
@@ -106,6 +110,8 @@ class Request:
         }
         if self.protocolVersion is not None:
             dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        if self.taaAcceptance is not None:
+            dct[f.TAA_ACCEPTANCE.nm] = self.taaAcceptance
         return dct
 
     def __setstate__(self, state):
@@ -145,7 +151,7 @@ class Request:
 
     @staticmethod
     def gen_idr_from_sigs(signatures: Dict):
-        return Request.idr_delimiter.join(sorted(signatures.keys()))
+        return Request.idr_delimiter.join(sorted(signatures.keys())) if signatures else None
 
     def add_signature(self, identifier, signature):
         if not isinstance(self.signatures, Dict):
