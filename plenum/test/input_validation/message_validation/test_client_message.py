@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from plenum.common.messages.client_request import (
-    ClientMessageValidator, ClientOperationField, ClientTAA
+    ClientMessageValidator, ClientOperationField, ClientTAAAcceptance
 )
 from plenum.common.messages.fields import LimitedLengthStringField, \
     SignatureField, NonNegativeNumberField, \
@@ -14,7 +14,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("signature", SignatureField),
     ("digest", LimitedLengthStringField),
     ("protocolVersion", ProtocolVersionField),
-    ("txnAuthrAgrmtMeta", ClientTAA),
+    ("taaAcceptance", ClientTAAAcceptance),
     ('signatures', MapField)
 ])
 

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import (
-    CURRENT_PROTOCOL_VERSION, TXN_PAYLOAD_METADATA_TAA
+    CURRENT_PROTOCOL_VERSION, TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE
 )
 from plenum.common.request import SafeRequest
 
@@ -17,9 +17,9 @@ def kwargs_minimal(request, operation):
 
 
 @pytest.fixture
-def kwargs_all(kwargs_minimal, taa):
+def kwargs_all(kwargs_minimal, taa_acceptance):
     kwargs_minimal['signature'] = 'signature'
-    kwargs_minimal[TXN_PAYLOAD_METADATA_TAA] = taa
+    kwargs_minimal[TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE] = taa_acceptance
     return kwargs_minimal
 
 
@@ -37,8 +37,8 @@ def test_with_version_valid(kwargs_minimal):
     SafeRequest(**kwargs_minimal)
 
 
-def test_with_taa_valid(kwargs_minimal, taa):
-    kwargs_minimal[TXN_PAYLOAD_METADATA_TAA] = taa
+def test_with_taa_acceptance_valid(kwargs_minimal, taa_acceptance):
+    kwargs_minimal[TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE] = taa_acceptance
     SafeRequest(**kwargs_minimal)
 
 
@@ -96,8 +96,8 @@ def test_all_version_invalid(kwargs_all):
                   'Make sure that the latest LibIndy is used')
 
 
-def test_all_taa_invalid(kwargs_all, taa_invalid):
-    kwargs_all[TXN_PAYLOAD_METADATA_TAA] = taa_invalid
+def test_all_taa_acceptance_invalid(kwargs_all, taa_acceptance_invalid):
+    kwargs_all[TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE] = taa_acceptance_invalid
     with pytest.raises(
         TypeError, match=("should be greater than")
     ):

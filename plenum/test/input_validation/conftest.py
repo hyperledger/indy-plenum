@@ -30,15 +30,15 @@ def operation_invalid():
 
 
 @pytest.fixture
-def taa():
+def taa_acceptance():
     return {
-        f.TAA_AML_TYPE.nm: 'some-aml',
-        f.TAA_HASH.nm: hashlib.sha256(b'some-taa').hexdigest(),
+        f.TAA_ACCEPTANCE_MECHANISM.nm: 'some-mechanism',
+        f.TAA_ACCEPTANCE_DIGEST.nm: hashlib.sha256(b'some-taa').hexdigest(),
         f.TAA_ACCEPTANCE_TIME.nm: get_utc_epoch(),
     }
 
 
 @pytest.fixture
-def taa_invalid(taa):
-    taa[f.TAA_ACCEPTANCE_TIME.nm] = TimestampField._oldest_time - 1
-    return taa
+def taa_acceptance_invalid(taa_acceptance):
+    taa_acceptance[f.TAA_ACCEPTANCE_TIME.nm] = TimestampField._oldest_time - 1
+    return taa_acceptance

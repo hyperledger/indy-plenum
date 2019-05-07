@@ -3,7 +3,7 @@ from collections import OrderedDict
 from plenum.common.messages.fields import (
     LimitedLengthStringField, Sha256HexField, TimestampField
 )
-from plenum.common.messages.client_request import ClientTAA
+from plenum.common.messages.client_request import ClientTAAAcceptance
 
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
@@ -14,11 +14,11 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(ClientTAA.schema).keys()
+    actual_field_names = OrderedDict(ClientTAAAcceptance.schema).keys()
     assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():
-    schema = dict(ClientTAA.schema)
+    schema = dict(ClientTAAAcceptance.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)

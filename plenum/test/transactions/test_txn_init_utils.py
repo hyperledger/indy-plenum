@@ -65,7 +65,7 @@ def test_append_payload_metadata():
                             req_id=12345,
                             digest="random req digest",
                             payload_digest="random payload",
-                            taa={'sometaakey': "sometaavalue"})
+                            taa_acceptance={'sometaakey': "sometaavalue"})
     expected = SortedDict({
         "reqSignature": {},
         "txn": {
@@ -75,7 +75,7 @@ def test_append_payload_metadata():
                 "reqId": 12345,
                 "digest": "random req digest",
                 "payloadDigest": "random payload",
-                "txnAuthrAgrmtMeta": {'sometaakey': "sometaavalue"}
+                "taaAcceptance": {'sometaakey': "sometaavalue"}
             },
             "protocolVersion": "3",
             "type": NODE,

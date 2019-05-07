@@ -15,13 +15,13 @@ def validator(request):
 
 
 @pytest.fixture
-def request_dict(operation, taa):
+def request_dict(operation, taa_acceptance):
     return {f.IDENTIFIER.nm: "1" * 16,
             f.REQ_ID.nm: 1,
             OPERATION: operation,
             f.SIG.nm: "signature",
             f.DIGEST.nm: "digest",
-            f.TAA_META.nm: taa,
+            f.TAA_ACCEPTANCE.nm: taa_acceptance,
             f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
 
 
@@ -51,11 +51,11 @@ def test_with_digest_valid(validator, operation):
     validator.validate(req_dict)
 
 
-def test_with_taa_valid(validator, operation, taa):
+def test_with_taa_acceptance_valid(validator, operation, taa_acceptance):
     req_dict = {f.IDENTIFIER.nm: "1" * 16,
                 f.REQ_ID.nm: 1,
                 OPERATION: operation,
-                f.TAA_META.nm: taa,
+                f.TAA_ACCEPTANCE.nm: taa_acceptance,
                 f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION}
     validator.validate(req_dict)
 
@@ -139,8 +139,9 @@ def test_all_digest_invalid(validator, request_dict):
     ex_info.match('empty string \(digest=\)')
 
 
-def test_all_taa_invalid(validator, request_dict, taa_invalid):
-    request_dict[f.TAA_META.nm] = taa_invalid
+def test_all_taa_acceptance_invalid(
+        validator, request_dict, taa_acceptance_invalid):
+    request_dict[f.TAA_ACCEPTANCE.nm] = taa_acceptance_invalid
     with pytest.raises(
         TypeError, match=("should be greater than")
     ):
