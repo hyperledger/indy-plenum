@@ -67,7 +67,7 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     @staticmethod
     def _state_path_taa_latest():
-        return "taa:v:latest".encode()
+        return b"taa:v:latest"
 
     @staticmethod
     def _state_path_taa_version(version: str):

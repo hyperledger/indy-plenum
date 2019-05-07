@@ -16,7 +16,7 @@ def test_send_valid_txn_athr_agrmt_succeeds(looper, txnPoolNodeSet, sdk_pool_han
     sdk_get_and_check_replies(looper, [rep])
 
 
-def test_send_invalid_txn_athr_agrmt_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+def test_send_invalid_txn_author_agreement_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
     req = gen_random_txn_author_agreement(sdk_wallet_trustee[1])
     req[OPERATION]['text'] = 42
     rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, json.dumps(req))
@@ -24,14 +24,14 @@ def test_send_invalid_txn_athr_agrmt_fails(looper, txnPoolNodeSet, sdk_pool_hand
         sdk_get_and_check_replies(looper, [rep])
 
 
-def test_send_valid_txn_athr_agrmt_without_enough_privileges_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward):
+def test_send_valid_txn_author_agreement_without_enough_privileges_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward):
     req = gen_random_txn_author_agreement(sdk_wallet_steward[1])
     rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward, sdk_pool_handle, json.dumps(req))
     with pytest.raises(RequestRejectedException):
         sdk_get_and_check_replies(looper, [rep])
 
 
-def test_send_different_txn_athr_agrmt_with_same_version_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+def test_send_different_txn_author_agreement_with_same_version_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
     # Send original txn
     req = gen_random_txn_author_agreement(sdk_wallet_trustee[1])
     old_version = req[OPERATION][TXN_AUTHOR_AGREEMENT_VERSION]
