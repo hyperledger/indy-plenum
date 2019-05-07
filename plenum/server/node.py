@@ -2405,6 +2405,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
 
         # Digest validation
+        # TODO implicit caller's context: request is processed by (master) replica
+        # as part of PrePrepare 3PC batch
         ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
         if ledger_id is not None and seq_no is not None:
             raise SuspiciousPrePrepare('Trying to order already ordered request')

@@ -210,6 +210,10 @@ class InvalidClientOp(InvalidClientRequest):
     pass
 
 
+class InvalidClientTAAAcceptance(InvalidClientRequest):
+    pass
+
+
 class UnauthorizedClientRequest(InvalidClientMessageException):
     pass
 
