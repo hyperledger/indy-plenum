@@ -29,9 +29,10 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     query_types = set()
     write_types = set()
 
-    def __init__(self, ledger: Ledger, state: State, ts_store=None):
-        self.state = state
+    def __init__(self, ledger_id: int, ledger: Ledger, state: State, ts_store=None):
+        self.ledger_id = ledger_id
         self.ledger = ledger
+        self.state = state
         self.ts_store = ts_store
 
     def updateState(self, txns, isCommitted=False):
@@ -67,8 +68,8 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         :return: list of committed transactions
         """
 
-        return self._commit(self.ledger, self.state, txnCount, stateRoot,
-                            txnRoot, ppTime, ts_store=self.ts_store)
+        return self._commit(self.ledger_id, self.ledger, self.state, txnCount,
+                            stateRoot, txnRoot, ppTime, ts_store=self.ts_store)
 
     def applyForced(self, req: Request):
         if not req.isForced():
@@ -96,7 +97,7 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
         return txn
 
     @staticmethod
-    def _commit(ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None):
+    def _commit(ledger_id, ledger, state, txnCount, stateRoot, txnRoot, ppTime, ts_store=None):
         _, committedTxns = ledger.commitTxns(txnCount)
         stateRoot = state_roots_serializer.deserialize(stateRoot.encode()) if isinstance(
             stateRoot, str) else stateRoot
@@ -111,7 +112,7 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
             )
         state.commit(rootHash=stateRoot)
         if ts_store:
-            ts_store.set(ppTime, stateRoot)
+            ts_store.set(ppTime, stateRoot, ledger_id)
         return committedTxns
 
     @property

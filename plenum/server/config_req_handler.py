@@ -3,20 +3,22 @@ from typing import Optional
 
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
-    GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE
+    GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
+    CONFIG_LEDGER_ID
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
+from storage.state_ts_store import StateTsDbStorage
 
 
 class ConfigReqHandler(LedgerRequestHandler):
     write_types = {TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML}
     query_types = {GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_AML}
 
-    def __init__(self, ledger, state, domain_state):
-        super().__init__(ledger, state)
+    def __init__(self, ledger, state, domain_state, ts_store: Optional[StateTsDbStorage] = None):
+        super().__init__(CONFIG_LEDGER_ID, ledger, state, ts_store)
         self._domain_state = domain_state
 
     def doStaticValidation(self, request: Request):
