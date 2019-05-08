@@ -15,6 +15,7 @@ from plenum.common.exceptions import EmptySignature, \
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
 from plenum.server.action_req_handler import ActionReqHandler
+from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.pool_req_handler import PoolRequestHandler
 from stp_core.common.log import getlogger
@@ -177,14 +178,15 @@ class CoreAuthMixin:
     # TODO: This should know a list of valid fields rather than excluding
     # hardcoded fields
     excluded_from_signing = {f.SIG.nm, f.SIGS.nm, f.FEES.nm}
-    write_types = PoolRequestHandler.write_types.union(
-        DomainRequestHandler.write_types
-    )
-    query_types = {GET_TXN, }.union(
-        PoolRequestHandler.query_types
-    ).union(
-        DomainRequestHandler.query_types
-    )
+    write_types = \
+        PoolRequestHandler.write_types | \
+        DomainRequestHandler.write_types | \
+        ConfigReqHandler.write_types
+    query_types = \
+        PoolRequestHandler.query_types | \
+        DomainRequestHandler.query_types | \
+        ConfigReqHandler.query_types | \
+        {GET_TXN, }
     action_types = ActionReqHandler.operation_types
 
     def is_query(self, typ):

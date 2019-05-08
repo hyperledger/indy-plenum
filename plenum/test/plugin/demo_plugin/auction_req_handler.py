@@ -7,7 +7,7 @@ from plenum.common.txn_util import get_payload_data
 from plenum.common.types import f
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
-    AUCTION_START, GET_BAL, AMOUNT
+    AUCTION_START, GET_BAL, AMOUNT, AUCTION_LEDGER_ID
 
 
 class AuctionReqHandler(LedgerRequestHandler):
@@ -18,7 +18,7 @@ class AuctionReqHandler(LedgerRequestHandler):
     STARTING_BALANCE = 1000
 
     def __init__(self, ledger, state):
-        super().__init__(ledger, state)
+        super().__init__(AUCTION_LEDGER_ID, ledger, state)
         self.auctions = {}
         self.query_handlers = {
             GET_BAL: self.handle_get_bal,

@@ -2,7 +2,8 @@ from functools import lru_cache
 
 from common.serializers.serialization import pool_state_serializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, SERVICES, BLS_KEY, BLS_KEY_PROOF, DOMAIN_LEDGER_ID, VERKEY
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, BLS_KEY, BLS_KEY_PROOF, DOMAIN_LEDGER_ID, VERKEY, \
+    POOL_LEDGER_ID
 from plenum.common.exceptions import UnauthorizedClientRequest, \
     InvalidClientRequest
 from plenum.common.ledger import Ledger
@@ -11,7 +12,6 @@ from plenum.common.txn_util import get_payload_data, get_from
 from plenum.common.types import f
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
-from plenum.server.req_handler import RequestHandler
 from state.state import State
 from stp_core.common.log import getlogger
 from stp_core.crypto.util import base58_is_correct_ed25519_key
@@ -24,7 +24,7 @@ class PoolRequestHandler(LedgerRequestHandler):
 
     def __init__(self, ledger: Ledger, state: State,
                  states: dict, bls_crypto_verifier=None):
-        super().__init__(ledger, state)
+        super().__init__(POOL_LEDGER_ID, ledger, state)
         self.states = states
         self.stateSerializer = pool_state_serializer
         self.bls_crypto_verifier = bls_crypto_verifier

@@ -1,4 +1,3 @@
-import math
 from collections import defaultdict
 from heapq import merge
 from random import shuffle
@@ -7,7 +6,7 @@ from typing import Optional, List, Tuple, Any, Dict
 from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import CATCH_UP_PREFIX
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import ConsistencyProof, CatchupRep, CatchupReq
+from plenum.common.messages.node_messages import CatchupRep, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, MetricsName
 from plenum.common.timer import TimerService
 from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, CatchupTill, LedgerCatchupStart

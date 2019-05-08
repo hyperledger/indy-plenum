@@ -2,7 +2,8 @@ from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
-    OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF
+    OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
+    TXN_AUTHOR_AGREEMENT_VERSION
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -13,7 +14,8 @@ from plenum.common.messages.fields import NetworkIpAddressField, \
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
-    SIGNATURE_FIELD_LIMIT, BLS_KEY_LIMIT, TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT
+    SIGNATURE_FIELD_LIMIT, TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT, TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT, \
+    TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT
 
 
 class ClientNodeOperationData(MessageValidator):
@@ -65,6 +67,14 @@ class ClientGetTxnOperation(MessageValidator):
     )
 
 
+class ClientTxnAuthorAgreementOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT)),
+        (TXN_AUTHOR_AGREEMENT_TEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT)),
+        (TXN_AUTHOR_AGREEMENT_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT))
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -73,6 +83,7 @@ class ClientOperationField(MessageValidator):
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
+            TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict)
         }
         super().__init__(*args, **kwargs)
 

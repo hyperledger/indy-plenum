@@ -1,14 +1,11 @@
 from binascii import hexlify
 from hashlib import sha256
 
-from common.serializers.serialization import domain_state_serializer, \
-    proof_nodes_serializer, state_roots_serializer
+from common.serializers.serialization import domain_state_serializer, state_roots_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
-    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, \
-    STATE_PROOF
+    VERKEY, TXN_TIME, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import UnauthorizedClientRequest
-from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time, get_from
 from plenum.common.types import f
@@ -23,7 +20,7 @@ class DomainRequestHandler(LedgerRequestHandler):
     write_types = {NYM, }
 
     def __init__(self, ledger, state, config, reqProcessors, bls_store, ts_store=None):
-        super().__init__(ledger, state, ts_store=ts_store)
+        super().__init__(DOMAIN_LEDGER_ID, ledger, state, ts_store=ts_store)
         self.config = config
         self.reqProcessors = reqProcessors
         self.bls_store = bls_store

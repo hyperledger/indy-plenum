@@ -13,18 +13,18 @@ from plenum.common.util import randomString
 from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_get_replies
 
-from plenum.common.constants import CONFIG_LEDGER_ID, DATA
+from plenum.common.constants import CONFIG_LEDGER_ID, DATA, DOMAIN_LEDGER_ID
 from plenum.test.test_config_req_handler import write_conf_op, \
     TestConfigReqHandler, WRITE_CONF, READ_CONF, read_conf_op
 from plenum.test.test_node import TestNode, checkNodesConnected
-from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 
 
 class NewTestNode(TestNode):
     def init_config_req_handler(self):
         return TestConfigReqHandler(self.configLedger,
-                                    self.states[CONFIG_LEDGER_ID])
+                                    self.states[CONFIG_LEDGER_ID],
+                                    self.states[DOMAIN_LEDGER_ID])
 
 
 def write(key, val, looper, sdk_pool_handle, sdk_wallet):
