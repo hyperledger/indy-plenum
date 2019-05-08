@@ -14,8 +14,8 @@ class TestConfigReqHandler(ConfigReqHandler):
     write_types = {WRITE_CONF, }
     query_types = {READ_CONF, }
 
-    def __init__(self, ledger, state):
-        super().__init__(ledger, state)
+    def __init__(self, ledger, state, domain_state):
+        super().__init__(ledger, state, domain_state)
         self.query_handlers = {
             READ_CONF: self.handle_get_conf,
         }
