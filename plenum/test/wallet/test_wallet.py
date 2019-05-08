@@ -1,6 +1,8 @@
 import pytest
 from plenum.client.wallet import Wallet
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import InsufficientSignatures
+from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 from plenum.server.client_authn import CoreAuthNr
 from plenum.test.helper import randomOperation
@@ -43,7 +45,9 @@ def test_wallet_multisig():
                 if k not in authnr.excluded_from_signing}
 
     op = randomOperation()
-    req = wallet.sign_using_multi_sig(op=op, identifier=idr1)
+    request = Request(reqId=Request.gen_req_id(), operation=op,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=idr1)
+    req = wallet.sign_using_multi_sig(request=request, identifier=idr1)
     assert len(req.signatures) == 1
     req_data = serz(req)
     assert set(authnr.authenticate_multi(req_data, req.signatures, 1)) == {idr1, }

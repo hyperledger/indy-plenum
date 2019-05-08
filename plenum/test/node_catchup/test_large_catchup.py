@@ -16,7 +16,7 @@ def decrease_max_request_size(node):
     old = node.nodestack.prepare_for_sending
 
     def prepare_for_sending(msg, signer, message_splitter=lambda x: None):
-        if isinstance(msg, CatchupRep) and len(msg.txns) > 1:
+        if isinstance(msg, CatchupRep) and len(msg.txns) > 6:
             node.nodestack.prepare_for_sending = old
             part_bytes = node.nodestack.sign_and_serialize(msg, signer)
             # Decrease at least 6 times to increase probability of

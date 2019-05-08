@@ -1055,11 +1055,12 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
     return sdk_reqs
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None):
     wallet_h, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
     request = Request(operation=op, reqId=reqId,
-                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
+                      taaAcceptance=taa_acceptance)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
     return json.loads(resp)

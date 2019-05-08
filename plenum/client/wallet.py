@@ -220,7 +220,7 @@ class Wallet:
 
     def do_multi_sig_on_req(self, request: Request, identifier: str):
         idr = self.requiredIdr(idr=identifier)
-        signature = self.signMsg(msg=request.signingPayloadState(identifier),
+        signature = self.signMsg(msg=request.signingPayloadState(),
                                  identifier=idr)
         request.add_signature(idr, signature)
 

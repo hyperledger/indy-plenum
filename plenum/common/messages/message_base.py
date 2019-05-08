@@ -14,11 +14,12 @@ class MessageValidator(FieldValidator):
     # can be create with positional arguments __init__(*args)
 
     schema = ()
-    optional = False
     schema_is_strict = SCHEMA_IS_STRICT
 
-    def __init__(self, schema_is_strict=SCHEMA_IS_STRICT):
+    def __init__(self, schema_is_strict=SCHEMA_IS_STRICT, optional: bool = False):
         self.schema_is_strict = schema_is_strict
+        # TODO INDY-2072 test optional
+        super().__init__(optional=optional)
 
     def validate(self, dct):
         self._validate_fields_with_schema(dct, self.schema)
