@@ -142,8 +142,10 @@ TRUSTEE_STRING = 'TRUSTEE'
 NODE = PlenumTransactions.NODE.value
 NYM = PlenumTransactions.NYM.value
 GET_TXN = PlenumTransactions.GET_TXN.value
-
-POOL_TXN_TYPES = {NODE, }
+TXN_AUTHOR_AGREEMENT = PlenumTransactions.TXN_AUTHOR_AGREEMENT.value
+TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.TXN_AUTHOR_AGREEMENT_AML.value
+GET_TXN_AUTHOR_AGREEMENT = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT.value
+GET_TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT_AML.value
 
 # TXN
 # TODO: manye of these constants will be replaced
@@ -169,6 +171,9 @@ ED25519 = "ED25519"
 TXN_SIGNATURE_VALUES = "values"
 TXN_SIGNATURE_FROM = "from"
 TXN_SIGNATURE_VALUE = "value"
+
+TXN_AUTHOR_AGREEMENT_TEXT = "text"
+TXN_AUTHOR_AGREEMENT_VERSION = "version"
 
 
 class ClientBootStrategy(IntEnum):

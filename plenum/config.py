@@ -7,6 +7,7 @@ from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroug
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy, MedianMediumStrategy
 from plenum.common.latency_measurements import EMALatencyMeasurementForAllClient
+from stp_core.config import MSG_LEN_LIMIT
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -396,3 +397,7 @@ PROPAGATE_REQUEST_DELAY = 2
 
 # Intrval between attempts to process stashed out of order commits
 PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 1  # seconds
+
+# Size limits for txn author agreement
+TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT = 256
+TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT = MSG_LEN_LIMIT - 2048
