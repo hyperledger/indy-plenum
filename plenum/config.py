@@ -39,6 +39,7 @@ poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
 configStateDbName = 'config_state'
 stateTsDbName = "state_ts_db"
+configStateTsDbName = "config_state_ts_db"
 
 stateSignatureDbName = 'state_signature'
 
