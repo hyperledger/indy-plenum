@@ -48,10 +48,13 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
-            typ = get_type(txn)
-            payload = get_payload_data(txn)
-            if typ == TXN_AUTHOR_AGREEMENT:
-                self.update_txn_author_agreement(payload)
+            self.updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def updateStateWithSingleTxn(self, txn, isCommitted=False):
+        typ = get_type(txn)
+        payload = get_payload_data(txn)
+        if typ == TXN_AUTHOR_AGREEMENT:
+            self.update_txn_author_agreement(payload)
 
     def update_txn_author_agreement(self, payload):
         version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
