@@ -15,4 +15,3 @@ def test_default_ledgers_order(txnPoolNodeSet):
         assert node.ledger_ids == expected_ledger_ids
         for ledger_id in expected_ledger_ids:
             assert node.ledgerManager.ledgerRegistry[ledger_id]
-
