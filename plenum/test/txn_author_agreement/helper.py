@@ -9,6 +9,7 @@ from plenum.common.constants import (
 )
 from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
+from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
 
 
 TaaData = NamedTuple("TaaData", [
@@ -19,10 +20,10 @@ TaaData = NamedTuple("TaaData", [
 ])
 
 
-async def prepare_txn_author_agreement(did: str):
-    text = randomString(1024)
-    version = randomString(16)
-    return await build_txn_author_agreement_request(did, text, version)
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: str, text: str):
+    req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
+    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [rep])
 
 
 def get_config_req_handler(node):
