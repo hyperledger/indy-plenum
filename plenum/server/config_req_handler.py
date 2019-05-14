@@ -2,7 +2,7 @@ import json
 from _sha256 import sha256
 from typing import Optional, Callable, Dict
 
-from common.serializers.serialization import config_state_serializer
+from common.serializers.serialization import config_state_serializer, state_roots_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
     CONFIG_LEDGER_ID, TXN_TIME
@@ -19,10 +19,11 @@ class ConfigReqHandler(LedgerRequestHandler):
     write_types = {TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML}
     query_types = {GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_AML}
 
-    def __init__(self, ledger, state, domain_state, ts_store: Optional[StateTsDbStorage] = None):
+    def __init__(self, ledger, state, domain_state, bls_store, ts_store: Optional[StateTsDbStorage] = None):
         super().__init__(CONFIG_LEDGER_ID, ledger, state, ts_store)
         self._domain_state = domain_state
         # TODO: Move up to LedgerRequestHandler?
+        self._bls_store = bls_store
         self._query_handlers = {}  # type: Dict[str, Callable]
         self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT, self.handle_get_txn_author_agreement)
 
@@ -100,6 +101,22 @@ class ConfigReqHandler(LedgerRequestHandler):
             raise ValueError('There is already a query handler registered '
                              'for {}'.format(txn_type))
         self._query_handlers[txn_type] = handler
+
+    def get_value_from_state(self, path, head_hash=None, with_proof=False, multi_sig=None):
+        '''
+        Get a value (and proof optionally)for the given path in state trie.
+        Does not return the proof is there is no aggregate signature for it.
+        :param path: the path generate a state proof for
+        :param head_hash: the root to create the proof against
+        :param get_value: whether to return the value
+        :return: a state proof or None
+        '''
+        if not multi_sig and with_proof:
+            root_hash = head_hash if head_hash else self.state.committedHeadHash
+            encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+
+            multi_sig = self._bls_store.get(encoded_root_hash)
+        return super().get_value_from_state(path, head_hash, with_proof, multi_sig)
 
     @staticmethod
     def make_config_result(request, data, last_seq_no=None, update_time=None, proof=None):

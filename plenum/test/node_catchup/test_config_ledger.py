@@ -24,7 +24,8 @@ class NewTestNode(TestNode):
     def init_config_req_handler(self):
         return TestConfigReqHandler(self.configLedger,
                                     self.states[CONFIG_LEDGER_ID],
-                                    self.states[DOMAIN_LEDGER_ID])
+                                    self.states[DOMAIN_LEDGER_ID],
+                                    self.bls_bft.bls_store)
 
 
 def write(key, val, looper, sdk_pool_handle, sdk_wallet):

@@ -26,4 +26,5 @@ def config_req_handler(config_state,
 
     return ConfigReqHandler(config_ledger,
                             config_state,
-                            domain_state=FakeSomething())
+                            domain_state=FakeSomething(),
+                            bls_store=FakeSomething())
