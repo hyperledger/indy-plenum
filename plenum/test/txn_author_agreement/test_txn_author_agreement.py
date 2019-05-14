@@ -27,9 +27,9 @@ def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_po
     digest = ConfigReqHandler._taa_digest(version, text).decode()
 
     state_data = expected_state_data(TaaData(
-        version, text,
-        reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
-        reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
+        version=version, text=text,
+        seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
+        txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
     ))
     data = state_data['val'], state_data['lsn'], state_data['lut']
 

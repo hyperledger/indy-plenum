@@ -15,8 +15,8 @@ from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replie
 TaaData = NamedTuple("TaaData", [
     ("version", str),
     ("text", str),
-    ("seqNo", int),
-    ("txnTime", int)
+    ("seq_no", int),
+    ("txn_time", int)
 ])
 
 
@@ -34,8 +34,8 @@ def get_config_req_handler(node):
 
 def expected_state_data(data: TaaData) -> Dict:
     return {
-        'lsn': data.seqNo,
-        'lut': data.txnTime,
+        'lsn': data.seq_no,
+        'lut': data.txn_time,
         'val': {
             TXN_AUTHOR_AGREEMENT_TEXT: data.text,
             TXN_AUTHOR_AGREEMENT_VERSION: data.version

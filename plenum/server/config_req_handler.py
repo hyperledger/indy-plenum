@@ -67,12 +67,12 @@ class ConfigReqHandler(LedgerRequestHandler):
                 get_txn_time(txn)
             )
 
-    def update_txn_author_agreement(self, version, text, seqNo, txnTime):
+    def update_txn_author_agreement(self, version, text, seq_no, txn_time):
         digest = self._taa_digest(version, text)
         data = encode_state_value({
             TXN_AUTHOR_AGREEMENT_VERSION: version,
             TXN_AUTHOR_AGREEMENT_TEXT: text
-        }, seqNo, txnTime, serializer=config_state_serializer)
+        }, seq_no, txn_time, serializer=config_state_serializer)
 
         self.state.set(self._state_path_taa_latest(), digest)
         self.state.set(self._state_path_taa_version(version), digest)

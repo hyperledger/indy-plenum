@@ -38,7 +38,7 @@ def config_req_handler(config_state,
 @pytest.fixture
 def taa_in_data():
     return [
-        TaaData(randomString(8), randomString(32), n, n + 10)
+        TaaData(version=randomString(8), text=randomString(32), seq_no=n, txn_time=(n + 10))
         for n in range(10)
     ]
 

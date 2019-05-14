@@ -43,7 +43,7 @@ def test_update_txn_author_agreement(
     data = taa_in_data[0]
 
     config_req_handler.update_txn_author_agreement(
-        data.version, data.text, data.seqNo, data.txnTime)
+        data.version, data.text, data.seq_no, data.txn_time)
     state = config_req_handler.state
 
     digest = taa_digests[data.version]
