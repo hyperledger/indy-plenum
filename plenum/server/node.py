@@ -905,12 +905,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getStateTsDbStorage(self):
         if self.stateTsDbStorage is None:
+            domainTsStorage = initKeyValueStorageIntKeys(
+                self.config.stateTsStorage,
+                self.dataLocation,
+                self.config.stateTsDbName,
+                db_config=self.config.db_state_ts_db_config)
+
+            configTsStorage = initKeyValueStorageIntKeys(
+                self.config.stateTsStorage,
+                self.dataLocation,
+                self.config.configStateTsDbName,
+                db_config=self.config.db_state_ts_db_config)
+
             self.stateTsDbStorage = StateTsDbStorage(
-                self.name,
-                initKeyValueStorageIntKeys(self.config.stateTsStorage,
-                                           self.dataLocation,
-                                           self.config.stateTsDbName,
-                                           db_config=self.config.db_state_ts_db_config)
+                self.name, {
+                    DOMAIN_LEDGER_ID: domainTsStorage,
+                    CONFIG_LEDGER_ID: configTsStorage
+                }
             )
         return self.stateTsDbStorage
 
