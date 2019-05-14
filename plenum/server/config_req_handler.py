@@ -78,7 +78,7 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     @staticmethod
     def _state_path_taa_latest():
-        return b"taa:v:latest"
+        return b"taa:latest"
 
     @staticmethod
     def _state_path_taa_version(version: str):
@@ -126,10 +126,12 @@ class ConfigReqHandler(LedgerRequestHandler):
         return result
 
     def handle_get_txn_author_agreement(self, request: Request):
-        digest = self.get_taa_digest()
+        path = self._state_path_taa_latest()
+        digest, proof = self.get_value_from_state(path, with_proof=True)
         if digest is None:
-            return self.make_config_result(request, None)
+            return self.make_config_result(request, None, proof=proof)
 
         data = self.state.get(self._state_path_taa_digest(digest.decode()))
         data = json.loads(data.decode())
-        return self.make_config_result(request, data)
+        # TODO: Fill in last_seq_no and update_time
+        return self.make_config_result(request, data, proof=proof)

@@ -1,6 +1,11 @@
+from _sha256 import sha256
+
 from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request
 
-from plenum.common.constants import CONFIG_LEDGER_ID
+from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
+    MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
+    MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
+    MULTI_SIGNATURE_VALUE_TIMESTAMP
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
 
@@ -21,3 +26,37 @@ def get_config_req_handler(node):
     config_req_handler = node.get_req_handler(CONFIG_LEDGER_ID)
     assert isinstance(config_req_handler, ConfigReqHandler)
     return config_req_handler
+
+
+def taa_digest(text: str, version: str) -> str:
+    return sha256('{}{}'.format(version, text).encode()).hexdigest()
+
+
+def check_valid_proof(result):
+    # TODO: This is copy-pasted from indy node, probably there should be better place for it
+    assert STATE_PROOF in result
+
+    state_proof = result[STATE_PROOF]
+    assert ROOT_HASH in state_proof
+    assert state_proof[ROOT_HASH]
+    assert PROOF_NODES in state_proof
+    assert state_proof[PROOF_NODES]
+    assert MULTI_SIGNATURE in state_proof
+
+    multi_sig = state_proof[MULTI_SIGNATURE]
+    assert multi_sig
+    assert multi_sig[MULTI_SIGNATURE_PARTICIPANTS]
+    assert multi_sig[MULTI_SIGNATURE_SIGNATURE]
+    assert MULTI_SIGNATURE_VALUE in multi_sig
+
+    multi_sig_value = multi_sig[MULTI_SIGNATURE_VALUE]
+    assert MULTI_SIGNATURE_VALUE_LEDGER_ID in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_LEDGER_ID]
+    assert MULTI_SIGNATURE_VALUE_STATE_ROOT in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_STATE_ROOT]
+    assert MULTI_SIGNATURE_VALUE_TXN_ROOT in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_TXN_ROOT]
+    assert MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT]
+    assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_TIMESTAMP]
