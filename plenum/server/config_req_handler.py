@@ -1,13 +1,14 @@
 from _sha256 import sha256
-from typing import Optional
+from typing import Optional, Callable, Dict
 
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
-    CONFIG_LEDGER_ID
+    CONFIG_LEDGER_ID, TXN_TIME
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data
+from plenum.common.types import f
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from storage.state_ts_store import StateTsDbStorage
@@ -20,12 +21,15 @@ class ConfigReqHandler(LedgerRequestHandler):
     def __init__(self, ledger, state, domain_state, ts_store: Optional[StateTsDbStorage] = None):
         super().__init__(CONFIG_LEDGER_ID, ledger, state, ts_store)
         self._domain_state = domain_state
+        # TODO: Move up to LedgerRequestHandler?
+        self._query_handlers = {}  # type: Dict[str, Callable]
+        self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT, self.handle_get_txn_author_agreement)
 
     def doStaticValidation(self, request: Request):
         pass
 
-    def get_query_response(self, request):
-        pass
+    def get_query_response(self, request: Request):
+        return self._query_handlers[request.operation.get(TXN_TYPE)](request)
 
     def validate(self, req: Request):
         self.authorize(req)
@@ -89,3 +93,19 @@ class ConfigReqHandler(LedgerRequestHandler):
     def _is_trustee(self, nym: str):
         return bool(DomainRequestHandler.get_role(self._domain_state, nym,
                                                   TRUSTEE, isCommitted=False))
+
+    def _add_query_handler(self, txn_type, handler: Callable):
+        if txn_type in self._query_handlers:
+            raise ValueError('There is already a query handler registered '
+                             'for {}'.format(txn_type))
+        self._query_handlers[txn_type] = handler
+
+    @staticmethod
+    def make_config_result(request, data, last_seq_no=None, update_time=None, proof=None):
+        result = LedgerRequestHandler.make_result(request, data, proof=proof)
+        result[f.SEQ_NO.nm] = last_seq_no
+        result[TXN_TIME] = update_time
+        return result
+
+    def handle_get_txn_author_agreement(self, request: Request):
+        return self.make_config_result(request, {})

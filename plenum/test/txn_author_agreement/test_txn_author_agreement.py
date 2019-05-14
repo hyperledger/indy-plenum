@@ -11,10 +11,12 @@ from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
-from plenum.test.txn_author_agreement.helper import get_config_req_handler, sdk_send_txn_author_agreement
+from plenum.test.txn_author_agreement.helper import get_config_req_handler, sdk_send_txn_author_agreement, \
+    sdk_get_txn_author_agreement
 
 
-def test_send_valid_txn_athr_agrmt_succeeds(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle,
+                                                  sdk_wallet_trustee, sdk_wallet_client):
     text = randomString(1024)
     version = randomString(16)
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
@@ -34,6 +36,8 @@ def test_send_valid_txn_athr_agrmt_succeeds(looper, txnPoolNodeSet, sdk_pool_han
         taa = json.loads(taa.decode())
         assert taa[TXN_AUTHOR_AGREEMENT_VERSION] == version
         assert taa[TXN_AUTHOR_AGREEMENT_TEXT] == text
+
+    result = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)
 
 
 def test_send_invalid_txn_author_agreement_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
