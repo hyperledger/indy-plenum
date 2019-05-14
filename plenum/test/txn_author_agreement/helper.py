@@ -1,6 +1,7 @@
 from typing import NamedTuple, Dict
 
 from indy.ledger import build_txn_author_agreement_request
+from plenum.server.config_req_handler import ConfigReqHandler
 
 from plenum.common.constants import (
     CONFIG_LEDGER_ID,
@@ -43,3 +44,11 @@ def expected_state_data(data: TaaData) -> Dict:
             TXN_METADATA_TIME: data.txnTime
         }
     }
+
+
+def gen_random_txn_author_agreement(version_size=16, text_size=1024):
+    return randomString(version_size), randomString(text_size)
+
+
+def calc_taa_digest(version, text):
+    return ConfigReqHandler._taa_digest(version, text).decode()

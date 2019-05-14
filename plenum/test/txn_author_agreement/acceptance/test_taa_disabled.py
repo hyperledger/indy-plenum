@@ -18,12 +18,11 @@ TAA_DISABLED = True
     ]
 )
 def test_ledger_requires_taa_acceptance_default(node_validator, ledger_id, required):
-    assert node_validator.ledgerManager.ledgerRegistry[ledger_id].taa_acceptance_required == required
-
+    assert required == node_validator.ledgerManager.ledgerRegistry[ledger_id].taa_acceptance_required
 
 
 @pytest.mark.taa_acceptance_missed
-def test_taa_acceptance_missed_during_disabled_taa(node_validator, validate, req):
-    ledger_id = node_validator.ledger_id_for_request(req)
-    assert node_validator.ledgerManager.ledger_info[ledger_id].taa_acceptance_required
-    validate(req)
+def test_taa_acceptance_missed_during_disabled_taa(
+    node_validator, validate_taa_acceptance, req
+):
+    validate_taa_acceptance(req)

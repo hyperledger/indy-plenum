@@ -1,17 +1,14 @@
 import pytest
-import hashlib
 
-from plenum.common.constants import (
-    CURRENT_PROTOCOL_VERSION, TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE,
-    TXN_TYPE, NODE, TARGET_NYM, DATA
-)
-from plenum.common.types import OPERATION, f
+from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
-from plenum.common.request import SafeRequest
 
 from plenum.test.conftest import getValueFromModule
-from plenum.test.input_validation.conftest import operation as nym_operation, taa_acceptance
-from plenum.test.input_validation.constants import TEST_TARGET_NYM
+from plenum.test.input_validation.helper import (
+    gen_nym_operation, gen_node_operation
+)
+from ..helper import calc_taa_digest
+from .helper import gen_signed_request
 
 TAA_ACCEPTANCE_TS_LOWER_INTERVAL = 120
 TAA_ACCEPTANCE_TS_HIGHER_INTERVAL = 120
@@ -39,25 +36,15 @@ def node_validator(txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def validate(node_validator):
+def validate_taa_acceptance(node_validator):
     def wrapped(req):
         return node_validator.doDynamicValidation(req)
     return wrapped
 
 
-# TODO partly copies plenum/test/input_validation/test_client_safe_request.py
 @pytest.fixture
-def kwargs_base():
-    return {
-        'identifier': '1' * 16,
-        'reqId': 1,
-        'protocolVersion': CURRENT_PROTOCOL_VERSION,
-    }
-
-
-@pytest.fixture(scope='module')
-def taa_digest():
-    return hashlib.sha256(b'some-taa').hexdigest()
+def taa_digest(random_taa):
+    return calc_taa_digest(*random_taa)
 
 
 @pytest.fixture
@@ -71,7 +58,7 @@ def taa_acceptance_time():
 
 
 @pytest.fixture
-def taa_acceptance(taa_digest, taa_acceptance_mechanism, taa_acceptance_time):
+def taa_acceptance(request, taa_digest, taa_acceptance_mechanism, taa_acceptance_time):
     digest_marker = request.node.get_marker('taa_digest')
     mech_marker = request.node.get_marker('taa_acceptance_mechanism')
     time_marker = request.node.get_marker('taa_acceptance_time')
@@ -85,41 +72,41 @@ def taa_acceptance(taa_digest, taa_acceptance_mechanism, taa_acceptance_time):
     }
 
 
-@pytest.fixture    # noqa: F811
-def kwargs_no_operation(kwargs_base, taa_acceptance, request):
-    marker = request.node.get_marker('taa_acceptance_missed')
-    if not marker:
-        kwargs_base[TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE] = taa_acceptance
-    return kwargs_base
-
-
-@pytest.fixture     # noqa: F811
-def domain_operation(nym_operation):
-    return nym_operation
+@pytest.fixture
+def domain_operation():
+    return gen_nym_operation()
 
 
 @pytest.fixture
-def domain_req(kwargs_no_operation, domain_operation):
-    kwargs_no_operation[OPERATION] = domain_operation
-    return SafeRequest(**kwargs_no_operation)
+def pool_operation():
+    return gen_node_operation()
 
 
 @pytest.fixture(
     params=['pool_op', 'domain_op']
 )
-def operation(request, domain_operation):
-    if request.param == 'pool_op':
-        return {
-            TXN_TYPE: NODE,
-            TARGET_NYM: TEST_TARGET_NYM,
-            DATA: {}
-        }
-    else:
-        assert request.param == 'domain_op'
-        return domain_operation
+def operation(request, domain_operation, pool_operation):
+    return {
+        'pool_op': pool_operation,
+        'domain_op': domain_operation
+    }[request.param]
 
 
 @pytest.fixture
-def req(kwargs_no_operation, operation):
-    kwargs_no_operation[OPERATION] = operation
-    return SafeRequest(**kwargs_no_operation)
+def domain_req(
+    request, looper, sdk_wallet_new_steward, domain_operation, taa_acceptance
+):
+    if request.node.get_marker('taa_acceptance_missed'):
+        taa_acceptance = None
+    return gen_signed_request(
+        looper, sdk_wallet_new_steward, domain_operation, taa_acceptance
+    )
+
+
+@pytest.fixture
+def req(request, looper, sdk_wallet_new_steward, operation, taa_acceptance):
+    if request.node.get_marker('taa_acceptance_missed'):
+        taa_acceptance = None
+    return gen_signed_request(
+        looper, sdk_wallet_new_steward, operation, taa_acceptance
+    )
