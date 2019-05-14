@@ -24,7 +24,7 @@ def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_po
     text = randomString(1024)
     version = randomString(16)
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version, text)[0]
-    digest = ConfigReqHandler._taa_digest(version, text).decode()
+    digest = ConfigReqHandler._taa_digest(version, text)
 
     state_data = expected_state_data(TaaData(
         version=version, text=text,

@@ -74,9 +74,9 @@ class ConfigReqHandler(LedgerRequestHandler):
             TXN_AUTHOR_AGREEMENT_TEXT: text
         }, seq_no, txn_time, serializer=config_state_serializer)
 
+        self.state.set(self._state_path_taa_digest(digest), data)
         self.state.set(self._state_path_taa_latest(), digest)
         self.state.set(self._state_path_taa_version(version), digest)
-        self.state.set(self._state_path_taa_digest(digest.decode()), data)
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:
@@ -114,8 +114,8 @@ class ConfigReqHandler(LedgerRequestHandler):
         return "taa:d:{digest}".format(digest=digest).encode()
 
     @staticmethod
-    def _taa_digest(version: str, text: str) -> bytes:
-        return sha256('{}{}'.format(version, text).encode()).hexdigest().encode()
+    def _taa_digest(version: str, text: str) -> str:
+        return sha256('{}{}'.format(version, text).encode()).hexdigest()
 
     def _is_trustee(self, nym: str):
         return bool(DomainRequestHandler.get_role(self._domain_state, nym,

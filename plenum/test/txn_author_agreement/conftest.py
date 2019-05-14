@@ -52,4 +52,4 @@ def taa_state_data(taa_in_data):
 def taa_digests(taa_in_data):
     # TODO use some other API, e.g. sdk's one
     return {data.version: ConfigReqHandler._taa_digest(
-        data.version, data.text).decode() for data in taa_in_data}
+        data.version, data.text) for data in taa_in_data}

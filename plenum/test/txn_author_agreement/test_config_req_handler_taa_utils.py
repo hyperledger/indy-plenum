@@ -26,7 +26,7 @@ def test_state_path_taa_digest():
 
 def test_taa_digest():
     assert ConfigReqHandler._taa_digest('some_version', 'some_text') == \
-        b"fb2ea9d28380a021ec747c442d62a68952b4b5813b45671098ad2b684b2f4646"
+        "fb2ea9d28380a021ec747c442d62a68952b4b5813b45671098ad2b684b2f4646"
 
 
 def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_wallet_client):
