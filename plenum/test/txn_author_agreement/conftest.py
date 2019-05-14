@@ -10,7 +10,7 @@ from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.testing_utils import FakeSomething
 
 from plenum.test.txn_author_agreement.helper import (
-    TaaData, expected_state_data
+    TaaData, expected_state_data, expected_data
 )
 
 
@@ -38,7 +38,10 @@ def config_req_handler(config_state,
 @pytest.fixture
 def taa_input_data():
     return [
-        TaaData(text=randomString(32), version=randomString(8), seq_no=n, txn_time=(n + 10))
+        TaaData(
+            text=randomString(32), version=randomString(8),
+            seq_no=n, txn_time=(n + 10)
+        )
         for n in range(10)
     ]
 
@@ -46,6 +49,11 @@ def taa_input_data():
 @pytest.fixture
 def taa_expected_state_data(taa_input_data):
     return {data.version: expected_state_data(data) for data in taa_input_data}
+
+
+@pytest.fixture
+def taa_expected_data(taa_input_data):
+    return {data.version: expected_data(data) for data in taa_input_data}
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
+import pytest
 import json
 
-import pytest
 from indy.ledger import build_txn_author_agreement_request
 
 from plenum.common.constants import (
@@ -16,7 +16,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from plenum.test.txn_author_agreement.helper import (
     get_config_req_handler, sdk_send_txn_author_agreement,
-    expected_state_data, TaaData
+    expected_data, TaaData
 )
 
 
@@ -26,12 +26,11 @@ def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_po
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
     digest = ConfigReqHandler._taa_digest(text, version)
 
-    state_data = expected_state_data(TaaData(
+    data = expected_data(TaaData(
         text=text, version=version,
         seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
         txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
     ))
-    data = state_data['val'], state_data['lsn'], state_data['lut']
 
     # TODO: Replace this with get transaction
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

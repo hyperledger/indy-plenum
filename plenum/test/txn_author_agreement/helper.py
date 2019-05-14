@@ -41,3 +41,10 @@ def expected_state_data(data: TaaData) -> Dict:
             TXN_AUTHOR_AGREEMENT_VERSION: data.version
         }
     }
+
+
+def expected_data(data: TaaData) -> Dict:
+    return {
+        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+    }, data.seq_no, data.txn_time
