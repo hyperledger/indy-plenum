@@ -25,7 +25,7 @@ def test_state_path_taa_digest():
 
 
 def test_taa_digest():
-    assert ConfigReqHandler._taa_digest('some_version', 'some_text') == \
+    assert ConfigReqHandler._taa_digest('some_text', 'some_version') == \
         "fb2ea9d28380a021ec747c442d62a68952b4b5813b45671098ad2b684b2f4646"
 
 
@@ -43,7 +43,7 @@ def test_update_txn_author_agreement(
     data = taa_input_data[0]
 
     config_req_handler.update_txn_author_agreement(
-        data.version, data.text, data.seq_no, data.txn_time)
+        data.text, data.version, data.seq_no, data.txn_time)
     state = config_req_handler.state
 
     digest = taa_expected_digests[data.version]

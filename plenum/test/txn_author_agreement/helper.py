@@ -13,14 +13,14 @@ from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replie
 
 
 TaaData = NamedTuple("TaaData", [
-    ("version", str),
     ("text", str),
+    ("version", str),
     ("seq_no", int),
     ("txn_time", int)
 ])
 
 
-def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: str, text: str):
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])

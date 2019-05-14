@@ -61,17 +61,17 @@ class ConfigReqHandler(LedgerRequestHandler):
         if typ == TXN_AUTHOR_AGREEMENT:
             payload = get_payload_data(txn)
             self.update_txn_author_agreement(
-                payload[TXN_AUTHOR_AGREEMENT_VERSION],
                 payload[TXN_AUTHOR_AGREEMENT_TEXT],
+                payload[TXN_AUTHOR_AGREEMENT_VERSION],
                 get_seq_no(txn),
                 get_txn_time(txn)
             )
 
-    def update_txn_author_agreement(self, version, text, seq_no, txn_time):
-        digest = self._taa_digest(version, text)
+    def update_txn_author_agreement(self, text, version, seq_no, txn_time):
+        digest = self._taa_digest(text, version)
         data = encode_state_value({
-            TXN_AUTHOR_AGREEMENT_VERSION: version,
-            TXN_AUTHOR_AGREEMENT_TEXT: text
+            TXN_AUTHOR_AGREEMENT_TEXT: text,
+            TXN_AUTHOR_AGREEMENT_VERSION: version
         }, seq_no, txn_time, serializer=config_state_serializer)
 
         self.state.set(self._state_path_taa_digest(digest), data)
@@ -114,7 +114,7 @@ class ConfigReqHandler(LedgerRequestHandler):
         return "taa:d:{digest}".format(digest=digest).encode()
 
     @staticmethod
-    def _taa_digest(version: str, text: str) -> str:
+    def _taa_digest(text: str, version: str) -> str:
         return sha256('{}{}'.format(version, text).encode()).hexdigest()
 
     def _is_trustee(self, nym: str):

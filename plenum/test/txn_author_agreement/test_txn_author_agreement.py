@@ -23,11 +23,11 @@ from plenum.test.txn_author_agreement.helper import (
 def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
     text = randomString(1024)
     version = randomString(16)
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version, text)[0]
-    digest = ConfigReqHandler._taa_digest(version, text)
+    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
+    digest = ConfigReqHandler._taa_digest(text, version)
 
     state_data = expected_state_data(TaaData(
-        version=version, text=text,
+        text=text, version=version,
         seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
         txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
     ))
@@ -59,7 +59,7 @@ def test_send_valid_txn_author_agreement_without_enough_privileges_fails(looper,
                                                                          sdk_wallet_steward):
     with pytest.raises(RequestRejectedException):
         sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_steward,
-                                      randomString(16), randomString(1024))
+                                      randomString(1024), randomString(16))
 
 
 def test_send_different_txn_author_agreement_with_same_version_fails(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -67,9 +67,9 @@ def test_send_different_txn_author_agreement_with_same_version_fails(looper, txn
     # Send original txn
     version = randomString(16)
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                  version, randomString(1024))
+                                  randomString(1024), version)
 
     # Send new txn with old version
     with pytest.raises(RequestRejectedException):
         sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                      version, randomString(1024))
+                                      randomString(1024), version)
