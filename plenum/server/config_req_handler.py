@@ -1,3 +1,4 @@
+import json
 from _sha256 import sha256
 from typing import Optional, Callable, Dict
 
@@ -108,4 +109,10 @@ class ConfigReqHandler(LedgerRequestHandler):
         return result
 
     def handle_get_txn_author_agreement(self, request: Request):
-        return self.make_config_result(request, {})
+        digest = self.get_taa_digest()
+        if digest is None:
+            return self.make_config_result(request, None)
+
+        data = self.state.get(self._state_path_taa_digest(digest.decode()))
+        data = json.loads(data.decode())
+        return self.make_config_result(request, data)
