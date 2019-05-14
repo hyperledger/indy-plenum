@@ -726,7 +726,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.configLedger,
             preCatchupStartClbk=self.preConfigLedgerCatchup,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+            taa_acceptance_required=False)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
 
     def prePoolLedgerCatchup(self, **kwargs):
@@ -1012,7 +1013,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.poolLedger,
                 preCatchupStartClbk=self.prePoolLedgerCatchup,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+                taa_acceptance_required=False)
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def _add_domain_ledger(self):
@@ -1021,7 +1023,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.domainLedger,
             preCatchupStartClbk=self.preDomainLedgerCatchup,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+            taa_acceptance_required=True)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
 
     def _add_audit_ledger(self):
@@ -1030,7 +1033,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.auditLedger,
             preCatchupStartClbk=self.preAuditLedgerCatchup,
             postCatchupCompleteClbk=self.postAuditLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+            taa_acceptance_required=False)
         self.on_new_ledger_added(AUDIT_LEDGER_ID)
 
     def getHashStore(self, name) -> HashStore:

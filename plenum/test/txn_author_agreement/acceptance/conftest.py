@@ -9,6 +9,7 @@ from plenum.common.types import OPERATION, f
 from plenum.common.util import get_utc_epoch
 from plenum.common.request import SafeRequest
 
+from plenum.test.conftest import getValueFromModule
 from plenum.test.input_validation.conftest import operation as nym_operation, taa_acceptance
 from plenum.test.input_validation.constants import TEST_TARGET_NYM
 
@@ -23,12 +24,11 @@ TAA_ACCEPTANCE_TS_TOO_RECENT = TS_NOW + TAA_ACCEPTANCE_TS_HIGHER_INTERVAL + 1
 
 
 @pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodeSet, request):
-    marker = request.node.get_marker('taa_disabled')
+def txnPoolNodeSet(txnPoolNodeSet, request, set_txn_author_agreement):
+    taa_disabled = getValueFromModule(request, "TAA_DISABLED", False)
 
-    if not marker:
-        # TODO send TXN_AUTHOR_AGREEMENT txn
-        pass
+    if not taa_disabled:
+        set_txn_author_agreement()
 
     return txnPoolNodeSet
 
