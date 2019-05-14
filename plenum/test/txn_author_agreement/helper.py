@@ -34,12 +34,10 @@ def get_config_req_handler(node):
 
 def expected_state_data(data: TaaData) -> Dict:
     return {
-        TXN_PAYLOAD: {
-            TXN_AUTHOR_AGREEMENT_VERSION: data.version,
-            TXN_AUTHOR_AGREEMENT_TEXT: data.text
-        },
-        TXN_METADATA: {
-            TXN_METADATA_SEQ_NO: data.seqNo,
-            TXN_METADATA_TIME: data.txnTime
+        'lsn': data.seqNo,
+        'lut': data.txnTime,
+        'val': {
+            TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+            TXN_AUTHOR_AGREEMENT_VERSION: data.version
         }
     }

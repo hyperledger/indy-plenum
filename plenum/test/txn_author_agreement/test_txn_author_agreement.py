@@ -26,11 +26,12 @@ def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_po
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version, text)[0]
     digest = ConfigReqHandler._taa_digest(version, text).decode()
 
-    data = expected_state_data(TaaData(
+    state_data = expected_state_data(TaaData(
         version, text,
         reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
         reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
     ))
+    data = state_data['val'], state_data['lsn'], state_data['lut']
 
     # TODO: Replace this with get transaction
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

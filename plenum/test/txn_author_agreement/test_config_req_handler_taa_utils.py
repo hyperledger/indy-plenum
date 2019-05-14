@@ -94,7 +94,10 @@ def test_get_taa_data(config_req_handler: ConfigReqHandler,
             ConfigReqHandler._state_path_taa_digest(digest),
             isCommitted=False
         )
-        return None if data is None else config_state_serializer.deserialize(data)
+        if data is None:
+            return None
+        data = config_state_serializer.deserialize(data)
+        return data['val'], data['lsn'], data['lut']
 
     for data in taa_in_data:
         config_req_handler.update_txn_author_agreement(*data)
@@ -125,14 +128,17 @@ def test_multiple_update_txn_author_agreement(
         written.append(data.version)
 
         assert config_req_handler.get_taa_digest(isCommitted=False) == digest
+        _state_data = taa_state_data[data.version]
+        _state_data = _state_data['val'], _state_data['lsn'], _state_data['lut']
         assert (
             config_req_handler.get_taa_data(isCommitted=False) ==
-            taa_state_data[data.version]
+            _state_data
         )
 
         for _data in taa_in_data:
             _digest = taa_digests[_data.version]
             _state_data = taa_state_data[_data.version]
+            _state_data = _state_data['val'], _state_data['lsn'], _state_data['lut']
             res = (
                 config_req_handler.get_taa_digest(version=_data.version, isCommitted=False),
                 config_req_handler.get_taa_data(version=_data.version, isCommitted=False),

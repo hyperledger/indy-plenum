@@ -8,7 +8,12 @@ from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_A
     CONFIG_LEDGER_ID
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_type, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import (
+    get_type, get_payload_data, get_seq_no, get_txn_time
+)
+from plenum.server.request_handlers.utils import (
+    encode_state_value, decode_state_value
+)
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from storage.state_ts_store import StateTsDbStorage
@@ -64,24 +69,14 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def update_txn_author_agreement(self, version, text, seqNo, txnTime):
         digest = self._taa_digest(version, text)
-
-        data = {
-            TXN_PAYLOAD: {
-                TXN_AUTHOR_AGREEMENT_VERSION: version,
-                TXN_AUTHOR_AGREEMENT_TEXT: text
-            },
-            TXN_METADATA: {
-                TXN_METADATA_SEQ_NO: seqNo,
-                TXN_METADATA_TIME: txnTime
-            }
-        }
+        data = encode_state_value({
+            TXN_AUTHOR_AGREEMENT_VERSION: version,
+            TXN_AUTHOR_AGREEMENT_TEXT: text
+        }, seqNo, txnTime, serializer=config_state_serializer)
 
         self.state.set(self._state_path_taa_latest(), digest)
         self.state.set(self._state_path_taa_version(version), digest)
-        self.state.set(self._state_path_taa_digest(
-            digest.decode()),
-            config_state_serializer.serialize(data)
-        )
+        self.state.set(self._state_path_taa_digest(digest.decode()), data)
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:
@@ -102,7 +97,9 @@ class ConfigReqHandler(LedgerRequestHandler):
             self._state_path_taa_digest(digest),
             isCommitted=isCommitted
         )
-        return None if data is None else config_state_serializer.deserialize(data)
+        if data is None:
+            return None
+        return decode_state_value(data, serializer=config_state_serializer)
 
     @staticmethod
     def _state_path_taa_latest():
