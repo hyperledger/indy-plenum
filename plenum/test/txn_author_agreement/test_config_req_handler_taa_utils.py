@@ -38,15 +38,15 @@ def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_
 
 
 def test_update_txn_author_agreement(
-        config_req_handler: ConfigReqHandler, taa_in_data, taa_digests):
+        config_req_handler: ConfigReqHandler, taa_input_data, taa_expected_digests):
     """ `update_txn_author_agreement` updates state properly """
-    data = taa_in_data[0]
+    data = taa_input_data[0]
 
     config_req_handler.update_txn_author_agreement(
         data.version, data.text, data.seq_no, data.txn_time)
     state = config_req_handler.state
 
-    digest = taa_digests[data.version]
+    digest = taa_expected_digests[data.version]
 
     assert state.get(ConfigReqHandler._state_path_taa_latest(),
                      isCommitted=False) == digest.encode()
@@ -61,11 +61,11 @@ def test_update_txn_author_agreement(
     assert taa == expected_state_data(data)
 
 
-def test_get_taa_digest(config_req_handler: ConfigReqHandler, taa_in_data, taa_state_data):
+def test_get_taa_digest(config_req_handler: ConfigReqHandler, taa_input_data, taa_expected_state_data):
     """ `get_taa_digest` returns values from state """
     state = config_req_handler.state
 
-    for data in taa_in_data:
+    for data in taa_input_data:
         config_req_handler.update_txn_author_agreement(*data)
 
         assert (
@@ -73,7 +73,7 @@ def test_get_taa_digest(config_req_handler: ConfigReqHandler, taa_in_data, taa_s
             state.get(ConfigReqHandler._state_path_taa_latest(), isCommitted=False)
         )
 
-        for version in taa_state_data:
+        for version in taa_expected_state_data:
             digest = config_req_handler.get_taa_digest(version=version, isCommitted=False)
             if digest is not None:
                 digest = digest.encode()
@@ -82,7 +82,7 @@ def test_get_taa_digest(config_req_handler: ConfigReqHandler, taa_in_data, taa_s
 
 
 def test_get_taa_data(config_req_handler: ConfigReqHandler,
-                      taa_in_data, taa_state_data, taa_digests):
+                      taa_input_data, taa_expected_state_data, taa_expected_digests):
     """ `get_taa_data` returns values from state """
     state = config_req_handler.state
 
@@ -99,18 +99,18 @@ def test_get_taa_data(config_req_handler: ConfigReqHandler,
         data = config_state_serializer.deserialize(data)
         return data['val'], data['lsn'], data['lut']
 
-    for data in taa_in_data:
+    for data in taa_input_data:
         config_req_handler.update_txn_author_agreement(*data)
 
         assert (
             config_req_handler.get_taa_data(isCommitted=False) == _state_data()
         )
 
-        for version in taa_state_data:
+        for version in taa_expected_state_data:
             data = config_req_handler.get_taa_data(version=version, isCommitted=False)
             assert data == _state_data(version=version)
 
-        for digest in taa_digests:
+        for digest in taa_expected_digests:
             data = config_req_handler.get_taa_data(
                 digest=digest, version='any-version-since-ignored',
                 isCommitted=False
@@ -119,25 +119,25 @@ def test_get_taa_data(config_req_handler: ConfigReqHandler,
 
 
 def test_multiple_update_txn_author_agreement(
-        config_req_handler: ConfigReqHandler, taa_in_data, taa_digests, taa_state_data):
+        config_req_handler: ConfigReqHandler, taa_input_data, taa_expected_digests, taa_expected_state_data):
     written = []
-    for data in taa_in_data:
-        digest = taa_digests[data.version]
+    for data in taa_input_data:
+        digest = taa_expected_digests[data.version]
 
         config_req_handler.update_txn_author_agreement(*data)
         written.append(data.version)
 
         assert config_req_handler.get_taa_digest(isCommitted=False) == digest
-        _state_data = taa_state_data[data.version]
+        _state_data = taa_expected_state_data[data.version]
         _state_data = _state_data['val'], _state_data['lsn'], _state_data['lut']
         assert (
             config_req_handler.get_taa_data(isCommitted=False) ==
             _state_data
         )
 
-        for _data in taa_in_data:
-            _digest = taa_digests[_data.version]
-            _state_data = taa_state_data[_data.version]
+        for _data in taa_input_data:
+            _digest = taa_expected_digests[_data.version]
+            _state_data = taa_expected_state_data[_data.version]
             _state_data = _state_data['val'], _state_data['lsn'], _state_data['lut']
             res = (
                 config_req_handler.get_taa_digest(version=_data.version, isCommitted=False),

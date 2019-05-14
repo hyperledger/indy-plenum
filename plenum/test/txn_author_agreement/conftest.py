@@ -36,7 +36,7 @@ def config_req_handler(config_state,
 
 
 @pytest.fixture
-def taa_in_data():
+def taa_input_data():
     return [
         TaaData(version=randomString(8), text=randomString(32), seq_no=n, txn_time=(n + 10))
         for n in range(10)
@@ -44,12 +44,12 @@ def taa_in_data():
 
 
 @pytest.fixture
-def taa_state_data(taa_in_data):
-    return {data.version: expected_state_data(data) for data in taa_in_data}
+def taa_expected_state_data(taa_input_data):
+    return {data.version: expected_state_data(data) for data in taa_input_data}
 
 
 @pytest.fixture
-def taa_digests(taa_in_data):
+def taa_expected_digests(taa_input_data):
     # TODO use some other API, e.g. sdk's one
     return {data.version: ConfigReqHandler._taa_digest(
-        data.version, data.text) for data in taa_in_data}
+        data.version, data.text) for data in taa_input_data}
