@@ -1794,12 +1794,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Accessing Replica directly should be prohibited
         return self.replicas._master_replica
 
-
     # TODO test
     @property
     def now(self):
         return self.master_replica.get_time_for_3pc_batch()
-
 
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
@@ -2424,20 +2422,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
-
     def validateTaaAcceptance(self, request: Request):
-# The author agreement is must have for all Domain transactions
-# Plugins must be able to specify for what ledgers the author agreement is also must have
-# Enhance dynamic validation as follows:
-#    If this is DOMAIN txn, or a Plugin txn from a ledger for which TAA is required - process. Otherwise - OK.
-#    Get the latest TAA (using 'last_taa' key in state)
-#    If there is no TAA - OK
-#    Get the latest AML (using 'last_aml' key in state)
-#    If there is no AML - REJECT
-#    Get the TAA's hash and compare with the one in the request. If they are not equal - REJECT
-#    Get the request's timestamp. Make sure that the ts is in the interval [TAA's ts - 2 mins; current PP time + 2 mins]. If not - REJECT
-#    Get the requests' acceptance mechanism string. Make sure that it's present in the latest AML. If not - REJECT
-
         ledger_id = self.ledger_id_for_request(request)
 
         if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
@@ -2467,7 +2452,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO not (None or empty)  ???
         taa_digest = config_req_handler.get_taa_digest()  # TODO test that digest match taa
-        if not taa_digest: # TODO test
+        if not taa_digest:  # TODO test
             raise LogicError(
                 "Txn Author Agreement digest is missed in state for taa: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
@@ -2475,8 +2460,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO INDY-2068
         taa_aml = {}
-        #taa_aml = config_req_handler.get_taa_aml()
-        #if not taa_aml:
+        # taa_aml = config_req_handler.get_taa_aml()
+        # if not taa_aml:
         #    raise TaaAmlNotSetError(
         #        "Txn Author Agreement acceptance mechanism list is not defined"
         #    ) # TODO test
