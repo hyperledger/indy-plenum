@@ -1,44 +1,67 @@
 import pytest
 
 from plenum.common.types import f
+from plenum.config import (
+    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA,
+    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_NOW
+)
 from plenum.common.util import get_utc_epoch
 
 from plenum.test.conftest import getValueFromModule
+from plenum.test.replica.conftest import primary_replica as _primary_replica
 from plenum.test.input_validation.helper import (
     gen_nym_operation, gen_node_operation
 )
 from ..helper import calc_taa_digest
 from .helper import gen_signed_request
 
-TAA_ACCEPTANCE_TS_LOWER_INTERVAL = 120
-TAA_ACCEPTANCE_TS_HIGHER_INTERVAL = 120
 
 TAA_ACCEPTANCE_TS_TOO_OLD = 0
-LATEST_TAA_TS = TAA_ACCEPTANCE_TS_TOO_OLD + TAA_ACCEPTANCE_TS_LOWER_INTERVAL + 1
-TS_NOW = LATEST_TAA_TS + 1
-TAA_ACCEPTANCE_TS_TOO_RECENT = TS_NOW + TAA_ACCEPTANCE_TS_HIGHER_INTERVAL + 1
-
+TAA_LATEST_TS = TAA_ACCEPTANCE_TS_TOO_OLD + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA + 1
+TS_NOW = TAA_LATEST_TS + 1
+TAA_ACCEPTANCE_TS_TOO_RECENT = TS_NOW + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_NOW + 1
 
 
 @pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodeSet, request, set_txn_author_agreement):
-    taa_disabled = getValueFromModule(request, "TAA_DISABLED", False)
+def taa_a_ts_too_old():
+    return TAA_ACCEPTANCE_TS_TOO_OLD
 
-    if not taa_disabled:
-        set_txn_author_agreement()
 
-    return txnPoolNodeSet
+@pytest.fixture(scope="module")
+def taa_a_ts_too_recent():
+    return TAA_ACCEPTANCE_TS_TOO_RECENT
+
+
+@pytest.fixture(scope="module")
+def ts_now():
+    # TODO use tconf
+    return TS_NOW
+
+
+@pytest.fixture(scope="module")
+def taa_latest_ts(ts_now):
+    return TAA_LATEST_TS
+
+
+@pytest.fixture
+def primary_replica(_primary_replica):
+    _primary_replica.last_accepted_pre_prepare_time = None
+    _primary_replica.get_time_for_3pc_batch.value = TS_NOW
+    #_primary_replica.threePhaseRouter.add((PrePrepare, lambda *x, **y: None))
+    return _primary_replica
 
 
 @pytest.fixture(scope="module")
 def node_validator(txnPoolNodeSet):
-    return txnPoolNodeSet[0]
+    node = txnPoolNodeSet[0]
+    #node.now = TAA_LATEST_TS
+    return node
 
 
 @pytest.fixture(scope="module")
 def validate_taa_acceptance(node_validator):
     def wrapped(req):
-        return node_validator.doDynamicValidation(req)
+        return node_validator.validateTaaAcceptance(req)
     return wrapped
 
 
@@ -59,16 +82,16 @@ def taa_acceptance_time():
 
 @pytest.fixture
 def taa_acceptance(request, taa_digest, taa_acceptance_mechanism, taa_acceptance_time):
-    digest_marker = request.node.get_marker('taa_digest')
+    digest_marker = request.node.get_marker('taa_acceptance_digest')
     mech_marker = request.node.get_marker('taa_acceptance_mechanism')
     time_marker = request.node.get_marker('taa_acceptance_time')
     return {
         f.TAA_ACCEPTANCE_DIGEST.nm:
             digest_marker.args[0] if digest_marker else taa_digest,
         f.TAA_ACCEPTANCE_MECHANISM.nm:
-            digest_marker.args[0] if digest_marker else taa_acceptance_mechanism,
+            mech_marker.args[0] if mech_marker else taa_acceptance_mechanism,
         f.TAA_ACCEPTANCE_TIME.nm:
-            digest_marker.args[0] if digest_marker else taa_acceptance_time,
+            time_marker.args[0] if time_marker else taa_acceptance_time,
     }
 
 

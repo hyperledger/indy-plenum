@@ -52,11 +52,13 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
-    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE
+    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE, \
+    TXN_AUTHOR_AGREEMENT_VERSION
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
+    TaaAmlNotSetError, InvalidClientTaaAcceptanceError
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
@@ -1792,6 +1794,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Accessing Replica directly should be prohibited
         return self.replicas._master_replica
 
+
+    # TODO test
+    @property
+    def now(self):
+        return self.master_replica.get_time_for_3pc_batch()
+
+
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
         Return true if the instance id of message corresponds to a correct
@@ -2415,6 +2424,113 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
+
+    def validateTaaAcceptance(self, request: Request):
+# The author agreement is must have for all Domain transactions
+# Plugins must be able to specify for what ledgers the author agreement is also must have
+# Enhance dynamic validation as follows:
+#    If this is DOMAIN txn, or a Plugin txn from a ledger for which TAA is required - process. Otherwise - OK.
+#    Get the latest TAA (using 'last_taa' key in state)
+#    If there is no TAA - OK
+#    Get the latest AML (using 'last_aml' key in state)
+#    If there is no AML - REJECT
+#    Get the TAA's hash and compare with the one in the request. If they are not equal - REJECT
+#    Get the request's timestamp. Make sure that the ts is in the interval [TAA's ts - 2 mins; current PP time + 2 mins]. If not - REJECT
+#    Get the requests' acceptance mechanism string. Make sure that it's present in the latest AML. If not - REJECT
+
+        ledger_id = self.ledger_id_for_request(request)
+
+        if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
+            logger.trace(
+                "{} TAA acceptance passed for request {}: "
+                "not required for ledger id {}"
+                .format(self, request.reqId, ledger_id)
+            )
+            return
+
+        config_req_handler = self.ledger_to_req_handler.get(CONFIG_LEDGER_ID)
+        if not config_req_handler:
+            raise LogicError("Config request handler is missed")
+
+        taa = None
+        taa_data = config_req_handler.get_taa_data()
+        if taa_data is not None:
+            taa, taa_seq_no, taa_txn_time = taa_data
+
+        if not taa:
+            logger.trace(
+                "{} TAA acceptance passed for request {}: "
+                "taa is empty or missed"
+                .format(self, request.reqId)
+            )
+            return
+
+        # TODO not (None or empty)  ???
+        taa_digest = config_req_handler.get_taa_digest()  # TODO test that digest match taa
+        if not taa_digest: # TODO test
+            raise LogicError(
+                "Txn Author Agreement digest is missed in state for taa: version {}, seq_no {}, txn_time {}"
+                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
+            )
+
+        # TODO INDY-2068
+        taa_aml = {}
+        #taa_aml = config_req_handler.get_taa_aml()
+        #if not taa_aml:
+        #    raise TaaAmlNotSetError(
+        #        "Txn Author Agreement acceptance mechanism list is not defined"
+        #    ) # TODO test
+
+        if not request.taaAcceptance:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance is required for ledger with id {}"
+                .format(ledger_id)
+            )
+
+        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
+        if r_taa_a_digest != taa_digest:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance digest is invalid or non-latest:"
+                " provided {}, expected {}"
+                .format(r_taa_a_digest, taa_digest)
+            )
+
+        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
+        if (r_taa_a_mech not in taa_aml) and False:  # TODO INDY-2068
+            # TODO
+            #   - list might be quite long
+            #   - should we return AML in reject
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance mechanism is inappropriate:"
+                " provided {}, expected one of {}"
+                .format(r_taa_a_mech, list(taa_aml))
+            )
+
+        r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
+        ts_lowest = (
+            taa_txn_time -
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA
+        )
+        ts_higest = (
+            self.now +
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_NOW
+        )
+        if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance time is inappropriate:"
+                " provided {}, expected in [{}, {}]"
+                .format(r_taa_a_ts, ts_lowest, ts_higest)
+            )
+
+        logger.trace(
+            "{} TAA acceptance passed for request {}"
+            .format(self, request.reqId)
+        )
+
     def doDynamicValidation(self, request: Request):
         """
         State based validation
@@ -2433,6 +2549,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if get_payload_digest(txn) == request.payload_digest:
                 raise SuspiciousPrePrepare('Trying to order already ordered request')
 
+        # TAA validation
+        self.validateTaaAcceptance(request)
+
+        # specific validation for the request txn type
         operation = request.operation
         req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
         req_handler.validate(request)

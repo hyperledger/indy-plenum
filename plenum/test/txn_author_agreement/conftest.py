@@ -113,3 +113,8 @@ def latest_taa(get_txn_author_agreement):
         'data': data,
         'digest': digest
     }
+
+
+@pytest.fixture
+def activate_taa(set_txn_author_agreement):
+    set_txn_author_agreement()

@@ -23,7 +23,8 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
+    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare, \
+    PoolConfigError
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
@@ -998,7 +999,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 try:
                     self.processReqDuringBatch(fin_req,
                                                tm)
-                except (InvalidClientMessageException, UnknownIdentifier) as ex:
+
+                # TODO test PoolConfigError exception handling
+                except (
+                    InvalidClientMessageException,
+                    UnknownIdentifier,
+                    PoolConfigError
+                ) as ex:
                     self.logger.warning('{} encountered exception {} while processing {}, '
                                         'will reject'.format(self, ex, fin_req))
                     rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
