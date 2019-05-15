@@ -1,3 +1,6 @@
+import pytest
+
+from plenum.common.ledger_info import LedgerInfo
 from plenum.common.ledger_manager import LedgerManager
 from plenum.test.testable import spyable
 from plenum.test.testing_utils import FakeSomething
@@ -16,16 +19,30 @@ class TestLedgerManager(LedgerManager):
         super().__init__(*args, **kwargs)
 
 
-def test_taa_acceptance_required_passed_to_ledger_info():
+@pytest.fixture
+def ledger_manager():
     fakeNode = FakeSomething(timer=None, allNodeNames=set('Node1'))
     lm = LedgerManager(fakeNode)
     setattr(fakeNode, 'ledgerManager', lm)
+    return lm
 
-    lm.addLedger(0, FakeSomething(hasher=None))
-    assert lm.ledgerRegistry[0].taa_acceptance_required == True
 
-    lm.addLedger(1, FakeSomething(hasher=None), taa_acceptance_required=False)
-    assert lm.ledgerRegistry[1].taa_acceptance_required == False
+def test_ledger_info(ledger_manager):
+    ledger_manager.addLedger(
+        0, FakeSomething(hasher=None))
+    assert isinstance(ledger_manager.ledger_info(0), LedgerInfo)
+    assert ledger_manager.ledger_info(1) is None
 
-    lm.addLedger(2, FakeSomething(hasher=None), taa_acceptance_required=True)
-    assert lm.ledgerRegistry[2].taa_acceptance_required == True
+
+def test_taa_acceptance_required_passed_to_ledger_info(ledger_manager):
+    ledger_manager.addLedger(
+        0, FakeSomething(hasher=None))
+    assert ledger_manager.ledger_info(0).taa_acceptance_required == True
+
+    ledger_manager.addLedger(
+        1, FakeSomething(hasher=None), taa_acceptance_required=False)
+    assert ledger_manager.ledger_info(1).taa_acceptance_required == False
+
+    ledger_manager.addLedger(
+        2, FakeSomething(hasher=None), taa_acceptance_required=True)
+    assert ledger_manager.ledger_info(2).taa_acceptance_required == True
