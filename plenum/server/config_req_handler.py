@@ -153,11 +153,11 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     @staticmethod
     def _state_path_taa_aml_latest():
-        return b"taa:aml:latest"
+        return "{marker}:latest".format(marker=MARKER_TAA_AML).encode()
 
     @staticmethod
     def _state_path_taa_aml_version(version: str):
-        return "taa:aml:v:{version}".format(version=version).encode()
+        return "{marker}:v:{version}".format(marker=MARKER_TAA_AML, version=version).encode()
 
     def _is_trustee(self, nym: str):
         return bool(DomainRequestHandler.get_role(self._domain_state, nym,

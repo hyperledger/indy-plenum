@@ -15,21 +15,15 @@ from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_requ
 from plenum.test.txn_author_agreement.helper import sdk_send_txn_author_agreement, sdk_get_txn_author_agreement
 
 
-@pytest.fixture(scope="module")
-def setup(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
-    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module)
-    sdk_get_and_check_replies(looper, [req])
-
-
 def test_send_taa_before_taa_aml(looper, sdk_pool_handle, sdk_wallet_trustee):
     text = randomString(1024)
     version = randomString(16)
     with pytest.raises(RequestRejectedException) as e:
         sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
-    assert e.match('TAA txn is forbidden until TAA AML isn\'t set. Send TAA AML first.')
+    assert e.match('TAA txn is forbidden until TAA AML is set. Send TAA AML first')
 
 
-def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle,
+def test_send_valid_txn_author_agreement_succeeds(looper, setup, txnPoolNodeSet, sdk_pool_handle,
                                                   sdk_wallet_trustee, sdk_wallet_client):
     text = randomString(1024)
     version = randomString(16)

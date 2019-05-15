@@ -1,4 +1,5 @@
 import pytest
+from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT
 from plenum.common.request import Request
@@ -97,3 +98,9 @@ def taa_aml_request_module(sdk_wallet_trustee):
                               AML_VERSION: randomString(),
                               AML: {'Nice way': 'very good way to accept agreement'},
                               AML_CONTEXT: randomString()})
+
+
+@pytest.fixture(scope="module")
+def setup(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
+    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module)
+    sdk_get_and_check_replies(looper, [req])
