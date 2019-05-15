@@ -28,6 +28,6 @@ def test_state_proof_returned_for_get_txn_author_agreement(
     root_hash = base58.b58decode(state_proof[ROOT_HASH])
 
     assert PruningState.verify_state_proof(root_hash,
-                                           'taa:latest',
+                                           '2:latest',
                                            taa_digest(text, version),
                                            proof_nodes, serialized=True)

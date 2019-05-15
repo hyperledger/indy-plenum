@@ -15,6 +15,9 @@ from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from storage.state_ts_store import StateTsDbStorage
 
+MARKER_TAA = "2"
+MARKER_TAA_AML = "3"
+
 
 class ConfigReqHandler(LedgerRequestHandler):
     write_types = {TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML}
@@ -104,15 +107,18 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     @staticmethod
     def _state_path_taa_latest() -> bytes:
-        return b"taa:latest"
+        return "{marker}:latest".\
+            format(marker=MARKER_TAA).encode()
 
     @staticmethod
     def _state_path_taa_version(version: str) -> bytes:
-        return "taa:v:{version}".format(version=version).encode()
+        return "{marker}:v:{version}".\
+            format(marker=MARKER_TAA, version=version).encode()
 
     @staticmethod
     def _state_path_taa_digest(digest: str) -> bytes:
-        return "taa:d:{digest}".format(digest=digest).encode()
+        return "{marker}:d:{digest}".\
+            format(marker=MARKER_TAA, digest=digest).encode()
 
     @staticmethod
     def _taa_digest(text: str, version: str) -> str:

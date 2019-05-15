@@ -5,15 +5,15 @@ from plenum.test.txn_author_agreement.helper import get_config_req_handler
 
 
 def test_state_path_taa_latest():
-    assert ConfigReqHandler._state_path_taa_latest() == b'taa:latest'
+    assert ConfigReqHandler._state_path_taa_latest() == b'2:latest'
 
 
 def test_state_path_taa_version():
-    assert ConfigReqHandler._state_path_taa_version('some_version') == b'taa:v:some_version'
+    assert ConfigReqHandler._state_path_taa_version('some_version') == b'2:v:some_version'
 
 
 def test_state_path_taa_digest():
-    assert ConfigReqHandler._state_path_taa_digest('some_digest') == b'taa:d:some_digest'
+    assert ConfigReqHandler._state_path_taa_digest('some_digest') == b'2:d:some_digest'
 
 
 def test_taa_digest():
