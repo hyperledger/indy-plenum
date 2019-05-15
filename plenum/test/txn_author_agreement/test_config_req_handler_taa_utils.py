@@ -1,19 +1,11 @@
-import json
-
 from common.serializers.serialization import config_state_serializer
 
-from plenum.common.constants import (
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION,
-    TXN_PAYLOAD, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
-)
 from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.test.txn_author_agreement.helper import (
-    get_config_req_handler, expected_state_data
-)
+from plenum.test.txn_author_agreement.helper import get_config_req_handler
 
 
 def test_state_path_taa_latest():
-    assert ConfigReqHandler._state_path_taa_latest() == b'taa:v:latest'
+    assert ConfigReqHandler._state_path_taa_latest() == b'taa:latest'
 
 
 def test_state_path_taa_version():

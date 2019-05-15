@@ -1,4 +1,3 @@
-import json
 from _sha256 import sha256
 from typing import Optional, Callable, Dict
 
@@ -104,15 +103,15 @@ class ConfigReqHandler(LedgerRequestHandler):
         return decode_state_value(data, serializer=config_state_serializer)
 
     @staticmethod
-    def _state_path_taa_latest():
+    def _state_path_taa_latest() -> bytes:
         return b"taa:latest"
 
     @staticmethod
-    def _state_path_taa_version(version: str):
+    def _state_path_taa_version(version: str) -> bytes:
         return "taa:v:{version}".format(version=version).encode()
 
     @staticmethod
-    def _state_path_taa_digest(digest: str):
+    def _state_path_taa_digest(digest: str) -> bytes:
         return "taa:d:{digest}".format(digest=digest).encode()
 
     @staticmethod
@@ -159,6 +158,5 @@ class ConfigReqHandler(LedgerRequestHandler):
             return self.make_config_result(request, None, proof=proof)
 
         data = self.state.get(self._state_path_taa_digest(digest.decode()))
-        data = json.loads(data.decode())
-        # TODO: Fill in last_seq_no and update_time
-        return self.make_config_result(request, data, proof=proof)
+        value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+        return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
