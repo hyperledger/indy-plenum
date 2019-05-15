@@ -1,4 +1,3 @@
-import json
 from _sha256 import sha256
 from typing import Optional, Dict
 
@@ -32,7 +31,7 @@ class ConfigReqHandler(LedgerRequestHandler):
         typ = operation.get(TXN_TYPE)
 
         if typ == TXN_AUTHOR_AGREEMENT_AML:
-            if len(json.loads(operation[AML])) == 0:
+            if len(operation[AML]) == 0:
                 raise InvalidClientRequest(identifier, req_id,
                                            "TAA AML request must contain at least one acceptance mechanism")
 
@@ -51,7 +50,7 @@ class ConfigReqHandler(LedgerRequestHandler):
                                            "Changing existing version of transaction author agreement is forbidden")
         elif typ == TXN_AUTHOR_AGREEMENT_AML:
             version = operation.get(AML_VERSION)
-            if self.get_taa_aml_digest(version, isCommitted=False) is not None:
+            if self.get_taa_aml_data(version, isCommitted=False) is not None:
                 raise InvalidClientRequest(identifier, req_id,
                                            "Version of TAA AML must be unique and it cannot be modified")
 
@@ -94,7 +93,7 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def update_txn_author_agreement_acceptance_mechanisms(self, payload):
         version = payload[AML_VERSION]
-        self.state.set(self._state_path_taa_aml_latest(), version)
+        self.state.set(self._state_path_taa_aml_latest(), config_state_serializer.serialize(payload))
         self.state.set(self._state_path_taa_aml_version(version), config_state_serializer.serialize(payload))
 
     def get_taa_digest(self, version: Optional[str] = None,
@@ -120,7 +119,7 @@ class ConfigReqHandler(LedgerRequestHandler):
             return None
         return decode_state_value(data, serializer=config_state_serializer)
 
-    def get_taa_aml_digest(self, version: Optional[str] = None, isCommitted: bool = True):
+    def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \
             else self._state_path_taa_aml_version(version)
         return self.state.get(path, isCommitted=isCommitted)
@@ -143,7 +142,7 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     @staticmethod
     def _state_path_taa_aml_latest():
-        return b"taa:aml:tag:latest"
+        return b"taa:aml:latest"
 
     @staticmethod
     def _state_path_taa_aml_version(version: str):

@@ -10,12 +10,12 @@ from plenum.common.messages.fields import NetworkIpAddressField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField, JsonField
+    Sha256HexField, TimestampField, AnyMapField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT, TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT, \
-    TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT, JSON_FIELD_LIMIT, TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT, \
+    TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT, TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT, \
     TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT
 
 
@@ -80,7 +80,7 @@ class ClientTxnAuthorAgreementOperationAML(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_AML)),
         (AML_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT)),
-        (AML, JsonField(max_length=JSON_FIELD_LIMIT)),
+        (AML, AnyMapField()),
         (AML_CONTEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT))
     )
 
