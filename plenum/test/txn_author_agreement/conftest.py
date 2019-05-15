@@ -18,7 +18,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
     sdk_send_txn_author_agreement, calc_taa_digest,
-    gen_random_txn_author_agreement
+    gen_random_txn_author_agreement, get_config_req_handler
 )
 
 
@@ -78,11 +78,38 @@ def set_txn_author_agreement(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet
 
     def wrapped(text=None, version=None):
         _random_taa = gen_random_txn_author_agreement()
-        version = _random_taa[0] if version is None else version
         text = _random_taa[0] if text is None else text
+        version = _random_taa[1] if version is None else version
         reply = sdk_send_txn_author_agreement(
             looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return reply
 
     return wrapped
+
+
+# TODO: Replace implementation with get transaction
+@pytest.fixture(scope='module')
+def get_txn_author_agreement(txnPoolNodeSet):
+
+    def wrapped(node=None, version=None, digest=None):
+        node = txnPoolNodeSet[0] if node is None else node
+        config_req_handler = get_config_req_handler(node)
+
+        taa_digest = config_req_handler.get_taa_digest(version=version) if digest is None else digest
+        taa_data = config_req_handler.get_taa_data(digest=digest, version=version)
+        if taa_data:
+            taa_data = TaaData(**taa_data[0], seq_no=taa_data[1], txn_time=taa_data[2])
+
+        return taa_data, taa_digest
+
+    return wrapped
+
+
+@pytest.fixture
+def latest_taa(get_txn_author_agreement):
+    data, digest = get_txn_author_agreement()
+    return {
+        'data': data,
+        'digest': digest
+    }

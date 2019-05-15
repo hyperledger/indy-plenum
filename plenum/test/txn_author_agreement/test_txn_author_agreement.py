@@ -21,29 +21,31 @@ from .helper import (
 
 
 def test_send_valid_txn_author_agreement_succeeds(
-    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
+    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa,
+    get_txn_author_agreement
 ):
     reply = sdk_send_txn_author_agreement(
         looper, sdk_pool_handle, sdk_wallet_trustee, *random_taa)[0]
     digest = calc_taa_digest(*random_taa)
 
-    input_data = TaaData(
+    data = TaaData(
         *random_taa,
         seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
         txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
     )
-    data = expected_data(input_data)
 
-    # TODO: Replace this with get transaction
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     for node in txnPoolNodeSet:
-        config_req_handler = get_config_req_handler(node)
-        assert config_req_handler.get_taa_digest() == digest
-        assert config_req_handler.get_taa_digest(input_data.version) == digest
+        taa_data, taa_digest = get_txn_author_agreement(node=node)
+        assert taa_digest == digest
+        assert taa_data == data
 
-        assert config_req_handler.get_taa_data() == data
-        assert config_req_handler.get_taa_data(version=input_data.version) == data
-        assert config_req_handler.get_taa_data(digest=digest) == data
+        taa_data, taa_digest = get_txn_author_agreement(node=node, version=data.version)
+        assert taa_digest == digest
+        assert taa_data == data
+
+        taa_data, _ = get_txn_author_agreement(node=node, digest=digest)
+        assert taa_data == data
 
 
 def test_send_invalid_txn_author_agreement_fails(
