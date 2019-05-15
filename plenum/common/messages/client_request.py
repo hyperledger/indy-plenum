@@ -3,7 +3,7 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
     OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
-    TXN_AUTHOR_AGREEMENT_VERSION
+    TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -75,6 +75,13 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
     )
 
 
+# TODO: Add more fields along with implementation
+class ClientGetTxnAuthorAgreementOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(GET_TXN_AUTHOR_AGREEMENT)),
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -83,7 +90,8 @@ class ClientOperationField(MessageValidator):
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
-            TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict)
+            TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict),
+            GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict)
         }
         super().__init__(*args, **kwargs)
 
