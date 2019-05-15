@@ -46,7 +46,7 @@ class ConfigReqHandler(LedgerRequestHandler):
         if typ == TXN_AUTHOR_AGREEMENT:
             if self.state.get(self._state_path_taa_aml_latest()) is None:
                 raise InvalidClientRequest(identifier, req_id,
-                                           "TAA txn is forbidden until TAA AML isn't set. Send TAA AML first.")
+                                           "TAA txn is forbidden until TAA AML is set. Send TAA AML first.")
             version = operation[TXN_AUTHOR_AGREEMENT_VERSION]
             if self.get_taa_digest(version, isCommitted=False) is not None:
                 raise InvalidClientRequest(identifier, req_id,
