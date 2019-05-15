@@ -3,45 +3,27 @@ import json
 
 from indy.ledger import build_txn_author_agreement_request
 
-from plenum.common.constants import (
-    TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT,
-    TXN_PAYLOAD, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
-)
+from plenum.common.constants import TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, REPLY
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException
-from plenum.common.types import OPERATION, f
+from plenum.common.types import OPERATION
 from plenum.common.util import randomString
-from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_get_and_check_replies
-from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
-from plenum.test.txn_author_agreement.helper import (
-    get_config_req_handler, sdk_send_txn_author_agreement,
-    expected_data, TaaData
-)
+from plenum.test.txn_author_agreement.helper import sdk_send_txn_author_agreement, sdk_get_txn_author_agreement
 
 
-def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle,
+                                                  sdk_wallet_trustee, sdk_wallet_client):
     text = randomString(1024)
     version = randomString(16)
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
-    digest = ConfigReqHandler._taa_digest(text, version)
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
 
-    data = expected_data(TaaData(
-        text=text, version=version,
-        seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
-        txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
-    ))
+    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)[1]
+    assert reply['op'] == REPLY
 
-    # TODO: Replace this with get transaction
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    for node in txnPoolNodeSet:
-        config_req_handler = get_config_req_handler(node)
-        assert config_req_handler.get_taa_digest() == digest
-        assert config_req_handler.get_taa_digest(version) == digest
-
-        assert config_req_handler.get_taa_data() == data
-        assert config_req_handler.get_taa_data(version=version) == data
-        assert config_req_handler.get_taa_data(digest=digest) == data
+    result = reply['result']['data']
+    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == text
+    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == version
 
 
 def test_send_invalid_txn_author_agreement_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
