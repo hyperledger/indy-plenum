@@ -2,12 +2,21 @@ from _sha256 import sha256
 
 from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request
 
+from typing import NamedTuple, Dict
 from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
     MULTI_SIGNATURE_VALUE_TIMESTAMP
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
+
+
+TaaData = NamedTuple("TaaData", [
+    ("text", str),
+    ("version", str),
+    ("seq_no", int),
+    ("txn_time", int)
+])
 
 
 def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
@@ -60,3 +69,21 @@ def check_valid_proof(result):
     assert multi_sig_value[MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT]
     assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
     assert multi_sig_value[MULTI_SIGNATURE_VALUE_TIMESTAMP]
+
+
+def expected_state_data(data: TaaData) -> Dict:
+    return {
+        'lsn': data.seq_no,
+        'lut': data.txn_time,
+        'val': {
+            TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+            TXN_AUTHOR_AGREEMENT_VERSION: data.version
+        }
+    }
+
+
+def expected_data(data: TaaData) -> Dict:
+    return {
+        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+    }, data.seq_no, data.txn_time

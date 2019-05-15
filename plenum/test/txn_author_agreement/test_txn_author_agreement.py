@@ -1,6 +1,6 @@
+import pytest
 import json
 
-import pytest
 from indy.ledger import build_txn_author_agreement_request
 
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, REPLY
