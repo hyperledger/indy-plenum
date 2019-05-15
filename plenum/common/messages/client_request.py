@@ -3,14 +3,16 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
     OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
-    TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION
+    TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION, \
+    TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField, AnyMapField
+    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -85,6 +87,15 @@ class ClientTxnAuthorAgreementOperationAML(MessageValidator):
     )
 
 
+# TODO: Add more fields along with implementation
+class ClientGetTxnAuthorAgreementOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(GET_TXN_AUTHOR_AGREEMENT)),
+        (GET_TXN_AUTHOR_AGREEMENT_VERSION, NonEmptyStringField(optional=True)),
+        (GET_TXN_AUTHOR_AGREEMENT_DIGEST, NonEmptyStringField(optional=True))
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -94,7 +105,8 @@ class ClientOperationField(MessageValidator):
             NYM: ClientNYMOperation(schema_is_strict=strict),
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict),
-            TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict)
+            TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict),
+            GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict)
         }
         super().__init__(*args, **kwargs)
 
