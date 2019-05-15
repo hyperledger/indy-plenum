@@ -3,19 +3,20 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
     OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
-    TXN_AUTHOR_AGREEMENT_VERSION
+    TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField
+    Sha256HexField, TimestampField, JsonField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT, TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT, \
-    TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT
+    TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT, JSON_FIELD_LIMIT, TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT, \
+    TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT
 
 
 class ClientNodeOperationData(MessageValidator):
@@ -75,6 +76,15 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
     )
 
 
+class ClientTxnAuthorAgreementOperationAML(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_AML)),
+        (AML_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT)),
+        (AML, JsonField(max_length=JSON_FIELD_LIMIT)),
+        (AML_CONTEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT))
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -83,7 +93,8 @@ class ClientOperationField(MessageValidator):
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
-            TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict)
+            TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict),
+            TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict)
         }
         super().__init__(*args, **kwargs)
 
@@ -111,8 +122,8 @@ class ClientTAAAcceptance(MessageValidator):
     schema = (
         (f.TAA_ACCEPTANCE_DIGEST.nm, Sha256HexField()),
         (f.TAA_ACCEPTANCE_MECHANISM.nm,
-            LimitedLengthStringField(
-                max_length=TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT)),
+         LimitedLengthStringField(
+             max_length=TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT)),
         (f.TAA_ACCEPTANCE_TIME.nm, TimestampField()),
     )
 
