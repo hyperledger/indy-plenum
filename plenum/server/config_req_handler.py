@@ -152,11 +152,28 @@ class ConfigReqHandler(LedgerRequestHandler):
         return result
 
     def handle_get_txn_author_agreement(self, request: Request):
-        path = self._state_path_taa_latest()
-        digest, proof = self.get_value_from_state(path, with_proof=True)
-        if digest is None:
-            return self.make_config_result(request, None, proof=proof)
+        digest = request.operation.get('hash')  # TODO: Change to digest after fix in SDK
+        version = request.operation.get('version')
 
-        data = self.state.get(self._state_path_taa_digest(digest.decode()))
-        value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
-        return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
+        if digest is not None:
+            path = self._state_path_taa_digest(digest)
+            data, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, data=data)
+        elif version is not None:
+            path = self._state_path_taa_version(version)
+            digest, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, digest=digest)
+        else:
+            path = self._state_path_taa_latest()
+            digest, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, digest=digest)
+
+    def _return_txn_author_agreement(self, request, proof, digest = None, data = None):
+        if digest is not None:
+            data = self.state.get(self._state_path_taa_digest(digest.decode()))
+
+        if data is not None:
+            value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+            return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
+
+        return self.make_config_result(request, None, proof=proof)

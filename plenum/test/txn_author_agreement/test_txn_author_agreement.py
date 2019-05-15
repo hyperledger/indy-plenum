@@ -12,12 +12,6 @@ from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_requ
 from plenum.test.txn_author_agreement.helper import sdk_send_txn_author_agreement, sdk_get_txn_author_agreement
 
 
-def test_get_txn_author_agreement_works_on_clear_state(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)[1]
-    assert reply['op'] == REPLY
-    assert reply['result']['data'] is None
-
-
 def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle,
                                                   sdk_wallet_trustee, sdk_wallet_client):
     text = randomString(1024)

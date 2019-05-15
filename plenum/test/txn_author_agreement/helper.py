@@ -1,8 +1,9 @@
+import json
 from _sha256 import sha256
 
 from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request
 
-from typing import NamedTuple, Dict
+from typing import NamedTuple, Dict, Optional
 from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
@@ -25,8 +26,18 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str
     return sdk_get_and_check_replies(looper, [rep])[0]
 
 
-def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet):
-    req = looper.loop.run_until_complete(build_get_txn_author_agreement_request(sdk_wallet[1], None))
+def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
+                                 digest: Optional[str] = None,
+                                 version: Optional[str] = None,
+                                 timestamp: Optional[int] = None):
+    params = {}
+    if digest is not None:
+        params['hash'] = digest  # TODO: Change to digest after fix in SDK
+    if version is not None:
+        params['version'] = version
+    if timestamp is not None:
+        params['timestamp'] = timestamp
+    req = looper.loop.run_until_complete(build_get_txn_author_agreement_request(sdk_wallet[1], json.dumps(params)))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 
