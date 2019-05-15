@@ -1,7 +1,6 @@
 from typing import NamedTuple, Dict
 
 from indy.ledger import build_txn_author_agreement_request
-from plenum.server.config_req_handler import ConfigReqHandler
 
 from plenum.common.constants import (
     CONFIG_LEDGER_ID,
@@ -14,14 +13,14 @@ from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replie
 
 
 TaaData = NamedTuple("TaaData", [
-    ("version", str),
     ("text", str),
-    ("seqNo", int),
-    ("txnTime", int)
+    ("version", str),
+    ("seq_no", int),
+    ("txn_time", int)
 ])
 
 
-def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: str, text: str):
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])
@@ -35,20 +34,25 @@ def get_config_req_handler(node):
 
 def expected_state_data(data: TaaData) -> Dict:
     return {
-        TXN_PAYLOAD: {
-            TXN_AUTHOR_AGREEMENT_VERSION: data.version,
-            TXN_AUTHOR_AGREEMENT_TEXT: data.text
-        },
-        TXN_METADATA: {
-            TXN_METADATA_SEQ_NO: data.seqNo,
-            TXN_METADATA_TIME: data.txnTime
+        'lsn': data.seq_no,
+        'lut': data.txn_time,
+        'val': {
+            TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+            TXN_AUTHOR_AGREEMENT_VERSION: data.version
         }
     }
 
 
-def gen_random_txn_author_agreement(version_size=16, text_size=1024):
-    return randomString(version_size), randomString(text_size)
+def expected_data(data: TaaData) -> Dict:
+    return {
+        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+    }, data.seq_no, data.txn_time
 
 
-def calc_taa_digest(version, text):
-    return ConfigReqHandler._taa_digest(version, text).decode()
+def gen_random_txn_author_agreement(text_size=1024, version_size=16):
+    return randomString(text_size), randomString(version_size)
+
+
+def calc_taa_digest(text, version):
+    return ConfigReqHandler._taa_digest(text, version)

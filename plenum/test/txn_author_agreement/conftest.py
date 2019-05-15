@@ -7,10 +7,9 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 
 from plenum.common.ledger import Ledger
 from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.test.testing_utils import FakeSomething
 
 from plenum.test.txn_author_agreement.helper import (
-    TaaData, expected_state_data
+    TaaData, expected_state_data, expected_data
 )
 
 from plenum.test.helper import sdk_get_and_check_replies
@@ -21,6 +20,7 @@ from .helper import (
     sdk_send_txn_author_agreement, calc_taa_digest,
     gen_random_txn_author_agreement
 )
+
 
 @pytest.fixture
 def config_ledger(tmpdir_factory):
@@ -51,32 +51,37 @@ def random_taa(request):
 
 
 @pytest.fixture
-def taa_in_data():
+def taa_input_data():
     return [
-        TaaData(*gen_random_txn_author_agreement(8, 32), n, n + 10)
+        TaaData(*gen_random_txn_author_agreement(32, 8), n, n + 10)
         for n in range(10)
     ]
 
 
 @pytest.fixture
-def taa_state_data(taa_in_data):
-    return {data.version: expected_state_data(data) for data in taa_in_data}
+def taa_expected_state_data(taa_input_data):
+    return {data.version: expected_state_data(data) for data in taa_input_data}
 
 
 @pytest.fixture
-def taa_digests(taa_in_data):
-    return {data.version: calc_taa_digest(data.version, data.text) for data in taa_in_data}
+def taa_expected_data(taa_input_data):
+    return {data.version: expected_data(data) for data in taa_input_data}
+
+
+@pytest.fixture
+def taa_expected_digests(taa_input_data):
+    return {data.version: calc_taa_digest(data.text, data.version) for data in taa_input_data}
 
 
 @pytest.fixture(scope='module')
 def set_txn_author_agreement(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
 
-    def wrapped(version=None, text=None):
+    def wrapped(text=None, version=None):
         _random_taa = gen_random_txn_author_agreement()
         version = _random_taa[0] if version is None else version
         text = _random_taa[0] if text is None else text
         reply = sdk_send_txn_author_agreement(
-            looper, sdk_pool_handle, sdk_wallet_trustee, version, text)[0]
+            looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return reply
 

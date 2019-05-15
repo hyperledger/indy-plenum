@@ -1,6 +1,6 @@
+import pytest
 import json
 
-import pytest
 from indy.ledger import build_txn_author_agreement_request
 
 from plenum.common.constants import (
@@ -15,22 +15,22 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
     get_config_req_handler, sdk_send_txn_author_agreement,
-    expected_state_data, TaaData, gen_random_txn_author_agreement
+    expected_data, TaaData, gen_random_txn_author_agreement
 )
 
 
 def test_send_valid_txn_author_agreement_succeeds(
     looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
 ):
-    version, text  = random_taa
+    text, version = random_taa
     reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, version, text)[0]
-    digest = ConfigReqHandler._taa_digest(version, text).decode()
+        looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
+    digest = ConfigReqHandler._taa_digest(text, version)
 
-    data = expected_state_data(TaaData(
-        version, text,
-        reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
-        reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
+    data = expected_data(TaaData(
+        text=text, version=version,
+        seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
+        txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
     ))
 
     # TODO: Replace this with get transaction
@@ -68,12 +68,12 @@ def test_send_different_txn_author_agreement_with_same_version_fails(
     looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
 ):
     # Send original txn
-    version, text = gen_random_txn_author_agreement()
+    text, version = gen_random_txn_author_agreement()
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                  version, text)
+                                  text, version)
 
-    _, text = gen_random_txn_author_agreement()
+    text, _ = gen_random_txn_author_agreement()
     # Send new txn with old version
     with pytest.raises(RequestRejectedException):
         sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                      version, text)
+                                      text, version)
