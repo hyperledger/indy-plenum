@@ -25,36 +25,25 @@ from plenum.common.constants import (
 #   - ledger_info API in ledger manager + tests
 
 
-@pytest.mark.parametrize(
-    "ledger_id,required",
-    [
-        (POOL_LEDGER_ID, False),
-        (DOMAIN_LEDGER_ID, True),
-        (CONFIG_LEDGER_ID, False),
-        (AUDIT_LEDGER_ID, False),
-    ]
-)
-def test_ledger_requires_taa_acceptance_default(node_validator, ledger_id, required):
-    assert node_validator.ledgerManager.ledger_info[ledger_id].taa_acceptance_required == required
-
-
 @pytest.mark.taa_acceptance_missed
-def test_taa_acceptance_missed_during_enabled_taa(node_validator, validate, req, operation):
+def test_taa_acceptance_missed_during_enabled_taa(
+    node_validator, validate_taa_acceptance, req, operation
+):
     ledger_id = node_validator.ledger_id_for_request(req)
 
-    if node_validator.ledgerManager.ledger_info[ledger_id].taa_acceptance_required:
+    if node_validator.ledgerManager.ledgerRegistry[ledger_id].taa_acceptance_required:
         with pytest.raises(
             InvalidClientTAAAcceptance,
             match=("Txn Author Agreement is required for ledger with id {}"
                    .format(ledger_id))
         ):
-            validate(req)
+            validate_taa_acceptance(req)
     else:
-        validate(req)
+        validate_taa_acceptance(req)
 
 
 @pytest.mark.taa_acceptance_digest('123456')
-def test_taa_acceptance_digest_non_latest(validate, domain_req):
+def test_taa_acceptance_digest_non_latest(validate_taa_acceptance, domain_req):
     # TODO checks:
     #   - is rejected
     #   - rejection reason contains expected digest
@@ -63,11 +52,11 @@ def test_taa_acceptance_digest_non_latest(validate, domain_req):
         match=("Accepted Txn Author Agreement is invalid or non-latest, expected {}"
                .format(latest_taa_digest))
     ):
-        validate(domain_req)
+        validate_taa_acceptance(domain_req)
 
 
 @pytest.mark.taa_acceptance_mechanism('some-unknown-mech')
-def test_taa_acceptance_mechanism_unknown(validate, domain_req):
+def test_taa_acceptance_mechanism_unknown(validate_taa_acceptance, domain_req):
     with pytest.raises(
         InvalidClientTAAAcceptance,
         match=(
@@ -75,11 +64,11 @@ def test_taa_acceptance_mechanism_unknown(validate, domain_req):
             .format(latest_taa_digest)
         )
     ):
-        validate(domain_req)
+        validate_taa_acceptance(domain_req)
 
 
 @pytest.mark.taa_acceptance_time()
-def test_taa_acceptance_time_too_old(validate, domain_req):
+def test_taa_acceptance_time_too_old(validate_taa_acceptance, domain_req):
     # TODO: ??? requirements
     # - too old
     # - too new
@@ -87,11 +76,11 @@ def test_taa_acceptance_time_too_old(validate, domain_req):
         InvalidClientTAAAcceptance,
         match=("Acception time of Txn Author Agreement is not appropriate")
     ):
-        validate(domain_req)
+        validate_taa_acceptance(domain_req)
 
 
 # TODO test name
-def test_taa_acceptance_time_too_recent(validate, domain_req):
+def test_taa_acceptance_time_too_recent(validate_taa_acceptance, domain_req):
     # TODO: ??? requirements
     # - too old
     # - too new
@@ -99,12 +88,12 @@ def test_taa_acceptance_time_too_recent(validate, domain_req):
         InvalidClientTAAAcceptance,
         match=("Acception time of Txn Author Agreement is not appropriate")
     ):
-        validate(domain_req)
+        validate_taa_acceptance(domain_req)
 
 
-def test_taa_acceptance_valid(validate, domain_req):
+def test_taa_acceptance_valid(validate_taa_acceptance, domain_req):
     # TODO valid:
     #   - digest
     #   - time
     #   - mechanism
-    validate(domain_req)
+    validate_taa_acceptance(domain_req)
