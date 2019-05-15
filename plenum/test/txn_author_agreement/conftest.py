@@ -74,3 +74,14 @@ def taa_aml_request(sdk_wallet_trustee):
                               AML_VERSION: randomString(),
                               AML: {'Nice way': 'very good way to accept agreement'},
                               AML_CONTEXT: randomString()})
+
+
+@pytest.fixture(scope="module")
+def taa_aml_request_module(sdk_wallet_trustee):
+    return Request(identifier=sdk_wallet_trustee[1],
+                   reqId=5,
+                   protocolVersion=CURRENT_PROTOCOL_VERSION,
+                   operation={'type': TXN_AUTHOR_AGREEMENT_AML,
+                              AML_VERSION: randomString(),
+                              AML: {'Nice way': 'very good way to accept agreement'},
+                              AML_CONTEXT: randomString()})

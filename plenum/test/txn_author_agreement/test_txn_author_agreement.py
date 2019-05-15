@@ -11,7 +11,7 @@ from plenum.common.exceptions import RequestNackedException, RequestRejectedExce
 from plenum.common.types import OPERATION, f
 from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import sdk_get_and_check_replies, sdk_sign_and_submit_req_obj
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from plenum.test.txn_author_agreement.helper import (
@@ -20,7 +20,21 @@ from plenum.test.txn_author_agreement.helper import (
 )
 
 
-def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+@pytest.fixture(scope="module")
+def setup(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
+    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module)
+    sdk_get_and_check_replies(looper, [req])
+
+
+def test_send_taa_before_taa_aml(looper, sdk_pool_handle, sdk_wallet_trustee):
+    text = randomString(1024)
+    version = randomString(16)
+    with pytest.raises(RequestRejectedException) as e:
+        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
+    assert e.match('TAA txn is forbidden until TAA AML isn\'t set. Send TAA AML first.')
+
+
+def test_send_valid_txn_author_agreement_succeeds(looper, setup, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
     text = randomString(1024)
     version = randomString(16)
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
@@ -44,7 +58,7 @@ def test_send_valid_txn_author_agreement_succeeds(looper, txnPoolNodeSet, sdk_po
         assert config_req_handler.get_taa_data(digest=digest) == data
 
 
-def test_send_invalid_txn_author_agreement_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+def test_send_invalid_txn_author_agreement_fails(looper, setup, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
                                                                             randomString(1024), randomString(16)))
     req = json.loads(req)
@@ -54,14 +68,14 @@ def test_send_invalid_txn_author_agreement_fails(looper, txnPoolNodeSet, sdk_poo
         sdk_get_and_check_replies(looper, [rep])
 
 
-def test_send_valid_txn_author_agreement_without_enough_privileges_fails(looper, txnPoolNodeSet, sdk_pool_handle,
+def test_send_valid_txn_author_agreement_without_enough_privileges_fails(looper, setup, txnPoolNodeSet, sdk_pool_handle,
                                                                          sdk_wallet_steward):
     with pytest.raises(RequestRejectedException):
         sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_steward,
                                       randomString(1024), randomString(16))
 
 
-def test_send_different_txn_author_agreement_with_same_version_fails(looper, txnPoolNodeSet, sdk_pool_handle,
+def test_send_different_txn_author_agreement_with_same_version_fails(looper, setup, txnPoolNodeSet, sdk_pool_handle,
                                                                      sdk_wallet_trustee):
     # Send original txn
     version = randomString(16)
