@@ -1,9 +1,15 @@
 import json
 
-from plenum.common.constants import TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION
-from plenum.common.util import randomString
+from common.serializers.serialization import config_state_serializer
+
+from plenum.common.constants import (
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION,
+    TXN_PAYLOAD, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
+)
 from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.test.txn_author_agreement.helper import get_config_req_handler
+from plenum.test.txn_author_agreement.helper import (
+    get_config_req_handler, expected_state_data
+)
 
 
 def test_state_path_taa_latest():
@@ -19,8 +25,8 @@ def test_state_path_taa_digest():
 
 
 def test_taa_digest():
-    assert ConfigReqHandler._taa_digest('some_version', 'some_text') == \
-           "fb2ea9d28380a021ec747c442d62a68952b4b5813b45671098ad2b684b2f4646"
+    assert ConfigReqHandler._taa_digest('some_text', 'some_version') == \
+        "fb2ea9d28380a021ec747c442d62a68952b4b5813b45671098ad2b684b2f4646"
 
 
 def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_wallet_client):
@@ -31,61 +37,101 @@ def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_
     assert not config_req_handler._is_trustee(sdk_wallet_client[1])
 
 
-def test_update_txn_author_agreement(config_req_handler: ConfigReqHandler):
-    version = 'Some version'
-    text = 'Some agreement'
-    agreement = {TXN_AUTHOR_AGREEMENT_VERSION: version, TXN_AUTHOR_AGREEMENT_TEXT: text}
-    digest = ConfigReqHandler._taa_digest(version, text)
-    config_req_handler.update_txn_author_agreement(agreement)
+def test_update_txn_author_agreement(
+    config_req_handler: ConfigReqHandler, taa_input_data,
+    taa_expected_state_data, taa_expected_digests
+):
+    """ `update_txn_author_agreement` updates state properly """
     state = config_req_handler.state
+    written = []
 
-    assert state.get(ConfigReqHandler._state_path_taa_latest(), isCommitted=False) == digest.encode()
-    assert state.get(ConfigReqHandler._state_path_taa_version(version), isCommitted=False) == digest.encode()
+    def _check_state(version):
+        digest = taa_expected_digests[version]
 
-    taa = state.get(ConfigReqHandler._state_path_taa_digest(digest), isCommitted=False)
-    assert taa is not None
+        _digest = state.get(
+            ConfigReqHandler._state_path_taa_version(version),
+            isCommitted=False
+        )
+        _data = state.get(
+            ConfigReqHandler._state_path_taa_digest(digest),
+            isCommitted=False
+        )
 
-    taa = json.loads(taa.decode())
-    assert taa.get(TXN_AUTHOR_AGREEMENT_VERSION) == version
-    assert taa.get(TXN_AUTHOR_AGREEMENT_TEXT) == text
+        if version in written:
+            assert _digest == digest.encode()
+            assert (
+                config_state_serializer.deserialize(_data) ==
+                taa_expected_state_data[version]
+            )
+        else:
+            assert _digest is None
+            assert _data is None
+
+    for data in taa_input_data:
+        config_req_handler.update_txn_author_agreement(
+            data.text, data.version, data.seq_no, data.txn_time)
+        written.append(data.version)
+
+        digest = taa_expected_digests[data.version]
+        assert state.get(
+            ConfigReqHandler._state_path_taa_latest(),
+            isCommitted=False
+        ) == digest.encode()
+
+        for version in taa_expected_state_data:
+            _check_state(version)
 
 
-def test_get_taa_digest(config_req_handler: ConfigReqHandler):
-    agreements = [{TXN_AUTHOR_AGREEMENT_VERSION: randomString(8),
-                   TXN_AUTHOR_AGREEMENT_TEXT: randomString(32)} for _ in range(10)]
-    agreements = [(payload,
-                   ConfigReqHandler._taa_digest(payload[TXN_AUTHOR_AGREEMENT_VERSION],
-                                                payload[TXN_AUTHOR_AGREEMENT_TEXT]))
-                  for payload in agreements]
-    versions = [payload.get(TXN_AUTHOR_AGREEMENT_VERSION) for payload, _ in agreements]
-    state = config_req_handler.state
+def test_get_taa_digest(
+    config_req_handler: ConfigReqHandler, taa_input_data,
+    taa_expected_data, taa_expected_digests
+):
+    """ `get_taa_digest` returns expected value """
+    written = []
+    for data in taa_input_data:
+        config_req_handler.update_txn_author_agreement(*data)
+        written.append(data.version)
 
-    for payload, digest in agreements:
-        config_req_handler.update_txn_author_agreement(payload)
+        assert (
+            config_req_handler.get_taa_digest(isCommitted=False) ==
+            taa_expected_digests[data.version]
+        )
 
-        assert config_req_handler.get_taa_digest(isCommitted=False) == \
-               state.get(ConfigReqHandler._state_path_taa_latest(), isCommitted=False)
+        for version in taa_expected_data:
+            digest = config_req_handler.get_taa_digest(
+                version=version, isCommitted=False)
+            assert (
+                digest ==
+                (taa_expected_digests[version] if version in written else None)
+            )
 
-        for version in versions:
-            assert config_req_handler.get_taa_digest(version=version, isCommitted=False) == \
-                   state.get(ConfigReqHandler._state_path_taa_version(version), isCommitted=False)
 
+def test_get_taa_data(
+    config_req_handler: ConfigReqHandler,
+    taa_input_data, taa_expected_data, taa_expected_digests
+):
+    """ `get_taa_data` returns expected value """
+    written = []
+    for data in taa_input_data:
+        config_req_handler.update_txn_author_agreement(*data)
+        written.append(data.version)
 
-def test_multiple_update_txn_author_agreement(config_req_handler: ConfigReqHandler):
-    text_v1 = 'Some agreement'
-    agreement_v1 = {TXN_AUTHOR_AGREEMENT_VERSION: 'v1', TXN_AUTHOR_AGREEMENT_TEXT: text_v1}
-    digest_v1 = ConfigReqHandler._taa_digest('v1', text_v1).encode()
-    config_req_handler.update_txn_author_agreement(agreement_v1)
+        assert (
+            config_req_handler.get_taa_data(isCommitted=False) ==
+            taa_expected_data[data.version]
+        )
 
-    assert config_req_handler.get_taa_digest(isCommitted=False) == digest_v1
-    assert config_req_handler.get_taa_digest(version='v1', isCommitted=False) == digest_v1
-    assert config_req_handler.get_taa_digest(version='v2', isCommitted=False) is None
-
-    text_v2 = 'New agreement'
-    agreement_v2 = {TXN_AUTHOR_AGREEMENT_VERSION: 'v2', TXN_AUTHOR_AGREEMENT_TEXT: text_v2}
-    digest_v2 = ConfigReqHandler._taa_digest('v2', text_v2).encode()
-    config_req_handler.update_txn_author_agreement(agreement_v2)
-
-    assert config_req_handler.get_taa_digest(isCommitted=False) == digest_v2
-    assert config_req_handler.get_taa_digest(version='v1', isCommitted=False) == digest_v1
-    assert config_req_handler.get_taa_digest(version='v2', isCommitted=False) == digest_v2
+        for version in taa_expected_data:
+            expected = taa_expected_data[version] if version in written else None
+            assert (
+                expected ==
+                config_req_handler.get_taa_data(version=version, isCommitted=False)
+            )
+            assert (
+                expected ==
+                config_req_handler.get_taa_data(
+                    digest=taa_expected_digests[version],
+                    version='any-version-since-ignored',
+                    isCommitted=False
+                )
+            )
