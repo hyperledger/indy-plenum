@@ -176,7 +176,7 @@ TXN_AUTHOR_AGREEMENT_TEXT = "text"
 TXN_AUTHOR_AGREEMENT_VERSION = "version"
 
 GET_TXN_AUTHOR_AGREEMENT_VERSION = "version"
-GET_TXN_AUTHOR_AGREEMENT_DIGEST = "hash"  # TODO: Change to digest after fixing SDK
+GET_TXN_AUTHOR_AGREEMENT_DIGEST = "digest"
 
 
 class ClientBootStrategy(IntEnum):
