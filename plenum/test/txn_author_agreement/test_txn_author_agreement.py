@@ -15,33 +15,34 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
     get_config_req_handler, sdk_send_txn_author_agreement,
-    expected_data, TaaData, gen_random_txn_author_agreement
+    expected_data, TaaData, gen_random_txn_author_agreement,
+    calc_taa_digest
 )
 
 
 def test_send_valid_txn_author_agreement_succeeds(
     looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
 ):
-    text, version = random_taa
     reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
-    digest = ConfigReqHandler._taa_digest(text, version)
+        looper, sdk_pool_handle, sdk_wallet_trustee, *random_taa)[0]
+    digest = calc_taa_digest(*random_taa)
 
-    data = expected_data(TaaData(
-        text=text, version=version,
+    input_data = TaaData(
+        *random_taa,
         seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
         txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
-    ))
+    )
+    data = expected_data(input_data)
 
     # TODO: Replace this with get transaction
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     for node in txnPoolNodeSet:
         config_req_handler = get_config_req_handler(node)
         assert config_req_handler.get_taa_digest() == digest
-        assert config_req_handler.get_taa_digest(version) == digest
+        assert config_req_handler.get_taa_digest(input_data.version) == digest
 
         assert config_req_handler.get_taa_data() == data
-        assert config_req_handler.get_taa_data(version=version) == data
+        assert config_req_handler.get_taa_data(version=input_data.version) == data
         assert config_req_handler.get_taa_data(digest=digest) == data
 
 
