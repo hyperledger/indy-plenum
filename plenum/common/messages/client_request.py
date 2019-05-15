@@ -3,14 +3,15 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
     TARGET_NYM, VERKEY, ROLE, NODE, NYM, GET_TXN, VALIDATOR, BLS_KEY, \
     OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
-    TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT
+    TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField
+    Sha256HexField, TimestampField, NonEmptyStringField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -79,6 +80,8 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
 class ClientGetTxnAuthorAgreementOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(GET_TXN_AUTHOR_AGREEMENT)),
+        (GET_TXN_AUTHOR_AGREEMENT_VERSION, NonEmptyStringField(optional=True)),
+        (GET_TXN_AUTHOR_AGREEMENT_DIGEST, NonEmptyStringField(optional=True))
     )
 
 

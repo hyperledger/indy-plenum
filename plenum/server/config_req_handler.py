@@ -4,7 +4,7 @@ from typing import Optional, Callable, Dict
 from common.serializers.serialization import config_state_serializer, state_roots_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
-    TXN_TIME, CONFIG_LEDGER_ID
+    TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION
 
 from plenum.common.types import f
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
@@ -158,8 +158,8 @@ class ConfigReqHandler(LedgerRequestHandler):
         return result
 
     def handle_get_txn_author_agreement(self, request: Request):
-        digest = request.operation.get('hash')  # TODO: Change to digest after fix in SDK
-        version = request.operation.get('version')
+        digest = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_DIGEST)
+        version = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_VERSION)
 
         if digest is not None:
             path = self._state_path_taa_digest(digest)
@@ -174,7 +174,7 @@ class ConfigReqHandler(LedgerRequestHandler):
             digest, proof = self.get_value_from_state(path, with_proof=True)
             return self._return_txn_author_agreement(request, proof, digest=digest)
 
-    def _return_txn_author_agreement(self, request, proof, digest = None, data = None):
+    def _return_txn_author_agreement(self, request, proof, digest=None, data=None):
         if digest is not None:
             data = self.state.get(self._state_path_taa_digest(digest.decode()))
 
