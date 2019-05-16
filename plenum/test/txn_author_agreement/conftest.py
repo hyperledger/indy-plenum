@@ -61,6 +61,7 @@ def nodeSetWithOneNodeResponding(txnPoolNodeSet):
         node.clientIbStasher.delay(req_delay())
     return txnPoolNodeSet
 
+
 # TODO use sdk's build_acceptance_mechanism_request instead
 @pytest.fixture(scope='module')
 def aml_request_kwargs(sdk_wallet_trustee):

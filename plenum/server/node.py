@@ -53,7 +53,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -2434,37 +2434,34 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             return
 
-        config_req_handler = self.ledger_to_req_handler.get(CONFIG_LEDGER_ID)
+        config_req_handler = self.get_req_handler(ledger_id=CONFIG_LEDGER_ID)
         if not config_req_handler:
             raise LogicError("Config request handler is missed")
 
         taa = None
-        taa_data = config_req_handler.get_taa_data()
+        taa_data, taa_digest = config_req_handler.get_taa_data()
         if taa_data is not None:
             taa, taa_seq_no, taa_txn_time = taa_data
 
-        if not taa:
+        if taa is None:
             logger.trace(
-                "{} TAA acceptance passed for request {}: "
-                "taa is empty or missed"
+                "{} TAA acceptance passed for request {}: taa is not set"
                 .format(self, request.reqId)
             )
             return
 
-        # TODO not (None or empty)  ???
-        taa_digest = config_req_handler.get_taa_digest()  # TODO test that digest match taa
+        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
+            logger.trace(
+                "{} TAA acceptance passed for request {}: taa is empty"
+                .format(self, request.reqId)
+            )
+            return
+
         if not taa_digest:  # TODO test
             raise LogicError(
-                "Txn Author Agreement digest is missed in state for taa: version {}, seq_no {}, txn_time {}"
+                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
             )
-
-        taa_aml_data = config_req_handler.get_taa_aml_data()
-        if taa_aml_data is None:
-           raise TaaAmlNotSetError(
-               "Txn Author Agreement acceptance mechanism list is not defined"
-           ) # TODO test
-        taa_aml = taa_aml_data[AML]
 
         if not request.taaAcceptance:
             raise InvalidClientTaaAcceptanceError(
@@ -2482,18 +2479,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 .format(r_taa_a_digest, taa_digest)
             )
 
-        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
-        if r_taa_a_mech not in taa_aml:
-            # TODO
-            #   - list might be quite long
-            #   - should we return AML in reject
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}, expected one of {}"
-                .format(r_taa_a_mech, list(taa_aml))
-            )
-
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
         ts_lowest = (
             taa_txn_time -
@@ -2509,6 +2494,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "Txn Author Agreement acceptance time is inappropriate:"
                 " provided {}, expected in [{}, {}]"
                 .format(r_taa_a_ts, ts_lowest, ts_higest)
+            )
+
+        taa_aml_data = config_req_handler.get_taa_aml_data()
+        if taa_aml_data is None:
+            raise TaaAmlNotSetError(
+                "Txn Author Agreement acceptance mechanism list is not defined"
+            )  # TODO test
+        taa_aml = taa_aml_data[AML]
+
+        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
+        if r_taa_a_mech not in taa_aml:
+            # TODO
+            #   - list might be quite long
+            #   - should we return AML in reject
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance mechanism is inappropriate:"
+                " provided {}, expected one of {}"
+                .format(r_taa_a_mech, list(taa_aml))
             )
 
         logger.trace(

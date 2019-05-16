@@ -1,5 +1,5 @@
 from _sha256 import sha256
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable, Dict, Tuple
 
 from common.serializers.serialization import config_state_serializer, state_roots_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
@@ -112,20 +112,22 @@ class ConfigReqHandler(LedgerRequestHandler):
         if res is not None:
             return res.decode()
 
+    # TODO return object as result instead
     def get_taa_data(self, digest: Optional[str] = None,
                      version: Optional[str] = None,
-                     isCommitted: bool = True) -> Optional[Dict]:
+                     isCommitted: bool = True) -> Tuple[Optional[Dict], Optional[str]]:
+        data = None
         if digest is None:
             digest = self.get_taa_digest(version=version, isCommitted=isCommitted)
-            if digest is None:
-                return None
-        data = self.state.get(
-            self._state_path_taa_digest(digest),
-            isCommitted=isCommitted
-        )
-        if data is None:
-            return None
-        return decode_state_value(data, serializer=config_state_serializer)
+            if digest is not None:
+                data = self.state.get(
+                    self._state_path_taa_digest(digest),
+                    isCommitted=isCommitted
+                )
+            if data is not None:
+                data = decode_state_value(
+                    data, serializer=config_state_serializer)
+        return data, digest
 
     def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \

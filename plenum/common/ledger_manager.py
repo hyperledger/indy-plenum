@@ -97,10 +97,7 @@ class LedgerManager:
         self._node_leecher.register_ledger(ledger_id)
 
     def ledger_info(self, lid: int) -> Optional[LedgerInfo]:
-        try:
-            return self.ledgerRegistry[lid]
-        except KeyError:
-            return None
+        return self.ledgerRegistry.get(lid)
 
     def start_catchup(self, is_initial: bool = False):
         self._node_leecher.start(is_initial)
