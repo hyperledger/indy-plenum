@@ -1086,7 +1086,8 @@ def sdk_json_to_request_object(json_req):
                    reqId=json_req['reqId'],
                    operation=json_req['operation'],
                    signature=json_req['signature'] if 'signature' in json_req else None,
-                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None,
+                   taaAcceptance=json_req.get('taaAcceptance', None))
 
 
 def sdk_json_couples_to_request_list(json_couples):

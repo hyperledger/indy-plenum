@@ -1,6 +1,8 @@
+import base64
 import json
 from _sha256 import sha256
 
+import base58
 from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request
 
 from typing import NamedTuple, Dict, Optional
@@ -15,7 +17,7 @@ from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
-
+from state.pruning_state import PruningState
 
 TaaData = NamedTuple("TaaData", [
     ("text", str),
@@ -95,8 +97,8 @@ def taa_digest(text: str, version: str) -> str:
     return sha256('{}{}'.format(version, text).encode()).hexdigest()
 
 
-def check_valid_proof(result):
-    # TODO: This is copy-pasted from indy node, probably there should be better place for it
+def check_state_proof(result, expected_key: Optional = None, expected_value: Optional = None):
+    # TODO: This was copy-pasted from indy node (and extended), probably there should be better place for it
     assert STATE_PROOF in result
 
     state_proof = result[STATE_PROOF]
@@ -123,6 +125,16 @@ def check_valid_proof(result):
     assert multi_sig_value[MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT]
     assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
     assert multi_sig_value[MULTI_SIGNATURE_VALUE_TIMESTAMP]
+
+    if expected_key is not None:
+        proof_nodes = base64.b64decode(state_proof[PROOF_NODES])
+        root_hash = base58.b58decode(state_proof[ROOT_HASH])
+        assert PruningState.verify_state_proof(root_hash,
+                                               expected_key,
+                                               expected_value,
+                                               proof_nodes, serialized=True)
+
+    # TODO: Validate signatures as well?
 
 
 def expected_state_data(data: TaaData) -> Dict:

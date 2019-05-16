@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from plenum.common.constants import STATE_PROOF, TXN_TIME, DATA, MULTI_SIGNATURE, PROOF_NODES, ROOT_HASH
 
@@ -7,6 +7,7 @@ from common.exceptions import PlenumValueError, LogicError
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.types import f
+from storage.state_ts_store import StateTsDbStorage
 from stp_core.common.log import getlogger
 
 from plenum.common.ledger import Ledger
@@ -29,7 +30,8 @@ class LedgerRequestHandler(RequestHandler, metaclass=ABCMeta):
     query_types = set()
     write_types = set()
 
-    def __init__(self, ledger_id: int, ledger: Ledger, state: State, ts_store=None):
+    def __init__(self, ledger_id: int, ledger: Ledger, state: State,
+                 ts_store: Optional[StateTsDbStorage] = None):
         self.ledger_id = ledger_id
         self.ledger = ledger
         self.state = state
