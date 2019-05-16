@@ -12,7 +12,7 @@ from state.pruning_state import PruningState
 # TODO: Change txnPoolNodeSet to nodeSetWithOneNodeResponding after
 #  correct state proof checking is implemented in Indy SDK
 def test_state_proof_returned_for_get_txn_author_agreement(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, sdk_wallet_client):
+        looper, set_txn_author_agreement_aml, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, sdk_wallet_client):
     text = randomString(1024)
     version = randomString(16)
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
