@@ -4,8 +4,10 @@ import pytest
 from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
-    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, STATE_PROOF, CONFIG_LEDGER_ID
+    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, CONFIG_LEDGER_ID
 from plenum.common.util import randomString
+from plenum.test.delayers import req_delay
+from plenum.test.stasher import delay_rules
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, taa_digest, \
     sdk_send_txn_author_agreement, check_state_proof
 
@@ -21,7 +23,7 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 
 
 @pytest.fixture(scope='module')
-def nodeSetWithTaa(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_trustee):
+def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_trustee):
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     # Force signing empty config state
@@ -36,6 +38,16 @@ def nodeSetWithTaa(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_trustee):
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     return txnPoolNodeSet
+
+
+@pytest.fixture(scope='function', params=['all_responding', 'one_responding'])
+def nodeSetWithTaa(request, nodeSetWithTaaAlwaysResponding):
+    if request.param == 'all_responding':
+        yield nodeSetWithTaaAlwaysResponding
+    else:
+        stashers = [node.clientIbStasher for node in nodeSetWithTaaAlwaysResponding[1:]]
+        with delay_rules(stashers, req_delay()):
+            yield nodeSetWithTaaAlwaysResponding
 
 
 def taa_value(result, text, version):
@@ -162,7 +174,8 @@ def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWit
     check_state_proof(result, '2:latest', DIGEST_V2)
 
 
-def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, nodeSetWithTaa,
+# TODO: For some reason SDK doesn't accept state proof in this case
+def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, nodeSetWithTaaAlwaysResponding,
                                                                         sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          timestamp=TIMESTAMP_V1 - 2)[1]
