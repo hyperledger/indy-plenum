@@ -37,8 +37,10 @@ def op(looper, sdk_wallet_stewards):
     return op
 
 
-def malicious_dynamic_validation(self, request: Request):
+def malicious_dynamic_validation(self, request: Request, req_pp_time: int):
     self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
+
+    self.validateTaaAcceptance(request, req_pp_time=req_pp_time)
 
     operation = request.operation
     req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])

@@ -909,7 +909,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         If there is any errors during validation it would be raised
         """
         if self.isMaster:
-            self.node.doDynamicValidation(req)
+            self.node.doDynamicValidation(req, cons_time)
             self.node.applyReq(req, cons_time)
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,

@@ -70,29 +70,6 @@ def random_taa(request):
 
 
 @pytest.fixture
-def taa_input_data():
-    return [
-        TaaData(*gen_random_txn_author_agreement(32, 8), n, n + 10)
-        for n in range(10)
-    ]
-
-
-@pytest.fixture
-def taa_expected_state_data(taa_input_data):
-    return {data.version: expected_state_data(data) for data in taa_input_data}
-
-
-@pytest.fixture
-def taa_expected_data(taa_input_data):
-    return {data.version: expected_data(data) for data in taa_input_data}
-
-
-@pytest.fixture
-def taa_expected_digests(taa_input_data):
-    return {data.version: calc_taa_digest(data.text, data.version) for data in taa_input_data}
-
-
-@pytest.fixture
 def set_txn_author_agreement(
     looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
 ):
@@ -120,17 +97,8 @@ def get_txn_author_agreement(
 
 
 @pytest.fixture
-def latest_taa(get_txn_author_agreement):
-    data = get_txn_author_agreement()
-    return {
-        'data': data,
-        'digest': calc_taa_digest(data.text, data.version)
-    }
-
-
-@pytest.fixture
 def activate_taa(set_txn_author_agreement):
-    set_txn_author_agreement()
+    return set_txn_author_agreement()
 
 
 @pytest.fixture(scope='module')
@@ -171,3 +139,26 @@ def set_txn_author_agreement_aml(
         looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module
     )
     sdk_get_and_check_replies(looper, [req])[0]
+
+
+@pytest.fixture
+def taa_input_data():
+    return [
+        TaaData(*gen_random_txn_author_agreement(32, 8), n, n + 10)
+        for n in range(10)
+    ]
+
+
+@pytest.fixture
+def taa_expected_state_data(taa_input_data):
+    return {data.version: expected_state_data(data) for data in taa_input_data}
+
+
+@pytest.fixture
+def taa_expected_data(taa_input_data):
+    return {data.version: expected_data(data) for data in taa_input_data}
+
+
+@pytest.fixture
+def taa_expected_digests(taa_input_data):
+    return {data.version: calc_taa_digest(data.text, data.version) for data in taa_input_data}

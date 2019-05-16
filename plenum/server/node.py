@@ -2423,7 +2423,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
-    def validateTaaAcceptance(self, request: Request):
+    def validateTaaAcceptance(self, request: Request, req_pp_time: int):
         ledger_id = self.ledger_id_for_request(request)
 
         if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
@@ -2498,11 +2498,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
         ts_lowest = (
             taa_txn_time -
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
         )
         ts_higest = (
-            self.now +
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_NOW
+            req_pp_time +
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
         )
         if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
             raise InvalidClientTaaAcceptanceError(
@@ -2517,7 +2517,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             .format(self, request.reqId)
         )
 
-    def doDynamicValidation(self, request: Request):
+    # TODO hools might need pp_time as well
+    def doDynamicValidation(self, request: Request, req_pp_time: int):
         """
         State based validation
         """
@@ -2536,7 +2537,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 raise SuspiciousPrePrepare('Trying to order already ordered request')
 
         # TAA validation
-        self.validateTaaAcceptance(request)
+        self.validateTaaAcceptance(request, req_pp_time=req_pp_time)
 
         # specific validation for the request txn type
         operation = request.operation

@@ -2,13 +2,11 @@ import pytest
 
 from plenum.common.types import f
 from plenum.config import (
-    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA,
-    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_NOW
+    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME,
+    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
 )
 from plenum.common.util import get_utc_epoch
 
-from plenum.test.conftest import getValueFromModule
-from plenum.test.replica.conftest import primary_replica as _primary_replica
 from plenum.test.input_validation.helper import (
     gen_nym_operation, gen_node_operation
 )
@@ -17,11 +15,11 @@ from .helper import gen_signed_request
 
 
 TAA_ACCEPTANCE_TS_TOO_OLD = 0
-TAA_LATEST_TS = TAA_ACCEPTANCE_TS_TOO_OLD + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA + 1
+TAA_LATEST_TS = TAA_ACCEPTANCE_TS_TOO_OLD + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME + 1
 TS_NOW = TAA_LATEST_TS + 1
-TAA_ACCEPTANCE_TS_TOO_RECENT = TS_NOW + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_NOW + 1
+TAA_ACCEPTANCE_TS_TOO_RECENT = TS_NOW + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME + 1
 
-
+"""
 @pytest.fixture(scope="module")
 def taa_a_ts_too_old():
     return TAA_ACCEPTANCE_TS_TOO_OLD
@@ -44,24 +42,32 @@ def taa_latest_ts(ts_now):
 
 
 @pytest.fixture
+def mock_timestamp():
+    return MockTimestamp(TAA_ACCEPTANCE_TS_TOO_OLD)
+
+
+@pytest.fixture
 def primary_replica(_primary_replica):
     _primary_replica.last_accepted_pre_prepare_time = None
     _primary_replica.get_time_for_3pc_batch.value = TS_NOW
-    #_primary_replica.threePhaseRouter.add((PrePrepare, lambda *x, **y: None))
     return _primary_replica
+"""
+
+
+@pytest.fixture(scope="module")
+def taa_a_ts_too_old():
+    return TAA_ACCEPTANCE_TS_TOO_OLD
 
 
 @pytest.fixture(scope="module")
 def node_validator(txnPoolNodeSet):
-    node = txnPoolNodeSet[0]
-    #node.now = TAA_LATEST_TS
-    return node
+    return txnPoolNodeSet[0]
 
 
 @pytest.fixture(scope="module")
 def validate_taa_acceptance(node_validator):
-    def wrapped(req):
-        return node_validator.validateTaaAcceptance(req)
+    def wrapped(req, pp_time=None):
+        return node_validator.validateTaaAcceptance(req, pp_time)
     return wrapped
 
 
