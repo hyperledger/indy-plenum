@@ -1,4 +1,8 @@
 import pytest
+from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
+
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT
+from plenum.common.request import Request
 
 from state.pruning_state import PruningState
 from storage.kv_in_memory import KeyValueStorageInMemory
@@ -30,7 +34,6 @@ def config_state():
 @pytest.fixture
 def config_req_handler(config_state,
                        config_ledger):
-
     return ConfigReqHandler(config_ledger,
                             config_state,
                             domain_state=FakeSomething(),
@@ -73,3 +76,31 @@ def taa_expected_data(taa_input_data):
 def taa_expected_digests(taa_input_data):
     # TODO use some other API, e.g. sdk's one
     return {data.version: ConfigReqHandler._taa_digest(data.text, data.version) for data in taa_input_data}
+
+
+@pytest.fixture(scope="function")
+def taa_aml_request(sdk_wallet_trustee):
+    return Request(identifier=sdk_wallet_trustee[1],
+                   reqId=5,
+                   protocolVersion=CURRENT_PROTOCOL_VERSION,
+                   operation={'type': TXN_AUTHOR_AGREEMENT_AML,
+                              AML_VERSION: randomString(),
+                              AML: {'Nice way': 'very good way to accept agreement'},
+                              AML_CONTEXT: randomString()})
+
+
+@pytest.fixture(scope="module")
+def taa_aml_request_module(sdk_wallet_trustee):
+    return Request(identifier=sdk_wallet_trustee[1],
+                   reqId=5,
+                   protocolVersion=CURRENT_PROTOCOL_VERSION,
+                   operation={'type': TXN_AUTHOR_AGREEMENT_AML,
+                              AML_VERSION: randomString(),
+                              AML: {'Nice way': 'very good way to accept agreement'},
+                              AML_CONTEXT: randomString()})
+
+
+@pytest.fixture(scope="module")
+def setup(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
+    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module)
+    sdk_get_and_check_replies(looper, [req])

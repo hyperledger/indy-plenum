@@ -5,7 +5,7 @@ from common.serializers.serialization import config_state_serializer, state_root
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
     TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP
+    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, AML, AML_VERSION
 
 from plenum.common.types import f
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
@@ -33,21 +33,35 @@ class ConfigReqHandler(LedgerRequestHandler):
         self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT, self.handle_get_txn_author_agreement)
 
     def doStaticValidation(self, request: Request):
-        pass
+        identifier, req_id, operation = request.identifier, request.reqId, request.operation
+        typ = operation.get(TXN_TYPE)
+
+        if typ == TXN_AUTHOR_AGREEMENT_AML:
+            if len(operation[AML]) == 0:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "TAA AML request must contain at least one acceptance mechanism")
 
     def get_query_response(self, request: Request):
         return self._query_handlers[request.operation.get(TXN_TYPE)](request)
 
     def validate(self, req: Request):
+        identifier, req_id, operation = req.identifier, req.reqId, req.operation
         self.authorize(req)
 
-        operation = req.operation
         typ = operation.get(TXN_TYPE)
         if typ == TXN_AUTHOR_AGREEMENT:
+            if self.state.get(self._state_path_taa_aml_latest()) is None:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "TAA txn is forbidden until TAA AML is set. Send TAA AML first.")
             version = operation[TXN_AUTHOR_AGREEMENT_VERSION]
             if self.get_taa_digest(version, isCommitted=False) is not None:
-                raise InvalidClientRequest(req.identifier, req.reqId,
+                raise InvalidClientRequest(identifier, req_id,
                                            "Changing existing version of transaction author agreement is forbidden")
+        elif typ == TXN_AUTHOR_AGREEMENT_AML:
+            version = operation.get(AML_VERSION)
+            if self.get_taa_aml_data(version, isCommitted=False) is not None:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "Version of TAA AML must be unique and it cannot be modified")
 
     def authorize(self, req: Request):
         typ = req.operation.get(TXN_TYPE)
@@ -63,6 +77,7 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
+        payload = get_payload_data(txn)
         if typ == TXN_AUTHOR_AGREEMENT:
             payload = get_payload_data(txn)
             self.update_txn_author_agreement(
@@ -71,6 +86,8 @@ class ConfigReqHandler(LedgerRequestHandler):
                 get_seq_no(txn),
                 get_txn_time(txn)
             )
+        elif typ == TXN_AUTHOR_AGREEMENT_AML:
+            self.update_txn_author_agreement_acceptance_mechanisms(payload)
 
     def update_txn_author_agreement(self, text, version, seq_no, txn_time):
         digest = self._taa_digest(text, version)
@@ -82,6 +99,11 @@ class ConfigReqHandler(LedgerRequestHandler):
         self.state.set(self._state_path_taa_digest(digest), data)
         self.state.set(self._state_path_taa_latest(), digest)
         self.state.set(self._state_path_taa_version(version), digest)
+
+    def update_txn_author_agreement_acceptance_mechanisms(self, payload):
+        version = payload[AML_VERSION]
+        self.state.set(self._state_path_taa_aml_latest(), config_state_serializer.serialize(payload))
+        self.state.set(self._state_path_taa_aml_version(version), config_state_serializer.serialize(payload))
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:
@@ -106,24 +128,37 @@ class ConfigReqHandler(LedgerRequestHandler):
             return None
         return decode_state_value(data, serializer=config_state_serializer)
 
+    def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
+        path = self._state_path_taa_aml_latest() if version is None \
+            else self._state_path_taa_aml_version(version)
+        return self.state.get(path, isCommitted=isCommitted)
+
     @staticmethod
     def _state_path_taa_latest() -> bytes:
-        return "{marker}:latest".\
+        return "{marker}:latest". \
             format(marker=MARKER_TAA).encode()
 
     @staticmethod
     def _state_path_taa_version(version: str) -> bytes:
-        return "{marker}:v:{version}".\
+        return "{marker}:v:{version}". \
             format(marker=MARKER_TAA, version=version).encode()
 
     @staticmethod
     def _state_path_taa_digest(digest: str) -> bytes:
-        return "{marker}:d:{digest}".\
+        return "{marker}:d:{digest}". \
             format(marker=MARKER_TAA, digest=digest).encode()
 
     @staticmethod
     def _taa_digest(text: str, version: str) -> str:
         return sha256('{}{}'.format(version, text).encode()).hexdigest()
+
+    @staticmethod
+    def _state_path_taa_aml_latest():
+        return "{marker}:latest".format(marker=MARKER_TAA_AML).encode()
+
+    @staticmethod
+    def _state_path_taa_aml_version(version: str):
+        return "{marker}:v:{version}".format(marker=MARKER_TAA_AML, version=version).encode()
 
     def _is_trustee(self, nym: str):
         return bool(DomainRequestHandler.get_role(self._domain_state, nym,

@@ -104,6 +104,9 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
+AML_VERSION = 'version'
+AML = 'aml'
+AML_CONTEXT = 'amlContext'
 
 AUDIT_TXN_VIEW_NO = "viewNo"
 AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
