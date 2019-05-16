@@ -5,7 +5,7 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
     TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION, \
     TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_DIGEST
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -92,7 +92,8 @@ class ClientGetTxnAuthorAgreementOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(GET_TXN_AUTHOR_AGREEMENT)),
         (GET_TXN_AUTHOR_AGREEMENT_VERSION, NonEmptyStringField(optional=True)),
-        (GET_TXN_AUTHOR_AGREEMENT_DIGEST, NonEmptyStringField(optional=True))
+        (GET_TXN_AUTHOR_AGREEMENT_DIGEST, NonEmptyStringField(optional=True)),
+        (GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, NonNegativeNumberField(optional=True))
     )
 
 
