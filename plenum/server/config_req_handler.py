@@ -4,7 +4,8 @@ from typing import Optional, Callable, Dict
 from common.serializers.serialization import config_state_serializer, state_roots_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
-    AML, AML_VERSION, TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION
+    TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, AML, AML_VERSION
 
 from plenum.common.types import f
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
@@ -193,25 +194,36 @@ class ConfigReqHandler(LedgerRequestHandler):
         return result
 
     def handle_get_txn_author_agreement(self, request: Request):
-        digest = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_DIGEST)
         version = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_VERSION)
+        digest = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_DIGEST)
+        timestamp = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP)
+
+        if version is not None:
+            path = self._state_path_taa_version(version)
+            digest, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, digest=digest)
 
         if digest is not None:
             path = self._state_path_taa_digest(digest)
             data, proof = self.get_value_from_state(path, with_proof=True)
             return self._return_txn_author_agreement(request, proof, data=data)
-        elif version is not None:
-            path = self._state_path_taa_version(version)
-            digest, proof = self.get_value_from_state(path, with_proof=True)
-            return self._return_txn_author_agreement(request, proof, digest=digest)
-        else:
-            path = self._state_path_taa_latest()
-            digest, proof = self.get_value_from_state(path, with_proof=True)
-            return self._return_txn_author_agreement(request, proof, digest=digest)
 
-    def _return_txn_author_agreement(self, request, proof, digest=None, data=None):
+        if timestamp is not None:
+            head_hash = self.ts_store.get_equal_or_prev(timestamp, CONFIG_LEDGER_ID)
+            if head_hash is None:
+                return self._return_txn_author_agreement(request, None)
+            path = self._state_path_taa_latest()
+            digest, proof = self.get_value_from_state(path, head_hash, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, head_hash=head_hash, digest=digest)
+
+        path = self._state_path_taa_latest()
+        digest, proof = self.get_value_from_state(path, with_proof=True)
+        return self._return_txn_author_agreement(request, proof, digest=digest)
+
+    def _return_txn_author_agreement(self, request, proof, head_hash=None, digest=None, data=None):
         if digest is not None:
-            data = self.state.get(self._state_path_taa_digest(digest.decode()))
+            head_hash = head_hash if head_hash else self.state.committedHeadHash
+            data = self.state.get_for_root_hash(head_hash, self._state_path_taa_digest(digest.decode()))
 
         if data is not None:
             value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
