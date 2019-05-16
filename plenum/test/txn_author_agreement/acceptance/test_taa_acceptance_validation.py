@@ -6,9 +6,14 @@ from plenum.common.types import f
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
 
+@pytest.fixture(scope='module', autouse=True)
+def activate_taa(activate_taa):
+    return activate_taa
+
+
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_during_enabled_taa(
-    node_validator, validate_taa_acceptance, req, operation, set_txn_author_agreement_aml, activate_taa
+    node_validator, validate_taa_acceptance, req, operation
 ):
     ledger_id = node_validator.ledger_id_for_request(req)
 
@@ -25,7 +30,7 @@ def test_taa_acceptance_missed_during_enabled_taa(
 
 @pytest.mark.taa_acceptance_digest(calc_taa_digest('some-taa', 'some-taa-version'))
 def test_taa_acceptance_digest_non_latest(
-    validate_taa_acceptance, domain_req, set_txn_author_agreement_aml, activate_taa
+    validate_taa_acceptance, domain_req, latest_taa
 ):
     with pytest.raises(
         InvalidClientTaaAcceptanceError,
@@ -34,7 +39,7 @@ def test_taa_acceptance_digest_non_latest(
             " provided {}, expected {}"
             .format(
                 calc_taa_digest('some-taa', 'some-taa-version'),
-                calc_taa_digest(activate_taa.text, activate_taa.version)
+                calc_taa_digest(latest_taa.text, latest_taa.version)
             )
         )
     ):
@@ -43,7 +48,7 @@ def test_taa_acceptance_digest_non_latest(
 
 @pytest.mark.taa_acceptance_mechanism('some-unknown-mech')
 def test_taa_acceptance_mechanism_inappropriate(
-    validate_taa_acceptance, domain_req, set_txn_author_agreement_aml, activate_taa
+    validate_taa_acceptance, domain_req
 ):
     with pytest.raises(
         InvalidClientTaaAcceptanceError,
@@ -57,9 +62,9 @@ def test_taa_acceptance_mechanism_inappropriate(
 
 
 def test_taa_acceptance_time_near_lower_threshold(
-    tconf, validate_taa_acceptance, domain_req, set_txn_author_agreement_aml, activate_taa
+    tconf, validate_taa_acceptance, domain_req, latest_taa
 ):
-    taa_ts = activate_taa.txn_time
+    taa_ts = latest_taa.txn_time
     pp_time = taa_ts + 1
 
     lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
@@ -85,9 +90,9 @@ def test_taa_acceptance_time_near_lower_threshold(
 
 
 def test_taa_acceptance_time_near_upper_threshold(
-    tconf, validate_taa_acceptance, domain_req, set_txn_author_agreement_aml, activate_taa
+    tconf, validate_taa_acceptance, domain_req, latest_taa
 ):
-    taa_ts = activate_taa.txn_time
+    taa_ts = latest_taa.txn_time
     pp_time = taa_ts + 1
 
     lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
@@ -113,8 +118,7 @@ def test_taa_acceptance_time_near_upper_threshold(
 
 
 def test_taa_acceptance_valid(
-    tconf, validate_taa_acceptance, domain_req,
-    set_txn_author_agreement_aml, activate_taa
+    tconf, validate_taa_acceptance, domain_req
 ):
     pp_time = domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm] - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME + 1
     validate_taa_acceptance(domain_req, pp_time)

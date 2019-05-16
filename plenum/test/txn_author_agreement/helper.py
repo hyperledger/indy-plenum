@@ -79,7 +79,7 @@ def get_txn_author_agreement(
     assert reply[OP_FIELD_NAME] == REPLY
     result = reply[f.RESULT.nm]
 
-    return TaaData(
+    return None if result[DATA] is None else TaaData(
         text=result[DATA][TXN_AUTHOR_AGREEMENT_TEXT],
         version=result[DATA][TXN_AUTHOR_AGREEMENT_VERSION],
         seq_no=result[f.SEQ_NO.nm],

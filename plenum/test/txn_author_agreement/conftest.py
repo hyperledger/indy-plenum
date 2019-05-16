@@ -103,18 +103,12 @@ def set_txn_author_agreement_aml(
     return sdk_get_and_check_replies(looper, [req])[0]
 
 
-@pytest.fixture
-def random_taa(request):
-    marker = request.node.get_marker('random_taa')
-    return gen_random_txn_author_agreement(
-        **({} if marker is None else marker.kwargs))
-
-
-@pytest.fixture
+@pytest.fixture(scope='module')
 def set_txn_author_agreement(
-    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
+    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
 ):
     def wrapped(text=None, version=None):
+        random_taa = gen_random_txn_author_agreement()
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
         res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
@@ -124,7 +118,7 @@ def set_txn_author_agreement(
     return wrapped
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def get_txn_author_agreement(
     looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
 ):
@@ -137,14 +131,19 @@ def get_txn_author_agreement(
     return wrapped
 
 
-@pytest.fixture
-def activate_taa(set_txn_author_agreement):
+@pytest.fixture(scope='module')
+def activate_taa(
+    set_txn_author_agreement_aml, set_txn_author_agreement,
+    sdk_wallet_trustee, sdk_wallet_client
+):
     return set_txn_author_agreement()
 
 
 @pytest.fixture
-def latest_taa(get_txn_author_agreement):
-    return get_txn_author_agreement()
+def random_taa(request):
+    marker = request.node.get_marker('random_taa')
+    return gen_random_txn_author_agreement(
+        **({} if marker is None else marker.kwargs))
 
 
 @pytest.fixture

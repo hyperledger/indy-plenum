@@ -60,6 +60,7 @@ def taa_value(result, text, version):
         "lut": result[TXN_METADATA_TIME]
     })
 
+
 def test_get_txn_author_agreement_works_on_clear_state(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)[1]
     assert reply['op'] == REPLY

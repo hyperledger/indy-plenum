@@ -34,7 +34,9 @@ def test_send_valid_txn_author_agreement_succeeds(
 def test_send_invalid_txn_author_agreement_fails(
     looper, set_txn_author_agreement_aml, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
 ):
-    req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1], *random_taa))
+    req = looper.loop.run_until_complete(
+        build_txn_author_agreement_request(sdk_wallet_trustee[1], *random_taa)
+    )
     req = json.loads(req)
     req[OPERATION]['text'] = 42
     rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, json.dumps(req))
@@ -43,11 +45,13 @@ def test_send_invalid_txn_author_agreement_fails(
 
 
 def test_send_valid_txn_author_agreement_without_enough_privileges_fails(
-    looper, set_txn_author_agreement_aml, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, random_taa
+    looper, set_txn_author_agreement_aml, txnPoolNodeSet,
+    sdk_pool_handle, sdk_wallet_steward, random_taa
 ):
     with pytest.raises(RequestRejectedException):
-        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_steward,
-                                      *random_taa)
+        sdk_send_txn_author_agreement(
+            looper, sdk_pool_handle, sdk_wallet_steward, *random_taa
+        )
 
 
 def test_send_different_txn_author_agreement_with_same_version_fails(

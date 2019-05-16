@@ -15,6 +15,16 @@ from ..helper import calc_taa_digest
 from .helper import gen_signed_request
 
 
+@pytest.fixture(scope='module')
+def activate_taa(sdk_wallet_new_steward, activate_taa):
+    return activate_taa
+
+
+@pytest.fixture(scope='module')
+def latest_taa(activate_taa):
+    return activate_taa
+
+
 @pytest.fixture(scope="module")
 def node_validator(txnPoolNodeSet):
     return txnPoolNodeSet[0]
@@ -30,11 +40,16 @@ def validate_taa_acceptance(node_validator):
 
 
 @pytest.fixture
-def taa_digest(random_taa):
-    return calc_taa_digest(*random_taa)
+def taa_digest(random_taa, get_txn_author_agreement):
+    current_taa = get_txn_author_agreement()
+    text, version = (
+        random_taa if current_taa is None else
+        (current_taa.text, current_taa.version)
+    )
+    return calc_taa_digest(text, version)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def taa_acceptance_mechanism(aml_request_kwargs):
     return list(aml_request_kwargs['operation'][AML].items())[0][0]
 

@@ -123,7 +123,7 @@ def test_get_taa_data(
                 config_req_handler.get_taa_data(version=version, isCommitted=False)
             )
             assert (
-                expected[0], taa_expected_digests[version] ==
+                (expected[0], taa_expected_digests[version]) ==
                 config_req_handler.get_taa_data(
                     digest=taa_expected_digests[version],
                     version='any-version-since-ignored',
