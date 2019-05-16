@@ -92,6 +92,8 @@ def check_state_proof(result, expected_key: Optional = None, expected_value: Opt
                                                expected_value,
                                                proof_nodes, serialized=True)
 
+    # TODO: Validate signatures as well?
+
 
 def expected_state_data(data: TaaData) -> Dict:
     return {

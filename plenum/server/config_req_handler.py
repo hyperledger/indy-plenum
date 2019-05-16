@@ -179,15 +179,16 @@ class ConfigReqHandler(LedgerRequestHandler):
                 return self._return_txn_author_agreement(request, None)
             path = self._state_path_taa_latest()
             digest, proof = self.get_value_from_state(path, head_hash, with_proof=True)
-            return self._return_txn_author_agreement(request, proof, digest=digest)
+            return self._return_txn_author_agreement(request, proof, head_hash=head_hash, digest=digest)
 
         path = self._state_path_taa_latest()
         digest, proof = self.get_value_from_state(path, with_proof=True)
         return self._return_txn_author_agreement(request, proof, digest=digest)
 
-    def _return_txn_author_agreement(self, request, proof, digest=None, data=None):
+    def _return_txn_author_agreement(self, request, proof, head_hash=None, digest=None, data=None):
         if digest is not None:
-            data = self.state.get(self._state_path_taa_digest(digest.decode()))
+            head_hash = head_hash if head_hash else self.state.committedHeadHash
+            data = self.state.get_for_root_hash(head_hash, self._state_path_taa_digest(digest.decode()))
 
         if data is not None:
             value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)

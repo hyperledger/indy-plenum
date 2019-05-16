@@ -4,7 +4,7 @@ import pytest
 from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
-    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, STATE_PROOF
+    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, STATE_PROOF, CONFIG_LEDGER_ID
 from plenum.common.util import randomString
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, taa_digest, \
     sdk_send_txn_author_agreement, check_state_proof
@@ -24,10 +24,14 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 def nodeSetWithTaa(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_trustee):
     global TIMESTAMP_V1, TIMESTAMP_V2
 
+    # Force signing empty config state
+    txnPoolNodeSet[0].master_replica._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
+
+    looper.runFor(3)  # Make sure we have long enough gap between updates
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
     TIMESTAMP_V1 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
-    looper.runFor(4)  # Make sure we have long enough gap between updates
+    looper.runFor(3)  # Make sure we have long enough gap between updates
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2)
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
@@ -166,4 +170,4 @@ def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, 
 
     result = reply['result']
     assert result['data'] is None
-    assert STATE_PROOF not in result
+    check_state_proof(result, '2:latest', None)
