@@ -78,7 +78,6 @@ class ConfigReqHandler(LedgerRequestHandler):
         typ = get_type(txn)
         payload = get_payload_data(txn)
         if typ == TXN_AUTHOR_AGREEMENT:
-            payload = get_payload_data(txn)
             self.update_txn_author_agreement(
                 payload[TXN_AUTHOR_AGREEMENT_TEXT],
                 payload[TXN_AUTHOR_AGREEMENT_VERSION],
@@ -101,8 +100,9 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def update_txn_author_agreement_acceptance_mechanisms(self, payload):
         version = payload[AML_VERSION]
-        self.state.set(self._state_path_taa_aml_latest(), config_state_serializer.serialize(payload))
-        self.state.set(self._state_path_taa_aml_version(version), config_state_serializer.serialize(payload))
+        payload = config_state_serializer.serialize(payload)
+        self.state.set(self._state_path_taa_aml_latest(), payload)
+        self.state.set(self._state_path_taa_aml_version(version), payload)
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:
@@ -130,7 +130,10 @@ class ConfigReqHandler(LedgerRequestHandler):
     def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \
             else self._state_path_taa_aml_version(version)
-        return self.state.get(path, isCommitted=isCommitted)
+        payload = self.state.get(path, isCommitted=isCommitted)
+        if payload is None:
+            return None
+        return config_state_serializer.deserialize(payload)
 
     @staticmethod
     def _state_path_taa_latest() -> bytes:

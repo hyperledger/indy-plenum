@@ -4,9 +4,6 @@ from plenum.common.exceptions import InvalidClientTaaAcceptanceError
 from plenum.common.types import f
 
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
-from .conftest import (
-    TAA_ACCEPTANCE_TS_TOO_OLD, TAA_ACCEPTANCE_TS_TOO_RECENT
-)
 
 
 @pytest.mark.taa_acceptance_missed
@@ -44,7 +41,6 @@ def test_taa_acceptance_digest_non_latest(
         validate_taa_acceptance(domain_req)
 
 
-@pytest.mark.skip(reason="INDY-2068")
 @pytest.mark.taa_acceptance_mechanism('some-unknown-mech')
 def test_taa_acceptance_mechanism_inappropriate(
     validate_taa_acceptance, domain_req, set_txn_author_agreement_aml, activate_taa

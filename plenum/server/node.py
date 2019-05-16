@@ -53,7 +53,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE, \
-    TXN_AUTHOR_AGREEMENT_VERSION
+    TXN_AUTHOR_AGREEMENT_VERSION, AML
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -2459,13 +2459,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
             )
 
-        # TODO INDY-2068
-        taa_aml = {}
-        # taa_aml = config_req_handler.get_taa_aml()
-        # if not taa_aml:
-        #    raise TaaAmlNotSetError(
-        #        "Txn Author Agreement acceptance mechanism list is not defined"
-        #    ) # TODO test
+        taa_aml_data = config_req_handler.get_taa_aml_data()
+        if taa_aml_data is None:
+           raise TaaAmlNotSetError(
+               "Txn Author Agreement acceptance mechanism list is not defined"
+           ) # TODO test
+        taa_aml = taa_aml_data[AML]
 
         if not request.taaAcceptance:
             raise InvalidClientTaaAcceptanceError(
@@ -2484,7 +2483,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
 
         r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
-        if (r_taa_a_mech not in taa_aml) and False:  # TODO INDY-2068
+        if r_taa_a_mech not in taa_aml:
             # TODO
             #   - list might be quite long
             #   - should we return AML in reject

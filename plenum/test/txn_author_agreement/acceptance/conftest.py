@@ -5,6 +5,7 @@ from plenum.config import (
     TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME,
     TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
 )
+from plenum.common.constants import AML
 from plenum.common.util import get_utc_epoch
 
 from plenum.test.input_validation.helper import (
@@ -14,60 +15,17 @@ from ..helper import calc_taa_digest
 from .helper import gen_signed_request
 
 
-TAA_ACCEPTANCE_TS_TOO_OLD = 0
-TAA_LATEST_TS = TAA_ACCEPTANCE_TS_TOO_OLD + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME + 1
-TS_NOW = TAA_LATEST_TS + 1
-TAA_ACCEPTANCE_TS_TOO_RECENT = TS_NOW + TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME + 1
-
-"""
-@pytest.fixture(scope="module")
-def taa_a_ts_too_old():
-    return TAA_ACCEPTANCE_TS_TOO_OLD
-
-
-@pytest.fixture(scope="module")
-def taa_a_ts_too_recent():
-    return TAA_ACCEPTANCE_TS_TOO_RECENT
-
-
-@pytest.fixture(scope="module")
-def ts_now():
-    # TODO use tconf
-    return TS_NOW
-
-
-@pytest.fixture(scope="module")
-def taa_latest_ts(ts_now):
-    return TAA_LATEST_TS
-
-
-@pytest.fixture
-def mock_timestamp():
-    return MockTimestamp(TAA_ACCEPTANCE_TS_TOO_OLD)
-
-
-@pytest.fixture
-def primary_replica(_primary_replica):
-    _primary_replica.last_accepted_pre_prepare_time = None
-    _primary_replica.get_time_for_3pc_batch.value = TS_NOW
-    return _primary_replica
-"""
-
-
-@pytest.fixture(scope="module")
-def taa_a_ts_too_old():
-    return TAA_ACCEPTANCE_TS_TOO_OLD
-
-
 @pytest.fixture(scope="module")
 def node_validator(txnPoolNodeSet):
     return txnPoolNodeSet[0]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope='module')
 def validate_taa_acceptance(node_validator):
     def wrapped(req, pp_time=None):
-        return node_validator.validateTaaAcceptance(req, pp_time)
+        return node_validator.validateTaaAcceptance(
+            req, get_utc_epoch() if pp_time is None else pp_time
+        )
     return wrapped
 
 
@@ -77,8 +35,8 @@ def taa_digest(random_taa):
 
 
 @pytest.fixture
-def taa_acceptance_mechanism():
-    return 'some-mechanism'
+def taa_acceptance_mechanism(aml_request_kwargs):
+    return list(aml_request_kwargs['operation'][AML].items())[0][0]
 
 
 @pytest.fixture

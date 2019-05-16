@@ -5,6 +5,8 @@ from re import compile
 #  - refactor hierarchy of exceptions taking into account ones
 #    from common/exceptions.py
 
+from common.exceptions import LogicError
+
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
 from plenum.server.suspicion_codes import Suspicion
@@ -333,5 +335,5 @@ class MissingProtocolVersionError(TypeError):
             .format(CURRENT_PROTOCOL_VERSION))
 
 
-class TaaAmlNotSetError(PoolConfigError):
+class TaaAmlNotSetError(LogicError):
     pass
