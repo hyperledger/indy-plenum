@@ -1,37 +1,41 @@
 from _sha256 import sha256
-from typing import Optional, Dict
+from typing import Optional, Callable, Dict
 
-from common.serializers.serialization import config_state_serializer
+from common.serializers.serialization import config_state_serializer, state_roots_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
-    TXN_PAYLOAD, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
-    CONFIG_LEDGER_ID
+    TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION
+
+from plenum.common.types import f
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import (
-    get_type, get_payload_data, get_seq_no, get_txn_time
-)
-from plenum.server.request_handlers.utils import (
-    encode_state_value, decode_state_value
-)
+from plenum.common.txn_util import get_type, get_payload_data, get_seq_no, get_txn_time
+from plenum.server.request_handlers.utils import encode_state_value, decode_state_value
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.ledger_req_handler import LedgerRequestHandler
 from storage.state_ts_store import StateTsDbStorage
+
+MARKER_TAA = "2"
+MARKER_TAA_AML = "3"
 
 
 class ConfigReqHandler(LedgerRequestHandler):
     write_types = {TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML}
     query_types = {GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_AML}
 
-    def __init__(self, ledger, state, domain_state, ts_store: Optional[StateTsDbStorage] = None):
+    def __init__(self, ledger, state, domain_state, bls_store, ts_store: Optional[StateTsDbStorage] = None):
         super().__init__(CONFIG_LEDGER_ID, ledger, state, ts_store)
         self._domain_state = domain_state
+        # TODO: Move up to LedgerRequestHandler?
+        self._bls_store = bls_store
+        self._query_handlers = {}  # type: Dict[str, Callable]
+        self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT, self.handle_get_txn_author_agreement)
 
     def doStaticValidation(self, request: Request):
         pass
 
-    def get_query_response(self, request):
-        pass
+    def get_query_response(self, request: Request):
+        return self._query_handlers[request.operation.get(TXN_TYPE)](request)
 
     def validate(self, req: Request):
         self.authorize(req)
@@ -102,16 +106,19 @@ class ConfigReqHandler(LedgerRequestHandler):
         return decode_state_value(data, serializer=config_state_serializer)
 
     @staticmethod
-    def _state_path_taa_latest():
-        return b"taa:v:latest"
+    def _state_path_taa_latest() -> bytes:
+        return "{marker}:latest".\
+            format(marker=MARKER_TAA).encode()
 
     @staticmethod
-    def _state_path_taa_version(version: str):
-        return "taa:v:{version}".format(version=version).encode()
+    def _state_path_taa_version(version: str) -> bytes:
+        return "{marker}:v:{version}".\
+            format(marker=MARKER_TAA, version=version).encode()
 
     @staticmethod
-    def _state_path_taa_digest(digest: str):
-        return "taa:d:{digest}".format(digest=digest).encode()
+    def _state_path_taa_digest(digest: str) -> bytes:
+        return "{marker}:d:{digest}".\
+            format(marker=MARKER_TAA, digest=digest).encode()
 
     @staticmethod
     def _taa_digest(text: str, version: str) -> str:
@@ -120,3 +127,59 @@ class ConfigReqHandler(LedgerRequestHandler):
     def _is_trustee(self, nym: str):
         return bool(DomainRequestHandler.get_role(self._domain_state, nym,
                                                   TRUSTEE, isCommitted=False))
+
+    def _add_query_handler(self, txn_type, handler: Callable):
+        if txn_type in self._query_handlers:
+            raise ValueError('There is already a query handler registered '
+                             'for {}'.format(txn_type))
+        self._query_handlers[txn_type] = handler
+
+    def get_value_from_state(self, path, head_hash=None, with_proof=False, multi_sig=None):
+        '''
+        Get a value (and proof optionally)for the given path in state trie.
+        Does not return the proof is there is no aggregate signature for it.
+        :param path: the path generate a state proof for
+        :param head_hash: the root to create the proof against
+        :param get_value: whether to return the value
+        :return: a state proof or None
+        '''
+        if not multi_sig and with_proof:
+            root_hash = head_hash if head_hash else self.state.committedHeadHash
+            encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+
+            multi_sig = self._bls_store.get(encoded_root_hash)
+        return super().get_value_from_state(path, head_hash, with_proof, multi_sig)
+
+    @staticmethod
+    def make_config_result(request, data, last_seq_no=None, update_time=None, proof=None):
+        result = LedgerRequestHandler.make_result(request, data, proof=proof)
+        result[f.SEQ_NO.nm] = last_seq_no
+        result[TXN_TIME] = update_time
+        return result
+
+    def handle_get_txn_author_agreement(self, request: Request):
+        digest = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_DIGEST)
+        version = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_VERSION)
+
+        if digest is not None:
+            path = self._state_path_taa_digest(digest)
+            data, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, data=data)
+        elif version is not None:
+            path = self._state_path_taa_version(version)
+            digest, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, digest=digest)
+        else:
+            path = self._state_path_taa_latest()
+            digest, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement(request, proof, digest=digest)
+
+    def _return_txn_author_agreement(self, request, proof, digest=None, data=None):
+        if digest is not None:
+            data = self.state.get(self._state_path_taa_digest(digest.decode()))
+
+        if data is not None:
+            value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+            return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
+
+        return self.make_config_result(request, None, proof=proof)

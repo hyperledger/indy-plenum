@@ -14,7 +14,8 @@ def test_node(test_node):
                                            instance_changes=None)
     test_node.init_config_req_handler = lambda: TestConfigReqHandler(test_node.configLedger,
                                                                      test_node.states[CONFIG_LEDGER_ID],
-                                                                     test_node.states[DOMAIN_LEDGER_ID])
+                                                                     test_node.states[DOMAIN_LEDGER_ID],
+                                                                     bls_store=FakeSomething())
     test_node.register_req_handler(test_node.init_config_req_handler(), CONFIG_LEDGER_ID)
     return test_node
 

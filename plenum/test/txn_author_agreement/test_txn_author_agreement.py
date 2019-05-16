@@ -3,15 +3,11 @@ import json
 
 from indy.ledger import build_txn_author_agreement_request
 
-from plenum.common.constants import (
-    TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT,
-    TXN_PAYLOAD, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
-)
+from plenum.common.constants import TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, REPLY
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException
 from plenum.common.types import OPERATION, f
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_get_and_check_replies
-from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
     get_config_req_handler, sdk_send_txn_author_agreement,
@@ -21,31 +17,12 @@ from .helper import (
 
 
 def test_send_valid_txn_author_agreement_succeeds(
-    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa,
-    get_txn_author_agreement
+    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee,
+    set_txn_author_agreement, get_txn_author_agreement
 ):
-    reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, *random_taa)[0]
-    digest = calc_taa_digest(*random_taa)
-
-    data = TaaData(
-        *random_taa,
-        seq_no=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_SEQ_NO],
-        txn_time=reply[1][f.RESULT.nm][TXN_METADATA][TXN_METADATA_TIME]
-    )
-
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    for node in txnPoolNodeSet:
-        taa_data, taa_digest = get_txn_author_agreement(node=node)
-        assert taa_digest == digest
-        assert taa_data == data
-
-        taa_data, taa_digest = get_txn_author_agreement(node=node, version=data.version)
-        assert taa_digest == digest
-        assert taa_data == data
-
-        taa_data, _ = get_txn_author_agreement(node=node, digest=digest)
-        assert taa_data == data
+    # TODO actually it might be better to use direct requests
+    # to nodes' states as it was before
+    assert set_txn_author_agreement() == get_txn_author_agreement()
 
 
 def test_send_invalid_txn_author_agreement_fails(

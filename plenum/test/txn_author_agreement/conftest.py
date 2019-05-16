@@ -13,12 +13,14 @@ from plenum.test.txn_author_agreement.helper import (
 )
 
 from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.delayers import req_delay
 from plenum.test.testing_utils import FakeSomething
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
-    sdk_send_txn_author_agreement, calc_taa_digest,
-    gen_random_txn_author_agreement, get_config_req_handler
+    set_txn_author_agreement as _set_txn_author_agreement,
+    get_txn_author_agreement as _get_txn_author_agreement,
+    calc_taa_digest, gen_random_txn_author_agreement
 )
 
 
@@ -40,7 +42,19 @@ def config_req_handler(config_state,
 
     return ConfigReqHandler(config_ledger,
                             config_state,
-                            domain_state=FakeSomething())
+                            domain_state=FakeSomething(),
+                            bls_store=FakeSomething())
+
+
+@pytest.fixture(scope="module")
+def nodeSetWithOneNodeResponding(txnPoolNodeSet):
+    # the order of nodes the client sends requests to is [Alpha, Beta, Gamma, Delta]
+    # delay all requests to Beta, Gamma and Delta
+    # we expect that it's sufficient for the client to get Reply from Alpha only
+    # as for write requests, we can send it to 1 node only, and it will be propagated to others
+    for node in txnPoolNodeSet[1:]:
+        node.clientIbStasher.delay(req_delay())
+    return txnPoolNodeSet
 
 
 @pytest.fixture
@@ -73,45 +87,39 @@ def taa_expected_digests(taa_input_data):
     return {data.version: calc_taa_digest(data.text, data.version) for data in taa_input_data}
 
 
-@pytest.fixture(scope='module')
-def set_txn_author_agreement(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
-
+@pytest.fixture
+def set_txn_author_agreement(
+    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
+):
     def wrapped(text=None, version=None):
-        _random_taa = gen_random_txn_author_agreement()
-        text = _random_taa[0] if text is None else text
-        version = _random_taa[1] if version is None else version
-        reply = sdk_send_txn_author_agreement(
-            looper, sdk_pool_handle, sdk_wallet_trustee, text, version)[0]
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-        return reply
+        text = random_taa[0] if text is None else text
+        version = random_taa[1] if version is None else version
+        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)  # TODO do we need that
+        return res
 
     return wrapped
 
 
-# TODO: Replace implementation with get transaction
-@pytest.fixture(scope='module')
-def get_txn_author_agreement(txnPoolNodeSet):
-
-    def wrapped(node=None, version=None, digest=None):
-        node = txnPoolNodeSet[0] if node is None else node
-        config_req_handler = get_config_req_handler(node)
-
-        taa_digest = config_req_handler.get_taa_digest(version=version) if digest is None else digest
-        taa_data = config_req_handler.get_taa_data(digest=digest, version=version)
-        if taa_data:
-            taa_data = TaaData(**taa_data[0], seq_no=taa_data[1], txn_time=taa_data[2])
-
-        return taa_data, taa_digest
+@pytest.fixture
+def get_txn_author_agreement(
+    looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
+):
+    def wrapped(digest=None, version=None, timestamp=None):
+        return _get_txn_author_agreement(
+            looper, sdk_pool_handle, sdk_wallet_client,
+            digest=digest, version=version, timestamp=timestamp
+        )
 
     return wrapped
 
 
 @pytest.fixture
 def latest_taa(get_txn_author_agreement):
-    data, digest = get_txn_author_agreement()
+    data = get_txn_author_agreement()
     return {
         'data': data,
-        'digest': digest
+        'digest': calc_taa_digest(data.text, data.version)
     }
 
 

@@ -629,6 +629,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return ConfigReqHandler(self.configLedger,
                                 self.states[CONFIG_LEDGER_ID],
                                 self.states[DOMAIN_LEDGER_ID],
+                                self.bls_bft.bls_store,
                                 self.getStateTsDbStorage())
 
     def init_action_req_handler(self):

@@ -1,12 +1,17 @@
-from typing import NamedTuple, Dict
+import json
+from _sha256 import sha256
 
-from indy.ledger import build_txn_author_agreement_request
+from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request
 
-from plenum.common.constants import (
-    CONFIG_LEDGER_ID,
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION,
-    TXN_PAYLOAD, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
-)
+from typing import NamedTuple, Dict, Optional
+from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
+    MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
+    MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
+    MULTI_SIGNATURE_VALUE_TIMESTAMP, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
+    TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
+from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
@@ -23,13 +28,101 @@ TaaData = NamedTuple("TaaData", [
 def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
-    return sdk_get_and_check_replies(looper, [rep])
+    return sdk_get_and_check_replies(looper, [rep])[0]
+
+
+def set_txn_author_agreement(
+    looper, sdk_pool_handle, sdk_wallet, text: str, version: str
+) -> TaaData:
+    reply = sdk_send_txn_author_agreement(
+        looper, sdk_pool_handle, sdk_wallet, text, version)[1]
+
+    assert reply[OP_FIELD_NAME] == REPLY
+    result = reply[f.RESULT.nm]
+
+    return TaaData(
+        text, version,
+        seq_no=result[TXN_METADATA][TXN_METADATA_SEQ_NO],
+        txn_time=result[TXN_METADATA][TXN_METADATA_TIME]
+    )
+
+
+def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
+                                 digest: Optional[str] = None,
+                                 version: Optional[str] = None,
+                                 timestamp: Optional[int] = None):
+    params = {}
+    if digest is not None:
+        params[GET_TXN_AUTHOR_AGREEMENT_DIGEST] = digest
+    if version is not None:
+        params[GET_TXN_AUTHOR_AGREEMENT_VERSION] = version
+    if timestamp is not None:
+        params['timestamp'] = timestamp
+    req = looper.loop.run_until_complete(build_get_txn_author_agreement_request(sdk_wallet[1], json.dumps(params)))
+    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [rep])[0]
+
+
+def get_txn_author_agreement(
+    looper, sdk_pool_handle, sdk_wallet,
+    digest: Optional[str] = None,
+    version: Optional[str] = None,
+    timestamp: Optional[int] = None
+) -> TaaData:
+    reply = sdk_get_txn_author_agreement(
+        looper, sdk_pool_handle, sdk_wallet,
+        digest=digest, version=version, timestamp=timestamp
+    )[1]
+
+    assert reply[OP_FIELD_NAME] == REPLY
+    result = reply[f.RESULT.nm]
+
+    return TaaData(
+        text=result[DATA][TXN_AUTHOR_AGREEMENT_TEXT],
+        version=result[DATA][TXN_AUTHOR_AGREEMENT_VERSION],
+        seq_no=result[f.SEQ_NO.nm],
+        txn_time=result[TXN_TIME]
+    )
 
 
 def get_config_req_handler(node):
     config_req_handler = node.get_req_handler(CONFIG_LEDGER_ID)
     assert isinstance(config_req_handler, ConfigReqHandler)
     return config_req_handler
+
+
+def taa_digest(text: str, version: str) -> str:
+    return sha256('{}{}'.format(version, text).encode()).hexdigest()
+
+
+def check_valid_proof(result):
+    # TODO: This is copy-pasted from indy node, probably there should be better place for it
+    assert STATE_PROOF in result
+
+    state_proof = result[STATE_PROOF]
+    assert ROOT_HASH in state_proof
+    assert state_proof[ROOT_HASH]
+    assert PROOF_NODES in state_proof
+    assert state_proof[PROOF_NODES]
+    assert MULTI_SIGNATURE in state_proof
+
+    multi_sig = state_proof[MULTI_SIGNATURE]
+    assert multi_sig
+    assert multi_sig[MULTI_SIGNATURE_PARTICIPANTS]
+    assert multi_sig[MULTI_SIGNATURE_SIGNATURE]
+    assert MULTI_SIGNATURE_VALUE in multi_sig
+
+    multi_sig_value = multi_sig[MULTI_SIGNATURE_VALUE]
+    assert MULTI_SIGNATURE_VALUE_LEDGER_ID in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_LEDGER_ID]
+    assert MULTI_SIGNATURE_VALUE_STATE_ROOT in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_STATE_ROOT]
+    assert MULTI_SIGNATURE_VALUE_TXN_ROOT in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_TXN_ROOT]
+    assert MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT]
+    assert MULTI_SIGNATURE_VALUE_TIMESTAMP in multi_sig_value
+    assert multi_sig_value[MULTI_SIGNATURE_VALUE_TIMESTAMP]
 
 
 def expected_state_data(data: TaaData) -> Dict:
