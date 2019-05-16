@@ -1,12 +1,13 @@
 from typing import Optional
 
 import pytest
+from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
-    TXN_METADATA_TIME
+    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, STATE_PROOF
 from plenum.common.util import randomString
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, taa_digest, \
-    sdk_send_txn_author_agreement
+    sdk_send_txn_author_agreement, check_state_proof
 
 TEXT_V1 = randomString(1024)
 V1 = randomString(16)
@@ -33,6 +34,17 @@ def nodeSetWithTaa(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_trustee):
     return txnPoolNodeSet
 
 
+def taa_value(result, text, version):
+    return JsonSerializer().serialize({
+        "val": {
+            TXN_AUTHOR_AGREEMENT_TEXT: text,
+            TXN_AUTHOR_AGREEMENT_VERSION: version
+        },
+        "lsn": result[TXN_METADATA_SEQ_NO],
+        "lut": result[TXN_METADATA_TIME]
+    })
+
+
 def test_get_txn_author_agreement_works_on_clear_state(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)[1]
     assert reply['op'] == REPLY
@@ -44,9 +56,10 @@ def test_get_txn_author_agreement_returns_latest_taa_by_default(looper, nodeSetW
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    check_state_proof(result, '2:latest', DIGEST_V2)
 
 
 def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, nodeSetWithTaa,
@@ -55,9 +68,10 @@ def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, nodeSet
                                          version=V1)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    check_state_proof(result, '2:v:{}'.format(V1), DIGEST_V1)
 
 
 def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, nodeSetWithTaa,
@@ -66,17 +80,22 @@ def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, nod
                                          version=V2)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    check_state_proof(result, '2:v:{}'.format(V2), DIGEST_V2)
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_version(looper, nodeSetWithTaa,
                                                                             sdk_pool_handle, sdk_wallet_client):
+    invalid_version = randomString(16)
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
-                                         version=randomString(16))[1]
+                                         version=invalid_version)[1]
     assert reply['op'] == REPLY
-    assert reply['result']['data'] is None
+
+    result = reply['result']
+    assert result['data'] is None
+    check_state_proof(result, '2:v:{}'.format(invalid_version), None)
 
 
 def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetWithTaa,
@@ -85,9 +104,10 @@ def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetW
                                          digest=DIGEST_V1)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V1), taa_value(result, TEXT_V1, V1))
 
 
 def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, nodeSetWithTaa,
@@ -96,17 +116,22 @@ def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, node
                                          digest=DIGEST_V2)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2))
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(looper, nodeSetWithTaa,
                                                                            sdk_pool_handle, sdk_wallet_client):
+    invalid_digest = randomString(16)
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
-                                         digest=randomString(16))[1]
+                                         digest=invalid_digest)[1]
     assert reply['op'] == REPLY
-    assert reply['result']['data'] is None
+
+    result = reply['result']
+    assert result['data'] is None
+    check_state_proof(result, '2:d:{}'.format(invalid_digest), None)
 
 
 def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithTaa,
@@ -115,9 +140,10 @@ def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithT
                                          timestamp=TIMESTAMP_V2 - 2)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    check_state_proof(result, '2:latest', DIGEST_V1)
 
 
 def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWithTaa,
@@ -126,9 +152,10 @@ def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWit
                                          timestamp=TIMESTAMP_V2 + 2)[1]
     assert reply['op'] == REPLY
 
-    result = reply['result']['data']
-    assert result[TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
-    assert result[TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    result = reply['result']
+    assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
+    assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    check_state_proof(result, '2:latest', DIGEST_V2)
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, nodeSetWithTaa,
@@ -136,4 +163,7 @@ def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, 
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          timestamp=TIMESTAMP_V1 - 2)[1]
     assert reply['op'] == REPLY
-    assert reply['result']['data'] is None
+
+    result = reply['result']
+    assert result['data'] is None
+    assert STATE_PROOF not in result

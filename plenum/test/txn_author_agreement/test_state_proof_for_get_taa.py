@@ -1,12 +1,7 @@
-import base64
-
-import base58
-
-from plenum.common.constants import REPLY, STATE_PROOF, ROOT_HASH, PROOF_NODES
+from plenum.common.constants import REPLY
 from plenum.common.util import randomString
 from plenum.test.txn_author_agreement.helper import sdk_send_txn_author_agreement, sdk_get_txn_author_agreement, \
-    check_valid_proof, taa_digest
-from state.pruning_state import PruningState
+    taa_digest, check_state_proof
 
 
 # TODO: Change txnPoolNodeSet to nodeSetWithOneNodeResponding after
@@ -21,13 +16,4 @@ def test_state_proof_returned_for_get_txn_author_agreement(
     assert reply['op'] == REPLY
 
     result = reply['result']
-    check_valid_proof(result)
-
-    state_proof = result[STATE_PROOF]
-    proof_nodes = base64.b64decode(state_proof[PROOF_NODES])
-    root_hash = base58.b58decode(state_proof[ROOT_HASH])
-
-    assert PruningState.verify_state_proof(root_hash,
-                                           '2:latest',
-                                           taa_digest(text, version),
-                                           proof_nodes, serialized=True)
+    check_state_proof(result, '2:latest', taa_digest(text, version))
