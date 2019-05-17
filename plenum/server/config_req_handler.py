@@ -131,7 +131,7 @@ class ConfigReqHandler(LedgerRequestHandler):
     def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \
             else self._state_path_taa_aml_version(version)
-        return self.state.get(path, isCommitted=isCommitted)
+        return config_state_serializer.deserialize(self.state.get(path, isCommitted=isCommitted))
 
     @staticmethod
     def _state_path_taa_latest() -> bytes:

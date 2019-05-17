@@ -2,6 +2,8 @@ import json
 
 import pytest
 from indy.ledger import build_acceptance_mechanism_request
+
+from common.serializers.serialization import config_state_serializer
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 
 from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
@@ -20,8 +22,8 @@ from plenum.test.delayers import req_delay
 from plenum.test.testing_utils import FakeSomething
 
 from plenum.test.txn_author_agreement.helper import (
-    TaaData, expected_state_data, expected_data
-)
+    TaaData, expected_state_data, expected_data,
+    TaaAmlData, expected_aml_data)
 
 
 @pytest.fixture
@@ -68,8 +70,24 @@ def taa_input_data():
 
 
 @pytest.fixture
+def taa_aml_input_data():
+    return [
+        TaaAmlData(
+            version=randomString(8), aml={randomString(8): randomString(16)},
+            amlContext=randomString(8)
+        )
+        for _ in range(10)
+    ]
+
+
+@pytest.fixture
 def taa_expected_state_data(taa_input_data):
     return {data.version: expected_state_data(data) for data in taa_input_data}
+
+
+@pytest.fixture
+def taa_aml_expected_state_data(taa_aml_input_data):
+    return {data.version: expected_aml_data(data) for data in taa_aml_input_data}
 
 
 @pytest.fixture
@@ -83,8 +101,15 @@ def taa_expected_digests(taa_input_data):
     return {data.version: ConfigReqHandler._taa_digest(data.text, data.version) for data in taa_input_data}
 
 
+@pytest.fixture
+def taa_aml_expected_data(taa_aml_input_data):
+    # TODO use some other API, e.g. sdk's one
+    return {data.version: config_state_serializer.serialize(
+        {AML_VERSION: data.version, AML: data.aml, AML_CONTEXT: data.amlContext}) for data in taa_aml_input_data}
+
+
 @pytest.fixture(scope="function")
-def taa_aml_request(looper, sdk_wallet_trustee):
+def taa_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle):
     return looper.loop.run_until_complete(build_acceptance_mechanism_request(
         sdk_wallet_trustee[1],
         json.dumps({

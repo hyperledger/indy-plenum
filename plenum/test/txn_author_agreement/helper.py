@@ -10,7 +10,7 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
     MULTI_SIGNATURE_VALUE_TIMESTAMP, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, AML_VERSION, AML, AML_CONTEXT
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
 from state.pruning_state import PruningState
@@ -20,6 +20,12 @@ TaaData = NamedTuple("TaaData", [
     ("version", str),
     ("seq_no", int),
     ("txn_time", int)
+])
+
+TaaAmlData = NamedTuple("TaaAmlData", [
+    ("version", str),
+    ("aml", dict),
+    ("amlContext", str)
 ])
 
 
@@ -106,8 +112,16 @@ def expected_state_data(data: TaaData) -> Dict:
     }
 
 
-def expected_data(data: TaaData) -> Dict:
+def expected_data(data: TaaData):
     return {
-        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-        TXN_AUTHOR_AGREEMENT_VERSION: data.version
-    }, data.seq_no, data.txn_time
+               TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+               TXN_AUTHOR_AGREEMENT_VERSION: data.version
+           }, data.seq_no, data.txn_time
+
+
+def expected_aml_data(data: TaaAmlData):
+    return {
+        AML_VERSION: data.version,
+        AML: data.aml,
+        AML_CONTEXT: data.amlContext
+    }
