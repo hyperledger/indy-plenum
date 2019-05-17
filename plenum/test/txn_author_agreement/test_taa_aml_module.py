@@ -8,7 +8,7 @@ def test_taa_acceptance_static_validation(config_req_handler, taa_aml_request):
     taa_aml_request.operation[AML] = {}
     with pytest.raises(InvalidClientRequest) as e:
         config_req_handler.doStaticValidation(taa_aml_request)
-    assert e.match('TAA AML request must contain at least one acceptance mechanism')
+    assert e.match('TXN_AUTHOR_AGREEMENT_AML request must contain at least one acceptance mechanism')
 
 
 def test_taa_acceptance_dynamic_validation(config_req_handler, taa_aml_request):
