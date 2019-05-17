@@ -22,7 +22,7 @@ def test_taa_acceptance_writes_module_static(looper, taa_aml_request, sdk_pool_h
     req = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, taa_aml_request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [req])
-    assert e.match('TAA AML request must contain at least one acceptance mechanism')
+    assert e.match('TXN_AUTHOR_AGREEMENT_AML request must contain at least one acceptance mechanism')
 
 
 def test_taa_acceptance_writes_module_dynamic(looper, taa_aml_request, sdk_pool_handle, sdk_wallet_trustee):
