@@ -5,7 +5,8 @@ from common.serializers.serialization import config_state_serializer, state_root
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
     TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, AML, AML_VERSION
+    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, AML, AML_VERSION, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP
 
 from plenum.common.types import f
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
@@ -31,6 +32,7 @@ class ConfigReqHandler(LedgerRequestHandler):
         self._bls_store = bls_store
         self._query_handlers = {}  # type: Dict[str, Callable]
         self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT, self.handle_get_txn_author_agreement)
+        self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT_AML, self.handle_get_txn_author_agreement_aml)
 
     def doStaticValidation(self, request: Request):
         identifier, req_id, operation = request.identifier, request.reqId, request.operation
@@ -230,6 +232,34 @@ class ConfigReqHandler(LedgerRequestHandler):
             head_hash = head_hash if head_hash else self.state.committedHeadHash
             data = self.state.get_for_root_hash(head_hash, self._state_path_taa_digest(digest.decode()))
 
+        if data is not None:
+            value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+            return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
+
+        return self.make_config_result(request, None, proof=proof)
+
+    def handle_get_txn_author_agreement_aml(self, request: Request):
+        version = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_AML_VERSION)
+        timestamp = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP)
+
+        if version is not None:
+            path = self._state_path_taa_aml_version(version)
+            data, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement_aml(request, proof, data=data)
+
+        if timestamp is not None:
+            head_hash = self.ts_store.get_equal_or_prev(timestamp, CONFIG_LEDGER_ID)
+            if head_hash is None:
+                return self._return_txn_author_agreement_aml(request, None)
+            path = self._state_path_taa_aml_latest()
+            data, proof = self.get_value_from_state(path, head_hash, with_proof=True)
+            return self._return_txn_author_agreement_aml(request, proof, data=data)
+
+        path = self._state_path_taa_aml_latest()
+        data, proof = self.get_value_from_state(path, with_proof=True)
+        return self._return_txn_author_agreement_aml(request, proof, data=data)
+
+    def _return_txn_author_agreement_aml(self, request, proof, data=None):
         if data is not None:
             value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
             return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
