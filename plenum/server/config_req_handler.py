@@ -40,12 +40,11 @@ class ConfigReqHandler(LedgerRequestHandler):
             parameters = [GET_TXN_AUTHOR_AGREEMENT_VERSION,
                           GET_TXN_AUTHOR_AGREEMENT_DIGEST,
                           GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP]
-            parameters = [p for p in parameters if p in operation]
-            if len(parameters) > 1:
+            num_params = sum(1 for p in parameters if p in operation)
+            if num_params > 1:
                 raise InvalidClientRequest(identifier, req_id,
-                                           "GET_TXN_AUTHOR_AGREEMENT request "
-                                           "has incorrect combination of parameters {}".
-                                           format(parameters))
+                                           "GET_TXN_AUTHOR_AGREEMENT request can have at most one of "
+                                           "the following parameters: version, digest, timestamp")
 
         elif typ == TXN_AUTHOR_AGREEMENT_AML:
             if len(operation[AML]) == 0:

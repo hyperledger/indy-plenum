@@ -85,9 +85,10 @@ def test_get_txn_author_agreement_works_on_clear_state(params, looper, txnPoolNo
 ])
 def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, txnPoolNodeSet,
                                                                       sdk_pool_handle, sdk_wallet_client):
-    with pytest.raises(RequestNackedException) as exc_info:
+    with pytest.raises(RequestNackedException) as e:
         sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)
-    assert "GET_TXN_AUTHOR_AGREEMENT request has incorrect combination of parameters" in exc_info.value.args[0]
+    assert e.match("GET_TXN_AUTHOR_AGREEMENT request can have at most one "
+                   "of the following parameters: version, digest, timestamp")
 
 
 def test_get_txn_author_agreement_returns_latest_taa_by_default(looper, setup, nodeSetWithTaa,
