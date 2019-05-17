@@ -681,8 +681,8 @@ def get_key_from_req(req: dict):
                    reqId=req[f.REQ_ID.nm],
                    operation=req[OPERATION],
                    protocolVersion=req[f.PROTOCOL_VERSION.nm],
-                   signature=req[f.SIG.nm]
-                   if req.__contains__(f.SIG.nm) else None,
+                   signature=req.get(f.SIG.nm),
+                   taaAcceptance=req.get(f.TAA_ACCEPTANCE)
                    ).key
 
 
