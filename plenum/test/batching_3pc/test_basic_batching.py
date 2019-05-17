@@ -67,7 +67,7 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     origMethods = []
     names = {node.name: 0 for node in txnPoolNodeSet}
 
-    def rejectingMethod(self, req):
+    def rejectingMethod(self, req, pp_time):
         names[self.name] += 1
         # Raise rejection for last request of batch
         if tconf.Max3PCBatchSize - names[self.name] == 0:
