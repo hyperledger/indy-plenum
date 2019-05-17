@@ -2439,9 +2439,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise LogicError("Config request handler is missed")
 
         taa = None
-        taa_data, taa_digest = config_req_handler.get_taa_data()
+        taa_data = config_req_handler.get_taa_data()
         if taa_data is not None:
-            taa, taa_seq_no, taa_txn_time = taa_data
+            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
 
         if taa is None:
             logger.trace(

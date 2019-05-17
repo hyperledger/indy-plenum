@@ -22,14 +22,6 @@ class NodeError(Exception):
     pass
 
 
-class PoolError(Exception):
-    pass
-
-
-class PoolConfigError(Exception):
-    pass
-
-
 class PortNotAvailableForNodeWebServer(NodeError):
     pass
 

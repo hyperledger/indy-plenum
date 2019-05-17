@@ -116,19 +116,19 @@ class ConfigReqHandler(LedgerRequestHandler):
     # TODO return object as result instead
     def get_taa_data(self, digest: Optional[str] = None,
                      version: Optional[str] = None,
-                     isCommitted: bool = True) -> Tuple[Optional[Dict], Optional[str]]:
+                     isCommitted: bool = True) -> Optional[Tuple[Dict, str]]:
         data = None
         if digest is None:
             digest = self.get_taa_digest(version=version, isCommitted=isCommitted)
-            if digest is not None:
-                data = self.state.get(
-                    self._state_path_taa_digest(digest),
-                    isCommitted=isCommitted
-                )
-            if data is not None:
-                data = decode_state_value(
-                    data, serializer=config_state_serializer)
-        return data, digest
+        if digest is not None:
+            data = self.state.get(
+                self._state_path_taa_digest(digest),
+                isCommitted=isCommitted
+            )
+        if data is not None:
+            data = decode_state_value(
+                data, serializer=config_state_serializer)
+        return None if data is None else (data, digest)
 
     def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \

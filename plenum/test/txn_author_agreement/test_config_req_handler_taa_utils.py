@@ -115,15 +115,15 @@ def test_get_taa_data(
 
         for version in taa_expected_data:
             expected = (
-                taa_expected_data[version] if version in written else None,
-                taa_expected_digests[version] if version in written else None
+                (taa_expected_data[version], taa_expected_digests[version])
+                if version in written else None
             )
             assert (
                 expected ==
                 config_req_handler.get_taa_data(version=version, isCommitted=False)
             )
             assert (
-                (expected[0], taa_expected_digests[version]) ==
+                expected ==
                 config_req_handler.get_taa_data(
                     digest=taa_expected_digests[version],
                     version='any-version-since-ignored',
