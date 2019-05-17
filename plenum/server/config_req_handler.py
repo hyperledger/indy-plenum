@@ -1,5 +1,5 @@
 from _sha256 import sha256
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable, Dict, Tuple
 
 from common.serializers.serialization import config_state_serializer, state_roots_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
@@ -79,7 +79,6 @@ class ConfigReqHandler(LedgerRequestHandler):
         typ = get_type(txn)
         payload = get_payload_data(txn)
         if typ == TXN_AUTHOR_AGREEMENT:
-            payload = get_payload_data(txn)
             self.update_txn_author_agreement(
                 payload[TXN_AUTHOR_AGREEMENT_TEXT],
                 payload[TXN_AUTHOR_AGREEMENT_VERSION],
@@ -102,8 +101,9 @@ class ConfigReqHandler(LedgerRequestHandler):
 
     def update_txn_author_agreement_acceptance_mechanisms(self, payload):
         version = payload[AML_VERSION]
-        self.state.set(self._state_path_taa_aml_latest(), config_state_serializer.serialize(payload))
-        self.state.set(self._state_path_taa_aml_version(version), config_state_serializer.serialize(payload))
+        payload = config_state_serializer.serialize(payload)
+        self.state.set(self._state_path_taa_aml_latest(), payload)
+        self.state.set(self._state_path_taa_aml_version(version), payload)
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:
@@ -113,25 +113,30 @@ class ConfigReqHandler(LedgerRequestHandler):
         if res is not None:
             return res.decode()
 
+    # TODO return object as result instead
     def get_taa_data(self, digest: Optional[str] = None,
                      version: Optional[str] = None,
-                     isCommitted: bool = True) -> Optional[Dict]:
+                     isCommitted: bool = True) -> Optional[Tuple[Dict, str]]:
+        data = None
         if digest is None:
             digest = self.get_taa_digest(version=version, isCommitted=isCommitted)
-            if digest is None:
-                return None
-        data = self.state.get(
-            self._state_path_taa_digest(digest),
-            isCommitted=isCommitted
-        )
-        if data is None:
-            return None
-        return decode_state_value(data, serializer=config_state_serializer)
+        if digest is not None:
+            data = self.state.get(
+                self._state_path_taa_digest(digest),
+                isCommitted=isCommitted
+            )
+        if data is not None:
+            data = decode_state_value(
+                data, serializer=config_state_serializer)
+        return None if data is None else (data, digest)
 
     def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \
             else self._state_path_taa_aml_version(version)
-        return self.state.get(path, isCommitted=isCommitted)
+        payload = self.state.get(path, isCommitted=isCommitted)
+        if payload is None:
+            return None
+        return config_state_serializer.deserialize(payload)
 
     @staticmethod
     def _state_path_taa_latest() -> bytes:

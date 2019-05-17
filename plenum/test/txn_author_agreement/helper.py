@@ -10,7 +10,11 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
     MULTI_SIGNATURE_VALUE_TIMESTAMP, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
+    TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
+from plenum.common.types import f
+from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
 from state.pruning_state import PruningState
@@ -29,6 +33,22 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str
     return sdk_get_and_check_replies(looper, [rep])[0]
 
 
+def set_txn_author_agreement(
+    looper, sdk_pool_handle, sdk_wallet, text: str, version: str
+) -> TaaData:
+    reply = sdk_send_txn_author_agreement(
+        looper, sdk_pool_handle, sdk_wallet, text, version)[1]
+
+    assert reply[OP_FIELD_NAME] == REPLY
+    result = reply[f.RESULT.nm]
+
+    return TaaData(
+        text, version,
+        seq_no=result[TXN_METADATA][TXN_METADATA_SEQ_NO],
+        txn_time=result[TXN_METADATA][TXN_METADATA_TIME]
+    )
+
+
 def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
                                  digest: Optional[str] = None,
                                  version: Optional[str] = None,
@@ -43,6 +63,28 @@ def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
     req = looper.loop.run_until_complete(build_get_txn_author_agreement_request(sdk_wallet[1], json.dumps(params)))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
+
+
+def get_txn_author_agreement(
+    looper, sdk_pool_handle, sdk_wallet,
+    digest: Optional[str] = None,
+    version: Optional[str] = None,
+    timestamp: Optional[int] = None
+) -> TaaData:
+    reply = sdk_get_txn_author_agreement(
+        looper, sdk_pool_handle, sdk_wallet,
+        digest=digest, version=version, timestamp=timestamp
+    )[1]
+
+    assert reply[OP_FIELD_NAME] == REPLY
+    result = reply[f.RESULT.nm]
+
+    return None if result[DATA] is None else TaaData(
+        text=result[DATA][TXN_AUTHOR_AGREEMENT_TEXT],
+        version=result[DATA][TXN_AUTHOR_AGREEMENT_VERSION],
+        seq_no=result[f.SEQ_NO.nm],
+        txn_time=result[TXN_TIME]
+    )
 
 
 def get_config_req_handler(node):
@@ -111,3 +153,11 @@ def expected_data(data: TaaData) -> Dict:
         TXN_AUTHOR_AGREEMENT_TEXT: data.text,
         TXN_AUTHOR_AGREEMENT_VERSION: data.version
     }, data.seq_no, data.txn_time
+
+
+def gen_random_txn_author_agreement(text_size=1024, version_size=16):
+    return randomString(text_size), randomString(version_size)
+
+
+def calc_taa_digest(text, version):
+    return ConfigReqHandler._taa_digest(text, version)

@@ -35,7 +35,7 @@ def test_create_3pc_batch(replica_with_requests, fake_requests, txn_roots, state
 
 
 def test_reqidr_ordered_regardless_validation_result(replica_with_requests, fake_requests):
-    def randomDynamicValidation(self, req):
+    def randomDynamicValidation(self, req, pp_time):
         req_keys = [fake_req.key for fake_req in fake_requests]
         if req_keys.index(req.key) % 2:
             raise InvalidClientMessageException('aaaaaaaa',
