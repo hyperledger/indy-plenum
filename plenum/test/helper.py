@@ -449,6 +449,10 @@ def assert_eq(actual, expected):
     assert actual == expected
 
 
+def assert_in(value, collection):
+    assert value in collection
+
+
 def assertFunc(func):
     assert func()
 
