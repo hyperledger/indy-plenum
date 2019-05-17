@@ -23,7 +23,7 @@ def test_send_taa_before_taa_aml(looper, sdk_pool_handle, sdk_wallet_trustee):
     assert e.match('TAA txn is forbidden until TAA AML is set. Send TAA AML first')
 
 
-def test_send_valid_txn_author_agreement_succeeds(looper, setup, txnPoolNodeSet, sdk_pool_handle,
+def test_send_valid_txn_author_agreement_succeeds(looper, setup_aml, txnPoolNodeSet, sdk_pool_handle,
                                                   sdk_wallet_trustee, sdk_wallet_client):
     text = randomString(1024)
     version = randomString(16)
@@ -37,7 +37,8 @@ def test_send_valid_txn_author_agreement_succeeds(looper, setup, txnPoolNodeSet,
     assert result[TXN_AUTHOR_AGREEMENT_VERSION] == version
 
 
-def test_send_invalid_txn_author_agreement_fails(looper, setup, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee):
+def test_send_invalid_txn_author_agreement_fails(looper, setup_aml, txnPoolNodeSet, sdk_pool_handle,
+                                                 sdk_wallet_trustee):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
                                                                             randomString(1024), randomString(16)))
     req = json.loads(req)
@@ -47,14 +48,15 @@ def test_send_invalid_txn_author_agreement_fails(looper, setup, txnPoolNodeSet, 
         sdk_get_and_check_replies(looper, [rep])
 
 
-def test_send_valid_txn_author_agreement_without_enough_privileges_fails(looper, setup, txnPoolNodeSet, sdk_pool_handle,
+def test_send_valid_txn_author_agreement_without_enough_privileges_fails(looper, setup_aml, txnPoolNodeSet,
+                                                                         sdk_pool_handle,
                                                                          sdk_wallet_steward):
     with pytest.raises(RequestRejectedException):
         sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_steward,
                                       randomString(1024), randomString(16))
 
 
-def test_send_different_txn_author_agreement_with_same_version_fails(looper, setup, txnPoolNodeSet, sdk_pool_handle,
+def test_send_different_txn_author_agreement_with_same_version_fails(looper, setup_aml, txnPoolNodeSet, sdk_pool_handle,
                                                                      sdk_wallet_trustee):
     # Send original txn
     version = randomString(16)

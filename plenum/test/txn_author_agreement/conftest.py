@@ -1,4 +1,9 @@
+import json
+
 import pytest
+from indy.ledger import build_acceptance_mechanism_request
+from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
+
 from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT
@@ -79,28 +84,24 @@ def taa_expected_digests(taa_input_data):
 
 
 @pytest.fixture(scope="function")
-def taa_aml_request(sdk_wallet_trustee):
-    return Request(identifier=sdk_wallet_trustee[1],
-                   reqId=5,
-                   protocolVersion=CURRENT_PROTOCOL_VERSION,
-                   operation={'type': TXN_AUTHOR_AGREEMENT_AML,
-                              AML_VERSION: randomString(),
-                              AML: {'Nice way': 'very good way to accept agreement'},
-                              AML_CONTEXT: randomString()})
+def taa_aml_request(looper, sdk_wallet_trustee):
+    return looper.loop.run_until_complete(build_acceptance_mechanism_request(
+        sdk_wallet_trustee[1],
+        json.dumps({
+            'Nice way': 'very good way to accept agreement'}),
+        randomString(), randomString()))
 
 
 @pytest.fixture(scope="module")
-def taa_aml_request_module(sdk_wallet_trustee):
-    return Request(identifier=sdk_wallet_trustee[1],
-                   reqId=5,
-                   protocolVersion=CURRENT_PROTOCOL_VERSION,
-                   operation={'type': TXN_AUTHOR_AGREEMENT_AML,
-                              AML_VERSION: randomString(),
-                              AML: {'Nice way': 'very good way to accept agreement'},
-                              AML_CONTEXT: randomString()})
+def taa_aml_request_module(looper, sdk_wallet_trustee, sdk_pool_handle):
+    return looper.loop.run_until_complete(build_acceptance_mechanism_request(
+        sdk_wallet_trustee[1],
+        json.dumps({
+            'Nice way': 'very good way to accept agreement'}),
+        randomString(), randomString()))
 
 
 @pytest.fixture(scope="module")
-def setup(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
-    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module)
+def setup_aml(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
+    req = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, taa_aml_request_module)
     sdk_get_and_check_replies(looper, [req])
