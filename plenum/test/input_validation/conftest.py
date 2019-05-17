@@ -1,41 +1,30 @@
 import pytest
 import hashlib
 
-from plenum.common.constants import (
-    TXN_TYPE, NYM, TARGET_NYM, VERKEY
-)
+from plenum.common.constants import TARGET_NYM
 from plenum.common.util import get_utc_epoch
 from plenum.common.messages.fields import TimestampField
 from plenum.common.types import f
-from plenum.test.input_validation.constants import TEST_TARGET_NYM
-from plenum.test.input_validation.constants import TEST_VERKEY_ABBREVIATED
+
+# TODO external fixtures imports
+from plenum.test.txn_author_agreement.conftest import (
+    random_taa, get_txn_author_agreement, aml_request_kwargs
+)
+from plenum.test.txn_author_agreement.acceptance.conftest import (
+    taa_acceptance, taa_digest, taa_acceptance_mechanism, taa_acceptance_time
+)
+from .helper import gen_nym_operation
 
 
 @pytest.fixture
 def operation():
-    return {
-        TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM,
-        VERKEY: TEST_VERKEY_ABBREVIATED
-    }
+    return gen_nym_operation()
 
 
 @pytest.fixture
-def operation_invalid():
-    return {
-        TXN_TYPE: NYM,
-        TARGET_NYM: "1",
-        VERKEY: TEST_VERKEY_ABBREVIATED
-    }
-
-
-@pytest.fixture
-def taa_acceptance():
-    return {
-        f.TAA_ACCEPTANCE_MECHANISM.nm: 'some-mechanism',
-        f.TAA_ACCEPTANCE_DIGEST.nm: hashlib.sha256(b'some-taa').hexdigest(),
-        f.TAA_ACCEPTANCE_TIME.nm: get_utc_epoch(),
-    }
+def operation_invalid(operation):
+    operation[TARGET_NYM] = "1"
+    return operation
 
 
 @pytest.fixture

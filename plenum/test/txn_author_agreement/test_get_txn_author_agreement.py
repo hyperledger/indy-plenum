@@ -23,7 +23,8 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 
 
 @pytest.fixture(scope='module')
-def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, setup_aml, looper, sdk_pool_handle, sdk_wallet_trustee):
+def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml, looper, sdk_pool_handle,
+                                   sdk_wallet_trustee):
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     # Force signing empty config state
