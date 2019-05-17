@@ -23,6 +23,6 @@ def test_ledger_requires_taa_acceptance_default(node_validator, ledger_id, requi
 
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_during_disabled_taa(
-    node_validator, validate_taa_acceptance, req
+    node_validator, req, validate_taa_acceptance
 ):
     validate_taa_acceptance(req)
