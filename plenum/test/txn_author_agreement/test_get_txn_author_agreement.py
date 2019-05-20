@@ -26,7 +26,8 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 
 
 @pytest.fixture(scope='module')
-def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml, looper, sdk_pool_handle, sdk_wallet_trustee):
+def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml, looper, sdk_pool_handle,
+                                   sdk_wallet_trustee):
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     # Force signing empty config state
@@ -102,7 +103,7 @@ def test_get_txn_author_agreement_returns_latest_taa_by_default(looper, set_txn_
     check_state_proof(result, '2:latest', DIGEST_V2)
 
 
-def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, set_txn_author_agreement_aml, nodeSetWithTaa,
+def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, nodeSetWithTaa,
                                                                  sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          version=V1)[1]
@@ -114,7 +115,7 @@ def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, set_txn
     check_state_proof(result, '2:v:{}'.format(V1), DIGEST_V1)
 
 
-def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, set_txn_author_agreement_aml, nodeSetWithTaa,
+def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, nodeSetWithTaa,
                                                                      sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          version=V2)[1]
@@ -126,7 +127,7 @@ def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, set
     check_state_proof(result, '2:v:{}'.format(V2), DIGEST_V2)
 
 
-def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_version(looper, set_txn_author_agreement_aml, nodeSetWithTaa,
+def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_version(looper, nodeSetWithTaa,
                                                                             sdk_pool_handle, sdk_wallet_client):
     invalid_version = randomString(16)
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,

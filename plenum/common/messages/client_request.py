@@ -84,7 +84,7 @@ class ClientTxnAuthorAgreementOperationAML(MessageValidator):
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_AML)),
         (AML_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT)),
         (AML, AnyMapField()),
-        (AML_CONTEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT))
+        (AML_CONTEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT, optional=True))
     )
 
 
