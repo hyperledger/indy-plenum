@@ -18,7 +18,7 @@ def test_taa_acceptance_static_validation(config_req_handler, taa_aml_request):
 
 def test_taa_acceptance_dynamic_validation(config_req_handler, taa_aml_request):
     req = json.loads(taa_aml_request)
-    config_req_handler.update_txn_author_agreement_acceptance_mechanisms(req['operation'])
+    config_req_handler.update_txn_author_agreement_acceptance_mechanisms(req['operation'], 1, 1)
     config_req_handler.authorize = lambda req: 0
     with pytest.raises(InvalidClientRequest) as e:
         config_req_handler.validate(Request(**req))
