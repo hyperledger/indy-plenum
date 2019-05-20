@@ -80,15 +80,19 @@ class ConfigReqHandler(LedgerRequestHandler):
     def updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
         payload = get_payload_data(txn)
+        seq_no = get_seq_no(txn)
+        txn_time = get_txn_time(txn)
         if typ == TXN_AUTHOR_AGREEMENT:
             self.update_txn_author_agreement(
                 payload[TXN_AUTHOR_AGREEMENT_TEXT],
                 payload[TXN_AUTHOR_AGREEMENT_VERSION],
-                get_seq_no(txn),
-                get_txn_time(txn)
+                seq_no,
+                txn_time
             )
         elif typ == TXN_AUTHOR_AGREEMENT_AML:
-            self.update_txn_author_agreement_acceptance_mechanisms(payload)
+            self.update_txn_author_agreement_acceptance_mechanisms(payload,
+                                                                   seq_no,
+                                                                   txn_time)
 
     def update_txn_author_agreement(self, text, version, seq_no, txn_time):
         digest = self._taa_digest(text, version)
@@ -101,11 +105,11 @@ class ConfigReqHandler(LedgerRequestHandler):
         self.state.set(self._state_path_taa_latest(), digest)
         self.state.set(self._state_path_taa_version(version), digest)
 
-    def update_txn_author_agreement_acceptance_mechanisms(self, payload):
+    def update_txn_author_agreement_acceptance_mechanisms(self, payload, seq_no, txn_time):
+        serialized_data = encode_state_value(payload, seq_no, txn_time, serializer=config_state_serializer)
         version = payload[AML_VERSION]
-        payload = config_state_serializer.serialize(payload)
-        self.state.set(self._state_path_taa_aml_latest(), payload)
-        self.state.set(self._state_path_taa_aml_version(version), payload)
+        self.state.set(self._state_path_taa_aml_latest(), serialized_data)
+        self.state.set(self._state_path_taa_aml_version(version), serialized_data)
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:

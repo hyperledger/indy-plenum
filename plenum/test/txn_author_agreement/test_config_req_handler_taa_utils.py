@@ -2,6 +2,7 @@ from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import AML_VERSION, AML, AML_CONTEXT
 
 from plenum.server.config_req_handler import ConfigReqHandler
+from plenum.server.request_handlers.utils import VALUE, encode_state_value, LAST_SEQ_NO, LAST_UPDATE_TIME
 from plenum.test.txn_author_agreement.helper import get_config_req_handler
 
 
@@ -143,8 +144,7 @@ def test_get_taa_data(
 
 def test_update_taa_aml(
         config_req_handler: ConfigReqHandler, taa_aml_input_data,
-        taa_aml_expected_state_data, taa_aml_expected_data
-):
+        taa_aml_expected_state_data, taa_aml_expected_data):
     """ `update_txn_author_agreement` updates state properly """
     state = config_req_handler.state
     written = []
@@ -158,18 +158,25 @@ def test_update_taa_aml(
         )
 
         if version in written:
-            assert (_data == expected_data)
+            assert (config_state_serializer.deserialize(_data)[VALUE] ==
+                    config_state_serializer.deserialize(expected_data))
         else:
             assert _data is None
 
     for data in taa_aml_input_data:
         config_req_handler.update_txn_author_agreement_acceptance_mechanisms(
-            {AML_VERSION: data.version, AML: data.aml, AML_CONTEXT: data.amlContext})
+            {AML_VERSION: data.version, AML: data.aml, AML_CONTEXT: data.amlContext}, data.seq_no, data.txn_time)
         written.append(data.version)
 
-        assert config_state_serializer.deserialize(state.get(
+        data_d = data._asdict()
+        assert state.get(
             ConfigReqHandler._state_path_taa_aml_latest(),
-            isCommitted=False)) == data._asdict()
+            isCommitted=False) == encode_state_value({AML_CONTEXT: data_d[AML_CONTEXT],
+                                                      AML: data_d[AML],
+                                                      AML_VERSION: data_d[AML_VERSION]
+                                                      },
+                                                     data_d['seq_no'],
+                                                     data_d['txn_time'])
 
         for version in taa_aml_expected_state_data:
             _check_state(version)

@@ -27,6 +27,7 @@ from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHan
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.request_handlers.utils import VALUE
 from plenum.server.view_change.node_view_changer import create_view_changer
 from state.pruning_state import PruningState
 from state.state import State
@@ -2501,7 +2502,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise TaaAmlNotSetError(
                 "Txn Author Agreement acceptance mechanism list is not defined"
             )  # TODO test
-        taa_aml = taa_aml_data[AML]
+        taa_aml = taa_aml_data[VALUE][AML]
 
         r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
         if r_taa_a_mech not in taa_aml:
