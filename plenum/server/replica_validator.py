@@ -16,7 +16,7 @@ class ReplicaValidator:
     def __init__(self, replica) -> None:
         self.replica = replica
         # TODO: Make some generic throttling mechanism?
-        self._last_create_3pc_skip_timestamp = None
+        self._skip_send_3pc_ts = None
 
     @property
     def view_no(self):
