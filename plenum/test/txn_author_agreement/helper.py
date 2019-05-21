@@ -10,7 +10,7 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
     MULTI_SIGNATURE_VALUE_TIMESTAMP, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    AML_VERSION, AML, AML_CONTEXT, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
     TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
 from plenum.common.types import f
@@ -26,6 +26,12 @@ TaaData = NamedTuple("TaaData", [
     ("txn_time", int)
 ])
 
+TaaAmlData = NamedTuple("TaaAmlData", [
+    ("version", str),
+    ("aml", dict),
+    ("amlContext", str)
+])
+
 
 def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
@@ -34,7 +40,7 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str
 
 
 def set_txn_author_agreement(
-    looper, sdk_pool_handle, sdk_wallet, text: str, version: str
+        looper, sdk_pool_handle, sdk_wallet, text: str, version: str
 ) -> TaaData:
     reply = sdk_send_txn_author_agreement(
         looper, sdk_pool_handle, sdk_wallet, text, version)[1]
@@ -66,10 +72,10 @@ def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
 
 
 def get_txn_author_agreement(
-    looper, sdk_pool_handle, sdk_wallet,
-    digest: Optional[str] = None,
-    version: Optional[str] = None,
-    timestamp: Optional[int] = None
+        looper, sdk_pool_handle, sdk_wallet,
+        digest: Optional[str] = None,
+        version: Optional[str] = None,
+        timestamp: Optional[int] = None
 ) -> TaaData:
     reply = sdk_get_txn_author_agreement(
         looper, sdk_pool_handle, sdk_wallet,
@@ -148,11 +154,19 @@ def expected_state_data(data: TaaData) -> Dict:
     }
 
 
-def expected_data(data: TaaData) -> Dict:
+def expected_data(data: TaaData):
     return {
-        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-        TXN_AUTHOR_AGREEMENT_VERSION: data.version
-    }, data.seq_no, data.txn_time
+               TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+               TXN_AUTHOR_AGREEMENT_VERSION: data.version
+           }, data.seq_no, data.txn_time
+
+
+def expected_aml_data(data: TaaAmlData):
+    return {
+        AML_VERSION: data.version,
+        AML: data.aml,
+        AML_CONTEXT: data.amlContext
+    }
 
 
 def gen_random_txn_author_agreement(text_size=1024, version_size=16):

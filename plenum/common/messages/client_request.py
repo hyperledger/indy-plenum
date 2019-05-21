@@ -73,7 +73,8 @@ class ClientGetTxnOperation(MessageValidator):
 class ClientTxnAuthorAgreementOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT)),
-        (TXN_AUTHOR_AGREEMENT_TEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT)),
+        (TXN_AUTHOR_AGREEMENT_TEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT,
+                                                             can_be_empty=True)),
         (TXN_AUTHOR_AGREEMENT_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT))
     )
 
@@ -83,7 +84,7 @@ class ClientTxnAuthorAgreementOperationAML(MessageValidator):
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_AML)),
         (AML_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT)),
         (AML, AnyMapField()),
-        (AML_CONTEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT))
+        (AML_CONTEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT, optional=True))
     )
 
 
