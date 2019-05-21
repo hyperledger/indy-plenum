@@ -12,12 +12,12 @@ from plenum.test.txn_author_agreement.helper import calc_taa_digest
 # make tests stricter
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_lower = tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
+    old_lower = tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
     old_upper = tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
-    tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME = 1
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME = 1
     tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME = 1
     yield tconf
-    tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME = old_lower
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME = old_lower
     tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME = old_upper
 
 
@@ -110,7 +110,7 @@ def test_taa_acceptance_time_near_lower_threshold(
         randint(0, tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME)
     )
 
-    lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
+    lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
     upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
 
     patch_pp_time(txnPoolNodeSet, monkeypatch, pp_time)
@@ -145,7 +145,7 @@ def test_taa_acceptance_time_near_upper_threshold(
         randint(0, tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME)
     )
 
-    lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
+    lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
     upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
 
     patch_pp_time(txnPoolNodeSet, monkeypatch, pp_time)
