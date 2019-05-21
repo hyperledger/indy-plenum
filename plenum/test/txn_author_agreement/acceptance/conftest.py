@@ -3,10 +3,6 @@ from enum import Enum
 import pytest
 
 from plenum.common.types import f
-from plenum.config import (
-    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME,
-    TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
-)
 from plenum.common.constants import AML
 from plenum.common.util import get_utc_epoch
 from plenum.common.request import SafeRequest
@@ -15,13 +11,16 @@ from plenum.common.exceptions import (
 )
 
 from plenum.test.helper import sdk_send_and_check
-from plenum.test.input_validation.helper import (
-    gen_nym_operation, gen_node_operation
-)
-from ..helper import calc_taa_digest
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from .helper import (
-    gen_signed_request_obj, gen_signed_request_json
+    build_nym_request, build_node_request,
+    add_taa_acceptance, sign_request_dict
 )
+
+
+class RequestType(Enum):
+    Domain = 0
+    Pool = 1
 
 
 class ValidationType(Enum):
@@ -30,13 +29,17 @@ class ValidationType(Enum):
 
 
 @pytest.fixture(scope='module')
-def activate_taa(sdk_wallet_new_steward, activate_taa):
-    return activate_taa
+def activate_taa(
+    set_txn_author_agreement_aml, set_txn_author_agreement,
+    sdk_wallet_trustee, sdk_wallet_new_steward, sdk_wallet_client
+):
+    return set_txn_author_agreement()
 
 
+# TODO activated_taa
 @pytest.fixture(scope='module')
-def latest_taa(activate_taa):
-    return activate_taa
+def latest_taa(get_txn_author_agreement):
+    return get_txn_author_agreement()
 
 
 @pytest.fixture(scope="module")
@@ -46,26 +49,63 @@ def node_validator(txnPoolNodeSet):
 
 @pytest.fixture(scope='module')
 def validate_taa_acceptance_func_api(node_validator):
-    def wrapped(signed_req_obj, pp_time=None):
+    def wrapped(signed_req_dict):
+        signed_req_obj = SafeRequest(**signed_req_dict)
         node_validator.validateTaaAcceptance(
-            signed_req_obj, get_utc_epoch() if pp_time is None else pp_time
+            signed_req_obj,
+            node_validator.master_replica.get_time_for_3pc_batch()
         )
     return wrapped
 
 
 @pytest.fixture(scope='module')
 def validate_taa_acceptance_txn_api(looper, txnPoolNodeSet, sdk_pool_handle):
-    def wrapped(monkeypatch, signed_req_json, pp_time=None):
-        # TODO get_current_time patching ???
-        if pp_time is not None:
-            for node in txnPoolNodeSet:
-                for replica in node.replicas.values():
-                    monkeypatch.setattr(replica, 'get_time_for_3pc_batch', lambda: pp_time)
+    def wrapped(signed_req_dict):
+        signed_req_json = json.dumps(signed_req_dict)
         sdk_send_and_check([signed_req_json], looper, txnPoolNodeSet, sdk_pool_handle)[0]
-        # TODO monkeypatch.undo undos all patches, it might inappropriate for some cases
-        if pp_time is not None:
-            monkeypatch.undo()
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     return wrapped
+
+
+# parametrization spec for tests
+def pytest_generate_tests(metafunc):
+    if 'request_type' in metafunc.fixturenames:
+        # TODO in more recent versions of pytest it might be better done
+        # using markers from metafunc.definition
+        request_types = (
+            RequestType if 'all_request_types' in metafunc.fixturenames else
+            [RequestType.Domain]
+        )
+        metafunc.parametrize(
+            'request_type', request_types, ids=lambda x: x.name
+        )
+
+
+@pytest.fixture
+def all_request_types(request_type):
+    return request_type
+
+
+# disable auto generated freshness batches to have more control
+# over PP times in replicas
+# Note. there might be also one more kind of generated batches:
+#   - batch with Audit ledger txn after a view change
+@pytest.fixture
+def turn_off_freshness_state_update(txnPoolNodeSet, monkeypatch):
+    for node in txnPoolNodeSet:
+        for replica in node.replicas.values():
+            monkeypatch.setattr(replica.config, 'UPDATE_STATE_FRESHNESS', False)
+
+
+@pytest.fixture
+def max_last_accepted_pre_prepare_time(looper, txnPoolNodeSet):
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    pp_times = []
+    for node in txnPoolNodeSet:
+        for replica in node.replicas.values():
+            if replica.last_accepted_pre_prepare_time:
+                pp_times.append(replica.last_accepted_pre_prepare_time)
+    return max(pp_times)
 
 
 @pytest.fixture(params=ValidationType, ids=lambda x: x.name)
@@ -83,118 +123,98 @@ def validation_error(validation_type):
 
 @pytest.fixture
 def validate_taa_acceptance(
+    looper,
+    sdk_wallet_new_steward,
     validate_taa_acceptance_func_api,
     validate_taa_acceptance_txn_api,
     validation_type,
-    monkeypatch
 ):
-    def wrapped(*args, **kwargs):
-        if validation_type == ValidationType.FuncApi:
-            validate_taa_acceptance_func_api(*args, **kwargs)
-        else:
-            assert validation_type == ValidationType.TxnApi
-            validate_taa_acceptance_txn_api(monkeypatch, *args, **kwargs)
+    def wrapped(req_dict):
+        req_dict = sign_request_dict(looper, sdk_wallet_new_steward, req_dict)
+        {
+            ValidationType.FuncApi: validate_taa_acceptance_func_api,
+            ValidationType.TxnApi: validate_taa_acceptance_txn_api
+        }[validation_type](req_dict)
 
     return wrapped
 
 
 @pytest.fixture
-def taa_digest(random_taa, get_txn_author_agreement):
-    current_taa = get_txn_author_agreement()
-    text, version = (
-        random_taa if current_taa is None else
-        (current_taa.text, current_taa.version)
-    )
-    return calc_taa_digest(text, version)
-
-
-@pytest.fixture(scope="module")
-def taa_acceptance_mechanism(aml_request_kwargs):
-    return list(aml_request_kwargs['operation'][AML].items())[0][0]
-
-
-@pytest.fixture
-def taa_acceptance_time():
-    return get_utc_epoch()
-
-
-@pytest.fixture
-def taa_acceptance(request, taa_digest, taa_acceptance_mechanism, taa_acceptance_time):
-    digest_marker = request.node.get_marker('taa_acceptance_digest')
-    mech_marker = request.node.get_marker('taa_acceptance_mechanism')
-    time_marker = request.node.get_marker('taa_acceptance_time')
-    return {
-        f.TAA_ACCEPTANCE_DIGEST.nm:
-            digest_marker.args[0] if digest_marker else taa_digest,
-        f.TAA_ACCEPTANCE_MECHANISM.nm:
-            mech_marker.args[0] if mech_marker else taa_acceptance_mechanism,
-        f.TAA_ACCEPTANCE_TIME.nm:
-            time_marker.args[0] if time_marker else taa_acceptance_time,
-    }
-
-
-@pytest.fixture
-def domain_operation():
-    return gen_nym_operation()
-
-
-@pytest.fixture
-def pool_operation():
-    return gen_node_operation()
-
-
-@pytest.fixture(
-    params=['pool_op', 'domain_op']
-)
-def operation(request, domain_operation, pool_operation):
-    return {
-        'pool_op': pool_operation,
-        'domain_op': domain_operation
-    }[request.param]
-
-
-@pytest.fixture
-def gen_signed_request(looper, validation_type):
-    generator = {
-        ValidationType.FuncApi: gen_signed_request_obj,
-        ValidationType.TxnApi: gen_signed_request_json,
-    }
-
-    def wrapped(sdk_wallet, operation, taa_acceptance):
-        return generator[validation_type](
-            looper, sdk_wallet, operation, taa_acceptance=taa_acceptance
+def taa_accepted(request, random_taa, get_txn_author_agreement):
+    marker = request.node.get_marker('taa_accepted')
+    if marker:
+        return marker.args[0]
+    else:
+        current_taa = get_txn_author_agreement()
+        return (
+            (None, None) if current_taa is None else
+            (current_taa.text, current_taa.version)
         )
 
-    return wrapped
+
+@pytest.fixture
+def taa_acceptance_mechanism(request, aml_request_kwargs):
+    marker = request.node.get_marker('taa_acceptance_mechanism')
+    if marker:
+        return marker.args[0]
+    else:
+        return list(aml_request_kwargs['operation'][AML].items())[0][0]
 
 
 @pytest.fixture
-def signed_domain_req(
-    request, gen_signed_request, looper,
-    sdk_wallet_new_steward, domain_operation, taa_acceptance
+def taa_acceptance_time(request):
+    marker = request.node.get_marker('taa_acceptance_time')
+    if marker:
+        return marker.args[0]
+    else:
+        return get_utc_epoch()
+
+
+@pytest.fixture
+def taa_acceptance(
+    request, taa_accepted, taa_acceptance_mechanism, taa_acceptance_time
 ):
-    if request.node.get_marker('taa_acceptance_missed'):
-        taa_acceptance = None
-    return gen_signed_request(
-        sdk_wallet_new_steward, domain_operation, taa_acceptance
-    )
-
-
-@pytest.fixture
-def signed_req(
-    request, gen_signed_request, looper,
-    sdk_wallet_new_steward, operation, taa_acceptance
-):
-    if request.node.get_marker('taa_acceptance_missed'):
-        taa_acceptance = None
-    return gen_signed_request(
-        sdk_wallet_new_steward, operation, taa_acceptance
-    )
-
-
-@pytest.fixture
-def req_obj(signed_req, validation_type):
     return {
-        ValidationType.FuncApi: lambda: signed_req,
-        ValidationType.TxnApi: lambda: SafeRequest(**json.loads(signed_req)),
-    }[validation_type]()
+        f.TAA_TEXT.nm: taa_accepted[0],
+        f.TAA_VERSION.nm: taa_accepted[1],
+        f.TAA_ACCEPTANCE_MECHANISM.nm: taa_acceptance_mechanism,
+        f.TAA_ACCEPTANCE_TIME.nm: taa_acceptance_time,
+    }
+
+
+@pytest.fixture
+def domain_request_json(looper, sdk_wallet_new_steward):
+    return build_nym_request(looper, sdk_wallet_new_steward)
+
+
+@pytest.fixture
+def pool_request_json(looper, tconf, tdir, sdk_wallet_new_steward):
+    return build_node_request(looper, tconf, tdir, sdk_wallet_new_steward)
+
+
+@pytest.fixture
+def request_dict(
+    request,
+    looper,
+    request_type,
+    domain_request_json,
+    pool_request_json,
+    taa_accepted,
+    taa_acceptance_mechanism,
+    taa_acceptance_time
+):
+    request_json = {
+        RequestType.Domain: domain_request_json,
+        RequestType.Pool: pool_request_json
+    }[request_type]
+
+    if not request.node.get_marker('taa_acceptance_missed'):
+        request_json = add_taa_acceptance(
+            looper,
+            request_json,
+            taa_accepted[0],
+            taa_accepted[1],
+            taa_acceptance_mechanism,
+            taa_acceptance_time
+        )
+    return dict(**json.loads(request_json))

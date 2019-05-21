@@ -131,14 +131,6 @@ def get_txn_author_agreement(
     return wrapped
 
 
-@pytest.fixture(scope='module')
-def activate_taa(
-    set_txn_author_agreement_aml, set_txn_author_agreement,
-    sdk_wallet_trustee, sdk_wallet_client
-):
-    return set_txn_author_agreement()
-
-
 @pytest.fixture
 def random_taa(request):
     marker = request.node.get_marker('random_taa')

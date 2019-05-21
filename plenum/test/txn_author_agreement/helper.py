@@ -159,5 +159,6 @@ def gen_random_txn_author_agreement(text_size=1024, version_size=16):
     return randomString(text_size), randomString(version_size)
 
 
+# TODO might make sense to use sdk's api
 def calc_taa_digest(text, version):
     return ConfigReqHandler._taa_digest(text, version)

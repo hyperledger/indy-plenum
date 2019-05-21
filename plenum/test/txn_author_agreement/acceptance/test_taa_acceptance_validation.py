@@ -1,7 +1,8 @@
 import pytest
+from random import randint
 
 from plenum.common.types import f
-from plenum.common.util import get_utc_epoch
+from plenum.common.request import Request
 
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
@@ -11,11 +12,24 @@ def activate_taa(activate_taa):
     return activate_taa
 
 
+def patch_pp_time(txnPoolNodeSet, monkeypatch, pp_time):
+    for node in txnPoolNodeSet:
+        for replica in node.replicas.values():
+            monkeypatch.setattr(replica, 'get_time_for_3pc_batch', lambda: pp_time)
+
+
+def patch_now(txnPoolNodeSet, monkeypatch, now):
+    for node in txnPoolNodeSet:
+        monkeypatch.setattr(node, 'utc_epoch', lambda *x, **y: now)
+
+
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_during_enabled_taa(
-    node_validator, signed_req, validate_taa_acceptance, validation_error, req_obj
+    node_validator, validate_taa_acceptance, validation_error,
+    all_request_types, request_dict
 ):
-    ledger_id = node_validator.ledger_id_for_request(req_obj)
+    ledger_id = node_validator.ledger_id_for_request(
+        Request(**request_dict))
 
     if node_validator.ledgerManager.ledgerRegistry[ledger_id].taa_acceptance_required:
         with pytest.raises(
@@ -23,32 +37,38 @@ def test_taa_acceptance_missed_during_enabled_taa(
             match=("Txn Author Agreement acceptance is required for ledger with id {}"
                    .format(ledger_id))
         ):
-            validate_taa_acceptance(signed_req)
+            validate_taa_acceptance(request_dict)
     else:
-        validate_taa_acceptance(signed_req)
+        validate_taa_acceptance(request_dict)
 
 
-@pytest.mark.taa_acceptance_digest(calc_taa_digest('some-taa', 'some-taa-version'))
+@pytest.mark.taa_accepted(('some-taa', 'some-taa-version'))
 def test_taa_acceptance_digest_non_latest(
-    validate_taa_acceptance, validation_error, signed_domain_req, latest_taa
+    validate_taa_acceptance, validation_error, request_dict, latest_taa
 ):
+    taa_digest = request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_DIGEST.nm]
+    assert (
+        calc_taa_digest('some-taa', 'some-taa-version') ==
+        taa_digest
+    )
+
     with pytest.raises(
         validation_error,
         match=(
             "Txn Author Agreement acceptance digest is invalid or non-latest:"
             " provided {}, expected {}"
             .format(
-                calc_taa_digest('some-taa', 'some-taa-version'),
+                taa_digest,
                 calc_taa_digest(latest_taa.text, latest_taa.version)
             )
         )
     ):
-        validate_taa_acceptance(signed_domain_req)
+        validate_taa_acceptance(request_dict)
 
 
 @pytest.mark.taa_acceptance_mechanism('some-unknown-mech')
 def test_taa_acceptance_mechanism_inappropriate(
-    validate_taa_acceptance, validation_error, signed_domain_req
+    validate_taa_acceptance, validation_error, request_dict
 ):
     with pytest.raises(
         validation_error,
@@ -58,67 +78,75 @@ def test_taa_acceptance_mechanism_inappropriate(
             .format('some-unknown-mech')
         )  # TODO more strict error
     ):
-        validate_taa_acceptance(signed_domain_req)
+        validate_taa_acceptance(request_dict)
 
 
 def test_taa_acceptance_time_near_lower_threshold(
-    tconf, validate_taa_acceptance, validation_error, signed_domain_req, latest_taa
+    tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
+    turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
+    request_dict, latest_taa, monkeypatch
 ):
     taa_ts = latest_taa.txn_time
-    pp_time = get_utc_epoch() - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
+    pp_time = max_last_accepted_pre_prepare_time + randint(0, 100)
 
     lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
     upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
 
-    signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold
-    validate_taa_acceptance(signed_domain_req, pp_time)
+    patch_pp_time(txnPoolNodeSet, monkeypatch, pp_time)
 
-    signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold - 1
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold
+    validate_taa_acceptance(request_dict)
+
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold - 1
     with pytest.raises(
         validation_error,
         match=(
             r"Txn Author Agreement acceptance time is inappropriate:"
             " provided {}, expected in \[{}, {}\]"
             .format(
-                signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm],
+                request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm],
                 lower_threshold,
                 upper_threshold
             )
         )
     ):
-        validate_taa_acceptance(signed_domain_req, pp_time)
+        validate_taa_acceptance(request_dict)
 
 
 def test_taa_acceptance_time_near_upper_threshold(
-    tconf, validate_taa_acceptance, validation_error, signed_domain_req, latest_taa
+    tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
+    turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
+    request_dict, latest_taa, monkeypatch
 ):
     taa_ts = latest_taa.txn_time
-    pp_time = get_utc_epoch() - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
+    pp_time = max_last_accepted_pre_prepare_time + randint(0, 100)
 
     lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
     upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
 
-    signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold
-    validate_taa_acceptance(signed_domain_req, pp_time)
+    patch_pp_time(txnPoolNodeSet, monkeypatch, pp_time)
+    patch_now(txnPoolNodeSet, monkeypatch, now=upper_threshold)
 
-    signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold + 1
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold
+    validate_taa_acceptance(request_dict)
+
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold + 1
     with pytest.raises(
         validation_error,
         match=(
             r"Txn Author Agreement acceptance time is inappropriate:"
             " provided {}, expected in \[{}, {}\]"
             .format(
-                signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm],
+                request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm],
                 lower_threshold,
                 upper_threshold
             )
         )
-    ):  # TODO more strict error
-        validate_taa_acceptance(signed_domain_req, pp_time)
+    ):
+        validate_taa_acceptance(request_dict)
 
 
 def test_taa_acceptance_valid(
-    tconf, validate_taa_acceptance, validation_error, signed_domain_req
+    tconf, validate_taa_acceptance, validation_error, request_dict
 ):
-    pp_time = signed_domain_req.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm] - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME + 1
-    validate_taa_acceptance(signed_domain_req, pp_time)
+    validate_taa_acceptance(request_dict)

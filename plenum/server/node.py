@@ -1795,11 +1795,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Accessing Replica directly should be prohibited
         return self.replicas._master_replica
 
-    # TODO test
-    @property
-    def now(self):
-        return self.master_replica.get_time_for_3pc_batch()
-
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
         Return true if the instance id of message corresponds to a correct
