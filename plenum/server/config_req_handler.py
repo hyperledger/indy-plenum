@@ -255,8 +255,11 @@ class ConfigReqHandler(LedgerRequestHandler):
             head_hash = self.ts_store.get_equal_or_prev(timestamp, CONFIG_LEDGER_ID)
             if head_hash is None:
                 return self._return_txn_author_agreement_aml(request, None)
-            path = self._state_path_taa_aml_latest()
-            data, proof = self.get_value_from_state(path, head_hash, with_proof=True)
+            head_hash = head_hash if head_hash else self.state.committedHeadHash
+
+            _, proof = self.get_value_from_state(self._state_path_taa_aml_latest(), head_hash, with_proof=True)
+            data = self.state.get_for_root_hash(head_hash, self._state_path_taa_aml_latest())
+
             return self._return_txn_author_agreement_aml(request, proof, data=data)
 
         path = self._state_path_taa_aml_latest()
