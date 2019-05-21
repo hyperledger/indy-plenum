@@ -173,9 +173,9 @@ def expected_state_data(data: TaaData) -> Dict:
 
 def expected_data(data: TaaData):
     return {
-               TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-               TXN_AUTHOR_AGREEMENT_VERSION: data.version
-           }, data.seq_no, data.txn_time
+        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+    }, data.seq_no, data.txn_time
 
 
 def expected_aml_data(data: TaaAmlData):
@@ -190,5 +190,6 @@ def gen_random_txn_author_agreement(text_size=1024, version_size=16):
     return randomString(text_size), randomString(version_size)
 
 
+# TODO might make sense to use sdk's api
 def calc_taa_digest(text, version):
     return ConfigReqHandler._taa_digest(text, version)

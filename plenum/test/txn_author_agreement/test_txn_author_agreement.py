@@ -24,18 +24,11 @@ def test_send_valid_txn_author_agreement_before_aml_fails(set_txn_author_agreeme
         set_txn_author_agreement()
 
 
-def test_send_valid_txn_author_agreement_succeeds(looper, set_txn_author_agreement_aml, txnPoolNodeSet, sdk_pool_handle,
-                                                  sdk_wallet_trustee, sdk_wallet_client):
-    text = randomString(1024)
-    version = randomString(16)
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
-
-
 def test_send_valid_txn_author_agreement_succeeds(
         set_txn_author_agreement_aml, set_txn_author_agreement, get_txn_author_agreement
 ):
-    # TODO actually it might be better to use direct requests
-    # to nodes' states as it was before
+    # TODO it might make sense to check that update_txn_author_agreement
+    # was called with expected set of arguments
     assert set_txn_author_agreement() == get_txn_author_agreement()
 
 
