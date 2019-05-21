@@ -2518,15 +2518,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise TaaAmlNotSetError(
                 "Txn Author Agreement acceptance mechanism list is not defined"
             )
-        taa_aml = taa_aml_data[AML]
 
+        taa_aml = taa_aml_data[AML]
         r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
         if r_taa_a_mech not in taa_aml:
-            # TODO think about providing actual list inside reject message
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}".format(r_taa_a_mech)
+                " provided {}, expected one of {}"
+                .format(r_taa_a_mech, sorted(taa_aml))
             )
 
         logger.trace(

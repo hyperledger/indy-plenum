@@ -4,6 +4,7 @@ from random import randint
 
 from plenum.common.types import f
 from plenum.common.request import Request
+from plenum.common.constants import AML
 
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
@@ -81,13 +82,18 @@ def test_taa_acceptance_digest_non_latest(
 
 @pytest.mark.taa_acceptance_mechanism('some-unknown-mech')
 def test_taa_acceptance_mechanism_inappropriate(
-    validate_taa_acceptance, validation_error, request_dict
+    validate_taa_acceptance, validation_error, request_dict,
+    aml_request_kwargs
 ):
     with pytest.raises(
         validation_error,
         match=(
-            "Txn Author Agreement acceptance mechanism is inappropriate:"
-            " provided {}".format('some-unknown-mech')
+            r"Txn Author Agreement acceptance mechanism is inappropriate:"
+            " provided {}, expected one of {}"
+            .format(
+                'some-unknown-mech',
+                sorted(aml_request_kwargs['operation'][AML])
+            ).replace('[', '\[').replace(']', '\]')
         )
     ):
         validate_taa_acceptance(request_dict)

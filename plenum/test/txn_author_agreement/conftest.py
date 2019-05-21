@@ -63,7 +63,10 @@ def aml_request_kwargs(sdk_wallet_trustee):
         operation={
             'type': TXN_AUTHOR_AGREEMENT_AML,
             AML_VERSION: randomString(),
-            AML: {'Nice way': 'very good way to accept agreement'},
+            AML: {
+                'Nice way': 'very good way to accept agreement',
+                'Nicer way': 'the best way to accept agreement',
+            },
             AML_CONTEXT: randomString()
         }
     )
