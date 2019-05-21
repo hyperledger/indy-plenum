@@ -62,17 +62,6 @@ def config_req_handler(config_state,
                             bls_store=FakeSomething())
 
 
-@pytest.fixture(scope="module")
-def nodeSetWithOneNodeResponding(txnPoolNodeSet):
-    # the order of nodes the client sends requests to is [Alpha, Beta, Gamma, Delta]
-    # delay all requests to Beta, Gamma and Delta
-    # we expect that it's sufficient for the client to get Reply from Alpha only
-    # as for write requests, we can send it to 1 node only, and it will be propagated to others
-    for node in txnPoolNodeSet[1:]:
-        node.clientIbStasher.delay(req_delay())
-    return txnPoolNodeSet
-
-
 # TODO use sdk's build_acceptance_mechanism_request instead
 @pytest.fixture(scope='module')
 def aml_request_kwargs(sdk_wallet_trustee):

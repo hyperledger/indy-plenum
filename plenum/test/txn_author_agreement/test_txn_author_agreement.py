@@ -39,6 +39,12 @@ def test_send_valid_txn_author_agreement_succeeds(
     assert set_txn_author_agreement() == get_txn_author_agreement()
 
 
+def test_send_empty_txn_author_agreement_succeeds(
+    set_txn_author_agreement_aml, set_txn_author_agreement, get_txn_author_agreement
+):
+    assert set_txn_author_agreement(text="") == get_txn_author_agreement()
+
+
 def test_send_invalid_txn_author_agreement_fails(
         looper, set_txn_author_agreement_aml, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee, random_taa
 ):

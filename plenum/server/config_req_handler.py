@@ -38,10 +38,21 @@ class ConfigReqHandler(LedgerRequestHandler):
         identifier, req_id, operation = request.identifier, request.reqId, request.operation
         typ = operation.get(TXN_TYPE)
 
-        if typ == TXN_AUTHOR_AGREEMENT_AML:
+        if typ == GET_TXN_AUTHOR_AGREEMENT:
+            parameters = [GET_TXN_AUTHOR_AGREEMENT_VERSION,
+                          GET_TXN_AUTHOR_AGREEMENT_DIGEST,
+                          GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP]
+            num_params = sum(1 for p in parameters if p in operation)
+            if num_params > 1:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "GET_TXN_AUTHOR_AGREEMENT request can have at most one of "
+                                           "the following parameters: version, digest, timestamp")
+
+        elif typ == TXN_AUTHOR_AGREEMENT_AML:
             if len(operation[AML]) == 0:
                 raise InvalidClientRequest(identifier, req_id,
-                                           "TAA AML request must contain at least one acceptance mechanism")
+                                           "TXN_AUTHOR_AGREEMENT_AML request "
+                                           "must contain at least one acceptance mechanism")
 
     def get_query_response(self, request: Request):
         return self._query_handlers[request.operation.get(TXN_TYPE)](request)

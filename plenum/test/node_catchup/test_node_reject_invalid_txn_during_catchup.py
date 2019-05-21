@@ -2,90 +2,72 @@ import pytest
 import types
 
 from plenum.common.txn_util import get_type, set_type
-from plenum.common.util import randomString
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.delayers import lsDelay, delay_3pc
+from plenum.test.helper import sdk_send_random_and_check, assert_in
 
 from plenum.common.ledger import Ledger
-from plenum.test.conftest import getValueFromModule
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh
+from plenum.test.stasher import delay_rules, delay_rules_without_processing
 from stp_core.common.log import getlogger
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.node_messages import CatchupReq, CatchupRep
 from plenum.common.types import f
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
-from plenum.test import waits
+from plenum.test.test_node import getNonPrimaryReplicas
 
-# Do not remove the next import
-from plenum.test.node_catchup.conftest import whitelist
+from stp_core.loop.eventually import eventually
 
 logger = getlogger()
 
-txnCount = 10
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old = tconf.CATCHUP_BATCH_SIZE
+    tconf.CATCHUP_BATCH_SIZE = 1  # To make sure all nodes receive catchup requests
+    yield tconf
+    tconf.CATCHUP_BATCH_SIZE = old
 
 
-def testNodeRejectingInvalidTxns(looper, sdk_pool_handle, sdk_wallet_client,
-                                 tconf, tdir, txnPoolNodeSet, patched_node,
-                                 request,
-                                 sdk_wallet_steward, testNodeClass, allPluginsPath,
-                                 do_post_node_creation):
+def test_node_reject_invalid_txn_during_catchup(looper, sdk_pool_handle, sdk_wallet_client,
+                                                tconf, tdir, txnPoolNodeSet,
+                                                bad_node, lagging_node):
     """
-    A newly joined node is catching up and sends catchup requests to other
-    nodes but one of the nodes replies with incorrect transactions. The newly
-    joined node detects that and rejects the transactions and thus blacklists
-    the node. Ii thus cannot complete the process till the timeout and then
-    requests the missing transactions.
+    Make sure that catching up node will blacklist nodes which send incorrect catchup replies
     """
-    txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
-                              txnCount)
-    new_steward_name = randomString()
-    new_node_name = "Epsilon"
-    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
-        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
-        allPluginsPath=allPluginsPath, autoStart=True,
-        do_post_node_creation=do_post_node_creation)
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    normal_nodes = [node for node in txnPoolNodeSet
+                    if node not in [bad_node, lagging_node]]
+    normal_stashers = [node.nodeIbStasher for node in normal_nodes]
 
-    bad_node = patched_node
+    with delay_rules_without_processing(lagging_node.nodeIbStasher, delay_3pc()):
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
-    do_not_tell_clients_about_newly_joined_node(txnPoolNodeSet)
+        # Perform catchup, while making sure that cons proof from bad node is received
+        # before cons proofs from normal nodes, so bad node can participate in catchup
+        with delay_rules(normal_stashers, lsDelay()):
+            lagging_node.start_catchup()
 
-    logger.debug('Catchup request processor of {} patched'.format(bad_node))
+            node_leecher = lagging_node.ledgerManager._node_leecher
+            audit_cons_proof_service = node_leecher._leechers[AUDIT_LEDGER_ID]._cons_proof_service
+            looper.run(eventually(lambda: assert_in(bad_node.name, audit_cons_proof_service._cons_proofs)))
 
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-
-    # catchup #1 -> CatchupTransactionsTimeout -> catchup #2
-    catchup_timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet) + 1)
-    timeout = 2 * catchup_timeout + tconf.CatchupTransactionsTimeout
-
-    # have to skip seqno_db check because the txns are not executed
-    # on the new node
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
-                         customTimeout=timeout,
-                         exclude_from_check=['check_last_ordered_3pc_backup'])
-
-    assert new_node.isNodeBlacklisted(bad_node.name)
+        waitNodeDataEquality(looper, lagging_node, *normal_nodes)
+        assert lagging_node.isNodeBlacklisted(bad_node.name)
 
 
 @pytest.fixture
-def patched_node(txnPoolNodeSet):
+def bad_node(txnPoolNodeSet):
     node = get_any_non_primary_node(txnPoolNodeSet)
     node_will_send_incorrect_catchup(node)
     return node
 
 
+@pytest.fixture
+def lagging_node(txnPoolNodeSet, bad_node):
+    return get_any_non_primary_node(set(txnPoolNodeSet) - {bad_node})
+
+
 def get_any_non_primary_node(nodes):
     npr = getNonPrimaryReplicas(nodes, 0)
     return npr[0].node
-
-
-def do_not_tell_clients_about_newly_joined_node(nodes):
-    for node in nodes:
-        node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
 
 def node_will_send_incorrect_catchup(node):
