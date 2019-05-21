@@ -46,7 +46,7 @@ from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica, getNonPrimaryReplicas
+    getPrimaryReplica, getNonPrimaryReplicas, BUY
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -137,7 +137,7 @@ def assertEquality(observed: Any, expected: Any, details=None):
 
 def randomOperation():
     return {
-        "type": "buy",
+        "type": BUY,
         "amount": random.randint(10, 100000)
     }
 
@@ -685,8 +685,8 @@ def get_key_from_req(req: dict):
                    reqId=req[f.REQ_ID.nm],
                    operation=req[OPERATION],
                    protocolVersion=req[f.PROTOCOL_VERSION.nm],
-                   signature=req[f.SIG.nm]
-                   if req.__contains__(f.SIG.nm) else None,
+                   signature=req.get(f.SIG.nm),
+                   taaAcceptance=req.get(f.TAA_ACCEPTANCE)
                    ).key
 
 
