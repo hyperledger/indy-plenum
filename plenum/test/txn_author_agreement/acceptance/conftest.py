@@ -37,7 +37,6 @@ def activate_taa(
     return set_txn_author_agreement()
 
 
-# TODO activated_taa
 @pytest.fixture(scope='module')
 def latest_taa(get_txn_author_agreement):
     return get_txn_author_agreement()
@@ -73,10 +72,12 @@ def pytest_generate_tests(metafunc):
     if 'request_type' in metafunc.fixturenames:
         # TODO in more recent versions of pytest it might be better done
         # using markers from metafunc.definition
-        request_types = (
-            RequestType if 'all_request_types' in metafunc.fixturenames else
-            [RequestType.Domain]
-        )
+        request_types = [RequestType.Domain]
+        if 'all_request_types' in metafunc.fixturenames:
+            request_types = RequestType
+        elif 'pool_request' in metafunc.fixturenames:
+            request_types = [RequestType.Pool]
+
         metafunc.parametrize(
             'request_type', request_types, ids=lambda x: x.name
         )
@@ -84,6 +85,11 @@ def pytest_generate_tests(metafunc):
 
 @pytest.fixture
 def all_request_types(request_type):
+    return request_type
+
+
+@pytest.fixture
+def pool_request(request_type):
     return request_type
 
 
@@ -163,12 +169,16 @@ def taa_acceptance_mechanism(request, aml_request_kwargs):
 
 
 @pytest.fixture
-def taa_acceptance_time(request):
+def taa_acceptance_time(request, get_txn_author_agreement):
     marker = request.node.get_marker('taa_acceptance_time')
     if marker:
         return marker.args[0]
     else:
-        return get_utc_epoch()
+        current_taa = get_txn_author_agreement()
+        return (
+            get_utc_epoch() if current_taa is None else
+            current_taa.txn_time
+        )
 
 
 @pytest.fixture

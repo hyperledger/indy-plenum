@@ -8,6 +8,18 @@ from plenum.common.request import Request
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
 
+# make tests more strict
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old_lower = tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
+    old_upper = tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME = 1
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME = 1
+    yield tconf
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME = old_lower
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME = old_upper
+
+
 @pytest.fixture(scope='module', autouse=True)
 def activate_taa(activate_taa):
     return activate_taa
@@ -25,7 +37,7 @@ def patch_now(txnPoolNodeSet, monkeypatch, now):
 
 
 @pytest.mark.taa_acceptance_missed
-def test_taa_acceptance_missed_during_enabled_taa(
+def test_taa_acceptance_missed_when_taa_set(
     node_validator, validate_taa_acceptance, validation_error,
     all_request_types, request_dict
 ):
@@ -88,7 +100,10 @@ def test_taa_acceptance_time_near_lower_threshold(
     request_dict, latest_taa, monkeypatch
 ):
     taa_ts = latest_taa.txn_time
-    pp_time = max_last_accepted_pre_prepare_time + randint(0, 100)
+    pp_time = (
+        max_last_accepted_pre_prepare_time +
+        randint(0, tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME)
+    )
 
     lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
     upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
@@ -120,7 +135,10 @@ def test_taa_acceptance_time_near_upper_threshold(
     request_dict, latest_taa, monkeypatch
 ):
     taa_ts = latest_taa.txn_time
-    pp_time = max_last_accepted_pre_prepare_time + randint(0, 100)
+    pp_time = (
+        max_last_accepted_pre_prepare_time +
+        randint(0, tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME)
+    )
 
     lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
     upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
@@ -161,7 +179,10 @@ def test_taa_acceptance_not_allowed_when_disabled(
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
-        taa_text=taa_data.text, taa_version=taa_data.version)
+        taa_text=taa_data.text,
+        taa_version=taa_data.version,
+        taa_a_time=taa_data.txn_time
+    )
     request_dict = dict(**json.loads(request_json))
 
     validate_taa_acceptance(request_dict)
@@ -171,7 +192,10 @@ def test_taa_acceptance_not_allowed_when_disabled(
 
     # formally valid TAA acceptance
     request_json = add_taa_acceptance(
-        taa_text=taa_data.text, taa_version=taa_data.version)
+        taa_text=taa_data.text,
+        taa_version=taa_data.version,
+        taa_a_time=taa_data.txn_time
+    )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 1
     with pytest.raises(
@@ -185,7 +209,10 @@ def test_taa_acceptance_not_allowed_when_disabled(
 
     # some invalid TAA acceptance
     request_json = add_taa_acceptance(
-        taa_text='any-text', taa_version='any-version')
+        taa_text='any-text',
+        taa_version='any-version',
+        taa_a_time=taa_data.txn_time
+    )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 2
     with pytest.raises(

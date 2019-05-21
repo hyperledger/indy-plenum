@@ -2419,15 +2419,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
     def validateTaaAcceptance(self, request: Request, req_pp_time: int):
-        ledger_id = self.ledger_id_for_request(request)
 
+        ledger_id = self.ledger_id_for_request(request)
         if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
-            logger.trace(
-                "{} TAA acceptance passed for request {}: "
-                "not required for ledger id {}"
-                .format(self, request.reqId, ledger_id)
-            )
-            return
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance is not expected"
+                    " and not allowed in requests for ledger id {}"
+                    .format(ledger_id)
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: "
+                    "not required for ledger id {}"
+                    .format(self, request.reqId, ledger_id)
+                )
+                return
 
         config_req_handler = self.get_req_handler(ledger_id=CONFIG_LEDGER_ID)
         if not config_req_handler:
@@ -2446,6 +2454,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     " and not allowed in requests"
                 )
             else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is not set"
+                    .format(self, request.reqId)
+                )
                 return
 
         if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
@@ -2456,6 +2468,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     " and not allowed in requests"
                 )
             else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is disabled"
+                    .format(self, request.reqId)
+                )
                 return
 
         if not taa_digest:  # TODO test
