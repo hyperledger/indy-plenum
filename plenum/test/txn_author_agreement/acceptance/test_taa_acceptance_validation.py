@@ -87,9 +87,8 @@ def test_taa_acceptance_mechanism_inappropriate(
         validation_error,
         match=(
             "Txn Author Agreement acceptance mechanism is inappropriate:"
-            " provided {}"
-            .format('some-unknown-mech')
-        )  # TODO more strict error
+            " provided {}".format('some-unknown-mech')
+        )
     ):
         validate_taa_acceptance(request_dict)
 

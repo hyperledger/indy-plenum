@@ -2474,7 +2474,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 )
                 return
 
-        if not taa_digest:  # TODO test
+        if not taa_digest:
             raise LogicError(
                 "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
@@ -2517,19 +2517,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if taa_aml_data is None:
             raise TaaAmlNotSetError(
                 "Txn Author Agreement acceptance mechanism list is not defined"
-            )  # TODO test
+            )
         taa_aml = taa_aml_data[AML]
 
         r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
         if r_taa_a_mech not in taa_aml:
-            # TODO
-            #   - list might be quite long
-            #   - should we return AML in reject
+            # TODO think about providing actual list inside reject message
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}, expected one of {}"
-                .format(r_taa_a_mech, list(taa_aml))
+                " provided {}".format(r_taa_a_mech)
             )
 
         logger.trace(
@@ -2537,7 +2534,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             .format(self, request.reqId)
         )
 
-    # TODO hools might need pp_time as well
+    # TODO hooks might need pp_time as well
     def doDynamicValidation(self, request: Request, req_pp_time: int):
         """
         State based validation

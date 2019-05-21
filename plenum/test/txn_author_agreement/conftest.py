@@ -119,7 +119,7 @@ def set_txn_author_agreement(
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
         res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)  # TODO do we need that
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return res
 
     return wrapped
