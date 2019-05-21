@@ -2510,8 +2510,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "Txn Author Agreement acceptance time is inappropriate:"
-                " provided {}, expected in [{}, {}]"
-                    .format(r_taa_a_ts, ts_lowest, ts_higest)
+                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, ts_lowest, ts_higest)
             )
 
         taa_aml_data = config_req_handler.get_taa_aml_data()
@@ -2526,13 +2525,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}, expected one of {}"
-                    .format(r_taa_a_mech, sorted(taa_aml))
+                " provided {}, expected one of {}".format(r_taa_a_mech, sorted(taa_aml))
             )
 
         logger.trace(
-            "{} TAA acceptance passed for request {}"
-                .format(self, request.reqId)
+            "{} TAA acceptance passed for request {}".format(self, request.reqId)
         )
 
     # TODO hooks might need pp_time as well
