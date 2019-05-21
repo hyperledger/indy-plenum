@@ -170,6 +170,43 @@ def test_taa_acceptance_time_near_upper_threshold(
         validate_taa_acceptance(request_dict)
 
 
+def test_taa_acceptance_uses_pp_time_instead_of_current_time(
+    tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
+    turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
+    request_dict, latest_taa, monkeypatch
+):
+    taa_ts = latest_taa.txn_time
+    pp_time = (
+        max_last_accepted_pre_prepare_time +
+        randint(0, tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME)
+    )
+
+    lower_threshold = taa_ts - tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
+    upper_threshold = pp_time + tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
+    now = pp_time + 5 * tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
+
+    patch_pp_time(txnPoolNodeSet, monkeypatch, pp_time)
+    patch_now(txnPoolNodeSet, monkeypatch, now=now)
+
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold
+    validate_taa_acceptance(request_dict)
+
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold + 1
+    with pytest.raises(
+        validation_error,
+        match=(
+            r"Txn Author Agreement acceptance time is inappropriate:"
+            " provided {}, expected in \[{}, {}\]"
+            .format(
+                request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm],
+                lower_threshold,
+                upper_threshold
+            )
+        )
+    ):
+        validate_taa_acceptance(request_dict)
+
+
 def test_taa_acceptance_valid(
     validate_taa_acceptance, validation_error, request_dict
 ):
