@@ -2439,18 +2439,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
 
         if taa is None:
-            logger.trace(
-                "{} TAA acceptance passed for request {}: taa is not set"
-                .format(self, request.reqId)
-            )
-            return
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance has not been set yet"
+                    " and not allowed in requests"
+                )
+            else:
+                return
 
         if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
-            logger.trace(
-                "{} TAA acceptance passed for request {}: taa is empty"
-                .format(self, request.reqId)
-            )
-            return
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance is disabled"
+                    " and not allowed in requests"
+                )
+            else:
+                return
 
         if not taa_digest:  # TODO test
             raise LogicError(

@@ -156,9 +156,9 @@ def expected_state_data(data: TaaData) -> Dict:
 
 def expected_data(data: TaaData):
     return {
-               TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-               TXN_AUTHOR_AGREEMENT_VERSION: data.version
-           }, data.seq_no, data.txn_time
+        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+    }, data.seq_no, data.txn_time
 
 
 def expected_aml_data(data: TaaAmlData):

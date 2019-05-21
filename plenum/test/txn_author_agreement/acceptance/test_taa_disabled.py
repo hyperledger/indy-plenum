@@ -1,11 +1,9 @@
 import pytest
+import json
 
 from plenum.common.constants import (
     POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
 )
-
-
-TAA_DISABLED = True
 
 
 @pytest.mark.parametrize(
@@ -23,7 +21,24 @@ def test_ledger_requires_taa_acceptance_default(node_validator, ledger_id, requi
 
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_during_disabled_taa(
-    node_validator, validate_taa_acceptance,
-    all_request_types, request_dict
+    validate_taa_acceptance, all_request_types, request_dict
 ):
     validate_taa_acceptance(request_dict)
+
+
+# TODO all ledgers ?
+def test_taa_acceptance_not_allowed_when_not_set_yet(
+    validate_taa_acceptance, validation_error, add_taa_acceptance,
+):
+    # some invalid TAA acceptance
+    request_json = add_taa_acceptance(
+        taa_text='any-text', taa_version='any-version')
+    request_dict = dict(**json.loads(request_json))
+    with pytest.raises(
+        validation_error,
+        match=(
+            r"Txn Author Agreement acceptance has not been set yet"
+            " and not allowed in requests"
+        )
+    ):
+        validate_taa_acceptance(request_dict)

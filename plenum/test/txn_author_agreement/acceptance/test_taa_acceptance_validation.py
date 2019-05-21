@@ -1,4 +1,5 @@
 import pytest
+import json
 from random import randint
 
 from plenum.common.types import f
@@ -147,6 +148,51 @@ def test_taa_acceptance_time_near_upper_threshold(
 
 
 def test_taa_acceptance_valid(
-    tconf, validate_taa_acceptance, validation_error, request_dict
+    validate_taa_acceptance, validation_error, request_dict
 ):
     validate_taa_acceptance(request_dict)
+
+
+def test_taa_acceptance_not_allowed_when_disabled(
+    validate_taa_acceptance,
+    validation_error,
+    set_txn_author_agreement,
+    add_taa_acceptance
+):
+    taa_data = set_txn_author_agreement()
+    request_json = add_taa_acceptance(
+        taa_text=taa_data.text, taa_version=taa_data.version)
+    request_dict = dict(**json.loads(request_json))
+
+    validate_taa_acceptance(request_dict)
+
+    # disable TAA acceptance
+    taa_data = set_txn_author_agreement("")
+
+    # formally valid TAA acceptance
+    request_json = add_taa_acceptance(
+        taa_text=taa_data.text, taa_version=taa_data.version)
+    request_dict = dict(**json.loads(request_json))
+    request_dict[f.REQ_ID.nm] += 1
+    with pytest.raises(
+        validation_error,
+        match=(
+            r"Txn Author Agreement acceptance is disabled"
+            " and not allowed in requests"
+        )
+    ):
+        validate_taa_acceptance(request_dict)
+
+    # some invalid TAA acceptance
+    request_json = add_taa_acceptance(
+        taa_text='any-text', taa_version='any-version')
+    request_dict = dict(**json.loads(request_json))
+    request_dict[f.REQ_ID.nm] += 2
+    with pytest.raises(
+        validation_error,
+        match=(
+            r"Txn Author Agreement acceptance is disabled"
+            " and not allowed in requests"
+        )
+    ):
+        validate_taa_acceptance(request_dict)

@@ -14,7 +14,8 @@ from plenum.test.helper import sdk_send_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from .helper import (
     build_nym_request, build_node_request,
-    add_taa_acceptance, sign_request_dict
+    add_taa_acceptance as _add_taa_acceptance,
+    sign_request_dict
 )
 
 
@@ -193,28 +194,42 @@ def pool_request_json(looper, tconf, tdir, sdk_wallet_new_steward):
 
 
 @pytest.fixture
-def request_dict(
-    request,
-    looper,
-    request_type,
-    domain_request_json,
-    pool_request_json,
-    taa_accepted,
-    taa_acceptance_mechanism,
-    taa_acceptance_time
-):
-    request_json = {
+def request_json(request_type, domain_request_json, pool_request_json):
+    return {
         RequestType.Domain: domain_request_json,
         RequestType.Pool: pool_request_json
     }[request_type]
 
-    if not request.node.get_marker('taa_acceptance_missed'):
-        request_json = add_taa_acceptance(
+
+@pytest.fixture
+def add_taa_acceptance(
+    looper,
+    request_json,
+    taa_accepted,
+    taa_acceptance_mechanism,
+    taa_acceptance_time
+):
+    def wrapped(
+        req_json=None,
+        taa_text=None,
+        taa_version=None,
+        taa_a_mech=None,
+        taa_a_time=None
+    ):
+        return _add_taa_acceptance(
             looper,
-            request_json,
-            taa_accepted[0],
-            taa_accepted[1],
-            taa_acceptance_mechanism,
-            taa_acceptance_time
+            request_json if req_json is None else req_json,
+            taa_accepted[0] if taa_text is None else taa_text,
+            taa_accepted[1] if taa_version is None else taa_version,
+            taa_acceptance_mechanism if taa_a_mech is None else taa_a_mech,
+            taa_acceptance_time if taa_a_time is None else taa_a_time
         )
+
+    return wrapped
+
+
+@pytest.fixture
+def request_dict(request, looper, request_json, add_taa_acceptance):
+    if not request.node.get_marker('taa_acceptance_missed'):
+        request_json = add_taa_acceptance()
     return dict(**json.loads(request_json))
