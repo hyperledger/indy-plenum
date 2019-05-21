@@ -89,8 +89,8 @@ class LastSentPpStoreHelper:
             return None
 
         serialized_value = self.node.nodeStatusDB.get(LAST_SENT_PRE_PREPARE)
-        logger.info("{} found stored lastSentPrePrepare value {}"
-                    .format(self.node, serialized_value))
+        logger.debug("{} found stored lastSentPrePrepare value {}"
+                     .format(self.node, serialized_value))
         stored = node_status_db_serializer.deserialize(serialized_value)
 
         if not stored or not isinstance(stored, dict):
