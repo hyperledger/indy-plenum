@@ -8,7 +8,7 @@ from plenum.common.request import Request
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
 
-# make tests more strict
+# make tests stricter
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_lower = tconf.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_BEFORE_TAA_TIME
