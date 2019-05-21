@@ -4,7 +4,7 @@ from random import randint
 
 from plenum.common.types import f
 from plenum.common.request import Request
-from plenum.common.constants import AML
+from plenum.common.constants import AML, DOMAIN_LEDGER_ID
 
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
@@ -38,21 +38,21 @@ def patch_now(txnPoolNodeSet, monkeypatch, now):
 
 
 @pytest.mark.taa_acceptance_missed
-def test_taa_acceptance_missed_when_taa_set(
-    node_validator, validate_taa_acceptance, validation_error,
-    all_request_types, request_dict
+def test_taa_acceptance_missed_when_taa_set_passed_for_pool_ledger(
+    validate_taa_acceptance, pool_request, request_dict
 ):
-    ledger_id = node_validator.ledger_id_for_request(
-        Request(**request_dict))
+    validate_taa_acceptance(request_dict)
 
-    if node_validator.ledgerManager.ledgerRegistry[ledger_id].taa_acceptance_required:
-        with pytest.raises(
-            validation_error,
-            match=("Txn Author Agreement acceptance is required for ledger with id {}"
-                   .format(ledger_id))
-        ):
-            validate_taa_acceptance(request_dict)
-    else:
+
+@pytest.mark.taa_acceptance_missed
+def test_taa_acceptance_missed_when_taa_set_rejected_for_domain_ledger(
+    validate_taa_acceptance, validation_error, request_dict
+):
+    with pytest.raises(
+        validation_error,
+        match=("Txn Author Agreement acceptance is required for ledger with id {}"
+               .format(DOMAIN_LEDGER_ID))
+    ):
         validate_taa_acceptance(request_dict)
 
 
