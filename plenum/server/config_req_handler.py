@@ -53,6 +53,12 @@ class ConfigReqHandler(LedgerRequestHandler):
                 raise InvalidClientRequest(identifier, req_id,
                                            "TXN_AUTHOR_AGREEMENT_AML request "
                                            "must contain at least one acceptance mechanism")
+        elif typ == GET_TXN_AUTHOR_AGREEMENT_AML:
+            if GET_TXN_AUTHOR_AGREEMENT_AML_VERSION in operation \
+                    and GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP in operation:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "\"version\" and \"timestamp\" cannot be used in "
+                                           "GET_TXN_AUTHOR_AGREEMENT_AML request together")
 
     def get_query_response(self, request: Request):
         return self._query_handlers[request.operation.get(TXN_TYPE)](request)
