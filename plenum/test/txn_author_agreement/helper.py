@@ -78,11 +78,6 @@ def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
 def sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet,
                     version: Optional[str] = None,
                     timestamp: Optional[int] = None):
-    params = {}
-    if version is not None:
-        params[GET_TXN_AUTHOR_AGREEMENT_AML_VERSION] = version
-    if timestamp is not None:
-        params[GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP] = timestamp
     req = looper.loop.run_until_complete(build_get_acceptance_mechanism_request(sdk_wallet[1], timestamp, version))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
