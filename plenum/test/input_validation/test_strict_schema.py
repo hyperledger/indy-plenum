@@ -6,7 +6,9 @@ from plenum.common.messages.fields import NonNegativeNumberField
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.request import SafeRequest
 from plenum.common.types import f, OPERATION
-from plenum.test.input_validation.constants import TEST_TARGET_NYM_LONG, TEST_VERKEY_ABBREVIATED
+from plenum.test.input_validation.constants import (
+    TEST_VERKEY_ABBREVIATED, TEST_TARGET_NYM_SHORT
+)
 
 
 class MessageTest(MessageBase):
@@ -60,7 +62,7 @@ def test_client_req_not_strict_by_default():
     validator = ClientMessageValidator(operation_schema_is_strict=False)
     operation = {
         TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM_LONG,
+        TARGET_NYM: TEST_TARGET_NYM_SHORT,
         VERKEY: TEST_VERKEY_ABBREVIATED,
         "some_new_field_op1": "some_new_value_op1",
         "some_new_field_op2": "some_new_value_op2"
@@ -79,7 +81,7 @@ def test_client_req_strict_operation():
     validator = ClientMessageValidator(operation_schema_is_strict=True)
     operation = {
         TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM_LONG,
+        TARGET_NYM: TEST_TARGET_NYM_SHORT,
         VERKEY: TEST_VERKEY_ABBREVIATED,
         "some_new_field_op": "some_new_value_op"
     }
@@ -100,7 +102,7 @@ def test_client_req_strict():
                                        schema_is_strict=True)
     operation = {
         TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM_LONG,
+        TARGET_NYM: TEST_TARGET_NYM_SHORT,
         VERKEY: TEST_VERKEY_ABBREVIATED,
     }
     req_dict = {f.IDENTIFIER.nm: "1" * 16,
@@ -118,7 +120,7 @@ def test_client_req_strict():
 def test_client_safe_req_not_strict_by_default():
     operation = {
         TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM_LONG,
+        TARGET_NYM: TEST_TARGET_NYM_SHORT,
         VERKEY: TEST_VERKEY_ABBREVIATED,
         "some_new_field_op1": "some_new_value_op1",
         "some_new_field_op2": "some_new_value_op2"

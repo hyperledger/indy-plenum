@@ -7,7 +7,7 @@ from plenum.common.constants import (
 )
 
 from .constants import (
-    TEST_TARGET_NYM_LONG, TEST_VERKEY_ABBREVIATED
+    TEST_TARGET_NYM_SHORT, TEST_VERKEY_ABBREVIATED
 )
 
 class TestCases:
@@ -336,6 +336,6 @@ class MessageDescriptor(TestFieldBase):
 def gen_nym_operation():
     return {
         TXN_TYPE: NYM,
-        TARGET_NYM: TEST_TARGET_NYM_LONG,
+        TARGET_NYM: TEST_TARGET_NYM_SHORT,
         VERKEY: TEST_VERKEY_ABBREVIATED
     }

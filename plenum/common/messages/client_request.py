@@ -54,6 +54,9 @@ class ClientNodeOperation(MessageValidator):
     )
 
     def _validate_message(self, dct):
+        # TODO other cases:
+        #   - full verkey | short/long target nym
+        #   - omitted verkey | short/long target nym
         verkey_abbreviated = not AbbreviatedVerkeyField().validate(dct.get(VERKEY))
         target_nym_len = len(base58.b58decode(dct[TARGET_NYM]))
         if verkey_abbreviated and target_nym_len == 32:
@@ -74,6 +77,9 @@ class ClientNYMOperation(MessageValidator):
     )
 
     def _validate_message(self, dct):
+        # TODO other cases:
+        #   - full verkey | short/long target nym
+        #   - omitted verkey | short/long target nym
         verkey_abbreviated = not AbbreviatedVerkeyField().validate(dct[VERKEY])
         target_nym_len = len(base58.b58decode(dct[TARGET_NYM]))
         if verkey_abbreviated and target_nym_len == 32:
