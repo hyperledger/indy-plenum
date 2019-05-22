@@ -5,7 +5,8 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     OPERATION_SCHEMA_IS_STRICT, BLS_KEY_PROOF, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
     TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION, \
     TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -98,6 +99,14 @@ class ClientGetTxnAuthorAgreementOperation(MessageValidator):
     )
 
 
+class ClientGetTxnAuthorAgreementAMLOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(GET_TXN_AUTHOR_AGREEMENT_AML)),
+        (GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, NonEmptyStringField(optional=True)),
+        (GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, NonNegativeNumberField(optional=True))
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -108,7 +117,8 @@ class ClientOperationField(MessageValidator):
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict),
-            GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict)
+            GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict),
+            GET_TXN_AUTHOR_AGREEMENT_AML: ClientGetTxnAuthorAgreementAMLOperation(schema_is_strict=strict)
         }
         super().__init__(*args, **kwargs)
 

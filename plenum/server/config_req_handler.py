@@ -5,7 +5,8 @@ from common.serializers.serialization import config_state_serializer, state_root
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_AML, TXN_TYPE, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, TRUSTEE, \
     TXN_TIME, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, AML, AML_VERSION
+    GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, AML, AML_VERSION, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP
 
 from plenum.common.types import f
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
@@ -31,6 +32,7 @@ class ConfigReqHandler(LedgerRequestHandler):
         self._bls_store = bls_store
         self._query_handlers = {}  # type: Dict[str, Callable]
         self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT, self.handle_get_txn_author_agreement)
+        self._add_query_handler(GET_TXN_AUTHOR_AGREEMENT_AML, self.handle_get_txn_author_agreement_aml)
 
     def doStaticValidation(self, request: Request):
         identifier, req_id, operation = request.identifier, request.reqId, request.operation
@@ -51,6 +53,12 @@ class ConfigReqHandler(LedgerRequestHandler):
                 raise InvalidClientRequest(identifier, req_id,
                                            "TXN_AUTHOR_AGREEMENT_AML request "
                                            "must contain at least one acceptance mechanism")
+        elif typ == GET_TXN_AUTHOR_AGREEMENT_AML:
+            if GET_TXN_AUTHOR_AGREEMENT_AML_VERSION in operation \
+                    and GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP in operation:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "\"version\" and \"timestamp\" cannot be used in "
+                                           "GET_TXN_AUTHOR_AGREEMENT_AML request together")
 
     def get_query_response(self, request: Request):
         return self._query_handlers[request.operation.get(TXN_TYPE)](request)
@@ -89,15 +97,19 @@ class ConfigReqHandler(LedgerRequestHandler):
     def updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
         payload = get_payload_data(txn)
+        seq_no = get_seq_no(txn)
+        txn_time = get_txn_time(txn)
         if typ == TXN_AUTHOR_AGREEMENT:
             self.update_txn_author_agreement(
                 payload[TXN_AUTHOR_AGREEMENT_TEXT],
                 payload[TXN_AUTHOR_AGREEMENT_VERSION],
-                get_seq_no(txn),
-                get_txn_time(txn)
+                seq_no,
+                txn_time
             )
         elif typ == TXN_AUTHOR_AGREEMENT_AML:
-            self.update_txn_author_agreement_acceptance_mechanisms(payload)
+            self.update_txn_author_agreement_acceptance_mechanisms(payload,
+                                                                   seq_no,
+                                                                   txn_time)
 
     def update_txn_author_agreement(self, text, version, seq_no, txn_time):
         digest = self._taa_digest(text, version)
@@ -110,11 +122,11 @@ class ConfigReqHandler(LedgerRequestHandler):
         self.state.set(self._state_path_taa_latest(), digest)
         self.state.set(self._state_path_taa_version(version), digest)
 
-    def update_txn_author_agreement_acceptance_mechanisms(self, payload):
+    def update_txn_author_agreement_acceptance_mechanisms(self, payload, seq_no, txn_time):
+        serialized_data = encode_state_value(payload, seq_no, txn_time, serializer=config_state_serializer)
         version = payload[AML_VERSION]
-        payload = config_state_serializer.serialize(payload)
-        self.state.set(self._state_path_taa_aml_latest(), payload)
-        self.state.set(self._state_path_taa_aml_version(version), payload)
+        self.state.set(self._state_path_taa_aml_latest(), serialized_data)
+        self.state.set(self._state_path_taa_aml_version(version), serialized_data)
 
     def get_taa_digest(self, version: Optional[str] = None,
                        isCommitted: bool = True) -> Optional[str]:
@@ -241,6 +253,34 @@ class ConfigReqHandler(LedgerRequestHandler):
             head_hash = head_hash if head_hash else self.state.committedHeadHash
             data = self.state.get_for_root_hash(head_hash, self._state_path_taa_digest(digest.decode()))
 
+        if data is not None:
+            value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+            return self.make_config_result(request, value, last_seq_no, last_update_time, proof)
+
+        return self.make_config_result(request, None, proof=proof)
+
+    def handle_get_txn_author_agreement_aml(self, request: Request):
+        version = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_AML_VERSION)
+        timestamp = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP)
+
+        if version is not None:
+            path = self._state_path_taa_aml_version(version)
+            data, proof = self.get_value_from_state(path, with_proof=True)
+            return self._return_txn_author_agreement_aml(request, proof, data=data)
+
+        if timestamp is not None:
+            head_hash = self.ts_store.get_equal_or_prev(timestamp, CONFIG_LEDGER_ID)
+            if head_hash is None:
+                return self._return_txn_author_agreement_aml(request, None)
+            head_hash = head_hash if head_hash else self.state.committedHeadHash
+            data, proof = self.get_value_from_state(self._state_path_taa_aml_latest(), head_hash, with_proof=True)
+            return self._return_txn_author_agreement_aml(request, proof, data=data)
+
+        path = self._state_path_taa_aml_latest()
+        data, proof = self.get_value_from_state(path, with_proof=True)
+        return self._return_txn_author_agreement_aml(request, proof, data=data)
+
+    def _return_txn_author_agreement_aml(self, request, proof, data=None):
         if data is not None:
             value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
             return self.make_config_result(request, value, last_seq_no, last_update_time, proof)

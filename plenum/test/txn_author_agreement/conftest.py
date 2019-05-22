@@ -161,9 +161,9 @@ def taa_aml_input_data():
     return [
         TaaAmlData(
             version=randomString(8), aml={randomString(8): randomString(16)},
-            amlContext=randomString(8)
+            amlContext=randomString(8), seq_no=n, txn_time=n + 10
         )
-        for _ in range(10)
+        for n in range(10)
     ]
 
 
