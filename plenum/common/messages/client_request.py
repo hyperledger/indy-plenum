@@ -1,3 +1,5 @@
+import base58
+
 from plenum import PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, ALIAS, SERVICES, TXN_TYPE, DATA, \
@@ -13,7 +15,8 @@ from plenum.common.messages.fields import NetworkIpAddressField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField
+    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField, \
+    AbbreviatedVerkeyField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -61,6 +64,14 @@ class ClientNYMOperation(MessageValidator):
         # TODO: validate role using ChooseField,
         # do roles list expandable form outer context
     )
+
+    def _validate_message(self, dct):
+        verkey_abbreviated = not AbbreviatedVerkeyField().validate(dct[VERKEY])
+        target_nym_len = len(base58.b58decode(dct[TARGET_NYM]))
+        if verkey_abbreviated and target_nym_len == 32:
+            raise TypeError(
+                "Abbreviated verkey cannot be combined with long target DID"
+            )
 
 
 class ClientGetTxnOperation(MessageValidator):
