@@ -2503,7 +2503,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
         ts_higest = (
             req_pp_time +
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPANCE_TIME_AFTER_PP_TIME
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
         )
         if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
             raise InvalidClientTaaAcceptanceError(
