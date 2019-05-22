@@ -53,6 +53,14 @@ class ClientNodeOperation(MessageValidator):
         (VERKEY, VerkeyField(optional=True)),
     )
 
+    def _validate_message(self, dct):
+        verkey_abbreviated = not AbbreviatedVerkeyField().validate(dct.get(VERKEY))
+        target_nym_len = len(base58.b58decode(dct[TARGET_NYM]))
+        if verkey_abbreviated and target_nym_len == 32:
+            raise TypeError(
+                "Abbreviated verkey cannot be combined with long target DID"
+            )
+
 
 class ClientNYMOperation(MessageValidator):
     schema = (
