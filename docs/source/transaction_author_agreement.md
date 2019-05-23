@@ -56,6 +56,8 @@
 
 - Requests to POOL and CONFIG ledgers must not have any Transaction Author Agreement Acceptance metadata.
 
+- See [requests.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/requests.md) for details.
+
 #### How ledger validates Transaction Author Agreement metadata in a request
 
 - If Transaction Author Agreement is not enabled, or if this is a request to POOL or CONFIG ledger, then
