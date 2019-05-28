@@ -4,8 +4,8 @@ from plenum.common.startable import Mode
 from plenum.test import waits
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensure_all_nodes_have_same_data
-from plenum.test.helper import sdk_send_random_requests, check_last_ordered_3pc_on_master, assertExp, \
-    sdk_send_random_and_check, sdk_get_replies, max_3pc_batch_limits
+from plenum.test.helper import sdk_send_random_requests, check_last_ordered_3pc_on_master, \
+    sdk_send_random_and_check, sdk_get_replies, max_3pc_batch_limits, assert_eq
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
@@ -42,7 +42,7 @@ def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, sdk_wallet_client, sd
 
         looper.run(
             eventually(
-                lambda: assertExp(lagging_node.mode == Mode.participating), retryWait=1,
+                lambda: assert_eq(lagging_node.mode, Mode.participating), retryWait=1,
                 timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
             )
         )

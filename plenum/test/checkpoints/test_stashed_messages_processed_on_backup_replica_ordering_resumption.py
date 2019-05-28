@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.delayers import cDelay, chk_delay
@@ -10,6 +12,16 @@ CHK_FREQ = 5
 
 # LOG_SIZE in checkpoints corresponds to the catch-up lag in checkpoints
 LOG_SIZE = 2 * CHK_FREQ
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    old = tconf.Max3PCBatchesInFlight
+    # This test requires lots of batches in flight (actually 9) in order to function properly,
+    # so we allow any number to simplify things
+    tconf.Max3PCBatchesInFlight = None
+    yield tconf
+    tconf.Max3PCBatchesInFlight = old
 
 
 def test_stashed_messages_processed_on_backup_replica_ordering_resumption(

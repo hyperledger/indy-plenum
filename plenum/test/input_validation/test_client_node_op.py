@@ -2,8 +2,10 @@ import base58
 import pytest
 from plenum.common.constants import BLS_KEY
 
-from plenum.common.messages.client_request import ClientNodeOperationData, ALIAS, SERVICES, NODE_IP, CLIENT_IP, \
+from plenum.common.messages.client_request import (
+    ClientNodeOperationData, ALIAS, SERVICES, NODE_IP, CLIENT_IP,
     NODE_PORT, CLIENT_PORT
+)
 from plenum.common.util import randomString
 
 op = ClientNodeOperationData()

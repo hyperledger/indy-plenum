@@ -13,16 +13,21 @@ from plenum.test.helper import sdk_sign_request_from_dict
 def req_and_expected(request, looper, sdk_wallet_client):
     op = {'type': '1',
           'something': 'nothing'}
+    taaa = {
+        'a': 'b',
+        'c': 3
+    }
     if request.param.endswith('_sdk'):
         req = sdk_sign_request_from_dict(looper, sdk_wallet_client,
-                                         op, reqId=1513945121191691)
+                                         op, reqId=1513945121191691,
+                                         taa_acceptance=taaa)
         request.param = request.param[:-4]
         # TODO: support multi-sig in SDK
         # if request.param == 'sig_only':
         #     req.pop('signatures')
         # if request.param == 'sigs_only':
         #     req.pop('signature')
-        if request.param == 'no_protocol_vers':
+        if request.param == 'no_protocol_vers':  # TODO INDY-2072 always false here
             req.pop('protocolVersion')
         r = Request(
             req.get(f.IDENTIFIER.nm, None),
@@ -30,14 +35,16 @@ def req_and_expected(request, looper, sdk_wallet_client):
             req.get(OPERATION, None),
             req.get(f.SIG.nm, None),
             req.get(f.SIGS.nm, None),
-            req.get(f.PROTOCOL_VERSION.nm, None)
+            req.get(f.PROTOCOL_VERSION.nm, None),
+            req.get(f.TAA_ACCEPTANCE.nm, None)
         )
         digest = r.digest
         payload_digest = r.payload_digest
         sign = req.get(f.SIG.nm)
     else:
         req = Request(operation=op, reqId=1513945121191691,
-                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier="6ouriXMZkLeHsuXrN1X1fd")
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier="6ouriXMZkLeHsuXrN1X1fd",
+                      taaAcceptance=taaa)
         sign = "2DaRm3nt6H5fJu2TP5vxqbaDCtABPYmUTSX4ocnY8fVGgyJMVNaeh2z6JZhcW1gbmGKJcZopZMKZJwADuXFFJobM"
         req.signature = sign
         req.add_signature("6ouriXMZkLeHsuXrN1X1fd",
@@ -66,7 +73,11 @@ def req_and_expected(request, looper, sdk_wallet_client):
 
             "metadata": {
                 "from": "6ouriXMZkLeHsuXrN1X1fd",
-                "reqId": 1513945121191691
+                "reqId": 1513945121191691,
+                "taaAcceptance": {
+                    "a": "b",
+                    "c": 3
+                }
             },
 
             "protocolVersion": CURRENT_PROTOCOL_VERSION,

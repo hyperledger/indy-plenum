@@ -55,10 +55,16 @@ from plenum.common.messages.node_messages import Reply
 logger = getlogger()
 
 
+# test TXNs
+BUY = "buy"
+GET_BUY = "get_buy"
+RANDOM_BUY = "randombuy"
+
+
 @spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
-    write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
-    query_types = CoreAuthNr.query_types.union({'get_buy', })
+    write_types = CoreAuthNr.write_types.union({BUY, RANDOM_BUY})
+    query_types = CoreAuthNr.query_types.union({GET_BUY, })
 
 
 class TestDomainRequestHandler(DomainRequestHandler):

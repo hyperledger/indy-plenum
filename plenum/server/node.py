@@ -27,6 +27,7 @@ from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHan
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.request_handlers.utils import VALUE
 from plenum.server.view_change.node_view_changer import create_view_changer
 from state.pruning_state import PruningState
 from state.state import State
@@ -52,11 +53,13 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
-    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE
+    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE, \
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
+    TaaAmlNotSetError, InvalidClientTaaAcceptanceError
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
@@ -625,7 +628,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def init_config_req_handler(self):
         return ConfigReqHandler(self.configLedger,
-                                self.states[CONFIG_LEDGER_ID])
+                                self.states[CONFIG_LEDGER_ID],
+                                self.states[DOMAIN_LEDGER_ID],
+                                self.bls_bft.bls_store,
+                                self.getStateTsDbStorage())
 
     def init_action_req_handler(self):
         return ActionReqHandler()
@@ -724,7 +730,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.configLedger,
             preCatchupStartClbk=self.preConfigLedgerCatchup,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+            taa_acceptance_required=False)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
 
     def prePoolLedgerCatchup(self, **kwargs):
@@ -903,12 +910,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getStateTsDbStorage(self):
         if self.stateTsDbStorage is None:
+            domainTsStorage = initKeyValueStorageIntKeys(
+                self.config.stateTsStorage,
+                self.dataLocation,
+                self.config.stateTsDbName,
+                db_config=self.config.db_state_ts_db_config)
+
+            configTsStorage = initKeyValueStorageIntKeys(
+                self.config.stateTsStorage,
+                self.dataLocation,
+                self.config.configStateTsDbName,
+                db_config=self.config.db_state_ts_db_config)
+
             self.stateTsDbStorage = StateTsDbStorage(
-                self.name,
-                initKeyValueStorageIntKeys(self.config.stateTsStorage,
-                                           self.dataLocation,
-                                           self.config.stateTsDbName,
-                                           db_config=self.config.db_state_ts_db_config)
+                self.name, {
+                    DOMAIN_LEDGER_ID: domainTsStorage,
+                    CONFIG_LEDGER_ID: configTsStorage
+                }
             )
         return self.stateTsDbStorage
 
@@ -1010,7 +1028,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.poolLedger,
                 preCatchupStartClbk=self.prePoolLedgerCatchup,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+                taa_acceptance_required=False)
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def _add_domain_ledger(self):
@@ -1019,7 +1038,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.domainLedger,
             preCatchupStartClbk=self.preDomainLedgerCatchup,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+            taa_acceptance_required=True)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
 
     def _add_audit_ledger(self):
@@ -1028,7 +1048,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.auditLedger,
             preCatchupStartClbk=self.preAuditLedgerCatchup,
             postCatchupCompleteClbk=self.postAuditLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
+            taa_acceptance_required=False)
         self.on_new_ledger_added(AUDIT_LEDGER_ID)
 
     def getHashStore(self, name) -> HashStore:
@@ -2179,8 +2200,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
             if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
-                rh.ts_store.set(get_txn_time(txn),
-                                state.headHash)
+                timestamp = get_txn_time(txn)
+                if timestamp is not None:
+                    rh.ts_store.set(timestamp, state.headHash)
             logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
@@ -2397,13 +2419,129 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
-    def doDynamicValidation(self, request: Request):
+    def validateTaaAcceptance(self, request: Request, req_pp_time: int):
+
+        ledger_id = self.ledger_id_for_request(request)
+        if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance is not expected"
+                    " and not allowed in requests for ledger id {}"
+                    .format(ledger_id)
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: "
+                    "not required for ledger id {}"
+                    .format(self, request.reqId, ledger_id)
+                )
+                return
+
+        config_req_handler = self.get_req_handler(ledger_id=CONFIG_LEDGER_ID)
+        if not config_req_handler:
+            raise LogicError("Config request handler is missed")
+
+        taa = None
+        taa_data = config_req_handler.get_taa_data()
+        if taa_data is not None:
+            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
+
+        if taa is None:
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance has not been set yet"
+                    " and not allowed in requests"
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is not set"
+                    .format(self, request.reqId)
+                )
+                return
+
+        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance is disabled"
+                    " and not allowed in requests"
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is disabled"
+                    .format(self, request.reqId)
+                )
+                return
+
+        if not taa_digest:
+            raise LogicError(
+                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
+                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
+            )
+
+        if not request.taaAcceptance:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance is required for ledger with id {}"
+                .format(ledger_id)
+            )
+
+        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
+        if r_taa_a_digest != taa_digest:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance digest is invalid or non-latest:"
+                " provided {}, expected {}"
+                .format(r_taa_a_digest, taa_digest)
+            )
+
+        r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
+        ts_lowest = (
+            taa_txn_time -
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
+        )
+        ts_higest = (
+            req_pp_time +
+            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
+        )
+        if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance time is inappropriate:"
+                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, ts_lowest, ts_higest)
+            )
+
+        taa_aml_data = config_req_handler.get_taa_aml_data()
+        if taa_aml_data is None:
+            raise TaaAmlNotSetError(
+                "Txn Author Agreement acceptance mechanism list is not defined"
+            )
+
+        taa_aml = taa_aml_data[VALUE][AML]
+        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
+        if r_taa_a_mech not in taa_aml:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance mechanism is inappropriate:"
+                " provided {}, expected one of {}".format(r_taa_a_mech, sorted(taa_aml))
+            )
+
+        logger.trace(
+            "{} TAA acceptance passed for request {}".format(self, request.reqId)
+        )
+
+    # TODO hooks might need pp_time as well
+    def doDynamicValidation(self, request: Request, req_pp_time: int):
         """
         State based validation
         """
         self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
 
         # Digest validation
+        # TODO implicit caller's context: request is processed by (master) replica
+        # as part of PrePrepare 3PC batch
         ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
         if ledger_id is not None and seq_no is not None:
             raise SuspiciousPrePrepare('Trying to order already ordered request')
@@ -2413,6 +2551,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if get_payload_digest(txn) == request.payload_digest:
                 raise SuspiciousPrePrepare('Trying to order already ordered request')
 
+        # TAA validation
+        self.validateTaaAcceptance(request, req_pp_time=req_pp_time)
+
+        # specific validation for the request txn type
         operation = request.operation
         req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
         req_handler.validate(request)

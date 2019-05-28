@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 import pytest
 
+from plenum.common.startable import Mode
 from plenum.test.helper import freshness
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
@@ -54,3 +55,18 @@ def test_view_change_doesnt_happen_if_pool_is_left_alone(looper, tconf, txnPoolN
         assert node.viewNo == current_view_no
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+
+
+def test_view_changer_state_is_not_fresh_in_view_change(tconf, txnPoolNodeSet, monkeypatch):
+    node = txnPoolNodeSet[0]
+
+    monkeypatch.setattr(node.master_replica, 'get_time_for_3pc_batch',
+                        lambda: 16)
+    monkeypatch.setattr(node.master_replica, 'get_ledgers_last_update_time',
+                        lambda: OrderedDict([(0, 5), (2, 10), (1, 15)]))
+    monkeypatch.setattr(node.view_changer.provider, 'node_mode',
+                        lambda: Mode.starting)
+    node.view_changer.view_change_in_progress = True
+
+    assert not node.view_changer.is_state_fresh_enough()
+    node.view_changer.in_progress = False

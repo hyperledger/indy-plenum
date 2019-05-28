@@ -99,6 +99,14 @@ class ConsProofService:
     def _finish(self, cons_proof: Optional[ConsistencyProof] = None):
         logger.info("{} finished with consistency proof {}".format(self, cons_proof))
 
+        till = CatchupTill(start_size=cons_proof.seqNoStart,
+                           final_size=cons_proof.seqNoEnd,
+                           final_hash=cons_proof.newMerkleRoot) if cons_proof else None
+
+        nodes_ledger_sizes = {frm: proof.seqNoEnd
+                              for frm, proof in self._cons_proofs.items()
+                              if proof is not None}
+
         # Stop requesting last consistency proofs and ledger statuses.
         self._is_working = False
         self._same_ledger_status = set()
@@ -107,10 +115,9 @@ class ConsProofService:
 
         self._cancel_reask()
 
-        till = CatchupTill(start_size=cons_proof.seqNoStart,
-                           final_size=cons_proof.seqNoEnd,
-                           final_hash=cons_proof.newMerkleRoot) if cons_proof else None
-        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id, catchup_till=till))
+        self._output.put_nowait(LedgerCatchupStart(ledger_id=self._ledger_id,
+                                                   catchup_till=till,
+                                                   nodes_ledger_sizes=nodes_ledger_sizes))
 
     def _finish_no_catchup(self):
         root = Ledger.hashToStr(self._ledger.tree.root_hash)
