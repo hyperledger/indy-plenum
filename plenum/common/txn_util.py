@@ -8,7 +8,7 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     TXN_SIGNATURE_FROM, TXN_SIGNATURE_VALUE, TXN_SIGNATURE_VALUES, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
     TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID, CURRENT_PROTOCOL_VERSION, \
-    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST
+    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -199,11 +199,14 @@ def set_payload_data(txn, data):
     return txn
 
 
-def append_payload_metadata(txn, frm=None, req_id=None, digest=None, payload_digest=None):
+def append_payload_metadata(
+        txn, frm=None, req_id=None, digest=None, payload_digest=None, taa_acceptance=None):
     if frm is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = frm
     if req_id is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = req_id
+    if taa_acceptance is not None:
+        txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE] = taa_acceptance
     if digest is not None:
         txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_DIGEST] = digest
     if payload_digest is not None:
@@ -237,7 +240,8 @@ def reqToTxn(req):
             operation=req.get(OPERATION, None),
             signature=req.get(f.SIG.nm, None),
             signatures=req.get(f.SIGS.nm, None),
-            protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None)
+            protocolVersion=req.get(f.PROTOCOL_VERSION.nm, None),
+            taaAcceptance=req.get(f.TAA_ACCEPTANCE.nm, None)
         )
         req = TxnUtilConfig.client_request_class(**kwargs)
     if isinstance(req, Request):
@@ -282,12 +286,12 @@ def do_req_to_txn(req_data, req_op):
         req_data.pop(f.SIGS.nm, None)
 
     # 3. Fill Payload metadata
-
     append_payload_metadata(result,
                             frm=req_data.pop(f.IDENTIFIER.nm, None),
                             req_id=req_data.pop(f.REQ_ID.nm, None),
                             digest=req_data.pop(f.DIGEST.nm, None),
-                            payload_digest=req_data.pop(f.PAYLOAD_DIGEST.nm, None))
+                            payload_digest=req_data.pop(f.PAYLOAD_DIGEST.nm, None),
+                            taa_acceptance=req_data.pop(f.TAA_ACCEPTANCE.nm, None))
 
     # 4. Fill Payload data
     set_payload_data(result, req_op)

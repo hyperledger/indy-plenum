@@ -6,13 +6,22 @@ from plenum.test.delayers import cqDelay, cs_delay
 from plenum.test.logging.conftest import logsearch
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 
 logger = getLogger()
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    with max_3pc_batch_limits(tconf, size=1) as tconf:
+        old = tconf.CATCHUP_BATCH_SIZE
+        tconf.CATCHUP_BATCH_SIZE = 1
+        yield tconf
+        tconf.CATCHUP_BATCH_SIZE = old
 
 
 def test_catchup_with_one_slow_node(tdir, tconf,

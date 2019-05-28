@@ -7,7 +7,6 @@ from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 
 nodeCount = 7
-TestRunningTimeLimitSec = 150
 
 VIEW_CHANGE_TIMEOUT = 10
 

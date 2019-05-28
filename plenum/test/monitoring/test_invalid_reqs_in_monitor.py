@@ -10,7 +10,7 @@ COUNT_INVALID_REQS = 2
 
 
 
-def randomDynamicValidation(self, req):
+def randomDynamicValidation(self, req, ppTime):
     raise InvalidClientMessageException('aaaaaaaa',
                                         req.reqId,
                                         "not valid req")

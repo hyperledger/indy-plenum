@@ -104,6 +104,9 @@ LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
 FORCE = 'force'
+AML_VERSION = 'version'
+AML = 'aml'
+AML_CONTEXT = 'amlContext'
 
 AUDIT_TXN_VIEW_NO = "viewNo"
 AUDIT_TXN_PP_SEQ_NO = "ppSeqNo"
@@ -142,8 +145,10 @@ TRUSTEE_STRING = 'TRUSTEE'
 NODE = PlenumTransactions.NODE.value
 NYM = PlenumTransactions.NYM.value
 GET_TXN = PlenumTransactions.GET_TXN.value
-
-POOL_TXN_TYPES = {NODE, }
+TXN_AUTHOR_AGREEMENT = PlenumTransactions.TXN_AUTHOR_AGREEMENT.value
+TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.TXN_AUTHOR_AGREEMENT_AML.value
+GET_TXN_AUTHOR_AGREEMENT = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT.value
+GET_TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT_AML.value
 
 # TXN
 # TODO: manye of these constants will be replaced
@@ -157,6 +162,7 @@ TXN_PAYLOAD_METADATA_FROM = "from"
 TXN_PAYLOAD_METADATA_REQ_ID = "reqId"
 TXN_PAYLOAD_METADATA_DIGEST = "digest"
 TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST = "payloadDigest"
+TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE = "taaAcceptance"
 TXN_METADATA = "txnMetadata"
 TXN_METADATA_TIME = "txnTime"
 TXN_METADATA_ID = "txnId"
@@ -168,6 +174,16 @@ ED25519 = "ED25519"
 TXN_SIGNATURE_VALUES = "values"
 TXN_SIGNATURE_FROM = "from"
 TXN_SIGNATURE_VALUE = "value"
+
+TXN_AUTHOR_AGREEMENT_TEXT = "text"
+TXN_AUTHOR_AGREEMENT_VERSION = "version"
+
+GET_TXN_AUTHOR_AGREEMENT_VERSION = "version"
+GET_TXN_AUTHOR_AGREEMENT_DIGEST = "digest"
+GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP = "timestamp"
+
+GET_TXN_AUTHOR_AGREEMENT_AML_VERSION = "version"
+GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP = "timestamp"
 
 
 class ClientBootStrategy(IntEnum):

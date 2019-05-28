@@ -7,6 +7,7 @@ from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroug
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.average_strategies import MedianLowStrategy, MedianHighStrategy, MedianMediumStrategy
 from plenum.common.latency_measurements import EMALatencyMeasurementForAllClient
+from stp_core.config import MSG_LEN_LIMIT
 
 walletsDir = 'wallets'
 clientDataDir = 'data/clients'
@@ -38,6 +39,7 @@ poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
 configStateDbName = 'config_state'
 stateTsDbName = "state_ts_db"
+configStateTsDbName = "config_state_ts_db"
 
 stateSignatureDbName = 'state_signature'
 
@@ -231,7 +233,7 @@ enableStdOutLogging = True
 # OPTIONS RELATED TO TESTS
 
 # TODO test 60sec
-TestRunningTimeLimitSec = 100
+TestRunningTimeLimitSec = 150
 
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
@@ -255,7 +257,7 @@ Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
 Max3PCBatchWait = 1
 # Max allowed number of 3PC batches in flight (or None to disable limit)
-Max3PCBatchesInFlight = None
+Max3PCBatchesInFlight = 4
 
 UPDATE_STATE_FRESHNESS = True
 STATE_FRESHNESS_UPDATE_INTERVAL = 300  # in secs
@@ -294,6 +296,8 @@ INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
 
+CATCHUP_BATCH_SIZE = 5  # Minimum number of txns in single catchup request
+
 # permissions for keyring dirs/files
 WALLET_DIR_MODE = 0o700  # drwx------
 WALLET_FILE_MODE = 0o600  # -rw-------
@@ -323,6 +327,7 @@ BLS_SIG_LIMIT = 512
 BLS_MULTI_SIG_LIMIT = 512
 VERSION_FIELD_LIMIT = 128
 DATETIME_LIMIT = 35
+TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT = 64
 
 PLUGIN_ROOT = 'plenum.server.plugin'
 ENABLED_PLUGINS = []
@@ -393,3 +398,13 @@ PROPAGATE_REQUEST_DELAY = 2
 
 # Intrval between attempts to process stashed out of order commits
 PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL = 1  # seconds
+
+# Size limits for txn author agreement
+TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT = 256
+TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT = MSG_LEN_LIMIT - 2048
+TXN_AUTHOR_AGREEMENT_AML_VERSION_SIZE_LIMIT = 256
+TXN_AUTHOR_AGREEMENT_AML_CONTEXT_LIMIT = MSG_LEN_LIMIT - 2048
+
+# TAA acceptance time valid deviations (secs)
+TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME = 120
+TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME = 120
