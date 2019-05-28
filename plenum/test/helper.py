@@ -46,7 +46,7 @@ from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica, getNonPrimaryReplicas
+    getPrimaryReplica, getNonPrimaryReplicas, BUY
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -137,7 +137,7 @@ def assertEquality(observed: Any, expected: Any, details=None):
 
 def randomOperation():
     return {
-        "type": "buy",
+        "type": BUY,
         "amount": random.randint(10, 100000)
     }
 
@@ -445,6 +445,14 @@ def assertExp(condition):
     assert condition
 
 
+def assert_eq(actual, expected):
+    assert actual == expected
+
+
+def assert_in(value, collection):
+    assert value in collection
+
+
 def assertFunc(func):
     assert func()
 
@@ -677,8 +685,8 @@ def get_key_from_req(req: dict):
                    reqId=req[f.REQ_ID.nm],
                    operation=req[OPERATION],
                    protocolVersion=req[f.PROTOCOL_VERSION.nm],
-                   signature=req[f.SIG.nm]
-                   if req.__contains__(f.SIG.nm) else None,
+                   signature=req.get(f.SIG.nm),
+                   taaAcceptance=req.get(f.TAA_ACCEPTANCE)
                    ).key
 
 
@@ -1051,11 +1059,12 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
     return sdk_reqs
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None):
     wallet_h, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
     request = Request(operation=op, reqId=reqId,
-                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
+                      taaAcceptance=taa_acceptance)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
     return json.loads(resp)
@@ -1077,11 +1086,12 @@ def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
 
 
 def sdk_json_to_request_object(json_req):
-    return Request(identifier=json_req['identifier'],
+    return Request(identifier=json_req.get('identifier', None),
                    reqId=json_req['reqId'],
                    operation=json_req['operation'],
                    signature=json_req['signature'] if 'signature' in json_req else None,
-                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None)
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None,
+                   taaAcceptance=json_req.get('taaAcceptance', None))
 
 
 def sdk_json_couples_to_request_list(json_couples):

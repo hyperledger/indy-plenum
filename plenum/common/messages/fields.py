@@ -23,8 +23,9 @@ class FieldValidator(metaclass=ABCMeta):
     """"
     Interface for field validators
     """
-
-    optional = False
+    # TODO INDY-2072 test optional
+    def __init__(self, optional: bool = False):
+        self.optional = optional
 
     @abstractmethod
     def validate(self, val):
@@ -259,8 +260,8 @@ class IterableField(FieldBase):
 class MapField(FieldBase):
     _base_types = (dict,)
 
-    def __init__(self, key_field: FieldValidator,
-                 value_field: FieldValidator,
+    def __init__(self, key_field: FieldBase,
+                 value_field: FieldBase,
                  **kwargs):
         super().__init__(**kwargs)
         self.key_field = key_field

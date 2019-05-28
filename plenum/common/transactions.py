@@ -15,3 +15,8 @@ class PlenumTransactions(Transactions):
     NYM = "1"
     AUDIT = "2"
     GET_TXN = "3"
+
+    TXN_AUTHOR_AGREEMENT = "4"
+    TXN_AUTHOR_AGREEMENT_AML = "5"
+    GET_TXN_AUTHOR_AGREEMENT = "6"
+    GET_TXN_AUTHOR_AGREEMENT_AML = "7"

@@ -48,15 +48,15 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
         assert node.master_replica.last_ordered_3pc == (0, 1)
 
     # Prevent ordering of some requests
-    start_delaying(all_stashers, delay_3pc(after=7, msgs=(Prepare, Commit)))
+    start_delaying(all_stashers, delay_3pc(view_no=0, after=7, msgs=(Prepare, Commit)))
 
     # Stop ordering on slow node and send requests
-    slow_node_after_5 = start_delaying(slow_stasher, delay_3pc(after=5, msgs=Commit))
-    slow_node_until_5 = start_delaying(slow_stasher, delay_3pc(after=0))
+    slow_node_after_5 = start_delaying(slow_stasher, delay_3pc(view_no=0, after=5, msgs=Commit))
+    slow_node_until_5 = start_delaying(slow_stasher, delay_3pc(view_no=0, after=0))
     reqs_view_0 = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 8)
 
     # Make pool order first 2 batches and pause
-    pool_after_3 = start_delaying(other_stashers, delay_3pc(after=3))
+    pool_after_3 = start_delaying(other_stashers, delay_3pc(view_no=0, after=3))
     looper.run(eventually(check_nodes_ordered_till, other_nodes, 0, 3))
 
     # Start catchup, continue ordering everywhere (except two last batches on slow node)

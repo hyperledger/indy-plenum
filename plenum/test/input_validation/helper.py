@@ -1,8 +1,14 @@
 from collections import namedtuple
 from copy import deepcopy
-
 import itertools
 
+from plenum.common.constants import (
+    TXN_TYPE, NYM, TARGET_NYM, VERKEY
+)
+
+from .constants import (
+    TEST_TARGET_NYM, TEST_VERKEY_ABBREVIATED
+)
 
 class TestCases:
 
@@ -325,3 +331,11 @@ class MessageDescriptor(TestFieldBase):
     def _any_positive_case_copy(self):
         return deepcopy(
             {field.name: field.positive_test_cases[0] for field in self.fields})
+
+
+def gen_nym_operation():
+    return {
+        TXN_TYPE: NYM,
+        TARGET_NYM: TEST_TARGET_NYM,
+        VERKEY: TEST_VERKEY_ABBREVIATED
+    }

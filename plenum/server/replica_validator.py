@@ -1,15 +1,22 @@
+import time
+
 from plenum.common.messages.node_messages import Commit
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE, STASH_WATERMARKS, \
     STASH_CATCH_UP, STASH_VIEW
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 class ReplicaValidator:
 
     def __init__(self, replica) -> None:
         self.replica = replica
+        # TODO: Make some generic throttling mechanism?
+        self._skip_send_3pc_ts = None
 
     @property
     def view_no(self):
@@ -116,7 +123,12 @@ class ReplicaValidator:
             if self.replica.config.Max3PCBatchesInFlight is not None:
                 batches_in_flight = self.replica.lastPrePrepareSeqNo - self.replica.last_ordered_3pc[1]
                 if batches_in_flight >= self.replica.config.Max3PCBatchesInFlight:
+                    if self._can_log_skip_send_3pc():
+                        logger.info("{} not creating new batch because there already {} in flight out of {} allowed".
+                                    format(self.replica, batches_in_flight, self.replica.config.Max3PCBatchesInFlight))
                     return False
+
+        self._skip_send_3pc_ts = None
         return True
 
     def can_order(self):
@@ -125,4 +137,16 @@ class ReplicaValidator:
             return True
         if node.is_synced and node.view_change_in_progress:
             return True
+        return False
+
+    def _can_log_skip_send_3pc(self):
+        current_time = time.perf_counter()
+        if self._skip_send_3pc_ts is None:
+            self._skip_send_3pc_ts = current_time
+            return True
+
+        if current_time - self._skip_send_3pc_ts > self.replica.config.Max3PCBatchWait:
+            self._skip_send_3pc_ts = current_time
+            return True
+
         return False

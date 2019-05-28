@@ -1,7 +1,11 @@
 from re import compile
 
-# TODO refactor hierarchy of exceptions taking into account
-# ones from common/exceptions.py
+# TODO
+#  - review the list and remove obsolete ones
+#  - refactor hierarchy of exceptions taking into account ones
+#    from common/exceptions.py
+
+from common.exceptions import LogicError
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 
@@ -210,6 +214,10 @@ class InvalidClientOp(InvalidClientRequest):
     pass
 
 
+class InvalidClientTaaAcceptanceError(InvalidClientRequest):
+    pass
+
+
 class UnauthorizedClientRequest(InvalidClientMessageException):
     pass
 
@@ -317,3 +325,7 @@ class MissingProtocolVersionError(TypeError):
             message + 'Make sure that the latest LibIndy is '
                       'used and `set_protocol_version({})` is called.'
             .format(CURRENT_PROTOCOL_VERSION))
+
+
+class TaaAmlNotSetError(LogicError):
+    pass

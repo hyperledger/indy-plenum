@@ -4,8 +4,6 @@ from plenum.test.restart.helper import get_group, restart_nodes
 
 nodeCount = 7
 
-TestRunningTimeLimitSec = 150
-
 
 def test_restart_groups_4_of_7_np_tm(looper, txnPoolNodeSet, tconf, tdir,
                                      sdk_pool_handle, sdk_wallet_client, allPluginsPath):
