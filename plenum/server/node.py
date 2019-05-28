@@ -181,6 +181,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_type_to_req_handler = {}  # type: Dict[str, RequestHandler]
         self.txn_type_to_ledger_id = {}  # type: Dict[str, int]
         self.requestExecuter = {}  # type: Dict[int, Callable]
+        self.db_manager = DatabaseManager()
 
         self.metrics = self._createMetricsCollector()
         if self.config.METRICS_COLLECTOR_TYPE is not None:
@@ -188,22 +189,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
-        self.states = {}  # type: Dict[int, State]
-
         # Config ledger and state init
-        self._configLedger = self.init_config_ledger()
-        self.register_state(CONFIG_LEDGER_ID, self.init_config_state())
+        self.db_manager.register_new_database(CONFIG_LEDGER_ID,
+                                              self.init_config_ledger(),
+                                              self.init_config_state())
         self._init_write_request_validator()
 
         # Pool ledger init
-        self._poolLedger = self.init_pool_ledger()
-        self.register_state(POOL_LEDGER_ID, self.init_pool_state())
+        self.db_manager.register_new_database(POOL_LEDGER_ID,
+                                              self.init_pool_ledger(),
+                                              self.init_pool_state())
         self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
         self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
         self.upload_pool_state()
 
         # Pool manager init
-        HasPoolManager.__init__(self, self._poolLedger,
+        HasPoolManager.__init__(self, self.poolLedger,
                                 self.states[POOL_LEDGER_ID],
                                 self.get_req_handler(POOL_LEDGER_ID),
                                 ha, cliname, cliha)
@@ -220,8 +221,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.stateTsDbStorage = None
 
         # Domain ledger init
-        self._domainLedger = storage or self.init_domain_ledger()
-        self.register_state(DOMAIN_LEDGER_ID, self.init_domain_state())
+        self.db_manager.register_new_database(DOMAIN_LEDGER_ID,
+                                              storage or self.init_domain_ledger(),
+                                              self.init_domain_state())
         self.register_req_handler(self.init_domain_req_handler(), DOMAIN_LEDGER_ID)
         self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
         self.upload_domain_state()
@@ -231,7 +233,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.upload_config_state()
 
         # Audit ledger init
-        self._auditLedger = self.init_audit_ledger()
+        self.db_manager.register_new_database(AUDIT_LEDGER_ID,
+                                              self.init_audit_ledger())
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
@@ -387,13 +390,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable = Observable()
         self._observer = NodeObserver(self)
 
-        self.db_manager = DatabaseManager()
-        for ledger_id in self.ledger_ids:
-            if ledger_id not in self.ledgerManager.ledgerRegistry:
-                continue
-            self.db_manager.register_new_database(lid=ledger_id,
-                                                  ledger=self.getLedger(ledger_id),
-                                                  state=self.getState(ledger_id))
         self.audit_handler = AuditBatchHandler(self.db_manager)
 
         # List of current replica's primaries, used for persisting in audit ledger
@@ -526,19 +522,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # LEDGERS
     @property
     def poolLedger(self):
-        return self._poolLedger
+        return self.db_manager.get_ledger(POOL_LEDGER_ID)
 
     @property
     def domainLedger(self):
-        return self._domainLedger
+        return self.db_manager.get_ledger(DOMAIN_LEDGER_ID)
 
     @property
     def configLedger(self):
-        return self._configLedger
+        return self.db_manager.get_ledger(CONFIG_LEDGER_ID)
 
     @property
     def auditLedger(self):
-        return self._auditLedger
+        return self.db_manager.get_ledger(AUDIT_LEDGER_ID)
+
+    @property
+    def states(self):
+        return self.db_manager.states
 
     def init_pool_ledger(self):
         genesis_txn_initiator = GenesisTxnInitiatorFromFile(
