@@ -1042,7 +1042,7 @@ class Trie:
         return self._get(root_node, bin_to_nibbles(to_string(key)))
 
     def produce_spv_proof(self, key, root=None, get_value=False):
-        root = root or self.root_node
+        root = root if root is not None else self.root_node
         proof.push(RECORDING)
         rv = self.get_at(root, key)
         o = proof.get_nodelist()
@@ -1052,7 +1052,7 @@ class Trie:
 
     def produce_spv_proof_for_keys_with_prefix(self, key_prfx, root=None, get_value=False):
         # Return a proof for keys in the trie with the given prefix.
-        root = root or self.root_node
+        root = root if root is not None else self.root_node
         proof.push(RECORDING)
         seen_prfx = []
         prefix_node = self._get_last_node_for_prfx(root,
@@ -1086,7 +1086,7 @@ class Trie:
                                           get_value=get_value)
 
     def _generate_state_proof(self, path, func, root=None, serialize=False, **kwargs):
-        root = root or self.root_node
+        root = root if root is not None else self.root_node
         rv = func(path, root, **kwargs)
         has_val = isinstance(rv, tuple) and len(rv) == 2
         pf = rv[0] if has_val else rv

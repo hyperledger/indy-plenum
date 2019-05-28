@@ -3,6 +3,11 @@ from typing import NamedTuple, Any, List, Mapping, Optional, Dict, \
     Tuple
 
 from stp_core.types import HA
+from plenum.common.constants import (
+    TXN_AUTHOR_AGREEMENT_TEXT,
+    TXN_AUTHOR_AGREEMENT_VERSION,
+    TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE,
+)
 
 NodeDetail = NamedTuple("NodeDetail", [
     ("ha", HA),
@@ -82,6 +87,13 @@ class f:  # provides a namespace for reusable field constants
     VALID_REQ_IDR = Field("valid_reqIdr", List[str])
     INVALID_REQ_IDR = Field("invalid_reqIdr", List[str])
     PRIMARIES = Field("primaries", List[str])
+    # TAA
+    TAA_TEXT = Field(TXN_AUTHOR_AGREEMENT_TEXT, str)
+    TAA_VERSION = Field(TXN_AUTHOR_AGREEMENT_VERSION, str)
+    TAA_ACCEPTANCE = Field(TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE, str)
+    TAA_ACCEPTANCE_DIGEST = Field("taaDigest", str)
+    TAA_ACCEPTANCE_MECHANISM = Field("mechanism", str)
+    TAA_ACCEPTANCE_TIME = Field("time", float)
 
 
 OPERATION = 'operation'

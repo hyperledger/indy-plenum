@@ -908,7 +908,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         If there is any errors during validation it would be raised
         """
         if self.isMaster:
-            self.node.doDynamicValidation(req)
+            self.node.doDynamicValidation(req, cons_time)
             self.node.applyReq(req, cons_time)
 
     @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
@@ -998,7 +998,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 try:
                     self.processReqDuringBatch(fin_req,
                                                tm)
-                except (InvalidClientMessageException, UnknownIdentifier) as ex:
+
+                except (
+                    InvalidClientMessageException,
+                    UnknownIdentifier
+                ) as ex:
                     self.logger.warning('{} encountered exception {} while processing {}, '
                                         'will reject'.format(self, ex, fin_req))
                     rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))

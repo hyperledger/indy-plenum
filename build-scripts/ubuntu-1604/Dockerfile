@@ -11,7 +11,6 @@ RUN apt-get update -y && apt-get install -y \
         unzip \
         python3.5 \
         python3-pip \
-        python-setuptools \
         python3-venv \
     # fpm
         ruby \
@@ -23,9 +22,14 @@ RUN apt-get update -y && apt-get install -y \
         libbz2-dev \
         zlib1g-dev \
         liblz4-dev \
-        libsnappy-dev
+        libsnappy-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -U setuptools
+# issues with pip>=10:
+# https://github.com/pypa/pip/issues/5240
+# https://github.com/pypa/pip/issues/5221
+RUN python3 -m pip install -U pip setuptools \
+    && pip3 list
 
 # install fpm
 RUN gem install --no-ri --no-rdoc rake fpm

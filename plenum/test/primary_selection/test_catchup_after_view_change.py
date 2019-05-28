@@ -13,7 +13,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test.batching_3pc.conftest import tconf
 
 Max3PCBatchSize = 4
-TestRunningTimeLimitSec = 150
 
 
 @pytest.fixture(scope='module', params=['next-non-primary', 'next-primary'])

@@ -12,8 +12,6 @@ from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-TestRunningTimeLimitSec = 150
-
 
 @pytest.mark.skip(reason='Pending complete implementation')
 def test_node_detecting_lag_from_view_change_done_messages(txnPoolNodeSet,
