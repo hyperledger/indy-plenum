@@ -8,12 +8,12 @@ from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
     AML_VERSION
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_payload_data, get_from
+from plenum.common.txn_util import get_payload_data, get_from, get_seq_no, get_txn_time
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
-from plenum.server.request_handlers.utils import is_steward
+from plenum.server.request_handlers.utils import is_steward, encode_state_value
 
 
 class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
@@ -42,7 +42,9 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
     def update_state(self, txn, prev_result, is_committed=False):
         self._validate_txn_type(txn)
         payload = get_payload_data(txn)
+        seq_no = get_seq_no(txn)
+        txn_time = get_txn_time(txn)
+        serialized_data = encode_state_value(payload, seq_no, txn_time, serializer=config_state_serializer)
         version = payload[AML_VERSION]
-        payload = config_state_serializer.serialize(payload)
-        self.state.set(StaticTAAHelper.state_path_taa_aml_latest(), payload)
-        self.state.set(StaticTAAHelper.state_path_taa_aml_version(version), payload)
+        self.state.set(StaticTAAHelper.state_path_taa_aml_latest(), serialized_data)
+        self.state.set(StaticTAAHelper.state_path_taa_aml_version(version), serialized_data)
