@@ -940,6 +940,9 @@ async def _gen_pool_handler(work_dir, name, open_config):
 
 @pytest.fixture(scope='module')
 def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
+    # TODO think about moving protocol version setting to separate
+    # fixture like 'sdk_init' since some sdk request builders don't
+    # requires pool handle but use protocol version
     sdk_set_protocol_version(looper)
     pool_name, open_config = sdk_pool_data
     pool_handle = looper.loop.run_until_complete(

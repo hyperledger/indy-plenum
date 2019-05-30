@@ -3,7 +3,8 @@ import json
 from _sha256 import sha256
 
 import base58
-from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request
+from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request, \
+    build_get_acceptance_mechanism_request
 
 from typing import NamedTuple, Dict, Optional
 from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
@@ -12,7 +13,8 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     MULTI_SIGNATURE_VALUE_TIMESTAMP, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
     AML_VERSION, AML, AML_CONTEXT, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
-    TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME
+    TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP
 from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
@@ -29,7 +31,9 @@ TaaData = NamedTuple("TaaData", [
 TaaAmlData = NamedTuple("TaaAmlData", [
     ("version", str),
     ("aml", dict),
-    ("amlContext", str)
+    ("amlContext", str),
+    ("seq_no", int),
+    ("txn_time", int)
 ])
 
 
@@ -67,6 +71,14 @@ def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
     if timestamp is not None:
         params['timestamp'] = timestamp
     req = looper.loop.run_until_complete(build_get_txn_author_agreement_request(sdk_wallet[1], json.dumps(params)))
+    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [rep])[0]
+
+
+def sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet,
+                    version: Optional[str] = None,
+                    timestamp: Optional[int] = None):
+    req = looper.loop.run_until_complete(build_get_acceptance_mechanism_request(sdk_wallet[1], timestamp, version))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 
@@ -156,22 +168,23 @@ def expected_state_data(data: TaaData) -> Dict:
 
 def expected_data(data: TaaData):
     return {
-               TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-               TXN_AUTHOR_AGREEMENT_VERSION: data.version
-           }, data.seq_no, data.txn_time
+        TXN_AUTHOR_AGREEMENT_TEXT: data.text,
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+    }, data.seq_no, data.txn_time
 
 
 def expected_aml_data(data: TaaAmlData):
     return {
-        AML_VERSION: data.version,
-        AML: data.aml,
-        AML_CONTEXT: data.amlContext
-    }
+               AML_VERSION: data.version,
+               AML: data.aml,
+               AML_CONTEXT: data.amlContext
+           }, data.seq_no, data.txn_time
 
 
 def gen_random_txn_author_agreement(text_size=1024, version_size=16):
     return randomString(text_size), randomString(version_size)
 
 
+# TODO might make sense to use sdk's api
 def calc_taa_digest(text, version):
     return ConfigReqHandler._taa_digest(text, version)

@@ -1,17 +1,9 @@
 import json
-
+from copy import deepcopy
 import pytest
 from indy.ledger import build_acceptance_mechanism_request
 
 from common.serializers.serialization import config_state_serializer
-from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
-
-from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
-
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT
-from plenum.common.request import Request
-from copy import deepcopy
-
 from state.pruning_state import PruningState
 from storage.kv_in_memory import KeyValueStorageInMemory
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -22,7 +14,6 @@ from plenum.common.constants import (
 from plenum.common.request import Request
 from plenum.common.ledger import Ledger
 from plenum.common.util import randomString
-
 from plenum.server.config_req_handler import ConfigReqHandler
 
 from plenum.test.txn_author_agreement.helper import (
@@ -41,8 +32,9 @@ from .helper import (
 )
 
 
+# Note. tconf is necessary for proper config initialization
 @pytest.fixture
-def config_ledger(tmpdir_factory):
+def config_ledger(tconf, tmpdir_factory):
     tdir = tmpdir_factory.mktemp('').strpath
     return Ledger(CompactMerkleTree(),
                   dataDir=tdir)
@@ -62,7 +54,6 @@ def config_req_handler(config_state,
                             bls_store=FakeSomething())
 
 
-# TODO use sdk's build_acceptance_mechanism_request instead
 @pytest.fixture(scope='module')
 def aml_request_kwargs(sdk_wallet_trustee):
     return dict(
@@ -72,23 +63,43 @@ def aml_request_kwargs(sdk_wallet_trustee):
         operation={
             'type': TXN_AUTHOR_AGREEMENT_AML,
             AML_VERSION: randomString(),
-            AML: {'Nice way': 'very good way to accept agreement'},
+            AML: {
+                'Nice way': 'very good way to accept agreement',
+                'Nicer way': 'the best way to accept agreement',
+            },
             AML_CONTEXT: randomString()
         }
     )
 
 
+# Note. sdk_pool_handle is necessary since it sets proper
+# Protocol Version for requests
+@pytest.fixture(scope="module")
+def taa_aml_request_module(looper, aml_request_kwargs, sdk_pool_handle):
+    res = looper.loop.run_until_complete(
+        build_acceptance_mechanism_request(
+            aml_request_kwargs['identifier'],
+            json.dumps(aml_request_kwargs['operation'][AML]),
+            aml_request_kwargs['operation'][AML_VERSION],
+            aml_request_kwargs['operation'][AML_CONTEXT]
+        )
+    )
+    return res
+
+
 @pytest.fixture(scope="function")
-def taa_aml_request(aml_request_kwargs):
+def taa_aml_request(looper, aml_request_kwargs, sdk_pool_handle):
     aml_request_kwargs = deepcopy(aml_request_kwargs)
     aml_request_kwargs['operation'][AML_VERSION] = randomString()
     aml_request_kwargs['operation'][AML_CONTEXT] = randomString()
-    return Request(**aml_request_kwargs)
-
-
-@pytest.fixture(scope="module")
-def taa_aml_request_module(aml_request_kwargs):
-    return Request(**aml_request_kwargs)
+    return looper.loop.run_until_complete(
+        build_acceptance_mechanism_request(
+            aml_request_kwargs['identifier'],
+            json.dumps(aml_request_kwargs['operation'][AML]),
+            aml_request_kwargs['operation'][AML_VERSION],
+            aml_request_kwargs['operation'][AML_CONTEXT]
+        )
+    )
 
 
 # TODO serve AML routine with helpers/fixtures similar to TAA
@@ -97,9 +108,8 @@ def set_txn_author_agreement_aml(
         looper, txnPoolNodeSet, taa_aml_request_module,
         sdk_pool_handle, sdk_wallet_trustee
 ):
-    req = sdk_sign_and_submit_req_obj(
-        looper, sdk_pool_handle, sdk_wallet_trustee, taa_aml_request_module
-    )
+    req = sdk_sign_and_send_prepared_request(
+        looper, sdk_wallet_trustee, sdk_pool_handle, taa_aml_request_module)
     return sdk_get_and_check_replies(looper, [req])[0]
 
 
@@ -112,7 +122,7 @@ def set_txn_author_agreement(
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
         res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)  # TODO do we need that
+        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return res
 
     return wrapped
@@ -129,14 +139,6 @@ def get_txn_author_agreement(
         )
 
     return wrapped
-
-
-@pytest.fixture(scope='module')
-def activate_taa(
-        set_txn_author_agreement_aml, set_txn_author_agreement,
-        sdk_wallet_trustee, sdk_wallet_client
-):
-    return set_txn_author_agreement()
 
 
 @pytest.fixture
@@ -159,9 +161,9 @@ def taa_aml_input_data():
     return [
         TaaAmlData(
             version=randomString(8), aml={randomString(8): randomString(16)},
-            amlContext=randomString(8)
+            amlContext=randomString(8), seq_no=n, txn_time=n + 10
         )
-        for _ in range(10)
+        for n in range(10)
     ]
 
 
@@ -190,27 +192,3 @@ def taa_aml_expected_data(taa_aml_input_data):
     # TODO use some other API, e.g. sdk's one
     return {data.version: config_state_serializer.serialize(
         {AML_VERSION: data.version, AML: data.aml, AML_CONTEXT: data.amlContext}) for data in taa_aml_input_data}
-
-
-@pytest.fixture(scope="function")
-def taa_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle):
-    return looper.loop.run_until_complete(build_acceptance_mechanism_request(
-        sdk_wallet_trustee[1],
-        json.dumps({
-            'Nice way': 'very good way to accept agreement'}),
-        randomString(), randomString()))
-
-
-@pytest.fixture(scope="module")
-def taa_aml_request_module(looper, sdk_wallet_trustee, sdk_pool_handle):
-    return looper.loop.run_until_complete(build_acceptance_mechanism_request(
-        sdk_wallet_trustee[1],
-        json.dumps({
-            'Nice way': 'very good way to accept agreement'}),
-        randomString(), randomString()))
-
-
-@pytest.fixture(scope="module")
-def set_txn_author_agreement_aml(looper, txnPoolNodeSet, taa_aml_request_module, sdk_pool_handle, sdk_wallet_trustee):
-    req = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, taa_aml_request_module)
-    sdk_get_and_check_replies(looper, [req])
