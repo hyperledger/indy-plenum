@@ -32,7 +32,7 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     def apply_request(self, request: Request, batch_ts, prev_result):
         self._validate_request_type(request)
         txn = self._req_to_txn(request)
-        txn = append_txn_metadata(txn, txn_id=self.gen_state_key(txn))
+        txn = append_txn_metadata(txn, txn_id=self.gen_txn_id(txn))
         # TODO: try to not pass list of one txn if possible
         self.ledger.append_txns_metadata([txn], batch_ts)
 
@@ -52,7 +52,7 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
         """
         pass
 
-    def gen_state_key(self, txn):
+    def gen_txn_id(self, txn):
         return None
 
     def _req_to_txn(self, req: Request):

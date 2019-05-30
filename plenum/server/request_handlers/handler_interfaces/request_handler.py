@@ -23,6 +23,12 @@ class RequestHandler(metaclass=ABCMeta):
         properly formed request, etc
         """
 
+    @abstractmethod
+    def gen_state_key(self, txn):
+        """
+        Generate state key(s).
+        """
+
     @property
     def state(self):
         return self.database_manager.get_database(self.ledger_id).state \
