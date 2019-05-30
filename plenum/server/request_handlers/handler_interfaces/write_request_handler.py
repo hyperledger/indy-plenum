@@ -52,9 +52,8 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
         """
         pass
 
-    @abstractmethod
     def gen_state_key(self, txn):
-        pass
+        return None
 
     def _req_to_txn(self, req: Request):
         return reqToTxn(req)

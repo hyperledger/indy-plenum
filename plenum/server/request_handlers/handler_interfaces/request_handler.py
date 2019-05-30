@@ -23,13 +23,6 @@ class RequestHandler(metaclass=ABCMeta):
         properly formed request, etc
         """
 
-    @abstractmethod
-    def dynamic_validation(self, request: Request):
-        """
-        Does dynamic validation (state based validation) on request.
-        Raises exception if request is invalid.
-        """
-
     @property
     def state(self):
         return self.database_manager.get_database(self.ledger_id).state \

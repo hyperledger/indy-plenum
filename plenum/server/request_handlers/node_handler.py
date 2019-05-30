@@ -41,7 +41,7 @@ class NodeHandler(WriteRequestHandler):
                                        "for BLS key {}".
                                        format(blskey_proof, blskey))
 
-    def gen_state_key(self, txn):
+    def get_node_state_key(self, txn):
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         return node_nym.encode()
 
@@ -66,7 +66,7 @@ class NodeHandler(WriteRequestHandler):
         if not existing_data:
             existing_data[f.IDENTIFIER.nm] = get_from(txn)
         existing_data.update(data)
-        key = self.gen_state_key(txn)
+        key = self.get_node_state_key(txn)
         val = self.state_serializer.serialize(data)
         self.state.set(key, val)
 

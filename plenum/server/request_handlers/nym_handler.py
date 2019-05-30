@@ -45,9 +45,12 @@ class NymHandler(WriteRequestHandler):
                                             req_id,
                                             error)
 
-    def gen_state_key(self, txn):
+    def get_nym_state_key(self, txn):
         nym = get_payload_data(txn).get(TARGET_NYM)
         return nym_to_state_key(nym)
+    
+    def gen_state_key(self, txn):
+        return hexlify(self.get_nym_state_key(txn)).decode()
 
     def update_state(self, txn, prev_result, is_committed=False):
         self._validate_txn_type(txn)
@@ -75,7 +78,7 @@ class NymHandler(WriteRequestHandler):
         self.__update_steward_count(new_data, existing_data)
         existing_data.update(new_data)
         val = self.state_serializer.serialize(existing_data)
-        key = self.gen_state_key(txn)
+        key = self.get_nym_state_key(txn)
         self.state.set(key, val)
         return existing_data
 
