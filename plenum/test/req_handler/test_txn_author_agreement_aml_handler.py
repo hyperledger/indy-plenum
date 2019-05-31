@@ -1,17 +1,16 @@
 import pytest as pytest
 
 from common.serializers.serialization import domain_state_serializer
-from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE, TXN_AUTHOR_AGREEMENT, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TRUSTEE, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_AML, \
+from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE, \
+    TRUSTEE, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_AML, \
     AML_VERSION, AML, AML_CONTEXT
 from plenum.common.exceptions import UnauthorizedClientRequest, InvalidClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_payload_data, reqToTxn, get_reply_nym
+from plenum.common.txn_util import reqToTxn
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
-from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementHandler
-from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward, nym_to_state_key
+from plenum.server.request_handlers.utils import nym_to_state_key
 from plenum.test.testing_utils import FakeSomething
 from state.state import State
 

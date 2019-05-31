@@ -1,16 +1,12 @@
 import pytest as pytest
 
-from common.serializers.serialization import domain_state_serializer
-from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE, TXN_AUTHOR_AGREEMENT, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TRUSTEE, DOMAIN_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT, \
+from plenum.common.constants import TXN_TYPE, GET_TXN_AUTHOR_AGREEMENT, \
     GET_TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP
-from plenum.common.exceptions import UnauthorizedClientRequest, InvalidClientRequest
+from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_payload_data, reqToTxn, get_reply_nym
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.get_txn_author_agreement_handler import GetTxnAuthorAgreementHandler
-from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
-from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward, nym_to_state_key
+
 from plenum.test.testing_utils import FakeSomething
 from state.state import State
 
@@ -27,13 +23,6 @@ def get_txn_author_agreement_handler(tconf):
                                        FakeSomething(),
                                        state)
     return handler
-
-
-@pytest.fixture(scope="function")
-def get_taa_request(tconf, get_txn_author_agreement_handler):
-    return Request(identifier="identifier",
-                   operation={TXN_TYPE: GET_TXN_AUTHOR_AGREEMENT,
-                              GET_TXN_AUTHOR_AGREEMENT_VERSION: "VERSION"})
 
 
 def test_static_validation(get_txn_author_agreement_handler):
