@@ -20,6 +20,10 @@ from plenum.server.request_handlers.utils import is_steward, encode_state_value,
 
 class GetTxnAuthorAgreementHandler(ReadRequestHandler):
 
+    def __init__(self, node, database_manager: DatabaseManager):
+        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, None)
+        self.node = node
+
     def static_validation(self, request: Request):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
         parameters = [GET_TXN_AUTHOR_AGREEMENT_VERSION,
@@ -30,10 +34,6 @@ class GetTxnAuthorAgreementHandler(ReadRequestHandler):
             raise InvalidClientRequest(identifier, req_id,
                                        "GET_TXN_AUTHOR_AGREEMENT request can have at most one of "
                                        "the following parameters: version, digest, timestamp")
-
-    def __init__(self, node, database_manager: DatabaseManager):
-        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, None)
-        self.node = node
 
     def get_result(self, request: Request):
         version = request.operation.get(GET_TXN_AUTHOR_AGREEMENT_VERSION)
