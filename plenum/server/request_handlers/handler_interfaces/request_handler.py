@@ -23,11 +23,12 @@ class RequestHandler(metaclass=ABCMeta):
         properly formed request, etc
         """
 
-    @abstractmethod
+    # @abstractmethod
     def gen_state_key(self, txn):
         """
         Generate state key(s).
         """
+        pass
 
     @property
     def state(self):

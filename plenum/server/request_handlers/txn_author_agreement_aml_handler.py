@@ -32,7 +32,7 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
 
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
-        StaticTAAHelper.authorize(self.database_manager, request)
+        self.authorize(request)
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
         version = operation.get(AML_VERSION)
         if StaticTAAHelper.get_taa_aml_data(self.state, version, isCommitted=False) is not None:
@@ -48,3 +48,6 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
         version = payload[AML_VERSION]
         self.state.set(StaticTAAHelper.state_path_taa_aml_latest(), serialized_data)
         self.state.set(StaticTAAHelper.state_path_taa_aml_version(version), serialized_data)
+
+    def authorize(self, request):
+        StaticTAAHelper.authorize(self.database_manager, request)

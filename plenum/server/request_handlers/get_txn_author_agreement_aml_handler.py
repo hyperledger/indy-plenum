@@ -23,7 +23,7 @@ class GetTxnAuthorAgreementAmlHandler(ReadRequestHandler):
     def __init__(self, node, database_manager: DatabaseManager):
         super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT_AML, None)
         self.node = node
-        
+
     def static_validation(self, request: Request):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
         if GET_TXN_AUTHOR_AGREEMENT_AML_VERSION in operation \

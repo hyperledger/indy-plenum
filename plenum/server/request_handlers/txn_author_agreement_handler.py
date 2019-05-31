@@ -28,7 +28,7 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
 
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
-        StaticTAAHelper.authorize(self.database_manager, request)
+        self.authorize(request)
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
         if self.state.get(StaticTAAHelper.state_path_taa_aml_latest()) is None:
             raise InvalidClientRequest(identifier, req_id,
@@ -54,3 +54,6 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
         self.state.set(StaticTAAHelper.state_path_taa_digest(digest), data)
         self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
         self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)
+
+    def authorize(self, request):
+        StaticTAAHelper.authorize(self.database_manager, request)
