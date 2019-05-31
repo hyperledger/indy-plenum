@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.constants import POOL_LEDGER_ID
 from plenum.test.bls.helper import check_bls_key, update_bls_keys_no_proof, \
     update_validate_bls_signature_without_key_proof
 
@@ -26,7 +27,7 @@ def test_switched_off_sign_validation_for_key_proof_exist(looper,
     # Pool Ledger now
     with update_validate_bls_signature_without_key_proof(txnPoolNodeSet, True):
         for n in txnPoolNodeSet:
-            monkeypatch.setattr(n.poolManager.reqHandler, 'doStaticValidation', lambda req: True)
+            monkeypatch.setattr(n.get_req_handler(POOL_LEDGER_ID), 'doStaticValidation', lambda req: True)
         new_blspk = update_bls_keys_no_proof(0, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
         monkeypatch.undo()
 

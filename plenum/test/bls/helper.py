@@ -29,12 +29,12 @@ logger = getlogger()
 def update_validate_bls_signature_without_key_proof(txnPoolNodeSet, value):
     default_param = {}
     for n in txnPoolNodeSet:
-        config = n.bls_bft.bls_key_register._pool_manager.config
+        config = n.bls_bft.bls_key_register._node.config
         default_param[n.name] = config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF
         config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = value
     yield value
     for n in txnPoolNodeSet:
-        n.bls_bft.bls_key_register._pool_manager. \
+        n.bls_bft.bls_key_register._node. \
             config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = default_param[n.name]
 
 
