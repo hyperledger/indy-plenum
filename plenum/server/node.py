@@ -203,6 +203,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.db_manager = DatabaseManager()
         self.init_req_managers()
         self.init_storages(storage=storage)
+        self.init_bls_bft()
         self.init_common_managers()
         self._init_write_request_validator()
         self.register_req_handlers()
@@ -420,7 +421,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.db_manager.register_new_database(AUDIT_LEDGER_ID,
                                               self.init_audit_ledger())
 
+    def init_bls_bft(self):
         self.bls_bft = self._create_bls_bft()
+
+    def init_common_managers(self):
+        # Pool manager init
+        HasPoolManager.__init__(self, self.poolLedger,
+                                self.states[POOL_LEDGER_ID],
+                                self.write_manager,
+                                self.ha,
+                                self.cliname,
+                                self.cliha)
 
     def register_req_handlers(self):
         self.register_pool_req_handlers()
@@ -4002,12 +4013,3 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _init_write_request_validator(self):
         pass
-
-    def init_common_managers(self):
-        # Pool manager init
-        HasPoolManager.__init__(self, self.poolLedger,
-                                self.states[POOL_LEDGER_ID],
-                                self.write_manager,
-                                self.ha,
-                                self.cliname,
-                                self.cliha)
