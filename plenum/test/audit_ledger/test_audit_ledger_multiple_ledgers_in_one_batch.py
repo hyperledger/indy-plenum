@@ -31,7 +31,7 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     batch = get_3PC_batch(domain_root_hash)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
-    append_txn_to_ledger(txn_data, node._auditLedger, 1)
+    append_txn_to_ledger(txn_data, node.auditLedger, 1)
 
     assert txn_data[AUDIT_TXN_LEDGER_ROOT][1] == domain_root_hash
     assert txn_data[AUDIT_TXN_LEDGER_ROOT][2] == config_root_hash
@@ -88,7 +88,7 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     batch = get_3PC_batch(domain_root_hash)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
-    append_txn_to_ledger(txn_data, node._auditLedger, 2)
+    append_txn_to_ledger(txn_data, node.auditLedger, 2)
 
     # Checking rare case -- batch from two ledgers, that were never audited before
     op2 = {
