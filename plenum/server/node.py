@@ -2190,10 +2190,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.discard(msg_dict,
                                  reason="view change in progress",
                                  logMethod=logger.debug)
-                    self.send_nack_to_client((idr_from_req_data(msg_dict),
-                                              msg_dict.get(f.REQ_ID.nm, None)),
-                                             "Client request is discarded since view "
-                                             "change is in progress", frm)
                     return
             self.postToClientInBox(msg, frm)
 
