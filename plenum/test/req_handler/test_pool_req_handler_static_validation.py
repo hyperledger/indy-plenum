@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, TXN_TYPE, \
-    DATA, NODE
+    DATA, NODE, POOL_LEDGER_ID
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.signer_simple import SimpleSigner
@@ -12,7 +12,7 @@ from stp_core.types import Identifier
 
 @pytest.fixture(scope="function")
 def pool_req_handler(txnPoolNodeSet):
-    return txnPoolNodeSet[0].poolManager.reqHandler
+    return txnPoolNodeSet[0].ledger_to_req_handler[POOL_LEDGER_ID]
 
 
 @pytest.fixture(scope="function")
