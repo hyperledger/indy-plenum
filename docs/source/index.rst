@@ -18,6 +18,7 @@ Welcome to Indy Plenum's documentation!
    catchup.md
    message_requests.md
    plugins.md
+   transaction_author_agreement.md
    start_nodes.md
    recorder.md
    misc/zeromq_features.md
