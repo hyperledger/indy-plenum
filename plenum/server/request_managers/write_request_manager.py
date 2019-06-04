@@ -26,8 +26,8 @@ class WriteRequestManager(RequestManager):
     def register_req_handler(self, handler: WriteRequestHandler):
         if not isinstance(handler, WriteRequestHandler):
             raise LogicError
-        type = handler.txn_type
-        handler_list = self.request_handlers.setdefault(type, [])
+        typ = handler.txn_type
+        handler_list = self.request_handlers.setdefault(typ, [])
         handler_list.append(handler)
 
     def remove_req_handlers(self, txn_type):
@@ -36,8 +36,8 @@ class WriteRequestManager(RequestManager):
     def register_batch_handler(self, handler: BatchRequestHandler):
         if not isinstance(handler, BatchRequestHandler):
             raise LogicError
-        type = handler.ledger_id
-        handler_list = self.batch_handlers.setdefault(type, [])
+        typ = handler.ledger_id
+        handler_list = self.batch_handlers.setdefault(typ, [])
         handler_list.append(handler)
 
     def remove_batch_handler(self, ledger_id):

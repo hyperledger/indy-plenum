@@ -199,6 +199,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.config.METRICS_COLLECTOR_TYPE is not None:
             self._gc_time_tracker = GcTimeTracker(self.metrics)
 
+        self._info_tool = self._info_tool_class(self)
         # Modules which handle write, read and action requests
         self.db_manager = DatabaseManager()
         self.init_req_managers()
@@ -233,7 +234,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Number of read requests the node has processed
         self.total_read_request_number = 0
-        self._info_tool = self._info_tool_class(self)
 
         # Action req handler
         self.actionReqHandler = self.init_action_req_handler()
@@ -438,6 +438,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.register_domain_req_handlers()
         self.register_config_req_handlers()
         self.register_audit_req_handlers()
+        self.register_action_req_handlers()
 
     def register_audit_req_handlers(self):
         pass
@@ -455,15 +456,30 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def register_config_req_handlers(self):
         pass
 
-    def register_batch_handlers(self):
+    def register_action_req_handlers(self):
+        pass
+
+    def register_pool_batch_handlers(self):
         pool_b_h = PoolBatchHandler(self.db_manager)
-        domain_b_h = DomainBatchHandler(self.db_manager)
-        config_b_h = ConfigBatchHandler(self.db_manager)
-        audit_b_h = AuditBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(pool_b_h)
+
+    def register_domain_batch_handlers(self):
+        domain_b_h = DomainBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(domain_b_h)
+
+    def register_config_batch_handlers(self):
+        config_b_h = ConfigBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(config_b_h)
+
+    def register_audit_batch_handlers(self):
+        audit_b_h = AuditBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(audit_b_h)
+
+    def register_batch_handlers(self):
+        self.register_pool_batch_handlers()
+        self.register_domain_batch_handlers()
+        self.register_config_batch_handlers()
+        self.register_audit_batch_handlers()
 
     def upload_states(self):
         self.upload_pool_state()
