@@ -6,13 +6,15 @@ from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
     TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, CONFIG_LEDGER_ID, REQNACK
 from plenum.common.exceptions import RequestNackedException
-from plenum.common.util import randomString
+from plenum.common.util import randomString, get_utc_epoch
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, taa_digest, \
     sdk_send_txn_author_agreement, check_state_proof
 
 whitelist = ['Unexpected combination of request parameters']
+
+TIMESTAMP_NONE = None
 
 TEXT_V1 = randomString(1024)
 V1 = randomString(16)
@@ -26,12 +28,31 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 
 
 @pytest.fixture(scope='module')
-def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml, looper, sdk_pool_handle,
+def nodeSetWithoutTaaAlwaysResponding(txnPoolNodeSet, looper):
+    global TIMESTAMP_NONE
+
+    txnPoolNodeSet[0].master_replica._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
+
+    looper.runFor(1)  # Make sure we have long enough gap between updates
+    TIMESTAMP_NONE = get_utc_epoch()
+
+    return txnPoolNodeSet
+
+
+@pytest.fixture(scope='function', params=['all_responding', 'one_responding'])
+def nodeSetWithoutTaa(request, nodeSetWithoutTaaAlwaysResponding):
+    if request.param == 'all_responding':
+        yield nodeSetWithoutTaaAlwaysResponding
+    else:
+        stashers = [node.clientIbStasher for node in nodeSetWithoutTaaAlwaysResponding[1:]]
+        with delay_rules(stashers, req_delay()):
+            yield nodeSetWithoutTaaAlwaysResponding
+
+
+@pytest.fixture(scope='module')
+def nodeSetWithTaaAlwaysResponding(nodeSetWithoutTaaAlwaysResponding, set_txn_author_agreement_aml, looper, sdk_pool_handle,
                                    sdk_wallet_trustee):
     global TIMESTAMP_V1, TIMESTAMP_V2
-
-    # Force signing empty config state
-    txnPoolNodeSet[0].master_replica._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
@@ -41,7 +62,7 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml,
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2)
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
-    return txnPoolNodeSet
+    return nodeSetWithoutTaaAlwaysResponding
 
 
 @pytest.fixture(scope='function', params=['all_responding', 'one_responding'])
@@ -65,17 +86,21 @@ def taa_value(result, text, version):
     })
 
 
-@pytest.mark.parametrize(argnames="params", argvalues=[
-    {},
-    {'digest': 'some_digest'},
-    {'version': 'some_version'},
-    {'timestamp': 374273}
+# TODO: Change fixture to nodeSetWithoutTaa when SDK will support checking empty state proofs
+@pytest.mark.parametrize(argnames="params, state_key", argvalues=[
+    ({}, '2:latest'),
+    ({'digest': 'some_digest'}, '2:d:some_digest'),
+    ({'version': 'some_version'}, '2:v:some_version'),
+    ({'timestamp': TIMESTAMP_NONE}, '2:latest')
 ])
-def test_get_txn_author_agreement_works_on_clear_state(params, looper, txnPoolNodeSet,
+def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper, nodeSetWithoutTaaAlwaysResponding,
                                                        sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)[1]
     assert reply['op'] == REPLY
-    assert reply['result']['data'] is None
+
+    result = reply['result']
+    assert result['data'] is None
+    check_state_proof(result, state_key, None)
 
 
 @pytest.mark.parametrize(argnames="params", argvalues=[
@@ -84,7 +109,7 @@ def test_get_txn_author_agreement_works_on_clear_state(params, looper, txnPoolNo
     {'version': 'some_version', 'timestamp': 374273},
     {'digest': 'some_digest', 'version': 'some_version', 'timestamp': 374273}
 ])
-def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, txnPoolNodeSet,
+def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, nodeSetWithoutTaaAlwaysResponding,
                                                                       sdk_pool_handle, sdk_wallet_client):
     with pytest.raises(RequestNackedException) as e:
         sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)
