@@ -1,7 +1,7 @@
 import json
 from copy import deepcopy
 import pytest
-from indy.ledger import build_acceptance_mechanism_request
+from indy.ledger import build_acceptance_mechanisms_request
 
 from common.serializers.serialization import config_state_serializer
 from state.pruning_state import PruningState
@@ -77,7 +77,7 @@ def aml_request_kwargs(sdk_wallet_trustee):
 @pytest.fixture(scope="module")
 def taa_aml_request_module(looper, aml_request_kwargs, sdk_pool_handle):
     res = looper.loop.run_until_complete(
-        build_acceptance_mechanism_request(
+        build_acceptance_mechanisms_request(
             aml_request_kwargs['identifier'],
             json.dumps(aml_request_kwargs['operation'][AML]),
             aml_request_kwargs['operation'][AML_VERSION],
@@ -93,7 +93,7 @@ def taa_aml_request(looper, aml_request_kwargs, sdk_pool_handle):
     aml_request_kwargs['operation'][AML_VERSION] = randomString()
     aml_request_kwargs['operation'][AML_CONTEXT] = randomString()
     return looper.loop.run_until_complete(
-        build_acceptance_mechanism_request(
+        build_acceptance_mechanisms_request(
             aml_request_kwargs['identifier'],
             json.dumps(aml_request_kwargs['operation'][AML]),
             aml_request_kwargs['operation'][AML_VERSION],
