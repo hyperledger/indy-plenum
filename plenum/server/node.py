@@ -1568,14 +1568,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
-        self.select_primaries_if_needed(old_required_number_of_instances)
+        self.select_primaries_if_needed(old_required_number_of_instances, txn_data)
 
-    def select_primaries_if_needed(self, old_required_number_of_instances):
+    def select_primaries_if_needed(self, old_required_number_of_instances, txn_data=None):
         # This function mainly used in nodeJoined and nodeLeft functions
         leecher = self.ledgerManager._node_leecher._leechers[POOL_LEDGER_ID]
-
+        alias = ""
+        if txn_data and DATA in txn_data:
+            alias = txn_data[DATA].get(ALIAS, alias)
         # If required number of instances changed, we need to recalculate it.
-        if self.requiredNumberOfInstances != old_required_number_of_instances \
+        if (self.requiredNumberOfInstances != old_required_number_of_instances or alias in self.primaries) \
                 and not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
@@ -2122,10 +2124,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.discard(msg_dict,
                                  reason="view change in progress",
                                  logMethod=logger.debug)
-                    self.send_nack_to_client((idr_from_req_data(msg_dict),
-                                              msg_dict.get(f.REQ_ID.nm, None)),
-                                             "Client request is discarded since view "
-                                             "change is in progress", frm)
                     return
             self.postToClientInBox(msg, frm)
 
