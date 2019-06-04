@@ -175,8 +175,7 @@ def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(loope
     check_state_proof(result, '2:d:{}'.format(invalid_digest), None)
 
 
-# TODO: Change to nodeSetWithTaa when SDK will support state proofs with user-defined timestamps
-def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithTaaAlwaysResponding,
+def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithTaa,
                                                             sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          timestamp=TIMESTAMP_V2 - 2)[1]
@@ -188,8 +187,7 @@ def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithT
     check_state_proof(result, '2:latest', DIGEST_V1)
 
 
-# TODO: Change to nodeSetWithTaa when SDK will support state proofs with user-defined timestamps
-def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWithTaaAlwaysResponding,
+def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWithTaa,
                                                               sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          timestamp=TIMESTAMP_V2 + 2)[1]
@@ -201,8 +199,7 @@ def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWit
     check_state_proof(result, '2:latest', DIGEST_V2)
 
 
-# TODO: Change to nodeSetWithTaa when SDK will support state proofs with user-defined timestamps
-def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, nodeSetWithTaaAlwaysResponding,
+def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, nodeSetWithTaa,
                                                                         sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
                                          timestamp=TIMESTAMP_V1 - 2)[1]
