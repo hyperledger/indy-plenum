@@ -102,9 +102,9 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
-    pool_root_hash = Ledger.hashToStr(node._poolLedger.uncommittedRootHash)
+    pool_root_hash = Ledger.hashToStr(node.poolLedger.uncommittedRootHash)
     pool_state_root = Ledger.hashToStr(node.states[0].headHash)
-    config_root_hash = Ledger.hashToStr(node._configLedger.uncommittedRootHash)
+    config_root_hash = Ledger.hashToStr(node.configLedger.uncommittedRootHash)
     config_state_root = Ledger.hashToStr(node.states[2].headHash)
 
     batch = get_3PC_batch(pool_root_hash, ledger_id=0)
