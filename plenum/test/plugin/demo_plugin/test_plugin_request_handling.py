@@ -9,7 +9,7 @@ from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
     AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
 from stp_core.loop.eventually import eventually
 
-whitelist = ["Can't parse req_id or op from message", ]
+whitelist = ["Can't parse parsed_req or op from message", ]
 
 
 def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
