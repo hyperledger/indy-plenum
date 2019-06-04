@@ -6,7 +6,7 @@ from plenum.test.stasher import delay_rules
 from plenum.test.view_change.helper import start_stopped_node
 
 nodeCount = 6
-whitelist = ['Audit ledger has inconsistent names of primaries.', ]
+whitelist = ['Audit ledger has inconsistent names of primaries', ]
 
 
 def test_demote_backup_primary_without_view_change(looper, txnPoolNodeSet, sdk_pool_handle,
