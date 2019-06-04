@@ -29,16 +29,6 @@ def domain_state(tconf):
 def get_txn_author_agreement_aml_handler(tconf, domain_state):
     data_manager = DatabaseManager()
     handler = GetTxnAuthorAgreementAmlHandler(data_manager, FakeSomething())
-    # state = State()
-    # state.txn_list = {}
-    # state.get = lambda key, isCommitted=False: state.txn_list.get(key, None)
-    # state.set = lambda key, value, isCommitted=False: state.txn_list.update({key: value})
-    # data_manager.register_new_database(handler.ledger_id,
-    #                                    FakeSomething(),
-    #                                    state)
-    # data_manager.register_new_database(DOMAIN_LEDGER_ID,
-    #                                    FakeSomething(),
-    #                                    domain_state)
     return handler
 
 
