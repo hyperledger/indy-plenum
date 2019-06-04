@@ -1577,8 +1577,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if txn_data and DATA in txn_data:
             alias = txn_data[DATA].get(ALIAS, alias)
         # If required number of instances changed, we need to recalculate it.
-        if (self.requiredNumberOfInstances != old_required_number_of_instances
-            or alias in self.primaries) \
+        if (self.requiredNumberOfInstances != old_required_number_of_instances or alias in self.primaries) \
                 and not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
