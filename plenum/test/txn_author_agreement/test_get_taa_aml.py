@@ -3,7 +3,7 @@ from random import randint
 from typing import Optional
 
 import pytest
-from indy.ledger import build_acceptance_mechanism_request
+from indy.ledger import build_acceptance_mechanisms_request
 from plenum.common.exceptions import RequestNackedException
 
 from plenum.common.types import OPERATION, f
@@ -32,7 +32,7 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 
 
 def send_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle, version, aml, context):
-    req = looper.loop.run_until_complete(build_acceptance_mechanism_request(
+    req = looper.loop.run_until_complete(build_acceptance_mechanisms_request(
         sdk_wallet_trustee[1],
         aml,
         version, context))
