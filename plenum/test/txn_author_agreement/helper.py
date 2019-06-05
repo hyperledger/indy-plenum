@@ -4,7 +4,7 @@ from _sha256 import sha256
 
 import base58
 from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request, \
-    build_get_acceptance_mechanism_request
+    build_get_acceptance_mechanisms_request
 
 from typing import NamedTuple, Dict, Optional
 from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
@@ -78,7 +78,7 @@ def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
 def sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet,
                     version: Optional[str] = None,
                     timestamp: Optional[int] = None):
-    req = looper.loop.run_until_complete(build_get_acceptance_mechanism_request(sdk_wallet[1], timestamp, version))
+    req = looper.loop.run_until_complete(build_get_acceptance_mechanisms_request(sdk_wallet[1], timestamp, version))
     rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 

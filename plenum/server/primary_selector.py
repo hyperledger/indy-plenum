@@ -109,9 +109,11 @@ class PrimarySelector(PrimaryDecider):
 
             self.node.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.node.primaries):
-                raise LogicError('Audit ledger has inconsistent number of nodes')
+                logger.error('Audit ledger has inconsistent number of nodes. '
+                             'Node primaries = {}'.format(self.node.primaries))
             if any(p not in self.node.nodeReg for p in self.node.primaries):
-                raise LogicError('Audit ledger has inconsistent names of nodes')
+                logger.error('Audit ledger has inconsistent names of primaries. '
+                             'Node primaries = {}'.format(self.node.primaries))
             # Similar functionality to select_primaries
             for instance_id, replica in self.replicas.items():
                 if instance_id == 0:
