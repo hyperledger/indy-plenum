@@ -208,6 +208,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.init_common_managers()
         self._init_write_request_validator()
         self.register_req_handlers()
+        self.register_common_handlers()
         self.register_batch_handlers()
         # ToDo: refactor this on pluggable req handler integration phase
         self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
@@ -445,9 +446,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def register_domain_req_handlers(self):
         nym_handler = NymHandler(self.config, self.db_manager)
-        get_txn_handler = GetTxnHandler(self, self.db_manager)
         self.write_manager.register_req_handler(nym_handler)
-        self.read_manager.register_req_handler(get_txn_handler)
 
     def register_pool_req_handlers(self):
         node_handler = NodeHandler(self.db_manager, self.bls_bft.bls_crypto_verifier)
@@ -474,6 +473,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def register_audit_batch_handlers(self):
         audit_b_h = AuditBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(audit_b_h)
+
+    def register_common_handlers(self):
+        get_txn_handler = GetTxnHandler(self, self.db_manager)
+        self.read_manager.register_req_handler(get_txn_handler)
 
     def register_batch_handlers(self):
         self.register_pool_batch_handlers()
