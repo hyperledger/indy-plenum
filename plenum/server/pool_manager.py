@@ -89,13 +89,13 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, ledger, state, reqHandler, ha=None, cliname=None, cliha=None):
-        self.poolManager = TxnPoolManager(self, ledger, state, reqHandler,
+    def __init__(self, ledger, state, write_manager, ha=None, cliname=None, cliha=None):
+        self.poolManager = TxnPoolManager(self, ledger, state, write_manager,
                                           ha=ha, cliname=cliname, cliha=cliha)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
-    def __init__(self, node, ledger, state, reqHandler, ha=None, cliname=None, cliha=None):
+    def __init__(self, node, ledger, state, write_manager, ha=None, cliname=None, cliha=None):
         self.node = node
         self.name = node.name
         self.config = node.config
@@ -107,7 +107,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         TxnStackManager.__init__(
             self, self.name, node.keys_dir, isNode=True)
         self.state = state
-        self.reqHandler = reqHandler
+        self.write_manager = write_manager
         self._load_nodes_order_from_ledger()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.keys_dir, ha=ha,
@@ -283,7 +283,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         else:
             if VALIDATOR in newServices.difference(oldServices):
                 # If validator service is enabled
-                node_info = self.reqHandler.getNodeData(nodeNym)
+                node_info = self.write_manager.get_node_data(nodeNym)
                 self.node.nodeReg[nodeName] = HA(node_info[NODE_IP],
                                                  node_info[NODE_PORT])
                 self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(node_info[CLIENT_IP],

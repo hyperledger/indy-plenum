@@ -13,6 +13,9 @@ from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_t
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.replica_stasher import ReplicaStasher
+from plenum.test.buy_handler import BuyHandler
+from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
+from plenum.test.get_buy_handler import GetBuyHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -53,12 +56,6 @@ from hashlib import sha256
 from plenum.common.messages.node_messages import Reply
 
 logger = getlogger()
-
-
-# test TXNs
-BUY = "buy"
-GET_BUY = "get_buy"
-RANDOM_BUY = "randombuy"
 
 
 @spyable(methods=[CoreAuthNr.authenticate])
@@ -377,6 +374,11 @@ class TestNode(TestNodeCore, Node):
     @property
     def clientStackClass(self):
         return getTestableStack(self.ClientStackClass)
+
+    def register_domain_req_handlers(self):
+        super().register_domain_req_handlers()
+        self.write_manager.register_req_handler(BuyHandler(self.db_manager))
+        self.read_manager.register_req_handler(GetBuyHandler(self.db_manager))
 
     def get_new_ledger_manager(self):
         return TestLedgerManager(
