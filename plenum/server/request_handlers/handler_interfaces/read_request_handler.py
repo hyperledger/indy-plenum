@@ -19,10 +19,6 @@ class ReadRequestHandler(RequestHandler):
         pass
 
     @abstractmethod
-    def dynamic_validation(self, request: Request):
-        pass
-
-    @abstractmethod
     def get_result(self, request: Request):
         pass
 
