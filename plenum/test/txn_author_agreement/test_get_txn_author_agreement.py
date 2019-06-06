@@ -12,7 +12,9 @@ from plenum.test.stasher import delay_rules
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, taa_digest, \
     sdk_send_txn_author_agreement, check_state_proof
 
-whitelist = ['Unexpected combination of request parameters']
+# TODO: Remove second line after IS-1288 is fixed
+whitelist = ['Unexpected combination of request parameters',
+             'Unexpected data while parsing Patricia Merkle Trie: Ok(Data(0))']
 
 TIMESTAMP_NONE = None
 
