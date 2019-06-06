@@ -49,6 +49,9 @@ class NymHandler(WriteRequestHandler):
         nym = get_payload_data(txn).get(TARGET_NYM)
         return nym_to_state_key(nym)
 
+    def gen_txn_id(self, txn):
+        return hexlify(self.gen_state_key(txn)).decode()
+
     def update_state(self, txn, prev_result, is_committed=False):
         self._validate_txn_type(txn)
         nym = get_payload_data(txn).get(TARGET_NYM)
