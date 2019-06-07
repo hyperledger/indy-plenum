@@ -11,10 +11,6 @@ from plenum.test.stasher import delay_rules
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, taa_digest, \
     sdk_send_txn_author_agreement, check_state_proof
 
-whitelist = ['Unexpected combination of request parameters']
-
-TIMESTAMP_NONE = None
-
 TEXT_V1 = randomString(1024)
 V1 = randomString(16)
 DIGEST_V1 = taa_digest(TEXT_V1, V1)

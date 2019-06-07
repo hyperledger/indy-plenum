@@ -7,9 +7,7 @@ from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.txn_author_agreement.helper import sdk_get_txn_author_agreement, check_state_proof
 
-# TODO: Remove second line after IS-1288 is fixed
-whitelist = ['Unexpected combination of request parameters',
-             'Unexpected data while parsing Patricia Merkle Trie: Ok(Data(0))']
+whitelist = ['Unexpected combination of request parameters']
 
 TIMESTAMP_NONE = None
 
@@ -37,14 +35,13 @@ def nodeSetWithoutTaa(request, nodeSetWithoutTaaAlwaysResponding):
             yield nodeSetWithoutTaaAlwaysResponding
 
 
-# TODO: Change fixture to nodeSetWithoutTaa when SDK will support checking empty state proofs
 @pytest.mark.parametrize(argnames="params, state_key", argvalues=[
     ({}, '2:latest'),
     ({'digest': 'some_digest'}, '2:d:some_digest'),
     ({'version': 'some_version'}, '2:v:some_version'),
     ({'timestamp': TIMESTAMP_NONE}, '2:latest')
 ])
-def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper, nodeSetWithoutTaaAlwaysResponding,
+def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper, nodeSetWithoutTaa,
                                                        sdk_pool_handle, sdk_wallet_client):
     reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)[1]
     assert reply['op'] == REPLY
@@ -60,7 +57,7 @@ def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper
     {'version': 'some_version', 'timestamp': 374273},
     {'digest': 'some_digest', 'version': 'some_version', 'timestamp': 374273}
 ])
-def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, nodeSetWithoutTaaAlwaysResponding,
+def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, nodeSetWithoutTaa,
                                                                       sdk_pool_handle, sdk_wallet_client):
     with pytest.raises(RequestNackedException) as e:
         sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)
