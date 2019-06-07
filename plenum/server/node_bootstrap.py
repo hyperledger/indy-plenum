@@ -262,4 +262,3 @@ class NodeBootstrap:
                 'Please make sure that a script to init BLS keys was called (init_bls_keys),'
                 ' and NODE txn was sent with BLS public keys.'.format(BLS_PREFIX))
         return bls_bft
-
