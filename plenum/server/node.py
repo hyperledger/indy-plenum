@@ -188,7 +188,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._info_tool = self._info_tool_class(self)
 
-        NodeBootstrap.__init__(self, storage)
+        self._bootstrap_node(storage)
 
         # ToDo: refactor this on pluggable req handler integration phase
         self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
@@ -3792,5 +3792,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
 
-    def _init_write_request_validator(self):
-        pass
+    def _bootstrap_node(self, storage):
+        NodeBootstrap.__init__(self)
+        self.init_node(storage)

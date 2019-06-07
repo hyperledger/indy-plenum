@@ -30,9 +30,6 @@ logger = getlogger()
 
 class NodeBootstrap:
 
-    def __init__(self, storage):
-        self.init_node(storage)
-
     def init_node(self, storage):
         self.db_manager = DatabaseManager()
         self.init_req_managers()
