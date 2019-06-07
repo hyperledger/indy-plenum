@@ -14,7 +14,7 @@ class DatabaseManager():
 
     def _init_db_list(self):
         self._ledgers = {lid: db.ledger for lid, db in self.databases.items()}
-        self._states = {lid: db.state for lid, db in self.databases.items()}
+        self._states = {lid: db.state for lid, db in self.databases.items() if db.state}
 
     def register_new_database(self, lid, ledger: Ledger, state: Optional[State] = None):
         if lid in self.databases:
