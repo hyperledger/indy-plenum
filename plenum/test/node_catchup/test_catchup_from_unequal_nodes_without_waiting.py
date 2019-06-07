@@ -70,5 +70,5 @@ def test_catchup_from_unequal_nodes_without_waiting(looper,
                 # And there was no view change
                 assert stopped_node.master_last_ordered_3PC[0] == last_3pc[0]
 
-            # Make sure there
+            # Make sure replies from last request are eventually received
             sdk_get_and_check_replies(looper, reqs)

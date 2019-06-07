@@ -275,6 +275,10 @@ class ConsProofService:
 
         start = self._ledger.size
         end = sizes[self._quorum.f]  # This is actually f+1's reply
+        if start >= end:
+            logger.info("{} not asking for equal cons proofs because "
+                        "it appears that less than f+1 nodes have more transactions".format(self))
+            return
 
         logger.info("{} asking for consistency proof request: {}".format(self, self._ledger_id, start, end))
         cons_proof_req = MessageReq(
