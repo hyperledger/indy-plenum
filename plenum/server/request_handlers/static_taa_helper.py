@@ -5,10 +5,8 @@ from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_TYPE, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_AML, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.request import Request
+from plenum.server.request_handlers.state_constants import MARKER_TAA, MARKER_TAA_AML
 from plenum.server.request_handlers.utils import is_trustee
-
-MARKER_TAA = "2"
-MARKER_TAA_AML = "3"
 
 
 class StaticTAAHelper:
