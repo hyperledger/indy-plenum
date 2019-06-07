@@ -39,7 +39,7 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
             raise InvalidClientRequest(identifier, req_id,
                                        "Version of TAA AML must be unique and it cannot be modified")
 
-    def update_state(self, txn, prev_result, is_committed=False):
+    def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
         payload = get_payload_data(txn)
         seq_no = get_seq_no(txn)

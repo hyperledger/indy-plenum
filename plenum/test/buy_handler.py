@@ -23,7 +23,7 @@ class BuyHandler(WriteRequestHandler):
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
 
-    def update_state(self, txn, prev_result, is_committed=False):
+    def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
         key = self.gen_state_key(txn)
         value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
