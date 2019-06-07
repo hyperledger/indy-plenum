@@ -38,17 +38,18 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
 
         (start, end), _ = self.ledger.appendTxns(
             [self.transform_txn_for_ledger(txn)])
-        updated_state = self.update_state(txn, prev_result)
+        updated_state = self.update_state(txn, prev_result, request)
         return start, txn, updated_state
 
     def revert_request(self, request: Request, batch_ts):
         pass
 
     @abstractmethod
-    def update_state(self, txn, prev_result, is_committed=False):
+    def update_state(self, txn, prev_result, request, is_committed=False):
         """
         Updates current state with a number of committed or
         not committed transactions
+        :param request:
         """
         pass
 
