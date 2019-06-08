@@ -1,7 +1,7 @@
 from _sha256 import sha256
 
 from common.serializers.serialization import domain_state_serializer
-from plenum.common.constants import STEWARD, ROLE
+from plenum.common.constants import STEWARD, ROLE, TRUSTEE
 
 LAST_SEQ_NO = "lsn"
 VALUE = "val"
@@ -11,6 +11,11 @@ LAST_UPDATE_TIME = "lut"
 def is_steward(state, nym, is_committed: bool = False):
     role = get_role(state, nym, is_committed)
     return role == STEWARD
+
+
+def is_trustee(state, nym, is_committed: bool = False):
+    role = get_role(state, nym, is_committed)
+    return role == TRUSTEE
 
 
 def get_role(state, nym, is_committed: bool = False):

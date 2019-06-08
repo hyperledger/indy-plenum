@@ -26,8 +26,8 @@ class WriteRequestManager(RequestManager):
     def register_req_handler(self, handler: WriteRequestHandler):
         if not isinstance(handler, WriteRequestHandler):
             raise LogicError
-        type = handler.txn_type
-        handler_list = self.request_handlers.setdefault(type, [])
+        typ = handler.txn_type
+        handler_list = self.request_handlers.setdefault(typ, [])
         handler_list.append(handler)
 
     def remove_req_handlers(self, txn_type):
@@ -36,8 +36,8 @@ class WriteRequestManager(RequestManager):
     def register_batch_handler(self, handler: BatchRequestHandler):
         if not isinstance(handler, BatchRequestHandler):
             raise LogicError
-        type = handler.ledger_id
-        handler_list = self.batch_handlers.setdefault(type, [])
+        typ = handler.ledger_id
+        handler_list = self.batch_handlers.setdefault(typ, [])
         handler_list.append(handler)
 
     def remove_batch_handler(self, ledger_id):
@@ -58,13 +58,13 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.dynamic_validation(request)
 
-    def update_state(self, txn, isCommitted=False):
+    def update_state(self, txn, request=None, isCommitted=False):
         handlers = self.request_handlers.get(get_type(txn), None)
         if handlers is None:
             raise LogicError
         updated_state = None
         for handler in handlers:
-            updated_state = handler.update_state([txn], updated_state, isCommitted)
+            updated_state = handler.update_state(txn, updated_state, request, isCommitted)
 
     def apply_request(self, request, batch_ts):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)

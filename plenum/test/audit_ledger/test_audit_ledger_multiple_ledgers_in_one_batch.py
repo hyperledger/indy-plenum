@@ -23,15 +23,15 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
-    domain_root_hash = Ledger.hashToStr(node._domainLedger.uncommittedRootHash)
-    config_root_hash = Ledger.hashToStr(node._configLedger.uncommittedRootHash)
+    domain_root_hash = Ledger.hashToStr(node.domainLedger.uncommittedRootHash)
+    config_root_hash = Ledger.hashToStr(node.configLedger.uncommittedRootHash)
     domain_state_root = Ledger.hashToStr(node.states[1].headHash)
     config_state_root = Ledger.hashToStr(node.states[2].headHash)
 
     batch = get_3PC_batch(domain_root_hash)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
-    append_txn_to_ledger(txn_data, node._auditLedger, 1)
+    append_txn_to_ledger(txn_data, node.auditLedger, 1)
 
     assert txn_data[AUDIT_TXN_LEDGER_ROOT][1] == domain_root_hash
     assert txn_data[AUDIT_TXN_LEDGER_ROOT][2] == config_root_hash
@@ -50,8 +50,8 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     config_request_handler.apply(pool_config_req, 10000)
 
     # Checking second batch created
-    domain_root_hash_2 = Ledger.hashToStr(node._domainLedger.uncommittedRootHash)
-    config_root_hash_2 = Ledger.hashToStr(node._configLedger.uncommittedRootHash)
+    domain_root_hash_2 = Ledger.hashToStr(node.domainLedger.uncommittedRootHash)
+    config_root_hash_2 = Ledger.hashToStr(node.configLedger.uncommittedRootHash)
     domain_state_root_2 = Ledger.hashToStr(node.states[1].headHash)
     config_state_root_2 = Ledger.hashToStr(node.states[2].headHash)
 
@@ -83,12 +83,12 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
-    domain_root_hash = Ledger.hashToStr(node._domainLedger.uncommittedRootHash)
+    domain_root_hash = Ledger.hashToStr(node.domainLedger.uncommittedRootHash)
 
     batch = get_3PC_batch(domain_root_hash)
 
     txn_data = audit_batch_handler._create_audit_txn_data(batch, audit_batch_handler.ledger.get_last_txn())
-    append_txn_to_ledger(txn_data, node._auditLedger, 2)
+    append_txn_to_ledger(txn_data, node.auditLedger, 2)
 
     # Checking rare case -- batch from two ledgers, that were never audited before
     op2 = {
@@ -102,9 +102,9 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     config_request_handler.apply(pool_config_req, 10000)
 
-    pool_root_hash = Ledger.hashToStr(node._poolLedger.uncommittedRootHash)
+    pool_root_hash = Ledger.hashToStr(node.poolLedger.uncommittedRootHash)
     pool_state_root = Ledger.hashToStr(node.states[0].headHash)
-    config_root_hash = Ledger.hashToStr(node._configLedger.uncommittedRootHash)
+    config_root_hash = Ledger.hashToStr(node.configLedger.uncommittedRootHash)
     config_state_root = Ledger.hashToStr(node.states[2].headHash)
 
     batch = get_3PC_batch(pool_root_hash, ledger_id=0)

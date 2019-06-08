@@ -20,7 +20,7 @@ class BlsFactoryBftPlenum(BlsFactoryBft):
                         db_config=self._node.config.db_state_signature_config)
 
     def create_bls_key_register(self) -> BlsKeyRegister:
-        return BlsKeyRegisterPoolManager(self._node.poolManager)
+        return BlsKeyRegisterPoolManager(self._node)
 
     def create_bls_bft_replica(self, is_master) -> BlsBftReplica:
         return BlsBftReplicaPlenum(self._node.name,

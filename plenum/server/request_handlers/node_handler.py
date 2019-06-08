@@ -56,7 +56,7 @@ class NodeHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def update_state(self, txn, prev_result, is_committed=False):
+    def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         data = get_payload_data(txn).get(DATA, {})
@@ -67,7 +67,7 @@ class NodeHandler(WriteRequestHandler):
             existing_data[f.IDENTIFIER.nm] = get_from(txn)
         existing_data.update(data)
         key = self.gen_state_key(txn)
-        val = self.state_serializer.serialize(data)
+        val = self.state_serializer.serialize(existing_data)
         self.state.set(key, val)
 
     def _auth_error_while_adding_node(self, request):
