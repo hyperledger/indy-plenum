@@ -1,6 +1,7 @@
 import pytest
 import time
 
+from plenum.server.database_manager import DatabaseManager
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 from state.pruning_state import PruningState
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -8,7 +9,6 @@ from plenum.common.ledger import Ledger
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 
-from plenum.test.common.test_database_manager import database_manager as db
 from state.test.conftest import tempdir
 
 LEDGER_ID = 1
@@ -16,7 +16,8 @@ FIXED_HASH = 'CMEcrTyug8SYVkLtR8qgjqx7NVEQ4xXuAvaJDDPhDu8n'
 
 
 @pytest.fixture(scope='function')
-def database_manager(db, tdir_for_func, tempdir):
+def database_manager(tdir_for_func, tempdir):
+    db = DatabaseManager()
     db.register_new_database(LEDGER_ID, Ledger(CompactMerkleTree(), dataDir=tdir_for_func), PruningState(
         KeyValueStorageRocksdb(tempdir, 'kv1')))
     return db
