@@ -14,7 +14,7 @@ from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
-from plenum.server.request_handlers.utils import is_steward, encode_state_value
+from plenum.server.request_handlers.utils import is_steward, encode_state_value, decode_state_value
 
 
 class TxnAuthorAgreementHandler(WriteRequestHandler):
@@ -30,7 +30,8 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
         self._validate_request_type(request)
         self.authorize(request)
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
-        if self.state.get(StaticTAAHelper.state_path_taa_aml_latest()) is None:
+        aml_latest, _, _ = self.get_from_state(StaticTAAHelper.state_path_taa_aml_latest())
+        if aml_latest is None:
             raise InvalidClientRequest(identifier, req_id,
                                        "TAA txn is forbidden until TAA AML is set. Send TAA AML first.")
         version = operation[TXN_AUTHOR_AGREEMENT_VERSION]
@@ -57,3 +58,10 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
 
     def authorize(self, request):
         StaticTAAHelper.authorize(self.database_manager, request)
+
+    def _decode_state_value(self, encoded):
+        if encoded:
+            value, last_seq_no, last_update_time = decode_state_value(encoded,
+                                                                      serializer=config_state_serializer)
+            return value, last_seq_no, last_update_time
+        return None, None, None

@@ -20,9 +20,8 @@ from plenum.server.request_handlers.utils import is_steward, encode_state_value,
 
 class GetTxnAuthorAgreementHandler(ReadRequestHandler):
 
-    def __init__(self, node, database_manager: DatabaseManager):
+    def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, None)
-        self.node = node
 
     def static_validation(self, request: Request):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId

@@ -9,17 +9,16 @@ from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.nym_handler import NymHandler
 from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward, nym_to_state_key
 from plenum.test.testing_utils import FakeSomething
+from state.pruning_state import PruningState
 from state.state import State
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 @pytest.fixture(scope="function")
 def nym_handler(tconf):
     data_manager = DatabaseManager()
     handler = NymHandler(tconf, data_manager)
-    state = State()
-    state.txn_list = {}
-    state.get = lambda key, isCommitted: state.txn_list.get(key, None)
-    state.set = lambda key, value: state.txn_list.update({key: value})
+    state = PruningState(KeyValueStorageInMemory())
     data_manager.register_new_database(handler.ledger_id,
                                        FakeSomething(),
                                        state)
@@ -102,7 +101,7 @@ def test_update_nym(nym_handler):
 
 def test_get_role(nym_handler):
     identifier = "test_identifier"
-    update_nym(nym_handler.state, identifier, STEWARD)
+    nym_handler.update_state(_create_nym_txn(identifier, STEWARD), None, None)
     nym_data = get_role(nym_handler.state, identifier, STEWARD)
     assert nym_data == STEWARD
 

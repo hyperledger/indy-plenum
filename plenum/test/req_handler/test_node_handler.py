@@ -8,7 +8,9 @@ from plenum.common.util import randomString
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.test.testing_utils import FakeSomething
+from state.pruning_state import PruningState
 from state.state import State
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 @pytest.fixture(scope='module')
@@ -16,10 +18,7 @@ def node_handler():
     data_manager = DatabaseManager()
     bls = FakeSomething()
     handler = NodeHandler(data_manager, bls)
-    state = State()
-    state.txn_list = {}
-    state.get = lambda key, is_committed: state.txn_list.get(key, None)
-    state.set = lambda key, value: state.txn_list.update({key: value})
+    state = PruningState(KeyValueStorageInMemory())
     data_manager.register_new_database(handler.ledger_id,
                                        FakeSomething(),
                                        state)
