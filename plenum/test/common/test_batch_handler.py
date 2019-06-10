@@ -35,6 +35,7 @@ def three_pc_batch(batch_handler):
                         ['a', 'b', 'c'], ['d1', 'd2', 'd3'])
 
 
+@pytest.mark.skip()
 def test_batch_handler_commit(batch_handler: BatchRequestHandler, three_pc_batch):
     assert len(batch_handler.ledger) == 0
 
