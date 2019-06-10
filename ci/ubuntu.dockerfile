@@ -10,7 +10,7 @@ RUN echo "To invalidate cache"
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
     libindy-crypto=0.4.5 \
-    libindy=1.9.0~1130 \
+    libindy=1.9.0~1132 \
 # rocksdb python wrapper
     libbz2-dev \
     zlib1g-dev \
