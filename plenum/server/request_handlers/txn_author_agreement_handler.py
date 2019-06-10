@@ -38,7 +38,7 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
             raise InvalidClientRequest(identifier, req_id,
                                        "Changing existing version of transaction author agreement is forbidden")
 
-    def update_state(self, txn, prev_result, is_committed=False):
+    def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
         payload = get_payload_data(txn)
         text = payload[TXN_AUTHOR_AGREEMENT_TEXT],
