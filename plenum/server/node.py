@@ -9,6 +9,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 
 import gc
 import psutil
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
 
@@ -28,6 +29,9 @@ from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from plenum.server.request_handlers.utils import VALUE
+from plenum.server.request_managers.action_request_manager import ActionRequestManager
+from plenum.server.request_managers.read_request_manager import ReadRequestManager
+from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.view_change.node_view_changer import create_view_changer
 from state.pruning_state import PruningState
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
@@ -112,7 +116,7 @@ from plenum.server.observer.observable import Observable
 from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
-from plenum.server.pool_manager import HasPoolManager, TxnPoolManager
+from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.propagator import Propagator
@@ -130,8 +134,7 @@ logger = getlogger()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
-           HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager,
-           NodeBootstrap):
+           PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
     A node in a plenum system.
     """
@@ -163,7 +166,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
                  config=None,
-                 seed=None):
+                 seed=None,
+                 bootstrap_cls=NodeBootstrap):
         """
         Create a new node.
 
@@ -175,6 +179,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.cliname = cliname
         self.cliha = cliha
         self.timer = QueueTimer()
+        self.poolManager = None
+        self.bls_bft = None
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
@@ -188,14 +194,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._info_tool = self._info_tool_class(self)
 
-        self._bootstrap_node(storage)
+        # init database and request managers
+        self.db_manager = DatabaseManager()
+        # init storages and request handlers
+        self._bootstrap_node(bootstrap_cls, storage)
 
         # ToDo: refactor this on pluggable req handler integration phase
         self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
         self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
         self.get_req_handler(POOL_LEDGER_ID).bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
-        self.upload_states()
 
         Motor.__init__(self)
 
@@ -3792,6 +3800,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
 
-    def _bootstrap_node(self, storage):
-        NodeBootstrap.__init__(self)
-        self.init_node(storage)
+    def init_req_managers(self):
+        self.write_manager = WriteRequestManager(self.db_manager)
+        self.read_manager = ReadRequestManager()
+        self.action_manager = ActionRequestManager()
+
+    def _bootstrap_node(self, bootstrap_cls, storage):
+        bootstrap_cls(self).init_node(storage)
