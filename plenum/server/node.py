@@ -196,6 +196,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # init database and request managers
         self.db_manager = DatabaseManager()
+        self.init_req_managers()
         # init storages and request handlers
         self._bootstrap_node(bootstrap_cls, storage)
 
