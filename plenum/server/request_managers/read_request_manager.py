@@ -9,8 +9,6 @@ from plenum.server.request_managers.request_manager import RequestManager
 
 
 class ReadRequestManager(RequestManager):
-    def __init__(self):
-        self.request_handlers = {}  # type: Dict[int,ReadRequestHandler]
 
     def static_validation(self, request: Request):
         pass
@@ -21,8 +19,7 @@ class ReadRequestManager(RequestManager):
     def register_req_handler(self, handler: ReadRequestHandler):
         if not isinstance(handler, ReadRequestHandler):
             raise LogicError
-        typ = handler.txn_type
-        self.request_handlers[typ] = handler
+        self._register_req_handler(handler)
 
     def get_result(self, request: Request):
         handler = self.request_handlers.get(request.operation[TXN_TYPE], None)

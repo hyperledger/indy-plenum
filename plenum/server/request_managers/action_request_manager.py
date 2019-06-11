@@ -7,8 +7,6 @@ from plenum.server.request_managers.request_manager import RequestManager
 
 
 class ActionRequestManager(RequestManager):
-    def __init__(self):
-        self.request_handlers = {}  # type: Dict[int, ActionRequestHandler]
 
     def static_validation(self, request: Request):
         pass
@@ -24,3 +22,4 @@ class ActionRequestManager(RequestManager):
             raise LogicError
         typ = handler.txn_type
         self.request_handlers[typ] = handler
+        self.txn_types.add(typ)

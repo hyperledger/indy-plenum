@@ -18,30 +18,36 @@ logger = getlogger()
 
 class WriteRequestManager(RequestManager):
     def __init__(self, database_manager: DatabaseManager):
+        super().__init__()
         self.database_manager = database_manager
-        self.request_handlers = {}  # type: Dict[int,List[WriteRequestHandler]]
         self.batch_handlers = {}  # type: Dict[int,List[BatchRequestHandler]]
         self.state_serializer = pool_state_serializer
+
+    def is_valid_ledger_id(self, ledger_id):
+        return ledger_id in self.ledger_ids
 
     def register_req_handler(self, handler: WriteRequestHandler):
         if not isinstance(handler, WriteRequestHandler):
             raise LogicError
+        self._register_req_handler(handler)
+
+    def _register_req_handler(self, handler: WriteRequestHandler):
         typ = handler.txn_type
         handler_list = self.request_handlers.setdefault(typ, [])
         handler_list.append(handler)
-
-    def remove_req_handlers(self, txn_type):
-        del self.request_handlers[txn_type]
+        self.txn_types.add(typ)
 
     def register_batch_handler(self, handler: BatchRequestHandler):
         if not isinstance(handler, BatchRequestHandler):
             raise LogicError
-        typ = handler.ledger_id
-        handler_list = self.batch_handlers.setdefault(typ, [])
+        ledger_id = handler.ledger_id
+        handler_list = self.batch_handlers.setdefault(ledger_id, [])
         handler_list.append(handler)
+        self.ledger_ids.add(ledger_id)
 
     def remove_batch_handler(self, ledger_id):
         del self.batch_handlers[ledger_id]
+        self.ledger_ids.remove(ledger_id)
 
     # WriteRequestHandler methods
     def static_validation(self, request: Request):

@@ -64,7 +64,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -2279,15 +2279,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise LogicError('{} audit ledger has uncommitted txns after catching up ledger {}'.format(self, ledger_id))
 
     def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any, updateSeqNo=True):
-        rh = self.postRecvTxnFromCatchup(ledger_id, txn)
-        if rh:
-            rh.updateState([txn], isCommitted=True)
+        typ = get_type(txn)
+        self.postRecvTxnFromCatchup(ledger_id, txn)
+        if self.write_manager.is_valid_type(typ):
+            self.write_manager.update_state(txn, isCommitted=True)
             state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
-            if ledger_id == DOMAIN_LEDGER_ID and rh.ts_store:
+            ts_store = self.db_manager.get_store(TS_LABEL)
+            if ledger_id == DOMAIN_LEDGER_ID and ts_store:
                 timestamp = get_txn_time(txn)
                 if timestamp is not None:
-                    rh.ts_store.set(timestamp, state.headHash)
+                    ts_store.set(timestamp, state.headHash)
             logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                          .format(self, get_seq_no(txn), ledger_id,
                                  state_roots_serializer.serialize(bytes(state.committedHeadHash))))
@@ -2316,11 +2318,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerId == DOMAIN_LEDGER_ID:
             self.post_txn_from_catchup_added_to_domain_ledger(txn)
-        typ = get_type(txn)
+        # typ = get_type(txn)
         # Since a ledger can contain txns which can be processed by an arbitrary number of request handlers;
         # ledger-to-request_handler is a one-to-many relationship
-        rh = self.get_req_handler(txn_type=typ)
-        return rh
+        # rh = self.get_req_handler(txn_type=typ)
+        # return rh
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
@@ -2478,6 +2480,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ls = LedgerStatus(lid, txn_s_n, v, p, merkle, protocol)
         self.transmitToClient(ls, client)
 
+    def _get_manager_for_txn_type(self, txn_type):
+        if self.write_manager.is_valid_type(txn_type):
+            return self.write_manager
+        if self.read_manager.is_valid_type(txn_type):
+            return self.read_manager
+        if self.action_manager.is_valid_type(txn_type):
+            return self.action_manager
+        return None
+
     def doStaticValidation(self, request: Request):
         identifier, req_id, operation = request.identifier, request.reqId, request.operation
         if TXN_TYPE not in operation:
@@ -2487,8 +2498,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if operation[TXN_TYPE] != GET_TXN:
             # GET_TXN is generic, needs no request handler
 
-            req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
-            if not req_handler:
+            # req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
+            txn_type = operation[TXN_TYPE]
+            req_manager = self._get_manager_for_txn_type(txn_type)
+            if req_manager is None:
                 # TODO: This code should probably be removed.
                 if self.opVerifiers:
                     try:
@@ -2500,7 +2513,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
                                                format(TXN_TYPE, operation[TXN_TYPE]))
             else:
-                req_handler.doStaticValidation(request)
+                req_manager.static_validation(request)
 
         self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
@@ -2641,8 +2654,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # specific validation for the request txn type
         operation = request.operation
-        req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
-        req_handler.validate(request)
+        req_manager = self._get_manager_for_txn_type(txn_type=operation[TXN_TYPE])
+        req_manager.dynamic_validation(request)
+        # req_handler = self.get_req_handler(txn_type=operation[TXN_TYPE])
+        # req_handler.validate(request)
 
         self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
@@ -2653,8 +2668,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time)
-        req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
-        seq_no, txn = req_handler.apply(request, cons_time)
+        req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
+        seq_no, txn = req_manager.apply_request(request, cons_time)
+        # req_handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
+        # seq_no, txn = req_handler.apply(request, cons_time)
         ledger_id = self.ledger_id_for_request(request)
         self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
                           cons_time=cons_time, ledger_id=ledger_id,
@@ -2681,10 +2698,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
-            req_handler = self.get_req_handler(
-                txn_type=request.operation[TXN_TYPE])
-            req_handler.validate(request)
-            req_handler.applyForced(request)
+            req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
+            req_manager.validate(request)
+            req_manager.apply_forced_request(request)
+            # req_handler = self.get_req_handler(
+            #     txn_type=request.operation[TXN_TYPE])
+            # req_handler.validate(request)
+            # req_handler.applyForced(request)
 
     @measure_time(MetricsName.PROCESS_REQUEST_TIME)
     def processRequest(self, request: Request, frm: str):
@@ -2755,35 +2775,36 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_query(self, txn_type) -> bool:
         # Does the transaction type correspond to a read?
-        handler = self.get_req_handler(txn_type=txn_type)
-        return handler and isinstance(handler,
-                                      LedgerRequestHandler
-                                      ) and handler.is_query(txn_type)
+        return self.read_manager.is_valid_type(txn_type)
+        # handler = self.get_req_handler(txn_type=txn_type)
+        # return handler and isinstance(handler,
+        #                               LedgerRequestHandler
+        #                               ) and handler.is_query(txn_type)
 
     def is_action(self, txn_type) -> bool:
-        return txn_type in self.actionReqHandler.operation_types
+        return self.action_manager.is_valid_type(txn_type)
+        # return txn_type in self.actionReqHandler.operation_types
 
     def can_write_txn(self, txn_type):
         return True
 
     def process_query(self, request: Request, frm: str):
         # Process a read request from client
-        handler = self.get_req_handler(txn_type=request.operation[TXN_TYPE])
         try:
-            handler.doStaticValidation(request)
+            self.read_manager.static_validation(request)
             self.send_ack_to_client((request.identifier, request.reqId), frm)
         except Exception as ex:
             self.send_nack_to_client((request.identifier, request.reqId),
                                      str(ex), frm)
-        result = handler.get_query_response(request)
+        result = self.read_manager.get_result(request)
         self.transmitToClient(Reply(result), frm)
 
     def process_action(self, request, frm):
         # Process an execute action request
         self.send_ack_to_client((request.identifier, request.reqId), frm)
         try:
-            self.actionReqHandler.validate(request)
-            result = self.actionReqHandler.apply(request)
+            self.action_manager.dynamic_validation(request)
+            result = self.action_manager.process_action(request)
             self.transmitToClient(Reply(result), frm)
         except Exception as ex:
             self.transmitToClient(Reject(request.identifier,
@@ -3610,11 +3631,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         ledger_id = three_pc_batch.ledger_id
-        if ledger_id == POOL_LEDGER_ID:
-            if isinstance(self.poolManager, TxnPoolManager):
-                self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(three_pc_batch.state_root, three_pc_batch.pp_time)
-        elif self.get_req_handler(ledger_id):
-            self.get_req_handler(ledger_id).onBatchCreated(three_pc_batch.state_root, three_pc_batch.pp_time)
+        if self.write_manager.is_valid_ledger_id(ledger_id):
+            self.write_manager.post_apply_batch(three_pc_batch)
+        # if ledger_id == POOL_LEDGER_ID:
+        #     if isinstance(self.poolManager, TxnPoolManager):
+        #         self.get_req_handler(POOL_LEDGER_ID).onBatchCreated(three_pc_batch.state_root, three_pc_batch.pp_time)
+        # elif self.get_req_handler(ledger_id):
+        #     self.get_req_handler(ledger_id).onBatchCreated(three_pc_batch.state_root, three_pc_batch.pp_time)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
@@ -3634,11 +3657,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param stateRoot: state root after the batch was created
         :return:
         """
-        if ledger_id == POOL_LEDGER_ID:
-            if isinstance(self.poolManager, TxnPoolManager):
-                self.get_req_handler(POOL_LEDGER_ID).onBatchRejected()
-        elif self.get_req_handler(ledger_id):
-            self.get_req_handler(ledger_id).onBatchRejected()
+        if self.write_manager.is_valid_ledger_id(ledger_id):
+            self.write_manager.post_batch_rejected(ledger_id)
+        # if ledger_id == POOL_LEDGER_ID:
+        #     if isinstance(self.poolManager, TxnPoolManager):
+        #         self.get_req_handler(POOL_LEDGER_ID).onBatchRejected()
+        # elif self.get_req_handler(ledger_id):
+        #     self.get_req_handler(ledger_id).onBatchRejected()
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
@@ -3891,15 +3916,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return txn
 
     def transform_txn_for_ledger(self, txn):
-        txn_type = get_type(txn)
-        req_handler = self.get_req_handler(txn_type=txn_type)
-        if req_handler:
-            return req_handler.transform_txn_for_ledger(txn)
-
-        # TODO: fix once pluggable request handlers are integrated
-        if get_type(txn) == PlenumTransactions.AUDIT.value:
-            # Makes sure that we have integer as keys after possible deserialization from json
-            return self.audit_handler.transform_txn_for_ledger(txn)
+        # txn_type = get_type(txn)
+        return self.write_manager.transform_txn_for_ledger(txn)
+        # req_handler = self.get_req_handler(txn_type=txn_type)
+        # if req_handler:
+        #     return req_handler.transform_txn_for_ledger(txn)
+        #
+        # # TODO: fix once pluggable request handlers are integrated
+        # if get_type(txn) == PlenumTransactions.AUDIT.value:
+        #     # Makes sure that we have integer as keys after possible deserialization from json
+        #     return self.audit_handler.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self
