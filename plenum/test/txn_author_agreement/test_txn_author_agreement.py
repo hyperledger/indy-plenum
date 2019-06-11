@@ -2,9 +2,7 @@ import pytest
 import json
 
 from indy.ledger import build_txn_author_agreement_request
-from plenum.common.util import randomString
 
-from plenum.common.constants import TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT, REPLY
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException
 from plenum.common.types import OPERATION, f
 

@@ -58,13 +58,13 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.dynamic_validation(request)
 
-    def update_state(self, txn, isCommitted=False):
+    def update_state(self, txn, request=None, isCommitted=False):
         handlers = self.request_handlers.get(get_type(txn), None)
         if handlers is None:
             raise LogicError
         updated_state = None
         for handler in handlers:
-            updated_state = handler.update_state(txn, updated_state, isCommitted)
+            updated_state = handler.update_state(txn, updated_state, request, isCommitted)
 
     def apply_request(self, request, batch_ts):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
