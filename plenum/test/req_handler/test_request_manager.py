@@ -37,7 +37,7 @@ def write_req_manager(db):
     handler = manager.request_handlers[NODE][0]
     handler.static_validation = lambda request: 1
     handler.dynamic_validation = lambda request: 1
-    handler.update_state = lambda txn, prev_result, is_committed: 1
+    handler.update_state = lambda txn, updated_state, request, is_committed: 1
     handler.apply_request = lambda request, batch_ts, prev_result: (1, 1, 1)
     handler.apply_forced_request = lambda request: 1
     handler.transform_txn_for_ledger = lambda txn: 1
