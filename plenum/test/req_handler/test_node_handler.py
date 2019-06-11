@@ -1,9 +1,10 @@
 import pytest
 
 from plenum.common.constants import NODE, BLS_KEY, BLS_KEY_PROOF, TARGET_NYM, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, ALIAS
+    CLIENT_PORT, ALIAS, DATA, IDENTIFIER
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
+from plenum.common.txn_util import reqToTxn, get_payload_data, append_txn_metadata
 from plenum.common.util import randomString
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.node_handler import NodeHandler
@@ -40,6 +41,21 @@ def node_request():
                                        CLIENT_IP: 3,
                                        CLIENT_PORT: 4
                                        }})
+
+
+def test_update_state(node_handler, node_request):
+    seq_no = 1
+    txn_time = 1560241033
+    txn_id = "id"
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    expected_data = node_request.operation[DATA]
+    expected_data.update({IDENTIFIER: node_request.identifier})
+
+    node_handler.update_state(txn, None, node_request)
+    tmp = node_handler.get_from_state(
+        node_handler.gen_state_key(txn))
+    assert set(tmp.items()) == set(expected_data.items())
 
 
 def test_node_handler_static_validation_fails(node_handler, node_request):
@@ -119,7 +135,7 @@ def test_node_handler_dynamic_validation_new_node_passes(node_handler,
 
 def test_node_handler_dynamic_validation_update_node_fails_same_data(node_handler,
                                                                      node_request):
-    node_handler._get_node_data = lambda *args, **kwargs: True
+    node_handler.get_from_state= lambda *args, **kwargs: True
     node_handler._is_steward_of_node = lambda steward_nym, node_nym, is_committed: True
     node_handler._is_node_data_same = lambda node_nym, new_data, is_committed: True
     with pytest.raises(UnauthorizedClientRequest) as e:
@@ -129,7 +145,7 @@ def test_node_handler_dynamic_validation_update_node_fails_same_data(node_handle
 
 def test_node_handler_dynamic_validation_update_node_fails_conflict_data(node_handler,
                                                                          node_request):
-    node_handler._get_node_data = lambda *args, **kwargs: True
+    node_handler.get_from_state = lambda *args, **kwargs: True
     node_handler._is_node_data_same = lambda node_nym, new_data, is_committed: False
     node_handler._is_node_data_conflicting = lambda new_data, updating_nym=None: True
     with pytest.raises(UnauthorizedClientRequest) as e:
