@@ -12,6 +12,7 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
@@ -349,6 +350,13 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.on_inconsistent_3pc_state,
                  Node.sendToViewChanger, ]
 
+class TestNodeBootstrap(NodeBootstrap):
+
+    def register_domain_req_handlers(self):
+        super().register_domain_req_handlers()
+        self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
+        self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
+
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
@@ -358,7 +366,7 @@ class TestNode(TestNodeCore, Node):
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
 
-        Node.__init__(self, *args, **kwargs)
+        Node.__init__(self, *args, **kwargs, bootstrap_cls=TestNodeBootstrap)
         self.view_changer = create_view_changer(self, TestViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
@@ -374,11 +382,6 @@ class TestNode(TestNodeCore, Node):
     @property
     def clientStackClass(self):
         return getTestableStack(self.ClientStackClass)
-
-    def register_domain_req_handlers(self):
-        super().register_domain_req_handlers()
-        self.write_manager.register_req_handler(BuyHandler(self.db_manager))
-        self.read_manager.register_req_handler(GetBuyHandler(self.db_manager))
 
     def get_new_ledger_manager(self):
         return TestLedgerManager(

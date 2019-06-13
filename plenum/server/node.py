@@ -9,10 +9,8 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 
 import gc
 import psutil
-
-from plenum.server.batch_handlers.config_batch_handler import ConfigBatchHandler
-from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
-from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
+from plenum.server.database_manager import DatabaseManager
+from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
 
 from common.exceptions import LogicError
@@ -26,21 +24,16 @@ from plenum.common.transactions import PlenumTransactions
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.database_manager import DatabaseManager
 from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.request_handlers.get_txn_handler import GetTxnHandler
-from plenum.server.request_handlers.node_handler import NodeHandler
-from plenum.server.request_handlers.nym_handler import NymHandler
 from plenum.server.request_handlers.utils import VALUE
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.view_change.node_view_changer import create_view_changer
 from state.pruning_state import PruningState
-from state.state import State
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
 from storage.state_ts_store import StateTsDbStorage
 from stp_core.common.log import getlogger
@@ -49,8 +42,6 @@ from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack, Quota
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.hash_stores.hash_store import HashStore
 
 from plenum.common.config_util import getConfig
@@ -102,7 +93,6 @@ from plenum.common.config_helper import PNodeConfigHelper
 
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.persistence.storage import Storage, initStorage
-from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.recorder.recorder import add_start_time, add_stop_time
 
@@ -126,7 +116,7 @@ from plenum.server.observer.observable import Observable
 from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
-from plenum.server.pool_manager import HasPoolManager, TxnPoolManager
+from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.propagator import Propagator
@@ -144,7 +134,7 @@ logger = getlogger()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
-           HasPoolManager, PluginLoaderHelper, MessageReqProcessor, HookManager):
+           PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
     A node in a plenum system.
     """
@@ -176,7 +166,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
                  config=None,
-                 seed=None):
+                 seed=None,
+                 bootstrap_cls=NodeBootstrap):
         """
         Create a new node.
 
@@ -188,6 +179,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.cliname = cliname
         self.cliha = cliha
         self.timer = QueueTimer()
+        self.poolManager = None
+        self.bls_bft = None
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.ledger_to_req_handler = {}  # type: Dict[int, RequestHandler]
@@ -200,22 +193,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._gc_time_tracker = GcTimeTracker(self.metrics)
 
         self._info_tool = self._info_tool_class(self)
-        # Modules which handle write, read and action requests
+
+        # init database and request managers
         self.db_manager = DatabaseManager()
         self.init_req_managers()
-        self.init_storages(storage=storage)
-        self.init_bls_bft()
-        self.init_common_managers()
-        self._init_write_request_validator()
-        self.register_req_handlers()
-        self.register_common_handlers()
-        self.register_batch_handlers()
+        # init storages and request handlers
+        self._bootstrap_node(bootstrap_cls, storage)
+
         # ToDo: refactor this on pluggable req handler integration phase
         self.register_req_handler(self.init_pool_req_handler(), POOL_LEDGER_ID)
         self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
         self.get_req_handler(POOL_LEDGER_ID).bls_crypto_verifier = \
             self.bls_bft.bls_crypto_verifier
-        self.upload_states()
 
         Motor.__init__(self)
 
@@ -396,99 +385,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # We need future_primaries to calculate applied primaries correctly
         self.future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self)
 
-    def init_req_managers(self):
-        self.write_manager = WriteRequestManager(self.db_manager)
-        self.read_manager = ReadRequestManager()
-        self.action_manager = ActionRequestManager()
-
-    def init_storages(self, storage=None):
-
-        # Config ledger and state init
-        self.db_manager.register_new_database(CONFIG_LEDGER_ID,
-                                              self.init_config_ledger(),
-                                              self.init_config_state())
-
-        # Pool ledger init
-        self.db_manager.register_new_database(POOL_LEDGER_ID,
-                                              self.init_pool_ledger(),
-                                              self.init_pool_state())
-
-        # Domain ledger init
-        self.db_manager.register_new_database(DOMAIN_LEDGER_ID,
-                                              storage or self.init_domain_ledger(),
-                                              self.init_domain_state())
-
-        # Audit ledger init
-        self.db_manager.register_new_database(AUDIT_LEDGER_ID,
-                                              self.init_audit_ledger())
-
-    def init_bls_bft(self):
-        self.bls_bft = self._create_bls_bft()
-
-    def init_common_managers(self):
-        # Pool manager init
-        HasPoolManager.__init__(self, self.poolLedger,
-                                self.states[POOL_LEDGER_ID],
-                                self.write_manager,
-                                self.ha,
-                                self.cliname,
-                                self.cliha)
-
-    def register_req_handlers(self):
-        self.register_pool_req_handlers()
-        self.register_domain_req_handlers()
-        self.register_config_req_handlers()
-        self.register_audit_req_handlers()
-        self.register_action_req_handlers()
-
-    def register_audit_req_handlers(self):
-        pass
-
-    def register_domain_req_handlers(self):
-        nym_handler = NymHandler(self.config, self.db_manager)
-        self.write_manager.register_req_handler(nym_handler)
-
-    def register_pool_req_handlers(self):
-        node_handler = NodeHandler(self.db_manager, self.bls_bft.bls_crypto_verifier)
-        self.write_manager.register_req_handler(node_handler)
-
-    def register_config_req_handlers(self):
-        pass
-
-    def register_action_req_handlers(self):
-        pass
-
-    def register_pool_batch_handlers(self):
-        pool_b_h = PoolBatchHandler(self.db_manager)
-        self.write_manager.register_batch_handler(pool_b_h)
-
-    def register_domain_batch_handlers(self):
-        domain_b_h = DomainBatchHandler(self.db_manager)
-        self.write_manager.register_batch_handler(domain_b_h)
-
-    def register_config_batch_handlers(self):
-        config_b_h = ConfigBatchHandler(self.db_manager)
-        self.write_manager.register_batch_handler(config_b_h)
-
-    def register_audit_batch_handlers(self):
-        audit_b_h = AuditBatchHandler(self.db_manager)
-        self.write_manager.register_batch_handler(audit_b_h)
-
-    def register_common_handlers(self):
-        get_txn_handler = GetTxnHandler(self, self.db_manager)
-        self.read_manager.register_req_handler(get_txn_handler)
-
-    def register_batch_handlers(self):
-        self.register_pool_batch_handlers()
-        self.register_domain_batch_handlers()
-        self.register_config_batch_handlers()
-        self.register_audit_batch_handlers()
-
-    def upload_states(self):
-        self.upload_pool_state()
-        self.upload_config_state()
-        self.upload_domain_state()
-
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
         self.created = time.time()
@@ -627,78 +523,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def states(self):
         return self.db_manager.states
 
-    def init_pool_ledger(self):
-        genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-            self.genesis_dir, self.config.poolTransactionsFile)
-        tree = CompactMerkleTree(hashStore=self.getHashStore('pool'))
-        return Ledger(tree,
-                      dataDir=self.dataLocation,
-                      fileName=self.config.poolTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability,
-                      genesis_txn_initiator=genesis_txn_initiator)
-
-    def init_domain_ledger(self):
-        """
-        This is usually an implementation of Ledger
-        """
-        if self.config.primaryStorage is None:
-            # TODO: add a place for initialization of all ledgers, so it's
-            # clear what ledgers we have and how they are initialized
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(
-                self.genesis_dir, self.config.domainTransactionsFile)
-            tree = CompactMerkleTree(hashStore=self.getHashStore('domain'))
-            return Ledger(tree,
-                          dataDir=self.dataLocation,
-                          fileName=self.config.domainTransactionsFile,
-                          ensureDurability=self.config.EnsureLedgerDurability,
-                          genesis_txn_initiator=genesis_txn_initiator)
-        else:
-            # TODO: we need to rethink this functionality
-            return initStorage(self.config.primaryStorage,
-                               name=self.name + NODE_PRIMARY_STORAGE_SUFFIX,
-                               dataDir=self.dataLocation,
-                               config=self.config)
-
-    def init_config_ledger(self):
-        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('config')),
-                      dataDir=self.dataLocation,
-                      fileName=self.config.configTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability)
-
-    def init_audit_ledger(self):
-        return Ledger(CompactMerkleTree(hashStore=self.getHashStore('audit')),
-                      dataDir=self.dataLocation,
-                      fileName=self.config.auditTransactionsFile,
-                      ensureDurability=self.config.EnsureLedgerDurability)
-
-    # STATES
-    def init_pool_state(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.poolStateStorage,
-                self.dataLocation,
-                self.config.poolStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
-    def init_domain_state(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.domainStateStorage,
-                self.dataLocation,
-                self.config.domainStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
-    def init_config_state(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.configStateStorage,
-                self.dataLocation,
-                self.config.configStateDbName,
-                db_config=self.config.db_state_config)
-        )
-
     # REQ_HANDLERS
     def init_pool_req_handler(self):
         return PoolRequestHandler(self.poolLedger,
@@ -751,44 +575,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.addNewRole(txn)
 
         return committed_txns
-
-    # STATES INIT
-    def init_state_from_ledger(self, state: State, ledger: Ledger):
-        """
-        If the trie is empty then initialize it by applying
-        txns from ledger.
-        """
-        if state.isEmpty:
-            logger.info('{} found state to be empty, recreating from '
-                        'ledger'.format(self))
-            for seq_no, txn in ledger.getAllTxn():
-                txn = self.update_txn_with_extra_data(txn)
-                self.write_manager.update_state(txn, isCommitted=True)
-                state.commit(rootHash=state.headHash)
-
-    def upload_pool_state(self):
-        self.init_state_from_ledger(self.states[POOL_LEDGER_ID],
-                                    self.poolLedger)
-        logger.info(
-            "{} initialized pool state: state root {}".format(
-                self, state_roots_serializer.serialize(
-                    bytes(self.states[POOL_LEDGER_ID].committedHeadHash))))
-
-    def upload_domain_state(self):
-        self.init_state_from_ledger(self.states[DOMAIN_LEDGER_ID],
-                                    self.domainLedger)
-        logger.info(
-            "{} initialized domain state: state root {}".format(
-                self, state_roots_serializer.serialize(
-                    bytes(self.states[DOMAIN_LEDGER_ID].committedHeadHash))))
-
-    def upload_config_state(self):
-        self.init_state_from_ledger(self.states[CONFIG_LEDGER_ID],
-                                    self.configLedger)
-        logger.info(
-            "{} initialized config state: state root {}".format(
-                self, state_roots_serializer.serialize(
-                    bytes(self.states[CONFIG_LEDGER_ID].committedHeadHash))))
 
     @property
     def viewNo(self):
@@ -1212,19 +998,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return executer
         else:
             return self.default_executer
-
-    def _create_bls_bft(self):
-        bls_factory = create_default_bls_bft_factory(self)
-        bls_bft = bls_factory.create_bls_bft()
-        if bls_bft.can_sign_bls():
-            logger.display("{}BLS Signatures will be used for Node {}".format(BLS_PREFIX, self.name))
-        else:
-            # TODO: for now we allow that BLS is optional, so that we don't require it
-            logger.warning(
-                '{}Transactions will not be BLS signed by this Node, since BLS keys were not found. '
-                'Please make sure that a script to init BLS keys was called (init_bls_keys),'
-                ' and NODE txn was sent with BLS public keys.'.format(BLS_PREFIX))
-        return bls_bft
 
     def update_bls_key(self, new_bls_key):
         bls_keys_dir = os.path.join(self.keys_dir, self.name)
@@ -4054,5 +3827,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                  self.is_action(txn_type) or
                                  self.is_query(txn_type))
 
-    def _init_write_request_validator(self):
-        pass
+    def init_req_managers(self):
+        self.write_manager = WriteRequestManager(self.db_manager)
+        self.read_manager = ReadRequestManager()
+        self.action_manager = ActionRequestManager()
+
+    def _bootstrap_node(self, bootstrap_cls, storage):
+        bootstrap_cls(self).init_node(storage)
