@@ -8,18 +8,18 @@ from plenum.common.txn_util import get_payload_data, reqToTxn, get_reply_nym
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.nym_handler import NymHandler
 from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward, nym_to_state_key
+from plenum.test.req_handler.helper import create_nym_txn, update_nym
 from plenum.test.testing_utils import FakeSomething
+from state.pruning_state import PruningState
 from state.state import State
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 @pytest.fixture(scope="function")
 def nym_handler(tconf):
     data_manager = DatabaseManager()
     handler = NymHandler(tconf, data_manager)
-    state = State()
-    state.txn_list = {}
-    state.get = lambda key, isCommitted: state.txn_list.get(key, None)
-    state.set = lambda key, value: state.txn_list.update({key: value})
+    state = PruningState(KeyValueStorageInMemory())
     data_manager.register_new_database(handler.ledger_id,
                                        FakeSomething(),
                                        state)
@@ -88,8 +88,8 @@ def test_update_state(nym_handler):
 
 def test_update_nym(nym_handler):
     identifier = "identifier"
-    txn1 = _create_nym_txn(identifier, STEWARD)
-    txn2 = _create_nym_txn(identifier, "")
+    txn1 = create_nym_txn(identifier, STEWARD)
+    txn2 = create_nym_txn(identifier, "")
 
     update_nym(nym_handler.state, identifier, STEWARD)
     nym_data = get_nym_details(nym_handler.state, identifier)
@@ -102,39 +102,32 @@ def test_update_nym(nym_handler):
 
 def test_get_role(nym_handler):
     identifier = "test_identifier"
-    update_nym(nym_handler.state, identifier, STEWARD)
-    nym_data = get_role(nym_handler.state, identifier, STEWARD)
+    target_nym = "test_target_nym"
+    txn = create_nym_txn(identifier, STEWARD, target_nym)
+    nym_handler.update_state(txn, None, None)
+    nym_data = get_role(nym_handler.state, target_nym)
     assert nym_data == STEWARD
 
 
 def test_get_role_nym_without_role(nym_handler):
     identifier = "test_identifier"
-    update_nym(nym_handler.state, identifier, "")
-    nym_data = get_role(nym_handler.state, identifier, STEWARD)
+    target_nym = "test_target_nym"
+    txn = create_nym_txn(identifier, "", target_nym)
+    nym_handler.update_state(txn, None, None)
+    nym_data = get_role(nym_handler.state, target_nym)
     assert not nym_data
 
 
 def test_get_role_without_nym_data(nym_handler):
     identifier = "test_identifier"
-    nym_data = get_role(nym_handler.state, identifier, STEWARD)
+    nym_data = get_role(nym_handler.state, identifier)
     assert not nym_data
 
 
 def test_is_steward(nym_handler):
     identifier = "test_identifier"
-    update_nym(nym_handler.state, identifier, STEWARD)
-    assert is_steward(nym_handler.state, identifier)
+    target_nym = "test_target_nym"
+    txn = create_nym_txn(identifier, STEWARD, target_nym)
+    nym_handler.update_state(txn, None, None)
+    assert is_steward(nym_handler.state, target_nym)
     assert not is_steward(nym_handler.state, "other_identifier")
-
-
-def _create_nym_txn(identifier, role, nym="TARGET_NYM"):
-    return reqToTxn(Request(identifier=identifier,
-                            operation={ROLE: role,
-                                       TXN_TYPE: NYM,
-                                       TARGET_NYM: nym}))
-
-
-def update_nym(state, identifier, role):
-    state.set(nym_to_state_key(identifier),
-              domain_state_serializer.serialize(
-                  _create_nym_txn(identifier, role)['txn']['data']))

@@ -68,6 +68,9 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
         if path is None:
             return
 
+        if isinstance(path, str):
+            path = path.encode()
+
         encoded = self.state.get(path, isCommitted=is_committed)
         return self._decode_state_value(encoded)
 
