@@ -293,14 +293,12 @@ class TestNodeCore(StackedTester):
         return TestCoreAuthnr(state=state)
 
     def processRequest(self, request, frm):
-        if request.operation[TXN_TYPE] == 'get_buy':
+        if request.operation[TXN_TYPE] == GET_BUY:
             self.send_ack_to_client(request.key, frm)
 
             identifier = request.identifier
             req_id = request.reqId
-            req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-            buy_key = req_handler.prepare_buy_key(identifier, req_id)
-            result = req_handler.state.get(buy_key)
+            result = self.read_manager.get_result(request)
 
             res = {
                 f.IDENTIFIER.nm: identifier,
@@ -365,8 +363,10 @@ class TestNode(TestNodeCore, Node):
         from plenum.common.stacks import nodeStackClass, clientStackClass
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
+        if kwargs.get('bootstrap_cls', None) is None:
+            kwargs['bootstrap_cls'] = TestNodeBootstrap
 
-        Node.__init__(self, *args, **kwargs, bootstrap_cls=TestNodeBootstrap)
+        Node.__init__(self, *args, **kwargs)
         self.view_changer = create_view_changer(self, TestViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client

@@ -41,9 +41,9 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
     def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
         payload = get_payload_data(txn)
-        text = payload[TXN_AUTHOR_AGREEMENT_TEXT],
-        version = payload[TXN_AUTHOR_AGREEMENT_VERSION],
-        seq_no = get_seq_no(txn),
+        text = payload[TXN_AUTHOR_AGREEMENT_TEXT]
+        version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
+        seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
         digest = StaticTAAHelper.taa_digest(text, version)
         data = encode_state_value({

@@ -374,6 +374,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observer = NodeObserver(self)
 
         self.audit_handler = AuditBatchHandler(self.db_manager)
+        self.write_manager.register_batch_handler(self.audit_handler)
 
         # List of current replica's primaries, used for persisting in audit ledger
         # and restoration current primaries from audit ledger
@@ -2057,15 +2058,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.write_manager.is_valid_type(typ):
             self.write_manager.update_state(txn, isCommitted=True)
             state = self.getState(ledger_id)
-            state.commit(rootHash=state.headHash)
-            ts_store = self.db_manager.get_store(TS_LABEL)
-            if ledger_id == DOMAIN_LEDGER_ID and ts_store:
-                timestamp = get_txn_time(txn)
-                if timestamp is not None:
-                    ts_store.set(timestamp, state.headHash)
-            logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
-                         .format(self, get_seq_no(txn), ledger_id,
-                                 state_roots_serializer.serialize(bytes(state.committedHeadHash))))
+            if state:
+                state.commit(rootHash=state.headHash)
+                ts_store = self.db_manager.get_store(TS_LABEL)
+                if ledger_id == DOMAIN_LEDGER_ID and ts_store:
+                    timestamp = get_txn_time(txn)
+                    if timestamp is not None:
+                        ts_store.set(timestamp, state.headHash)
+                logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
+                             .format(self, get_seq_no(txn), ledger_id,
+                                     state_roots_serializer.serialize(bytes(state.committedHeadHash))))
         if updateSeqNo:
             self.updateSeqNoMap([txn], ledger_id)
         self._clear_request_for_txn(ledger_id, txn)

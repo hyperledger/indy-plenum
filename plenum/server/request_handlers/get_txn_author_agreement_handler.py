@@ -21,7 +21,7 @@ from plenum.server.request_handlers.utils import is_steward, encode_state_value,
 class GetTxnAuthorAgreementHandler(ReadRequestHandler):
 
     def __init__(self, node, database_manager: DatabaseManager):
-        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, None)
+        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID)
         self.node = node
 
     def static_validation(self, request: Request):
@@ -71,4 +71,4 @@ class GetTxnAuthorAgreementHandler(ReadRequestHandler):
             value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
             return self.make_result(request, value, last_seq_no, last_update_time, proof)
 
-        return super().make_result(request, None, proof=proof)
+        return self.make_result(request, None, proof=proof)

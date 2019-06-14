@@ -4,28 +4,22 @@ import pytest
 
 from common.serializers.serialization import state_roots_serializer
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.test.node_catchup.helper import waitNodeDataInequality, \
+from plenum.test.node_catchup.helper import \
     waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
+    disconnect_node_and_ensure_disconnected
 
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_get_replies
 
-from plenum.common.constants import CONFIG_LEDGER_ID, DATA, DOMAIN_LEDGER_ID
+from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
-    TestConfigReqHandler, WRITE_CONF, READ_CONF, read_conf_op
+    WRITE_CONF, READ_CONF, read_conf_op, ConfigTestBootstrapClass
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.types import HA
-
-
-class NewTestNode(TestNode):
-    def init_config_req_handler(self):
-        return TestConfigReqHandler(self.configLedger,
-                                    self.states[CONFIG_LEDGER_ID],
-                                    self.states[DOMAIN_LEDGER_ID],
-                                    self.bls_bft.bls_store)
+from stp_core.common.log import Logger
+Logger().enableStdLogging()
 
 
 def write(key, val, looper, sdk_pool_handle, sdk_wallet):
@@ -56,8 +50,8 @@ def send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys):
 
 
 @pytest.fixture(scope="module")
-def testNodeClass(patchPluginManager):
-    return NewTestNode
+def testNodeBootstrapClass():
+    return ConfigTestBootstrapClass
 
 
 @pytest.fixture(scope="module")
@@ -147,11 +141,12 @@ def start_stopped_node(stopped_node, looper, tconf,
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
     config_helper = PNodeConfigHelper(stopped_node.name, tconf, chroot=tdir)
-    restarted_node = NewTestNode(stopped_node.name,
-                                 config_helper=config_helper,
-                                 config=tconf,
-                                 ha=nodeHa, cliha=nodeCHa,
-                                 pluginPaths=allPluginsPath)
+    restarted_node = TestNode(stopped_node.name,
+                              config_helper=config_helper,
+                              config=tconf,
+                              ha=nodeHa, cliha=nodeCHa,
+                              pluginPaths=allPluginsPath,
+                              bootstrap_cls=ConfigTestBootstrapClass)
     looper.add(restarted_node)
     return restarted_node
 

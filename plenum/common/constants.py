@@ -144,6 +144,7 @@ TRUSTEE_STRING = 'TRUSTEE'
 # TXNs
 NODE = PlenumTransactions.NODE.value
 NYM = PlenumTransactions.NYM.value
+AUDIT = PlenumTransactions.AUDIT.value
 GET_TXN = PlenumTransactions.GET_TXN.value
 TXN_AUTHOR_AGREEMENT = PlenumTransactions.TXN_AUTHOR_AGREEMENT.value
 TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.TXN_AUTHOR_AGREEMENT_AML.value

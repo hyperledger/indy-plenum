@@ -21,7 +21,7 @@ from plenum.server.request_handlers.utils import is_steward, decode_state_value
 class GetTxnAuthorAgreementAmlHandler(ReadRequestHandler):
 
     def __init__(self, node, database_manager: DatabaseManager):
-        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT_AML, None)
+        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT_AML, CONFIG_LEDGER_ID)
         self.node = node
 
     def static_validation(self, request: Request):

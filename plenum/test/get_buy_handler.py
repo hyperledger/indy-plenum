@@ -7,7 +7,7 @@ from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.read_request_handler import ReadRequestHandler
 from plenum.test.buy_handler import BuyHandler
-from plenum.test.constants import GET_BUY
+from plenum.test.constants import GET_BUY, BUY
 
 
 class GetBuyHandler(ReadRequestHandler):
@@ -28,6 +28,6 @@ class GetBuyHandler(ReadRequestHandler):
         res = {
             f.IDENTIFIER.nm: identifier,
             f.REQ_ID.nm: req_id,
-            "buy": result
+            BUY: result
         }
         return Reply(res)
