@@ -342,6 +342,15 @@ class TestNodeBootstrap(NodeBootstrap):
         self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
         self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
 
+    def init_common_managers(self):
+        super().init_common_managers()
+        self.node.ledgerManager = TestLedgerManager(self.node,
+                                                    postAllLedgersCaughtUp=self.node.allLedgersCaughtUp,
+                                                    preCatchupClbk=self.node.preLedgerCatchUp,
+                                                    postCatchupClbk=self.node.postLedgerCatchUp,
+                                                    ledger_sync_order=self.node.ledger_ids,
+                                                    metrics=self.node.metrics)
+
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
@@ -369,16 +378,6 @@ class TestNode(TestNodeCore, Node):
     @property
     def clientStackClass(self):
         return getTestableStack(self.ClientStackClass)
-
-    def get_new_ledger_manager(self):
-        return TestLedgerManager(
-            self,
-            postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-            preCatchupClbk=self.preLedgerCatchUp,
-            postCatchupClbk=self.postLedgerCatchUp,
-            ledger_sync_order=self.ledger_ids,
-            metrics=self.metrics
-        )
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         super().sendRepliesToClients(committedTxns, ppTime)

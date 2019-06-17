@@ -1,16 +1,23 @@
-from typing import Dict, List
+from _sha256 import sha256
+from typing import Dict, List, Optional, Tuple
 
 from common.exceptions import LogicError
-from common.serializers.serialization import pool_state_serializer
+from common.serializers.serialization import pool_state_serializer, config_state_serializer
 
-from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID
+from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, VALUE, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
+    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
+from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type
+from plenum.common.types import f
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
+from plenum.server.request_handlers.state_constants import MARKER_TAA, MARKER_TAA_AML
+from plenum.server.request_handlers.utils import decode_state_value
 from plenum.server.request_managers.request_manager import RequestManager
 from stp_core.common.log import getlogger
 
@@ -23,28 +30,32 @@ class WriteRequestManager(RequestManager):
         self.database_manager = database_manager
         self.batch_handlers = {}  # type: Dict[int,List[BatchRequestHandler]]
         self.state_serializer = pool_state_serializer
+        self.audit_b_handler = None
+        self.future_primary_handler = None
 
     def is_valid_ledger_id(self, ledger_id):
         return ledger_id in self.ledger_ids
+
+    def _add_handler(self, typ, handler):
+        handler_list = self.request_handlers.setdefault(typ, [])
+        handler_list.append(handler)
 
     def register_req_handler(self, handler: WriteRequestHandler):
         if not isinstance(handler, WriteRequestHandler):
             raise LogicError
         self._register_req_handler(handler)
 
-    def _register_req_handler(self, handler: WriteRequestHandler):
-        typ = handler.txn_type
-        handler_list = self.request_handlers.setdefault(typ, [])
-        handler_list.append(handler)
-        self.txn_types.add(typ)
-
-    def register_batch_handler(self, handler: BatchRequestHandler):
+    def register_batch_handler(self, handler: BatchRequestHandler, ledger_id=None):
         if not isinstance(handler, BatchRequestHandler):
             raise LogicError
-        ledger_id = handler.ledger_id
+        ledger_id = ledger_id if ledger_id is not None else handler.ledger_id
         handler_list = self.batch_handlers.setdefault(ledger_id, [])
         handler_list.append(handler)
         self.ledger_ids.add(ledger_id)
+        if handler.ledger_id == AUDIT_LEDGER_ID:
+            self.audit_b_handler = handler
+        if isinstance(handler, FuturePrimariesBatchHandler):
+            self.future_primary_handler = handler
 
     def remove_batch_handler(self, ledger_id):
         del self.batch_handlers[ledger_id]
@@ -143,3 +154,71 @@ class WriteRequestManager(RequestManager):
         nodes = list(map(lambda x: self.state_serializer.deserialize(
             self.pool_state.get_decoded(x)), raw_node_data))
         return nodes
+
+    @property
+    def config_state(self):
+        return self.database_manager.get_state(CONFIG_LEDGER_ID)
+
+    def get_taa_digest(self, version: Optional[str] = None,
+                       isCommitted: bool = True) -> Optional[str]:
+        path = self._state_path_taa_latest() if version is None \
+            else self._state_path_taa_version(version)
+        res = self.config_state.get(path, isCommitted=isCommitted)
+        if res is not None:
+            return res.decode()
+
+    # TODO return object as result instead
+    def get_taa_data(self, digest: Optional[str] = None,
+                     version: Optional[str] = None,
+                     isCommitted: bool = True) -> Optional[Tuple[Dict, str]]:
+        data = None
+        if digest is None:
+            digest = self.get_taa_digest(version=version, isCommitted=isCommitted)
+        if digest is not None:
+            data = self.config_state.get(
+                self._state_path_taa_digest(digest),
+                isCommitted=isCommitted
+            )
+        if data is not None:
+            data = decode_state_value(
+                data, serializer=config_state_serializer)
+        return None if data is None else (data, digest)
+
+    def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
+        path = self._state_path_taa_aml_latest() if version is None \
+            else self._state_path_taa_aml_version(version)
+        payload = self.config_state.get(path, isCommitted=isCommitted)
+        if payload is None:
+            return None
+        return config_state_serializer.deserialize(payload)
+
+    @staticmethod
+    def _state_path_taa_latest() -> bytes:
+        return "{marker}:latest". \
+            format(marker=MARKER_TAA).encode()
+
+    @staticmethod
+    def _state_path_taa_version(version: str) -> bytes:
+        return "{marker}:v:{version}". \
+            format(marker=MARKER_TAA, version=version).encode()
+
+    @staticmethod
+    def _state_path_taa_digest(digest: str) -> bytes:
+        return "{marker}:d:{digest}". \
+            format(marker=MARKER_TAA, digest=digest).encode()
+
+    @staticmethod
+    def _taa_digest(text: str, version: str) -> str:
+        return sha256('{}{}'.format(version, text).encode()).hexdigest()
+
+    @staticmethod
+    def _state_path_taa_aml_latest():
+        return "{marker}:latest".format(marker=MARKER_TAA_AML).encode()
+
+    @staticmethod
+    def _state_path_taa_aml_version(version: str):
+        return "{marker}:v:{version}".format(marker=MARKER_TAA_AML, version=version).encode()
+
+    def on_catchup_finished(self):
+        # ToDo: ugly thing, needs to be refactored
+        self.audit_b_handler.on_catchup_finished()

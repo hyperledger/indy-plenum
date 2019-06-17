@@ -3,11 +3,13 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.ledger import Ledger
+from plenum.common.ledger_manager import LedgerManager
 from plenum.persistence.storage import initStorage
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.config_batch_handler import ConfigBatchHandler
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.get_txn_author_agreement_handler import GetTxnAuthorAgreementHandler
@@ -84,6 +86,15 @@ class NodeBootstrap:
                                                self.node.cliname,
                                                self.node.cliha)
 
+        # Ledger manager init
+        ledger_sync_order = self.node.ledger_ids
+        self.node.ledgerManager = LedgerManager(self.node,
+                                                postAllLedgersCaughtUp=self.node.allLedgersCaughtUp,
+                                                preCatchupClbk=self.node.preLedgerCatchUp,
+                                                postCatchupClbk=self.node.postLedgerCatchUp,
+                                                ledger_sync_order=ledger_sync_order,
+                                                metrics=self.node.metrics)
+
     def register_req_handlers(self):
         self.register_pool_req_handlers()
         self.register_domain_req_handlers()
@@ -124,7 +135,9 @@ class NodeBootstrap:
 
     def register_pool_batch_handlers(self):
         pool_b_h = PoolBatchHandler(self.node.db_manager)
+        future_primaries_handler = FuturePrimariesBatchHandler(self.node.db_manager, self.node)
         self.node.write_manager.register_batch_handler(pool_b_h)
+        self.node.write_manager.register_batch_handler(future_primaries_handler)
 
     def register_domain_batch_handlers(self):
         domain_b_h = DomainBatchHandler(self.node.db_manager)
@@ -136,7 +149,8 @@ class NodeBootstrap:
 
     def register_audit_batch_handlers(self):
         audit_b_h = AuditBatchHandler(self.node.db_manager)
-        self.node.write_manager.register_batch_handler(audit_b_h)
+        for lid in self.node.ledger_ids:
+            self.node.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
 
     def register_common_handlers(self):
         get_txn_handler = GetTxnHandler(self, self.node.db_manager)
@@ -146,6 +160,7 @@ class NodeBootstrap:
         self.register_pool_batch_handlers()
         self.register_domain_batch_handlers()
         self.register_config_batch_handlers()
+        # Audit batch handler should be initiated the last
         self.register_audit_batch_handlers()
 
     def _init_write_request_validator(self):

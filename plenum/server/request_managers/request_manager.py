@@ -21,15 +21,24 @@ class RequestManager(AbstractRequestManager):
         self.txn_types = set()
         self.ledger_ids = set()
         self.request_handlers = {}
+        self.type_to_ledger_id = {}
+        self.ledger_id_to_types = {}
 
     def remove_req_handler(self, txn_type):
         del self.request_handlers[txn_type]
         self.txn_types.remove(txn_type)
 
+    def _add_handler(self, typ, handler):
+        self.request_handlers[typ] = handler
+
     def _register_req_handler(self, handler: RequestHandler):
         typ = handler.txn_type
-        self.request_handlers[typ] = handler
+        ledger_id = handler.ledger_id
+        self._add_handler(typ, handler)
         self.txn_types.add(typ)
+        self.type_to_ledger_id[typ] = ledger_id
+        self.ledger_id_to_types.setdefault(ledger_id, [])
+        self.ledger_id_to_types[ledger_id].append(typ)
 
     def is_valid_type(self, txn_type):
         return txn_type in self.txn_types
