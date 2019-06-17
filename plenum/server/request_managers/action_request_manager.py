@@ -1,6 +1,7 @@
 from typing import Dict, List
 
 from common.exceptions import LogicError
+from plenum.common.constants import TXN_TYPE
 from plenum.common.request import Request
 from plenum.server.request_handlers.handler_interfaces.action_request_handler import ActionRequestHandler
 from plenum.server.request_managers.request_manager import RequestManager
@@ -15,11 +16,12 @@ class ActionRequestManager(RequestManager):
         pass
 
     def process_action(self, request: Request):
-        pass
+        handler = self.request_handlers.get(request.operation[TXN_TYPE], None)
+        if handler is None:
+            raise LogicError
+        return handler.process_action(request)
 
     def register_action_handler(self, handler: ActionRequestHandler):
         if not isinstance(handler, ActionRequestHandler):
             raise LogicError
-        typ = handler.txn_type
-        self.request_handlers[typ] = handler
-        self.txn_types.add(typ)
+        self._register_req_handler(handler)

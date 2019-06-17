@@ -30,7 +30,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, STATE_PROOF
+    DOMAIN_LEDGER_ID, TS_LABEL
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
 from plenum.server import replica
@@ -68,19 +68,6 @@ class TestCoreAuthnr(CoreAuthNr):
 class TestDomainRequestHandler(DomainRequestHandler):
     write_types = DomainRequestHandler.write_types.union({'buy', 'randombuy', })
     query_types = DomainRequestHandler.query_types.union({'get_buy', })
-
-    @staticmethod
-    def prepare_buy_for_state(txn):
-        from common.serializers.serialization import domain_state_serializer
-        identifier = get_from(txn)
-        req_id = get_req_id(txn)
-        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
-        key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
-        return key, value
-
-    @staticmethod
-    def prepare_buy_key(identifier, req_id):
-        return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
@@ -286,7 +273,7 @@ class TestNodeCore(StackedTester):
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,
                                         self.bls_bft.bls_store,
-                                        self.getStateTsDbStorage())
+                                        self.db_manager.get_store(TS_LABEL))
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
@@ -394,14 +381,6 @@ class TestNode(TestNodeCore, Node):
         )
 
     def sendRepliesToClients(self, committedTxns, ppTime):
-        committedTxns = list(committedTxns)
-        req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-        for txn in committedTxns:
-            if get_type(txn) == "buy":
-                key, value = req_handler.prepare_buy_for_state(txn)
-                _, proof = req_handler.get_value_from_state(key, with_proof=True)
-                if proof:
-                    txn[STATE_PROOF] = proof
         super().sendRepliesToClients(committedTxns, ppTime)
 
     def schedule_node_status_dump(self):

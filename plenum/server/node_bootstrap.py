@@ -16,7 +16,7 @@ from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.request_handlers.nym_handler import NymHandler
 
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID, \
-    NODE_PRIMARY_STORAGE_SUFFIX, BLS_PREFIX, BLS_LABEL
+    NODE_PRIMARY_STORAGE_SUFFIX, BLS_PREFIX, BLS_LABEL, TS_LABEL
 from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
@@ -44,6 +44,10 @@ class NodeBootstrap:
         self.register_batch_handlers()
         self.upload_states()
 
+    def init_state_ts_db_storage(self):
+        ts_storage = self.node._get_state_ts_db_storage()
+        self.node.db_manager.register_new_store(TS_LABEL, ts_storage)
+
     def init_storages(self, storage=None):
         # Config ledger and state init
         self.node.db_manager.register_new_database(CONFIG_LEDGER_ID,
@@ -63,6 +67,8 @@ class NodeBootstrap:
         # Audit ledger init
         self.node.db_manager.register_new_database(AUDIT_LEDGER_ID,
                                                    self.init_audit_ledger())
+        # StateTsDbStorage
+        self.init_state_ts_db_storage()
 
     def init_bls_bft(self):
         self.node.bls_bft = self._create_bls_bft()

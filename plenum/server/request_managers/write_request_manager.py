@@ -8,6 +8,7 @@ from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_managers.request_manager import RequestManager
@@ -102,13 +103,13 @@ class WriteRequestManager(RequestManager):
 
     # TODO: no need to pass all these arguments explicitly here
     # we can use LedgerUncommittedTracker to get this values
-    def commit_batch(self, ledger_id, txn_count, state_root, txn_root, pp_time):
-        handlers = self.batch_handlers.get(ledger_id, None)
+    def commit_batch(self, three_pc_batch: ThreePcBatch):
+        handlers = self.batch_handlers.get(three_pc_batch.ledger_id, None)
         if handlers is None:
             raise LogicError
-        prev_handler_result = commited_txns = handlers[0].commit_batch(ledger_id, txn_count, state_root, txn_root, pp_time, None)
+        commited_txns = handlers[0].commit_batch(three_pc_batch, None)
         for handler in handlers[1:]:
-            handler.commit_batch(ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result)
+            handler.commit_batch(three_pc_batch, commited_txns)
         return commited_txns
 
     def post_batch_rejected(self, ledger_id):

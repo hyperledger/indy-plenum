@@ -212,10 +212,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeIds = self.poolManager._ordered_node_ids
         self.cliNodeReg = self.poolManager.cliNodeReg
 
-        # This is storage for storing map: timestamp/state.headHash
-        # Now it used in domainLedger
-        self.stateTsDbStorage = None
-
         self.register_req_handler(self.init_domain_req_handler(), DOMAIN_LEDGER_ID)
         self.register_executer(DOMAIN_LEDGER_ID, self.execute_domain_txns)
 
@@ -524,6 +520,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def states(self):
         return self.db_manager.states
 
+    # This is storage for storing map: timestamp/state.headHash
+    # Now it used in domainLedger
+    @property
+    def stateTsDbStorage(self):
+        self.db_manager.get_store(TS_LABEL)
+
     # REQ_HANDLERS
     def init_pool_req_handler(self):
         return PoolRequestHandler(self.poolLedger,
@@ -536,14 +538,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     self.config,
                                     self.reqProcessors,
                                     self.bls_bft.bls_store,
-                                    self.getStateTsDbStorage())
+                                    self.stateTsDbStorage)
 
     def init_config_req_handler(self):
         return ConfigReqHandler(self.configLedger,
                                 self.states[CONFIG_LEDGER_ID],
                                 self.states[DOMAIN_LEDGER_ID],
                                 self.bls_bft.bls_store,
-                                self.getStateTsDbStorage())
+                                self.stateTsDbStorage)
 
     def init_action_req_handler(self):
         return ActionReqHandler()
@@ -782,27 +784,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def __repr__(self):
         return self.name
 
-    def getStateTsDbStorage(self):
-        if self.stateTsDbStorage is None:
-            domainTsStorage = initKeyValueStorageIntKeys(
-                self.config.stateTsStorage,
-                self.dataLocation,
-                self.config.stateTsDbName,
-                db_config=self.config.db_state_ts_db_config)
+    def _get_state_ts_db_storage(self):
 
-            configTsStorage = initKeyValueStorageIntKeys(
-                self.config.stateTsStorage,
-                self.dataLocation,
-                self.config.configStateTsDbName,
-                db_config=self.config.db_state_ts_db_config)
+        domainTsStorage = initKeyValueStorageIntKeys(
+            self.config.stateTsStorage,
+            self.dataLocation,
+            self.config.stateTsDbName,
+            db_config=self.config.db_state_ts_db_config)
 
-            self.stateTsDbStorage = StateTsDbStorage(
-                self.name, {
-                    DOMAIN_LEDGER_ID: domainTsStorage,
-                    CONFIG_LEDGER_ID: configTsStorage
-                }
-            )
-        return self.stateTsDbStorage
+        configTsStorage = initKeyValueStorageIntKeys(
+            self.config.stateTsStorage,
+            self.dataLocation,
+            self.config.configStateTsDbName,
+            db_config=self.config.db_state_ts_db_config)
+
+        return StateTsDbStorage(self.name,
+                                {
+                                    DOMAIN_LEDGER_ID: domainTsStorage,
+                                    CONFIG_LEDGER_ID: configTsStorage
+                                })
 
     def loadSeqNoDB(self):
         return ReqIdrToTxn(
@@ -1159,18 +1159,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def closeAllKVStores(self):
         # Clear leveldb lock files
         logger.info("{} closing key-value storages".format(self), extra={"cli": False})
-        for ledgerId in self.ledgerManager.ledgerRegistry:
-            state = self.getState(ledgerId)
-            if state:
-                state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
         if self.nodeStatusDB:
             self.nodeStatusDB.close()
-        if self.bls_bft.bls_store:
-            self.bls_bft.bls_store.close()
-        if self.stateTsDbStorage:
-            self.stateTsDbStorage.close()
+        self.db_manager.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -3374,22 +3367,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
-        reqHandler = self.get_req_handler(three_pc_batch.ledger_id)
-        committedTxns = reqHandler.commit(len(three_pc_batch.valid_digests),
-                                          three_pc_batch.state_root, three_pc_batch.txn_root,
-                                          three_pc_batch.pp_time)
+        committed_txns = self.write_manager.commit_batch(three_pc_batch)
         if three_pc_batch.ledger_id == POOL_LEDGER_ID:
             self.future_primaries_handler.commit_batch(three_pc_batch)
         self.audit_handler.commit_batch(three_pc_batch)
         self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=three_pc_batch.ledger_id,
-                          pp_time=three_pc_batch.pp_time, committed_txns=committedTxns,
+                          pp_time=three_pc_batch.pp_time, committed_txns=committed_txns,
                           state_root=three_pc_batch.state_root, txn_root=three_pc_batch.txn_root)
-        self.updateSeqNoMap(committedTxns, three_pc_batch.ledger_id)
-        updated_committed_txns = list(map(self.update_txn_with_extra_data, committedTxns))
+        self.updateSeqNoMap(committed_txns, three_pc_batch.ledger_id)
+        updated_committed_txns = list(map(self.update_txn_with_extra_data, committed_txns))
         self.hook_pre_send_reply(updated_committed_txns, three_pc_batch.pp_time)
         self.sendRepliesToClients(updated_committed_txns, three_pc_batch.pp_time)
         self.hook_post_send_reply(updated_committed_txns, three_pc_batch.pp_time)
-        return committedTxns
+        return committed_txns
 
     def hook_pre_send_reply(self, txns, pp_time):
         self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
