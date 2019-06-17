@@ -13,22 +13,15 @@ from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import 
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.utils import nym_to_state_key
 from plenum.test.testing_utils import FakeSomething
+from state.pruning_state import PruningState
 from state.state import State
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
-@pytest.fixture(scope="function")
-def domain_state(tconf):
-    state = State()
-    state.txn_list = {}
-    state.get = lambda key, isCommitted=False: state.txn_list.get(key, None)
-    state.set = lambda key, value, isCommitted=False: state.txn_list.update({key: value})
-    return state
-
-
-@pytest.fixture(scope="function")
-def get_txn_author_agreement_aml_handler(tconf, domain_state):
+@pytest.fixture(scope="module")
+def get_txn_author_agreement_aml_handler(tconf):
     data_manager = DatabaseManager()
-    handler = GetTxnAuthorAgreementAmlHandler(data_manager, FakeSomething())
+    handler = GetTxnAuthorAgreementAmlHandler(data_manager)
     return handler
 
 

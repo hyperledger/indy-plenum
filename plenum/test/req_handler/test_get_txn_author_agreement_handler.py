@@ -7,21 +7,11 @@ from plenum.common.request import Request
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.get_txn_author_agreement_handler import GetTxnAuthorAgreementHandler
 
-from plenum.test.testing_utils import FakeSomething
-from state.state import State
-
 
 @pytest.fixture(scope="function")
 def get_txn_author_agreement_handler(tconf):
     data_manager = DatabaseManager()
-    handler = GetTxnAuthorAgreementHandler(data_manager, FakeSomething())
-    state = State()
-    state.txn_list = {}
-    state.get = lambda key, isCommitted=False: state.txn_list.get(key, None)
-    state.set = lambda key, value, isCommitted=False: state.txn_list.update({key: value})
-    data_manager.register_new_database(handler.ledger_id,
-                                       FakeSomething(),
-                                       state)
+    handler = GetTxnAuthorAgreementHandler(data_manager)
     return handler
 
 

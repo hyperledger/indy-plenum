@@ -118,7 +118,7 @@ class WriteRequestManager(RequestManager):
             raise LogicError
         prev_handler_result = handlers[0].post_batch_rejected(ledger_id, None)
         for handler in handlers[1:]:
-            handler.post_batch_rejected(ledger_id, prev_handler_result)
+            prev_handler_result = handler.post_batch_rejected(ledger_id, prev_handler_result)
 
     def transform_txn_for_ledger(self, txn):
         handlers = self.request_handlers.get(get_type(txn), None)
