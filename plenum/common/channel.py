@@ -5,6 +5,8 @@ from inspect import isawaitable, iscoroutinefunction
 from typing import Any, Type, Callable, Tuple, Optional, Dict
 
 
+# TODO: After playing with concept a bit it feels like we don't actually need this
+#  abstraction, and getting rid of it can make code more straightforward
 class TxChannel(ABC):
     @abstractmethod
     async def put(self, msg: Any):
@@ -15,12 +17,16 @@ class TxChannel(ABC):
         pass
 
 
+# TODO: Rename to stream/observable?
 class RxChannel(ABC):
     @abstractmethod
     def subscribe(self, handler: Callable):
         pass
 
 
+# TODO: We don't have async handlers now - so we don't need this complexity
+#  If we ever actually need async handlers then we might just as well create
+#  separate AsyncRxChannel/AsyncStream
 class _RxChannel(RxChannel):
     def __init__(self):
         self._sync_handlers = []
@@ -46,6 +52,8 @@ class _RxChannel(RxChannel):
             await wait([handler(msg) for handler in self._async_handlers])
 
 
+# TODO: Having single DirectChannel implementing RxChannel interface would make
+#  usage much simpler
 def create_direct_channel() -> Tuple[TxChannel, RxChannel]:
     class Channel(TxChannel):
         def __init__(self, observable: _RxChannel):
@@ -63,6 +71,8 @@ def create_direct_channel() -> Tuple[TxChannel, RxChannel]:
     return Channel(router), router
 
 
+# TODO: This was a PoC implementation to show how current queues could be implemented
+#  using channel framework. This is actually not used and untested, probably remove it?
 class QueuedChannelService:
     class Channel(TxChannel):
         def __init__(self, queue: deque):
@@ -102,6 +112,9 @@ class QueuedChannelService:
         return count
 
 
+# TODO: This was a PoC implementation to show how transparent port to AsyncIO could be
+#  performed using channel framework. This is actually not used and untested, probably
+#  remove it?
 class AsyncioChannelService:
     class Channel(TxChannel):
         def __init__(self, queue: Queue):
@@ -139,6 +152,9 @@ class AsyncioChannelService:
         self._is_running = False
 
 
+# TODO: If we make default channel synchronous then we can just merge this
+#  with Router. If we ever need async router we can just create a new implementation
+#  relying on async channels and coroutines
 class RouterBase:
     def __init__(self, strict: bool = False):
         self._strict = strict
@@ -177,6 +193,7 @@ class Router(RouterBase):
         RouterBase.add(self, msg_type, handler)
 
 
+# TODO: We don't have async handlers now, remove it?
 class AsyncRouter(RouterBase):
     def __init__(self, input: RxChannel, strict: bool = True):
         RouterBase.__init__(self, strict)
