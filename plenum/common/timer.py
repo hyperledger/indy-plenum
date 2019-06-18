@@ -7,12 +7,16 @@ import time
 from sortedcontainers import SortedListWithKey
 
 
+# TODO: Consider renaming this into Scheduler?
 class TimerService(ABC):
     @abstractmethod
     def get_current_time(self) -> float:
         pass
 
     @abstractmethod
+    # TODO: Swapping callback and delay would allow defaulting delay to zero,
+    #  effectively simplifying use-case when we want delay execution of some code
+    #  just to allow some other work to run
     def schedule(self, delay: int, callback: Callable):
         pass
 
