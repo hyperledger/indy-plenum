@@ -44,7 +44,7 @@ def malicious_dynamic_validation(node, request: Request, req_pp_time: int):
 
     operation = request.operation
     req_handler = node.write_manager.request_handlers[operation[TXN_TYPE]][0]
-    req_handler.validate(request)
+    req_handler.dynamic_validation(request)
 
     node.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
