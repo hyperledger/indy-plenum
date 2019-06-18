@@ -82,6 +82,15 @@ class TestDomainRequestHandler(DomainRequestHandler):
     def gen_txn_path(self, txn):
         return None
 
+    @staticmethod
+    def prepare_buy_for_state(txn):
+        from common.serializers.serialization import domain_state_serializer
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
+        key = BuyHandler.prepare_buy_key(identifier, req_id)
+        return key, value
+
 
 NodeRef = TypeVar('NodeRef', Node, str)
 

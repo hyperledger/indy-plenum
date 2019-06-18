@@ -36,7 +36,7 @@ class WriteConfHandler(WriteRequestHandler):
 
 class ReadConfHandler(ReadRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
-        super().__init__(database_manager, READ_CONF, None)
+        super().__init__(database_manager, READ_CONF, CONFIG_LEDGER_ID)
 
     def get_result(self, request: Request):
         key = request.operation[DATA]

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.constants import POOL_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, NODE
 from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test.bls.helper import update_bls_keys_no_proof, \
     update_validate_bls_signature_without_key_proof
@@ -30,7 +30,9 @@ def test_ordering_with_nodes_have_not_bls_key_proofs(looper,
     # Pool Ledger now
     with update_validate_bls_signature_without_key_proof(txnPoolNodeSet, True):
         for n in txnPoolNodeSet:
-            monkeypatch.setattr(n.get_req_handler(POOL_LEDGER_ID), 'doStaticValidation', lambda req: True)
+            monkeypatch.setattr(n.write_manager.request_handlers[NODE][0],
+                                'static_validation',
+                                lambda req: True)
         for node_index in range(0, len(txnPoolNodeSet)):
             update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
         monkeypatch.undo()

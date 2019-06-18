@@ -4,14 +4,15 @@ import pytest
 
 from common.serializers.serialization import state_roots_serializer
 from plenum.common.config_helper import PNodeConfigHelper
+from plenum.test.conftest import getValueFromModule
 from plenum.test.node_catchup.helper import \
     waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected
+    disconnect_node_and_ensure_disconnected, sdk_pool_refresh, sdk_add_new_steward_and_node
 
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
-    sdk_send_signed_requests, sdk_get_replies
+    sdk_send_signed_requests, sdk_get_replies, sdk_get_and_check_replies, sdk_send_random_and_check
 
 from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
@@ -26,7 +27,7 @@ def write(key, val, looper, sdk_pool_handle, sdk_wallet):
                 for op in [write_conf_op(key, val)]]
     reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
     sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    sdk_get_replies(looper, sent_reqs, timeout=10)
+    sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
 
 
 def read(key, looper, sdk_pool_handle, sdk_wallet):
@@ -35,7 +36,7 @@ def read(key, looper, sdk_pool_handle, sdk_wallet):
                 for op in [read_conf_op(key)]]
     reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
     sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    (req, resp), = sdk_get_replies(looper, sent_reqs, timeout=10)
+    (req, resp), = sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
     return json.loads(resp['result'][DATA])[key]
 
 
@@ -50,6 +51,33 @@ def send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys):
 @pytest.fixture(scope="module")
 def testNodeBootstrapClass():
     return ConfigTestBootstrapClass
+
+
+@pytest.yield_fixture("module")
+def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
+                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     txnPoolNodeSet, tdir, tconf, allPluginsPath, request, setup):
+    def post_node_creation(node):
+        ca = node.clientAuthNr.core_authenticator
+        ca.write_types.add(WRITE_CONF)
+        ca.query_types.add(READ_CONF)
+        do_post_node_creation(node)
+        return node
+
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    new_steward_name = randomString()
+    new_node_name = "Epsilon"
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True,
+        do_post_node_creation=post_node_creation)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture(scope="module")
