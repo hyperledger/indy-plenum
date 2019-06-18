@@ -1,3 +1,5 @@
+from plenum.common.messages.node_messages import ViewChange
+
 
 def test_start_view_change_increases_next_view_and_broadcasts_view_change_message(
         initial_view_no, any_3pc_state, mock_network, view_change_service):
@@ -9,5 +11,4 @@ def test_start_view_change_increases_next_view_and_broadcasts_view_change_messag
 
     msg, dst = mock_network.sent_messages[0]
     assert dst == None
-    # TODO: Replace with actual expected view change message
-    assert msg == "ViewChange"
+    assert isinstance(msg, ViewChange)
