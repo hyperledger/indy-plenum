@@ -21,7 +21,9 @@ class BatchRequestHandler:
         :return: list of committed transactions
         """
 
-        return self._commit(self.ledger, self.state, three_pc_batch)
+        return self._commit(self.ledger, self.state, three_pc_batch,
+                            self.ledger_id,
+                            self.database_manager.ts_store)
 
     @abstractmethod
     def post_batch_applied(self, three_pc_batch, prev_handler_result=None):
@@ -32,7 +34,7 @@ class BatchRequestHandler:
         pass
 
     @staticmethod
-    def _commit(ledger, state, three_pc_batch: ThreePcBatch):
+    def _commit(ledger, state, three_pc_batch: ThreePcBatch, ledger_id, ts_store=None):
         _, committedTxns = ledger.commitTxns(len(three_pc_batch.valid_digests))
         state_root = state_roots_serializer.deserialize(three_pc_batch.state_root.encode()) if isinstance(
             three_pc_batch.state_root, str) else three_pc_batch.state_root
@@ -46,6 +48,8 @@ class BatchRequestHandler:
                     .format(ledger.root_hash))
             )
         state.commit(rootHash=state_root)
+        if ts_store:
+            ts_store.set(three_pc_batch.pp_time, state_root, ledger_id)
         return committedTxns
 
     def _check_consistency_after_commit(self, txn_root, state_root=None):
