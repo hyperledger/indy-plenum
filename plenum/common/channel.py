@@ -20,6 +20,9 @@ class TxChannel(ABC):
 # TODO: Rename to stream/observable?
 class RxChannel(ABC):
     @abstractmethod
+    # TODO: Optimization - adding subscriptions per type can reduce need for
+    #  separate router and improve performance. However coupling implications
+    #  need more analysis.
     def subscribe(self, handler: Callable):
         pass
 
