@@ -9,6 +9,7 @@ from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.config_batch_handler import ConfigBatchHandler
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
+from plenum.server.batch_handlers.ts_store_batch_handler import TsStoreBatchHandler
 from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
@@ -152,6 +153,11 @@ class NodeBootstrap:
         for lid in self.node.ledger_ids:
             self.node.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
 
+    def register_ts_store_batch_handlers(self):
+        ts_store_b_h = TsStoreBatchHandler(self.node.db_manager)
+        for lid in [DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID]:
+            self.node.write_manager.register_batch_handler(ts_store_b_h, ledger_id=lid)
+
     def register_common_handlers(self):
         get_txn_handler = GetTxnHandler(self, self.node.db_manager)
         for lid in self.node.ledger_ids:
@@ -163,6 +169,7 @@ class NodeBootstrap:
         self.register_config_batch_handlers()
         # Audit batch handler should be initiated the last
         self.register_audit_batch_handlers()
+        self.register_ts_store_batch_handlers()
 
     def _init_write_request_validator(self):
         pass
