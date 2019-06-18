@@ -259,7 +259,13 @@ class BackupInstanceFaulty(MessageBase):
 
 class ViewChange(MessageBase):
     typename = VIEW_CHANGE
-    schema = ()
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
+        (f.PREPARED.nm, IterableField(AnyField())),           # list of PrePrepare or (viewNo, ppSeqNo, ppDigest)
+        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of PrePrepare or (viewNo, [(ppSeqNo, ppDigest)])
+        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoint or (seqNo, Digest)
+    )
 
 
 class ViewChangeAck(MessageBase):

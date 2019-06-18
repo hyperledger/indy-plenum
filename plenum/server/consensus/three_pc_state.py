@@ -1,4 +1,7 @@
+from typing import List
+
 from plenum.common.channel import RxChannel
+from plenum.common.messages.node_messages import Checkpoint, PrePrepare
 
 
 # TODO: We settled on naming it 3PCState, however it looks like this is more than just
@@ -21,6 +24,22 @@ class ThreePCState:
     @property
     def waiting_for_new_view(self) -> bool:
         return self._waiting_for_new_view
+
+    @property
+    def preprepared(self) -> List[PrePrepare]:  # TODO: should we use actual PrePrepare messages?
+        return []
+
+    @property
+    def prepared(self) -> List[PrePrepare]:  # TODO: should we use actual PrePrepare messages?
+        return []
+
+    @property
+    def stable_checkpoint(self) -> int:
+        return 0
+
+    @property
+    def checkpoints(self) -> List[Checkpoint]:  # TODO: should we use actual Checkpoint messages?
+        return []
 
     def enter_next_view(self):
         self._view_no += 1

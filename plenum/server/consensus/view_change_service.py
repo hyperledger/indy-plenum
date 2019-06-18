@@ -15,9 +15,20 @@ class ViewChangeService:
         router.add(NewView, self.process_new_view_message)
 
     def start_view_change(self):
-        # TODO: Calculate P and Q
+        # TODO: Calculate
+        prepared = []
+        preprepared = []
+
         self._state.enter_next_view()
-        self._network.send(ViewChange())
+
+        vc = ViewChange(
+            viewNo=self._state.view_no,
+            stableCheckpoint=self._state.stable_checkpoint,
+            prepared=prepared,
+            preprepared=preprepared,
+            checkpoints=self._state.checkpoints
+        )
+        self._network.send(vc)
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         pass
