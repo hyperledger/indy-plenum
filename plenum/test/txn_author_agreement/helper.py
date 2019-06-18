@@ -14,10 +14,11 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     AML_VERSION, AML, AML_CONTEXT, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
     TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML
 from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.config_req_handler import ConfigReqHandler
+from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
 from state.pruning_state import PruningState
 
@@ -105,10 +106,10 @@ def get_txn_author_agreement(
     )
 
 
-def get_config_req_handler(node):
-    config_req_handler = node.get_req_handler(CONFIG_LEDGER_ID)
-    assert isinstance(config_req_handler, ConfigReqHandler)
-    return config_req_handler
+def get_aml_req_handler(node):
+    aml_req_handler = node.write_manager.request_handlers[TXN_AUTHOR_AGREEMENT_AML][0]
+    assert isinstance(aml_req_handler, TxnAuthorAgreementAmlHandler)
+    return aml_req_handler
 
 
 def taa_digest(text: str, version: str) -> str:

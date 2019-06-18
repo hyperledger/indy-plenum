@@ -11,7 +11,10 @@ from plenum.server.request_managers.request_manager import RequestManager
 class ReadRequestManager(RequestManager):
 
     def static_validation(self, request: Request):
-        pass
+        handler = self.request_handlers.get(request.operation[TXN_TYPE], None)
+        if handler is None:
+            raise LogicError
+        handler.static_validation(request)
 
     def dynamic_validation(self, request: Request):
         pass
