@@ -1,4 +1,4 @@
-from plenum.common.messages.node_messages import ViewChange
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck
 
 
 def test_start_view_change_increases_next_view_and_broadcasts_view_change_message(
@@ -16,9 +16,17 @@ def test_start_view_change_increases_next_view_and_broadcasts_view_change_messag
     assert msg.stableCheckpoint == any_3pc_state.stable_checkpoint
 
 
-def test_receive_single_view_change_does_nothing(mock_network, view_change_service):
+def test_view_change_message_is_responded_with_view_change_ack_to_new_primary(
+        any_3pc_state, mock_network, view_change_service):
     view_change_service.start_view_change()
     vc, _ = mock_network.sent_messages.pop()
 
     mock_network.receive(vc, 'some_node')
-    assert len(mock_network.sent_messages) == 0
+
+    assert len(mock_network.sent_messages) == 1
+    msg, dst = mock_network.sent_messages[0]
+    assert dst == any_3pc_state.primary_name
+    assert isinstance(msg, ViewChangeAck)
+    assert msg.viewNo == vc.viewNo
+    assert msg.name == any_3pc_state.name
+    assert msg.digest == 'digest_of_view_change_message'

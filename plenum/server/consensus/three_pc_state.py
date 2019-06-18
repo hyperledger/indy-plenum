@@ -13,9 +13,18 @@ class ThreePCState:
     TODO: Consider depending on audit ledger
     TODO: Consider adding persistent local storage for 3PC certificates
     """
-    def __init__(self):
+    def __init__(self, name):
+        self._name = name
         self._view_no = 0
         self._waiting_for_new_view = False
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def primary_name(self) -> str:
+        return 'some_primary'  # TODO
 
     @property
     def view_no(self) -> int:

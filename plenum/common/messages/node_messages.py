@@ -270,7 +270,11 @@ class ViewChange(MessageBase):
 
 class ViewChangeAck(MessageBase):
     typename = VIEW_CHANGE_ACK
-    schema = ()
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT))
+    )
 
 
 class NewView(MessageBase):

@@ -17,7 +17,7 @@ def already_in_view_change(request):
 
 @pytest.fixture
 def any_3pc_state(initial_view_no, already_in_view_change):
-    state = ThreePCState()
+    state = ThreePCState('some_node')
     state._view_no = initial_view_no
     state._waiting_for_new_view = already_in_view_change
     return state
