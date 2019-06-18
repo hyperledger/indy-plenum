@@ -1,3 +1,4 @@
+from common.serializers.serialization import state_roots_serializer
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.database_manager import DatabaseManager
 
@@ -16,9 +17,10 @@ class TsStoreBatchHandler(BatchRequestHandler):
 
         :return: list of committed transactions
         """
-
+        state_root = state_roots_serializer.deserialize(three_pc_batch.state_root.encode()) \
+            if isinstance(three_pc_batch.state_root, str) else three_pc_batch.state_root
         self.database_manager.ts_store.set(three_pc_batch.pp_time,
-                                           three_pc_batch.state_root,
+                                           state_root,
                                            three_pc_batch.ledger_id)
 
     def post_batch_applied(self, three_pc_batch, prev_handler_result=None):
