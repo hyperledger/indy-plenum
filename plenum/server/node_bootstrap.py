@@ -120,10 +120,8 @@ class NodeBootstrap:
                                                        bls_crypto_verifier=self.node.bls_bft.bls_crypto_verifier)
         taa_handler = TxnAuthorAgreementHandler(database_manager=self.node.db_manager,
                                                 bls_crypto_verifier=self.node.bls_bft.bls_crypto_verifier)
-        get_taa_aml_handler = GetTxnAuthorAgreementAmlHandler(node=self.node,
-                                                              database_manager=self.node.db_manager)
-        get_taa_handler = GetTxnAuthorAgreementHandler(node=self.node,
-                                                       database_manager=self.node.db_manager)
+        get_taa_aml_handler = GetTxnAuthorAgreementAmlHandler(database_manager=self.node.db_manager)
+        get_taa_handler = GetTxnAuthorAgreementHandler(database_manager=self.node.db_manager)
 
         self.node.write_manager.register_req_handler(taa_aml_handler)
         self.node.write_manager.register_req_handler(taa_handler)

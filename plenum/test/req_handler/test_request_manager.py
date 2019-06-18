@@ -45,7 +45,7 @@ def write_req_manager(db):
     # Same for batches
     handler = manager.batch_handlers[DOMAIN_LEDGER_ID][0]
     handler.post_batch_applied = lambda batch, prev_handler_result: 1
-    handler.commit_batch = lambda ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result: 1
+    handler.commit_batch = lambda batch, prev_handler_result=None: 1
     handler.post_batch_rejected = lambda ledger_id, prev_handler_result: 1
 
     return manager
@@ -141,21 +141,13 @@ def test_write_request_manager_fails_to_handle_batches(write_req_manager: WriteR
         write_req_manager.post_batch_rejected(three_pc_batch)
 
     with pytest.raises(LogicError):
-        write_req_manager.commit_batch(nonexistent_lid,
-                                       len(three_pc_batch.valid_digests),
-                                       three_pc_batch.state_root,
-                                       three_pc_batch.txn_root,
-                                       three_pc_batch.pp_time)
+        write_req_manager.commit_batch(three_pc_batch)
 
 
 def test_write_request_manager_handles_batches(write_req_manager: WriteRequestManager,
                                                three_pc_batch):
     write_req_manager.post_apply_batch(three_pc_batch)
-    write_req_manager.commit_batch(three_pc_batch.ledger_id,
-                                   len(three_pc_batch.valid_digests),
-                                   three_pc_batch.state_root,
-                                   three_pc_batch.txn_root,
-                                   three_pc_batch.pp_time)
+    write_req_manager.commit_batch(three_pc_batch)
     write_req_manager.post_batch_rejected(three_pc_batch.ledger_id)
 
 
@@ -175,7 +167,7 @@ def test_write_request_manager_chain_of_responsib_batch(write_req_manager: Write
         modify_check_list()
         return 1, 1, 1
 
-    def modify_check_list_commit(ledger_id, txn_count, state_root, txn_root, pp_time, prev_handler_result):
+    def modify_check_list_commit(batch, prev_handler_result=None):
         modify_check_list()
         return 1, 1, 1
 
@@ -197,11 +189,7 @@ def test_write_request_manager_chain_of_responsib_batch(write_req_manager: Write
 
     for check in check_list:
         check.check_field = False
-    write_req_manager.commit_batch(three_pc_batch.ledger_id,
-                                   len(three_pc_batch.valid_digests),
-                                   three_pc_batch.state_root,
-                                   three_pc_batch.txn_root,
-                                   three_pc_batch.pp_time)
+    write_req_manager.commit_batch(three_pc_batch)
     assert all(check.check_field for check in check_list)
 
     for check in check_list:
