@@ -18,8 +18,6 @@ from plenum.test.test_config_req_handler import write_conf_op, \
     WRITE_CONF, READ_CONF, read_conf_op, ConfigTestBootstrapClass
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.types import HA
-from stp_core.common.log import Logger
-Logger().enableStdLogging()
 
 
 def write(key, val, looper, sdk_pool_handle, sdk_wallet):

@@ -154,7 +154,8 @@ class NodeBootstrap:
 
     def register_common_handlers(self):
         get_txn_handler = GetTxnHandler(self, self.node.db_manager)
-        self.node.read_manager.register_req_handler(get_txn_handler)
+        for lid in self.node.ledger_ids:
+            self.node.read_manager.register_req_handler(get_txn_handler, ledger_id=lid)
 
     def register_batch_handlers(self):
         self.register_pool_batch_handlers()

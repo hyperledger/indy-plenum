@@ -181,6 +181,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.poolManager = None
         self.ledgerManager = None
         self.bls_bft = None
+        self.write_req_validator = None
+
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
         self.requestExecuter = {}  # type: Dict[int, Callable]

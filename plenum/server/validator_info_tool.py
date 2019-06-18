@@ -539,9 +539,9 @@ class ValidatorNodeInfoTool:
             if linfo.ledger.tree.root_hash:
                 committed_ledger_root_hashes[lid] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
 
-        for l_id, req_handler in self._node.ledger_to_req_handler.items():
-            committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.committedHeadHash))
-            uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(req_handler.state.headHash))
+        for l_id, state in self._node.db_manager.states.items():
+            committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(state.committedHeadHash))
+            uncommitted_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(state.headHash))
 
         ledger_freshnesses = self._get_ledgers_updated_time() or {}
         for idx, updated_ts in ledger_freshnesses.items():

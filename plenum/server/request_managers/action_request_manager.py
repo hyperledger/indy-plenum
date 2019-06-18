@@ -13,7 +13,10 @@ class ActionRequestManager(RequestManager):
         pass
 
     def dynamic_validation(self, request: Request):
-        pass
+        handler = self.request_handlers.get(request.operation[TXN_TYPE], None)
+        if handler is None:
+            raise LogicError
+        handler.dynamic_validation(request)
 
     def process_action(self, request: Request):
         handler = self.request_handlers.get(request.operation[TXN_TYPE], None)

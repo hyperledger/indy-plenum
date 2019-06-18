@@ -31,9 +31,9 @@ class RequestManager(AbstractRequestManager):
     def _add_handler(self, typ, handler):
         self.request_handlers[typ] = handler
 
-    def _register_req_handler(self, handler: RequestHandler):
+    def _register_req_handler(self, handler: RequestHandler, ledger_id=None):
         typ = handler.txn_type
-        ledger_id = handler.ledger_id
+        ledger_id = ledger_id if ledger_id is not None else handler.ledger_id
         self._add_handler(typ, handler)
         self.txn_types.add(typ)
         self.type_to_ledger_id[typ] = ledger_id

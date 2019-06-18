@@ -141,9 +141,9 @@ class WriteRequestManager(RequestManager):
     def pool_state(self):
         return self.database_manager.get_database(POOL_LEDGER_ID).state
 
-    def get_node_data(self, nym, isCommitted: bool = True):
+    def get_node_data(self, nym, is_committed: bool = True):
         key = nym.encode()
-        data = self.pool_state.get(key, isCommitted)
+        data = self.pool_state.get(key, is_committed)
         if not data:
             return {}
         return self.state_serializer.deserialize(data)
