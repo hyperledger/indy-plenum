@@ -18,8 +18,8 @@ def already_in_view_change(request):
 @pytest.fixture
 def consensus_data(initial_view_no, already_in_view_change):
     data = ConsensusDataProvider('some_node')
-    data._view_no = initial_view_no
-    data._waiting_for_new_view = already_in_view_change
+    data.view_no = initial_view_no
+    data.waiting_for_new_view = already_in_view_change
     return data
 
 

@@ -17,8 +17,6 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
-from plenum.common.channel import RxChannel, create_direct_channel
-from plenum.common.external_bus import ExternalBus
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait

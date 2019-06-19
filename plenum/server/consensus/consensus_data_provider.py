@@ -11,8 +11,8 @@ class ConsensusDataProvider:
     """
     def __init__(self, name):
         self._name = name
-        self._view_no = 0
-        self._waiting_for_new_view = False
+        self.view_no = 0
+        self.waiting_for_new_view = False
 
     @property
     def name(self) -> str:
@@ -21,14 +21,6 @@ class ConsensusDataProvider:
     @property
     def primary_name(self) -> str:
         return 'some_primary'  # TODO
-
-    @property
-    def view_no(self) -> int:
-        return self._view_no
-
-    @property
-    def waiting_for_new_view(self) -> bool:
-        return self._waiting_for_new_view
 
     @property
     def preprepared(self) -> List[PrePrepare]:
@@ -45,7 +37,3 @@ class ConsensusDataProvider:
     @property
     def checkpoints(self) -> List[Checkpoint]:
         return []
-
-    def enter_next_view(self):
-        self._view_no += 1
-        self._waiting_for_new_view = True

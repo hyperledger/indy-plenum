@@ -17,7 +17,8 @@ class ViewChangeService:
         prepared = []
         preprepared = []
 
-        self._data.enter_next_view()
+        self._data.view_no += 1
+        self._data.waiting_for_new_view = True
 
         vc = ViewChange(
             viewNo=self._data.view_no,

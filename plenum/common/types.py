@@ -94,7 +94,6 @@ class f:  # provides a namespace for reusable field constants
     TAA_ACCEPTANCE_MECHANISM = Field("mechanism", str)
     TAA_ACCEPTANCE_TIME = Field("time", float)
     # View change
-    # TODO: It might be safer to actually use sets of PrePrepare and Checkpoint messages
     STABLE_CHECKPOINT = Field("stableCheckpoint", int)
     PREPARED = Field("prepared", List)           # list of PrePrepare
     PREPREPARED = Field("preprepared", List)     # list of PrePrepare
