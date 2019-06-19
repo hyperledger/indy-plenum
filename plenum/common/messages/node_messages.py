@@ -216,6 +216,7 @@ class Checkpoint(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        # TODO: Should this be root of audit ledger instead of pre-prepare digest?
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
@@ -262,9 +263,9 @@ class ViewChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
-        (f.PREPARED.nm, IterableField(AnyField())),           # list of PrePrepare or (viewNo, ppSeqNo, ppDigest)
-        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of PrePrepare or (viewNo, [(ppSeqNo, ppDigest)])
-        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoint or (seqNo, Digest)
+        (f.PREPARED.nm, IterableField(AnyField())),           # list of PrePrepare
+        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of PrePrepare
+        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoint
     )
 
 
@@ -279,7 +280,12 @@ class ViewChangeAck(MessageBase):
 
 class NewView(MessageBase):
     typename = NEW_VIEW
-    schema = ()
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.VIEW_CHANGES.nm, IterableField(AnyField())),       # list of tuples (node_name, view_change_digest)
+        (f.CHECKPOINT.nm, AnyField()),                        # Checkpoint to be selected as stable
+        (f.PREPREPARES.nm, IterableField(AnyField()))         # list of PrePrepares that should get into new view
+    )
 
 
 class LedgerStatus(MessageBase):

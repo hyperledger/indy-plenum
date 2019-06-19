@@ -98,6 +98,9 @@ class f:  # provides a namespace for reusable field constants
     PREPARED = Field("prepared", List)           # list of PrePrepare
     PREPREPARED = Field("preprepared", List)     # list of PrePrepare
     CHECKPOINTS = Field("checkpoints", List)     # list of Checkpoint
+    VIEW_CHANGES = Field("viewChanges", List)    # list of tuples(name, digest)
+    CHECKPOINT = Field("chackpoint", Any)        # instance of Checkpoint
+    PREPREPARES = Field("preprepares", List)     # list of PrePrepare
 
 
 OPERATION = 'operation'
