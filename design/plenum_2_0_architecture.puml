@@ -1,0 +1,88 @@
+@startuml
+
+
+
+package Database {
+DatabaseManager "1" *-- "N" Ledger
+DatabaseManager "1" *-- "N" State
+DatabaseManager "1" *-- "N" Store
+}
+
+package Common {
+abstract class Service
+Service "1" o-- "1" InternalEventBus
+Service "1" o-- "1" ExternalEventBus
+}
+
+package Requests {
+class WriteRequestManager
+class ReadRequestManager
+class ActionRequestManager
+
+abstract class BatchRequestHandler
+abstract class RequestHandler
+
+WriteRequestManager "1" *-- "N" BatchRequestHandler
+WriteRequestManager "1" *-- "N" RequestHandler
+
+ReadRequestManager o-- DatabaseManager
+ActionRequestManager o-- DatabaseManager
+BatchRequestHandler o-- DatabaseManager
+RequestHandler o-- DatabaseManager
+
+}
+
+
+package Consensus {
+
+package Replica {
+OrdererService <|-- Service
+CheckpointerService <|-- Service
+ViewChangeService <|-- Service
+
+ReplicaManager o-- OrdererService
+ReplicaManager o-- CheckpointerService
+ReplicaManager o-- ViewChangeService
+ViewChangeService o-- ConsensusDataProvider
+OrdererService o-- ConsensusDataProvider
+CheckpointerService o-- ConsensusDataProvider
+}
+
+
+
+
+PropagateService <|-- Service
+
+
+}
+
+package Catchup {
+NodeLeecherService "1" *-- "N" LedgerLeecherService
+LedgerLeecherService "1" *-- "1" ConsistencyProofService
+LedgerLeecherService "1" *-- "1" CatchupRepService
+
+SeederService <|-- ClientSeederService
+SeederService <|-- NodeSeederService
+
+
+CatchupRepService <|-- Service
+ConsistencyProofService <|-- Service
+ClientSeederService <|-- Service
+NodeSeederService <|-- Service
+}
+
+
+package Network {
+abstract class NetworkService
+ZmqNetworkService <|-- NetworkService
+NetworkService <|-- Service
+}
+
+
+
+
+
+ExternalEventBus "1" o-- "1" NetworkService
+OrdererService "1" o-- "1" WriteRequestManager
+
+@enduml
