@@ -1,6 +1,7 @@
 import pytest
 import time
 
+from plenum.server.batch_handlers.ts_store_batch_handler import TsStoreBatchHandler
 from storage.state_ts_store import StateTsDbStorage
 
 from plenum.common.constants import TS_LABEL
@@ -43,6 +44,11 @@ def domain_batch_handler(database_manager):
 
 
 @pytest.fixture(scope='function')
+def ts_store_batch_handler(database_manager):
+    return TsStoreBatchHandler(database_manager)
+
+
+@pytest.fixture(scope='function')
 def three_pc_batch(batch_handler):
     # Constant root hash is one which will be formed after applying txn
     return ThreePcBatch(LEDGER_ID, 0, 0, 1, time.time(),
@@ -61,7 +67,7 @@ def test_batch_handler_commit(batch_handler: BatchRequestHandler, three_pc_batch
     batch_handler._check_consistency_after_commit(FIXED_HASH)
 
 
-def test_domain_batch_handler(domain_batch_handler, three_pc_batch):
+def test_ts_store_batch_handler(ts_store_batch_handler, three_pc_batch):
     three_pc_batch.txn_root = FIXED_DOMAIN_HASH
-    domain_batch_handler.commit_batch(three_pc_batch)
-    assert domain_batch_handler.database_manager.ts_store.get(three_pc_batch.pp_time) == three_pc_batch.state_root
+    ts_store_batch_handler.commit_batch(three_pc_batch)
+    assert ts_store_batch_handler.database_manager.ts_store.get(three_pc_batch.pp_time) == three_pc_batch.state_root

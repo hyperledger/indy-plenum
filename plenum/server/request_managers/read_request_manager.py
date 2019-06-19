@@ -23,8 +23,6 @@ class ReadRequestManager(RequestManager):
         if not isinstance(handler, ReadRequestHandler):
             raise LogicError
         self._register_req_handler(handler, ledger_id=ledger_id)
-        if ledger_id is not None:
-            self.ledger_ids.add(ledger_id)
 
     def get_result(self, request: Request):
         handler = self.request_handlers.get(request.operation[TXN_TYPE], None)

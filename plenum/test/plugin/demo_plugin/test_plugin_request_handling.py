@@ -115,7 +115,7 @@ def some_requests(txn_pool_node_set_post_creation, looper,
 
     _, did = sdk_wallet_steward
     for node in txn_pool_node_set_post_creation:
-        auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
+        auctions = node.write_manager.request_handlers[PLACE_BID][0].auctions
         assert 'pqr' in auctions
         looper.run(eventually(check_auctions_amount, 20))
 
@@ -126,7 +126,7 @@ def some_requests(txn_pool_node_set_post_creation, looper,
     successful_op(looper, op, sdk_wallet_steward, sdk_pool_handle)
 
     for node in txn_pool_node_set_post_creation:
-        auctions = node.get_req_handler(AUCTION_LEDGER_ID).auctions
+        auctions = node.write_manager.request_handlers[PLACE_BID][0].auctions
         assert 'pqr' in auctions
         looper.run(eventually(check_auctions_amount, 40))
 

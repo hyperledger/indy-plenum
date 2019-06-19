@@ -45,12 +45,16 @@ class WriteRequestManager(RequestManager):
             raise LogicError
         self._register_req_handler(handler)
 
-    def register_batch_handler(self, handler: BatchRequestHandler, ledger_id=None):
+    def register_batch_handler(self, handler: BatchRequestHandler,
+                               ledger_id=None, add_to_begin=False):
         if not isinstance(handler, BatchRequestHandler):
             raise LogicError
         ledger_id = ledger_id if ledger_id is not None else handler.ledger_id
         handler_list = self.batch_handlers.setdefault(ledger_id, [])
-        handler_list.append(handler)
+        if add_to_begin:
+            handler_list.insert(0, handler)
+        else:
+            handler_list.append(handler)
         self.ledger_ids.add(ledger_id)
         if handler.ledger_id == AUDIT_LEDGER_ID:
             self.audit_b_handler = handler
