@@ -1,18 +1,16 @@
-from plenum.common.channel import Router
+from plenum.common.external_bus import ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
-from plenum.common.network_service import NetworkService
 from plenum.server.consensus.three_pc_state import ThreePCState
 
 
 class ViewChangeService:
-    def __init__(self, state: ThreePCState, network: NetworkService):
+    def __init__(self, state: ThreePCState, network: ExternalBus):
         self._state = state
         self._network = network
 
-        router = Router(network.on_message())
-        router.add(ViewChange, self.process_view_change_message)
-        router.add(ViewChangeAck, self.process_view_change_ack_message)
-        router.add(NewView, self.process_new_view_message)
+        network.subscribe(ViewChange, self.process_view_change_message)
+        network.subscribe(ViewChangeAck, self.process_view_change_ack_message)
+        network.subscribe(NewView, self.process_new_view_message)
 
     def start_view_change(self):
         # TODO: Calculate

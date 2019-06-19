@@ -18,7 +18,7 @@ from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
 from plenum.common.channel import RxChannel, create_direct_channel
-from plenum.common.network_service import NetworkService
+from plenum.common.external_bus import ExternalBus
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
@@ -1333,16 +1333,10 @@ class MockTimer(QueueTimer):
         self.service()
 
 
-class MockNetwork(NetworkService):
+class MockNetwork(ExternalBus):
     def __init__(self):
-        self.sent_messages = []  # type: List[Tuple[Any, NetworkService.Destination]]
-        self._tx, self._rx = create_direct_channel()
+        super().__init__(self._send_handler)
+        self.sent_messages = []
 
-    def receive(self, msg: Any, frm: str):
-        self._tx.put_nowait((msg, frm))
-
-    def send(self, msg: Any, dst: NetworkService.Destination = None):
-        self.sent_messages.append((msg, dst))
-
-    def on_message(self) -> RxChannel:
-        return self._rx
+    def _send_handler(self, message: Any, dst: ExternalBus.Destination):
+        self.sent_messages.append((message, dst))

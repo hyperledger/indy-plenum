@@ -21,7 +21,7 @@ def test_view_change_message_is_responded_with_view_change_ack_to_new_primary(
     view_change_service.start_view_change()
     vc, _ = mock_network.sent_messages.pop()
 
-    mock_network.receive(vc, 'some_node')
+    mock_network.recv(vc, 'some_node')
 
     assert len(mock_network.sent_messages) == 1
     msg, dst = mock_network.sent_messages[0]
