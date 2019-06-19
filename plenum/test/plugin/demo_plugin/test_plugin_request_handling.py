@@ -91,8 +91,9 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
 @pytest.fixture(scope="module")
 def some_requests(txn_pool_node_set_post_creation, looper,
                   sdk_wallet_steward, sdk_pool_handle):
-    def check_auctions_amount(expected_amount):
-        assert auctions['pqr'][did] == expected_amount
+    def check_auctions_amount(auc, expected_amount):
+        assert did in auc['pqr']
+        assert auc['pqr'][did] == expected_amount
 
     old_bls_store_size = None
     for node in txn_pool_node_set_post_creation:
@@ -115,9 +116,10 @@ def some_requests(txn_pool_node_set_post_creation, looper,
 
     _, did = sdk_wallet_steward
     for node in txn_pool_node_set_post_creation:
+        print(node.name)
         auctions = node.write_manager.request_handlers[PLACE_BID][0].auctions
         assert 'pqr' in auctions
-        looper.run(eventually(check_auctions_amount, 20))
+        looper.run(eventually(check_auctions_amount, auctions, 20))
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -128,7 +130,7 @@ def some_requests(txn_pool_node_set_post_creation, looper,
     for node in txn_pool_node_set_post_creation:
         auctions = node.write_manager.request_handlers[PLACE_BID][0].auctions
         assert 'pqr' in auctions
-        looper.run(eventually(check_auctions_amount, 40))
+        looper.run(eventually(check_auctions_amount, auctions, 40))
 
     op = {
         TXN_TYPE: AUCTION_END,
