@@ -1,4 +1,4 @@
-from plenum.common.external_bus import ExternalBus
+from plenum.common.event_bus import ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 

@@ -1,8 +1,8 @@
 import pytest
 
-from plenum.common.external_bus import ExternalBus
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.test.helper import MockNetwork
 
 
 @pytest.fixture(params=[0, 1, 2, 5, 10])
@@ -25,7 +25,7 @@ def consensus_data(initial_view_no, already_in_view_change):
 
 @pytest.fixture
 def mock_network():
-    return ExternalBus()
+    return MockNetwork()
 
 
 @pytest.fixture
