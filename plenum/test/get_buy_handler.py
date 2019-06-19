@@ -1,5 +1,6 @@
 from _sha256 import sha256
 
+from common.serializers.serialization import domain_state_serializer
 from plenum.common.messages.node_messages import Reply
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
@@ -33,3 +34,11 @@ class GetBuyHandler(ReadRequestHandler):
             BUY: result
         }
         return Reply(res)
+
+    @staticmethod
+    def prepare_buy_for_state(txn):
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
+        key = BuyHandler.prepare_buy_key(identifier, req_id)
+        return key, value

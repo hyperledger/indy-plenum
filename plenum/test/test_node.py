@@ -30,10 +30,10 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, TS_LABEL
+    DOMAIN_LEDGER_ID, TS_LABEL, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
-from plenum.server import replica
+from plenum.server import replica, req_handler
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
@@ -393,6 +393,19 @@ class TestNode(TestNodeCore, Node):
         return getTestableStack(self.ClientStackClass)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
+        committedTxns = list(committedTxns)
+        handler = None
+        for h in self.read_manager.request_handlers.values():
+            if isinstance(h, GetBuyHandler):
+                handler = h
+        if handler:
+            for txn in committedTxns:
+                if get_type(txn) == "buy":
+                    key, value = handler.prepare_buy_for_state(txn)
+                    _, proof = handler._get_value_from_state(key, with_proof=True)
+                    if proof:
+                        txn[STATE_PROOF] = proof
+
         super().sendRepliesToClients(committedTxns, ppTime)
 
     def schedule_node_status_dump(self):
