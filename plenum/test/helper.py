@@ -1322,10 +1322,40 @@ class MockTimer(QueueTimer):
         self._ts = get_current_time if get_current_time else MockTimestamp(0)
         QueueTimer.__init__(self, self._ts)
 
-    def advance(self, seconds):
-        self._ts.value += seconds
-        self.service()
+    def advance(self):
+        """
+        Advance time to next scheduled callback and run that callback
+        """
+        if not self._events:
+            return
 
-    def update_time(self, value):
+        event = self._events.pop(0)
+        self._ts.value = event.timestamp
+        event.callback()
+
+    def advance_until(self, value):
+        """
+        Advance time in steps until required value running scheduled callbacks in process
+        """
+        while self._events and self._events[0].timestamp < value:
+            self.advance()
+        self._ts.value = value
+
+    def set_time(self, value):
+        """
+        Update time and run scheduled callbacks afterwards
+        """
         self._ts.value = value
         self.service()
+
+    def run_for(self, seconds):
+        """
+        Simulate running for given amount of seconds, running scheduled callbacks at required timestamps
+        """
+        self.advance_until(self._ts.value + seconds)
+
+    def sleep(self, seconds):
+        """
+        Simulate sleeping for given amount of seconds, and run scheduled callbacks afterwards
+        """
+        self.set_time(self._ts.value + seconds)

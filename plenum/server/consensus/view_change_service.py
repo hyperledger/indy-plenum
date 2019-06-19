@@ -40,7 +40,11 @@ class ViewChangeService:
         self._network.send(vca, self._data.primary_name)
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
+        # TODO: Validation
+
         pass
 
     def process_new_view_message(self, msg: NewView, frm: str):
+        # TODO: Validation
+
         pass
