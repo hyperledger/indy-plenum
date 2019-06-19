@@ -1,13 +1,9 @@
 from typing import List
 
-from plenum.common.channel import RxChannel
 from plenum.common.messages.node_messages import Checkpoint, PrePrepare
 
 
-# TODO: We settled on naming it 3PCState, however it looks like this is more than just
-#  state of 3-phase commit, it includes states of multiple 3-phase commits, checkpoints
-#  and view change. What about naming it more generically, like ConsensusState?
-class ThreePCState:
+class ConsensusDataProvider:
     """
     This is a 3PC-state shared between Ordering, Checkpoint and ViewChange services.
     TODO: Consider depending on audit ledger
@@ -35,11 +31,11 @@ class ThreePCState:
         return self._waiting_for_new_view
 
     @property
-    def preprepared(self) -> List[PrePrepare]:  # TODO: should we use actual PrePrepare messages?
+    def preprepared(self) -> List[PrePrepare]:
         return []
 
     @property
-    def prepared(self) -> List[PrePrepare]:  # TODO: should we use actual PrePrepare messages?
+    def prepared(self) -> List[PrePrepare]:
         return []
 
     @property
@@ -47,17 +43,9 @@ class ThreePCState:
         return 0
 
     @property
-    def checkpoints(self) -> List[Checkpoint]:  # TODO: should we use actual Checkpoint messages?
+    def checkpoints(self) -> List[Checkpoint]:
         return []
 
     def enter_next_view(self):
         self._view_no += 1
         self._waiting_for_new_view = True
-
-    def on_update(self) -> RxChannel:
-        """
-        Channel with important update events
-
-        :return: channel to subscribe
-        """
-        raise NotImplemented

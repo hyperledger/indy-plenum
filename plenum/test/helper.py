@@ -1331,12 +1331,3 @@ class MockTimer(QueueTimer):
     def update_time(self, value):
         self._ts.value = value
         self.service()
-
-
-class MockNetwork(ExternalBus):
-    def __init__(self):
-        super().__init__(self._send_handler)
-        self.sent_messages = []
-
-    def _send_handler(self, message: Any, dst: ExternalBus.Destination):
-        self.sent_messages.append((message, dst))

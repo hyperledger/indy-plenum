@@ -1,8 +1,8 @@
 from plenum.common.external_bus import ExternalBus
-from plenum.server.consensus.three_pc_state import ThreePCState
+from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
 class OrderingService:
-    def __init__(self, state: ThreePCState, network: ExternalBus):
-        self._state = state
+    def __init__(self, data: ConsensusDataProvider, network: ExternalBus):
+        self._data = data
         self._network = network

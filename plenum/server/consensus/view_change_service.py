@@ -1,11 +1,11 @@
 from plenum.common.external_bus import ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
-from plenum.server.consensus.three_pc_state import ThreePCState
+from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
 class ViewChangeService:
-    def __init__(self, state: ThreePCState, network: ExternalBus):
-        self._state = state
+    def __init__(self, data: ConsensusDataProvider, network: ExternalBus):
+        self._data = data
         self._network = network
 
         network.subscribe(ViewChange, self.process_view_change_message)
@@ -17,14 +17,14 @@ class ViewChangeService:
         prepared = []
         preprepared = []
 
-        self._state.enter_next_view()
+        self._data.enter_next_view()
 
         vc = ViewChange(
-            viewNo=self._state.view_no,
-            stableCheckpoint=self._state.stable_checkpoint,
+            viewNo=self._data.view_no,
+            stableCheckpoint=self._data.stable_checkpoint,
             prepared=prepared,
             preprepared=preprepared,
-            checkpoints=self._state.checkpoints
+            checkpoints=self._data.checkpoints
         )
         self._network.send(vc)
 
@@ -36,7 +36,7 @@ class ViewChangeService:
             name=frm,
             digest='digest_of_view_change_message'
         )
-        self._network.send(vca, self._state.primary_name)
+        self._network.send(vca, self._data.primary_name)
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         pass

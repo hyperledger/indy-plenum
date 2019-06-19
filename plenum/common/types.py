@@ -1,6 +1,5 @@
 from collections import namedtuple
-from typing import NamedTuple, Any, List, Mapping, Optional, Dict, \
-    Tuple, Set
+from typing import NamedTuple, Any, List, Mapping, Optional, Dict
 
 from stp_core.types import HA
 from plenum.common.constants import (
@@ -97,9 +96,9 @@ class f:  # provides a namespace for reusable field constants
     # View change
     # TODO: It might be safer to actually use sets of PrePrepare and Checkpoint messages
     STABLE_CHECKPOINT = Field("stableCheckpoint", int)
-    PREPARED = Field("prepared", Set[Tuple[int, int, str]])
-    PREPREPARED = Field("preprepared", Set[Tuple[int, Set[Tuple[int, str]]]])
-    CHECKPOINTS = Field("checkpoints", Set[Tuple[int, str]])
+    PREPARED = Field("prepared", List)           # list of PrePrepare
+    PREPREPARED = Field("preprepared", List)     # list of PrePrepare
+    CHECKPOINTS = Field("checkpoints", List)     # list of Checkpoint
 
 
 OPERATION = 'operation'
