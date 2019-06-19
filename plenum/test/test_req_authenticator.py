@@ -18,7 +18,7 @@ from stp_core.loop.eventually import eventually
 @pytest.fixture(scope='module')
 def pre_reqs():
     simple_authnr = SimpleAuthNr()
-    core_authnr = CoreAuthNr()
+    core_authnr = CoreAuthNr([], [], [])
     req_authnr = ReqAuthenticator()
     return simple_authnr, core_authnr, req_authnr
 

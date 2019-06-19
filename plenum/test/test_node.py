@@ -61,8 +61,9 @@ logger = getlogger()
 
 @spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
-    write_types = CoreAuthNr.write_types.union({BUY, RANDOM_BUY})
-    query_types = CoreAuthNr.query_types.union({GET_BUY, })
+    pass
+    # write_types = CoreAuthNr.write_types.union({BUY, RANDOM_BUY})
+    # query_types = CoreAuthNr.query_types.union({GET_BUY, })
 
 
 class TestDomainRequestHandler(DomainRequestHandler):
@@ -286,7 +287,10 @@ class TestNodeCore(StackedTester):
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
-        return TestCoreAuthnr(state=state)
+        return TestCoreAuthnr(self.write_manager.txn_types,
+                              self.read_manager.txn_types,
+                              self.action_manager.txn_types,
+                              state=state)
 
     def processRequest(self, request, frm):
         if request.operation[TXN_TYPE] == GET_BUY:

@@ -2547,7 +2547,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Handle GET_TXN request
         """
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
-        if ledger_id not in self.read_manager.ledger_ids:
+        if ledger_id not in self.ledger_ids:
             self.send_nack_to_client((request.identifier, request.reqId),
                                      'Invalid ledger id {}'.format(ledger_id),
                                      frm)
@@ -3361,7 +3361,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
-        return CoreAuthNr(state=state)
+        return CoreAuthNr(self.write_manager.txn_types,
+                          self.read_manager.txn_types,
+                          self.action_manager.txn_types,
+                          state=state)
 
     def defaultAuthNr(self) -> ReqAuthenticator:
         req_authnr = ReqAuthenticator()
