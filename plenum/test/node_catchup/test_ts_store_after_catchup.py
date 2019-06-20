@@ -1,3 +1,4 @@
+from common.serializers.serialization import domain_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.txn_util import get_req_id, get_from, get_txn_time, get_payload_data
 from plenum.test.buy_handler import BuyHandler
@@ -39,9 +40,9 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
     for reply in sdk_replies:
         key = BuyHandler.prepare_buy_key(get_from(reply[1]['result']),
                                            get_req_id(reply[1]['result']))
-        root_hash = req_handler.ts_store.get_equal_or_prev(get_txn_time(reply[1]['result']))
+        root_hash = req_handler.database_manager.ts_store.get_equal_or_prev(get_txn_time(reply[1]['result']))
         assert root_hash
         from_state = req_handler.state.get_for_root_hash(root_hash=root_hash,
                                                          key=key)
-        assert req_handler.stateSerializer.deserialize(from_state)['amount'] == \
+        assert domain_state_serializer.deserialize(from_state)['amount'] == \
                get_payload_data(reply[1]['result'])['amount']

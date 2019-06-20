@@ -17,6 +17,7 @@ from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
 from plenum.test.get_buy_handler import GetBuyHandler
+from plenum.test.random_buy_handler import RandomBuyHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -62,8 +63,6 @@ logger = getlogger()
 @spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
     pass
-    # write_types = CoreAuthNr.write_types.union({BUY, RANDOM_BUY})
-    # query_types = CoreAuthNr.query_types.union({GET_BUY, })
 
 
 class TestDomainRequestHandler(DomainRequestHandler):
@@ -353,6 +352,7 @@ class TestNodeBootstrap(NodeBootstrap):
     def register_domain_req_handlers(self):
         super().register_domain_req_handlers()
         self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
+        self.node.write_manager.register_req_handler(RandomBuyHandler(self.node.db_manager))
         self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
 
     def init_common_managers(self):
