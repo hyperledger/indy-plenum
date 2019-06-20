@@ -51,6 +51,8 @@ class WriteRequestManager(RequestManager):
             raise LogicError
         ledger_id = ledger_id if ledger_id is not None else handler.ledger_id
         handler_list = self.batch_handlers.setdefault(ledger_id, [])
+        if handler in handler_list:
+            return
         if add_to_begin:
             handler_list.insert(0, handler)
         else:

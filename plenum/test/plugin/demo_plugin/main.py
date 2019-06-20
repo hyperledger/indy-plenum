@@ -1,4 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.client_authn import CoreAuthNr
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 from plenum.test.plugin.demo_plugin.batch_handlers.auction_batch_handler import AuctionBatchHandler
