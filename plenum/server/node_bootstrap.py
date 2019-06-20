@@ -43,8 +43,8 @@ class NodeBootstrap:
         self.init_common_managers()
         self._init_write_request_validator()
         self.register_req_handlers()
-        self.register_common_handlers()
         self.register_batch_handlers()
+        self.register_common_handlers()
         self.upload_states()
 
     def init_state_ts_db_storage(self):
@@ -160,6 +160,7 @@ class NodeBootstrap:
         get_txn_handler = GetTxnHandler(self, self.node.db_manager)
         for lid in self.node.ledger_ids:
             self.node.read_manager.register_req_handler(get_txn_handler, ledger_id=lid)
+        self.register_ts_store_batch_handlers()
 
     def register_batch_handlers(self):
         self.register_pool_batch_handlers()
@@ -167,7 +168,6 @@ class NodeBootstrap:
         self.register_config_batch_handlers()
         # Audit batch handler should be initiated the last
         self.register_audit_batch_handlers()
-        self.register_ts_store_batch_handlers()
 
     def _init_write_request_validator(self):
         pass

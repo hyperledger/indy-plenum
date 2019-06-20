@@ -20,11 +20,8 @@ from plenum.common.gc_trackers import GcTimeTracker, GcObjectTree
 from plenum.common.metrics_collector import KvStoreMetricsCollector, NullMetricsCollector, MetricsName, \
     async_measure_time, measure_time
 from plenum.common.timer import QueueTimer
-from plenum.common.transactions import PlenumTransactions
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
-from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
@@ -53,8 +50,8 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, \
-    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_LEDGERS_SIZE, \
+    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
+    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
@@ -65,7 +62,6 @@ from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
-from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
@@ -2371,7 +2367,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def handle_request_if_forced(self, request: Request):
         if request.isForced():
             req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
-            req_manager.validate(request)
+            req_manager.dynamic_validation(request)
             req_manager.apply_forced_request(request)
 
     @measure_time(MetricsName.PROCESS_REQUEST_TIME)
@@ -2447,7 +2443,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_action(self, txn_type) -> bool:
         return self.action_manager.is_valid_type(txn_type)
-        # return txn_type in self.actionReqHandler.operation_types
 
     def can_write_txn(self, txn_type):
         return True
