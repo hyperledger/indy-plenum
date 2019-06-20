@@ -31,10 +31,10 @@ RequestHandler o-- DatabaseManager
 
 package "Read Requests" {
 
-ReadRequestManager o-- DatabaseManager
-ActionRequestManager o-- DatabaseManager
-ReadRequestManager o-- ExternalEventBus
-ActionRequestManager o-- ExternalEventBus
+ReadRequestService o-- DatabaseManager
+ActionRequestService o-- DatabaseManager
+ReadRequestService o-- ExternalEventBus
+ActionRequestService o-- ExternalEventBus
 
 }
 

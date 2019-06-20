@@ -291,7 +291,7 @@ We denote these changes Plenum 2.0. They include 2 steps:
 - Split tightly coupled  monoliths into a number of loosely coupled micro-services, where View Changer is one of them.
 - Split services between multiple processes so that
   - Every Replica is in a separate process and does equal amount of work
-  - Independent services (such as Read Request Manager and Catchup Leecher Manager) are in sepearate processes 
+  - Independent services (such as Read Request Service and Catchup Seeder Service) are in sepearate processes 
   
 Splitting of Replica may be not needed if RBFT is replaced by anothe protocol from PBFT family.   
 
@@ -303,21 +303,21 @@ See [Plenum 2.0 Architecture](plenum_2_0_architecture.md) and the corresponding 
 
 ## Implementation plan 
 
-- enable full ordering of batches that were already ordered, make their
-  execution on replicas that executed them no-op
 
-  OR
+- Define Interfaces needed for View Change Service 
+- Simulation tests for View Changer (no integration)
+- Implement PBFT viewchanger service with most basic functionality 
+- Extract and integrate ConsensusDataProvider from Replica
+- Modify WriteReqManager to meet Executor interface needs (2 SP) - AS
+- Extract Orderer service from Replica
+- Extract Checkpointer service from Replica
+- Integrate Orderer and Checkpointer services into existing code base 
+- Enable full ordering of batches from last view that were already ordered, make execution on replicas that executed them no-op 
+- Integrate and run simulation tests with Orderer, Checkpointer, Ledger 
+- Implementation: Integrate PBFT viewchanger service into current codebase
+- Integrate view change simulation tests into CI 
+- Debug: Integrate PBFT viewchanger service into current codebase
+- Document PBFT view change protocol
+- Load testing
 
-  stop resetting ppSeqNo (and relying on this) in new view
 
-- design executor interface taking into account current codebase so that
-  it can be easily implemented
-
-- implement viewchanger with most basic functionality using TDD, implementing
-  mocks for network, executor, orderer and checkpointer as needed
-
-- implement network, executor, orderer and checkpointer as adaptors for
-  existing codebase
-
-- integrate viewchanger into current codebase, make sure current integration
-  tests pass

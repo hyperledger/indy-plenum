@@ -4,12 +4,12 @@ allowmixing
 frame "Read Request Process" {
 control ReadRequestExternalEventBus
 queue ReadRequestNetworkService
-object ReadRequestManager
+object ReadRequestService
 object ReadRequestDatabaseManager
 
 ReadRequestExternalEventBus o-- ReadRequestNetworkService
-ReadRequestManager  o--  ReadRequestExternalEventBus
-ReadRequestManager  o--  ReadRequestDatabaseManager
+ReadRequestService  o--  ReadRequestExternalEventBus
+ReadRequestService  o--  ReadRequestDatabaseManager
 }
 
 frame "Catchup Seeder Process" {
