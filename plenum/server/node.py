@@ -3284,7 +3284,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         ledger_id = three_pc_batch.ledger_id
-        if ledger_id != POOL_LEDGER_ID:
+        if ledger_id != POOL_LEDGER_ID and not three_pc_batch.primaries:
             three_pc_batch.primaries = self.write_manager.future_primary_handler.get_last_primaries() or self.primaries
         if self.write_manager.is_valid_ledger_id(ledger_id):
             self.write_manager.post_apply_batch(three_pc_batch)
