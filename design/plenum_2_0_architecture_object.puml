@@ -1,22 +1,45 @@
 @startuml
+allowmixing
 
 frame "Read Request Process" {
-ReadRequestExternalEventBus "1" o-- "1" ReadRequestNetworkService
-ReadRequestManager "1" o-- "1" ReadRequestExternalEventBus
-ReadRequestManager "1" o-- "1" ReadRequestDatabaseManager
+control ReadRequestExternalEventBus
+queue ReadRequestNetworkService
+object ReadRequestManager
+object ReadRequestDatabaseManager
+
+ReadRequestExternalEventBus o-- ReadRequestNetworkService
+ReadRequestManager  o--  ReadRequestExternalEventBus
+ReadRequestManager  o--  ReadRequestDatabaseManager
 }
 
 frame "Catchup Seeder Process" {
+control CatchupSeederExternalEventBus
+queue CatchupSeederNetworkService
+object CatchupNodeSeederService
+object CatchupClientSeederService
+object CatchupSeederDatabaseManager
+
 CatchupSeederExternalEventBus "1" o-- "1" CatchupSeederNetworkService
 
 CatchupNodeSeederService o-- CatchupSeederExternalEventBus
-CatchupNodeSeederService o-- CatchupSeederDatabaseManager : read-only access
+CatchupNodeSeederService o-- CatchupSeederDatabaseManager
 
 CatchupClientSeederService o-- CatchupSeederExternalEventBus
 CatchupClientSeederService o-- CatchupSeederDatabaseManager
 }
 
 frame "Master Replica Process" {
+control MasterExternalEventBus
+control MasterInternalEventBus
+control MasterInterProcessEventBus
+queue MasterReplicaNetworkService
+object MasterOrdererService
+object MasterCheckpointerService
+object MasterViewChangeService
+object MasterWriteRequestManager
+object MasterDatabaseManager
+object MasterCathcupLeecherService
+
 MasterExternalEventBus "1" o-- "1" MasterReplicaNetworkService
 
 MasterOrdererService o-- MasterExternalEventBus
@@ -37,6 +60,17 @@ MasterCathcupLeecherService o-- MasterInternalEventBus
 }
 
 frame "Backup Replica 1 Process" {
+control Backup1ExternalEventBus
+control Backup1InternalEventBus
+control Backup1InterProcessEventBus
+queue Backup1ReplicaNetworkService
+object Backup1OrdererService
+object Backup1CheckpointerService
+object Backup1ViewChangeService
+object Backup1WriteRequestManager
+object Backup1DatabaseManager
+object Backup1CathcupLeecherService
+
 Backup1ExternalEventBus "1" o-- "1" Backup1ReplicaNetworkService
 
 Backup1OrdererService o-- Backup1ExternalEventBus
@@ -49,14 +83,22 @@ Backup1CheckpointerService o-- Backup1InternalEventBus
 Backup1ViewChangeService o-- Backup1ExternalEventBus
 Backup1ViewChangeService o-- Backup1InternalEventBus
 
-Backup1OrdererService o-- Backup1rWriteRequestManager
-Backup1rWriteRequestManager o-- Backup1DatabaseManager : write access
+Backup1OrdererService o-- Backup1WriteRequestManager
+Backup1WriteRequestManager o-- Backup1DatabaseManager : write access
 
 Backup1CathcupLeecherService o-- Backup1ExternalEventBus
 Backup1CathcupLeecherService o-- Backup1InternalEventBus
 }
 
 frame "Node Process" {
+control WriteRequestExternalEventBus
+control PropagateExternalEventBus
+control NodeInterProcessEventBus
+queue WriteRequestNetworkService
+queue PropagateNetworkService
+object PropagateService
+object MonitorService
+
 WriteRequestExternalEventBus "1" o-- "1" WriteRequestNetworkService
 PropagateExternalEventBus "1" o-- "1" PropagateNetworkService
 
@@ -73,7 +115,7 @@ NodeInterProcessEventBus .. Backup1InterProcessEventBus
 database MasterLedger
 MasterDatabaseManager -- MasterLedger : write access
 ReadRequestDatabaseManager -- MasterLedger : read-only access
-CatchupSeederNetworkService -- MasterLedger : read-only access
+CatchupSeederDatabaseManager -- MasterLedger : read-only access
 MasterCathcupLeecherService -- MasterLedger : write access
 
 

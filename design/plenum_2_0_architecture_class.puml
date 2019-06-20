@@ -54,9 +54,9 @@ OrdererService <|-- ConsensusService
 CheckpointerService <|-- ConsensusService
 ViewChangeService <|-- ConsensusService
 
-ReplicaManager o-- OrdererService
-ReplicaManager o-- CheckpointerService
-ReplicaManager o-- ViewChangeService
+ReplicaService o-- OrdererService
+ReplicaService o-- CheckpointerService
+ReplicaService o-- ViewChangeService
 ViewChangeService o-- ConsensusDataProvider
 OrdererService o-- ConsensusDataProvider
 CheckpointerService o-- ConsensusDataProvider
