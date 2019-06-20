@@ -459,9 +459,7 @@ def assertFunc(func):
 
 def checkLedgerEquality(ledger1, ledger2):
     assertLength(ledger1, ledger2.size)
-    print("root_hashes")
     assertEquality(ledger1.root_hash, ledger2.root_hash)
-    print("uncommitted_root_hashes")
     assertEquality(ledger1.uncommitted_root_hash, ledger2.uncommitted_root_hash)
 
 
