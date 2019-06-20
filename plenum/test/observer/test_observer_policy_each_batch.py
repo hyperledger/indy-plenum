@@ -2,12 +2,12 @@ import types
 
 import pytest
 
+from common.exceptions import PlenumValueError
 from plenum.common.constants import BATCH, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.messages.node_messages import BatchCommitted, ObservedData
 from plenum.common.util import get_utc_epoch
 from plenum.server.observer.observer_sync_policy_each_batch import ObserverSyncPolicyEachBatch
-from plenum.test.bls.helper import generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, generate_state_root
 
 
 def create_observed_data(seq_no_start=1, seq_no_end=5):
@@ -16,11 +16,16 @@ def create_observed_data(seq_no_start=1, seq_no_end=5):
         req_num, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     msg = BatchCommitted(reqs,
                          DOMAIN_LEDGER_ID,
+                         0,
+                         0,
+                         1,
                          get_utc_epoch(),
                          generate_state_root(),
                          generate_state_root(),
                          seq_no_start,
-                         seq_no_end)
+                         seq_no_end,
+                         generate_state_root(),
+                         ['Alpha', 'Beta'])
     return ObservedData(BATCH, msg)
 
 
@@ -60,6 +65,13 @@ In all the tests we assume that consensus quorum to apply ObservedData is f+1=2
 
 def test_policy_type(observer_policy):
     assert observer_policy.policy_type == BATCH
+
+
+def test_apply_data_fails_on_invalid_args(observer_policy, observed_data_msg):
+    observed_data_msg.msg_type = "NOT_BATCH"
+    with pytest.raises(PlenumValueError) as excinfo:
+        observer_policy.apply_data(observed_data_msg, "Node1")
+    assert "expected: {}".format(BATCH) in str(excinfo.value)
 
 
 def test_quorum_same_message(observer_policy, observed_data_msg):

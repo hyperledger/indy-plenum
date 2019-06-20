@@ -29,11 +29,13 @@ import pip
 import pytest
 import plenum.config as plenum_config
 import plenum.server.general_config.ubuntu_platform_config as platform_config
-from plenum.common.keygen_utils import initNodeKeysForBothStacks, init_bls_keys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
-from plenum.test.node_catchup.helper import ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, sdk_add_new_nym
+from plenum.test.node_catchup.helper import waitNodeDataEquality, check_last_3pc_master
+from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_pool_refresh, sdk_add_new_steward_and_node
+from plenum.test.spy_helpers import getAllReturnVals
+from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
@@ -46,28 +48,32 @@ from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, ROLE, \
-    STEWARD, VALIDATOR, BLS_KEY, TRUSTEE
+    STEWARD, VALIDATOR, BLS_KEY, TRUSTEE, BLS_KEY_PROOF
 from plenum.common.txn_util import getTxnOrderedFields, get_payload_data, get_type
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances
+from plenum.common.util import getNoInstances, randomString
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
-from plenum.test.test_client import genTestClient, TestClient
-from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
-    checkNodesConnected, ensureElectionsDone, genNodeReg
+from plenum.test.test_node import TestNode, Pool, \
+    checkNodesConnected, ensureElectionsDone, genNodeReg, getPrimaryReplica, \
+    getNonPrimaryReplicas, TestNodeBootstrap
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.INFO)
+logging.getLogger("indy").setLevel(logging.WARNING)
 logger = getlogger()
 
 GENERAL_CONFIG_DIR = 'etc/indy'
+
+DEV_NULL_PATH = '/dev/null'
+ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
 
 
 def get_data_for_role(pool_txn_data, role):
@@ -217,11 +223,18 @@ def getValueFromModule(request, name: str, default: Any = None):
 basePath = os.path.dirname(os.path.abspath(__file__))
 testPluginBaseDirPath = os.path.join(basePath, "plugin")
 
+
 overriddenConfigValues = {
     "DefaultPluginPath": {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
-    }
+    },
+    "VIEW_CHANGE_TIMEOUT": 60,
+    "MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE": 15,
+    "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60,
+    "ToleratePrimaryDisconnection": 2,
+    "UPDATE_STATE_FRESHNESS": True,
+
 }
 
 
@@ -263,7 +276,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'last try...',
                      'has uninitialised socket',
                      'to have incorrect time',
-                     'time not acceptable'
+                     'time not acceptable',
+                     'IndyError'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -282,7 +296,7 @@ def logcapture(request, whitelist, concerningLogLevels):
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
         if not (isBenign or isTest):
-            msg = str(record.msg)
+            msg = str(record.message if record.message else record.msg)
             # TODO combine whitelisted with '|' and use one regex for msg
             isWhiteListed = any(re.search(w, msg)
                                 for w in whiteListedExceptions)
@@ -294,7 +308,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                         fv.stopall()
                     if isinstance(fv, Prodable):
                         fv.stop()
-                raise BlowUp("{}: {} ".format(record.levelname, record.msg))
+                raise BlowUp("{}: {} ".format(record.levelname, msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
@@ -333,26 +347,6 @@ def tdir_for_func(tmpdir_factory):
     return tempdir
 
 
-def _client_tdir(temp_dir):
-    path = os.path.join(temp_dir, "home", "testuser")
-    os.makedirs(path)
-    return path
-
-
-@pytest.fixture(scope='module')
-def client_tdir(tdir):
-    tempdir = _client_tdir(tdir)
-    logger.debug("module-level client temporary directory: {}".format(tempdir))
-    return tempdir
-
-
-@pytest.fixture(scope='function')
-def client_tdir_for_func(tdir_for_func):
-    tempdir = _client_tdir(tdir_for_func)
-    logger.debug("function-level client temporary directory: {}".format(tempdir))
-    return tempdir
-
-
 def _general_conf_tdir(tmp_dir):
     general_config_dir = os.path.join(tmp_dir, GENERAL_CONFIG_DIR)
     os.makedirs(general_config_dir)
@@ -379,12 +373,32 @@ def _tconf(general_config):
     config = getConfig(general_config)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
+
+    # Reduce memory amplification during running tests in case of RocksDB used
+    config.rocksdb_default_config['write_buffer_size'] = ROCKSDB_WRITE_BUFFER_SIZE
+    config.rocksdb_default_config['db_log_dir'] = DEV_NULL_PATH
+
+    # FIXME: much more clear solution is to check which key-value storage type is
+    # used for each storage and set corresponding config, but for now only RocksDB
+    # tuning is supported (now other storage implementations ignore this parameter)
+    # so here we set RocksDB configs unconditionally for simplicity.
+    config.db_merkle_leaves_config = config.rocksdb_default_config.copy()
+    config.db_merkle_nodes_config = config.rocksdb_default_config.copy()
+    config.db_state_config = config.rocksdb_default_config.copy()
+    config.db_transactions_config = config.rocksdb_default_config.copy()
+    config.db_seq_no_db_config = config.rocksdb_default_config.copy()
+    config.db_node_status_db_config = config.rocksdb_default_config.copy()
+    config.db_state_signature_config = config.rocksdb_default_config.copy()
+    config.db_state_ts_db_config = config.rocksdb_default_config.copy()
+
     return config
 
 
 @pytest.fixture(scope="module")
 def tconf(general_conf_tdir):
-    return _tconf(general_conf_tdir)
+    conf = _tconf(general_conf_tdir)
+    conf.Max3PCBatchWait = 2
+    return conf
 
 
 @pytest.fixture()
@@ -423,41 +437,6 @@ def delayed_perf_chk(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         node.delayCheckPerformance(d)
     return d
-
-
-@pytest.fixture(scope="module")
-def stewardWallet(stewardAndWallet1):
-    return stewardAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
-def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithClientPoolTxns, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
-                                              client_tdir)
-    yield client, wallet
-    client.stop()
-
-
-@pytest.fixture(scope="module")
-def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
-                      tdirWithClientPoolTxns, client_tdir):
-    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                              client_tdir)
-    yield client, wallet
-    client.stop()
-
-
-@pytest.fixture(scope="module")
-def client1(looper, clientAndWallet1):
-    client = clientAndWallet1[0]
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    return client
-
-
-@pytest.fixture(scope="module")
-def wallet1(clientAndWallet1):
-    return clientAndWallet1[1]
 
 
 @pytest.fixture(scope="module")
@@ -553,8 +532,7 @@ def replied1(looper, txnPoolNodeSet, sdk_wallet_client,
 
     def checkOrderedCount():
         resp = [requestReturnedToNode(node,
-                                      did,
-                                      committed1.reqId,
+                                      committed1.digest,
                                       instId)
                 for node in txnPoolNodeSet for instId in range(numOfInstances)]
         assert resp.count(True) >= quorum
@@ -635,9 +613,10 @@ def poolTxnData(request):
                                     seq_no=i)
 
         if i <= nodes_with_bls:
-            _, bls_key = create_default_bls_crypto_factory().generate_bls_keys(
+            _, bls_key, bls_key_proof = create_default_bls_crypto_factory().generate_bls_keys(
                 seed=data['seeds'][node_name])
             get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
+            get_payload_data(node_txn)[DATA][BLS_KEY_PROOF] = bls_key_proof
             data['nodesWithBls'][node_name] = True
 
         data['txns'].append(node_txn)
@@ -694,26 +673,6 @@ def tdirWithPoolTxns(config_helper_class, poolTxnData, tdir, tconf):
 
 
 @pytest.fixture(scope="module")
-def client_ledger_dir(client_tdir):
-    return client_tdir
-
-
-@pytest.fixture(scope="module")
-def tdirWithClientPoolTxns(poolTxnData, client_ledger_dir):
-    import getpass
-    logging.debug("current user when creating new pool txn file for client: {}".
-                  format(getpass.getuser()))
-
-    ledger = create_genesis_txn_init_ledger(client_ledger_dir, plenum_config.poolTransactionsFile)
-
-    for item in poolTxnData["txns"]:
-        if get_type(item) == NODE:
-            ledger.add(item)
-    ledger.stop()
-    return client_ledger_dir
-
-
-@pytest.fixture(scope="module")
 def domainTxnOrderedFields():
     return getTxnOrderedFields()
 
@@ -766,37 +725,13 @@ def trustee_data(poolTxnData):
 
 
 @pytest.fixture(scope="module")
-def stewards_and_wallets(looper, txnPoolNodeSet, pool_txn_stewards_data,
-                         tdirWithClientPoolTxns):
-    clients_and_wallets = []
-    for pool_txn_steward_data in pool_txn_stewards_data:
-        steward_client, steward_wallet = buildPoolClientAndWallet(pool_txn_steward_data,
-                                                                  tdirWithClientPoolTxns)
-        looper.add(steward_client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward_client,
-                                                      *txnPoolNodeSet)
-        clients_and_wallets.append((steward_client, steward_wallet))
-
-    yield clients_and_wallets
-
-    for (client, wallet) in clients_and_wallets:
-        client.stop()
-
-
-@pytest.fixture(scope="module")
-def poolTxnClient(tdirWithClientPoolTxns, txnPoolNodeSet):
-    return genTestClient(txnPoolNodeSet, tmpdir=tdirWithClientPoolTxns,
-                         usePoolLedger=True)
-
-
-@pytest.fixture(scope="module")
 def testNodeClass(patchPluginManager):
     return TestNode
 
 
 @pytest.fixture(scope="module")
-def testClientClass():
-    return TestClient
+def testNodeBootstrapClass():
+    return TestNodeBootstrap
 
 
 @pytest.yield_fixture(scope="module")
@@ -831,13 +766,14 @@ def txnPoolNodeSet(node_config_helper_class,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass,
-                   do_post_node_creation):
+                   do_post_node_creation,
+                   testNodeBootstrapClass):
     with ExitStack() as exitStack:
         nodes = []
         for nm in poolTxnNodeNames:
             node = exitStack.enter_context(create_new_test_node(
                 testNodeClass, node_config_helper_class, nm, tconf, tdir,
-                allPluginsPath))
+                allPluginsPath, bootstrap_cls=testNodeBootstrapClass))
             do_post_node_creation(node)
             txnPoolNodesLooper.add(node)
             nodes.append(node)
@@ -846,7 +782,7 @@ def txnPoolNodeSet(node_config_helper_class,
         yield nodes
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def txnPoolNodeSetNotStarted(node_config_helper_class,
                              patchPluginManager,
                              txnPoolNodesLooper,
@@ -979,35 +915,44 @@ def set_info_log_level(request):
 
 
 @pytest.fixture(scope='module')
-def sdk_pool_name():
+def sdk_pool_data(txnPoolNodeSet):
     p_name = "pool_name_" + randomText(13)
-    yield p_name
+    cfg = {"timeout": 20, "extended_timeout": 60, "conn_limit": 100000, "conn_active_timeout": 1000,
+           "preordered_nodes": [n.name for n in txnPoolNodeSet]}
+    yield p_name, json.dumps(cfg)
     p_dir = os.path.join(os.path.expanduser("~/.indy_client/pool"), p_name)
     if os.path.isdir(p_dir):
         shutil.rmtree(p_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_name():
+def sdk_wallet_data():
     w_name = "wallet_name_" + randomText(13)
-    yield w_name
+    sdk_wallet_credentials = '{"key": "key"}'
+    sdk_wallet_config = json.dumps({"id": w_name})
+    yield sdk_wallet_config, sdk_wallet_credentials
     w_dir = os.path.join(os.path.expanduser("~/.indy_client/wallet"), w_name)
     if os.path.isdir(w_dir):
         shutil.rmtree(w_dir, ignore_errors=True)
 
 
-async def _gen_pool_handler(work_dir, name):
+async def _gen_pool_handler(work_dir, name, open_config):
     txn_file_name = os.path.join(work_dir, "pool_transactions_genesis")
     pool_config = json.dumps({"genesis_txn": str(txn_file_name)})
     await create_pool_ledger_config(name, pool_config)
-    pool_handle = await open_pool_ledger(name, None)
+    pool_handle = await open_pool_ledger(name, open_config)
     return pool_handle
 
 
 @pytest.fixture(scope='module')
-def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
+def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
+    # TODO think about moving protocol version setting to separate
+    # fixture like 'sdk_init' since some sdk request builders don't
+    # requires pool handle but use protocol version
+    sdk_set_protocol_version(looper)
+    pool_name, open_config = sdk_pool_data
     pool_handle = looper.loop.run_until_complete(
-        _gen_pool_handler(tdirWithPoolTxns, sdk_pool_name))
+        _gen_pool_handler(tdirWithPoolTxns, pool_name, open_config))
     yield pool_handle
     try:
         looper.loop.run_until_complete(close_pool_ledger(pool_handle))
@@ -1015,16 +960,16 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_name):
         logger.debug("Unhandled exception: {}".format(e))
 
 
-async def _gen_wallet_handler(pool_name, wallet_name):
-    await create_wallet(pool_name, wallet_name, None, None, None)
-    wallet_handle = await open_wallet(wallet_name, None, None)
+async def _gen_wallet_handler(wallet_data):
+    wallet_config, wallet_credentials = wallet_data
+    await create_wallet(wallet_config, wallet_credentials)
+    wallet_handle = await open_wallet(wallet_config, wallet_credentials)
     return wallet_handle
 
 
 @pytest.fixture(scope='module')
-def sdk_wallet_handle(looper, sdk_pool_name, sdk_wallet_name):
-    wallet_handle = looper.loop.run_until_complete(
-        _gen_wallet_handler(sdk_pool_name, sdk_wallet_name))
+def sdk_wallet_handle(looper, sdk_wallet_data):
+    wallet_handle = looper.loop.run_until_complete(_gen_wallet_handler(sdk_wallet_data))
     yield wallet_handle
     looper.loop.run_until_complete(close_wallet(wallet_handle))
 
@@ -1120,3 +1065,124 @@ def sdk_wallet_new_client(looper, sdk_pool_handle, sdk_wallet_steward,
                                      sdk_wallet_steward,
                                      seed=sdk_new_client_seed)
     return wh, client_did
+
+
+@pytest.fixture(scope="module")
+def create_node_and_not_start(testNodeClass,
+                              node_config_helper_class,
+                              tconf,
+                              tdir,
+                              allPluginsPath,
+                              looper,
+                              tdirWithPoolTxns,
+                              tdirWithDomainTxns,
+                              tdirWithNodeKeepInited):
+    with ExitStack() as exitStack:
+        node = exitStack.enter_context(create_new_test_node(testNodeClass,
+                                node_config_helper_class,
+                                "Alpha",
+                                tconf,
+                                tdir,
+                                allPluginsPath))
+        yield node
+        node.stop()
+
+
+@pytest.fixture(scope='function')
+def view_change_done(looper, txnPoolNodeSet):
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+
+
+@pytest.fixture(scope='function',
+                params=['primary', 'non-primary'])
+def one_replica_and_others_in_backup_instance(
+        request, txnPoolNodeSet, view_change_done):
+
+    # NOTICE: This parametrized fixture triggers view change as pre-condition
+
+    backup_inst_id = 1
+
+    primary = getPrimaryReplica(txnPoolNodeSet, backup_inst_id)
+    non_primaries = getNonPrimaryReplicas(txnPoolNodeSet, backup_inst_id)
+
+    if request.param == 'primary':
+        return primary, non_primaries
+    else:
+        return non_primaries[0], [primary] + non_primaries[1:]
+
+
+@pytest.fixture(scope='function')
+def test_node(tdirWithPoolTxns,
+              tdirWithDomainTxns,
+              poolTxnNodeNames,
+              tdirWithNodeKeepInited,
+              tdir,
+              tconf,
+              allPluginsPath):
+    node_name = poolTxnNodeNames[0]
+    config_helper = PNodeConfigHelper(node_name, tconf, chroot=tdir)
+    node = TestNode(
+        node_name,
+        config_helper=config_helper,
+        config=tconf,
+        pluginPaths=allPluginsPath)
+    yield node
+    node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state
+
+
+@pytest.yield_fixture("module")
+def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
+                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet,
+                              sdk_pool_handle,
+                              sdk_wallet_client,
+                              txnCount)
+    new_steward_name = randomString()
+    new_node_name = "Epsilon"
+    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
+        allPluginsPath=allPluginsPath, autoStart=True,
+        do_post_node_creation=do_post_node_creation)
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+
+
+@pytest.fixture("module")
+def sdk_node_set_with_node_added_after_some_txns(
+        txnPoolNodeSet, sdk_node_created_after_some_txns):
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
+        sdk_node_created_after_some_txns
+    txnPoolNodeSet.append(new_node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+
+
+@pytest.fixture("module")
+def sdk_new_node_caught_up(txnPoolNodeSet,
+                           sdk_node_set_with_node_added_after_some_txns):
+    looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
+    check_last_3pc_master(new_node, txnPoolNodeSet[:4])
+
+    # Check if catchup done once
+    catchup_done_once = True
+    for leecher in new_node.ledgerManager._node_leecher._leechers.values():
+        catchup_done_once = catchup_done_once and (leecher.num_txns_caught_up > 0)
+
+    if not catchup_done_once:
+        # It might be the case that node has to do catchup again, in that case
+        # check the return value of `num_txns_caught_up_in_last_catchup` to be
+        # greater than 0
+
+        assert max(
+            getAllReturnVals(
+                new_node,
+                new_node.num_txns_caught_up_in_last_catchup)) > 0
+
+    return new_node

@@ -2,7 +2,7 @@ from hashlib import sha256
 from typing import Mapping, NamedTuple, Dict
 
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import REQKEY, FORCE, TXN_TYPE
+from plenum.common.constants import REQKEY, FORCE, TXN_TYPE, OPERATION_SCHEMA_IS_STRICT
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getTimeBasedId
@@ -14,12 +14,13 @@ class Request:
     idr_delimiter = ','
 
     def __init__(self,
-                 identifier: Identifier=None,
-                 reqId: int=None,
-                 operation: Mapping=None,
-                 signature: str=None,
-                 signatures: Dict[str, str]=None,
+                 identifier: Identifier = None,
+                 reqId: int = None,
+                 operation: Mapping = None,
+                 signature: str = None,
+                 signatures: Dict[str, str] = None,
                  protocolVersion: int = None,
+                 taaAcceptance: Dict = None,
                  # Intentionally omitting *args
                  **kwargs):
         self._identifier = identifier
@@ -28,7 +29,9 @@ class Request:
         self.reqId = reqId
         self.operation = operation
         self.protocolVersion = protocolVersion
+        self.taaAcceptance = taaAcceptance
         self._digest = None
+        self._payload_digest = None
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
             if nm in kwargs:
                 setattr(self, nm, kwargs[nm])
@@ -40,22 +43,30 @@ class Request:
         return self._digest
 
     @property
+    def payload_digest(self):
+        if self._payload_digest is None:
+            self._payload_digest = self.getPayloadDigest()
+        return self._payload_digest
+
+    @property
     def as_dict(self):
         rv = {
             f.REQ_ID.nm: self.reqId,
-            OPERATION: self.operation,
+            OPERATION: self.operation
         }
         if self._identifier is not None:
             rv[f.IDENTIFIER.nm] = self._identifier
         if self.signatures is not None:
             rv[f.SIGS.nm] = self.signatures
         if self.signature is not None:
-                rv[f.SIG.nm] = self.signature
+            rv[f.SIG.nm] = self.signature
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
             if hasattr(self, nm):
                 rv[nm] = getattr(self, nm)
         if self.protocolVersion is not None:
             rv[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        if self.taaAcceptance is not None:
+            rv[f.TAA_ACCEPTANCE.nm] = self.taaAcceptance
         return rv
 
     def __eq__(self, other):
@@ -66,15 +77,30 @@ class Request:
 
     @property
     def key(self):
-        return self.identifier, self.reqId
+        return self.digest
 
     def getDigest(self):
         return sha256(serialize_msg_for_signing(self.signingState())).hexdigest()
+
+    def getPayloadDigest(self):
+        return sha256(serialize_msg_for_signing(self.signingPayloadState())).hexdigest()
 
     def __getstate__(self):
         return self.__dict__
 
     def signingState(self, identifier=None):
+        state = self.signingPayloadState(identifier)
+        if self.signatures is not None:
+            state[f.SIGS.nm] = self.signatures
+        if self.signature is not None:
+            state[f.SIG.nm] = self.signature
+        for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
+            val = getattr(self, nm, None)
+            if getattr(self, nm, None):
+                state[nm] = val
+        return state
+
+    def signingPayloadState(self, identifier=None):
         # TODO: separate data, metadata and signature, so that we don't
         # need to have this kind of messages
         dct = {
@@ -84,6 +110,8 @@ class Request:
         }
         if self.protocolVersion is not None:
             dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
+        if self.taaAcceptance is not None:
+            dct[f.TAA_ACCEPTANCE.nm] = self.taaAcceptance
         return dct
 
     def __setstate__(self, state):
@@ -113,6 +141,8 @@ class Request:
 
     @property
     def all_identifiers(self):
+        if self.signatures is None:
+            return []
         return sorted(self.signatures.keys())
 
     @staticmethod
@@ -121,7 +151,7 @@ class Request:
 
     @staticmethod
     def gen_idr_from_sigs(signatures: Dict):
-        return Request.idr_delimiter.join(sorted(signatures.keys()))
+        return Request.idr_delimiter.join(sorted(signatures.keys())) if signatures else None
 
     def add_signature(self, identifier, signature):
         if not isinstance(self.signatures, Dict):
@@ -132,13 +162,13 @@ class Request:
         return hash(self.serialized())
 
 
-class ReqKey(NamedTuple(REQKEY, [f.IDENTIFIER, f.REQ_ID])):
+class ReqKey(NamedTuple(REQKEY, [f.DIGEST])):
     pass
 
 
 class SafeRequest(Request, ClientMessageValidator):
     def __init__(self, **kwargs):
-        ClientMessageValidator.__init__(self, operation_schema_is_strict=False,
-                                        schema_is_strict=False)
+        ClientMessageValidator.__init__(self,
+                                        operation_schema_is_strict=OPERATION_SCHEMA_IS_STRICT)
         self.validate(kwargs)
         Request.__init__(self, **kwargs)

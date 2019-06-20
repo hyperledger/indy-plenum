@@ -9,14 +9,14 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 from stp_core.validators.message_length_validator import MessageLenValidator
 
-TestRunningTimeLimitSec = 125
+TestRunningTimeLimitSec = 300
 
 
 def decrease_max_request_size(node):
     old = node.nodestack.prepare_for_sending
 
     def prepare_for_sending(msg, signer, message_splitter=lambda x: None):
-        if isinstance(msg, CatchupRep):
+        if isinstance(msg, CatchupRep) and len(msg.txns) > 6:
             node.nodestack.prepare_for_sending = old
             part_bytes = node.nodestack.sign_and_serialize(msg, signer)
             # Decrease at least 6 times to increase probability of
@@ -85,4 +85,5 @@ def test_large_catchup(tdir, tconf,
                                  config=tconf, pluginPaths=allPluginsPath)
     looper.add(lagging_node)
     txnPoolNodeSet[-1] = lagging_node
-    waitNodeDataEquality(looper, *all_nodes)
+    waitNodeDataEquality(looper, *all_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])

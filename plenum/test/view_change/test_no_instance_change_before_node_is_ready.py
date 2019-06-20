@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.server.view_change.view_changer import ViewChanger
+from plenum.test.helper import view_change_timeout
 
 from stp_core.common.log import getlogger
 from plenum.test.pool_transactions.helper import start_not_added_node, add_started_node
@@ -10,10 +11,8 @@ logger = getlogger()
 
 @pytest.fixture(scope="module", autouse=True)
 def tconf(tconf):
-    old_vc_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    tconf.VIEW_CHANGE_TIMEOUT = 10
-    yield tconf
-    tconf.VIEW_CHANGE_TIMEOUT = old_vc_timeout
+    with view_change_timeout(tconf, 10):
+        yield tconf
 
 
 def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
@@ -30,7 +29,7 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     """
 
     # 1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
-    sigseed, bls_key, new_node, node_ha, client_ha = \
+    sigseed, bls_key, new_node, node_ha, client_ha, key_proof = \
         start_not_added_node(looper,
                              tdir, tconf, allPluginsPath,
                              "TestTheta")
@@ -51,7 +50,8 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
                      txnPoolNodeSet,
                      sdk_pool_handle,
                      sdk_wallet_steward,
-                     bls_key)
+                     bls_key,
+                     key_proof)
 
     # 5. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
     looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 2)

@@ -1,0 +1,289 @@
+@startuml
+!pragma teoz true
+hide footbox
+
+participant "Node1:R" as Node1
+participant "Node2:R" as Node2
+participant "Node3:R" as Node3
+participant "Node4:R" as Node4
+
+note over Node1, Node4
+    Replica processes 3PC message only if its pp_seq_no is between replica's watermarks, i.e. higher than lower
+    watermark and not greater than higher watermark. Otherwise replica stashes 3PC message as laying outside
+    watermarks. After start or after view change replica's watermarks are set to (0, LOG_SIZE)     <i>(LOG_SIZE = 300
+    <i>in this example).</i>  Every CHK_FREQ ordered 3PC batches  <i>(CHK_FREQ = 100 in this example)</i>  replicas in protocol
+    instance send CHECKPOINT messages to each other with checkpoint digest - summary digest of 3PC batches
+    ordered in scope of this checkpoint. Each replica match digest in its own checkpoint with digests in
+    CHECKPOINT messages received from other replicas. If digests are same, replica stabilizes checkpoint.
+    On checkpoint stabilization replica shifts watermarks ahead of this checkpoint and then processes stashed
+    3PC messages which fit between new watermarks.
+end note
+
+Node1 -> Node1: Set watermarks to\n(0, 300)
+& Node2 -> Node2: Set watermarks to\n(0, 300)
+& Node3 -> Node3: Set watermarks to\n(0, 300)
+& Node4 -> Node4: Set watermarks to\n(0, 300)
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=1)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=1)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=1)
+& Node4 -> Node4: Order 3PCBatch(pp_seq_no=1)
+
+Node1 -> Node1: Create CheckpointState(1 - 100)
+& Node2 -> Node2: Create CheckpointState(1 - 100)
+& Node3 -> Node3: Create CheckpointState(1 - 100)
+& Node4 -> Node4: Create CheckpointState(1 - 100)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=1)\nto CheckpointState(1 - 100)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=1)\nto CheckpointState(1 - 100)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=1)\nto CheckpointState(1 - 100)
+& Node4 -> Node4: Add 3PCBatch(pp_seq_no=1)\nto CheckpointState(1 - 100)
+
+note right of Node4
+    To track completeness of checkpoints and perform checkpoint-based synchronization
+    with other replicas, replica internally uses    <b>Checkpoint States</b>: one per each
+    checkpoint being tracked.
+
+    <b>Each checkpoint state contains:
+        - seq_no_start <i>(pp_seq_no of <b>first</b> 3PC batch <b>added</b> to checkpoint),
+        - seq_no_end <i>(pp_seq_no of <b>last</b> 3PC batch <b>that can be added</b> to checkpoint),
+        - seq_no <i>(pp_seq_no of <b>last</b> 3PC batch <b>added</b> to checkpoint  <b>so far</b>),
+        - digests <i>(digests of 3PC batches added to checkpoint),
+        - digest <i>(checkpoint digest calculated by replica),
+        - received_digests  <i>(checkpoint digests received from other replicas),
+        - is_stable  <i>(flag indicating whether checkpoint is stable).
+
+    When a 3PC batch is ordered, replica adds it to checkpoint state whose
+    [seq_no_start, seq_no_end] range includes pp_seq_no of this 3PC batch. If such
+    checkpoint state does not exist yet then replica creates checkpoint state with:
+        - seq_no_start = pp_seq_no,
+        - seq_no_end = ceil(pp_seq_no / CHK_FREQ) * CHK_FREQ,
+        - seq_no = None,
+        - digests = [],
+        - digest = None,
+        - received_digests = {},
+        - is_stable = False,
+    and then adds 3PC batch to created checkpoint state.
+
+    Adding of 3PC batch to checkpoint state is performed in following way:
+        - <b>seq_no</b> of checkpoint state is set to  <b>pp_seq_no</b> of 3PC batch,
+        - <b>digest</b> of 3PC batch is appended to  <b>digests</b> of checkpoint state
+end note
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=2)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=2)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=2)
+& Node4 -> Node4: Order 3PCBatch(pp_seq_no=2)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=2)\nto CheckpointState(1 - 100)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=2)\nto CheckpointState(1 - 100)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=2)\nto CheckpointState(1 - 100)
+& Node4 -> Node4: Add 3PCBatch(pp_seq_no=2)\nto CheckpointState(1 - 100)
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=3)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=3)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=3)
+& Node4 -> Node4: Order 3PCBatch(pp_seq_no=3)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=3)\nto CheckpointState(1 - 100)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=3)\nto CheckpointState(1 - 100)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=3)\nto CheckpointState(1 - 100)
+& Node4 -> Node4: Add 3PCBatch(pp_seq_no=3)\nto CheckpointState(1 - 100)
+
+note over Node1, Node4
+    after some time...
+end note
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=99)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=99)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=99)
+& Node4 -> Node4: Order 3PCBatch(pp_seq_no=99)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=99)\nto CheckpointState(1 - 100)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=99)\nto CheckpointState(1 - 100)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=99)\nto CheckpointState(1 - 100)
+& Node4 -> Node4: Add 3PCBatch(pp_seq_no=99)\nto CheckpointState(1 - 100)
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=100)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=100)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=100)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=100)\nto CheckpointState(1 - 100)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=100)\nto CheckpointState(1 - 100)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=100)\nto CheckpointState(1 - 100)
+
+note right of Node4
+    After last suitable 3PC batch has been added to checkpoint state (i.e. when seq_no
+    of checkpoint state reaches its end_seq_no):
+        - If checkpoint state contains CHK_FREQ digests of 3PC batches then:
+            -- replica finalizes checkpoint state,
+            -- replica informs other replicas in protocol instance about finalized
+               checkpoint using CHECKPOINT messages,
+            -- if there are stashed CHECKPOINT messages corresponding to finalized
+               checkpoint  <i>(i.e. with current view_no, same seq_no_start and same
+               <i>seq_no_end)</i>, replica processes them.
+        - Else checkpoint state remains not finalized.
+end note
+
+Node1 -> Node1: Finalize CheckpointState(1 - 100)
+& Node2 -> Node2: Finalize CheckpointState(1 - 100)
+& Node3 -> Node3: Finalize CheckpointState(1 - 100)
+
+note right of Node4
+    <b>Replica finalizes checkpoint state in following way:
+        - checkpoint  <b>digest</b> is calculated as digest of all 3PC batches digests
+          in checkpoint,
+        - <b>digests</b> of individual 3PC batches are removed.
+end note
+
+Node1 ->> Node2: CHECKPOINT(1 - 100)
+Node1 ->> Node3: CHECKPOINT(1 - 100)
+Node1 ->> Node4: CHECKPOINT(1 - 100)
+
+Node2 ->> Node1: CHECKPOINT(1 - 100)
+Node2 ->> Node3: CHECKPOINT(1 - 100)
+Node2 ->> Node4: CHECKPOINT(1 - 100)
+
+Node3 ->> Node1: CHECKPOINT(1 - 100)
+Node3 ->> Node2: CHECKPOINT(1 - 100)
+Node3 ->> Node4: CHECKPOINT(1 - 100)
+
+note right of Node4
+    <b>CHECKPOINT contains:
+        - view_no,
+        - seq_no_start,
+        - seq_no_end,
+        - digest.
+end note
+
+note right of Node4
+    <b>When replica receives CHECKPOINT message, it handles it in following way:
+        - If CHECKPOINT message relates to past view then replica discards
+          CHECKPOINT message.
+        - Else if replica has stabilized corresponding checkpoint then replica discards
+          CHECKPOINT message.
+        - Else if replica has corresponding checkpoint state and it has been finalized
+          then replica processes CHECKPOINT message.
+        - Else replica stashes CHECKPOINT message.
+end note
+
+Node4 -> Node4: Stash CHECKPOINTs(1 - 100)
+
+note right of Node4
+    <b>Replica processes CHECKPOINT message in following way:
+        - CHECKPOINT message is verified: its digest    <b>must be same</b> as digest of
+          corresponding own checkpoint. If verification failed then processing is
+          aborted and CHECKPOINT message is discarded.
+        - Entry with message sender as key and message digest as value is added
+          to received_digests of corresponding checkpoint state.
+        - If replica has gathered n-f-1 digests from other replicas for this checkpoint
+          then replica do following steps:
+            -- stabilizes this checkpoint,
+            -- shifts watermarks ahead of stabilized checkpoint,
+            -- processes stashed 3PC messages which fit between new watermarks.
+end note
+
+Node1 -> Node1: Verify CHECKPOINTs(1 - 100)
+& Node2 -> Node2: Verify CHECKPOINTs(1 - 100)
+& Node3 -> Node3: Verify CHECKPOINTs(1 - 100)
+
+Node1 -> Node1: Add digests from other replicas\nto CheckpointState(1 - 100)
+& Node2 -> Node2: Add digests from other replicas\nto CheckpointState(1 - 100)
+& Node3 -> Node3: Add digests from other replicas\nto CheckpointState(1 - 100)
+
+group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
+    Node1 -> Node1: Stabilize\nCheckpointState(1 - 100)
+    Node1 -> Node1: Shift watermarks to\n(100, 400)
+end group
+& group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
+    Node2 -> Node2: Stabilize\nCheckpointState(1 - 100)
+    Node2 -> Node2: Shift watermarks to\n(100, 400)
+end group
+& group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
+    Node3 -> Node3: Stabilize\nCheckpointState(1 - 100)
+    Node3 -> Node3: Shift watermarks to\n(100, 400)
+end group
+
+note right of Node4
+    <b>Replica stabilizes checkpoint in following way:
+        - is_stable flag of checkpoint state is set to True.
+        - Previous checkpoint states are removed, if any.
+        - Stashed CHECKPOINT messages with
+          (view_no, seq_no_end) <= (current view_no, stabilized checkpoint seq_no_end)
+          are removed, if any.
+        - Garbage collection is performed up to
+          (current view_no, stabilized checkpoint seq_no_end).
+
+    <b>Garbage collection</b> removes messages up to
+    (current view_no, stabilized checkpoint seq_no_end) from following replica's
+    collections:
+        - sentPrePrepares,
+        - prePrepares,
+        - prepares,
+        - commits,
+        - batches,
+        - requested_pre_prepares,
+        - requested_prepares,
+        - requested_commits,
+        - pre_prepares_stashed_for_incorrect_time.
+    Also garbage collection does following:
+        - removes requests related to removed PRE-PREPARES from
+          Replica.requestQueues and frees them in Node.requests,
+        - removes 3PC-keys related to views before previous one from Replica.ordered,
+        - removes BLS signatures related to removed 3PC batches.
+end note
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=101)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=101)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=101)
+
+Node1 -> Node1: Create CheckpointState(101 - 200)
+& Node2 -> Node2: Create CheckpointState(101 - 200)
+& Node3 -> Node3: Create CheckpointState(101 - 200)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=101)\nto CheckpointState(101 - 200)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=101)\nto CheckpointState(101 - 200)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=101)\nto CheckpointState(101 - 200)
+
+Node4 -> Node4: Order 3PCBatch(pp_seq_no=100)
+
+Node4 -> Node4: Add 3PCBatch(pp_seq_no=100)\nto CheckpointState(1 - 100)
+
+Node4 -> Node4: Finalize CheckpointState(1 - 100)
+
+Node4 ->> Node1: CHECKPOINT(1 - 100)
+Node4 ->> Node2: CHECKPOINT(1 - 100)
+Node4 ->> Node3: CHECKPOINT(1 - 100)
+
+group Process stashed CHECKPOINTs(1 - 100)
+    Node4 -> Node4: Verify CHECKPOINTs(1 - 100)
+
+    Node4 -> Node4: Add digests from other replicas\nto CheckpointState(1 - 100)
+
+    group On gathering\nn-f-1 digests\nfrom other replicas\n(2 in this example)
+        Node4 -> Node4: Stabilize\nCheckpointState(1 - 100)
+        Node4 -> Node4: Shift watermarks to\n(100, 400)
+    end group
+end group
+
+Node1 -> Node1: Discard CHECKPOINT(1 - 100)\nas already stable
+& Node2 -> Node2: Discard CHECKPOINT(1 - 100)\nas already stable
+& Node3 -> Node3: Discard CHECKPOINT(1 - 100)\nas already stable
+
+Node4 -> Node4: Order 3PCBatch(pp_seq_no=101)
+
+Node4 -> Node4: Create CheckpointState(101 - 200)
+
+Node4 -> Node4: Add 3PCBatch(pp_seq_no=101)\nto CheckpointState(101 - 200)
+
+Node1 -> Node1: Order 3PCBatch(pp_seq_no=102)
+& Node2 -> Node2: Order 3PCBatch(pp_seq_no=102)
+& Node3 -> Node3: Order 3PCBatch(pp_seq_no=102)
+& Node4 -> Node4: Order 3PCBatch(pp_seq_no=102)
+
+Node1 -> Node1: Add 3PCBatch(pp_seq_no=102)\nto CheckpointState(101 - 200)
+& Node2 -> Node2: Add 3PCBatch(pp_seq_no=102)\nto CheckpointState(101 - 200)
+& Node3 -> Node3: Add 3PCBatch(pp_seq_no=102)\nto CheckpointState(101 - 200)
+& Node4 -> Node4: Add 3PCBatch(pp_seq_no=102)\nto CheckpointState(101 - 200)
+
+@enduml

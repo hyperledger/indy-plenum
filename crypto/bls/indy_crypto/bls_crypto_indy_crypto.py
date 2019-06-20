@@ -6,7 +6,8 @@ import base58
 from indy_crypto import IndyCryptoError
 
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
-from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, Signature, MultiSignature
+from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
+    Signature, MultiSignature, ProofOfPossession
 
 logging.getLogger("indy_crypto").setLevel(logging.WARNING)
 logger = getLogger()
@@ -27,20 +28,20 @@ class IndyCryptoBlsUtils:
         try:
             return base58.b58encode(v.as_bytes()).decode("utf-8")
         except ValueError:
-            logger.error('BLS: BLS Entity can not be encoded as base58')
+            logger.warning('BLS: BLS Entity can not be encoded as base58')
 
     @staticmethod
     def bls_from_str(v: str, cls) -> Optional[BlsEntity]:
         try:
             bts = base58.b58decode(v)
         except ValueError:
-            logger.error('BLS: value {} can not be decoded to base58'.format(v))
+            logger.warning('BLS: value {} can not be decoded to base58'.format(v))
             return None
 
         try:
             return cls.from_bytes(bts)
         except IndyCryptoError as e:
-            logger.error('BLS: Indy Crypto error: {}'.format(e))
+            logger.warning('BLS: Indy Crypto error: {}'.format(e))
             return None
 
     @staticmethod
@@ -97,6 +98,15 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         bts = MultiSignature.new(sigs)
         return IndyCryptoBlsUtils.bls_to_str(bts)
 
+    def verify_key_proof_of_possession(self, key_proof, pk: str) -> bool:
+        bls_key_proof = IndyCryptoBlsUtils.bls_from_str(key_proof, ProofOfPossession)
+        bls_pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
+        if None in [bls_key_proof, bls_pk]:
+            return False
+        return Bls.verify_pop(bls_key_proof,
+                              bls_pk,
+                              self._generator)
+
 
 class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
     def __init__(self, sk: str, pk: str, params: GroupParams):
@@ -107,14 +117,24 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
     @staticmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
         seed = IndyCryptoBlsUtils.prepare_seed(seed)
         gen = IndyCryptoBlsUtils.bls_from_str(params.g, Generator)
         sk = SignKey.new(seed)
         vk = VerKey.new(gen, sk)
+        key_proof = ProofOfPossession.new(ver_key=vk, sign_key=sk)
         sk_str = IndyCryptoBlsUtils.bls_to_str(sk)
         vk_str = IndyCryptoBlsUtils.bls_to_str(vk)
-        return sk_str, vk_str
+        key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
+        return sk_str, vk_str, key_proof_str
+
+    @staticmethod
+    def generate_key_proof(sk: str, pk: str):
+        sk_bls = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)
+        pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
+        key_proof = ProofOfPossession.new(ver_key=pk_bls, sign_key=sk_bls)
+        key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
+        return key_proof_str
 
     def sign(self, message: bytes) -> str:
         sign = Bls.sign(message, self._sk_bls)

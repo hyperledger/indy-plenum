@@ -1,5 +1,14 @@
 from re import compile
 
+# TODO
+#  - review the list and remove obsolete ones
+#  - refactor hierarchy of exceptions taking into account ones
+#    from common/exceptions.py
+
+from common.exceptions import LogicError
+
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+
 from plenum.server.suspicion_codes import Suspicion
 
 
@@ -177,6 +186,10 @@ class InvalidNodeMsg(InvalidNodeMessageException):
     pass
 
 
+class MismatchedMessageReplyException(InvalidNodeMsg):
+    pass
+
+
 class MissingNodeOp(InvalidNodeMsg):
     pass
 
@@ -198,6 +211,10 @@ class InvalidClientMsgType(InvalidClientRequest):
 
 
 class InvalidClientOp(InvalidClientRequest):
+    pass
+
+
+class InvalidClientTaaAcceptanceError(InvalidClientRequest):
     pass
 
 
@@ -295,4 +312,20 @@ class CommonSdkIOException(Exception):
 
 
 class PoolLedgerTimeoutException(Exception):
+    pass
+
+
+class SuspiciousPrePrepare(Exception):
+    pass
+
+
+class MissingProtocolVersionError(TypeError):
+    def __init__(self, message):
+        super().__init__(
+            message + 'Make sure that the latest LibIndy is '
+                      'used and `set_protocol_version({})` is called.'
+            .format(CURRENT_PROTOCOL_VERSION))
+
+
+class TaaAmlNotSetError(LogicError):
     pass

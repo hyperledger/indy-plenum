@@ -1,0 +1,340 @@
+@startuml
+!pragma teoz true
+hide footbox
+
+participant Node1
+participant Node2
+participant Node3
+participant Node4
+
+note over Node1, Node4
+    <b>Catch-up of Node4
+end note
+
+Node4 -> Node4: Process all ORDERED msgs
+note right Node4
+    <b>Process and execute all ORDERED msgs
+    before catch-up is started and the uncommitted state is reverted
+end note
+
+Node4 -> Node4: Revert unordered 3PC batches on Master replica
+note right Node4
+    <b>Revert</b> applied but not yet ordered
+    3PC batches on Master replica
+end note
+
+Node4 -> Node4: mode = starting
+note right Node4
+    <b>- While mode != participating
+        - Replicas do not generate, send or process any 3PC messages
+        - All 3PC messages are stashed (in received order)
+        - No ORDERED msgs are processed
+    <b>- Exception: mode=synced and view change in progress
+        - COMMITs below last_prepared_certificate are processed
+        - ORDERED msgs are processed (the requests will be re-applied since
+        the uncommitted state was reverted before catch-up/view-change)
+
+end note
+
+loop For every ledger in order: audit, pool, config, domain
+
+
+note over Node1, Node4
+    <b> STEP 1: Learn how many transaction to catch-up
+end note
+
+    alt not Audit Ledger
+        Node4 -> Node4: Get the number of transactions to cacthup from the last audit ledger transaction
+    else Audit ledger
+        alt The node's just started up
+            Node1 ->> Node4: LEDGER_STATUS
+            Node2 ->> Node4: LEDGER_STATUS
+            Node3 ->> Node4: LEDGER_STATUS
+            note right Node4
+                <b>LEDGER_STATUS contains:
+                    - <b>txn_seq_no</b> <i>(seq_no of last transaction in the ledger),
+                    - <b>merkle root</b> <i>(i.e. ledger root)
+            end note
+
+        else catchup starts when the node is participating
+            Node4 ->> Node1: MESSAGE_REQUEST(LEDGER_STATUS)
+            Node4 ->> Node2: MESSAGE_REQUEST(LEDGER_STATUS)
+            Node4 ->> Node3: MESSAGE_REQUEST(LEDGER_STATUS)
+            note right Node4
+                Ask other nodes for  <b>their LEDGER_STATUSes</b>
+            end note
+
+            Node1 ->> Node4: MESSAGE_RESPONSE(LEDGER_STATUS)
+            Node2 ->> Node4: MESSAGE_RESPONSE(LEDGER_STATUS)
+            Node3 ->> Node4: MESSAGE_RESPONSE(LEDGER_STATUS)
+         end alt
+
+        alt At least n-f-1 nodes replied with not newer LEDGER_STATUSes
+
+            note over Node1, Node4
+                Node finds its ledger up to date
+            end note
+
+
+        else At least f+1 nodes replied with newer LEDGER_STATUSes
+
+            note over Node1, Node4
+                Node finds its ledger lagged
+            end note
+
+            Node4 ->> Node1: LEDGER_STATUS
+            Node4 ->> Node2: LEDGER_STATUS
+            Node4 ->> Node3: LEDGER_STATUS
+            note right Node4
+                Send <b>own LEDGER_STATUS</b>  to other nodes to ask them
+                for  <b>CONSISTENCY_PROOFs from own ledger size
+                <b>to their ledger sizes
+            end note
+
+            Node1 ->> Node4: CONSISTENCY_PROOF
+            Node2 ->> Node4: CONSISTENCY_PROOF
+            Node3 ->> Node4: CONSISTENCY_PROOF
+            note right Node4
+                <b>CONSISTENCY_PROOF contains:
+                    - <b>seq_no_start</b> <i>(seq_no of last transaction - i.e. ledger size - on lagged node),
+                    - <b>seq_no_end</b> <i>(seq_no of last transaction - i.e. ledger size - on sending node),
+                    - <b>old merkle root</b>  <i>(merkle root of ledger on lagged node),
+                    - <b>new merkle root</b>  <i>(merkle root of ledger on sending node),
+                    - <b>hashes</b> <i>(consistency proof for transactions lacking on lagged node)
+            end note
+
+            opt Did not gather f+1 same CONSISTENCY_PROOFs
+
+                Node4 -> Node4: Determine desired ledger size
+                note right Node4
+                    Determine  <b>desired ledger size</b> as other's ledger size
+                    occurred in received CONSISTENCY_PROOFs with median rate
+                end note
+
+                Node4 -> Node4: Discard received CONSISTENCY_PROOFs
+
+                Node4 ->> Node1: MESSAGE_REQUEST(CONSISTENCY_PROOF)
+                Node4 ->> Node2: MESSAGE_REQUEST(CONSISTENCY_PROOF)
+                Node4 ->> Node3: MESSAGE_REQUEST(CONSISTENCY_PROOF)
+                note right Node4
+                    Ask other nodes for  <b>CONSISTENCY_PROOFs from
+                    <b>own ledger size to desired ledger size
+                end note
+
+                Node1 ->> Node4: MESSAGE_RESPONSE(CONSISTENCY_PROOF)
+                Node2 ->> Node4: MESSAGE_RESPONSE(CONSISTENCY_PROOF)
+                Node3 ->> Node4: MESSAGE_RESPONSE(CONSISTENCY_PROOF)
+                note right Node4
+                    Gather at least f+1  <b>same CONSISTENCY_PROOFs</b>
+                end note
+
+            end opt
+
+            note over Node1, Node4
+                Node gathered at least f+1 same CONSISTENCY_PROOFs
+            end note
+
+            Node4 -> Node4: Designate target ledger size for catch-up
+            note over Node1, Node4
+                Designate  <b>target ledger size</b> for catch-up
+                according to  <b>quorumed CONSISTENCY_PROOF</b>
+            end note
+        end alt
+    end alt
+
+
+note over Node1, Node4
+    <b> STEP 2:  Request and apply transactions from other nodes
+end note
+
+    alt Ledger is audit
+        Node4 -> Node4: mode = discovering
+    else Ledger is not (pool or audit)
+        Node4 -> Node4: mode = syncing
+    end alt
+
+
+    Node4 -> Node4: Generate CATCHUP_REQs
+    note right Node4
+        Generate <b>CATCHUP_REQs</b>  for different slices of lacking part
+        of ledger in quantity equal to count of other nodes
+        <i>For example, ledger size on Node4 is 52 and target ledger size is 82.
+        <i>Following 3 requests (since count of other nodes is 3) will be generated:
+            <i>- CATCHUP_REQ for transactions with seq_nos from 53 to 62,
+            <i>- CATCHUP_REQ for transactions with seq_nos from 63 to 72,
+            <i>- CATCHUP_REQ for transactions with seq_nos from 73 to 82
+    end note
+
+    Node4 ->> Node1: CATCHUP_REQ
+    Node4 ->> Node2: CATCHUP_REQ
+    Node4 ->> Node3: CATCHUP_REQ
+    note right Node4
+        Send generated CATCHUP_REQs to other nodes:
+        each request is sent to a distinct node (and to it only).
+        <b>Each CATCHUP_REQ contains:
+            - <b>seq_no_start</b> <i>(seq_no of first requested transaction),
+            - <b>seq_no_end</b> <i>(seq_no of last requested transaction),
+            - <b>catchup_till</b> <i>(seq_no of last transaction to catch up -
+              <i>i.e. target ledger size)
+    end note
+
+    Node1 ->> Node4: CATCHUP_REP
+    Node2 ->> Node4: CATCHUP_REP
+    Node3 ->> Node4: CATCHUP_REP
+    note right Node4
+        Other nodes reply with CATCHUP_REPs.
+        <b>Each CATCHUP_REP contains:
+            - <b>transactions</b> <i>(requested transactions),
+            - <b>consistency proof</b> <i>(consistency proof from last transaction
+              <i>in this reply to last transaction to catch up)
+    end note
+
+    loop On each received catch-up reply
+        opt Solid range adjacent to ledger of not yet applied\nreceived catch-up replies exists
+            loop For each catch-up reply in solid range adjacent to ledger
+
+                Node4 -> Node4: Verify catch-up reply
+                note right Node4
+                    <b>Verify catch-up reply:
+                    Transactions and consistency proof in catch-up reply
+                    must conform with quorumed CONSISTENCY_PROOF
+                end note
+
+                Node4 -> Node4: Apply catch-up reply
+                note right Node4
+                    <b>Apply catch-up reply:
+                    For each transaction in catch-up reply:
+                        - Add transaction to ledger in committed mode
+                        - Apply transaction to state in committed mode
+                end note
+
+            end loop
+        end opt
+    end loop
+
+    note over Node1, Node4
+        Ledger reached target size
+    end note
+
+    opt Ledger is pool
+        Node4 -> Node4: mode = discovered
+    end opt
+
+end loop
+
+Node4 -> Node4: Adjust parameters from the last audit transaction
+note right Node4
+    - last_caught_up_3PC = (viewNo, ppSeqNo) from last audit txn
+    - viewNo = viewNo from last audit txn
+    - primaries = primaries from last audit txn
+end note
+
+opt last_caught_up_3PC > Master's last_ordered_3pc
+    loop For each replica
+        alt Replica is master
+
+            Node4 -> Node4: Replica's last_ordered_3pc = last_caught_up_3PC
+
+            Node4 -> Node4: Clear replica's collections up to last_caught_up_3PC
+            note right Node4
+                <b>Clear following replica's collections:
+                    - batches <i>- up to last_caught_up_3PC,
+                    - sentPrePrepares <i>- up to last_caught_up_3PC,
+                    - prePrepares <i>- up to last_caught_up_3PC,
+                    - prepares <i>- up to last_caught_up_3PC,
+                    - commits <i>- up to last_caught_up_3PC,
+                    - requestQueues <i>- requests from 3PC batches up to last_caught_up_3PC,
+                    - ORDEREDs from outBox  <i>- up to last_caught_up_3PC,
+                    - checkpoints  <i>- completely,
+                    - stashedRecvdCheckpoints  <i>- up to last_caught_up_3PC
+            end note
+
+            Node4 -> Node4: Update replica's watermarks to\n(last_caught_up_3PC[1], last_caught_up_3PC[1] + LOG_SIZE)
+
+        else Replica is backup
+
+            note right Node4
+                <i>If backup replica is primary then it could not miss any 3PC batches
+                <i>since it is source of them and so it does not need any clearance or
+                <i>updates to proceed 3PC process.
+            end note
+
+            opt Replica is non-primary
+
+                note right Node4
+                    <i>Non-primary backup replica is not informed about last_ordered_3pc
+                    <i>value on up-to-date replicas in its instance. Due to this it intends
+                    <i>to resume 3PC process just from currently incoming messages.
+                    <i>In order to do this, it resets last_ordered_3pc, clears its collections
+                    <i>and widens watermarks.
+                end note
+
+                Node4 -> Node4: Replica's last_ordered_3pc = (current view_no, 0)
+
+                Node4 -> Node4: Clear replica's collections completely
+                note right Node4
+                    <b>Clear following replica's collections completely:
+                        - batches,
+                        - sentPrePrepares,
+                        - prePrepares,
+                        - prepares,
+                        - commits,
+                        - requestQueues,
+                        - outBox,
+                        - checkpoints,
+                        - stashedRecvdCheckpoints
+                end note
+
+                Node4 -> Node4: Update replica's watermarks to (0, sys.maxsize)
+
+                note right Node4
+                    <i>Later replica will wait for gathering prepared certificate of
+                    <i>incoming 3PC messages with any keys. When it gathers such
+                    <i>certificate, it will adjust last_ordered_3pc right under
+                    <i>prepared certificate key and so will join 3PC process.
+                end note
+
+            end note
+
+        end alt
+    end loop
+end opt
+
+loop For each replica
+    Node4 -> Node4: Unstash all 3PC messages stashed during catchup
+end loop
+
+Node4 -> Node4: mode = synced
+
+alt view change in progress
+    loop For each replica
+        Node4 -> Node4: process unstashed 3PC messages before starting next catch-up
+        note right Node4
+            Only COMMITS less than last prepared certificate will be processed
+        end note
+        Node4 -> Node4: process ORDERED msgs
+        alt audit ledger is empty when processing ORDERED msg
+            Node4 -> Node4: re-apply 3PC batch
+            note right Node4
+                re-apply 3PC batch since uncommitted state was reverted
+                for this batch before catchup, but ORDERED msg was created only during catch-up
+            end note
+        end alt
+    end loop
+
+    Node4 -> Node4: Check if next catch-up is needed
+    note right Node4
+        <b>Check if next catch-up is needed</b> <i>(multiple catch-up
+        <i>rounds may be needed in scope of view change)
+    end note
+
+    alt Next catchup needed
+        Node4 -> Node4: Start next catchup
+    else No more catchups needed
+        Node4 -> Node4: mode = participating
+    end alt
+else no view change in progress
+    Node4 -> Node4: mode = participating
+end alt
+
+@enduml

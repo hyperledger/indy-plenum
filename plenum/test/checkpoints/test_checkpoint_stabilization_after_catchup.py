@@ -18,7 +18,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check="check_last_ordered_3pc_backup")
     # Epsilon did not participate in ordering of the batch with EpsilonSteward
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
@@ -35,7 +36,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 1
 
         assert len(replica.stashedRecvdCheckpoints) == 0
@@ -49,7 +50,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 2
         keys_iter = iter(replica.checkpoints)
 
@@ -63,11 +64,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         assert replica.checkpoints[6, 10].digest is None
         assert replica.checkpoints[6, 10].isStable is False
 
-        assert len(replica.stashedRecvdCheckpoints) == 1
-        assert 0 in replica.stashedRecvdCheckpoints
-        assert len(replica.stashedRecvdCheckpoints[0]) == 1
-        assert (1, 5) in replica.stashedRecvdCheckpoints[0]
-        assert len(replica.stashedRecvdCheckpoints[0][(1, 5)]) == 4
+        # nothing is stashed since it's ordered during catch-up
+        assert len(replica.stashedRecvdCheckpoints) == 0
 
         assert replica.h == 2
         assert replica.H == 17
@@ -76,7 +74,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
                               sdk_pool_handle, sdk_wallet_client, 1)
     looper.runFor(stabilization_timeout)
 
-    for replica in new_node.replicas:
+    for replica in new_node.replicas.values():
         assert len(replica.checkpoints) == 1
         keys_iter = iter(replica.checkpoints)
 

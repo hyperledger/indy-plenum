@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test import waits
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, \
     sdk_send_random_and_check, sdk_send_random_requests, sdk_get_replies, \
@@ -8,11 +9,12 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
 from plenum.test.view_change.helper import start_stopped_node
-from plenum.common.exceptions import PoolLedgerTimeoutException
 
 TestRunningTimeLimitSec = 200
 
 nodeCount = 5
+
+whitelist = ['Consensus for ReqId:']
 
 
 def stop_node(node_to_stop, looper, pool_nodes):
@@ -36,7 +38,7 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
     stop_node(nodes[0], looper, nodes)
     waitForViewChange(looper, nodes[1:], expectedViewNo=1)
     ensureElectionsDone(looper, nodes[1:],
-                        numInstances=getRequiredInstances(nodeCount))
+                        instances_list=range(getRequiredInstances(nodeCount)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
@@ -83,7 +85,8 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
 
     nodes[1] = start_stopped_node(nodes[1], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes[1:],
-                        numInstances=getRequiredInstances(nodeCount))
+                        instances_list=range(getRequiredInstances(nodeCount)),
+                        customTimeout=60)
     checkViewNoForNodes(nodes[1:], expectedViewNo=1)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
@@ -93,7 +96,8 @@ def test_quorum_after_f_plus_2_nodes_including_primary_turned_off_and_later_on(
 
     nodes[0] = start_stopped_node(nodes[0], looper, tconf, tdir, allPluginsPath)
     ensureElectionsDone(looper, nodes,
-                        numInstances=getRequiredInstances(nodeCount))
+                        instances_list=range(getRequiredInstances(nodeCount)),
+                        customTimeout=60)
     checkViewNoForNodes(nodes, expectedViewNo=1)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,

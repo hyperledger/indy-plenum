@@ -1,9 +1,13 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Optional, Any
+import time
+from typing import NamedTuple, Set, Optional, Any, Dict, Callable
 
 from plenum.common.messages.node_messages import Prepare, Commit
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str]),
@@ -12,29 +16,34 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 
 class TrackedMsgs(dict):
 
-    def getKey(self, msg):
+    def _get_key(self, msg):
         raise NotImplementedError
 
-    def newVoteMsg(self, msg):
+    def _new_vote_msg(self, msg):
         return ThreePhaseVotes(voters=set(), msg=msg)
 
-    def addMsg(self, msg, voter: str):
-        key = self.getKey(msg)
+    def _add_msg(self, msg, voter: str):
+        key = self._get_key(msg)
         if key not in self:
-            self[key] = self.newVoteMsg(msg)
+            self[key] = self._new_vote_msg(msg)
         self[key].voters.add(voter)
 
-    def hasMsg(self, msg) -> bool:
-        key = self.getKey(msg)
+    def _has_msg(self, msg) -> bool:
+        key = self._get_key(msg)
         return key in self
 
-    def hasVote(self, msg, voter: str) -> bool:
-        key = self.getKey(msg)
+    def _has_vote(self, msg, voter: str) -> bool:
+        key = self._get_key(msg)
         return key in self and voter in self[key].voters
 
-    def hasEnoughVotes(self, msg, count) -> bool:
-        key = self.getKey(msg)
-        return self.hasMsg(msg) and len(self[key].voters) >= count
+    def _votes_count(self, msg) -> int:
+        key = self._get_key(msg)
+        if key not in self:
+            return 0
+        return len(self[key].voters)
+
+    def _has_enough_votes(self, msg, count) -> bool:
+        return self._votes_count(msg) >= count
 
 
 class Prepares(TrackedMsgs):
@@ -46,7 +55,7 @@ class Prepares(TrackedMsgs):
     (viewNo, seqNo) -> (digest, {senders})
     """
 
-    def getKey(self, prepare):
+    def _get_key(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
 
     # noinspection PyMethodMayBeStatic
@@ -58,18 +67,18 @@ class Prepares(TrackedMsgs):
         :param prepare: the PREPARE to add to the list
         :param voter: the name of the node who sent the PREPARE
         """
-        self.addMsg(prepare, voter)
+        self._add_msg(prepare, voter)
 
     # noinspection PyMethodMayBeStatic
     def hasPrepare(self, prepare: Prepare) -> bool:
-        return super().hasMsg(prepare)
+        return super()._has_msg(prepare)
 
     # noinspection PyMethodMayBeStatic
     def hasPrepareFrom(self, prepare: Prepare, voter: str) -> bool:
-        return super().hasVote(prepare, voter)
+        return super()._has_vote(prepare, voter)
 
     def hasQuorum(self, prepare: Prepare, quorum: int) -> bool:
-        return self.hasEnoughVotes(prepare, quorum)
+        return self._has_enough_votes(prepare, quorum)
 
 
 class Commits(TrackedMsgs):
@@ -80,7 +89,7 @@ class Commits(TrackedMsgs):
     replica names in case of multiple protocol instances)
     """
 
-    def getKey(self, commit):
+    def _get_key(self, commit):
         return commit.viewNo, commit.ppSeqNo
 
     # noinspection PyMethodMayBeStatic
@@ -92,44 +101,15 @@ class Commits(TrackedMsgs):
         :param commit: the COMMIT to add to the list
         :param voter: the name of the replica who sent the COMMIT
         """
-        super().addMsg(commit, voter)
+        super()._add_msg(commit, voter)
 
     # noinspection PyMethodMayBeStatic
     def hasCommit(self, commit: Commit) -> bool:
-        return super().hasMsg(commit)
+        return super()._has_msg(commit)
 
     # noinspection PyMethodMayBeStatic
     def hasCommitFrom(self, commit: Commit, voter: str) -> bool:
-        return super().hasVote(commit, voter)
+        return super()._has_vote(commit, voter)
 
     def hasQuorum(self, commit: Commit, quorum: int) -> bool:
-        return self.hasEnoughVotes(commit, quorum)
-
-
-class InstanceChanges(TrackedMsgs):
-    """
-    Stores senders of received instance change requests. Key is the view
-    no and and value is the set of senders
-    Does not differentiate between reason for view change. Maybe it should,
-    but the current assumption is that since a malicious node can raise
-    different suspicions on different nodes, its ok to consider all suspicions
-    that can trigger a view change as equal
-    """
-
-    def getKey(self, msg):
-        return msg if isinstance(msg, int) else msg.viewNo
-
-    # noinspection PyMethodMayBeStatic
-    def addVote(self, msg: int, voter: str):
-        super().addMsg(msg, voter)
-
-    # noinspection PyMethodMayBeStatic
-    def hasView(self, viewNo: int) -> bool:
-        return super().hasMsg(viewNo)
-
-    # noinspection PyMethodMayBeStatic
-    def hasInstChngFrom(self, viewNo: int, voter: str) -> bool:
-        return super().hasVote(viewNo, voter)
-
-    def hasQuorum(self, viewNo: int, quorum: int) -> bool:
-        return self.hasEnoughVotes(viewNo, quorum)
+        return self._has_enough_votes(commit, quorum)

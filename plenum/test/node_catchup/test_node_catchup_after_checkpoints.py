@@ -1,22 +1,16 @@
 from logging import getLogger
 
-import pytest
-
-from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Checkpoint
-
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.util import getMaxFailures
 from plenum.server.replica import Replica
 
 from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
     reqs_for_checkpoint
-from plenum.test.helper import send_reqs_batches_and_get_suff_replies
-from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import send_reqs_batches_and_get_suff_replies, assertExp
+from plenum.test.node_catchup.helper import waitNodeDataInequality, waitNodeDataEquality, \
+    repair_broken_node, get_number_of_completed_catchups
 
 logger = getLogger()
-
-TestRunningTimeLimitSec = 200
-
 
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
@@ -34,6 +28,7 @@ def test_node_catchup_after_checkpoints(
     A node misses 3pc messages and checkpoints during some period but later it
     stashes some amount of checkpoints and decides to catchup.
     """
+    view_no = txnPoolNodeSet[0].viewNo
     max_batch_size = chkFreqPatched.Max3PCBatchSize
     broken_node, other_nodes = broken_node_and_others
 
@@ -60,7 +55,8 @@ def test_node_catchup_after_checkpoints(
                                            (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                                            reqs_for_checkpoint - max_batch_size)
 
-    waitNodeDataEquality(looper, repaired_node, *other_nodes)
+    waitNodeDataEquality(looper, repaired_node, *other_nodes,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     # Note that the repaired node might not fill the gap of missed 3PC-messages
     # by requesting them from other nodes because these 3PC-batches start from
     # an already stabilized checkpoint, so a part of these 3PC-messages are
@@ -78,45 +74,3 @@ def test_node_catchup_after_checkpoints(
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataEquality(looper, repaired_node, *other_nodes)
-
-
-@pytest.fixture
-def broken_node_and_others(txnPoolNodeSet):
-    node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
-    other = [n for n in txnPoolNodeSet if n != node]
-
-    def brokenSendToReplica(msg, frm):
-        logger.warning(
-            "{} is broken. 'sendToReplica' does nothing".format(node.name))
-
-    node.nodeMsgRouter.extend(
-        (
-            (PrePrepare, brokenSendToReplica),
-            (Prepare, brokenSendToReplica),
-            (Commit, brokenSendToReplica),
-            (Checkpoint, brokenSendToReplica),
-        )
-    )
-
-    return node, other
-
-
-def repair_broken_node(node):
-    node.nodeMsgRouter.extend(
-        (
-            (PrePrepare, node.sendToReplica),
-            (Prepare, node.sendToReplica),
-            (Commit, node.sendToReplica),
-            (Checkpoint, node.sendToReplica),
-        )
-    )
-    return node
-
-
-def get_number_of_completed_catchups(node):
-    cnt = 0
-    for entry in node.ledgerManager.spylog.getAll(
-            node.ledgerManager.catchupCompleted):
-        if entry.params['ledgerId'] == DOMAIN_LEDGER_ID:
-            cnt += 1
-    return cnt

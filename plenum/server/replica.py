@@ -1,38 +1,55 @@
 import time
-from collections import deque, OrderedDict
+from collections import deque, OrderedDict, defaultdict
 from enum import unique, IntEnum
+from functools import partial
 from hashlib import sha256
-from typing import List, Dict, Optional, Any, Set, Tuple, Callable
+from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
+import itertools
 
 import math
 
 import sys
 
-import plenum.server.node
-from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer
+import functools
+
+from common.exceptions import LogicError, PlenumValueError
+from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer, \
+    invalid_index_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
+
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT
+    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier
+    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
 from plenum.common.hook_manager import HookManager
+from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+    PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
+from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
 from plenum.config import CHK_FREQ
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
+from plenum.server.replica_freshness_checker import FreshnessChecker
+from plenum.server.replica_stasher import ReplicaStasher
+from plenum.server.replica_validator import ReplicaValidator
+from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from sortedcontainers import SortedList
-from stp_core.common.log import getlogger, ReplicaFilter
+from stp_core.common.log import getlogger
+
+import plenum.server.node
 
 LOG_TAGS = {
     'PREPREPARE': {"tags": ["node-preprepare"]},
@@ -72,6 +89,102 @@ class Stats:
         return str({TPCStat(k).name: v for k, v in self.stats.items()})
 
 
+class Replica3PRouter(Router):
+    def __init__(self, replica, *args, **kwargs):
+        self.replica = replica
+        super().__init__(*args, *kwargs)
+
+    # noinspection PyCallingNonCallable
+    def handleSync(self, msg: Any) -> Any:
+        try:
+            super().handleSync(msg)
+        except SuspiciousNode as ex:
+            self.replica.report_suspicious_node(ex)
+
+
+class IntervalList:
+    def __init__(self):
+        self._intervals = []
+
+    def __len__(self):
+        return sum(i[1] - i[0] + 1 for i in self._intervals)
+
+    def __eq__(self, other):
+        if not isinstance(other, IntervalList):
+            return False
+        return self._intervals == other._intervals
+
+    def __contains__(self, item):
+        return any(i[0] <= item <= i[1] for i in self._intervals)
+
+    def add(self, item):
+        if len(self._intervals) == 0:
+            self._intervals.append([item, item])
+            return
+
+        if item < self._intervals[0][0] - 1:
+            self._intervals.insert(0, [item, item])
+            return
+
+        if item == self._intervals[0][0] - 1:
+            self._intervals[0][0] -= 1
+            return
+
+        if self._intervals[0][0] <= item <= self._intervals[0][1]:
+            return
+
+        for prev, next in zip(self._intervals, self._intervals[1:]):
+            if item == prev[1] + 1:
+                prev[1] += 1
+                if prev[1] == next[0] - 1:
+                    prev[1] = next[1]
+                    self._intervals.remove(next)
+                return
+
+            if prev[1] + 1 < item < next[0] - 1:
+                idx = self._intervals.index(next)
+                self._intervals.insert(idx, [item, item])
+                return
+
+            if item == next[0] - 1:
+                next[0] -= 1
+                return
+
+            if next[0] <= item <= next[1]:
+                return
+
+        if item == self._intervals[-1][1] + 1:
+            self._intervals[-1][1] += 1
+            return
+
+        self._intervals.append([item, item])
+
+
+class OrderedTracker:
+    def __init__(self):
+        self._batches = defaultdict(IntervalList)
+
+    def __len__(self):
+        return sum(len(il) for il in self._batches.values())
+
+    def __eq__(self, other):
+        if not isinstance(other, OrderedTracker):
+            return False
+        return self._batches == other._batches
+
+    def __contains__(self, item):
+        view_no, pp_seq_no = item
+        return pp_seq_no in self._batches[view_no]
+
+    def add(self, view_no, pp_seq_no):
+        self._batches[view_no].add(pp_seq_no)
+
+    def clear_below_view(self, view_no):
+        for v in list(self._batches.keys()):
+            if v < view_no:
+                del self._batches[v]
+
+
 PP_CHECK_NOT_FROM_PRIMARY = 0
 PP_CHECK_TO_PRIMARY = 1
 PP_CHECK_DUPLICATE = 2
@@ -79,11 +192,34 @@ PP_CHECK_OLD = 3
 PP_CHECK_REQUEST_NOT_FINALIZED = 4
 PP_CHECK_NOT_NEXT = 5
 PP_CHECK_WRONG_TIME = 6
+PP_CHECK_INCORRECT_POOL_STATE_ROOT = 14
 
 PP_APPLY_REJECT_WRONG = 7
 PP_APPLY_WRONG_DIGEST = 8
 PP_APPLY_WRONG_STATE = 9
 PP_APPLY_ROOT_HASH_MISMATCH = 10
+PP_APPLY_HOOK_ERROR = 11
+PP_SUB_SEQ_NO_WRONG = 12
+PP_NOT_FINAL = 13
+PP_APPLY_AUDIT_HASH_MISMATCH = 15
+PP_REQUEST_ALREADY_ORDERED = 16
+
+
+def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(self, *args, **kwargs):
+            metrics = self.metrics
+            if self.isMaster:
+                with metrics.measure_time(master_name):
+                    return f(self, *args, **kwargs)
+            else:
+                with metrics.measure_time(backup_name):
+                    return f(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class Replica(HasActionQueue, MessageProcessor, HookManager):
@@ -93,7 +229,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  config=None,
                  isMaster: bool = False,
-                 bls_bft_replica: BlsBftReplica = None):
+                 bls_bft_replica: BlsBftReplica = None,
+                 metrics: MetricsCollector = NullMetricsCollector(),
+                 get_current_time=None,
+                 get_time_for_3pc_batch=None):
         """
         Create a new replica.
 
@@ -102,19 +241,22 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param isMaster: is this a replica of the master protocol instance
         """
         HasActionQueue.__init__(self)
+        self.get_current_time = get_current_time or time.perf_counter
+        self.get_time_for_3pc_batch = get_time_for_3pc_batch or node.utc_epoch
         self.stats = Stats(TPCStat)
         self.config = config or getConfig()
+        self.metrics = metrics
 
         self.inBoxRouter = Router(
             (ReqKey, self.readyFor3PC),
-            (PrePrepare, self.processThreePhaseMsg),
-            (Prepare, self.processThreePhaseMsg),
-            (Commit, self.processThreePhaseMsg),
-            (Checkpoint, self.processCheckpoint),
-            (ThreePCState, self.process3PhaseState),
+            (PrePrepare, self.process_three_phase_msg),
+            (Prepare, self.process_three_phase_msg),
+            (Commit, self.process_three_phase_msg),
+            (Checkpoint, self.process_checkpoint),
         )
 
-        self.threePhaseRouter = Router(
+        self.threePhaseRouter = Replica3PRouter(
+            self,
             (PrePrepare, self.processPrePrepare),
             (Prepare, self.processPrepare),
             (Commit, self.processCommit)
@@ -124,7 +266,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.instId = instId
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
-        self.logger.addFilter(ReplicaFilter(self.name))
+        self.validator = ReplicaValidator(self)
+        self.stasher = ReplicaStasher(self)
 
         self.outBox = deque()
         """
@@ -151,12 +294,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # instance is
         self._primaryName = None  # type: Optional[str]
 
-        # TODO: Rename since it will contain all messages till primary is
-        # selected, primary selection is only done once pool ledger is
-        # caught up
-        # Requests waiting to be processed once the replica is able to decide
-        # whether it is primary or not
-        self.postElectionMsgs = deque()
+        # PRE-PREPAREs timestamps stored by non primary replica to check
+        # obsolescence of incoming PrePrepares. Pre-prepares with the same
+        # 3PC key are not merged since we need to keep incoming timestamps
+        # for each new PP from every nodes separately.
+        # Dictionary:
+        #   key: Tuple[pp.viewNo, pp.seqNo]
+        #   value: Dict[Tuple[PrePrepare, sender], timestamp]
+        self.pre_prepare_tss = defaultdict(dict)
 
         # PRE-PREPAREs that are waiting to be processed but do not have the
         # corresponding request finalised. Happens when replica has not been
@@ -213,7 +358,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo).
-        self.ordered = OrderedSet()  # type: OrderedSet[Tuple[int, int]]
+        self.ordered = OrderedTracker()
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -233,9 +378,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # range of the checkpoint and its value again being a mapping between
         # senders and their sent checkpoint
         self.stashedRecvdCheckpoints = {}  # type: Dict[int, Dict[Tuple,
-        # Dict[str, Checkpoint]]]
-
-        self.stashingWhileOutsideWaterMarks = deque()
 
         # Flag being used for preterm exit from the loop in the method
         # `processStashedMsgsForNewWaterMarks`. See that method for details.
@@ -249,15 +391,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._lastPrePrepareSeqNo = self.h  # type: int
 
         # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = {}  # type: Dict[int, deque]
+        self.requestQueues = {}  # type: Dict[int, OrderedSet]
+
+        self._freshness_checker = FreshnessChecker(freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL)
+
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
-        self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int],
+        self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int]]
         # Tuple[int, float, bytes]]
 
         # TODO: Need to have a timer for each ledger
-        self.lastBatchCreated = time.perf_counter()
+        self.lastBatchCreated = self.get_current_time()
 
         # self.lastOrderedPPSeqNo = 0
         # Three phase key for the last ordered batch
@@ -299,6 +444,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
+        # Did we log a message about getting request while absence of primary
+        self.warned_no_primary = False
+
+        # Defines if there was a batch after last catchup
+        self.first_batch_after_catchup = False
+
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
@@ -308,6 +459,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # the request key needs to be removed once its ordered
         if ledger_id not in self.requestQueues:
             self.requestQueues[ledger_id] = OrderedSet()
+        if ledger_id != AUDIT_LEDGER_ID:
+            self._freshness_checker.register_ledger(ledger_id=ledger_id,
+                                                    initial_time=self.get_time_for_3pc_batch())
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -318,11 +472,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMaster:
             return None
         ledger = self.node.getLedger(ledger_str)
-        h = ledger.uncommittedRootHash
-        # If no uncommittedHash since this is the beginning of the tree
-        # or no transactions affecting the ledger were made after the
-        # last changes were committed
-        root = h if h else ledger.tree.root_hash
+        root = ledger.uncommitted_root_hash
         if to_str:
             root = ledger.hashToStr(root)
         return root
@@ -345,6 +495,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
         self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        self.stasher.unstash_watermarks()
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -390,6 +541,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     @property
     def utc_epoch(self):
         return self.node.utc_epoch()
+
+    # This is to enable replaying, inst_id, view_no and pp_seq_no are used
+    # while replaying
+    def get_utc_epoch_for_preprepare(self, inst_id, view_no, pp_seq_no):
+        tm = self.get_time_for_3pc_batch()
+        if self.last_accepted_pre_prepare_time and \
+                tm < self.last_accepted_pre_prepare_time:
+            tm = self.last_accepted_pre_prepare_time
+        return tm
 
     @staticmethod
     def generateName(nodeName: str, instId: int):
@@ -441,20 +601,28 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param value: the value to set isPrimary to
         """
+        if value is not None:
+            self.warned_no_primary = False
         self.primaryNames[self.viewNo] = value
         self.compact_primary_names()
         if value != self._primaryName:
             self._primaryName = value
-            self.logger.debug("{} setting primaryName for view no {} to: {}".format(
-                self, self.viewNo, value))
+            self.logger.info("{} setting primaryName for view no {} to: {}".
+                             format(self, self.viewNo, value))
             if value is None:
                 # Since the GC needs to happen after a primary has been
                 # decided.
                 return
             self._gc_before_new_view()
-            if self.viewNo > 0:
+            if self.__should_reset_watermarks_before_new_view():
                 self._reset_watermarks_before_new_view()
-            self._stateChanged()
+
+    def __should_reset_watermarks_before_new_view(self):
+        if self.viewNo <= 0:
+            return False
+        if self.last_ordered_3pc[0] == self.viewNo and self.last_ordered_3pc[1] > 0:
+            return False
+        return True
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -485,27 +653,41 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.isMaster:
             lst = self.last_prepared_certificate_in_view()
             self.last_prepared_before_view_change = lst
-            self.logger.debug(
-                '{} setting last prepared for master to {}'.format(self, lst))
-        # It can be that last_ordered_3pc was set for the previous view, since it's set during catch-up
-        # Example: a Node has last_ordered = (1, 300), and then the whole pool except this node restarted
-        # The new viewNo is 0, but last_ordered is (1, 300), so all new requests will be discarded by this Node
-        # if we don't reset last_ordered_3pc
-        if self.viewNo <= self.last_ordered_3pc[0]:
-            self.last_ordered_3pc = (self.viewNo, 0)
+            self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
-        assert self.isMaster
-        self.last_prepared_before_view_change = None
+        if self.isMaster:
+            self.last_prepared_before_view_change = None
+        self.stasher.unstash_future_view()
+
+    def clear_requests_and_fix_last_ordered(self):
+        if self.isMaster:
+            return
+        reqs_for_remove = []
+        for req in self.requests.values():
+            ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)
+            if seq_no is not None:
+                reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
+        for key, ledger_id, seq_no in reqs_for_remove:
+            self.requests.ordered_by_replica(key)
+            self.requests.free(key)
+            self.requestQueues[int(ledger_id)].discard(key)
+        master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
+        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0 \
+                and self.isPrimary is False:
+            self.last_ordered_3pc = master_last_ordered_3pc
 
     def on_propagate_primary_done(self):
-        assert self.isMaster
-        # if this is a Primary that is re-connected (that is view change is not actually changed,
-        # we just propagate it, then make sure that we don;t break the sequence
-        # of ppSeqNo
-        self.update_watermark_from_3pc()
-        if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
-            self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+        if self.isMaster:
+            # if this is a Primary that is re-connected (that is view change is not actually changed,
+            # we just propagate it, then make sure that we did't break the sequence
+            # of ppSeqNo
+            self.update_watermark_from_3pc()
+            if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
+                self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+        elif not self.isPrimary:
+            self.h = 0
+            self.H = sys.maxsize
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
@@ -541,7 +723,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `last_ordered_3pc`
         :return:
         """
-        if not self.isMaster and self.last_ordered_3pc[1] == 0 and\
+        if not self.isMaster and self.first_batch_after_catchup and \
                 not self.isPrimary:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -550,14 +732,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if lowest_prepared is not None:
                 # now after catch up we have in last_ordered_3pc[1] value 0
                 # it value should change last_ordered_3pc to lowest_prepared - 1
-                self.logger.debug('{} Setting last ordered for non-master as {}'.format(
-                    self, self.last_ordered_3pc))
+                self.logger.info('{} Setting last ordered for non-master as {}'.
+                                 format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
+                self.first_batch_after_catchup = False
 
     def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
-            self.h = 0
             for v in list(self.stashed_out_of_order_commits.keys()):
                 if v < current_view:
                     self.stashed_out_of_order_commits.pop(v)
@@ -596,39 +778,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param sender:
         :return:
         """
-        return self.primaryName == sender if self.isMsgForCurrentView(
-            msg) else self.primaryNames[msg.viewNo] == sender
-
-    def _stateChanged(self):
-        """
-        A series of actions to be performed when the state of this replica
-        changes.
-
-        - UnstashInBox (see _unstashInBox)
-        """
-        self._unstashInBox()
-        if self.isPrimary is not None:
-            try:
-                self.processPostElectionMsgs()
-            except SuspiciousNode as ex:
-                self.outBox.append(ex)
-                self.discard(ex.msg, ex.reason, self.logger.warning)
-
-    def _stashInBox(self, msg):
-        """
-        Stash the specified message into the inBoxStash of this replica.
-
-        :param msg: the message to stash
-        """
-        self.inBoxStash.append(msg)
-
-    def _unstashInBox(self):
-        """
-        Append the inBoxStash to the right of the inBox.
-        """
-        # The stashed values need to go in "front" of the inBox.
-        self.inBox.extendleft(self.inBoxStash)
-        self.inBoxStash.clear()
+        if self.isMsgForCurrentView(msg):
+            return self.primaryName == sender
+        try:
+            return self.primaryNames[msg.viewNo] == sender
+        except KeyError:
+            return False
 
     def __repr__(self):
         return self.name
@@ -655,96 +810,161 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # tracked to revert this PRE-PREPARE
         self.logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        else:
+            self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
-                                                 pp.ppTime, prevStateRootHash]
+                                                 pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
-    def send3PCBatch(self):
-        r = 0
-        for lid, q in self.requestQueues.items():
-            # TODO: make the condition more apparent
-            if len(q) >= self.config.Max3PCBatchSize or \
-                    (self.lastBatchCreated + self.config.Max3PCBatchWait < time.perf_counter() and
-                     len(q) > 0):
-                oldStateRootHash = self.stateRootHash(lid, to_str=False)
-                ppReq = self.create3PCBatch(lid)
-                self.sendPrePrepare(ppReq)
-                self.trackBatches(ppReq, oldStateRootHash)
-                r += 1
+    def send_3pc_batch(self):
+        if not self.validator.can_send_3pc_batch():
+            return 0
 
-        if r > 0:
-            self.lastBatchCreated = time.perf_counter()
-        return r
+        sent_batches = set()
+
+        # 1. send 3PC batches with requests for every ledger
+        self._send_3pc_batches_for_ledgers(sent_batches)
+
+        # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
+        # and send an empty 3PC batch to update the state if needed
+        self._send_3pc_freshness_batch(sent_batches)
+
+        # 3. send 3PC batch if new primaries elected
+        self._send_3pc_primaries_batch(sent_batches)
+
+        # 4. update ts of last sent 3PC batch
+        if len(sent_batches) > 0:
+            self.lastBatchCreated = self.get_current_time()
+
+        return len(sent_batches)
+
+    def _send_3pc_batches_for_ledgers(self, sent_batches):
+        # TODO: Consider sending every next update in Max3PCBatchWait only
+        for ledger_id, q in self.requestQueues.items():
+            if len(q) == 0:
+                continue
+
+            queue_full = len(q) >= self.config.Max3PCBatchSize
+            timeout = self.lastBatchCreated + self.config.Max3PCBatchWait < self.get_current_time()
+            if not queue_full and not timeout:
+                continue
+
+            sent_batches.add(
+                self._do_send_3pc_batch(ledger_id=ledger_id))
+
+    def _send_3pc_freshness_batch(self, sent_batches):
+        if not self.config.UPDATE_STATE_FRESHNESS:
+            return
+
+        if not self.isMaster:
+            return
+
+        # Update freshness for all outdated ledgers sequentially without any waits
+        # TODO: Consider sending every next update in Max3PCBatchWait only
+        outdated_ledgers = self._freshness_checker.check_freshness(self.get_time_for_3pc_batch())
+        for ledger_id, ts in outdated_ledgers.items():
+            if ledger_id in sent_batches:
+                self.logger.debug("Ledger {} is not updated for {} seconds, "
+                                  "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
+                continue
+
+            self.logger.info("Ledger {} is not updated for {} seconds, "
+                             "so its freshness state is going to be updated now".format(ledger_id, ts))
+            sent_batches.add(
+                self._do_send_3pc_batch(ledger_id=ledger_id))
+
+    def _send_3pc_primaries_batch(self, sent_batches):
+        # As we've selected new primaries, we need to send 3pc batch,
+        # so this primaries can be saved in audit ledger
+        if not sent_batches and self.node.primaries_batch_needed:
+            self.logger.debug("Sending a 3PC batch to propagate newly selected primaries")
+            self.node.primaries_batch_needed = False
+            sent_batches.add(self._do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
+
+    def _do_send_3pc_batch(self, ledger_id):
+        oldStateRootHash = self.stateRootHash(ledger_id, to_str=False)
+        pre_prepare = self.create_3pc_batch(ledger_id)
+        self.sendPrePrepare(pre_prepare)
+        if not self.isMaster:
+            self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                self.instId, pre_prepare.ppSeqNo)
+        self.trackBatches(pre_prepare, oldStateRootHash)
+        return ledger_id
 
     @staticmethod
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
+    @measure_replica_time(MetricsName.REQUEST_PROCESSING_TIME,
+                          MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
     def processReqDuringBatch(
             self,
             req: Request,
-            cons_time: int,
-            validReqs: List,
-            inValidReqs: List,
-            rejects: List):
+            cons_time: int):
         """
-        This method will do dynamic validation and apply requests, also it
-        will modify `validReqs`, `inValidReqs` and `rejects`
+        This method will do dynamic validation and apply requests.
+        If there is any errors during validation it would be raised
         """
-        try:
-            if self.isMaster:
-                self.node.doDynamicValidation(req)
-                self.node.applyReq(req, cons_time)
-        except (InvalidClientMessageException, UnknownIdentifier) as ex:
-            self.logger.warning('{} encountered exception {} while processing {}, '
-                                'will reject'.format(self, ex, req))
-            rejects.append(Reject(req.identifier, req.reqId, ex))
-            inValidReqs.append(req)
-        else:
-            validReqs.append(req)
+        if self.isMaster:
+            self.node.doDynamicValidation(req, cons_time)
+            self.node.applyReq(req, cons_time)
 
-    def create3PCBatch(self, ledger_id):
-        ppSeqNo = self.lastPrePrepareSeqNo + 1
+    @measure_replica_time(MetricsName.CREATE_3PC_BATCH_TIME,
+                          MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
+    def create_3pc_batch(self, ledger_id):
+        pp_seq_no = self.lastPrePrepareSeqNo + 1
+        pool_state_root_hash = self.stateRootHash(POOL_LEDGER_ID)
         self.logger.debug("{} creating batch {} for ledger {} with state root {}".format(
-            self, ppSeqNo, ledger_id,
+            self, pp_seq_no, ledger_id,
             self.stateRootHash(ledger_id, to_str=False)))
-        tm = self.utc_epoch
+
         if self.last_accepted_pre_prepare_time is None:
             last_ordered_ts = self._get_last_timestamp_from_state(ledger_id)
             if last_ordered_ts:
                 self.last_accepted_pre_prepare_time = last_ordered_ts
-        if self.last_accepted_pre_prepare_time and \
-                tm < self.last_accepted_pre_prepare_time:
-            tm = self.last_accepted_pre_prepare_time
 
-        validReqs = []
-        inValidReqs = []
-        rejects = []
-        while len(validReqs) + len(inValidReqs) < self.config.Max3PCBatchSize \
-                and self.requestQueues[ledger_id]:
-            key = self.requestQueues[ledger_id].pop(0)
-            if key in self.requests:
-                fin_req = self.requests[key].finalised
-                self.processReqDuringBatch(
-                    fin_req, tm, validReqs, inValidReqs, rejects)
-            else:
-                self.logger.debug('{} found {} in its request queue but the '
-                                  'corresponding request was removed'.format(self, key))
+        # DO NOT REMOVE `view_no` argument, used while replay
+        # tm = self.utc_epoch
+        tm = self.get_utc_epoch_for_preprepare(self.instId, self.viewNo,
+                                               pp_seq_no)
 
-        reqs = validReqs + inValidReqs
+        reqs, invalid_indices, rejects = self.consume_req_queue_for_pre_prepare(
+            ledger_id, tm, self.viewNo, pp_seq_no)
+        if self.isMaster:
+            three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
+                                          inst_id=self.instId,
+                                          view_no=self.viewNo,
+                                          pp_seq_no=pp_seq_no,
+                                          pp_time=tm,
+                                          state_root=self.stateRootHash(ledger_id, to_str=False),
+                                          txn_root=self.txnRootHash(ledger_id, to_str=False),
+                                          primaries=[],
+                                          valid_digests=self.get_valid_req_ids_from_all_requests(
+                                              reqs, invalid_indices))
+            self.node.onBatchCreated(three_pc_batch)
+
         digest = self.batchDigest(reqs)
-
         state_root_hash = self.stateRootHash(ledger_id)
+        audit_txn_root_hash = self.txnRootHash(AUDIT_LEDGER_ID)
+
+        """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
             self.instId,
             self.viewNo,
-            ppSeqNo,
+            pp_seq_no,
             tm,
-            [(req.identifier, req.reqId) for req in reqs],
-            len(validReqs),
+            [req.digest for req in reqs],
+            invalid_index_serializer.serialize(invalid_indices, toBytes=False),
             digest,
             ledger_id,
             state_root_hash,
-            self.txnRootHash(ledger_id)
+            self.txnRootHash(ledger_id),
+            0,
+            True,
+            pool_state_root_hash,
+            audit_txn_root_hash
         ]
 
         # BLS multi-sig:
@@ -756,29 +976,74 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             pre_prepare = rv if rv is not None else pre_prepare
 
         self.logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
-            self, len(validReqs), ledger_id))
-        self.lastPrePrepareSeqNo = ppSeqNo
+            self, len(reqs), ledger_id))
+        self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
             self.outBox.extend(rejects)
-            self.node.onBatchCreated(
-                ledger_id, self.stateRootHash(
-                    ledger_id, to_str=False))
         return pre_prepare
 
+    def consume_req_queue_for_pre_prepare(self, ledger_id, tm,
+                                          view_no, pp_seq_no):
+        reqs = []
+        rejects = []
+        invalid_indices = []
+        idx = 0
+        while len(reqs) < self.config.Max3PCBatchSize \
+                and self.requestQueues[ledger_id]:
+            key = self.requestQueues[ledger_id].pop(0)
+            if key in self.requests:
+                fin_req = self.requests[key].finalised
+                malicious_req = False
+                try:
+                    self.processReqDuringBatch(fin_req,
+                                               tm)
+
+                except (
+                    InvalidClientMessageException,
+                    UnknownIdentifier
+                ) as ex:
+                    self.logger.warning('{} encountered exception {} while processing {}, '
+                                        'will reject'.format(self, ex, fin_req))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    invalid_indices.append(idx)
+                except SuspiciousPrePrepare:
+                    malicious_req = True
+                finally:
+                    if not malicious_req:
+                        reqs.append(fin_req)
+                if not malicious_req:
+                    idx += 1
+            else:
+                self.logger.debug('{} found {} in its request queue but the '
+                                  'corresponding request was removed'.format(self, key))
+
+        return reqs, invalid_indices, rejects
+
+    @measure_replica_time(MetricsName.SEND_PREPREPARE_TIME,
+                          MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, key: ReqKey):
-        fin_req = self.requests[key].finalised
+        try:
+            fin_req = self.requests[key.digest].finalised
+        except KeyError:
+            # Means that this request is outdated and is dropped from the main requests queue
+            self.logger.debug('{} reports request {} is ready for 3PC but it has been dropped '
+                              'from requests queue, ignore this request'.format(self, key))
+            return
         queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
-        queue.add(key)
-        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD:
+        queue.add(key.digest)
+        if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD and not self.warned_no_primary:
             self.logger.warning('{} is getting requests but still does not have '
                                 'a primary so the replica will not process the request '
                                 'until a primary is chosen'.format(self))
+            self.warned_no_primary = True
 
+    @measure_replica_time(MetricsName.SERVICE_REPLICA_QUEUES_TIME,
+                          MetricsName.SERVICE_BACKUP_REPLICAS_QUEUES_TIME)
     def serviceQueues(self, limit=None):
         """
         Process `limit` number of messages in the inBox.
@@ -787,60 +1052,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :return: the number of messages successfully processed
         """
         # TODO should handle SuspiciousNode here
-        r = self.dequeue_pre_prepares() if self.node.isParticipating else 0
+        r = self.dequeue_pre_prepares()
         r += self.inBoxRouter.handleAllSync(self.inBox, limit)
-        r += self.send3PCBatch() if (self.isPrimary and
-                                     self.node.isParticipating) else 0
+        r += self.send_3pc_batch()
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
-    def processPostElectionMsgs(self):
-        """
-        Process messages waiting for the election of a primary replica to
-        complete.
-        """
-        while self.postElectionMsgs:
-            msg = self.postElectionMsgs.popleft()
-            self.logger.info("{} processing pended msg {}".format(self, msg))
-            self.dispatchThreePhaseMsg(*msg)
-
-    def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
-        """
-        Create a three phase request to be handled by the threePhaseRouter.
-
-        :param msg: the ThreePhaseMsg to dispatch
-        :param sender: the name of the node that sent this request
-        """
-        senderRep = self.generateName(sender, self.instId)
-        if self.isPpSeqNoStable(msg.ppSeqNo):
-            self.discard(msg,
-                         "achieved stable checkpoint for 3 phase message",
-                         self.logger.debug)
-            return
-
-        if self.has_already_ordered(msg.viewNo, msg.ppSeqNo):
-            self.discard(msg, 'already ordered 3 phase message', self.logger.trace)
-            return
-
-        if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
-            try:
-                if self.can_pp_seq_no_be_in_view(msg.viewNo, msg.ppSeqNo):
-                    self.threePhaseRouter.handleSync((msg, senderRep))
-                else:
-                    self.discard(msg, 'un-acceptable pp seq no from previous '
-                                      'view', self.logger.warning)
-                    return
-            except SuspiciousNode as ex:
-                self.node.reportSuspiciousNodeEx(ex)
-        else:
-            self.logger.info("{} stashing 3 phase message {} since ppSeqNo {} is "
-                             "not between {} and {}".format(
-                                 self, msg, msg.ppSeqNo, self.h, self.H))
-            self.stashOutsideWatermarks((msg, sender))
-
-    def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
+    def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
         Dispatch the request only if primary has already been decided, otherwise
@@ -850,48 +1070,100 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             COMMIT
         :param sender: name of the node that sent this message
         """
-        if self.isPrimary is None:
-            if not self.can_process_since_view_change_in_progress(msg):
-                self.postElectionMsgs.append((msg, sender))
-                self.logger.info("Replica {} pended request {} from {}".format(
-                    self, msg, sender))
-                return
-        self.dispatchThreePhaseMsg(msg, sender)
+        sender = self.generateName(sender, self.instId)
 
-    def can_process_since_view_change_in_progress(self, msg):
-        # Commit msg with 3PC key not greater than last prepared one's
-        r = isinstance(msg, Commit) and \
-            self.last_prepared_before_view_change and \
-            compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
-                             self.last_prepared_before_view_change) >= 0
-        if r:
-            self.logger.debug('{} can process {} since view change is in progress'.format(self, msg))
-        return r
+        pp_key = ((msg.viewNo, msg.ppSeqNo) if
+                  isinstance(msg, PrePrepare) else None)
+
+        # the same PrePrepare might come here multiple times
+        if (pp_key and (msg, sender) not in self.pre_prepare_tss[pp_key]):
+            # TODO more clean solution would be to set timestamps
+            # earlier (e.g. in zstack)
+            self.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
+
+        result, reason = self.validator.validate_3pc_msg(msg)
+        if result == DISCARD:
+            self.discard(msg, "{} discard message {} from {} "
+                              "with the reason: {}".format(self, msg, sender, reason),
+                         self.logger.trace)
+        elif result == PROCESS:
+            self.threePhaseRouter.handleSync((msg, sender))
+        else:
+            self.logger.debug("{} stashing 3 phase message {} with "
+                              "the reason: {}".format(self, msg, reason))
+            self.stasher.stash((msg, sender), result)
 
     def _process_valid_preprepare(self, pre_prepare, sender):
-        # TODO: rename to apply_pre_prepare
-        if not self.node.isParticipating:
-            self.discard(pre_prepare, 'node is not participating',
-                         self.logger.info)
-            return None
+        self.first_batch_after_catchup = False
         old_state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-        why_not_applied = self._apply_pre_prepare(pre_prepare, sender)
-        if why_not_applied is not None:
-            return why_not_applied
-        self.addToPrePrepares(pre_prepare)
+        old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
         if self.isMaster:
-            # TODO: can old_state_root be used here instead?
-            state_root = self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-            self.node.onBatchCreated(pre_prepare.ledgerId, state_root)
+            self.logger.debug('{} state root before processing {} is {}, {}'.format(
+                self,
+                pre_prepare,
+                old_state_root,
+                old_txn_root))
+
+        # 1. APPLY
+        reqs, invalid_indices, rejects, suspicious = self._apply_pre_prepare(pre_prepare)
+
+        # 2. CHECK IF MORE CHUNKS NEED TO BE APPLIED FURTHER BEFORE VALIDATION
+        if pre_prepare.sub_seq_no != 0:
+            return PP_SUB_SEQ_NO_WRONG
+
+        if not pre_prepare.final:
+            return PP_NOT_FINAL
+
+        # 3. VALIDATE APPLIED
+        invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare.discarded)
+        if suspicious:
+            why_not_applied = PP_REQUEST_ALREADY_ORDERED
+        else:
+            why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
+                                                                 reqs, invalid_indices, invalid_from_pp)
+
+        # 4. IF NOT VALID AFTER APPLYING - REVERT
+        if why_not_applied is not None:
+            if self.isMaster:
+                self.revert(pre_prepare.ledgerId,
+                            old_state_root,
+                            len(pre_prepare.reqIdr) - len(invalid_indices))
+            return why_not_applied
+
+        # 5. EXECUTE HOOK
+        if self.isMaster:
+            try:
+                self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
+            except Exception as ex:
+                self.logger.warning('{} encountered exception in replica '
+                                    'hook {} : {}'.
+                                    format(self, ReplicaHooks.APPLY_PPR, ex))
+                self.revert(pre_prepare.ledgerId,
+                            old_state_root,
+                            len(pre_prepare.reqIdr) - len(invalid_from_pp))
+                return PP_APPLY_HOOK_ERROR
+
+        # 6. TRACK APPLIED
+        self.outBox.extend(rejects)
+        self.addToPrePrepares(pre_prepare)
+
+        if self.isMaster:
             # BLS multi-sig:
             self._bls_bft_replica.process_pre_prepare(pre_prepare, sender)
-            self.logger.trace("{} saved shared multi signature for root".format(self, old_state_root))
+            self.logger.trace("{} saved shared multi signature for "
+                              "root".format(self, old_state_root))
+
+        if not self.isMaster:
+            self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
+                self.instId, pre_prepare.ppSeqNo)
         self.trackBatches(pre_prepare, old_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self.logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                           extra={"tags": ["processing"]})
         return None
 
+    @measure_replica_time(MetricsName.PROCESS_PREPREPARE_TIME,
+                          MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
     def processPrePrepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Validate and process provided PRE-PREPARE, create and
@@ -905,12 +1177,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # TODO: should we still do it?
         # Converting each req_idrs from list to tuple
-        req_idrs = {f.REQ_IDR.nm: [(i, r) for i, r in pre_prepare.reqIdr]}
+        req_idrs = {f.REQ_IDR.nm: [key for key in pre_prepare.reqIdr]}
         pre_prepare = updateNamedTuple(pre_prepare, **req_idrs)
 
         def report_suspicious(reason):
             ex = SuspiciousNode(sender, reason, pre_prepare)
-            self.node.reportSuspiciousNodeEx(ex)
+            self.report_suspicious_node(ex)
 
         why_not = self._can_process_pre_prepare(pre_prepare, sender)
         if why_not is None:
@@ -925,24 +1197,77 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     report_suspicious(Suspicions.PPR_STATE_WRONG)
                 elif why_not_applied == PP_APPLY_ROOT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_TXN_WRONG)
+                elif why_not_applied == PP_APPLY_HOOK_ERROR:
+                    report_suspicious(Suspicions.PPR_PLUGIN_EXCEPTION)
+                elif why_not_applied == PP_SUB_SEQ_NO_WRONG:
+                    report_suspicious(Suspicions.PPR_SUB_SEQ_NO_WRONG)
+                elif why_not_applied == PP_NOT_FINAL:
+                    # this is fine, just wait for another
+                    return
+                elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
+                    report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
+                elif why_not_applied == PP_REQUEST_ALREADY_ORDERED:
+                    report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
             report_suspicious(Suspicions.PPR_TO_PRIMARY)
         elif why_not == PP_CHECK_DUPLICATE:
             report_suspicious(Suspicions.DUPLICATE_PPR_SENT)
+        elif why_not == PP_CHECK_INCORRECT_POOL_STATE_ROOT:
+            report_suspicious(Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG)
         elif why_not == PP_CHECK_OLD:
-            self.logger.debug("PRE-PREPARE {} has ppSeqNo lower "
-                              "then the latest one - ignoring it".format(key))
+            self.logger.info("PRE-PREPARE {} has ppSeqNo lower "
+                             "then the latest one - ignoring it".format(key))
         elif why_not == PP_CHECK_REQUEST_NOT_FINALIZED:
-            non_fin_reqs = self.nonFinalisedReqs(pre_prepare.reqIdr)
-            self.enqueue_pre_prepare(pre_prepare, sender, non_fin_reqs)
+            absents = set()
+            non_fin = set()
+            non_fin_payload = set()
+            for key in pre_prepare.reqIdr:
+                req = self.requests.get(key)
+                if req is None:
+                    absents.add(key)
+                elif not req.finalised:
+                    non_fin.add(key)
+                    non_fin_payload.add(req.request.payload_digest)
+            absent_str = ', '.join(str(key) for key in absents)
+            non_fin_str = ', '.join(
+                '{} ({} : {})'.format(str(key),
+                                      str(len(self.requests[key].propagates)),
+                                      ', '.join(self.requests[key].propagates.keys())) for key in non_fin)
+            self.logger.warning(
+                "{} found requests in the incoming pp, of {} ledger, that are not finalized. "
+                "{} of them don't have propagates: {}."
+                "{} of them don't have enough propagates: {}.".format(self, pre_prepare.ledgerId,
+                                                                      len(absents), absent_str,
+                                                                      len(non_fin), non_fin_str))
+
+            def signal_suspicious(req):
+                self.logger.info("Request digest {} already ordered. Discard {} "
+                                 "from {}".format(req, pre_prepare, sender))
+                report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+
+            # checking for payload digest is more effective
+            for payload_key in non_fin_payload:
+                if self.node.seqNoDB.get_by_payload_digest(payload_key) != (None, None):
+                    signal_suspicious(payload_key)
+                    return
+
+            # for absents we can only check full digest
+            for full_key in absents:
+                if self.node.seqNoDB.get_by_full_digest(full_key) is not None:
+                    signal_suspicious(full_key)
+                    return
+
+            bad_reqs = absents | non_fin
+            self.enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is
             # present and sufficient PREPAREs and PRE-PREPARE are present,
             # then the digest can be compared but this is expensive as the
             # PREPARE and PRE-PREPARE contain a combined digest
-            self.node.request_propagates(non_fin_reqs)
+            self._schedule(partial(self.request_propagates_if_needed, bad_reqs, pre_prepare),
+                           self.config.PROPAGATE_REQUEST_DELAY)
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
@@ -978,8 +1303,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if rv:
             self.doPrepare(pp)
         else:
-            self.logger.info("{} cannot send PREPARE since {}".format(self, msg))
+            self.logger.debug("{} cannot send PREPARE since {}".format(self, msg))
 
+    @measure_replica_time(MetricsName.PROCESS_PREPARE_TIME,
+                          MetricsName.BACKUP_PROCESS_PREPARE_TIME)
     def processPrepare(self, prepare: Prepare, sender: str) -> None:
         """
         Validate and process the PREPARE specified.
@@ -992,11 +1319,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.debug("{} received PREPARE{} from {}".format(self, key, sender))
 
         # TODO move this try/except up higher
-        if self.isPpSeqNoStable(prepare.ppSeqNo):
-            self.discard(prepare,
-                         "achieved stable checkpoint for Prepare",
-                         self.logger.debug)
-            return
         try:
             if self.validatePrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
@@ -1008,8 +1330,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # handled and possibly logged higher
                 self.logger.trace("{} cannot process incoming PREPARE".format(self))
         except SuspiciousNode as ex:
-            self.node.reportSuspiciousNodeEx(ex)
+            self.report_suspicious_node(ex)
 
+    @measure_replica_time(MetricsName.PROCESS_COMMIT_TIME,
+                          MetricsName.BACKUP_PROCESS_COMMIT_TIME)
     def processCommit(self, commit: Commit, sender: str) -> None:
         """
         Validate and process the COMMIT specified.
@@ -1020,12 +1344,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         self.logger.debug("{} received COMMIT{} from {}".format(
             self, (commit.viewNo, commit.ppSeqNo), sender))
-
-        if self.isPpSeqNoStable(commit.ppSeqNo):
-            self.discard(commit,
-                         "achieved stable checkpoint for Commit",
-                         self.logger.debug)
-            return
 
         if self.validateCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
@@ -1053,12 +1371,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} returning request to node".format(self))
             self.doOrder(commit)
         else:
-            self.logger.info("{} cannot return request to node: {}".format(self, reason))
+            self.logger.debug("{} cannot return request to node: {}".format(self, reason))
         return canOrder
 
+    @measure_replica_time(MetricsName.SEND_PREPARE_TIME,
+                          MetricsName.BACKUP_SEND_PREPARE_TIME)
     def doPrepare(self, pp: PrePrepare):
         self.logger.debug("{} Sending PREPARE{} at {}".format(
-            self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
+            self, (pp.viewNo, pp.ppSeqNo), self.get_current_time()))
         params = [self.instId,
                   pp.viewNo,
                   pp.ppSeqNo,
@@ -1066,17 +1386,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                   pp.digest,
                   pp.stateRootHash,
                   pp.txnRootHash]
+        if f.AUDIT_TXN_ROOT_HASH.nm in pp:
+            params.append(pp.auditTxnRootHash)
 
         # BLS multi-sig:
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
         if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare)
+            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
             prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
 
+    @measure_replica_time(MetricsName.SEND_COMMIT_TIME,
+                          MetricsName.BACKUP_SEND_COMMIT_TIME)
     def doCommit(self, p: Prepare):
         """
         Create a commit message from the given Prepare message and trigger the
@@ -1084,11 +1408,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param p: the prepare message
         """
         key_3pc = (p.viewNo, p.ppSeqNo)
-        self.logger.debug("{} Sending COMMIT{} at {}".format(self, key_3pc, time.perf_counter()))
+        self.logger.debug("{} Sending COMMIT{} at {}".format(self, key_3pc, self.get_current_time()))
 
         params = [
             self.instId, p.viewNo, p.ppSeqNo
         ]
+
+        pre_prepare = self.getPrePrepare(*key_3pc)
 
         # BLS multi-sig:
         if p.stateRootHash is not None:
@@ -1118,8 +1444,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if last_pp_view_no > view_no:
             return False
         if last_pp_view_no < view_no:
-            # TODO: assert??
-            assert view_no == self.viewNo
+            if view_no != self.viewNo:
+                return False
             last_pp_seq_no = 0
         if pp_seq_no - last_pp_seq_no > 1:
             return False
@@ -1142,70 +1468,76 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
-        self.logger.debug('{} reverting {} txns and state root from {} to {} for'
-                          ' ledger {}'.format(self, reqCount, state.headHash,
-                                              stateRootHash, ledgerId))
+        self.logger.info('{} reverting {} txns and state root from {} to {} for ledger {}'
+                         .format(self, reqCount, Ledger.hashToStr(state.headHash),
+                                 Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def _apply_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
+    def _apply_pre_prepare(self, pre_prepare: PrePrepare):
         """
         Applies (but not commits) requests of the PrePrepare
         to the ledger and state
         """
 
-        valid_reqs = []
-        invalid_reqs = []
+        reqs = []
+        idx = 0
         rejects = []
+        invalid_indices = []
+        suspicious = False
 
-        if self.isMaster:
-            old_state_root = \
-                self.stateRootHash(pre_prepare.ledgerId, to_str=False)
-            old_txn_root = self.txnRootHash(pre_prepare.ledgerId)
-            self.logger.debug('{} state root before processing {} is {}, {}'.format(
-                self,
-                pre_prepare,
-                old_state_root,
-                old_txn_root))
-
+        # 1. apply each request
         for req_key in pre_prepare.reqIdr:
             req = self.requests[req_key].finalised
+            try:
+                self.processReqDuringBatch(req,
+                                           pre_prepare.ppTime)
+            except (InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare) as ex:
+                self.logger.warning('{} encountered exception {} while processing {}, '
+                                    'will reject'.format(self, ex, req))
+                rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
+                invalid_indices.append(idx)
+                if isinstance(ex, SuspiciousPrePrepare):
+                    suspicious = True
+            finally:
+                reqs.append(req)
+            idx += 1
 
-            self.processReqDuringBatch(req,
-                                       pre_prepare.ppTime,
-                                       valid_reqs,
-                                       invalid_reqs,
-                                       rejects)
+        # 2. call callback for the applied batch
+        if self.isMaster:
+            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
+                                                           state_root=self.stateRootHash(pre_prepare.ledgerId,
+                                                                                         to_str=False),
+                                                           txn_root=self.txnRootHash(pre_prepare.ledgerId,
+                                                                                     to_str=False),
+                                                           primaries=[],
+                                                           valid_digests=self.get_valid_req_ids_from_all_requests(
+                                                               reqs, invalid_indices))
+            self.node.onBatchCreated(three_pc_batch)
 
-        def revert():
-            self.revert(pre_prepare.ledgerId,
-                        old_state_root,
-                        len(valid_reqs))
+        return reqs, invalid_indices, rejects, suspicious
 
-        if len(valid_reqs) != pre_prepare.discarded:
-            if self.isMaster:
-                revert()
+    def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
+                                      reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
+        if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
 
-        digest = self.batchDigest(valid_reqs + invalid_reqs)
-
-        # A PRE-PREPARE is sent that does not match request digest
+        digest = self.batchDigest(reqs)
         if digest != pre_prepare.digest:
-            if self.isMaster:
-                revert()
             return PP_APPLY_WRONG_DIGEST
 
         if self.isMaster:
             if pre_prepare.stateRootHash != self.stateRootHash(pre_prepare.ledgerId):
-                revert()
                 return PP_APPLY_WRONG_STATE
 
             if pre_prepare.txnRootHash != self.txnRootHash(pre_prepare.ledgerId):
-                revert()
                 return PP_APPLY_ROOT_HASH_MISMATCH
 
-            self.outBox.extend(rejects)
+            # TODO: move this kind of validation to batch handlers
+            if f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash != self.txnRootHash(AUDIT_LEDGER_ID):
+                return PP_APPLY_AUDIT_HASH_MISMATCH
+
         return None
 
     def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str) -> Optional[int]:
@@ -1221,20 +1553,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMsgFromPrimary(pre_prepare, sender):
             return PP_CHECK_NOT_FROM_PRIMARY
 
-        # A PRE-PREPARE is being sent to primary
-        if self.isPrimaryForMsg(pre_prepare) is True:
-            return PP_CHECK_TO_PRIMARY
-
         # Already has a PRE-PREPARE with same 3 phase key
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
-        if not self.node.isParticipating:
-            # Let the node stash the pre-prepare
-            # TODO: The next processed pre-prepare needs to take consider if
-            # the last pre-prepare was stashed or not since stashed requests
-            # do not make change to state or ledger
-            return None
+        if not self.is_pre_prepare_time_acceptable(pre_prepare, sender):
+            return PP_CHECK_WRONG_TIME
 
         if compare_3PC_keys((pre_prepare.viewNo, pre_prepare.ppSeqNo),
                             self.__last_pp_3pc) > 0:
@@ -1243,12 +1567,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if self.nonFinalisedReqs(pre_prepare.reqIdr):
             return PP_CHECK_REQUEST_NOT_FINALIZED
 
-        if not self.is_pre_prepare_time_acceptable(pre_prepare):
-            return PP_CHECK_WRONG_TIME
-
         if not self.__is_next_pre_prepare(pre_prepare.viewNo,
                                           pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
+
+        if f.POOL_STATE_ROOT_HASH.nm in pre_prepare and \
+                pre_prepare.poolStateRootHash != self.stateRootHash(POOL_LEDGER_ID):
+            return PP_CHECK_INCORRECT_POOL_STATE_ROOT
 
         # BLS multi-sig:
         status = self._bls_bft_replica.validate_pre_prepare(pre_prepare,
@@ -1283,8 +1608,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param ppReq: any object with identifier and requestId attributes
         """
-        if not self.node.isParticipating:
-            return False, 'node is not participating'
         if self.has_sent_prepare(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
@@ -1338,12 +1661,23 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if prepare.digest != ppReq.digest:
             raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
-
         elif prepare.stateRootHash != ppReq.stateRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                  prepare)
         elif prepare.txnRootHash != ppReq.txnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                 prepare)
+        elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
+            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                 prepare)
+
+        try:
+            self.execute_hook(ReplicaHooks.VALIDATE_PR, prepare, ppReq)
+        except Exception as ex:
+            self.logger.warning('{} encountered exception in replica '
+                                'hook {} : {}'.
+                                format(self, ReplicaHooks.VALIDATE_PR, ex))
+            raise SuspiciousNode(sender, Suspicions.PR_PLUGIN_EXCEPTION,
                                  prepare)
 
         # BLS multi-sig:
@@ -1421,8 +1755,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         :param prepare: the PREPARE
         """
-        if not self.node.isParticipating:
-            return False, 'node is not participating'
         quorum = self.quorums.prepare.value
         if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
@@ -1438,17 +1770,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :return: True if `request` is valid, False otherwise
         """
         key = (commit.viewNo, commit.ppSeqNo)
-        ppReq = self.getPrePrepare(*key)
-        if not ppReq:
+        if not self.has_prepared(key):
             self.enqueue_commit(commit, sender)
-            return False
-
-        # TODO: Fix problem that can occur with a primary and non-primary(s)
-        # colluding and the honest nodes being slow
-        if ((key not in self.prepares and key not in self.sentPrePrepares) and
-                (key not in self.preparesWaitingForPrePrepare)):
-            self.logger.warning("{} rejecting COMMIT{} due to lack of prepares".format(self, key))
-            # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
             return False
 
         if self.commits.hasCommitFrom(commit, sender):
@@ -1459,6 +1782,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         why_not = self._bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
+            self.logger.warning("{} discard Commit message from "
+                                "{}:{}".format(self, sender, commit))
             raise SuspiciousNode(sender,
                                  Suspicions.CM_BLS_SIG_WRONG,
                                  commit)
@@ -1510,7 +1835,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if viewNo not in self.stashed_out_of_order_commits:
                 self.stashed_out_of_order_commits[viewNo] = {}
             self.stashed_out_of_order_commits[viewNo][ppSeqNo] = commit
-            self.startRepeating(self.process_stashed_out_of_order_commits, 1)
+            self.startRepeating(self.process_stashed_out_of_order_commits,
+                                self.config.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL)
             return False, "stashing {} since out of order". \
                 format(commit)
 
@@ -1550,6 +1876,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # This method is called periodically to check for any commits that
         # were stashed due to lack of commits before them and orders them if it
         # can
+
+        if not self.validator.can_order():
+            return
+
         self.logger.debug('{} trying to order from out of order commits. '
                           'Len(stashed_out_of_order_commits) == {}'
                           .format(self, len(self.stashed_out_of_order_commits)))
@@ -1603,55 +1933,109 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def last_prepared_certificate_in_view(self) -> Optional[Tuple[int, int]]:
         # Pick the latest sent COMMIT in the view.
         # TODO: Consider stashed messages too?
-        assert self.isMaster
-        return max_3PC_key(self.commits.keys()) if self.commits else None
+        if not self.isMaster:
+            raise LogicError("{} is not a master".format(self))
+        keys = []
+        quorum = self.quorums.prepare.value
+        for key in self.prepares.keys():
+            if self.prepares.hasQuorum(ThreePhaseKey(*key), quorum):
+                keys.append(key)
+        return max_3PC_key(keys) if keys else None
 
     def has_prepared(self, key):
-        return self.getPrePrepare(*key) and self.prepares.hasQuorum(
-            ThreePhaseKey(*key), self.quorums.prepare.value)
+        if not self.getPrePrepare(*key):
+            return False
+        if ((key not in self.prepares and key not in self.sentPrePrepares) and
+                (key not in self.preparesWaitingForPrePrepare)):
+            return False
+        return True
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
-        self.logger.info("{} ordering COMMIT {}".format(self, key))
+        self.logger.debug("{} ordering COMMIT {}".format(self, key))
         return self.order_3pc_key(key)
 
+    @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
+                          MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
     def order_3pc_key(self, key):
         pp = self.getPrePrepare(*key)
-        # TODO seems not enough for production where optimization happens
-        assert pp
+        if pp is None:
+            raise ValueError(
+                "{} no PrePrepare with a 'key' {} found"
+                .format(self, key)
+            )
+
+        self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
+                                                 ts=pp.ppTime)
+
         self.addToOrdered(*key)
+        invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
+        invalid_reqIdr = []
+        valid_reqIdr = []
+        for ind, reqIdr in enumerate(pp.reqIdr):
+            if ind in invalid_indices:
+                invalid_reqIdr.append(reqIdr)
+            else:
+                valid_reqIdr.append(reqIdr)
+            self.requests.ordered_by_replica(reqIdr)
+
         ordered = Ordered(self.instId,
                           pp.viewNo,
-                          pp.reqIdr[:pp.discarded],
+                          valid_reqIdr,
+                          invalid_reqIdr,
                           pp.ppSeqNo,
                           pp.ppTime,
                           pp.ledgerId,
                           pp.stateRootHash,
-                          pp.txnRootHash)
+                          pp.txnRootHash,
+                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
+                          self._get_primaries_for_ordered(pp))
         if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered)
+            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
 
         self._discard_ordered_req_keys(pp)
 
         self.send(ordered, TPCStat.OrderSent)
-        self.logger.info(
-            "{} ordered batch request, view no {}, ppSeqNo {}, "
-            "ledger {}, state root {}, txn root {}, requests ordered {}, "
-            "discarded {}".format(
-                self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
-                pp.stateRootHash, pp.txnRootHash, pp.reqIdr[:pp.discarded],
-                pp.reqIdr[pp.discarded:])
-        )
 
-        self.addToCheckpoint(pp.ppSeqNo, pp.digest)
+        ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
+                      "state root {}, txn root {}, audit root {}".format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
+                                                                         pp.stateRootHash, pp.txnRootHash,
+                                                                         pp.auditTxnRootHash)
+        self.logger.debug("{}, requests ordered {}, discarded {}".
+                          format(ordered_msg, valid_reqIdr, invalid_reqIdr))
+        self.logger.info("{}, requests ordered {}, discarded {}".
+                         format(ordered_msg, len(valid_reqIdr), len(invalid_reqIdr)))
+
+        if self.isMaster:
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
+        else:
+            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
+
+        self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
         # BLS multi-sig:
-        self._bls_bft_replica.process_order(key,
-                                            self.quorums,
-                                            pp)
+        self._bls_bft_replica.process_order(key, self.quorums, pp)
 
         return True
+
+    def _get_primaries_for_ordered(self, pp):
+        ledger = self.node.auditLedger
+        for index, txn in enumerate(ledger.get_uncommitted_txns()):
+            payload_data = get_payload_data(txn)
+            if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
+                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
+                if isinstance(txn_primaries, Iterable):
+                    return txn_primaries
+                elif isinstance(txn_primaries, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                    return get_payload_data(
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                break
+        else:
+            return self.node.primaries
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
@@ -1665,27 +2049,37 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
 
-    def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
+    @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
+                          MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
+    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
 
         :return: whether processed (True) or stashed (False)
         """
+        self.logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
+        result, reason = self.validator.validate_checkpoint_msg(msg)
+        if result == DISCARD:
+            self.discard(msg, "{} discard message {} from {} "
+                              "with the reason: {}".format(self, msg, sender, reason),
+                         self.logger.trace)
+        elif result == PROCESS:
+            self._do_process_checkpoint(msg, sender)
+        else:
+            self.logger.debug("{} stashing checkpoint message {} with "
+                              "the reason: {}".format(self, msg, reason))
+            self.stasher.stash((msg, sender), result)
+            return False
+        return True
 
-        self.logger.debug('{} processing checkpoint {} from {}'.format(self, msg, sender))
-
+    def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         seqNoEnd = msg.seqNoEnd
-        if self.isPpSeqNoStable(seqNoEnd):
-            self.discard(msg,
-                         reason="Checkpoint already stable",
-                         logMethod=self.logger.debug)
-            return True
-
         seqNoStart = msg.seqNoStart
         key = (seqNoStart, seqNoEnd)
 
         if key not in self.checkpoints or not self.checkpoints[key].digest:
             self.stashCheckpoint(msg, sender)
+            self._remove_stashed_checkpoints(self.last_ordered_3pc)
             self.__start_catchup_if_needed()
             return False
 
@@ -1693,11 +2087,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Raise the error only if master since only master's last
         # ordered 3PC is communicated during view change
         if self.isMaster and checkpoint_state.digest != msg.digest:
-            self.logger.error("{} received an incorrect digest {} for "
-                              "checkpoint {} from {}".format(self,
-                                                             msg.digest,
-                                                             key,
-                                                             sender))
+            self.logger.warning("{} received an incorrect digest {} for "
+                                "checkpoint {} from {}".format(self, msg.digest, key, sender))
             return True
 
         checkpoint_state.receivedDigests[sender] = msg.digest
@@ -1723,20 +2114,27 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not is_stashed_enough:
             return
 
-        self.logger.info(
-            '{} has lagged for {} checkpoints '
-            'so updating watermarks to {}'.format(
-                self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
-        self.h = stashed_checkpoint_ends[-1]
-
-        if self.isMaster and not self.isPrimary:
+        if self.isMaster:
+            self.logger.display(
+                '{} has lagged for {} checkpoints so updating watermarks to {}'.
+                format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+            self.h = stashed_checkpoint_ends[-1]
+            if not self.isPrimary:
+                self.logger.display(
+                    '{} has lagged for {} checkpoints so the catchup procedure starts'.
+                    format(self, lag_in_checkpoints))
+                self.node.start_catchup()
+        else:
             self.logger.info(
-                '{} has lagged for {} checkpoints '
-                'so the catchup procedure starts'.format(
-                    self, lag_in_checkpoints))
-            self.node.start_catchup()
+                '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
+                'shift watermarks and clean collections'.
+                format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+            # Adjust last_ordered_3pc, shift watermarks, clean operational
+            # collections and process stashed messages which now fit between
+            # watermarks
+            self._caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
 
-    def addToCheckpoint(self, ppSeqNo, digest):
+    def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
             if s <= ppSeqNo <= e:
                 state = self.checkpoints[s, e]  # type: CheckpointState
@@ -1752,19 +2150,28 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if state.seqNo == e:
             if len(state.digests) == self.config.CHK_FREQ:
-                # TODO CheckpointState/Checkpoint is not a namedtuple anymore
-                # 1. check if updateNamedTuple works for the new message type
-                # 2. choose another name
-                state = updateNamedTuple(state,
-                                         digest=sha256(
-                                             serialize_msg_for_signing(
-                                                 state.digests)
-                                         ).hexdigest(),
-                                         digests=[])
-                self.checkpoints[s, e] = state
-                self.send(Checkpoint(self.instId, self.viewNo, s, e,
-                                     state.digest))
-            self.processStashedCheckpoints((s, e))
+                self.doCheckpoint(state, s, e, ledger_id, view_no)
+            self.processStashedCheckpoints((s, e), view_no)
+
+    @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
+                          MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
+    def doCheckpoint(self, state, s, e, ledger_id, view_no):
+        # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+        # 1. check if updateNamedTuple works for the new message type
+        # 2. choose another name
+        state = updateNamedTuple(state,
+                                 digest=sha256(
+                                     serialize_msg_for_signing(
+                                         state.digests)
+                                 ).hexdigest(),
+                                 digests=[])
+        self.checkpoints[s, e] = state
+        self.logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
+                         "txn root hash {}. Committed state root hash {} Uncommitted state root hash {}".
+                         format(self, (s, e), view_no, state.digest, ledger_id,
+                                self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
+                                self.stateRootHash(ledger_id, committed=False)))
+        self.send(Checkpoint(self.instId, view_no, s, e, state.digest))
 
     def markCheckPointStable(self, seqNo):
         previousCheckpoints = []
@@ -1787,8 +2194,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.checkpoints.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
         self._gc((self.viewNo, seqNo))
-        self.logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
-        self.processStashedMsgsForNewWaterMarks()
+        self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
@@ -1801,7 +2207,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return False
 
     def stashCheckpoint(self, ck: Checkpoint, sender: str):
-        self.logger.info('{} stashing {} from {}'.format(self, ck, sender))
+        self.logger.debug('{} stashing {} from {}'.format(self, ck, sender))
         seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
         if ck.viewNo not in self.stashedRecvdCheckpoints:
             self.stashedRecvdCheckpoints[ck.viewNo] = {}
@@ -1831,50 +2237,74 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 end_pp_seq_numbers.append(seq_no_end)
         return sorted(end_pp_seq_numbers)
 
-    def processStashedCheckpoints(self, key):
+    def processStashedCheckpoints(self, key, view_no):
         # Remove all checkpoints from previous views if any
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
 
-        if key not in self.stashedRecvdCheckpoints.get(self.viewNo, {}):
+        if key not in self.stashedRecvdCheckpoints.get(view_no, {}):
             self.logger.trace("{} have no stashed checkpoints for {}")
-            return 0
+            return
 
-        stashed = self.stashedRecvdCheckpoints[self.viewNo][key]
+        # Get a snapshot of all the senders of stashed checkpoints for `key`
+        senders = list(self.stashedRecvdCheckpoints[view_no][key].keys())
         total_processed = 0
-        senders_of_completed_checkpoints = []
+        consumed = 0
 
-        for sender, checkpoint in stashed.items():
-            if self.processCheckpoint(checkpoint, sender):
-                senders_of_completed_checkpoints.append(sender)
-            total_processed += 1
+        for sender in senders:
+            # Check if the checkpoint from `sender` is still in
+            # `stashedRecvdCheckpoints` because it might be removed from there
+            # in case own checkpoint was stabilized when we were processing
+            # stashed checkpoints from previous senders in this loop
+            if view_no in self.stashedRecvdCheckpoints \
+                    and key in self.stashedRecvdCheckpoints[view_no] \
+                    and sender in self.stashedRecvdCheckpoints[view_no][key]:
+                if self.process_checkpoint(
+                        self.stashedRecvdCheckpoints[view_no][key].pop(sender),
+                        sender):
+                    consumed += 1
+                # Note that if `process_checkpoint` returned False then the
+                # checkpoint from `sender` was re-stashed back to
+                # `stashedRecvdCheckpoints`
+                total_processed += 1
 
-        for sender in senders_of_completed_checkpoints:
-            # unstash checkpoint
-            del stashed[sender]
-        if len(stashed) == 0:
-            del self.stashedRecvdCheckpoints[self.viewNo][key]
+        # If we have consumed stashed checkpoints for `key` from all the
+        # senders then remove entries which have become empty
+        if view_no in self.stashedRecvdCheckpoints \
+                and key in self.stashedRecvdCheckpoints[view_no] \
+                and len(self.stashedRecvdCheckpoints[view_no][key]) == 0:
+            del self.stashedRecvdCheckpoints[view_no][key]
+            if len(self.stashedRecvdCheckpoints[view_no]) == 0:
+                del self.stashedRecvdCheckpoints[view_no]
 
-        restashed_num = total_processed - len(senders_of_completed_checkpoints)
-        self.logger.debug('{} processed {} stashed checkpoints for {}, '
-                          '{} of them were stashed again'.format(
-                              self, total_processed, key, restashed_num))
+        restashed = total_processed - consumed
+        self.logger.info('{} processed {} stashed checkpoints for {}, '
+                         '{} of them were stashed again'.
+                         format(self, total_processed, key, restashed))
 
         return total_processed
 
     def _gc(self, till3PCKey):
-        self.logger.debug("{} cleaning up till {}".format(self, till3PCKey))
+        self.logger.info("{} cleaning up till {}".format(self, till3PCKey))
         tpcKeys = set()
         reqKeys = set()
-        for key3PC, pp in self.sentPrePrepares.items():
+
+        for key3PC, pp in itertools.chain(
+            self.sentPrePrepares.items(),
+            self.prePrepares.items()
+        ):
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
-        for key3PC, pp in self.prePrepares.items():
+
+        for key3PC, pp_dict in self.pre_prepare_tss.items():
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
-                for reqKey in pp.reqIdr:
-                    reqKeys.add(reqKey)
+                # TODO INDY-1983: was found that it adds additional
+                # requests to clean, need to explore why
+                # for (pp, _) in pp_dict:
+                #    for reqKey in pp.reqIdr:
+                #        reqKeys.add(reqKey)
 
         self.logger.trace("{} found {} 3-phase keys to clean".
                           format(self, len(tpcKeys)))
@@ -1882,6 +2312,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                           format(self, len(reqKeys)))
 
         to_clean_up = (
+            self.pre_prepare_tss,
             self.sentPrePrepares,
             self.prePrepares,
             self.prepares,
@@ -1890,7 +2321,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.requested_pre_prepares,
             self.requested_prepares,
             self.requested_commits,
-            self.pre_prepares_stashed_for_incorrect_time,
+            self.pre_prepares_stashed_for_incorrect_time
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -1898,10 +2329,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         for request_key in reqKeys:
             self.requests.free(request_key)
+            for ledger_id, keys in self.requestQueues.items():
+                if request_key in keys:
+                    self.discard_req_key(ledger_id, request_key)
             self.logger.trace('{} freed request {} from previous checkpoints'
                               .format(self, request_key))
 
-        self.compact_ordered()
+        self.ordered.clear_below_view(self.viewNo - 1)
 
         # BLS multi-sig:
         self._bls_bft_replica.gc(till3PCKey)
@@ -1921,38 +2355,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
 
-    def stashOutsideWatermarks(self, item: Tuple):
-        self.stashingWhileOutsideWaterMarks.append(item)
-
-    def processStashedMsgsForNewWaterMarks(self):
-        # Items from `stashingWhileOutsideWaterMarks` can be re-enqueued back
-        # to this queue, so `stashingWhileOutsideWaterMarks` might never
-        # become empty during the execution of this method resulting
-        # in an infinite loop. So we should consume each item only once
-        # during one call of this method.
-        itemsToConsume = len(self.stashingWhileOutsideWaterMarks)
-
-        # Moreover, the watermarks may be updated again while consuming items
-        # from `stashingWhileOutsideWaterMarks`. So this method may be called
-        # recursively. We should stop iteration in all the outward calls of
-        # this method in case we complete consuming of stashed messages in any
-        # recursive call of this method.
-        self.consumedAllStashedMsgs = False
-
-        while itemsToConsume and not self.consumedAllStashedMsgs:
-            item = self.stashingWhileOutsideWaterMarks.popleft()
-            self.logger.debug("{} processing stashed item {} after new stable "
-                              "checkpoint".format(self, item))
-
-            if isinstance(item, tuple) and len(item) == 2:
-                self.dispatchThreePhaseMsg(*item)
-            else:
-                self.logger.debug("{} cannot process {} "
-                                  "from stashingWhileOutsideWaterMarks".format(self, item))
-            itemsToConsume -= 1
-
-        self.consumedAllStashedMsgs = True
-
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
@@ -1967,16 +2369,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             return self.checkpoints.peekitem(-1)
 
-    def isPpSeqNoStable(self, ppSeqNo):
+    def is_pp_seq_no_stable(self, msg: Checkpoint):
         """
         :param ppSeqNo:
         :return: True if ppSeqNo is less than or equal to last stable
         checkpoint, false otherwise
         """
+        pp_seq_no = msg.seqNoEnd
         ck = self.firstCheckPoint
         if ck:
             _, ckState = ck
-            return ckState.isStable and ckState.seqNo >= ppSeqNo
+            return ckState.isStable and ckState.seqNo >= pp_seq_no
         else:
             return False
 
@@ -1988,36 +2391,24 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, view_no: int, pp_seq_no: int):
-        self.ordered.add((view_no, pp_seq_no))
+        self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
         self.requested_prepares.pop((view_no, pp_seq_no), None)
         self.requested_commits.pop((view_no, pp_seq_no), None)
 
-    def compact_ordered(self):
-        min_allowed_view_no = self.viewNo - 1
-        i = 0
-        for view_no, _ in self.ordered:
-            if view_no >= min_allowed_view_no:
-                break
-            i += 1
-        self.ordered = self.ordered[i:]
-
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set = None):
         if nonFinReqs:
-            self.logger.info(
-                "Queueing pre-prepares due to unavailability of finalised "
-                "requests. PrePrepare {} from {}".format(
-                    ppMsg, sender))
+            self.logger.info("{} - Queueing pre-prepares due to unavailability of finalised "
+                             "requests. PrePrepare {} from {}".format(self, ppMsg, sender))
             self.prePreparesPendingFinReqs.append((ppMsg, sender, nonFinReqs))
         else:
             # Possible exploit, an malicious party can send an invalid
             # pre-prepare and over-write the correct one?
-            self.logger.info(
-                "Queueing pre-prepares due to unavailability of previous "
-                "pre-prepares. {} from {}".format(ppMsg, sender))
+            self.logger.info("Queueing pre-prepares due to unavailability of previous pre-prepares. {} from {}".
+                             format(ppMsg, sender))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (
                 ppMsg, sender)
 
@@ -2054,16 +2445,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.discard(pp, "Pre-Prepare from a previous view",
                              self.logger.debug)
                 continue
-            self.processPrePrepare(pp, sender)
+            self.logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
+            self.process_three_phase_msg(pp, sender)
             r += 1
         return r
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
-        self.logger.info(
-            "{} queueing prepare due to unavailability of PRE-PREPARE. "
-            "Prepare {} from {}".format(
-                self, pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
+        self.logger.debug("{} queueing prepare due to unavailability of PRE-PREPARE. "
+                          "Prepare {} for key {} from {}".format(self, pMsg, key, sender))
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
@@ -2082,16 +2472,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
                 self.logger.debug("{} popping stashed PREPARE{}".format(self, key))
-                self.processPrepare(prepare, sender)
+                self.process_three_phase_msg(prepare, sender)
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
             self.logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
                               " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
     def enqueue_commit(self, request: Commit, sender: str):
-        self.logger.info("Queueing commit due to unavailability of PREPARE. "
-                         "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
+        self.logger.debug("{} - Queueing commit due to unavailability of PREPARE. "
+                          "Request {} with key {} from {}".format(self, request, key, sender))
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
@@ -2100,7 +2490,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
             if not self.has_prepared(key):
-                self.logger.debug('{} has not prepared {}, will dequeue the '
+                self.logger.debug('{} has not pre-prepared {}, will dequeue the '
                                   'COMMITs later'.format(self, key))
                 return
             i = 0
@@ -2109,7 +2499,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
                 self.logger.debug("{} popping stashed COMMIT{}".format(self, key))
-                self.processCommit(commit, sender)
+                self.process_three_phase_msg(commit, sender)
+
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
             self.logger.debug("{} processed {} COMMITs waiting for PREPARE for"
@@ -2145,7 +2536,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         `view_no` else will return True
         :return:
         """
-        assert view_no <= self.viewNo
+        if view_no > self.viewNo:
+            raise PlenumValueError(
+                'view_no', view_no,
+                "<= current view_no {}".format(self.viewNo),
+                prefix=self
+            )
+
         return view_no == self.viewNo or (
             view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
                 (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
@@ -2202,7 +2599,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if recipients is None:
             recipients = self.node.nodestack.connecteds.copy()
             primaryName = self.primaryName[:self.primaryName.rfind(":")]
-            recipients.remove(primaryName)
+            recipients.discard(primaryName)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
@@ -2287,7 +2684,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
             else None
         if stashed_data is None or curr_data == stashed_data:
-            return self.processThreePhaseMsg(msg, sender)
+            return self.process_three_phase_msg(msg, sender)
 
         self.discard(msg, reason='{} does not have expected state {}'.
                      format(THREE_PC_PREFIX, stashed_data),
@@ -2302,7 +2699,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def process_requested_commit(self, commit: Commit, sender: str):
         return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
 
-    def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
+    def is_pre_prepare_time_correct(self, pp: PrePrepare, sender: str) -> bool:
         """
         Check if this PRE-PREPARE is not older than (not checking for greater
         than since batches maybe sent in less than 1 second) last PRE-PREPARE
@@ -2310,11 +2707,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         :param pp:
         :return:
         """
-        return ((self.last_accepted_pre_prepare_time is None or
-                 pp.ppTime >= self.last_accepted_pre_prepare_time) and
-                (abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS))
+        tpcKey = (pp.viewNo, pp.ppSeqNo)
 
-    def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
+        if (self.last_accepted_pre_prepare_time and
+                pp.ppTime < self.last_accepted_pre_prepare_time):
+            return False
+        elif ((tpcKey not in self.pre_prepare_tss) or
+                ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
+            return False
+        else:
+            return (
+                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+            )
+
+    def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """
         Returns True or False depending on the whether the time in PRE-PREPARE
         is acceptable. Can return True if time is not acceptable but sufficient
@@ -2326,15 +2733,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if key in self.requested_pre_prepares:
             # Special case for requested PrePrepares
             return True
-        correct = self.is_pre_prepare_time_correct(pp)
+        correct = self.is_pre_prepare_time_correct(pp, sender)
         if not correct:
-            self.logger.error(
-                '{} found {} to have incorrect time.'.format(self, pp))
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
-                self.logger.info(
-                    '{} marking time as correct for {}'.format(self, pp))
+                self.logger.debug('{} marking time as correct for {}'.format(self, pp))
                 correct = True
+            else:
+                self.logger.warning('{} found {} to have incorrect time.'.format(self, pp))
         return correct
 
     def _process_stashed_pre_prepare_for_time_if_possible(
@@ -2361,24 +2767,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
                 stashed_pp[key] = (pp, sender, True)
-                self.processPrePrepare(pp, sender)
+                self.process_three_phase_msg(pp, sender)
                 return True
         return False
-
-    # @property
-    # def threePhaseState(self):
-    #     # TODO: This method is incomplete
-    #     # Gets the current stable and unstable checkpoints and creates digest
-    #     # of unstable checkpoints
-    #     if self.checkpoints:
-    #         pass
-    #     else:
-    #         state = []
-    #     return ThreePCState(self.instId, state)
-
-    def process3PhaseState(self, msg: ThreePCState, sender: str):
-        # TODO: This is not complete
-        pass
 
     def send(self, msg, stat=None) -> None:
         """
@@ -2403,9 +2794,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                ledger_id, count, _, prevStateRoot = self.batches.pop(key)
+                ledger_id, discarded, _, prevStateRoot, len_reqIdr = self.batches.pop(key)
+                discarded = invalid_index_serializer.deserialize(discarded)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, count)
+                self.revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
                 i += 1
             else:
                 break
@@ -2413,12 +2805,24 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def update_watermark_from_3pc(self):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.viewNo):
-            self.logger.debug("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
+            self.logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
             self.h = self.last_ordered_3pc[1]
         else:
-            self.logger.debug("try to update_watermark_from_3pc but last_ordered_3pc is None")
+            self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
-    def caught_up_till_3pc(self, last_caught_up_3PC):
+    def on_catch_up_finished(self, last_caught_up_3PC=None, master_last_ordered_3PC=None):
+
+        if master_last_ordered_3PC and last_caught_up_3PC and \
+                compare_3PC_keys(master_last_ordered_3PC,
+                                 last_caught_up_3PC) > 0:
+            if self.isMaster:
+                self._caught_up_till_3pc(last_caught_up_3PC)
+            else:
+                self._catchup_clear_for_backup()
+                self.first_batch_after_catchup = True
+        self.stasher.unstash_catchup()
+
+    def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
@@ -2426,7 +2830,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
-    def catchup_clear_for_backup(self):
+    def _catchup_clear_for_backup(self):
         if not self.isPrimary:
             self.last_ordered_3pc = (self.viewNo, 0)
             self.batches.clear()
@@ -2494,36 +2898,54 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         if till_3pc_key is None:
             self.stashedRecvdCheckpoints.clear()
-            self.logger.debug('{} removing all stashed checkpoints'.format(self))
+            self.logger.info('{} removing all stashed checkpoints'.format(self))
             return
 
         for view_no in list(self.stashedRecvdCheckpoints.keys()):
 
             if view_no < till_3pc_key[0]:
-                self.logger.debug(
-                    '{} removing stashed checkpoints for view {}'
-                    .format(self, view_no))
+                self.logger.info('{} removing stashed checkpoints for view {}'.format(self, view_no))
                 del self.stashedRecvdCheckpoints[view_no]
 
             elif view_no == till_3pc_key[0]:
                 for (s, e) in list(self.stashedRecvdCheckpoints[view_no].keys()):
                     if e <= till_3pc_key[1]:
-                        self.logger.debug(
-                            '{} removing stashed checkpoints: '
-                            'viewNo={}, seqNoStart={}, seqNoEnd={}'
-                            .format(self, view_no, s, e))
-                        del self.stashedRecvdCheckpoints[self.viewNo][(s, e)]
-                if len(self.stashedRecvdCheckpoints[self.viewNo]) == 0:
-                    del self.stashedRecvdCheckpoints[self.viewNo]
+                        self.logger.info('{} removing stashed checkpoints: '
+                                         'viewNo={}, seqNoStart={}, seqNoEnd={}'.
+                                         format(self, view_no, s, e))
+                        del self.stashedRecvdCheckpoints[view_no][(s, e)]
+                if len(self.stashedRecvdCheckpoints[view_no]) == 0:
+                    del self.stashedRecvdCheckpoints[view_no]
 
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:
-            req_handler = self.node.ledger_to_req_handler.get(ledger_id)
-            if req_handler.ts_store:
-                last_timestamp = req_handler.ts_store.get_last_key()
+            ts_store = self.node.db_manager.get_store(TS_LABEL)
+            if ts_store:
+                last_timestamp = ts_store.get_last_key()
                 if last_timestamp:
                     last_timestamp = int(last_timestamp.decode())
                     self.logger.debug("Last ordered timestamp from store is : {}"
                                       "".format(last_timestamp))
                     return last_timestamp
         return None
+
+    def get_ledgers_last_update_time(self) -> dict:
+        if self._freshness_checker:
+            return self._freshness_checker.get_last_update_time()
+
+    def request_propagates_if_needed(self, bad_reqs, pre_prepare):
+        if any(pre_prepare is pended[0] for pended in self.prePreparesPendingFinReqs):
+            self.node.request_propagates(bad_reqs)
+
+    def get_valid_req_ids_from_all_requests(self, reqs, invalid_indices):
+        return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
+
+    def report_suspicious_node(self, ex):
+        if self.isMaster:
+            self.node.reportSuspiciousNodeEx(ex)
+        else:
+            self.warn_suspicious_backup(ex.node, ex.reason, ex.code)
+
+    def warn_suspicious_backup(self, nodeName, reason, code):
+        self.logger.warning("backup replica {} raised suspicion on node {} for {}; suspicion code "
+                            "is {}".format(self, nodeName, reason, code))

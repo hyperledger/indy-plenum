@@ -5,7 +5,7 @@ import time
 
 from plenum.common.messages.node_messages import PrePrepare, Prepare
 from plenum.common.util import compare_3PC_keys
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, init_discarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import getNonPrimaryReplicas, checkNodesConnected
@@ -37,6 +37,7 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
+    replica.first_batch_after_catchup = True
     replica._setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
@@ -147,17 +148,19 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
 def _create_prepare_and_preprepare(inst_id, pp_sq_no, view_no, timestamp,
                                    sdk_wallet_client):
     time = int(timestamp)
-    req_idr = [[sdk_wallet_client[1], 1234]]
+    req_idr = ["random request digest"]
     preprepare = PrePrepare(inst_id,
                             pp_sq_no,
                             view_no,
                             time,
                             req_idr,
-                            1,
+                            init_discarded(),
                             "123",
                             1,
                             None,
-                            None)
+                            None,
+                            0,
+                            True)
     prepare = Prepare(inst_id,
                       pp_sq_no,
                       view_no,

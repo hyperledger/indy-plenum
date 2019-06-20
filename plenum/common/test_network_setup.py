@@ -5,7 +5,10 @@ from collections import namedtuple
 import fileinput
 import shutil
 
+from common.exceptions import PlenumValueError
+
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 
 from stp_core.crypto.nacl_wrappers import Signer
 
@@ -20,7 +23,7 @@ from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 from stp_core.common.util import adict
 
 
-CLIENT_CONNECTIONS_LIMIT = 15360
+CLIENT_CONNECTIONS_LIMIT = 500
 
 
 class TestNetworkSetup:
@@ -44,10 +47,12 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
-    def writeNodeParamsFile(filePath, name, nPort, cPort):
+    def writeNodeParamsFile(filePath, name, nIp, nPort, cIp, cPort):
         contents = [
             'NODE_NAME={}'.format(name),
+            'NODE_IP={}'.format(nIp),
             'NODE_PORT={}'.format(nPort),
+            'NODE_CLIENT_IP={}'.format(cIp),
             'NODE_CLIENT_PORT={}'.format(cPort),
             'CLIENT_CONNECTIONS_LIMIT={}'.format(CLIENT_CONNECTIONS_LIMIT)
         ]
@@ -83,51 +88,69 @@ class TestNetworkSetup:
 
         config.NETWORK_NAME = network
 
-        if _localNodes:
-            config_helper = config_helper_class(config, chroot=chroot)
-            os.makedirs(config_helper.genesis_dir, exist_ok=True)
-            genesis_dir = config_helper.genesis_dir
-            keys_dir = config_helper.keys_dir
-        else:
-            genesis_dir = cls.setup_clibase_dir(config, network)
-            keys_dir = os.path.join(genesis_dir, "keys")
+        config_helper = config_helper_class(config, chroot=chroot)
+        os.makedirs(config_helper.genesis_dir, exist_ok=True)
+        genesis_dir = config_helper.genesis_dir
+        keys_dir = config_helper.keys_dir
 
         poolLedger = cls.init_pool_ledger(appendToLedgers, genesis_dir, config)
         domainLedger = cls.init_domain_ledger(appendToLedgers, genesis_dir,
                                               config, domainTxnFieldOrder)
 
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
+        # TODO: make it parameter for generate genesis txns script
+        genesis_protocol_version = None
+
+        # 1. INIT DOMAIN LEDGER GENESIS FILE
+        seq_no = 1
+        trustee_txn = Member.nym_txn(trustee_def.nym, verkey=trustee_def.verkey, role=TRUSTEE,
+                                     seq_no=seq_no,
+                                     protocol_version=genesis_protocol_version)
+        seq_no += 1
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym)
+            nym_txn = Member.nym_txn(sd.nym, verkey=sd.verkey, role=STEWARD, creator=trustee_def.nym,
+                                     seq_no=seq_no,
+                                     protocol_version=genesis_protocol_version)
+            seq_no += 1
             domainLedger.add(nym_txn)
 
+        for cd in client_defs:
+            txn = Member.nym_txn(cd.nym, verkey=cd.verkey, creator=trustee_def.nym,
+                                 seq_no=seq_no,
+                                 protocol_version=genesis_protocol_version)
+            seq_no += 1
+            domainLedger.add(txn)
+
+        # 2. INIT KEYS AND POOL LEDGER GENESIS FILE
+        seq_no = 1
         for nd in node_defs:
             if nd.idx in _localNodes:
-                _, verkey, blskey = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
+                _, verkey, blskey, key_proof = initNodeKeysForBothStacks(nd.name, keys_dir, nd.sigseed, override=True)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
 
                 if nd.ip != '127.0.0.1':
                     paramsFilePath = os.path.join(config.GENERAL_CONFIG_DIR, nodeParamsFileName)
                     print('Nodes will not run locally, so writing {}'.format(paramsFilePath))
-                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name, nd.port, nd.client_port)
+                    TestNetworkSetup.writeNodeParamsFile(paramsFilePath, nd.name,
+                                                         "0.0.0.0", nd.port,
+                                                         "0.0.0.0", nd.client_port)
 
                 print("This node with name {} will use ports {} and {} for nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))
             else:
                 verkey = nd.verkey
-                blskey = init_bls_keys(keys_dir, nd.name, nd.sigseed)
+                blskey, key_proof = init_bls_keys(keys_dir, nd.name, nd.sigseed)
             node_nym = cls.getNymFromVerkey(verkey)
 
             node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
-                                        nd.ip, nd.port, nd.client_port, blskey=blskey)
+                                        nd.ip, nd.port, nd.client_port, blskey=blskey,
+                                        bls_key_proof=key_proof,
+                                        seq_no=seq_no,
+                                        protocol_version=genesis_protocol_version)
+            seq_no += 1
             poolLedger.add(node_txn)
-
-        for cd in client_defs:
-            txn = Member.nym_txn(cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
-            domainLedger.add(txn)
 
         poolLedger.stop()
         domainLedger.stop()
@@ -155,13 +178,6 @@ class TestNetworkSetup:
     @classmethod
     def domain_ledger_file_name(cls, config):
         return config.domainTransactionsFile
-
-    @classmethod
-    def setup_clibase_dir(cls, config, network_name):
-        cli_base_net = os.path.join(os.path.expanduser(config.CLI_NETWORK_DIR), network_name)
-        if not os.path.exists(cli_base_net):
-            os.makedirs(cli_base_net, exist_ok=True)
-        return cli_base_net
 
     @classmethod
     def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder,
@@ -197,10 +213,17 @@ class TestNetworkSetup:
         args = parser.parse_args()
 
         if isinstance(args.nodeNum, int):
-            assert 1 <= args.nodeNum <= args.nodes, "nodeNum should be less or equal to nodeCount"
+            if not (1 <= args.nodeNum <= args.nodes):
+                raise PlenumValueError(
+                    'args.nodeNum', args.nodeNum,
+                    ">= 1 && <= args.nodes {}".format(args.nodes)
+                )
         elif isinstance(args.nodeNum, list):
-            bad_idxs = [x for x in args.nodeNum if not (1 <= x <= args.nodes)]
-            assert not bad_idxs, "nodeNum should be less or equal to nodeCount"
+            if any([True for x in args.nodeNum if not (1 <= x <= args.nodes)]):
+                raise PlenumValueError(
+                    'some items in nodeNum list', args.nodeNum,
+                    ">= 1 && <= args.nodes {}".format(args.nodes)
+                )
 
         node_num = [args.nodeNum, None] if args.nodeNum else [None]
 
@@ -221,12 +244,6 @@ class TestNetworkSetup:
             cls.bootstrapTestNodesCore(config, args.network, args.appendToLedgers, domainTxnFieldOrder, trustee_def,
                                        steward_defs, node_defs, client_defs, n_num, nodeParamsFileName,
                                        config_helper_class, node_config_helper_class)
-
-        # delete unnecessary key dir in client folder
-        key_dir = cls.setup_clibase_dir(config, args.network)
-        key_dir = os.path.join(key_dir, "keys")
-        if os.path.isdir(key_dir):
-            shutil.rmtree(key_dir, ignore_errors=True)
 
     @staticmethod
     def _bootstrapArgsTypeNodeCount(nodesStrArg):

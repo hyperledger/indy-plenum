@@ -9,10 +9,15 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
-from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.node_bootstrap import NodeBootstrap
+from plenum.server.replica_stasher import ReplicaStasher
+from plenum.test.buy_handler import BuyHandler
+from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
+from plenum.test.get_buy_handler import GetBuyHandler
+from plenum.test.random_buy_handler import RandomBuyHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -26,15 +31,15 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, STATE_PROOF
+    DOMAIN_LEDGER_ID, TS_LABEL, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
-from plenum.server import replica
+from plenum.server import replica, req_handler
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
+from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.server.primary_elector import PrimaryElector
 from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
@@ -55,27 +60,14 @@ from plenum.common.messages.node_messages import Reply
 logger = getlogger()
 
 
+@spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
-    write_types = CoreAuthNr.write_types.union({'buy', 'randombuy'})
-    query_types = CoreAuthNr.query_types.union({'get_buy', })
+    pass
 
 
 class TestDomainRequestHandler(DomainRequestHandler):
     write_types = DomainRequestHandler.write_types.union({'buy', 'randombuy', })
     query_types = DomainRequestHandler.query_types.union({'get_buy', })
-
-    @staticmethod
-    def prepare_buy_for_state(txn):
-        from common.serializers.serialization import domain_state_serializer
-        identifier = get_from(txn)
-        req_id = get_req_id(txn)
-        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
-        key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
-        return key, value
-
-    @staticmethod
-    def prepare_buy_key(identifier, req_id):
-        return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
@@ -86,6 +78,18 @@ class TestDomainRequestHandler(DomainRequestHandler):
                          format(self, self.state.headHash))
         else:
             super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def gen_txn_path(self, txn):
+        return None
+
+    @staticmethod
+    def prepare_buy_for_state(txn):
+        from common.serializers.serialization import domain_state_serializer
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
+        key = BuyHandler.prepare_buy_key(identifier, req_id)
+        return key, value
 
 
 NodeRef = TypeVar('NodeRef', Node, str)
@@ -139,13 +143,13 @@ class TestNodeCore(StackedTester):
             nodeInfo=self.nodeInfo,
             notifierEventTriggeringConfig=notifierEventTriggeringConfig,
             pluginPaths=pluginPaths)
-        for i in range(len(self.replicas)):
-            self.monitor.addInstance()
+        for i in self.replicas.keys():
+            self.monitor.addInstance(i)
         self.replicas._monitor = self.monitor
         self.replicas.register_monitor_handler()
 
     def create_replicas(self, config=None):
-        return TestReplicas(self, self.monitor, config)
+        return TestReplicas(self, self.monitor, config, self.metrics)
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -159,26 +163,20 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
-    def createReplica(self, instNo: int, isMaster: bool, config=None):
-        return TestReplica(self, instNo, isMaster, config)
-
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimarySelector
         return pdCls(self)
 
     def newViewChanger(self):
-        vchCls = self.view_changer if self.view_changer is not None else \
-            TestViewChanger
-        return vchCls(self)
+        view_changer = self.view_changer if self.view_changer is not None \
+            else create_view_changer(self, TestViewChanger)
+        # TODO: This is a hack for tests compatibility, do something better
+        view_changer.node = self
+        return view_changer
 
     def delaySelfNomination(self, delay: Seconds):
-        if isinstance(self.primaryDecider, PrimaryElector):
-            logger.debug("{} delaying start election".format(self))
-            delayerElection = partial(delayers.delayerMethod,
-                                      TestPrimaryElector.startElection)
-            self.elector.actionQueueStasher.delay(delayerElection(delay))
-        elif isinstance(self.primaryDecider, PrimarySelector):
+        if isinstance(self.primaryDecider, PrimarySelector):
             raise RuntimeError('Does not support nomination since primary is '
                                'selected deterministically')
         else:
@@ -195,7 +193,7 @@ class TestNodeCore(StackedTester):
         logger.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays(*names)
-        for r in self.replicas:
+        for r in self.replicas.values():
             r.outBoxTestStasher.resetDelays()
 
     def resetDelaysClient(self):
@@ -207,7 +205,7 @@ class TestNodeCore(StackedTester):
     def force_process_delayeds(self, *names):
         c = self.nodestack.force_process_delayeds(*names)
         c += self.nodeIbStasher.force_unstash(*names)
-        for r in self.replicas:
+        for r in self.replicas.values():
             c += r.outBoxTestStasher.force_unstash(*names)
         logger.debug("{} forced processing of delayed messages, "
                      "{} processed in total".format(self, c))
@@ -272,33 +270,34 @@ class TestNodeCore(StackedTester):
                      format(self.nodestack.name, msg, frm))
 
     def service_replicas_outbox(self, *args, **kwargs) -> int:
-        for r in self.replicas:  # type: TestReplica
+        for r in self.replicas.values():  # type: TestReplica
             r.outBoxTestStasher.process()
         return super().service_replicas_outbox(*args, **kwargs)
 
     def ensureKeysAreSetup(self):
         pass
 
-    def getDomainReqHandler(self):
+    def init_domain_req_handler(self):
         return TestDomainRequestHandler(self.domainLedger,
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,
                                         self.bls_bft.bls_store,
-                                        self.getStateTsDbStorage())
+                                        self.db_manager.get_store(TS_LABEL))
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
-        return TestCoreAuthnr(state=state)
+        return TestCoreAuthnr(self.write_manager.txn_types,
+                              self.read_manager.txn_types,
+                              self.action_manager.txn_types,
+                              state=state)
 
     def processRequest(self, request, frm):
-        if request.operation[TXN_TYPE] == 'get_buy':
+        if request.operation[TXN_TYPE] == GET_BUY:
             self.send_ack_to_client(request.key, frm)
 
             identifier = request.identifier
             req_id = request.reqId
-            req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-            buy_key = req_handler.prepare_buy_key(identifier, req_id)
-            result = req_handler.state.get(buy_key)
+            result = self.read_manager.get_result(request)
 
             res = {
                 f.IDENTIFIER.nm: identifier,
@@ -326,13 +325,14 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.forward,
                  Node.send,
                  Node.checkPerformance,
-                 Node.processStashedOrderedReqs,
                  Node.lost_master_primary,
                  Node.propose_view_change,
                  Node.getReplyFromLedger,
+                 Node.getReplyFromLedgerForRequest,
                  Node.recordAndPropagate,
                  Node.allLedgersCaughtUp,
                  Node.start_catchup,
+                 Node._do_start_catchup,
                  Node.is_catchup_needed,
                  Node.no_more_catchups_needed,
                  Node.caught_up_for_current_view,
@@ -342,18 +342,41 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.process_message_req,
                  Node.process_message_rep,
                  Node.request_propagates,
-                 Node.send_current_state_to_lagging_node,
-                 Node.process_current_state_message,
-                 ]
+                 Node.transmitToClient,
+                 Node.has_ordered_till_last_prepared_certificate,
+                 Node.on_inconsistent_3pc_state,
+                 Node.sendToViewChanger, ]
+
+class TestNodeBootstrap(NodeBootstrap):
+
+    def register_domain_req_handlers(self):
+        super().register_domain_req_handlers()
+        self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
+        self.node.write_manager.register_req_handler(RandomBuyHandler(self.node.db_manager))
+        self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
+
+    def init_common_managers(self):
+        super().init_common_managers()
+        self.node.ledgerManager = TestLedgerManager(self.node,
+                                                    postAllLedgersCaughtUp=self.node.allLedgersCaughtUp,
+                                                    preCatchupClbk=self.node.preLedgerCatchUp,
+                                                    postCatchupClbk=self.node.postLedgerCatchUp,
+                                                    ledger_sync_order=self.node.ledger_ids,
+                                                    metrics=self.node.metrics)
 
 
 @spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
+
     def __init__(self, *args, **kwargs):
+        from plenum.common.stacks import nodeStackClass, clientStackClass
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
+        if kwargs.get('bootstrap_cls', None) is None:
+            kwargs['bootstrap_cls'] = TestNodeBootstrap
 
         Node.__init__(self, *args, **kwargs)
+        self.view_changer = create_view_changer(self, TestViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
@@ -369,24 +392,20 @@ class TestNode(TestNodeCore, Node):
     def clientStackClass(self):
         return getTestableStack(self.ClientStackClass)
 
-    def get_new_ledger_manager(self):
-        return TestLedgerManager(
-            self,
-            ownedByNode=True,
-            postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-            preCatchupClbk=self.preLedgerCatchUp,
-            ledger_sync_order=self.ledger_ids
-        )
-
     def sendRepliesToClients(self, committedTxns, ppTime):
         committedTxns = list(committedTxns)
-        req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-        for txn in committedTxns:
-            if get_type(txn) == "buy":
-                key, value = req_handler.prepare_buy_for_state(txn)
-                proof = req_handler.make_proof(key)
-                if proof:
-                    txn[STATE_PROOF] = proof
+        handler = None
+        for h in self.read_manager.request_handlers.values():
+            if isinstance(h, GetBuyHandler):
+                handler = h
+        if handler:
+            for txn in committedTxns:
+                if get_type(txn) == "buy":
+                    key, value = handler.prepare_buy_for_state(txn)
+                    _, proof = handler._get_value_from_state(key, with_proof=True)
+                    if proof:
+                        txn[STATE_PROOF] = proof
+
         super().sendRepliesToClients(committedTxns, ppTime)
 
     def schedule_node_status_dump(self):
@@ -395,25 +414,8 @@ class TestNode(TestNodeCore, Node):
     def dump_additional_info(self):
         pass
 
-
-elector_spyables = [
-    PrimaryElector.discard,
-    PrimaryElector.processPrimary,
-    PrimaryElector.sendPrimary
-]
-
-
-@spyable(methods=elector_spyables)
-class TestPrimaryElector(PrimaryElector):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.actionQueueStasher = Stasher(self.actionQueue,
-                                          "actionQueueStasher~elector~" +
-                                          self.name)
-
-    def _serviceActions(self):
-        self.actionQueueStasher.process()
-        return super()._serviceActions()
+    def restart_clientstack(self):
+        self.clientstack.restart()
 
 
 selector_spyables = [PrimarySelector.decidePrimaries]
@@ -426,14 +428,25 @@ class TestPrimarySelector(PrimarySelector):
 
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
-    ViewChanger._start_view_change_if_possible,
+    ViewChanger._do_view_change_by_future_vcd,
     ViewChanger.process_instance_change_msg,
-    ViewChanger.startViewChange
+    ViewChanger.start_view_change,
+    ViewChanger.process_future_view_vchd_msg
 ]
 
 
 @spyable(methods=view_changer_spyables)
 class TestViewChanger(ViewChanger):
+    pass
+
+
+replica_stasher_spyables = [
+    ReplicaStasher.stash
+]
+
+
+@spyable(methods=replica_stasher_spyables)
+class TestReplicaStasher(ReplicaStasher):
     pass
 
 
@@ -446,14 +459,13 @@ replica_spyables = [
     replica.Replica.processPrePrepare,
     replica.Replica.processPrepare,
     replica.Replica.processCommit,
+    replica.Replica.process_checkpoint,
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,
-    replica.Replica.stashOutsideWatermarks,
     replica.Replica.revert_unordered_batches,
     replica.Replica.revert,
-    replica.Replica.can_process_since_view_change_in_progress,
-    replica.Replica.processThreePhaseMsg,
+    replica.Replica.process_three_phase_msg,
     replica.Replica._request_pre_prepare,
     replica.Replica._request_pre_prepare_for_prepare,
     replica.Replica._request_prepare,
@@ -464,6 +476,8 @@ replica_spyables = [
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
+    replica.Replica.markCheckPointStable,
+    replica.Replica.request_propagates_if_needed,
 ]
 
 
@@ -471,6 +485,7 @@ replica_spyables = [
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.stasher = TestReplicaStasher(self)
         # Each TestReplica gets it's own outbox stasher, all of which TestNode
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \
@@ -478,8 +493,12 @@ class TestReplica(replica.Replica):
 
 
 class TestReplicas(Replicas):
+    _replica_class = TestReplica
+
     def _new_replica(self, instance_id: int, is_master: bool, bls_bft: BlsBft):
-        return TestReplica(self._node, instance_id, self._config, is_master, bls_bft)
+        return self.__class__._replica_class(self._node, instance_id,
+                                             self._config, is_master,
+                                             bls_bft, self._metrics)
 
 
 # TODO: probably delete when remove from node
@@ -514,8 +533,8 @@ class TestNodeSet(ExitStack):
             self.nodeReg = nodeReg
         else:
             nodeNames = (names if names is not None and count is None else
-            genNodeNames(count) if count is not None else
-            error("only one of either names or count is required"))
+                         genNodeNames(count) if count is not None else
+                         error("only one of either names or count is required"))
             self.nodeReg = genNodeReg(
                 names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
@@ -632,12 +651,12 @@ class TestMonitor(Monitor):
         super().__init__(*args, **kwargs)
         self.masterReqLatenciesTest = {}
 
-    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
-                       byMaster: bool = False):
-        durations = super().requestOrdered(reqIdrs, instId, byMaster)
+    def requestOrdered(self, reqIdrs: List[str],
+                       instId: int, requests, byMaster: bool = False) -> Dict:
+        durations = super().requestOrdered(reqIdrs, instId, requests, byMaster)
         if byMaster and durations:
-            for (identifier, reqId), duration in durations.items():
-                self.masterReqLatenciesTest[identifier, reqId] = duration
+            for key, duration in durations.items():
+                self.masterReqLatenciesTest[key] = duration
 
     def reset(self):
         super().reset()
@@ -796,8 +815,8 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
                                                 nodes: Sequence[TestNode],
                                                 retryWait: float = None,
                                                 timeout: float = None,
-                                                numInstances: int = None):
-    coro = eventually(instances, nodes, numInstances,
+                                                instances_list: Sequence[int] = None):
+    coro = eventually(instances, nodes, instances_list,
                       retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
     newTimeout = timeout - timeConsumed if timeout is not None else None
@@ -814,7 +833,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                                       retryWait: float = None,
                                       customTimeout: float = None):
     def checkAtMostOnePrim(node):
-        prims = [r for r in node.replicas if r.isPrimary]
+        prims = [r for r in node.replicas.values() if r.isPrimary]
         assert len(prims) <= 1
 
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
@@ -829,23 +848,28 @@ def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None,
-                               numInstances: int = None):
+                               instances: Sequence[int] = None,
+                               check_primaries=True):
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
                                                 nodes=nodes,
                                                 retryWait=retryWait,
                                                 timeout=timeout,
-                                                numInstances=numInstances)
+                                                instances_list=instances)
 
     checkEveryNodeHasAtMostOnePrimary(looper=looper,
                                       nodes=nodes,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
+    if check_primaries:
+        for n in nodes[1:]:
+            assert nodes[0].primaries == n.primaries
+
     primaryReplicas = {replica.instId: replica
                        for node in nodes
-                       for replica in node.replicas if replica.isPrimary}
+                       for replica in node.replicas.values() if replica.isPrimary}
     return [r[1] for r in
             sorted(primaryReplicas.items(), key=operator.itemgetter(0))]
 
@@ -854,7 +878,8 @@ def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
                         customTimeout: float = None,
-                        numInstances: int = None) -> Sequence[TestNode]:
+                        instances_list: Sequence[int] = None,
+                        check_primaries=True) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`
     # since there might not always be an election, there might be a round
     # robin selection
@@ -863,7 +888,7 @@ def ensureElectionsDone(looper: Looper,
 
     :param retryWait:
     :param customTimeout: specific timeout
-    :param numInstances: expected number of protocol instances
+    :param instances_list: expected number of protocol instances
     :return: primary replica for each protocol instance
     """
 
@@ -878,7 +903,8 @@ def ensureElectionsDone(looper: Looper,
         nodes=nodes,
         retryWait=retryWait,
         customTimeout=customTimeout,
-        numInstances=numInstances)
+        instances=instances_list,
+        check_primaries=check_primaries)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -920,7 +946,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     :param proposedViewNo: The view no which is proposed
     :return:
     """
-    params = [args for args in getAllArgs(node.view_changer, ViewChanger.startViewChange)]
+    params = [args for args in getAllArgs(node.view_changer, ViewChanger.start_view_change)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo
@@ -935,12 +961,12 @@ def timeThis(func, *args, **kwargs):
 
 
 def instances(nodes: Sequence[Node],
-              numInstances: int = None) -> Dict[int, List[replica.Replica]]:
-    numInstances = (getRequiredInstances(len(nodes))
-    if numInstances is None else numInstances)
+              instances: Sequence[int] = None) -> Dict[int, List[replica.Replica]]:
+    instances = (range(getRequiredInstances(len(nodes)))
+                 if instances is None else instances)
     for n in nodes:
-        assert len(n.replicas) == numInstances
-    return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
+        assert len(n.replicas) == len(instances)
+    return {i: [n.replicas[i] for n in nodes] for i in instances}
 
 
 def getRequiredInstances(nodeCount: int) -> int:

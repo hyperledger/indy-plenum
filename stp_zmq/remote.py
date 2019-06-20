@@ -20,23 +20,27 @@ def set_keepalive(socket: Socket, config):
     socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, config.KEEPALIVE_CNT)
 
 
-def set_zmq_internal_queue_length(socket: Socket, config):
+def set_zmq_internal_queue_size(socket: Socket, queue_size: int):
     # set both ZMQ_RCVHWM and ZMQ_SNDHWM
-    socket.set_hwm(config.ZMQ_INTERNAL_QUEUE_SIZE)
+    socket.set_hwm(queue_size)
 
 
 class Remote:
-    def __init__(self, name, ha, verKey, publicKey, config=None):
+    def __init__(self, name, ha, verKey, publicKey, queue_size=0, bind_ip="0.0.0.0", config=None):
         # TODO, remove *args, **kwargs after removing test
+
+        assert name
 
         # Every remote has a unique name per stack, the name can be the
         # public key of the other end
         self.name = name
         self.ha = ha
+        self.bind_ip = bind_ip
         # self.publicKey is the public key of the other end of the remote
         self.publicKey = publicKey
         # self.verKey is the verification key of the other end of the remote
         self.verKey = verKey
+        self.queue_size = queue_size
         self.socket = None
         # TODO: A stack should have a monitor and it should identify remote
         # by endpoint
@@ -76,18 +80,18 @@ class Remote:
         sock.curve_serverkey = self.publicKey
         sock.identity = localPubKey
         set_keepalive(sock, self.config)
-        set_zmq_internal_queue_length(sock, self.config)
-        addr = '{protocol}://{}:{}'.format(*self.ha, protocol=ZMQ_NETWORK_PROTOCOL)
+        set_zmq_internal_queue_size(sock, self.queue_size)
+        addr = '{protocol}://{bind_ip}:0;{}:{}'.format(*self.ha, bind_ip=self.bind_ip,
+                                                       protocol=ZMQ_NETWORK_PROTOCOL)
+        logger.trace('connecting socket {} to remote {}, addr: {}'.
+                     format(sock.FD, self, addr))
         sock.connect(addr)
         self.socket = sock
-        logger.trace('connecting socket {} {} to remote {}'.
-                     format(self.socket.FD, self.socket.underlying, self))
 
     def disconnect(self):
         logger.debug('disconnecting remote {}'.format(self))
         if self.socket:
-            logger.trace('disconnecting socket {} {}'.
-                         format(self.socket.FD, self.socket.underlying))
+            logger.trace('disconnecting socket {}'.format(self.socket.FD))
 
             if self.socket._monitor_socket:
                 logger.trace('{} closing monitor socket'.format(self))
@@ -98,8 +102,8 @@ class Remote:
             self.socket.close(linger=0)
             self.socket = None
         else:
-            logger.debug('{} close was called on a null socket, maybe close is '
-                         'being called twice.'.format(self))
+            logger.info('{} close was called on a null socket, maybe close is '
+                        'being called twice.'.format(self))
 
         self._isConnected = False
 
@@ -143,6 +147,10 @@ class Remote:
 
     @staticmethod
     def _get_monitor_events(socket, non_block=True):
+        # It looks strange to call get_monitor_socket() each time we
+        # want to get it instead of get it once and save reference.
+        # May side effects here, will create a ticket to check and clean
+        # up the implementation.
         monitor = socket.get_monitor_socket()
         events = []
         # noinspection PyUnresolvedReferences

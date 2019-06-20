@@ -18,7 +18,7 @@ def delay_instance_change(txnPoolNodeSet, val):
 def _get_ppseqno(nodes):
     res = set()
     for node in nodes:
-        for repl in node.replicas:
+        for repl in node.replicas.values():
             if repl.isMaster:
                 res.add(repl.lastPrePrepareSeqNo)
     assert (len(res) == 1)
@@ -34,7 +34,7 @@ def test_propagate_primary_after_primary_restart_view_1(
     Delay instance change msgs to prevent view change during primary restart
     to test propagate primary for primary node.
     ppSeqNo should be > 0 to be able to check that propagate primary restores all
-    indexes correctly
+    indices correctly
     case viewNo > 0
     """
 

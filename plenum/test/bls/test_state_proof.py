@@ -2,13 +2,15 @@ from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, TXN
     MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, \
     MULTI_SIGNATURE_VALUE_LEDGER_ID, \
     MULTI_SIGNATURE_VALUE_STATE_ROOT, MULTI_SIGNATURE_VALUE_TXN_ROOT, MULTI_SIGNATURE_VALUE_POOL_STATE_ROOT, \
-    MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID
+    MULTI_SIGNATURE_VALUE_TIMESTAMP, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import SafeRequest
 from plenum.common.txn_util import get_type, get_from, get_req_id, get_seq_no, get_txn_time
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.test.bls.helper import validate_multi_signature, validate_proof_for_write, validate_proof_for_read
+from plenum.test.buy_handler import BuyHandler
+from plenum.test.constants import GET_BUY
 from plenum.test.helper import wait_for_requests_ordered, \
     randomOperation, sdk_send_random_requests, sdk_json_couples_to_request_list, sdk_send_random_and_check, \
     sdk_json_to_request_object
@@ -19,9 +21,9 @@ nodes_wth_bls = 4
 
 def check_result(txnPoolNodeSet, req, should_have_proof):
     for node in txnPoolNodeSet:
-        req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
-        key = req_handler.prepare_buy_key(req.identifier, req.reqId)
-        proof = req_handler.make_proof(key)
+        req_handler = node.read_manager.request_handlers[GET_BUY]
+        key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
+        _, _, _, proof = req_handler.lookup(key, with_proof=True)
 
         txn_time = get_utc_epoch()
         result = req_handler.make_result(req,
@@ -52,9 +54,9 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
 
     req = reqs[0]
     for node in txnPoolNodeSet:
-        req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
-        key = req_handler.prepare_buy_key(req.identifier, req.reqId)
-        proof = req_handler.make_proof(key)
+        req_handler = node.read_manager.request_handlers[GET_BUY]
+        key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
+        _, _, _, proof = req_handler.lookup(key, with_proof=True)
         assert proof
         assert ROOT_HASH in proof
         assert MULTI_SIGNATURE in proof
@@ -97,8 +99,9 @@ def test_make_result_no_protocol_version(looper, txnPoolNodeSet):
     request = SafeRequest(identifier="1" * 16,
                           reqId=1,
                           operation=randomOperation(),
-                          signature="signature")
-    request.protocolVersion = False
+                          signature="signature",
+                          protocolVersion=CURRENT_PROTOCOL_VERSION)
+    request.protocolVersion = None
     check_result(txnPoolNodeSet, request, False)
 
 
@@ -107,17 +110,9 @@ def test_make_result_protocol_version_less_than_state_proof(looper,
     request = SafeRequest(identifier="1" * 16,
                           reqId=1,
                           operation=randomOperation(),
-                          signature="signature")
+                          signature="signature",
+                          protocolVersion=CURRENT_PROTOCOL_VERSION)
     request.protocolVersion = 0
-    check_result(txnPoolNodeSet, request, False)
-
-
-def test_make_result_no_protocol_version_in_request_by_default(looper,
-                                                               txnPoolNodeSet):
-    request = SafeRequest(identifier="1" * 16,
-                          reqId=1,
-                          operation=randomOperation(),
-                          signature="signature")
     check_result(txnPoolNodeSet, request, False)
 
 
@@ -163,9 +158,7 @@ def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
     req_dict, _ = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)[0]
     req = sdk_json_to_request_object(req_dict)
     wait_for_requests_ordered(looper, txnPoolNodeSet, [req])
-
-    req_handler = txnPoolNodeSet[0].get_req_handler(DOMAIN_LEDGER_ID)
-    key = req_handler.prepare_buy_key(req.identifier, req.reqId)
+    key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
 
     for node in txnPoolNodeSet:
         node.states[DOMAIN_LEDGER_ID].set(key, b'somevalue')

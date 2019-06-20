@@ -72,6 +72,23 @@ class Suspicions:
     PR_BLS_SIG_WRONG = \
         Suspicion(32, "Prepare message has invalid BLS signature")
 
+    PPR_PLUGIN_EXCEPTION = Suspicion(35, "Pre-Prepare message has error in plugin field")
+    PR_PLUGIN_EXCEPTION = Suspicion(36, "Prepare message has error in plugin field")
+    PPR_SUB_SEQ_NO_WRONG = Suspicion(37, "Pre-Prepare message has wrong sub_seq_no")
+    PPR_NOT_FINAL = Suspicion(38, "Pre-Prepare message is not final")
+    BACKUP_PRIMARY_DISCONNECTED = Suspicion(39, "Primary on backup instance was disconnected.")
+    BACKUP_PRIMARY_DEGRADED = Suspicion(40, "Backup instance was performance degraded.")
+    PPR_POOL_STATE_ROOT_HASH_WRONG = Suspicion(41, "Pre-Prepare message has "
+                                                   "incorrect pool state root hash")
+    PPR_WITH_ORDERED_REQUEST = Suspicion(42, "Pre-Prepare message has already ordered requests")
+    STATE_SIGS_ARE_NOT_UPDATED = Suspicion(43, "State signatures are not updated for too long")
+    PPR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(44, "Pre-Prepare message has "
+                                                  "incorrect audit ledger transaction root hash")
+    PR_AUDIT_TXN_ROOT_HASH_WRONG = Suspicion(45, "Prepare message has "
+                                                 "incorrect audit ledger transaction root hash")
+
+    REPLICAS_COUNT_CHANGED = Suspicion(46, "Replica's count changed")
+
     @classmethod
     def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(

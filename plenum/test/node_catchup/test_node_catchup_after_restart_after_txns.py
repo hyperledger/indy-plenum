@@ -2,26 +2,35 @@ from time import perf_counter
 
 import pytest
 
+from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.test.delayers import cr_delay
-
-from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
-from stp_core.common.log import getlogger
+from plenum.test import waits
+from plenum.test.delayers import cr_delay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import checkNodesConnected, TestNode
-from plenum.test import waits
-from plenum.common.config_helper import PNodeConfigHelper
+from stp_core.common.log import getlogger
+from stp_core.loop.eventually import eventually
 
 # Do not remove the next import
-from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 txnCount = 5
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    oldMax3PCBatchSize = tconf.Max3PCBatchSize
+    oldMax3PCBatchWait = tconf.Max3PCBatchWait
+    tconf.Max3PCBatchSize = txnCount
+    tconf.Max3PCBatchWait = 2
+    yield tconf
+
+    tconf.Max3PCBatchSize = oldMax3PCBatchSize
+    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 # TODO: This test passes but it is observed that PREPAREs are not received at
@@ -84,24 +93,27 @@ def test_node_catchup_after_restart_with_txns(
 
     # Make sure ledger starts syncing (sufficient consistency proofs received)
     looper.run(eventually(check_ledger_state, newNode, DOMAIN_LEDGER_ID,
-                          LedgerState.syncing, retryWait=.5, timeout=5))
+                          LedgerState.syncing, retryWait=.5, timeout=50))
 
     confused_node = txnPoolNodeSet[0]
-    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
-    cp = new_node_ledger.catchUpTill
-    start, end = cp.seqNoStart, cp.seqNoEnd
-    cons_proof = confused_node.ledgerManager._buildConsistencyProof(
+    new_node_leecher = newNode.ledgerManager._node_leecher._leechers[DOMAIN_LEDGER_ID]
+    ct = new_node_leecher.catchup_till
+    start, end = ct.start_size, ct.final_size
+    cons_proof = confused_node.ledgerManager._node_seeder._build_consistency_proof(
         DOMAIN_LEDGER_ID, start, end)
 
     bad_send_time = None
 
     def chk():
         nonlocal bad_send_time
-        entries = newNode.ledgerManager.spylog.getAll(
-            newNode.ledgerManager.canProcessConsistencyProof.__name__)
+        entries = newNode.ledgerManager.spylog.getAll(newNode.ledgerManager.processConsistencyProof.__name__)
         for entry in entries:
             # `canProcessConsistencyProof` should return False after `syncing_time`
-            if entry.result == False and entry.starttime > bad_send_time:
+            if entry.starttime <= bad_send_time:
+                continue
+            cons_proof = entry.params['proof']
+            service = newNode.ledgerManager._node_leecher._leechers[cons_proof.ledgerId]._cons_proof_service
+            if not service._can_process_consistency_proof(cons_proof):
                 return
         assert False
 
@@ -119,6 +131,7 @@ def test_node_catchup_after_restart_with_txns(
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
               2 * delay_catchup_reply
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
-                         customTimeout=timeout)
-    assert new_node_ledger.num_txns_caught_up == more_requests
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
+
     send_and_chk(LedgerState.synced)

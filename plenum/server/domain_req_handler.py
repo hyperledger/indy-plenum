@@ -1,17 +1,15 @@
+from binascii import hexlify
 from hashlib import sha256
 
-from common.serializers.serialization import domain_state_serializer, \
-    proof_nodes_serializer, state_roots_serializer
+from common.serializers.serialization import domain_state_serializer, state_roots_serializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, \
-    VERKEY, TXN_TIME, ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, DATA, STATE_PROOF
+    VERKEY, TXN_TIME, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import UnauthorizedClientRequest
-from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, get_type, get_payload_data, get_seq_no, get_txn_time, get_from
 from plenum.common.types import f
 from plenum.server.ledger_req_handler import LedgerRequestHandler
-from plenum.server.req_handler import RequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -22,7 +20,7 @@ class DomainRequestHandler(LedgerRequestHandler):
     write_types = {NYM, }
 
     def __init__(self, ledger, state, config, reqProcessors, bls_store, ts_store=None):
-        super().__init__(ledger, state, ts_store=ts_store)
+        super().__init__(DOMAIN_LEDGER_ID, ledger, state, ts_store=ts_store)
         self.config = config
         self.reqProcessors = reqProcessors
         self.bls_store = bls_store
@@ -66,6 +64,15 @@ class DomainRequestHandler(LedgerRequestHandler):
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
             self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def gen_txn_path(self, txn):
+        typ = get_type(txn)
+        if typ == NYM:
+            nym = get_payload_data(txn).get(TARGET_NYM)
+            return hexlify(self.nym_to_state_key(nym)).decode()
+        else:
+            logger.error('Cannot generate id for txn of type {}'.format(typ))
+            return None
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
@@ -156,45 +163,25 @@ class DomainRequestHandler(LedgerRequestHandler):
     def nym_to_state_key(nym: str) -> bytes:
         return sha256(nym.encode()).digest()
 
-    def make_proof(self, path, head_hash=None):
+    def get_value_from_state(self, path, head_hash=None, with_proof=False, multi_sig=None):
         '''
-        Creates a state proof for the given path in state trie.
-        Returns None if there is no BLS multi-signature for the given state (it can
-        be the case for txns added before multi-signature support).
-
+        Get a value (and proof optionally)for the given path in state trie.
+        Does not return the proof is there is no aggregate signature for it.
         :param path: the path generate a state proof for
+        :param head_hash: the root to create the proof against
+        :param get_value: whether to return the value
         :return: a state proof or None
         '''
-        root_hash = head_hash if head_hash else self.state.committedHeadHash
-        encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
+        if not multi_sig and with_proof:
+            root_hash = head_hash if head_hash else self.state.committedHeadHash
+            encoded_root_hash = state_roots_serializer.serialize(bytes(root_hash))
 
-        multi_sig = self.bls_store.get(encoded_root_hash)
-        if not multi_sig:
-            return None
-
-        proof = self.state.generate_state_proof(key=path,
-                                                root=self.state.get_head_by_hash(
-                                                    root_hash),
-                                                serialize=True)
-        encoded_proof = proof_nodes_serializer.serialize(proof)
-        return {
-            ROOT_HASH: encoded_root_hash,
-            MULTI_SIGNATURE: multi_sig.as_dict(),
-            PROOF_NODES: encoded_proof
-        }
+            multi_sig = self.bls_store.get(encoded_root_hash)
+        return super().get_value_from_state(path, head_hash, with_proof, multi_sig)
 
     @staticmethod
-    def make_result(request, data, last_seq_no, update_time, proof):
-        result = {**request.operation, **{
-            DATA: data,
-            f.IDENTIFIER.nm: request.identifier,
-            f.REQ_ID.nm: request.reqId,
-            f.SEQ_NO.nm: last_seq_no,
-            TXN_TIME: update_time
-        }}
-        if proof and request.protocolVersion and \
-                request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
-            result[STATE_PROOF] = proof
-
-        # Do not inline please, it makes debugging easier
+    def make_domain_result(request, data, last_seq_no=None, update_time=None, proof=None):
+        result = LedgerRequestHandler.make_result(request, data, proof=proof)
+        result[f.SEQ_NO.nm] = last_seq_no
+        result[TXN_TIME] = update_time
         return result

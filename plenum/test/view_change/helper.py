@@ -1,5 +1,8 @@
 import types
 
+from plenum.common.messages.node_messages import ThreePhaseKey
+from plenum.common.util import randomString
+from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
@@ -7,10 +10,10 @@ from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
 from plenum.test.helper import checkViewNoForNodes, \
     sdk_send_random_requests, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected
-from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+    disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode, checkNodesConnected
+    TestNode, checkNodesConnected, TestViewChanger
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -21,7 +24,8 @@ logger = getlogger()
 
 def start_stopped_node(stopped_node, looper, tconf,
                        tdir, allPluginsPath,
-                       delay_instance_change_msgs=True):
+                       delay_instance_change_msgs=True,
+                       start=True):
     nodeHa, nodeCHa = HA(*
                          stopped_node.nodestack.ha), HA(*
                                                         stopped_node.clientstack.ha)
@@ -31,7 +35,8 @@ def start_stopped_node(stopped_node, looper, tconf,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
-    looper.add(restarted_node)
+    if start:
+        looper.add(restarted_node)
     return restarted_node
 
 
@@ -89,6 +94,23 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
     """
     old_view_no = checkViewNoForNodes(nodes)
 
+    old_meths = do_view_change(nodes)
+
+    perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
+    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(
+        len(nodes)) + perf_check_freq
+    nodes_to_check = nodes if exclude_from_check is None else [
+        n for n in nodes if n not in exclude_from_check]
+    logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
+    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no + 1,
+                          retryWait=1, timeout=timeout))
+
+    revert_do_view_change(nodes, old_meths)
+
+    return old_view_no + 1
+
+
+def do_view_change(nodes):
     old_meths = {node.name: {} for node in nodes}
     view_changes = {}
     for node in nodes:
@@ -107,21 +129,14 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
             slow_master, node.monitor)
         node._update_new_ordered_reqs_count = types.MethodType(
             lambda self: True, node)
+    return old_meths
 
-    perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
-    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(
-        len(nodes)) + perf_check_freq
-    nodes_to_check = nodes if exclude_from_check is None else [
-        n for n in nodes if n not in exclude_from_check]
-    logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
-    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no + 1,
-                          retryWait=1, timeout=timeout))
 
+def revert_do_view_change(nodes, old_meths):
     logger.debug('Patching back perf check for all nodes')
     for node in nodes:
         node.monitor.isMasterDegraded = old_meths[node.name]['isMasterDegraded']
         node._update_new_ordered_reqs_count = old_meths[node.name]['_update_new_ordered_reqs_count']
-    return old_view_no + 1
 
 
 def ensure_several_view_change(looper, nodes, vc_count=1,
@@ -169,7 +184,8 @@ def ensure_several_view_change(looper, nodes, vc_count=1,
 
 def ensure_view_change_by_primary_restart(
         looper, nodes,
-        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None):
+        tconf, tdirWithPoolTxns, allPluginsPath, customTimeout=None,
+        exclude_from_check=None):
     """
     This method stops current primary for a while to force a view change
 
@@ -201,7 +217,8 @@ def ensure_view_change_by_primary_restart(
     logger.debug("Ensure all nodes are connected")
     looper.run(checkNodesConnected(nodes))
     logger.debug("Ensure all nodes have the same data")
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes,
+                                    exclude_from_check=exclude_from_check)
 
     return nodes
 
@@ -319,3 +336,53 @@ def view_change_in_between_3pc_random_delays(
     reset_delays_and_process_delayeds(slow_nodes)
 
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)
+
+
+def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
+                 tdir, tconf, all_plugins_path, name=None):
+    node_name = name or "Psi"
+    new_steward_name = "testClientSteward" + randomString(3)
+    _, new_node = sdk_add_new_steward_and_node(
+        looper, sdk_pool_handle, sdk_wallet_steward,
+        new_steward_name, node_name, tdir, tconf,
+        allPluginsPath=all_plugins_path)
+    nodes.append(new_node)
+    looper.run(checkNodesConnected(nodes))
+    timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
+    waitNodeDataEquality(looper, new_node, *nodes[:-1],
+                         customTimeout=timeout,
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
+    sdk_pool_refresh(looper, sdk_pool_handle)
+    return new_node
+
+
+def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
+                 allPluginsPath, wait_node_data_equality=True):
+    idx = txnPoolNodeSet.index(node_to_disconnect)
+    disconnect_node_and_ensure_disconnected(looper,
+                                            txnPoolNodeSet,
+                                            node_to_disconnect)
+    looper.removeProdable(name=node_to_disconnect.name)
+
+    # add node_to_disconnect to pool
+    node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
+                                            tdir, allPluginsPath)
+    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, TestViewChanger)
+
+    txnPoolNodeSet[idx] = node_to_disconnect
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    if wait_node_data_equality:
+        waitNodeDataEquality(looper, node_to_disconnect, *txnPoolNodeSet)
+
+
+def nodes_received_ic(nodes, frm, view_no=1):
+    for n in nodes:
+        assert n.view_changer.instance_changes.has_inst_chng_from(view_no,
+                                                                 frm.name)
+
+def check_prepare_certificate(nodes, ppSeqNo):
+    for node in nodes:
+        key = (node.viewNo, ppSeqNo)
+        quorum = node.master_replica.quorums.prepare.value
+        assert node.master_replica.prepares.hasQuorum(ThreePhaseKey(*key),
+                                                       quorum)

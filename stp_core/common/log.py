@@ -26,22 +26,13 @@ def getlogger(name: object = None) -> logging.Logger:
     return Logger().getlogger(name)
 
 
-class ReplicaFilter(logging.Filter):
-
-    def filter(self, record):
-        if record.module == "replica":
-            record.msg = "REPLICA:({}) {}".format(self.name, record.msg)
-        return record
-
-
 class Logger(metaclass=Singleton):
     def __init__(self, config=None):
 
         # TODO: This should take directory
-        self._config = config or getConfig()
+        self.apply_config(config or getConfig())
         self._addTraceToLogging()
         self._addDisplayToLogging()
-        self.apply_config(self._config)
 
     @staticmethod
     def getlogger(name=None):
@@ -57,7 +48,8 @@ class Logger(metaclass=Singleton):
         logging.root.setLevel(log_level)
 
     def apply_config(self, config):
-        assert config
+        if not config:
+            raise ValueError("config should be specified")
 
         self._config = config
         self._handlers = {}
@@ -128,7 +120,7 @@ class Logger(metaclass=Singleton):
 
     @staticmethod
     def _addDisplayToLogging():
-        logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
+        logging.addLevelName(DISPLAY_LOG_LEVEL, "NOTIFICATION")
 
         def display(self, message, *args, **kwargs):
             if self.isEnabledFor(DISPLAY_LOG_LEVEL):

@@ -21,7 +21,7 @@ def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
                               sdk_wallet_client, tconf.Max3PCBatchSize)
     stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, to_str=False)
 
-    origMethod = pr.create3PCBatch
+    origMethod = pr.create_3pc_batch
     malignedOnce = None
 
     def badMethod(self, ledgerId):
@@ -32,7 +32,7 @@ def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
             malignedOnce = True
         return pp
 
-    pr.create3PCBatch = types.MethodType(badMethod, pr)
+    pr.create_3pc_batch = types.MethodType(badMethod, pr)
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              tconf.Max3PCBatchSize)
     return pr, otherR, stateRoot
@@ -54,7 +54,7 @@ def viewChanged(reverted, looper, txnPoolNodeSet):
     def chk():
         for n in txnPoolNodeSet:
             assert n.viewNo == 1
-            assert all([r.primaryName for r in n.replicas])
+            assert all([r.primaryName for r in n.replicas.values()])
 
     looper.run(eventually(chk, retryWait=1, timeout=15))
 

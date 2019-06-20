@@ -1,0 +1,102 @@
+@startuml
+
+allowmixing
+
+
+
+node Node1 {
+left to right direction
+
+frame "Read Request Process N1" {
+queue ReadRequestNetworkServiceN1
+}
+
+frame "Catchup Seeder Process N1" {
+queue CatchupSeederNetworkServiceN1
+}
+
+frame "Master Replica Process N1" {
+control MasterExternalEventBusN1
+control MasterInternalEventBusN1
+control MasterInterProcessEventBusN1
+queue MasterReplicaNetworkServiceN1
+object MasterOrdererServiceN1
+object MasterViewChangeServiceN1
+object MasterCathcupLeecherServiceN1
+
+MasterOrdererServiceN1 <..> MasterInternalEventBusN1
+MasterViewChangeServiceN1 <..> MasterInternalEventBusN1
+MasterCathcupLeecherServiceN1 <..> MasterInternalEventBusN1
+
+MasterExternalEventBusN1 <--> MasterReplicaNetworkServiceN1
+
+MasterOrdererServiceN1 <..> MasterInterProcessEventBusN1
+}
+
+frame "Backup Replica 1 Process N1" {
+control Backup1ExternalEventBusN1
+control Backup1InternalEventBusN1
+control Backup1InterProcessEventBusN1
+queue Backup1ReplicaNetworkServiceN1
+object Backup1OrdererServiceN1
+object Backup1ViewChangeServiceN1
+object Backup1CathcupLeecherServiceN1
+
+Backup1OrdererServiceN1 <..> Backup1InternalEventBusN1
+Backup1ViewChangeServiceN1 <..> Backup1InternalEventBusN1
+Backup1CathcupLeecherServiceN1 <..> Backup1InternalEventBusN1
+
+Backup1ExternalEventBusN1 <--> Backup1ReplicaNetworkServiceN1
+
+Backup1OrdererServiceN1 <..> Backup1InterProcessEventBusN1
+}
+
+frame "Node Process N1" {
+control WriteRequestExternalEventBusN1
+control PropagateExternalEventBusN1
+control NodeInterProcessEventBusN1
+queue WriteRequestNetworkServiceN1
+queue PropagateNetworkServiceN1
+object PropagateServiceN1
+object MonitorServiceN1
+
+WriteRequestExternalEventBusN1 <--> WriteRequestNetworkServiceN1
+PropagateExternalEventBusN1 <--> PropagateNetworkServiceN1
+
+MonitorServiceN1 <..> NodeInterProcessEventBusN1
+PropagateServiceN1 <..> NodeInterProcessEventBusN1
+}
+
+MasterInterProcessEventBusN1 <..> NodeInterProcessEventBusN1
+Backup1InterProcessEventBusN1 <..> NodeInterProcessEventBusN1
+
+}
+
+
+node Node2 {
+queue WriteRequestNetworkServiceN2
+queue PropagateNetworkServiceN2
+queue ReadRequestNetworkServiceN2
+queue CatchupSeederNetworkServiceN2
+queue MasterReplicaNetworkServiceN2
+queue Backup1ReplicaNetworkServiceN2
+}
+
+agent "Write Request"  as WR
+WR --> WriteRequestNetworkServiceN2
+WR --> WriteRequestNetworkServiceN1
+
+
+agent "Read Request"  as RR
+RR --> ReadRequestNetworkServiceN2
+RR --> ReadRequestNetworkServiceN1
+
+agent "Catchup Request"  as CR
+CR --> CatchupSeederNetworkServiceN2
+CR --> CatchupSeederNetworkServiceN1
+
+PropagateNetworkServiceN1 <..> PropagateNetworkServiceN2
+MasterReplicaNetworkServiceN1 <..> MasterReplicaNetworkServiceN2
+Backup1ReplicaNetworkServiceN1 <..> Backup1ReplicaNetworkServiceN2
+
+@enduml

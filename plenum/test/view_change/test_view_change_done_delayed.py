@@ -25,7 +25,7 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
         assert node.view_changer.has_acceptable_view_change_quorum
         assert node.view_changer._primary_verified
         assert node.isParticipating
-        assert None not in {r.isPrimary for r in node.replicas}
+        assert None not in {r.isPrimary for r in node.replicas.values()}
 
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_client, 5 * 4, 4)
@@ -39,12 +39,10 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     for node in other_nodes:
         looper.run(eventually(chk, node, retryWait=1))
 
-    # Since `ViewChangeCone` is delayed, slow_node is not able to select primary
-    # and participate
-    assert not slow_node.view_changer.has_acceptable_view_change_quorum
-    assert not slow_node.view_changer._primary_verified
-    assert not slow_node.isParticipating
-    assert {r.isPrimary for r in slow_node.replicas} == {None}
+    # Since slow node catches up successfully, it catch last primary
+    assert slow_node.isParticipating
+    assert {r.isPrimary for r in slow_node.replicas.values()} != {None}
+    assert all(slow_node.viewNo == node.viewNo for node in other_nodes)
 
     # Send requests to make sure pool is functional
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)

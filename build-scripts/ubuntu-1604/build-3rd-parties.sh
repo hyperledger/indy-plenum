@@ -60,6 +60,8 @@ function build_from_pypi {
     rm ${PREREM_TMP}
 }
 
+# TODO duplicates list from Jenkinsfile.cd
+
 # Build rocksdb at first
 build_rocksdb_deb 5.8.8
 
@@ -83,3 +85,5 @@ build_from_pypi intervaltree 2.1.0
 build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package
 build_from_pypi python-rocksdb 0.6.9
+build_from_pypi pympler 0.5
+build_from_pypi packaging 19.0

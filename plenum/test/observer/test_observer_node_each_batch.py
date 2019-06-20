@@ -20,9 +20,9 @@ def fake_node(txnPoolNodeSet,
     newNodeName = "NewTestNode"
     sigseed = randomString(32).encode()
     config_helper = PNodeConfigHelper(newNodeName, tconf, chroot=tdir)
-    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName,
-                                                   config_helper.keys_dir,
-                                                   sigseed, override=True)
+    _, verkey, bls_key, _ = initNodeKeysForBothStacks(newNodeName,
+                                                      config_helper.keys_dir,
+                                                      sigseed, override=True)
     node = new_node(node_name=newNodeName,
                     tdir=tdir,
                     node_ha=(nodeIp, nodePort),
@@ -82,4 +82,6 @@ def test_apply_data(fake_node,
     # check that Observer is synced with the pool
     checkNodeDataForEquality(fake_node,
                              *txnPoolNodeSet,
-                             exclude_from_check=['check_last_ordered_3pc'])
+                             exclude_from_check=['check_last_ordered_3pc',
+                                                 'check_primaries',
+                                                 'check_last_ordered_3pc_backup'])

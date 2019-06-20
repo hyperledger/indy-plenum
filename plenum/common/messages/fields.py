@@ -2,25 +2,30 @@ import ipaddress
 import json
 import re
 from abc import ABCMeta, abstractmethod
-from typing import Iterable
+from typing import Iterable, Type
 
 import base58
 import dateutil
 
-from crypto.bls.bls_multi_signature import MultiSignatureValue
-from plenum.common.constants import VALID_LEDGER_IDS
-from plenum import PLUGIN_LEDGER_IDS
-from plenum.common.plenum_protocol_version import PlenumProtocolVersion
+from common.exceptions import PlenumTypeError, PlenumValueError
 from common.error import error
-from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT
+from common.version import (
+    InvalidVersionError, VersionBase, GenericVersion
+)
+from crypto.bls.bls_multi_signature import MultiSignatureValue
+from plenum import PLUGIN_LEDGER_IDS
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
+from plenum.common.plenum_protocol_version import PlenumProtocolVersion
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
     """"
     Interface for field validators
     """
-
-    optional = False
+    # TODO INDY-2072 test optional
+    def __init__(self, optional: bool = False):
+        self.optional = optional
 
     @abstractmethod
     def validate(self, val):
@@ -120,17 +125,19 @@ class NonEmptyStringField(FieldBase):
 
 
 class LimitedLengthStringField(FieldBase):
-    _base_types = (str,)
+    _base_types = (str, )
 
-    def __init__(self, max_length: int, **kwargs):
-        assert max_length > 0, 'should be greater than 0'
+    def __init__(self, max_length: int, can_be_empty=False, **kwargs):
+        if not max_length > 0:
+            raise PlenumValueError('max_length', max_length, '> 0')
         super().__init__(**kwargs)
         self._max_length = max_length
+        self._can_be_empty = can_be_empty
 
     def _specific_validation(self, val):
-        if not val:
+        if not val and not self._can_be_empty:
             return 'empty string'
-        if len(val) > self._max_length:
+        if val and len(val) > self._max_length:
             val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
@@ -218,12 +225,18 @@ class IterableField(FieldBase):
 
     def __init__(self, inner_field_type: FieldValidator, min_length=None,
                  max_length=None, **kwargs):
-        assert inner_field_type
-        assert isinstance(inner_field_type, FieldValidator)
-        for m in (min_length, max_length):
+
+        if not isinstance(inner_field_type, FieldValidator):
+            raise PlenumTypeError(
+                'inner_field_type', inner_field_type, FieldValidator)
+
+        for k in ('min_length', 'max_length'):
+            m = locals()[k]
             if m is not None:
-                assert isinstance(m, int)
-                assert m > 0
+                if not isinstance(m, int):
+                    raise PlenumTypeError(k, m, int)
+                if not m > 0:
+                    raise PlenumValueError(k, m, '> 0')
 
         self.inner_field_type = inner_field_type
         self.min_length = min_length
@@ -247,8 +260,8 @@ class IterableField(FieldBase):
 class MapField(FieldBase):
     _base_types = (dict,)
 
-    def __init__(self, key_field: FieldValidator,
-                 value_field: FieldValidator,
+    def __init__(self, key_field: FieldBase,
+                 value_field: FieldBase,
                  **kwargs):
         super().__init__(**kwargs)
         self.key_field = key_field
@@ -339,21 +352,22 @@ class LedgerIdField(ChooseField):
 
 class Base58Field(FieldBase):
     _base_types = (str,)
+    _alphabet = set(base58.alphabet.decode("utf-8"))
 
     def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._alphabet = set(base58.alphabet.decode("utf-8"))
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
         invalid_chars = set(val) - self._alphabet
         if invalid_chars:
             # only 10 chars to shorten the output
+            # TODO: Why does it need to be sorted
             to_print = sorted(invalid_chars)[:10]
             return 'should not contain the following chars {}{}'.format(
                 to_print, ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
-            # TODO could impact performace, need to check
+            # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \
@@ -516,29 +530,33 @@ class SerializedValueField(FieldBase):
     _base_types = (bytes, str)
 
     def _specific_validation(self, val):
-        if not val:
+        if not val and not self.nullable:
             return 'empty serialized value'
 
 
 class VersionField(LimitedLengthStringField):
     _base_types = (str,)
 
-    def __init__(self, components_number=(3,), **kwargs):
-        super().__init__(**kwargs)
-        self._comp_num = components_number
+    def __init__(
+            self,
+            version_cls: Type[VersionBase] = GenericVersion,
+            max_length: int = VERSION_FIELD_LIMIT,
+            **kwargs
+    ):
+        super().__init__(max_length=max_length, **kwargs)
+        self._version_cls = version_cls
 
     def _specific_validation(self, val):
         lim_str_err = super()._specific_validation(val)
         if lim_str_err:
             return lim_str_err
-        parts = val.split(".")
-        if len(parts) not in self._comp_num:
-            return "version consists of {} components, but it should contain {}".format(
-                len(parts), self._comp_num)
-        for p in parts:
-            if not p.isdigit():
-                return "version component should contain only digits"
-        return None
+
+        try:
+            self._version_cls(val)
+        except InvalidVersionError as exc:
+            return str(exc)
+        else:
+            return None
 
 
 class TxnSeqNoField(FieldBase):
@@ -594,8 +612,11 @@ class LedgerInfoField(FieldBase):
     _ledger_id_class = LedgerIdField
 
     def _specific_validation(self, val):
-        assert len(val) == 3
+        if len(val) != 3:
+            return 'should have size of 3'
+
         ledgerId, ledgerLength, merkleRoot = val
+        # TODO test that as well
         for validator, value in ((self._ledger_id_class().validate, ledgerId),
                                  (NonNegativeNumberField().validate, ledgerLength),
                                  (MerkleRootField().validate, merkleRoot)):
@@ -606,7 +627,7 @@ class LedgerInfoField(FieldBase):
 
 class BlsMultiSignatureValueField(FieldBase):
     _base_types = (list, tuple)
-    _ledger_id_validator = LedgerIdField()
+    _ledger_id_class = LedgerIdField
     _state_root_hash_validator = MerkleRootField()
     _pool_state_root_hash_validator = MerkleRootField()
     _txn_root_hash_validator = MerkleRootField()
@@ -615,7 +636,7 @@ class BlsMultiSignatureValueField(FieldBase):
     def _specific_validation(self, val):
         multi_sig_value = MultiSignatureValue(*val)
 
-        err = self._ledger_id_validator.validate(
+        err = self._ledger_id_class().validate(
             multi_sig_value.ledger_id)
         if err:
             return err
@@ -670,7 +691,13 @@ class ProtocolVersionField(FieldBase):
     _base_types = (int, type(None))
 
     def _specific_validation(self, val):
-        if val is None:
-            return
         if not PlenumProtocolVersion.has_value(val):
-            return 'Unknown protocol version value {}'.format(val)
+            return 'Unknown protocol version value. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(CURRENT_PROTOCOL_VERSION)
+        if val != CURRENT_PROTOCOL_VERSION:
+            return 'Message version ({}) differs from current protocol version. ' \
+                   'Make sure that the latest LibIndy is used ' \
+                   'and `set_protocol_version({})` is called' \
+                .format(val, CURRENT_PROTOCOL_VERSION)

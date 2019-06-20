@@ -4,8 +4,9 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
-from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX
+from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
+from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from stp_core.common.log import getlogger
@@ -17,18 +18,22 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def __init__(self,
                  node_id,
                  bls_bft: BlsBft,
-                 is_master):
+                 is_master,
+                 metrics: MetricsCollector = NullMetricsCollector()):
         super().__init__(bls_bft, is_master)
         self.node_id = node_id
         self._signatures = {}
         self._bls_latest_multi_sig = None  # MultiSignature
         self.state_root_serializer = state_roots_serializer
+        self.metrics = metrics
 
     def _can_process_ledger(self, ledger_id):
-        return ledger_id == DOMAIN_LEDGER_ID
+        # enable BLS for all ledgers
+        return True
 
     # ----VALIDATE----
 
+    @measure_time(MetricsName.BLS_VALIDATE_PREPREPARE_TIME)
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
                 pre_prepare.blsMultiSig is None:
@@ -41,6 +46,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def validate_prepare(self, prepare: Prepare, sender):
         pass
 
+    @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
     def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
@@ -51,6 +57,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     # ----CREATE/UPDATE----
 
+    @measure_time(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
     def update_pre_prepare(self, pre_prepare_params, ledger_id):
         if not self._can_process_ledger(ledger_id):
             return pre_prepare_params
@@ -68,6 +75,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         # Send BLS signature in COMMITs only
         return prepare_params
 
+    @measure_time(MetricsName.BLS_UPDATE_COMMIT_TIME)
     def update_commit(self, commit_params, pre_prepare: PrePrepare):
         ledger_id = pre_prepare.ledgerId
         state_root_hash = pre_prepare.stateRootHash
@@ -145,16 +153,26 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                                               timestamp=pre_prepare.ppTime)
         return multi_sig_value
 
+    def validate_key_proof_of_possession(self, key_proof, pk):
+        return self._bls_bft.bls_crypto_verifier\
+            .verify_key_proof_of_possession(key_proof, pk)
+
     def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
+        pool_root_hash = self._get_pool_root_hash(pre_prepare, serialize=False)
         sender_node = self.get_node_name(sender)
-        pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node)
+        pk = self._bls_bft.bls_key_register.get_key_by_name(sender_node, pool_root_hash)
         if not pk:
             return False
-        pool_state_root_hash_str = self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash_ser = self._get_pool_root_hash(pre_prepare)
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
-                                                               pool_state_root_hash_str).as_single_value()
-        return self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message, pk)
+                                                               pool_root_hash_ser)
+        result = self._bls_bft.bls_crypto_verifier.verify_sig(bls_sig, message.as_single_value(), pk)
+        if not result:
+            logger.info("Incorrect bls signature {} in commit for "
+                        "{} public key: '{}' and message: '{}' from "
+                        "pre-prepare: {}".format(bls_sig, sender, pk,
+                                                 message, pre_prepare))
+        return result
 
     def _validate_multi_sig(self, multi_sig: MultiSignature):
         public_keys = []
@@ -172,10 +190,9 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                                                                   public_keys)
 
     def _sign_state(self, pre_prepare: PrePrepare):
-        pool_root_hash_ser = self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash = self._get_pool_root_hash(pre_prepare)
         message = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
-                                                               pool_root_hash_ser).as_single_value()
+                                                               pool_root_hash).as_single_value()
         return self._bls_bft.bls_crypto_signer.sign(message)
 
     def _can_calculate_multi_sig(self,
@@ -203,13 +220,21 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         participants = list(sigs_for_request.keys())
 
         sig = self._bls_bft.bls_crypto_verifier.create_multi_sig(bls_signatures)
-        pool_root_hash_ser = self.state_root_serializer.serialize(
-            bytes(self._bls_bft.bls_key_register.get_pool_root_hash_committed()))
+        pool_root_hash_ser = self._get_pool_root_hash(pre_prepare)
         multi_sig_value = self._create_multi_sig_value_for_pre_prepare(pre_prepare,
                                                                        pool_root_hash_ser)
         return MultiSignature(signature=sig,
                               participants=participants,
                               value=multi_sig_value)
+
+    def _get_pool_root_hash(self, pre_prepare, serialize=True):
+        if f.POOL_STATE_ROOT_HASH.nm in pre_prepare:
+            pool_root_hash = self.state_root_serializer.deserialize(pre_prepare.poolStateRootHash)
+            pool_root_hash_ser = pre_prepare.poolStateRootHash
+        else:
+            pool_root_hash = self._bls_bft.bls_key_register.get_pool_root_hash_committed()
+            pool_root_hash_ser = self.state_root_serializer.serialize(bytes(pool_root_hash))
+        return pool_root_hash_ser if serialize else pool_root_hash
 
     def _save_multi_sig_local(self,
                               multi_sig: MultiSignature):

@@ -22,7 +22,7 @@ def setup(txnPoolNodeSet):
 
 @pytest.fixture(scope="module")
 def afterElection(setup):
-    for r in setup.faulties.replicas:
+    for r in setup.faulties.replicas.values():
         assert not r.isPrimary
 
 

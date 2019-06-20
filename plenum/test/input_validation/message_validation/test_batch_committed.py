@@ -7,17 +7,21 @@ from plenum.common.messages.fields import IterableField, \
     LedgerIdField, NonNegativeNumberField, MerkleRootField, TimestampField
 from plenum.common.messages.node_messages import BatchCommitted
 from plenum.common.util import get_utc_epoch
-from plenum.test.bls.helper import generate_state_root
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import sdk_random_request_objects, generate_state_root
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("requests", IterableField),
     ("ledgerId", LedgerIdField),
+    ("instId", NonNegativeNumberField),
+    ("viewNo", NonNegativeNumberField),
+    ("ppSeqNo", NonNegativeNumberField),
     ("ppTime", TimestampField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
     ("seqNoStart", NonNegativeNumberField),
-    ("seqNoEnd", NonNegativeNumberField)
+    ("seqNoEnd", NonNegativeNumberField),
+    ("auditTxnRootHash", MerkleRootField),
+    ("primaries", IterableField)
 ])
 
 
@@ -26,21 +30,31 @@ def create_valid_batch_committed():
             sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     return BatchCommitted(reqs,
                           DOMAIN_LEDGER_ID,
+                          0,
+                          0,
+                          1,
                           get_utc_epoch(),
                           generate_state_root(),
                           generate_state_root(),
                           1,
-                          2)
+                          2,
+                          generate_state_root(),
+                          ['Alpha', 'Beta'])
 
 
 def create_invalid_batch_committed():
     return BatchCommitted(["aaaa", "bbbb"],
                           DOMAIN_LEDGER_ID,
+                          0,
+                          0,
+                          1,
                           get_utc_epoch(),
                           generate_state_root(),
                           generate_state_root(),
                           1,
-                          2)
+                          2,
+                          generate_state_root(),
+                          ['Alpha', 'Beta'])
 
 
 def create_valid_batch_committed_as_dict():

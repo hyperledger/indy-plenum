@@ -5,22 +5,19 @@ from collections import OrderedDict
 
 from typing import Optional
 
-from copy import deepcopy
 from typing import List
 
-from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
-    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, BLS_KEY
-from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn_util import get_type, get_payload_data
-from storage.helper import initKeyValueStorage
-from plenum.persistence.util import pop_merkle_info
-from plenum.server.pool_req_handler import PoolRequestHandler
-from state.pruning_state import PruningState
+from common.exceptions import LogicError
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
+
+from plenum.common.constants import NODE, TARGET_NYM, DATA, ALIAS, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
+    VALIDATOR, CLIENT_STACK_SUFFIX, BLS_KEY
+from plenum.common.stack_manager import TxnStackManager
+from plenum.common.txn_util import get_type, get_payload_data
 
 logger = getlogger()
 
@@ -61,11 +58,11 @@ class PoolManager:
         """
 
     @abstractmethod
-    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
+    def get_rank_of(self, node_id, node_reg, node_ids) -> Optional[int]:
         """Return node rank among active pool validators by id
 
         :param node_id: node's id
-        :param nodeReg: (optional) node registry to operate with. If not specified,
+        :param node_reg: (optional) node registry to operate with. If not specified,
                         current one is used.
         :return: rank of the node or None if not found
         """
@@ -74,17 +71,17 @@ class PoolManager:
     def rank(self) -> Optional[int]:
         # Nodes have a total order defined in them, rank is the node's
         # position in that order
-        return self.get_rank_of(self.id)
+        return self.get_rank_of(self.id, self.nodeReg, self._ordered_node_ids)
 
     @abstractmethod
-    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
+    def get_name_by_rank(self, rank, node_reg, node_ids) -> Optional[str]:
         # Needed for communicating primary name to others and also nodeReg
         # uses node names (alias) and not ids
         # TODO: Should move to using node ids and not node names (alias)
         """Return node name (alias) by rank among active pool validators
 
         :param rank: rank of the node
-        :param nodeReg: (optional) node registry to operate with. If not specified,
+        :param node_reg: (optional) node registry to operate with. If not specified,
                         current one is used.
         :return: name of the node or None if not found
         """
@@ -92,27 +89,25 @@ class PoolManager:
 
 class HasPoolManager:
     # noinspection PyUnresolvedReferences, PyTypeChecker
-    def __init__(self, ha=None, cliname=None, cliha=None):
-        self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
-                                          cliha=cliha)
-        self.register_executer(POOL_LEDGER_ID, self.poolManager.executePoolTxnBatch)
+    def __init__(self, ledger, state, write_manager, ha=None, cliname=None, cliha=None):
+        self.poolManager = TxnPoolManager(self, ledger, state, write_manager,
+                                          ha=ha, cliname=cliname, cliha=cliha)
 
 
 class TxnPoolManager(PoolManager, TxnStackManager):
-    def __init__(self, node, ha=None, cliname=None, cliha=None):
+    def __init__(self, node, ledger, state, write_manager, ha=None, cliname=None, cliha=None):
         self.node = node
         self.name = node.name
         self.config = node.config
         self.genesis_dir = node.genesis_dir
         self.keys_dir = node.keys_dir
-        self._ledger = None
+        self.ledger = ledger
         self._id = None
 
         TxnStackManager.__init__(
-            self, self.name, node.genesis_dir, node.keys_dir, isNode=True)
-        self.state = self.loadState()
-        self.reqHandler = self.getPoolReqHandler()
-        self.initPoolState()
+            self, self.name, node.keys_dir, isNode=True)
+        self.state = state
+        self.write_manager = write_manager
         self._load_nodes_order_from_ledger()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.keys_dir, ha=ha,
@@ -128,33 +123,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def __repr__(self):
         return self.node.name
 
-    def getPoolReqHandler(self):
-        return PoolRequestHandler(self.ledger, self.state,
-                                  self.node.states[DOMAIN_LEDGER_ID])
-
-    def loadState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.poolStateStorage,
-                self.node.dataLocation,
-                self.config.poolStateDbName)
-        )
-
-    def initPoolState(self):
-        self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
-
-    @property
-    def hasLedger(self):
-        return self.node.hasFile(self.ledgerFile)
-
-    @property
-    def ledgerLocation(self):
-        return self.node.dataLocation
-
-    @property
-    def ledgerFile(self):
-        return self.config.poolTransactionsFile
-
     def getStackParamsAndNodeReg(self, name, keys_dir, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(
@@ -169,7 +137,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nstack = dict(name=name,
                       ha=HA(*ha),
                       main=True,
-                      auth_mode=AuthMode.RESTRICTED.value)
+                      auth_mode=AuthMode.RESTRICTED.value,
+                      queue_size=self.config.ZMQ_NODE_QUEUE_SIZE)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
         if not cliha:
@@ -177,7 +146,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
                       ha=HA(*cliha),
                       main=True,
-                      auth_mode=AuthMode.ALLOW_ANY.value)
+                      auth_mode=AuthMode.ALLOW_ANY.value,
+                      queue_size=self.config.ZMQ_CLIENT_QUEUE_SIZE)
 
         if keys_dir:
             nstack['basedirpath'] = keys_dir
@@ -185,26 +155,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    def executePoolTxnBatch(self, ppTime, reqs, stateRoot, txnRoot) -> List:
-        """
-        Execute a transaction that involves consensus pool management, like
-        adding a node, client or a steward.
-
-        :param ppTime: PrePrepare request time
-        :param reqs: request
-        """
-        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot, ppTime)
-        self.node.updateSeqNoMap(committedTxns)
-        for txn in committedTxns:
-            t = deepcopy(txn)
-            # Since the committed transactions contain merkle info,
-            # try to avoid this kind of strictness
-            pop_merkle_info(t)
-            self.onPoolMembershipChange(t)
-        self.node.sendRepliesToClients(committedTxns, ppTime)
-        return committedTxns
-
     def onPoolMembershipChange(self, txn):
+        # `onPoolMembershipChange` method can be called only after txn added to ledger
+
         if get_type(txn) != NODE:
             return
 
@@ -215,37 +168,29 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeName = txn_data[DATA][ALIAS]
         nodeNym = txn_data[TARGET_NYM]
 
-        self._set_node_order(nodeNym, nodeName)
+        self._set_node_ids_in_cache(nodeNym, nodeName)
 
         def _updateNode(txn_data):
-            if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
-                    intersection(set(txn_data[DATA].keys())):
-                self.nodeHaChanged(txn_data)
-            if VERKEY in txn_data:
-                self.nodeKeysChanged(txn_data)
             if SERVICES in txn_data[DATA]:
                 self.nodeServicesChanged(txn_data)
-            if BLS_KEY in txn_data[DATA]:
-                self.node_blskey_changed(txn_data)
+            if txn_data[DATA][ALIAS] in self.node.nodeReg:
+                if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
+                        intersection(set(txn_data[DATA].keys())):
+                    self.nodeHaChanged(txn_data)
+                if VERKEY in txn_data:
+                    self.nodeKeysChanged(txn_data)
+                if BLS_KEY in txn_data[DATA]:
+                    self.node_blskey_changed(txn_data)
 
-        if nodeName in self.nodeReg:
-            # The node was already part of the pool so update
-            _updateNode(txn_data)
+        # If nodeNym is never added in self._ordered_node_services,
+        # nodeNym is never added in ledger
+        if nodeNym not in self._ordered_node_services:
+            if VALIDATOR in txn_data[DATA].get(SERVICES, []):
+                self.addNewNodeAndConnect(txn_data)
+            self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, []))
         else:
-            seqNos, info = self.getNodeInfoFromLedger(nodeNym)
-            if len(seqNos) == 1:
-                # Since only one transaction has been made, this is a new
-                # node transaction
-                if VALIDATOR in txn_data[DATA].get(SERVICES, []):
-                    self.addNewNodeAndConnect(txn_data)
-            else:
-                self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
-                                                 info[DATA][NODE_PORT])
-                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(
-                    info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
-                _updateNode(txn_data)
-
-        self.node.sendPoolInfoToClients(txn)
+            _updateNode(txn_data)
+            self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, None))
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
@@ -329,36 +274,45 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def nodeServicesChanged(self, txn_data):
         nodeNym = txn_data[TARGET_NYM]
-        _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
-        nodeName = nodeInfo[DATA][ALIAS]
-        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        nodeName = self.getNodeName(nodeNym)
+        oldServices = set(self._ordered_node_services.get(nodeNym, []))
         newServices = set(txn_data[DATA].get(SERVICES, []))
         if oldServices == newServices:
-            logger.debug("Node {} not changing {} since it is same as existing"
-                         .format(nodeNym, SERVICES))
+            logger.info("Node {} not changing {} since it is same as existing".format(nodeNym, SERVICES))
             return
         else:
-            if self.name != nodeName:
-                if VALIDATOR in newServices.difference(oldServices):
-                    # If validator service is enabled
-                    self.updateNodeTxns(nodeInfo, txn_data)
-                    self.connectNewRemote(nodeInfo, nodeName, self.node)
-                    self.node.nodeJoined(txn_data)
+            if VALIDATOR in newServices.difference(oldServices):
+                # If validator service is enabled
+                node_info = self.write_manager.get_node_data(nodeNym)
+                self.node.nodeReg[nodeName] = HA(node_info[NODE_IP],
+                                                 node_info[NODE_PORT])
+                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(node_info[CLIENT_IP],
+                                                                          node_info[CLIENT_PORT])
 
-                if VALIDATOR in oldServices.difference(newServices):
-                    # If validator service is disabled
-                    del self.node.nodeReg[nodeName]
-                    del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+                self.updateNodeTxns({DATA: node_info, }, txn_data)
+                self.node.nodeJoined(txn_data)
+
+                if self.name != nodeName:
+                    self.connectNewRemote({DATA: node_info,
+                                           TARGET_NYM: nodeNym}, nodeName, self.node)
+                else:
+                    logger.debug("{} adding itself to node registry".
+                                 format(self.name))
+
+            if VALIDATOR in oldServices.difference(newServices):
+                # If validator service is disabled
+                del self.node.nodeReg[nodeName]
+                del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+                self.node.nodeLeft(txn_data)
+
+                if self.name != nodeName:
                     try:
                         rid = TxnStackManager.removeRemote(
                             self.node.nodestack, nodeName)
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:
-                        logger.debug('{} did not find remote {} to remove'.
-                                     format(self, nodeName))
-
-                    self.node.nodeLeft(txn_data)
+                        logger.info('{} did not find remote {} to remove'.format(self, nodeName))
                     self.node_about_to_be_disconnected(nodeName)
 
     def node_blskey_changed(self, txn_data):
@@ -371,8 +325,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change
-        _, nodeTxn = self.getNodeInfoFromLedger(nym)
-        return nodeTxn[DATA][ALIAS]
+        return self._ordered_node_ids[nym]
 
     @property
     def merkleRootHash(self) -> str:
@@ -381,10 +334,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     @property
     def txnSeqNo(self) -> int:
         return self.ledger.seqNo
-
-    def getNodeData(self, nym):
-        _, nodeTxn = self.getNodeInfoFromLedger(nym)
-        return nodeTxn[DATA]
 
     # Question: Why are `_isIpAddressValid` and `_isPortValid` part of
     # pool_manager?
@@ -412,48 +361,54 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def _load_nodes_order_from_ledger(self):
         self._ordered_node_ids = OrderedDict()
+        self._ordered_node_services = {}
         for _, txn in self.ledger.getAllTxn():
             if get_type(txn) == NODE:
                 txn_data = get_payload_data(txn)
-                self._set_node_order(txn_data[TARGET_NYM], txn_data[DATA][ALIAS])
+                self._set_node_ids_in_cache(txn_data[TARGET_NYM],
+                                            txn_data[DATA][ALIAS])
+                self._set_node_services_in_cache(txn_data[TARGET_NYM],
+                                                 txn_data[DATA].get(SERVICES, None))
 
-    def _set_node_order(self, nodeNym, nodeName):
-        curName = self._ordered_node_ids.get(nodeNym)
+    def _set_node_ids_in_cache(self, node_nym, node_name):
+        curName = self._ordered_node_ids.get(node_nym)
         if curName is None:
-            self._ordered_node_ids[nodeNym] = nodeName
+            self._ordered_node_ids[node_nym] = node_name
             logger.info("{} sets node {} ({}) order to {}".format(
-                self.name, nodeName, nodeNym,
-                len(self._ordered_node_ids[nodeNym])))
-        elif curName != nodeName:
-            msg = ("{} is trying to order already ordered node {} ({}) "
-                   "with other alias {}".format(self.name, curName, nodeNym, nodeName))
-            logger.warning(msg)
-            assert False, msg
+                self.name, node_name, node_nym,
+                len(self._ordered_node_ids[node_nym])))
+        elif curName != node_name:
+            msg = "{} is trying to order already ordered node {} ({}) with other alias {}" \
+                .format(self.name, curName, node_nym, node_name)
+            logger.error(msg)
+            raise LogicError(msg)
 
-    def node_ids_ordered_by_rank(self, nodeReg=None) -> List:
-        if nodeReg is None:
-            nodeReg = self.nodeReg
-        return [nym for nym, name in self._ordered_node_ids.items()
-                if name in nodeReg]
+    def _set_node_services_in_cache(self, node_nym, node_services):
+        if node_services is not None:
+            self._ordered_node_services[node_nym] = node_services
 
-    def get_rank_of(self, node_id, nodeReg=None) -> Optional[int]:
+    def node_ids_ordered_by_rank(self, node_reg, node_ids) -> List:
+        return [nym for nym, name in node_ids.items()
+                if name in node_reg]
+
+    def get_rank_of(self, node_id, node_reg, node_ids) -> Optional[int]:
         if self.id is None:
             # This can happen if a non-genesis node starts
             return None
-        return self._get_rank(node_id, self.node_ids_ordered_by_rank(nodeReg))
+        return self._get_rank(node_id, self.node_ids_ordered_by_rank(node_reg, node_ids))
 
-    def get_rank_by_name(self, name, nodeReg=None) -> Optional[int]:
-        for nym, nm in self._ordered_node_ids.items():
+    def get_rank_by_name(self, name, node_reg, node_ids) -> Optional[int]:
+        for nym, nm in node_ids.items():
             if name == nm:
-                return self.get_rank_of(nym, nodeReg)
+                return self.get_rank_of(nym, node_reg, node_ids)
 
-    def get_name_by_rank(self, rank, nodeReg=None) -> Optional[str]:
+    def get_name_by_rank(self, rank, node_reg, node_ids) -> Optional[str]:
         try:
-            nym = self.node_ids_ordered_by_rank(nodeReg)[rank]
+            nym = self.node_ids_ordered_by_rank(node_reg, node_ids)[rank]
         except IndexError:
             return None
         else:
-            return self._ordered_node_ids[nym]
+            return node_ids[nym]
 
     def get_nym_by_name(self, node_name) -> Optional[str]:
         for nym, name in self._ordered_node_ids.items():

@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from typing import Tuple, List, Iterable
 
+from common.exceptions import LogicError
 from storage.kv_store import KeyValueStorage
 
 
@@ -29,6 +30,8 @@ class OptimisticKVStore:
 
     def reject_batch(self):
         # Batches are always rejected from end of `self.unCommitted`
+        if len(self.un_committed) == 0:
+            raise LogicError("No items to reject")
         self.current_batch_ops = []
         self.un_committed = self.un_committed[:-1]
 

@@ -2,9 +2,8 @@ import types
 from binascii import hexlify
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.startable import Mode
-from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.messages.node_messages import ThreePhaseType
+from plenum.common.startable import Mode
 from plenum.common.util import check_if_all_equal_in_list
 
 
@@ -56,54 +55,6 @@ def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
         assert len(txnRoots) == 1
 
 
-def add_txns_to_ledger_before_order(replica, reqs):
-    replica.added = False
-    origMethod = replica.tryOrder
-
-    def tryOrderAndAddTxns(self, commit):
-        canOrder, _ = self.canOrder(commit)
-        node = replica.node
-        if not replica.added and canOrder:
-
-            ledger_manager = node.ledgerManager
-            ledger_id = DOMAIN_LEDGER_ID
-            ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
-            ledgerInfo = ledger_manager.getLedgerInfoByType(ledger_id)
-
-            ledger_manager.preCatchupClbk(ledger_id)
-            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-            for req in reqs:
-                txn = append_txn_metadata(reqToTxn(req), txn_time=pp.ppTime)
-                ledger_manager._add_txn(
-                    ledger_id, ledger, ledgerInfo, txn)
-            ledger_manager.catchupCompleted(
-                DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
-
-            replica.added = True
-
-        return origMethod(commit)
-
-    replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
-
-
-def start_precatchup_before_order(replica):
-    called = False
-    origMethod = replica.tryOrder
-
-    def tryOrderAndAddTxns(self, commit):
-        nonlocal called
-        canOrder, _ = self.canOrder(commit)
-
-        if not called and canOrder:
-            ledger_manager = replica.node.ledgerManager
-            ledger_manager.preCatchupClbk(DOMAIN_LEDGER_ID)
-            called = True
-
-        return origMethod(commit)
-
-    replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
-
-
 def make_node_syncing(replica, three_phase_type: ThreePhaseType):
     added = False
 
@@ -133,3 +84,7 @@ def check_uncommitteds_equal(nodes):
     assert check_if_all_equal_in_list(t_roots)
     assert check_if_all_equal_in_list(s_roots)
     return t_roots[0], s_roots[0]
+
+
+def node_caughtup(node, old_count):
+    assert node.spylog.count(node.allLedgersCaughtUp) > old_count

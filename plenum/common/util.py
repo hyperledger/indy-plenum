@@ -1,5 +1,6 @@
 import asyncio
 import collections
+import dateutil.tz
 import functools
 import glob
 import inspect
@@ -15,10 +16,9 @@ import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import unique, IntEnum
 from math import floor
-from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, NamedTuple, Callable
 
@@ -28,10 +28,11 @@ import psutil
 from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
 from sortedcontainers import SortedDict as _SortedDict
+from zmq.utils import z85
 
-from ledger.util import F
-from plenum.cli.constants import WALLET_FILE_EXTENSION
 from common.error import error
+from common.exceptions import PlenumTypeError, PlenumValueError
+from ledger.util import F
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
     InvalidEndpointIpAddress, InvalidEndpointPort
@@ -56,14 +57,17 @@ def randomString(size: int = 20) -> str:
     """
 
     def randomStr(size):
-        assert (size > 0), "Expected random string size cannot be less than 1"
+        if not isinstance(size, int):
+            raise PlenumTypeError('size', size, int)
+        if not size > 0:
+            raise PlenumValueError('size', size, '> 0')
         # Approach 1
         rv = randombytes(size // 2).hex()
 
         return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
 
         # Approach 2 this is faster than Approach 1, but lovesh had a doubt
-        # that part of a random may not be truely random, so until
+        # that part of a random may not be truly random, so until
         # we have definite proof going to retain it commented
         # rstr = randombytes(size).hex()
         # return rstr[:size]
@@ -333,6 +337,13 @@ def cryptonymToHex(cryptonym: str) -> bytes:
     return hexlify(base58.b58decode(cryptonym.encode()))
 
 
+def z85_to_friendly(z):
+    try:
+        return z if isinstance(z, str) else hexToFriendly(hexlify(z85.decode(z)))
+    except ValueError:
+        return z
+
+
 def runWithLoop(loop, callback, *args, **kwargs):
     if loop.is_running():
         loop.call_soon(asyncio.async, callback(*args, **kwargs))
@@ -471,12 +482,27 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
+def get_utc_datetime() -> datetime:
+    """
+    :return: current datetime in UTC with explicit UTC marker
+    """
+    return datetime.utcnow().replace(tzinfo=dateutil.tz.tzutc())
+
+
 def get_utc_epoch() -> int:
     """
-    Returns epoch in UTC
-    :return:
+    :return: epoch in UTC
     """
-    return int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+    return int(get_utc_datetime().timestamp())
+
+
+def get_datetime_from_ts(ts):
+    """
+
+    :param ts: timestamp
+    :return: datetime in UTC
+    """
+    return datetime.fromtimestamp(ts, dateutil.tz.tzutc())
 
 
 def lxor(a, b):
@@ -564,23 +590,8 @@ def getFormattedErrorMsg(msg):
     return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
 
 
-def normalizedWalletFileName(walletName):
-    return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
-
-
 def getWalletFilePath(basedir, walletFileName):
     return os.path.join(basedir, walletFileName)
-
-
-def getLastSavedWalletFileName(dir):
-    # TODO move that to WalletStorageHelper
-    def getLastModifiedTime(file):
-        return os.stat(file).st_mtime_ns
-
-    filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
-    newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
-                 key=getLastModifiedTime)
-    return basename(newest)
 
 
 def pop_keys(mapping: Dict, cond: Callable):

@@ -1,19 +1,18 @@
 import random
 import types
-from functools import partial
-
 import common.error
-import plenum.common.error
+
+from functools import partial
+from typing import Any, Callable
+
+from plenum.server.router import Router
 from plenum.common.types import f
-
-from plenum.common.messages.node_messages import ViewChangeDone, Nomination, Batch, Reelection, \
-    Primary, BlacklistMsg, RequestAck, RequestNack, Reject, PoolLedgerTxns, Ordered, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, CheckpointState, \
-    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
-    CurrentState, MessageReq, MessageRep, ElectionType, ThreePhaseType, ThreePhaseMsg
+from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, \
+    Commit, Reply, ThreePhaseMsg
 from plenum.common.request import Request
-
 from plenum.common.util import updateNamedTuple
+
+from plenum.server.node import Node
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
@@ -33,8 +32,8 @@ def changesRequest(node):
                             request: Request, identifier: str) -> Propagate:
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
-        request.operation["amount"] += random.random()
-        request._digest = request.getDigest()
+        request.operation["amount"] = random.randint(10, 100000)
+        request._digest = request.digest
         if isinstance(identifier, bytes):
             identifier = identifier.decode()
         return Propagate(request.as_dict, identifier)
@@ -42,6 +41,60 @@ def changesRequest(node):
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod
     return node
+
+
+def dont_send_prepare_commit(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, (Prepare, Commit)):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def dont_send_prepare_and_commit_to(nodes, ignore_node_name):
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(dont_send_prepare_commit, node)
+
+
+def dont_send_propagate(self, msg: Any, *rids, signer=None, message_splitter=None):
+    if isinstance(msg, (Propagate)):
+        if rids:
+            rids = [rid for rid in rids if rid != self.nodestack.getRemote(self.ignore_node_name).uid]
+        else:
+            rids = [self.nodestack.getRemote(name).uid for name
+                    in self.nodestack.remotes.keys() if name != self.ignore_node_name]
+    self.old_send(msg, *rids, signer=signer, message_splitter=message_splitter)
+
+
+def dont_send_messages_to(nodes, ignore_node_name, send_func: Callable):
+    for node in nodes:
+        node.ignore_node_name = ignore_node_name
+        node.old_send = types.MethodType(Node.send, node)
+        node.send = types.MethodType(send_func, node)
+
+
+def reset_sending(nodes):
+    for node in nodes:
+        node.send = types.MethodType(Node.send, node)
+
+
+def router_dont_accept(self, msg: Any):
+    if self.ignore_node_name != msg[1]:
+        self.oldHandleSync(msg)
+
+
+def router_dont_accept_messages_from(node, ignore_node_name):
+    node.nodeMsgRouter.ignore_node_name = ignore_node_name
+    node.nodeMsgRouter.oldHandleSync = types.MethodType(Router.handleSync, node.nodeMsgRouter)
+    node.nodeMsgRouter.handleSync = types.MethodType(router_dont_accept, node.nodeMsgRouter)
+
+
+def reset_router_accepting(node):
+    node.nodeMsgRouter.handleSync = types.MethodType(Router.handleSync, node.nodeMsgRouter)
 
 
 def delaysPrePrepareProcessing(node, delay: float = 30, instId: int = None):
@@ -72,7 +125,8 @@ def sendDuplicate3PhaseMsg(
                           ppReq.ppTime,
                           ppReq.digest,
                           ppReq.stateRootHash,
-                          ppReq.txnRootHash)
+                          ppReq.txnRootHash,
+                          ppReq.auditTxnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)
@@ -122,7 +176,7 @@ def malignInstancesOfNode(node: TestNode, malignMethod, instId: int = None):
     if instId is not None:
         malignMethod(replica=node.replicas[instId])
     else:
-        for r in node.replicas:
+        for r in node.replicas.values():
             malignMethod(replica=r)
 
     return node

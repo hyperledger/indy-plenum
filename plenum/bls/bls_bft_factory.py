@@ -16,15 +16,17 @@ class BlsFactoryBftPlenum(BlsFactoryBft):
     def create_bls_store(self):
         return BlsStore(key_value_type=self._node.config.stateSignatureStorage,
                         data_location=self._node.dataLocation,
-                        key_value_storage_name=self._node.config.stateSignatureDbName)
+                        key_value_storage_name=self._node.config.stateSignatureDbName,
+                        db_config=self._node.config.db_state_signature_config)
 
     def create_bls_key_register(self) -> BlsKeyRegister:
-        return BlsKeyRegisterPoolManager(self._node.poolManager)
+        return BlsKeyRegisterPoolManager(self._node)
 
     def create_bls_bft_replica(self, is_master) -> BlsBftReplica:
         return BlsBftReplicaPlenum(self._node.name,
                                    self._node.bls_bft,
-                                   is_master)
+                                   is_master,
+                                   self._node.metrics)
 
 
 def create_default_bls_bft_factory(node):
@@ -36,5 +38,4 @@ def create_default_bls_bft_factory(node):
     '''
     bls_keys_dir = os.path.join(node.keys_dir, node.name)
     bls_crypto_factory = create_default_bls_crypto_factory(bls_keys_dir)
-    return BlsFactoryBftPlenum(bls_crypto_factory,
-                               node)
+    return BlsFactoryBftPlenum(bls_crypto_factory, node)

@@ -37,7 +37,7 @@ def test_node_requests_missing_preprepares_and_prepares_after_long_disconnection
     disconnected_nodes = []
 
     for node in txnPoolNodeSet:
-        if node.hasPrimary is not None:
+        if node.hasPrimary:
             alive_nodes.append(node)
         else:
             disconnected_nodes.append(node)

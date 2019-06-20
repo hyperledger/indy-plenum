@@ -11,11 +11,16 @@ ledger_txn_serializer = MsgPackSerializer()
 ledger_hash_serializer = MsgPackSerializer()
 domain_state_serializer = JsonSerializer()
 pool_state_serializer = JsonSerializer()
+config_state_serializer = JsonSerializer()
+node_status_db_serializer = JsonSerializer()
 client_req_rep_store_serializer = JsonSerializer()
 multi_sig_store_serializer = JsonSerializer()
 state_roots_serializer = Base58Serializer()
+txn_root_serializer = Base58Serializer()
 proof_nodes_serializer = Base64Serializer()
 multi_signature_value_serializer = MsgPackSerializer()
+invalid_index_serializer = JsonSerializer()
+instance_change_db_serializer = JsonSerializer()
 
 
 # TODO: separate data, metadata and signature, so that we don't need to have topLevelKeysToIgnore

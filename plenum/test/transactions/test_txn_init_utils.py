@@ -1,4 +1,4 @@
-from plenum.common.constants import NYM, NODE
+from plenum.common.constants import NYM, NODE, CURRENT_PROTOCOL_VERSION
 from plenum.common.txn_util import init_empty_txn, set_payload_data, append_payload_metadata, append_txn_metadata
 from plenum.common.util import SortedDict
 
@@ -12,6 +12,7 @@ def test_init_empty_txn_no_protocol_ver():
             "metadata": {
             },
             "type": NYM,
+            "protocolVersion": CURRENT_PROTOCOL_VERSION
         },
         "txnMetadata": {
         },
@@ -60,7 +61,11 @@ def test_set_payload_metadata():
 def test_append_payload_metadata():
     txn = init_empty_txn(txn_type=NODE, protocol_version="3")
     set_payload_data(txn, {"somekey": "somevalue"})
-    append_payload_metadata(txn, frm="DID1", req_id=12345)
+    append_payload_metadata(txn, frm="DID1",
+                            req_id=12345,
+                            digest="random req digest",
+                            payload_digest="random payload",
+                            taa_acceptance={'sometaakey': "sometaavalue"})
     expected = SortedDict({
         "reqSignature": {},
         "txn": {
@@ -68,6 +73,9 @@ def test_append_payload_metadata():
             "metadata": {
                 "from": "DID1",
                 "reqId": 12345,
+                "digest": "random req digest",
+                "payloadDigest": "random payload",
+                "taaAcceptance": {'sometaakey': "sometaavalue"}
             },
             "protocolVersion": "3",
             "type": NODE,

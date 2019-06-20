@@ -1,16 +1,14 @@
 from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.loop.eventually import eventually
 
-from plenum.common.constants import COMMIT, LEDGER_STATUS, MESSAGE_RESPONSE
+from plenum.common.constants import COMMIT, LEDGER_STATUS, MESSAGE_RESPONSE, CATCHUP_REP
 from plenum.common.messages.node_messages import Commit
 from plenum.common.util import check_if_all_equal_in_list
-from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay
+from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay, cr_delay
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
-
-TestRunningTimeLimitSec = 150
 
 
 def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
@@ -20,7 +18,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     ordered but stashed
     Example scenario
     prepared (1, 4)
-    startViewChange
+    start_view_change
     start_catchup
     ...
     ....
@@ -58,6 +56,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     # Delay LEDGER_STATUS so catchup starts late
     slow_node.nodeIbStasher.delay(lsDelay(100))
     slow_node.nodeIbStasher.delay(msg_rep_delay(100))
+    slow_node.nodeIbStasher.delay(cr_delay(100))
 
     # slow_node has not reverted batches
     assert sent_batches not in getAllReturnVals(
@@ -82,24 +81,24 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
     def chk2():
-        # slow_node orders all requests as others have
-        assert last_ordered[0] == slow_node.master_last_ordered_3PC
+        # slow_node stashed commits
+        assert slow_node.master_replica.stasher.num_stashed_catchup == \
+               sent_batches * (len(txnPoolNodeSet) - 1)
 
     looper.run(eventually(chk2, retryWait=1))
 
     # Deliver LEDGER_STATUS so catchup can complete
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(LEDGER_STATUS)
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(MESSAGE_RESPONSE)
+    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CATCHUP_REP)
 
     # Ensure all nodes have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
     def chk3():
-        # slow_node processed stashed Ordered requests successfully
-        rv = getAllReturnVals(slow_node,
-                              slow_node.processStashedOrderedReqs)
-        assert sent_batches in rv
+        # slow_node processed stashed messages successfully
+        assert slow_node.master_replica.stasher.num_stashed_catchup == 0
 
     looper.run(eventually(chk3, retryWait=1))
 

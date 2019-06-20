@@ -27,7 +27,7 @@ def testSimpleZStacksMsgs(tdir, looper):
 
     def bHandler(m):
         print(beta.msgHandler)
-        a = list(beta.peersWithoutRemotes)[0]
+        a = m[1]
         try:
             beta.listener.send_multipart([a, msg],
                                          flags=zmq.NOBLOCK)

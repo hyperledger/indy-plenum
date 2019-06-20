@@ -3,7 +3,6 @@ import pytest
 from plenum.common.exceptions import UnauthorizedClientRequest, RequestRejectedException
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
-from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
 from plenum.common.request import Request
@@ -65,12 +64,10 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     REJECT is sent to the client
     :return:
     """
-    # TODO: Change this test for using SDK.
-    # Now SDK, can't distinguish REJECTED messages and simply raise IndyError
     origMethods = []
     names = {node.name: 0 for node in txnPoolNodeSet}
 
-    def rejectingMethod(self, req):
+    def rejectingMethod(self, req, pp_time):
         names[self.name] += 1
         # Raise rejection for last request of batch
         if tconf.Max3PCBatchSize - names[self.name] == 0:

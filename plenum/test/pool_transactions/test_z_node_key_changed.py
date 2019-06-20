@@ -53,7 +53,8 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     txnPoolNodeSet[-1] = node
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
 
 

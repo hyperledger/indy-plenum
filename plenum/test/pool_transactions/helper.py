@@ -1,24 +1,24 @@
 import json
 
 from indy.did import create_and_store_my_did
-from indy.ledger import build_node_request, build_nym_request, build_get_txn_request
+from indy.ledger import build_node_request, build_nym_request, \
+    build_get_txn_request
 from indy.pool import refresh_pool_ledger
+
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from typing import Iterable, Union, Callable
 
-from plenum.client.wallet import Wallet
 from plenum.common.constants import VERKEY, VALIDATOR, STEWARD_STRING
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.signer_did import DidSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_sign_request_strings
+    sdk_get_and_check_replies, sdk_sign_request_strings \
+
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
@@ -47,9 +47,9 @@ def prepare_new_node_data(tconf, tdir, newNodeName, configClass=PNodeConfigHelpe
     sigseed = randomString(32).encode()
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
     config_helper = configClass(newNodeName, tconf, chroot=tdir)
-    _, verkey, bls_key = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
+    pubkey, verkey, bls_key, key_proof = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
                                                    sigseed, override=True)
-    return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort
+    return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof
 
 
 def start_not_added_node(looper,
@@ -59,14 +59,15 @@ def start_not_added_node(looper,
     Creates and starts a new node, but doesn't add it to the Pool
     (so, NODE txn is not sent).
     '''
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, newNodeName)
 
     new_node = create_and_start_new_node(looper, newNodeName,
                                          tdir, randomString(32).encode(),
                                          (nodeIp, nodePort), (clientIp, clientPort),
                                          tconf, True, allPluginsPath, TestNode)
-    return sigseed, bls_key, new_node, (nodeIp, nodePort), (clientIp, clientPort)
+    return sigseed, bls_key, new_node, (nodeIp, nodePort), \
+           (clientIp, clientPort), key_proof
 
 
 def add_started_node(looper,
@@ -76,7 +77,8 @@ def add_started_node(looper,
                      txnPoolNodeSet,
                      sdk_pool_handle,
                      sdk_wallet_steward,
-                     bls_key):
+                     bls_key,
+                     key_proof):
     '''
     Adds already created node to the pool,
     that is sends NODE txn.
@@ -93,7 +95,8 @@ def add_started_node(looper,
                          node_ha[0], node_ha[1],
                          client_ha[0], client_ha[1],
                          services=[VALIDATOR],
-                         bls_key=bls_key)
+                         bls_key=bls_key,
+                         key_proof=key_proof)
 
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -186,7 +189,7 @@ def sdk_add_new_steward_and_node(looper,
 
 def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
                     alias=None, role=None, seed=None,
-                    dest=None, verkey=None,skipverkey=False):
+                    dest=None, verkey=None, skipverkey=False, no_wait=False):
     seed = seed or randomString(32)
     alias = alias or randomString(5)
     wh, _ = creators_wallet
@@ -200,7 +203,8 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
                                                         sdk_pool_handle, nym_request)
-
+    if no_wait:
+        return request_couple
     # waitng for replies
     sdk_get_and_check_replies(looper, [request_couple])
     return wh, new_did
@@ -215,7 +219,7 @@ def sdk_add_new_node(looper,
                      do_post_node_creation: Callable = None,
                      services=[VALIDATOR]):
     nodeClass = nodeClass or TestNode
-    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort = \
+    sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
 
     # filling node request
@@ -229,7 +233,8 @@ def sdk_add_new_node(looper,
                              nodePort=nodePort,
                              bls_key=bls_key,
                              sigseed=sigseed,
-                             services=services))
+                             services=services,
+                             key_proof=key_proof))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
@@ -265,7 +270,8 @@ async def prepare_nym_request(wallet, named_seed, alias,
 
 async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
                                clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
-                               sigseed=None, destination=None, services=[VALIDATOR]):
+                               sigseed=None, destination=None, services=[VALIDATOR],
+                               key_proof=None):
     use_sigseed = sigseed is not None
     use_dest = destination is not None
     if use_sigseed == use_dest:
@@ -285,6 +291,8 @@ async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
         data['node_ip'] = nodeIp
     if nodePort is not None:
         data['node_port'] = nodePort
+    if key_proof is not None:
+        data['blskey_pop'] = key_proof
     if bls_key is not None:
         data['blskey'] = bls_key
     if services is not None:
@@ -308,7 +316,8 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                          node_ip, node_port,
                          client_ip, client_port,
                          services=[VALIDATOR],
-                         bls_key=None):
+                         bls_key=None,
+                         key_proof=None):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
     node_request = looper.loop.run_until_complete(
@@ -320,7 +329,8 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                              nodePort=node_port,
                              bls_key=bls_key,
                              destination=destination,
-                             services=services))
+                             services=services,
+                             key_proof=key_proof))
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,
@@ -337,9 +347,9 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
         refresh_pool_ledger(sdk_pool_handle))
 
 
-def sdk_build_get_txn_request(looper, steward_did, data):
+def sdk_build_get_txn_request(looper, steward_did, seq_no):
     request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, data))
+        build_get_txn_request(steward_did, None, seq_no))
     return request
 
 
@@ -384,7 +394,8 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     return restartedNode
 
 
-def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle, verkey):
+def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
+                         verkey):
     _, steward_did = sdk_wallet_steward
     node_dest = hexToFriendly(node.nodestack.verhex)
     node_request = looper.loop.run_until_complete(
@@ -426,18 +437,6 @@ def promote_node(looper, steward_wallet, sdk_pool_handle,
                          None, None,
                          None, None,
                          services=[VALIDATOR])
-
-
-def buildPoolClientAndWallet(clientData, tempDir, clientClass=None, walletClass=None):
-    walletClass = walletClass or Wallet
-    clientClass = clientClass or TestClient
-    name, sigseed = clientData
-    w = walletClass(name)
-    w.addIdentifier(signer=DidSigner(seed=sigseed))
-    client, _ = genTestClient(name=name, identifier=w.defaultId,
-                              tmpdir=tempDir, usePoolLedger=True,
-                              testClientClass=clientClass)
-    return client, w
 
 
 def disconnectPoolNode(poolNodes: Iterable,
@@ -541,7 +540,8 @@ def sdk_add_2_nodes(looper, txnPoolNodeSet,
                                          allPluginsPath)
         txnPoolNodeSet.append(new_node)
         looper.run(checkNodesConnected(txnPoolNodeSet))
-        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                             exclude_from_check=['check_last_ordered_3pc_backup'])
         sdk_pool_refresh(looper, sdk_pool_handle)
         new_nodes.append(new_node)
     return new_nodes

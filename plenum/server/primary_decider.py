@@ -119,7 +119,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
                            .format(VIEW_CHANGE_PREFIX, viewNo, self.viewNo))
             return False
         self.previous_master_primary = self.node.master_primary_name
-        for replica in self.replicas:
+        for replica in self.replicas.values():
             replica.primaryName = None
         return True
 
@@ -142,4 +142,16 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
     def start_election_for_instance(self, instance_id):
         """
         Called when starting election for a particular protocol instance
+        """
+
+    @abstractmethod
+    def on_catchup_complete(self):
+        """
+        Select primaries after catchup completed
+        """
+
+    @abstractmethod
+    def process_selection(self, instance_count, node_reg, node_ids):
+        """
+        Return primaries set for current view_no
         """

@@ -2,6 +2,7 @@ from typing import Iterable
 
 import pytest
 
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.startable import Status
@@ -16,15 +17,14 @@ from plenum.test import waits
 logger = getlogger()
 whitelist = ['Consensus for ReqId:']
 
-nodeCount = 13
-f = 4
+nodeCount = 7
+f = 2
 minimumNodesToBeUp = nodeCount - f
 
 
 @pytest.fixture(scope="function", autouse=True)
 def limitTestRunningTime():
     return 200
-
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
@@ -85,11 +85,15 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     logger.debug("Remove all the nodes")
     for n in nodeNames:
         node_n = get_node_by_name(current_node_set, n)
+        disconnect_node_and_ensure_disconnected(looper,
+                                                current_node_set,
+                                                node_n,
+                                                timeout=nodeCount,
+                                                stopNode=True)
         looper.removeProdable(node_n)
-        node_n.stop()
         current_node_set.remove(node_n)
 
-    looper.runFor(10)
+    # looper.runFor(10)
 
     logger.debug("Add nodes back one at a time")
     for i in range(nodeCount):

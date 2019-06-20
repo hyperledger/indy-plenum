@@ -10,7 +10,7 @@ from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent, sdk_send_random_requests, \
-    sdk_json_to_request_object, sdk_get_replies
+    sdk_json_to_request_object, sdk_get_replies, init_discarded
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
@@ -48,8 +48,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     for npr in nonPrimaryReplicas:
         looper.run(eventually(checkPrepareReqSent,
                               npr,
-                              request1.identifier,
-                              request1.reqId,
+                              request1.key,
                               primaryRepl.viewNo,
                               retryWait=1))
     prePrepareReq = primaryRepl.sentPrePrepares[primaryRepl.viewNo,
@@ -87,18 +86,20 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     primaryRepl.node.stop()
     looper.removeProdable(primaryRepl.node)
 
-    reqIdr = [(request2.identifier, request2.reqId)]
+    reqIdr = [request2.digest]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         view_no,
         primaryRepl.lastPrePrepareSeqNo,
         get_utc_epoch(),
         reqIdr,
-        1,
+        init_discarded(),
         primaryRepl.batchDigest([request2]),
         DOMAIN_LEDGER_ID,
         primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
-        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID)
+        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
+        0,
+        True
     )
 
     logger.debug("""Checking whether all the non primary replicas have received
@@ -120,8 +121,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  request2.identifier,
-                                  request2.reqId,
+                                  request2.key,
                                   view_no,
                                   retryWait=1,
                                   timeout=timeout))

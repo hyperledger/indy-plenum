@@ -72,7 +72,6 @@ Contains dictionary of output log files, each with following options:
   - `<replica>`: source replica identifier
   - `<level>`: log level (DEBUG, INFO, WARNING, etc)
   - `<source>`: source file which emitted message
-  - `<func>`: function which emitted message
   - `<body>`: message body
   - `<user attr>`: any user-defined attribute, explained later in 
     *chains* section 
@@ -82,7 +81,8 @@ Contains dictionary of output log files, each with following options:
 Contains dictionary of output event intensity plots, each with following 
 options:
 - `interval`: sampling interval in seconds
-- `graphs`: list of graphs on plot, each being a `name: color` key-value
+- `filename`: output csv filename
+- `graphs`: list of graphs on plot
 
 #### counters
 
@@ -98,7 +98,7 @@ Contains reporting options of request tracker:
 - `report_stats`: whether to report statistics at all
 - `report_lags`: whether to report request id's which took more than minute 
   to order
-- `plot_graphs`: whether to plot graphs of requests time to order 
+- `filename`: csv filename to output requests time to order
 
 ### matchers
 
@@ -147,10 +147,10 @@ checks that message has attribute `reqId` containing value `xz 42`
   - level: WARNING
   ```
   As with timestamp any of `min` or `max` can be omitted.
-- `func`: checks if function that emitted message matches given name, which
-  is parameter of this matcher, for example:
+- `source`: checks if message originates from given source file, which is
+  parameter for this matcher, for example:
   ```yaml
-  - func: acquire
+  - source: monitor.py
   ```
 - `message`: checks if body of message matches given regex, which is 
   parameter for this matcher, for example:

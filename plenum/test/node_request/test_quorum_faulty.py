@@ -16,7 +16,7 @@ nodeCount = 6
 # f + 1 faults, i.e, num of faults greater than system can tolerate
 faultyNodes = 2
 
-whitelist = ['InvalidSignature']
+whitelist = ['InvalidSignature', 'Consensus for ReqId:']
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +34,7 @@ def setup(txnPoolNodeSet):
 @pytest.fixture(scope="module")
 def afterElection(setup):
     for n in setup.faulties:
-        for r in n.replicas:
+        for r in n.replicas.values():
             assert not r.isPrimary
 
 

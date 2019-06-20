@@ -2,13 +2,13 @@ from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test import waits
-from plenum.test.helper import chk_all_funcs
+from plenum.test.helper import chk_all_funcs, init_discarded
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
@@ -81,12 +81,16 @@ def checkPrePrepared(looper,
                 primary.viewNo,
                 primary.lastPrePrepareSeqNo,
                 get_utc_epoch(),
-                [[propagated1.identifier, propagated1.reqId]],
-                1,
+                [propagated1.digest],
+                init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
                 primary.stateRootHash(DOMAIN_LEDGER_ID),
                 primary.txnRootHash(DOMAIN_LEDGER_ID),
+                0,
+                True,
+                primary.stateRootHash(POOL_LEDGER_ID),
+                primary.txnRootHash(AUDIT_LEDGER_ID)
             )
 
             passes = 0
@@ -119,13 +123,9 @@ def checkPrePrepared(looper,
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary, primary.sendPrePrepare)
-                              if (param['ppReq'].reqIdr[0][0],
-                                  param['ppReq'].reqIdr[0][1],
-                                  param['ppReq'].digest) ==
-                              (propagated1.identifier,
-                               propagated1.reqId,
-                               primary.batchDigest([propagated1, ]))
-                              ])
+                              if param['ppReq'].reqIdr[0] == propagated1.digest
+                              and param['ppReq'].digest ==
+                              primary.batchDigest([propagated1, ])])
 
             numOfMsgsWithZFN = 1
 
@@ -147,12 +147,9 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
                           getAllArgs(npr, npr.addToPrePrepares)
-                          if (param['pp'].reqIdr[0][0],
-                              param['pp'].reqIdr[0][1],
-                              param['pp'].digest) == (
-                              propagated1.identifier,
-                              propagated1.reqId,
-                              primary.batchDigest([propagated1, ]))])
+                          if param['pp'].reqIdr[0] == propagated1.digest
+                          and param['pp'].digest ==
+                          primary.batchDigest([propagated1, ])])
 
                 numOfMsgsWithZFN = 1
                 numOfMsgsWithFaults = 0
@@ -347,9 +344,9 @@ def msgCountOK(nodesSize,
 
 def chk_commits_prepares_recvd(count, receivers, sender):
     counts = {}
-    sender_replica_names = {r.instId: r.name for r in sender.replicas}
+    sender_replica_names = {r.instId: r.name for r in sender.replicas.values()}
     for node in receivers:
-        for replica in node.replicas:
+        for replica in node.replicas.values():
             if replica.instId not in counts:
                 counts[replica.instId] = 0
             nm = sender_replica_names[replica.instId]

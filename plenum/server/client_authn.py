@@ -2,7 +2,7 @@
 Clients are authenticated with a digital signature.
 """
 from abc import abstractmethod
-from typing import Dict
+from typing import Dict, Optional, Sequence
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
@@ -15,8 +15,10 @@ from plenum.common.exceptions import EmptySignature, \
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
 from plenum.server.action_req_handler import ActionReqHandler
+from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.pool_req_handler import PoolRequestHandler
+from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -30,8 +32,10 @@ class ClientAuthNr:
     @abstractmethod
     def authenticate(self,
                      msg: Dict,
-                     identifier: str = None,
-                     signature: str = None) -> str:
+                     identifier: Optional[str] = None,
+                     signature: Optional[str] = None,
+                     threshold: Optional[int] = None,
+                     key: Optional[str] = None) -> str:
         """
         Authenticate the client's message with the signature provided.
 
@@ -39,13 +43,16 @@ class ClientAuthNr:
         msg['identifier'] as identifier
         :param signature: a utf-8 and base58 encoded signature
         :param msg: the message to authenticate
+        :param threshold: The number of successful signature verification
+        :param key: The key of request for storing in internal maps
+        required. By default all signatures are required to be verified.
         :return: the identifier; an exception of type SigningException is
             raised if the signature is not valid
         """
 
     @abstractmethod
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
-                           threshold: int = None):
+                           threshold: Optional[int] = None):
         """
         :param msg:
         :param signatures: A mapping from identifiers to signatures.
@@ -81,7 +88,7 @@ class ClientAuthNr:
 class NaclAuthNr(ClientAuthNr):
 
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
-                           threshold: int=None, verifier: Verifier=DidVerifier):
+                           threshold: Optional[int]=None, verifier: Verifier=DidVerifier):
         num_sigs = len(signatures)
         if threshold is not None:
             if num_sigs < threshold:
@@ -161,36 +168,31 @@ class SimpleAuthNr(NaclAuthNr):
 
     def authenticate(self,
                      msg: Dict,
-                     identifier: str = None,
-                     signature: str = None):
+                     identifier: Optional[str] = None,
+                     signature: Optional[str] = None,
+                     threshold: Optional[int] = None):
         signatures = {identifier: signature}
-        return self.authenticate_multi(msg,
-                                       signatures=signatures)
+        return self.authenticate_multi(msg, signatures=signatures, threshold=threshold)
 
 
 class CoreAuthMixin:
     # TODO: This should know a list of valid fields rather than excluding
     # hardcoded fields
-    excluded_from_signing = {f.SIG.nm, f.SIGS.nm}
-    write_types = PoolRequestHandler.write_types.union(
-        DomainRequestHandler.write_types
-    )
-    query_types = {GET_TXN, }.union(
-        PoolRequestHandler.query_types
-    ).union(
-        DomainRequestHandler.query_types
-    )
-    action_types = ActionReqHandler.operation_types
+    excluded_from_signing = {f.SIG.nm, f.SIGS.nm, f.FEES.nm}
+
+    def __init__(self, write_types, query_types, action_types) -> None:
+        self._write_types = set(write_types)
+        self._query_types = set(query_types)
+        self._action_types = set(action_types)
 
     def is_query(self, typ):
-        return typ in self.query_types
+        return typ in self._query_types
 
     def is_write(self, typ):
-        return typ in self.write_types
+        return typ in self._write_types
 
-    @classmethod
-    def is_action(cls, typ):
-        return typ in cls.action_types
+    def is_action(self, typ):
+        return typ in self._action_types
 
     @staticmethod
     def _extract_signature(msg):
@@ -208,8 +210,9 @@ class CoreAuthMixin:
             raise EmptyIdentifier
         return msg[f.IDENTIFIER.nm]
 
-    def authenticate(self, req_data, identifier: str=None,
-                     signature: str=None, verifier: Verifier=DidVerifier):
+    def authenticate(self, req_data, identifier: Optional[str]=None,
+                     signature: Optional[str]=None, threshold: Optional[int] = None,
+                     verifier: Verifier=DidVerifier):
         """
         Prepares the data to be serialised for signing and then verifies the
         signature
@@ -241,18 +244,16 @@ class CoreAuthMixin:
                     ex = ex(req_data.get(f.IDENTIFIER.nm), req_data.get(f.SIG.nm))
                 raise ex
         else:
-            signatures = req_data[f.SIGS.nm]
-        return self.authenticate_multi(to_serialize,
-                                       signatures=signatures, verifier=verifier)
+            signatures = req_data.get(f.SIGS.nm, None)
+        return self.authenticate_multi(to_serialize, signatures=signatures,
+                                       threshold=threshold, verifier=verifier)
 
     def serializeForSig(self, msg, identifier=None, topLevelKeysToIgnore=None):
-        if not msg.get(f.IDENTIFIER.nm):
-            msg = {**msg, f.IDENTIFIER.nm: identifier}
         return serialize_msg_for_signing(
             msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
 
 class CoreAuthNr(CoreAuthMixin, SimpleAuthNr):
-    def __init__(self, state=None):
+    def __init__(self, write_types, query_types, action_types, state=None):
         SimpleAuthNr.__init__(self, state)
-        CoreAuthMixin.__init__(self)
+        CoreAuthMixin.__init__(self, write_types, query_types, action_types)
