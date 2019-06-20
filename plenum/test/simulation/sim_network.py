@@ -24,14 +24,12 @@ class SimNetwork:
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
-            peer_names = [name for name in self._peers if name != frm]
+            dst = [name for name in self._peers if name != frm]
         elif isinstance(dst, str):
-            peer_names = [dst]
-        else:
-            peer_names = dst
+            dst = [dst]
 
-        for dst in peer_names:
-            peer = self._peers.get(dst)
+        for name in dst:
+            peer = self._peers.get(name)
             if not peer:
                 # TODO: Log failed attempt
                 continue

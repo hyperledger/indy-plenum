@@ -54,15 +54,15 @@ def another_node(request, test_nodes, some_node, other_node):
     return available_nodes[request.param]
 
 
-def test_sim_network_simulates_broadcast(mock_timer, test_nodes, some_node):
+def test_sim_network_broadcast(mock_timer, test_nodes, some_node):
     should_receive = [node for node in test_nodes if node != some_node]
 
     message = create_some_message()
     some_node.network.send(message)
 
     # Make sure messages are not delivered immediately
-    # for node in test_nodes:
-    #     assert not node.received
+    for node in test_nodes:
+        assert not node.received
 
     # Make sure messages are delivered eventually, but not to sending node
     mock_timer.run_to_completion()
@@ -71,15 +71,15 @@ def test_sim_network_simulates_broadcast(mock_timer, test_nodes, some_node):
         assert node.received == [(message, some_node.name)]
 
 
-def test_sim_network_simulates_unicast(mock_timer, test_nodes, some_node, other_node):
+def test_sim_network_unicast(mock_timer, test_nodes, some_node, other_node):
     should_not_receive = [node for node in test_nodes if node != other_node]
 
     message = create_some_message()
     some_node.network.send(message, other_node.name)
 
     # Make sure messages are not delivered immediately
-    # for node in test_nodes:
-    #     assert not node.received
+    for node in test_nodes:
+        assert not node.received
 
     # Make sure message is delivered only to recipient
     mock_timer.run_to_completion()
@@ -88,7 +88,7 @@ def test_sim_network_simulates_unicast(mock_timer, test_nodes, some_node, other_
         assert not node.received
 
 
-def test_sim_network_simulates_multicast(mock_timer, test_nodes, some_node, other_node, another_node):
+def test_sim_network_multicast(mock_timer, test_nodes, some_node, other_node, another_node):
     should_not_receive = [node for node in test_nodes
                           if node not in [other_node, another_node]]
 
@@ -96,8 +96,8 @@ def test_sim_network_simulates_multicast(mock_timer, test_nodes, some_node, othe
     some_node.network.send(message, [other_node.name, another_node.name])
 
     # Make sure messages are not delivered immediately
-    # for node in test_nodes:
-    #     assert not node.received
+    for node in test_nodes:
+        assert not node.received
 
     # Make sure message is delivered only to recipient
     mock_timer.run_to_completion()
