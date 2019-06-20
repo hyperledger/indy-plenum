@@ -14,10 +14,8 @@ Service "1" o-- "1" InternalEventBus
 Service "1" o-- "1" ExternalEventBus
 }
 
-package Requests {
-class WriteRequestManager
-class ReadRequestManager
-class ActionRequestManager
+package "Write Requests" {
+
 
 abstract class BatchRequestHandler
 abstract class RequestHandler
@@ -25,20 +23,36 @@ abstract class RequestHandler
 WriteRequestManager "1" *-- "N" BatchRequestHandler
 WriteRequestManager "1" *-- "N" RequestHandler
 
-ReadRequestManager o-- DatabaseManager
-ActionRequestManager o-- DatabaseManager
 BatchRequestHandler o-- DatabaseManager
 RequestHandler o-- DatabaseManager
 
 }
 
 
+package "Read Requests" {
+
+ReadRequestManager o-- DatabaseManager
+ActionRequestManager o-- DatabaseManager
+ReadRequestManager o-- ExternalEventBus
+ActionRequestManager o-- ExternalEventBus
+
+}
+
+
 package Consensus {
+abstract class ConsensusService
+ConsensusService <|-- Service
+ConsensusService o-- InterProcessEventBus
+
+package "Node" {
+PropagateService <|-- ConsensusService
+MonitorService <|-- ConsensusService
+}
 
 package Replica {
-OrdererService <|-- Service
-CheckpointerService <|-- Service
-ViewChangeService <|-- Service
+OrdererService <|-- ConsensusService
+CheckpointerService <|-- ConsensusService
+ViewChangeService <|-- ConsensusService
 
 ReplicaManager o-- OrdererService
 ReplicaManager o-- CheckpointerService
@@ -51,12 +65,13 @@ CheckpointerService o-- ConsensusDataProvider
 
 
 
-PropagateService <|-- Service
-
 
 }
 
 package Catchup {
+abstract class CatchupService
+CatchupService <|-- Service
+
 NodeLeecherService "1" *-- "N" LedgerLeecherService
 LedgerLeecherService "1" *-- "1" ConsistencyProofService
 LedgerLeecherService "1" *-- "1" CatchupRepService
@@ -65,17 +80,18 @@ SeederService <|-- ClientSeederService
 SeederService <|-- NodeSeederService
 
 
-CatchupRepService <|-- Service
-ConsistencyProofService <|-- Service
-ClientSeederService <|-- Service
-NodeSeederService <|-- Service
+CatchupRepService <|-- CatchupService
+ConsistencyProofService <|-- CatchupService
+ClientSeederService <|-- CatchupService
+NodeSeederService <|-- CatchupService
 }
 
 
 package Network {
-abstract class NetworkService
-ZmqNetworkService <|-- NetworkService
+abstract class NetworkInterface
+ZmqNetworkService <|-- NetworkInterface
 NetworkService <|-- Service
+NetworkService o-- NetworkInterface
 }
 
 

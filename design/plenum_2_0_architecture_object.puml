@@ -1,13 +1,80 @@
 @startuml
 
 frame "Read Request Process" {
-
+ReadRequestExternalEventBus "1" o-- "1" ReadRequestNetworkService
+ReadRequestManager "1" o-- "1" ReadRequestExternalEventBus
+ReadRequestManager "1" o-- "1" ReadRequestDatabaseManager
 }
 
 frame "Catchup Seeder Process" {
+CatchupSeederExternalEventBus "1" o-- "1" CatchupSeederNetworkService
+
+CatchupNodeSeederService o-- CatchupSeederExternalEventBus
+CatchupNodeSeederService o-- CatchupSeederDatabaseManager : read-only access
+
+CatchupClientSeederService o-- CatchupSeederExternalEventBus
+CatchupClientSeederService o-- CatchupSeederDatabaseManager
 }
 
-frame "Replica 1 Process"{
+frame "Master Replica Process" {
+MasterExternalEventBus "1" o-- "1" MasterReplicaNetworkService
+
+MasterOrdererService o-- MasterExternalEventBus
+MasterOrdererService o-- MasterInternalEventBus
+MasterOrdererService o-- MasterInterProcessEventBus
+
+MasterCheckpointerService o-- MasterExternalEventBus
+MasterCheckpointerService o-- MasterInternalEventBus
+
+MasterViewChangeService o-- MasterExternalEventBus
+MasterViewChangeService o-- MasterInternalEventBus
+
+MasterOrdererService o-- MasterWriteRequestManager
+MasterWriteRequestManager o-- MasterDatabaseManager
+
+MasterCathcupLeecherService o-- MasterExternalEventBus
+MasterCathcupLeecherService o-- MasterInternalEventBus
 }
+
+frame "Backup Replica 1 Process" {
+Backup1ExternalEventBus "1" o-- "1" Backup1ReplicaNetworkService
+
+Backup1OrdererService o-- Backup1ExternalEventBus
+Backup1OrdererService o-- Backup1InternalEventBus
+Backup1OrdererService o-- Backup1InterProcessEventBus
+
+Backup1CheckpointerService o-- Backup1ExternalEventBus
+Backup1CheckpointerService o-- Backup1InternalEventBus
+
+Backup1ViewChangeService o-- Backup1ExternalEventBus
+Backup1ViewChangeService o-- Backup1InternalEventBus
+
+Backup1OrdererService o-- Backup1rWriteRequestManager
+Backup1rWriteRequestManager o-- Backup1DatabaseManager : write access
+
+Backup1CathcupLeecherService o-- Backup1ExternalEventBus
+Backup1CathcupLeecherService o-- Backup1InternalEventBus
+}
+
+frame "Node Process" {
+WriteRequestExternalEventBus "1" o-- "1" WriteRequestNetworkService
+PropagateExternalEventBus "1" o-- "1" PropagateNetworkService
+
+PropagateService o-- WriteRequestExternalEventBus
+PropagateService o-- PropagateExternalEventBus
+PropagateService o-- NodeInterProcessEventBus
+
+MonitorService o-- NodeInterProcessEventBus
+}
+
+NodeInterProcessEventBus .. MasterInterProcessEventBus
+NodeInterProcessEventBus .. Backup1InterProcessEventBus
+
+database MasterLedger
+MasterDatabaseManager -- MasterLedger : write access
+ReadRequestDatabaseManager -- MasterLedger : read-only access
+CatchupSeederNetworkService -- MasterLedger : read-only access
+MasterCathcupLeecherService -- MasterLedger : write access
+
 
 @enduml
