@@ -1375,6 +1375,13 @@ class MockTimer(QueueTimer):
         if not condition():
             raise TimeoutError("Condition will be never reached")
 
+    def run_to_completion(self):
+        """
+        Advance time in steps until nothing is scheduled
+        """
+        while self._events:
+            self.advance()
+
 
 class MockNetwork(ExternalBus):
     def __init__(self):

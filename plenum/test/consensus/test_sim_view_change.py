@@ -13,7 +13,6 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
         pool.timer.wait_for(lambda: not node._data.waiting_for_new_view)
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize("seed", range(50))
 def test_view_change_completes_under_normal_conditions(seed):
     random = DefaultSimRandom(seed)

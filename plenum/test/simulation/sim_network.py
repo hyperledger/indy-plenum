@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any
 
 from plenum.common.event_bus import ExternalBus
@@ -23,13 +24,17 @@ class SimNetwork:
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
-            peers = [peer for peer in self._peers if peer != frm]
+            peer_names = [name for name in self._peers if name != frm]
         elif isinstance(dst, str):
-            peers = [dst]
+            peer_names = [dst]
         else:
-            peers = dst
+            peer_names = dst
 
-        peers = (self._peers[name] for name in peers if name in self._peers)
-        for peer in peers:
+        for dst in peer_names:
+            peer = self._peers.get(dst)
+            if not peer:
+                # TODO: Log failed attempt
+                continue
+
             self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
-                                 lambda: peer.process_incoming(msg, frm))
+                                 partial(peer.process_incoming, msg, frm))
