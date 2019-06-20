@@ -1,9 +1,9 @@
 from common.serializers.serialization import config_state_serializer
-from plenum.common.constants import AML_VERSION, AML, AML_CONTEXT
+from plenum.common.constants import AML_VERSION, AML, AML_CONTEXT, DOMAIN_LEDGER_ID
 
 from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.server.request_handlers.utils import VALUE, encode_state_value, LAST_SEQ_NO, LAST_UPDATE_TIME
-from plenum.test.txn_author_agreement.helper import get_config_req_handler
+from plenum.server.request_handlers.utils import VALUE, encode_state_value, LAST_SEQ_NO, LAST_UPDATE_TIME, is_trustee
+from plenum.test.txn_author_agreement.helper import get_aml_req_handler
 
 
 def test_state_path_taa_latest():
@@ -32,11 +32,11 @@ def test_state_path_taa_aml_version():
 
 
 def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_wallet_client):
-    config_req_handler = get_config_req_handler(txnPoolNodeSet[0])
-
-    assert config_req_handler._is_trustee(sdk_wallet_trustee[1])
-    assert not config_req_handler._is_trustee(sdk_wallet_steward[1])
-    assert not config_req_handler._is_trustee(sdk_wallet_client[1])
+    aml_req_handler = get_aml_req_handler(txnPoolNodeSet[0])
+    state = aml_req_handler.database_manager.get_database(DOMAIN_LEDGER_ID).state
+    assert is_trustee(state, sdk_wallet_trustee[1])
+    assert not is_trustee(state, sdk_wallet_steward[1])
+    assert not is_trustee(state, sdk_wallet_client[1])
 
 
 def test_update_txn_author_agreement(

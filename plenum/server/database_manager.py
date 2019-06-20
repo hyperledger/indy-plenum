@@ -71,6 +71,16 @@ class DatabaseManager():
     def attribute_store(self):
         return self.get_store(ATTRIB_LABEL)
 
+    # ToDo: implement it and use on close all KV stores
+    def close(self):
+        # Close all states
+        for state in self.states.values():
+            state.close()
+
+        # Close all stores
+        for store in self.stores.values():
+            store.close()
+
 
 class Database:
     def __init__(self, ledger, state):

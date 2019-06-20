@@ -1,27 +1,19 @@
-from _sha256 import sha256
-from functools import lru_cache
-
-from common.serializers.serialization import pool_state_serializer, config_state_serializer
-from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
-    BLS_KEY_PROOF, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, GET_TXN_AUTHOR_AGREEMENT, TXN_TIME
-from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
+from common.serializers.serialization import config_state_serializer
+from plenum.common.constants import CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
+    GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, \
+    GET_TXN_AUTHOR_AGREEMENT
+from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_payload_data, get_from, get_seq_no, get_txn_time
-from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.read_request_handler import ReadRequestHandler
-from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
-from plenum.server.request_handlers.utils import is_steward, encode_state_value, decode_state_value
+from plenum.server.request_handlers.utils import decode_state_value
 
 
 class GetTxnAuthorAgreementHandler(ReadRequestHandler):
 
     def __init__(self, database_manager: DatabaseManager):
-        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, None)
+        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID)
 
     def static_validation(self, request: Request):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
@@ -70,4 +62,4 @@ class GetTxnAuthorAgreementHandler(ReadRequestHandler):
             value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
             return self.make_result(request, value, last_seq_no, last_update_time, proof)
 
-        return super().make_result(request, None, proof=proof)
+        return self.make_result(request, None, proof=proof)

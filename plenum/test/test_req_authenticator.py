@@ -3,7 +3,7 @@ import json
 import pytest
 
 from indy.did import key_for_did
-from plenum.common.constants import TXN_TYPE, DATA, GET_TXN, DOMAIN_LEDGER_ID
+from plenum.common.constants import TXN_TYPE, DATA, GET_TXN, DOMAIN_LEDGER_ID, NYM
 from plenum.common.exceptions import NoAuthenticatorFound
 from plenum.common.types import f
 from plenum.common.util import randomString
@@ -18,7 +18,7 @@ from stp_core.loop.eventually import eventually
 @pytest.fixture(scope='module')
 def pre_reqs():
     simple_authnr = SimpleAuthNr()
-    core_authnr = CoreAuthNr()
+    core_authnr = CoreAuthNr([NYM], [GET_TXN], [])
     req_authnr = ReqAuthenticator()
     return simple_authnr, core_authnr, req_authnr
 
