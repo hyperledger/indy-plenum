@@ -1,6 +1,5 @@
 from collections import namedtuple
-from typing import NamedTuple, Any, List, Mapping, Optional, Dict, \
-    Tuple
+from typing import NamedTuple, Any, List, Mapping, Optional, Dict
 
 from stp_core.types import HA
 from plenum.common.constants import (
@@ -94,6 +93,14 @@ class f:  # provides a namespace for reusable field constants
     TAA_ACCEPTANCE_DIGEST = Field("taaDigest", str)
     TAA_ACCEPTANCE_MECHANISM = Field("mechanism", str)
     TAA_ACCEPTANCE_TIME = Field("time", float)
+    # View change
+    STABLE_CHECKPOINT = Field("stableCheckpoint", int)
+    PREPARED = Field("prepared", List)           # list of PrePrepare
+    PREPREPARED = Field("preprepared", List)     # list of PrePrepare
+    CHECKPOINTS = Field("checkpoints", List)     # list of Checkpoint
+    VIEW_CHANGES = Field("viewChanges", List)    # list of tuples(name, digest)
+    CHECKPOINT = Field("checkpoint", Any)        # instance of Checkpoint
+    PREPREPARES = Field("preprepares", List)     # list of PrePrepare
 
 
 OPERATION = 'operation'
