@@ -28,10 +28,16 @@ class ConsensusDataProvider:
 
     @property
     def preprepared(self) -> List[PrePrepare]:
+        """
+        List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
+        """
         return []
 
     @property
     def prepared(self) -> List[PrePrepare]:
+        """
+        List of PrePrepare messages, for which quorum of Prepare messages is reached
+        """
         return []
 
     @property
