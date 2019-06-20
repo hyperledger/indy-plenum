@@ -16,7 +16,7 @@ from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
 
 from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
-    WRITE_CONF, READ_CONF, read_conf_op, ConfigTestBootstrapClass
+    WRITE_CONF, READ_CONF, read_conf_op, ConfigTestBootstrapClass, WriteConfHandler, ReadConfHandler
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.types import HA
 
@@ -58,9 +58,14 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request, setup):
     def post_node_creation(node):
+        write_rh = WriteConfHandler(node.db_manager)
+        read_rh = ReadConfHandler(node.db_manager)
+        node.write_manager.register_req_handler(write_rh)
+        node.read_manager.register_req_handler(read_rh)
+
         ca = node.clientAuthNr.core_authenticator
-        ca.write_types.add(WRITE_CONF)
-        ca.query_types.add(READ_CONF)
+        ca._write_types.add(write_rh.txn_type)
+        ca._query_types.add(read_rh.txn_type)
         do_post_node_creation(node)
         return node
 
@@ -84,8 +89,8 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
 def setup(testNodeClass, txnPoolNodeSet):
     for node in txnPoolNodeSet:
         ca = node.clientAuthNr.core_authenticator
-        ca.write_types.add(WRITE_CONF)
-        ca.query_types.add(READ_CONF)
+        ca._write_types.add(WRITE_CONF)
+        ca._query_types.add(READ_CONF)
 
 
 def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
