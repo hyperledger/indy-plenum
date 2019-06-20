@@ -20,7 +20,11 @@ class ConsensusDataProvider:
 
     @property
     def primary_name(self) -> str:
-        return 'some_primary'  # TODO
+        return 'Alpha'  # TODO
+
+    @property
+    def is_primary(self) -> bool:
+        return self.primary_name == self.name
 
     @property
     def preprepared(self) -> List[PrePrepare]:

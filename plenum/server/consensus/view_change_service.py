@@ -42,9 +42,18 @@ class ViewChangeService:
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         # TODO: Validation
 
-        pass
+        nv = NewView(
+            viewNo=msg.viewNo,
+            viewChanges=[],
+            checkpoint=None,
+            preprepares=[]
+        )
+        self._network.send(nv)
+
+        if self._data.is_primary:
+            self._data.waiting_for_new_view = False
 
     def process_new_view_message(self, msg: NewView, frm: str):
         # TODO: Validation
 
-        pass
+        self._data.waiting_for_new_view = False

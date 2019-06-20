@@ -14,6 +14,7 @@ class SimRandom(ABC):
 
 
 class DefaultSimRandom(SimRandom):
+    # TODO: Consider making seed fixed to make it always deterministic
     def __init__(self, seed=None):
         self._random = Random(seed)
 
