@@ -38,10 +38,15 @@ class ViewChangeService:
             name=frm,
             digest='digest_of_view_change_message'
         )
-        self._network.send(vca, self._data.primary_name)
+        self._network.send(vca, self._data.primary_name())
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         # TODO: Validation
+        if msg.viewNo != self._data.view_no:
+            return
+
+        if not self._data.is_primary():
+            return
 
         nv = NewView(
             viewNo=msg.viewNo,

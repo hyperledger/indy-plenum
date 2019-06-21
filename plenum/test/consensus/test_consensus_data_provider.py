@@ -1,11 +1,15 @@
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
-def test_initial_3pc_state():
-    state = ConsensusDataProvider('some_node')
+def test_initial_consensus_state(validators, some_node_name):
+    state = ConsensusDataProvider(some_node_name, validators)
 
     # General info
-    assert state.name == 'some_node'
+    assert state.name == some_node_name
+
+    # Validators
+    assert state.validators == validators
+    assert state.quorums.n == len(validators)
 
     # View
     assert state.view_no == 0
@@ -18,3 +22,10 @@ def test_initial_3pc_state():
     # Checkpoints
     assert state.stable_checkpoint == 0
     assert state.checkpoints == []
+
+
+def test_consensus_primary_name(initial_view_no, some_consensus_data):
+    assert some_consensus_data.primary_name() == some_consensus_data.primary_name(some_consensus_data.view_no)
+
+    assert some_consensus_data.primary_name(initial_view_no) != some_consensus_data.primary_name(initial_view_no + 1)
+    assert some_consensus_data.primary_name(initial_view_no) != some_consensus_data.primary_name(initial_view_no - 1)

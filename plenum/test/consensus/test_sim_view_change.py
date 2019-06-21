@@ -12,6 +12,10 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
     for node in pool.nodes:
         pool.timer.wait_for(lambda: not node._data.waiting_for_new_view)
 
+    # Make sure all nodes are going to order same batches
+    for node_a, node_b in zip(pool.nodes, pool.nodes[1:]):
+        assert node_a._data.preprepared == node_b._data.preprepared
+
 
 @pytest.mark.parametrize("seed", range(50))
 def test_view_change_completes_under_normal_conditions(seed):

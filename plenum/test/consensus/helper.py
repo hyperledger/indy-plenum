@@ -13,8 +13,9 @@ class SimPool:
         self._random = random if random else DefaultSimRandom()
         self._timer = MockTimer()
         self._network = SimNetwork(self._timer, self._random)
-        self._nodes = [ReplicaService(name, InternalBus(), self.network.create_peer(name))
-                       for name in genNodeNames(node_count)]
+        validators = genNodeNames(node_count)
+        self._nodes = [ReplicaService(name, validators, InternalBus(), self.network.create_peer(name))
+                       for name in validators]
 
     @property
     def timer(self) -> MockTimer:
