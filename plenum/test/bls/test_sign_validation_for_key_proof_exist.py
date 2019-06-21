@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.constants import POOL_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, TXN_AUTHOR_AGREEMENT_AML, NODE
 from plenum.test.bls.helper import check_bls_key, update_bls_keys_no_proof, \
     update_validate_bls_signature_without_key_proof
 
@@ -23,11 +23,13 @@ def test_switched_off_sign_validation_for_key_proof_exist(looper,
     Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = True, node use key sent without proof.
     Test that when VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = False, node does not use key sent without proof.
     '''
-    # update BLS keys with not checking for BLS key proof presence since we v alidate BLS signatures for
+    # update BLS keys with not checking for BLS key proof presence since we validate BLS signatures for
     # Pool Ledger now
     with update_validate_bls_signature_without_key_proof(txnPoolNodeSet, True):
         for n in txnPoolNodeSet:
-            monkeypatch.setattr(n.get_req_handler(POOL_LEDGER_ID), 'doStaticValidation', lambda req: True)
+            monkeypatch.setattr(n.write_manager.request_handlers[NODE][0],
+                                'static_validation',
+                                lambda req: True)
         new_blspk = update_bls_keys_no_proof(0, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
         monkeypatch.undo()
 

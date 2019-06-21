@@ -1,5 +1,5 @@
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.test.helper import sdk_gen_request, sdk_sign_and_submit_req_obj, sdk_get_reply
+from plenum.test.helper import sdk_gen_request, sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AUCTION_START
 
 
@@ -16,4 +16,4 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
     req_obj = sdk_gen_request(op, identifier=sdk_wallet[1])
     req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle,
                                       sdk_wallet, req_obj)
-    sdk_get_reply(looper, req)
+    sdk_get_and_check_replies(looper, [req])

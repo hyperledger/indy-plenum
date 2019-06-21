@@ -92,7 +92,7 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
                         last_pool_seqno=2,
                         last_domain_seqno=1,
                         last_config_seqno=None,
-                        primaries=node.future_primaries_handler.get_last_primaries() or node.primaries)
+                        primaries=node.write_manager.future_primary_handler.get_last_primaries() or node.primaries)
 
 
 def check_audit_ledger_uncommitted_updated(audit_size_initial, nodes, audit_txns_added):

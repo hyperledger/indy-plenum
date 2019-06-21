@@ -5,6 +5,11 @@ from inspect import isawaitable, iscoroutinefunction
 from typing import Any, Type, Callable, Tuple, Optional, Dict
 
 
+# TODO: DEPRECATE
+#  After playing with concept a bit it feels like using EventBus
+#  is more appropriate.
+
+
 class TxChannel(ABC):
     @abstractmethod
     async def put(self, msg: Any):

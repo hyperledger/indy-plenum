@@ -1,27 +1,19 @@
-from functools import lru_cache
-from typing import Optional
-
-from common.serializers.serialization import pool_state_serializer, config_state_serializer
-from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
-    BLS_KEY_PROOF, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_AML, AML, \
-    AML_VERSION, GET_TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
+from common.serializers.serialization import config_state_serializer
+from plenum.common.constants import CONFIG_LEDGER_ID, \
+    GET_TXN_AUTHOR_AGREEMENT_AML, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP
-from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
+from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_payload_data, get_from
-from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.read_request_handler import ReadRequestHandler
-from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
-from plenum.server.request_handlers.utils import is_steward, decode_state_value
+from plenum.server.request_handlers.utils import decode_state_value
 
 
 class GetTxnAuthorAgreementAmlHandler(ReadRequestHandler):
 
     def __init__(self, database_manager: DatabaseManager):
-        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT_AML, None)
+        super().__init__(database_manager, GET_TXN_AUTHOR_AGREEMENT_AML, CONFIG_LEDGER_ID)
 
     def static_validation(self, request: Request):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId

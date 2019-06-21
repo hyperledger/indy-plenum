@@ -63,7 +63,7 @@ from plenum.test.node_request.node_request_helper import checkPrePrepared, \
 from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_node import TestNode, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg, getPrimaryReplica, \
-    getNonPrimaryReplicas
+    getNonPrimaryReplicas, TestNodeBootstrap
 from plenum.common.config_helper import PConfigHelper, PNodeConfigHelper
 
 Logger.setLogLevel(logging.INFO)
@@ -729,6 +729,11 @@ def testNodeClass(patchPluginManager):
     return TestNode
 
 
+@pytest.fixture(scope="module")
+def testNodeBootstrapClass():
+    return TestNodeBootstrap
+
+
 @pytest.yield_fixture(scope="module")
 def txnPoolNodesLooper():
     with Looper() as l:
@@ -761,13 +766,14 @@ def txnPoolNodeSet(node_config_helper_class,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass,
-                   do_post_node_creation):
+                   do_post_node_creation,
+                   testNodeBootstrapClass):
     with ExitStack() as exitStack:
         nodes = []
         for nm in poolTxnNodeNames:
             node = exitStack.enter_context(create_new_test_node(
                 testNodeClass, node_config_helper_class, nm, tconf, tdir,
-                allPluginsPath))
+                allPluginsPath, bootstrap_cls=testNodeBootstrapClass))
             do_post_node_creation(node)
             txnPoolNodesLooper.add(node)
             nodes.append(node)

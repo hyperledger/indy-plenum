@@ -30,6 +30,9 @@ def test_seq_no_db_updates(test_node):
                 TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST: "112222",
             },
             TXN_PAYLOAD_DATA: {}
+        },
+        TXN_METADATA: {
+            TXN_METADATA_SEQ_NO: "1"
         }
     }
 

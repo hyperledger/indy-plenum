@@ -17,6 +17,7 @@ from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
 from plenum.test.get_buy_handler import GetBuyHandler
+from plenum.test.random_buy_handler import RandomBuyHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -30,10 +31,10 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, STATE_PROOF
+    DOMAIN_LEDGER_ID, TS_LABEL, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
-from plenum.server import replica
+from plenum.server import replica, req_handler
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
@@ -61,26 +62,12 @@ logger = getlogger()
 
 @spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
-    write_types = CoreAuthNr.write_types.union({BUY, RANDOM_BUY})
-    query_types = CoreAuthNr.query_types.union({GET_BUY, })
+    pass
 
 
 class TestDomainRequestHandler(DomainRequestHandler):
     write_types = DomainRequestHandler.write_types.union({'buy', 'randombuy', })
     query_types = DomainRequestHandler.query_types.union({'get_buy', })
-
-    @staticmethod
-    def prepare_buy_for_state(txn):
-        from common.serializers.serialization import domain_state_serializer
-        identifier = get_from(txn)
-        req_id = get_req_id(txn)
-        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
-        key = TestDomainRequestHandler.prepare_buy_key(identifier, req_id)
-        return key, value
-
-    @staticmethod
-    def prepare_buy_key(identifier, req_id):
-        return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
 
     def _updateStateWithSingleTxn(self, txn, isCommitted=False):
         typ = get_type(txn)
@@ -94,6 +81,15 @@ class TestDomainRequestHandler(DomainRequestHandler):
 
     def gen_txn_path(self, txn):
         return None
+
+    @staticmethod
+    def prepare_buy_for_state(txn):
+        from common.serializers.serialization import domain_state_serializer
+        identifier = get_from(txn)
+        req_id = get_req_id(txn)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
+        key = BuyHandler.prepare_buy_key(identifier, req_id)
+        return key, value
 
 
 NodeRef = TypeVar('NodeRef', Node, str)
@@ -286,21 +282,22 @@ class TestNodeCore(StackedTester):
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.config, self.reqProcessors,
                                         self.bls_bft.bls_store,
-                                        self.getStateTsDbStorage())
+                                        self.db_manager.get_store(TS_LABEL))
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
-        return TestCoreAuthnr(state=state)
+        return TestCoreAuthnr(self.write_manager.txn_types,
+                              self.read_manager.txn_types,
+                              self.action_manager.txn_types,
+                              state=state)
 
     def processRequest(self, request, frm):
-        if request.operation[TXN_TYPE] == 'get_buy':
+        if request.operation[TXN_TYPE] == GET_BUY:
             self.send_ack_to_client(request.key, frm)
 
             identifier = request.identifier
             req_id = request.reqId
-            req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-            buy_key = req_handler.prepare_buy_key(identifier, req_id)
-            result = req_handler.state.get(buy_key)
+            result = self.read_manager.get_result(request)
 
             res = {
                 f.IDENTIFIER.nm: identifier,
@@ -355,7 +352,17 @@ class TestNodeBootstrap(NodeBootstrap):
     def register_domain_req_handlers(self):
         super().register_domain_req_handlers()
         self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
+        self.node.write_manager.register_req_handler(RandomBuyHandler(self.node.db_manager))
         self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
+
+    def init_common_managers(self):
+        super().init_common_managers()
+        self.node.ledgerManager = TestLedgerManager(self.node,
+                                                    postAllLedgersCaughtUp=self.node.allLedgersCaughtUp,
+                                                    preCatchupClbk=self.node.preLedgerCatchUp,
+                                                    postCatchupClbk=self.node.postLedgerCatchUp,
+                                                    ledger_sync_order=self.node.ledger_ids,
+                                                    metrics=self.node.metrics)
 
 
 @spyable(methods=node_spyables)
@@ -365,8 +372,10 @@ class TestNode(TestNodeCore, Node):
         from plenum.common.stacks import nodeStackClass, clientStackClass
         self.NodeStackClass = nodeStackClass
         self.ClientStackClass = clientStackClass
+        if kwargs.get('bootstrap_cls', None) is None:
+            kwargs['bootstrap_cls'] = TestNodeBootstrap
 
-        Node.__init__(self, *args, **kwargs, bootstrap_cls=TestNodeBootstrap)
+        Node.__init__(self, *args, **kwargs)
         self.view_changer = create_view_changer(self, TestViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
@@ -383,25 +392,20 @@ class TestNode(TestNodeCore, Node):
     def clientStackClass(self):
         return getTestableStack(self.ClientStackClass)
 
-    def get_new_ledger_manager(self):
-        return TestLedgerManager(
-            self,
-            postAllLedgersCaughtUp=self.allLedgersCaughtUp,
-            preCatchupClbk=self.preLedgerCatchUp,
-            postCatchupClbk=self.postLedgerCatchUp,
-            ledger_sync_order=self.ledger_ids,
-            metrics=self.metrics
-        )
-
     def sendRepliesToClients(self, committedTxns, ppTime):
         committedTxns = list(committedTxns)
-        req_handler = self.get_req_handler(DOMAIN_LEDGER_ID)
-        for txn in committedTxns:
-            if get_type(txn) == "buy":
-                key, value = req_handler.prepare_buy_for_state(txn)
-                _, proof = req_handler.get_value_from_state(key, with_proof=True)
-                if proof:
-                    txn[STATE_PROOF] = proof
+        handler = None
+        for h in self.read_manager.request_handlers.values():
+            if isinstance(h, GetBuyHandler):
+                handler = h
+        if handler:
+            for txn in committedTxns:
+                if get_type(txn) == "buy":
+                    key, value = handler.prepare_buy_for_state(txn)
+                    _, proof = handler._get_value_from_state(key, with_proof=True)
+                    if proof:
+                        txn[STATE_PROOF] = proof
+
         super().sendRepliesToClients(committedTxns, ppTime)
 
     def schedule_node_status_dump(self):

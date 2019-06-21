@@ -227,151 +227,97 @@ we don't place any upper limit on this time.
    can be applied only to master instance, with backups synced to master
    during view change.
 
-## Rough roadmap
+## Proposed deviations
 
-1. Implement PBFT view change as pluggable strategy that can cope with
-   resetting ppSeqNo. This will be simplest possible variant with disabled
-   request processing during view change, dropped requests that come after
-   gaps and so on. Check that this implementation works. If it does,
-   and performs better than current view change go ahead to we can take
-   faster route A, otherwise move to route B.
+1. Reset pp_seq_no to 1 with a new view
+2. Order 3PC Batches from the last view (with a NEW_VIEW msg) with the previous view's viewNo. This is needed to have consistent audit ledger.
 
-Route A:
 
-1. Set new view change as default, remove implementation of old view change
-   and all related code, which should simplify next changes.
+#### Plan of Attack
 
-2. Fix current code so that it doesn't rely on resetting ppSeqNo after
-   view change.
+- NEW_VIEW needs to consist of a list of PrePrepares (with all the information such as txn and state roots). NEW_VIEW is not passed to Orderer, only the PrePrepares are passed.
+- Reset uncommitted state once start the view change
+- Introduce a new `wait_for_new_view` flag to distinguish old-way and new-way view changes
 
-3. Implement other pieces of PBFT view change, which improve performance
-   and/or pool responsiveness during view change.
+    - This will be a flag in a ConsensusDataProvider
+    - The flag is set to TRUE once view change is started (and viewNo +=1)
+    - The flag is set to FALSE once a valid NEW_VIEW is received
 
-Route B:
+- There needs to be `last_prep_cert` field in ConsensusDataProvider: (last_view_no, prep_cert_pp_seq_no)
+- Reset 3PC state (delete all prepares, prepares, commits) once a valid NEW_VIEW is received (that is new_view_change_in_progress is set to false)
+- Add an optional `currentViewNo` field for Prepares and Commits
 
-1. Fix current code so that it doesn't rely on resetting ppSeqNo after view
-   change. Ensure that there're no regressions in current implementation of
-   view change.
+    - Existing `viewNo` means the view no when the 3PC batch belongs to (from the Audit Ledger point of view), that is the viewNo where the corresponding PrePrepare was initially created
+    - A new `currentViewNo` field is the view no where the 3PC batch was actually ordered. It may be not equal to `viewNo` is this is a Prepare or Commit after for 3PC batches in NEW_VIEW which belong to the previous view (since we've done a view change).
+    - `currentViewNo` is optional, and if it's absent, then it's equal to `viewNo`.
+    - `currentViewNo` is set only in the case described below.
 
-2. Implement critical pieces of PBFT view change that rely on ppSeqNo not
-   being reset. Check that this implementation works. If it does, and performs
-   better than current view change move to 3, otherwise additional analysis
-   will be required.
+- Create a new `ReplicaValidator` class that mostly copies the existing one and performs validation as follows:
 
-3. Set new view change as default, remove implementation of old view change
-   and all related code, which should simplify next changes.
+    - for 3PC messages (PrePrepare, Prepare, Commit):
+        - If msg.inst_id is incorrect - DISCARD
+        - If msg.pp_seq_no is incorrect - DISCARD
+        - If catch-up is in progress - STASH
+        - Check if this is a msg for the NEW_VIEW's last prepared certificate:
+            - if (msg.view_no == self.last_prep_cert[0]) and (msg.current_view_no == self.view_no) and (msg.pp_seq_no <= self.last_prep_cert[1]) - PROCESS
+                - This means that we order messages from the previous view regardless of watermarks (since they are already moved to [1; 300] with the new view)
+        - If already ordered - DISCARD
+        - Check if from old view:
+            - if view_no < self.viewNo - DISCARD
+        - Check if future view:
+            - if view_no > self.viewNo - STASH
+        - Check if view change in progress
+            - if `new_view_change_in_progress` - STASH
+        - Check for watermarks
+            - if not (h< pp_seq_no < H) - DISCARD
+        - Otherwise - PROCESS
+    - For Checkpoint:
+        - the same as in the current ReplicaValidator
 
-4. Implement other pieces of PBFT view change, which improve performance
-   and/or pool responsiveness during view change.
+- Make changes in Orderer service:
 
-## Implementation details
+    - `is_next_pre_prepare` returns TRUE, if
+        - PRE_PREPARE's pp_seq_no == 1 and self.last_prep_cert == self._last_pre_prepared[1]
+    - Make sure that PREPAREs and COMMITs are sent for every 3PC Batch regardless if it's ordered or not
+    - Set `currentViewNo` for PREPARESs and COMMITs if self.view_no != msg.view_no.
+    - Do not re-apply PRE_PREPARE if it's already ordered (however send PREPARE and COMMIT)
+    - Do not Order already ordered requests once a quorum of COMMITs is received
+    
+## Plenum 2.0 Architecture
 
-Required changes in current code behaviour:
-- request which is already ordered should not be dropped from consensus
-  process, it should be ordered as if it is a new request but result in a no-op
+In order to properly implement PBFT View Change and cover it by unit, integration and simulation tests, architecture changes are required.
 
-Ideally all complex logic should be contained in separate testable classes:
-- `Network` - interface for sending network messages and subscribing to them
-- `Executor` - interface for requests dynamic validation and execution
-- `Orderer` - implementation of normal requests ordering
-- `Checkpointer` - implementation of checkpoints
-- `Viewchanger` - implementation of view-change, depends on all above interfaces
+We denote these changes Plenum 2.0. They include 2 steps:
+- Split tightly coupled  monoliths into a number of loosely coupled micro-services, where View Changer is one of them.
+- Split services between multiple processes so that
+  - Every Replica is in a separate process and does equal amount of work
+  - Independent services (such as Read Request Service and Catchup Seeder Service) are in sepearate processes 
   
-Proper implementation details of `Network`, `Executor`, `Orderer`, and
-`Checkpointer` are out of scope of this design. They are here to:
-- provide interface seams to make implementing and testing `Viewchanger` easier
-- provide better separation of state in replica
-- make dependencies clear
-- set basis for future refactorings
+Splitting of Replica may be not needed if RBFT is replaced by anothe protocol from PBFT family.   
 
-However in order to make `Viewchanger` work in current codebase these
-interfaces still need to be implemented. To make changes as noninvasive as
-possible they either should be made part of replica or implemented as thin
-adaptors on top of replica. Interface descriptions here will be complete
-from `Viewchanger` point of view, but some of them will need extension if
-someone will need to refactor parts of node/replica into proper implementation
-of `Orderer` and `Checkpointer`.
+See [Plenum 2.0 Architecture](plenum_2_0_architecture.md) and the corresponding diagrams for details:
+ - [Plenum 2.0 Architecture Class Diagram](plenum_2_0_architecture_class.png)
+ - [Plenum 2.0 Architecture Object Diagram](plenum_2_0_architecture_object.png)
+ - [Plenum 2.0 Architecture Communication Diagram](plenum_2_0_communication.png)
 
-### Network
 
-- `send(message)` - send message to network. This could be as simple as adding
-  message to some outbox
-- `subscribe([message_id], closure)` - subscribe to network messages, return
-  subscription id. Question is still open whether this should be implemented as
-  a simple callback which is called on every message (forcing each subscriber
-  to implement their own routing logic) or as a different callbacks per each
-  message type.
-- `unsubscribe(id)` - unsubscribe from network messages
-- `add_filter(predicate)` - stash or discard all incoming messages based on
-  passed predicate (closure), return unique identifier
-- `remove_filter(id)` - resume processing of all messages that were filtered
-  by previously added predicate. Question is still open whether messages
-  should be discarded or just stashed and re-executed on resume and how
-  interface for this should be implemented.
+## Implementation plan 
 
-### Executor
 
-- `validate(batch)` - rewind (if needed) uncommited state to point where batch
-  could be applied, check that batch is valid and apply it. If batch was
-  already commited just accept it as valid. This probably should be split
-  into several methods (like `is_commited`, `revert`, and so on), but this
-  is to be determined during real work on code.
+- Define Interfaces needed for View Change Service 
+- Simulation tests for View Changer (no integration)
+- Implement PBFT viewchanger service with most basic functionality 
+- Extract and integrate ConsensusDataProvider from Replica
+- Modify WriteReqManager to meet Executor interface needs (2 SP) - AS
+- Extract Orderer service from Replica
+- Extract Checkpointer service from Replica
+- Integrate Orderer and Checkpointer services into existing code base 
+- Enable full ordering of batches from last view that were already ordered, make execution on replicas that executed them no-op 
+- Integrate and run simulation tests with Orderer, Checkpointer, Ledger 
+- Implementation: Integrate PBFT viewchanger service into current codebase
+- Integrate view change simulation tests into CI 
+- Debug: Integrate PBFT viewchanger service into current codebase
+- Document PBFT view change protocol
+- Load testing
 
-### Orderer
 
-- `view_no()` - return current viewNo
-- `enter_next_view()` - increment current viewNo, discard all previous messages
-- `preprepared()` - return list of pre-prepared batches
-- `prepared()` - return list of prepared batches
-- `preprepare(batch)` - unconditionally put some batch into pre-prepared state
-  producing all necessary side effects (like sending PREPARE messages from
-  backup replicas)
-
-Also it's possible that it will be easier to implement `batches()` method
-that return list of batches in any state and then query them for their state
-(pre-prepared, prepared, commited).
-
-### Checkpointer
-
-- `checkpoints()` - return list of all available checkpoints
-- `stable_checkpoint()` - return current stable checkpoint
-- `set_stable_checkpoint(h)` - update current stable checkpoint
-
-### Viewchanger
-
-- `__init__(network, executor, orderer, checkpointer)` - initialize viewchanger
-  explicitly passing all dependencies
-- `start_view_change()` - initiate view change protocol, called by node (or
-  probably monitor) when we need to perform view change
-- `is_view_change_in_progress()` - check if view change is in progress.
-  Probably there also should be callback on view-change start/stop
-- `process_time(timestamp)` - update internal time, possibly performing some
-  actions. Called periodically by node, probably could be improved in future
-  to use some abstract timer which can be subscribed to and set nearest needed
-  timeout so it won't call tick unnecessarily. Main reason to inject timestamps
-  externally is improved testability.
-- `process_view_change()` - process _VIEW-CHANGE_ message
-- `process_view_change_ack()` - process _VIEW-CHANGE-ACK_ message
-- `process_new_view()` - process _NEW-VIEW_ message
-- `process_status_pending()` - process _STATUS-PENDING_ message
-
-## Implementation plan (minimal)
-
-- enable full ordering of batches that were already ordered, make their
-  execution on replicas that executed them no-op
-
-  OR
-
-  stop resetting ppSeqNo (and relying on this) in new view
-
-- design executor interface taking into account current codebase so that
-  it can be easily implemented
-
-- implement viewchanger with most basic functionality using TDD, implementing
-  mocks for network, executor, orderer and checkpointer as needed
-
-- implement network, executor, orderer and checkpointer as adaptors for
-  existing codebase
-
-- integrate viewchanger into current codebase, make sure current integration
-  tests pass

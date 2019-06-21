@@ -7,7 +7,8 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
     MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
-    BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE
+    BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE, VIEW_CHANGE, VIEW_CHANGE_ACK, \
+    NEW_VIEW
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
@@ -215,6 +216,7 @@ class Checkpoint(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        # TODO: Should this be root of audit ledger instead of pre-prepare digest?
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
@@ -253,6 +255,36 @@ class BackupInstanceFaulty(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.INSTANCES.nm, IterableField(NonNegativeNumberField())),
         (f.REASON.nm, NonNegativeNumberField())
+    )
+
+
+class ViewChange(MessageBase):
+    typename = VIEW_CHANGE
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
+        (f.PREPARED.nm, IterableField(AnyField())),           # list of PrePrepare
+        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of PrePrepare
+        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoint
+    )
+
+
+class ViewChangeAck(MessageBase):
+    typename = VIEW_CHANGE_ACK
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT))
+    )
+
+
+class NewView(MessageBase):
+    typename = NEW_VIEW
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.VIEW_CHANGES.nm, IterableField(AnyField())),       # list of tuples (node_name, view_change_digest)
+        (f.CHECKPOINT.nm, AnyField()),                        # Checkpoint to be selected as stable
+        (f.PREPREPARES.nm, IterableField(AnyField()))         # list of PrePrepares that should get into new view
     )
 
 
