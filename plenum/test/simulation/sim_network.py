@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any
+from typing import Any, Iterable
 
 from plenum.common.event_bus import ExternalBus
 from plenum.common.timer import TimerService
@@ -27,12 +27,16 @@ class SimNetwork:
             dst = [name for name in self._peers if name != frm]
         elif isinstance(dst, str):
             dst = [dst]
+        elif isinstance(dst, Iterable):
+            assert len(dst) > 0, "{} tried to send message {} to no one".format(frm, msg)
+        else:
+            assert False, "{} tried to send message {} to unsupported destination {}".format(frm, msg, dst)
 
         for name in dst:
+            assert name != frm, "{} tried to send message {} to itself".format(frm, msg)
+
             peer = self._peers.get(name)
-            if not peer:
-                # TODO: Log failed attempt
-                continue
+            assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
 
             self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
                                  partial(peer.process_incoming, msg, frm))

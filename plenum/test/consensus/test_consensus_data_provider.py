@@ -1,11 +1,11 @@
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
-def test_initial_consensus_state(validators, some_node_name):
-    state = ConsensusDataProvider(some_node_name, validators)
+def test_initial_consensus_state(validators, some_validator):
+    state = ConsensusDataProvider(some_validator, validators)
 
     # General info
-    assert state.name == some_node_name
+    assert state.name == some_validator
 
     # Validators
     assert state.validators == validators

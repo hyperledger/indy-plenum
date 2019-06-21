@@ -33,12 +33,13 @@ class ViewChangeService:
     def process_view_change_message(self, msg: ViewChange, frm: str):
         # TODO: Validation
 
-        vca = ViewChangeAck(
-            viewNo=msg.viewNo,
-            name=frm,
-            digest='digest_of_view_change_message'
-        )
-        self._network.send(vca, self._data.primary_name())
+        if not self._data.is_primary():
+            vca = ViewChangeAck(
+                viewNo=msg.viewNo,
+                name=frm,
+                digest='digest_of_view_change_message'
+            )
+            self._network.send(vca, self._data.primary_name())
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         # TODO: Validation
