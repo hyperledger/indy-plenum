@@ -1,11 +1,12 @@
-from plenum.common.event_bus import ExternalBus
+from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
 class ViewChangeService:
-    def __init__(self, data: ConsensusDataProvider, network: ExternalBus):
+    def __init__(self, data: ConsensusDataProvider, bus: InternalBus, network: ExternalBus):
         self._data = data
+        self._bus = bus
         self._network = network
 
         network.subscribe(ViewChange, self.process_view_change_message)

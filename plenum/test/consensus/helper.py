@@ -1,5 +1,6 @@
 from typing import Optional, List
 
+from plenum.common.event_bus import InternalBus
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer
@@ -12,7 +13,7 @@ class SimPool:
         self._random = random if random else DefaultSimRandom()
         self._timer = MockTimer()
         self._network = SimNetwork(self._timer, self._random)
-        self._nodes = [ReplicaService(name, self.network.create_peer(name))
+        self._nodes = [ReplicaService(name, InternalBus(), self.network.create_peer(name))
                        for name in genNodeNames(node_count)]
 
     @property
