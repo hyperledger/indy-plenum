@@ -20,27 +20,41 @@ def test_start_view_change_increases_next_view_and_broadcasts_view_change_messag
     assert msg.stableCheckpoint == service._data.stable_checkpoint
 
 
-def test_view_change_message_is_responded_with_view_change_ack_to_new_primary(
-        some_consensus_data, other_consensus_data):
-    other_service = ViewChangeService(other_consensus_data, InternalBus(), MockNetwork())
-    other_service.start_view_change()
-    vc, _ = other_service._network.sent_messages[0]
+def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new_primary(
+        initial_view_no, consensus_data_of_non_primary_in_next_view, other_validator):
+    service = ViewChangeService(consensus_data_of_non_primary_in_next_view, InternalBus(), MockNetwork())
 
-    service = ViewChangeService(some_consensus_data, InternalBus(), MockNetwork())
-    service.start_view_change()
-    service._network.sent_messages.clear()
+    vc = ViewChange(
+        viewNo=initial_view_no + 1,
+        stableCheckpoint=4,
+        prepared=[],
+        preprepared=[],
+        checkpoints=[]
+    )
+    service._network.process_incoming(vc, other_validator)
 
-    service._network.process_incoming(vc, other_service._data.name)
+    assert len(service._network.sent_messages) == 1
+    msg, dst = service._network.sent_messages[0]
+    assert dst == service._data.primary_name()
+    assert isinstance(msg, ViewChangeAck)
+    assert msg.viewNo == vc.viewNo
+    assert msg.name == other_validator
+    assert msg.digest == 'digest_of_view_change_message'
 
-    # TODO: Need to somehow extract fixtures primary_consensus_data and
-    #  non_primary_consensus_data to properly separate tests
-    if not service._data.is_primary():
-        assert len(service._network.sent_messages) == 1
-        msg, dst = service._network.sent_messages[0]
-        assert dst == service._data.primary_name()
-        assert isinstance(msg, ViewChangeAck)
-        assert msg.viewNo == vc.viewNo
-        assert msg.name == other_service._data.name
-        assert msg.digest == 'digest_of_view_change_message'
-    else:
-        assert not service._network.sent_messages
+
+def test_primary_doesnt_respond_to_view_change_message(
+        initial_view_no, consensus_data_of_primary_in_next_view, other_validator):
+    service = ViewChangeService(consensus_data_of_primary_in_next_view, InternalBus(), MockNetwork())
+
+    vc = ViewChange(
+        viewNo=initial_view_no + 1,
+        stableCheckpoint=4,
+        prepared=[],
+        preprepared=[],
+        checkpoints=[]
+    )
+    service._network.process_incoming(vc, other_validator)
+    assert len(service._network.sent_messages) == 0
+
+
+# def test_new_view_message_is_not_sent_by_non_primary

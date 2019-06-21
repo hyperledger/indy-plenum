@@ -33,7 +33,7 @@ class ViewChangeService:
     def process_view_change_message(self, msg: ViewChange, frm: str):
         # TODO: Validation
 
-        if not self._data.is_primary():
+        if not self._data.is_primary(msg.viewNo):
             vca = ViewChangeAck(
                 viewNo=msg.viewNo,
                 name=frm,
