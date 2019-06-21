@@ -94,13 +94,9 @@ from plenum.recorder.recorder import add_start_time, add_stop_time
 
 from plenum.client.wallet import Wallet
 
-from plenum.server.pool_req_handler import PoolRequestHandler
-from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr, CoreAuthNr
-from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
@@ -118,7 +114,6 @@ from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
 from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
-from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool

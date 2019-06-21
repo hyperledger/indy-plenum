@@ -17,8 +17,8 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML
 from plenum.common.types import f
 from plenum.common.util import randomString
-from plenum.server.config_req_handler import ConfigReqHandler
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
+from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
 from state.pruning_state import PruningState
 
@@ -188,4 +188,4 @@ def gen_random_txn_author_agreement(text_size=1024, version_size=16):
 
 # TODO might make sense to use sdk's api
 def calc_taa_digest(text, version):
-    return ConfigReqHandler._taa_digest(text, version)
+    return WriteRequestManager._taa_digest(text, version)

@@ -116,10 +116,8 @@ class NodeBootstrap:
         self.node.write_manager.register_req_handler(node_handler)
 
     def register_config_req_handlers(self):
-        taa_aml_handler = TxnAuthorAgreementAmlHandler(database_manager=self.node.db_manager,
-                                                       bls_crypto_verifier=self.node.bls_bft.bls_crypto_verifier)
-        taa_handler = TxnAuthorAgreementHandler(database_manager=self.node.db_manager,
-                                                bls_crypto_verifier=self.node.bls_bft.bls_crypto_verifier)
+        taa_aml_handler = TxnAuthorAgreementAmlHandler(database_manager=self.node.db_manager)
+        taa_handler = TxnAuthorAgreementHandler(database_manager=self.node.db_manager)
         get_taa_aml_handler = GetTxnAuthorAgreementAmlHandler(database_manager=self.node.db_manager)
         get_taa_handler = GetTxnAuthorAgreementHandler(database_manager=self.node.db_manager)
 
