@@ -12,8 +12,8 @@ class ReplicaService:
     This is a wrapper consensus-related services. Now it is intended mostly for
     simulation tests, however in future it can replace actual Replica in plenum.
     """
-    def __init__(self, name: str, validators: List[str], bus: InternalBus, network: ExternalBus):
-        self._data = ConsensusDataProvider(name, validators)
+    def __init__(self, name: str, validators: List[str], primary_name: str, bus: InternalBus, network: ExternalBus):
+        self._data = ConsensusDataProvider(name, validators, primary_name)
         self._orderer = OrderingService(self._data, bus, network)
         self._checkpointer = CheckpointService(self._data, bus, network)
         self._view_changer = ViewChangeService(self._data, bus, network)

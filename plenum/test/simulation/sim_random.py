@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from random import Random
-from typing import Any
+from typing import Any, Iterable, List
 
 
 class SimRandom(ABC):
@@ -10,6 +10,14 @@ class SimRandom(ABC):
 
     @abstractmethod
     def choice(self, *args) -> Any:
+        pass
+
+    @abstractmethod
+    def sample(self, population: List, num: int) -> List:
+        pass
+
+    @abstractmethod
+    def shuffle(self, items: List) -> List:
         pass
 
 
@@ -23,3 +31,11 @@ class DefaultSimRandom(SimRandom):
 
     def choice(self, *args) -> Any:
         return self._random.choice(args)
+
+    def sample(self, population: Iterable, num: int) -> List:
+        return self._random.sample(population, num)
+
+    def shuffle(self, items: List) -> List:
+        result = items.copy()
+        self._random.shuffle(result)
+        return result

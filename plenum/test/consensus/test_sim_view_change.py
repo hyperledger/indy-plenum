@@ -17,7 +17,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
         assert node_a._data.preprepared == node_b._data.preprepared
 
 
-@pytest.mark.parametrize("seed", range(50))
+@pytest.mark.parametrize("seed", range(2000))
 def test_view_change_completes_under_normal_conditions(seed):
     random = DefaultSimRandom(seed)
     check_view_change_completes_under_normal_conditions(random)

@@ -1,6 +1,7 @@
 from typing import Optional, List
 
 from plenum.common.event_bus import InternalBus
+from plenum.common.messages.node_messages import ViewChange
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer
@@ -14,7 +15,8 @@ class SimPool:
         self._timer = MockTimer()
         self._network = SimNetwork(self._timer, self._random)
         validators = genNodeNames(node_count)
-        self._nodes = [ReplicaService(name, validators, InternalBus(), self.network.create_peer(name))
+        primary_name = validators[0]
+        self._nodes = [ReplicaService(name, validators, primary_name, InternalBus(), self.network.create_peer(name))
                        for name in validators]
 
     @property
@@ -28,3 +30,13 @@ class SimPool:
     @property
     def nodes(self) -> List[ReplicaService]:
         return self._nodes
+
+
+def view_change_message(random: SimRandom, view_no: Optional[int] = None):
+    return ViewChange(
+        viewNo=view_no if view_no is not None else random.integer(0, 1000),
+        stableCheckpoint=random.integer(0, 1000),
+        prepared=[],
+        preprepared=[],
+        checkpoints=[]
+    )

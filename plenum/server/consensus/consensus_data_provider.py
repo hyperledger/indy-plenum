@@ -9,12 +9,14 @@ class ConsensusDataProvider:
     This is a 3PC-state shared between Ordering, Checkpoint and ViewChange services.
     TODO: Consider depending on audit ledger
     TODO: Consider adding persistent local storage for 3PC certificates
+    TODO: Restore primary name from audit ledger instead of passing through constructor
     """
-    def __init__(self, name: str, validators: List[str]):
+    def __init__(self, name: str, validators: List[str], primary_name: str):
         self._name = name
         self.set_validators(validators)
         self.view_no = 0
         self.waiting_for_new_view = False
+        self.primary_name = primary_name
 
     @property
     def name(self) -> str:
@@ -38,19 +40,15 @@ class ConsensusDataProvider:
         """
         return self._quorums
 
-    # TODO: This needs to use real primary decider implementation
-    def primary_name(self, view_no: Optional[int] = None) -> str:
-        if view_no is None:
-            view_no = self.view_no
-        return self._validators[view_no % self.quorums.n]
-
-    def is_primary(self, view_no: Optional[int] = None) -> bool:
-        return self.primary_name(view_no) == self.name
+    @property
+    def is_primary(self) -> bool:
+        return self.primary_name == self.name
 
     @property
     def preprepared(self) -> List[PrePrepare]:
         """
         List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
+        TODO: Make it simple field?
         """
         return []
 
@@ -58,6 +56,7 @@ class ConsensusDataProvider:
     def prepared(self) -> List[PrePrepare]:
         """
         List of PrePrepare messages, for which quorum of Prepare messages is reached
+        TODO: Make it simple field?
         """
         return []
 

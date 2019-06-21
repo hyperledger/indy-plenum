@@ -3,7 +3,6 @@ import pytest
 from plenum.common.event_bus import ExternalBus
 from plenum.common.util import randomString
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer
 from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import DefaultSimRandom
 from plenum.test.test_event_bus import SomeMessage, create_some_message
@@ -25,34 +24,25 @@ class TestNode:
 
 
 @pytest.fixture
-def mock_timer():
-    return MockTimer()
-
-
-@pytest.fixture
 def test_nodes(mock_timer):
     random = DefaultSimRandom()
     net = SimNetwork(mock_timer, random)
     return [TestNode(name, net.create_peer(name)) for name in genNodeNames(NODE_COUNT)]
 
 
-@pytest.fixture(params=range(NODE_COUNT))
-def some_node(request, test_nodes):
-    return test_nodes[request.param]
+@pytest.fixture
+def some_node(test_nodes, some_item):
+    return some_item(test_nodes)
 
 
-@pytest.fixture(params=range(NODE_COUNT-1))
-def other_node(request, test_nodes, some_node):
-    available_nodes = [node for node in test_nodes
-                       if node != some_node]
-    return available_nodes[request.param]
+@pytest.fixture
+def other_node(test_nodes, some_node, other_item):
+    return other_item(test_nodes, exclude=[some_node])
 
 
-@pytest.fixture(params=range(NODE_COUNT-2))
-def another_node(request, test_nodes, some_node, other_node):
-    available_nodes = [node for node in test_nodes
-                       if node not in [some_node, other_node]]
-    return available_nodes[request.param]
+@pytest.fixture
+def another_node(test_nodes, some_node, other_node, another_item):
+    return another_item(test_nodes, exclude=[some_node, other_node])
 
 
 def test_sim_network_broadcast(mock_timer, test_nodes, some_node):
@@ -126,7 +116,7 @@ def test_sim_network_raises_on_sending_to_no_one(some_node):
         some_node.network.send(message, [])
 
 
-def test_sim_network_raises_one_sending_to_invalid(some_node):
+def test_sim_network_raises_on_sending_to_invalid(some_node):
     message = create_some_message()
     with pytest.raises(AssertionError):
         some_node.network.send(message, [lambda: print("I'm evil!")])

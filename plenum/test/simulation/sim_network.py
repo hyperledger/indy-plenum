@@ -11,7 +11,7 @@ class SimNetwork:
         self._timer = timer
         self._random = random
         self._min_latency = 1
-        self._max_latency = 5
+        self._max_latency = 500
         self._peers = {}  # type: Dict[str, ExternalBus]
 
     def create_peer(self, name: str) -> ExternalBus:

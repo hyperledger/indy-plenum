@@ -1,31 +1,27 @@
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
-def test_initial_consensus_state(validators, some_validator):
-    state = ConsensusDataProvider(some_validator, validators)
+def test_initial_consensus_state(some_item, other_item, validators):
+    name = some_item(validators)
+    primary = other_item(validators)
+    data = ConsensusDataProvider(name, validators, primary)
 
     # General info
-    assert state.name == some_validator
+    assert data.name == name
 
     # Validators
-    assert state.validators == validators
-    assert state.quorums.n == len(validators)
+    assert data.validators == validators
+    assert data.quorums.n == len(validators)
+    assert data.primary_name == primary
 
     # View
-    assert state.view_no == 0
-    assert not state.waiting_for_new_view
+    assert data.view_no == 0
+    assert not data.waiting_for_new_view
 
     # 3PC votes
-    assert state.preprepared == []
-    assert state.prepared == []
+    assert data.preprepared == []
+    assert data.prepared == []
 
     # Checkpoints
-    assert state.stable_checkpoint == 0
-    assert state.checkpoints == []
-
-
-def test_consensus_primary_name(initial_view_no, some_consensus_data):
-    assert some_consensus_data.primary_name() == some_consensus_data.primary_name(some_consensus_data.view_no)
-
-    assert some_consensus_data.primary_name(initial_view_no) != some_consensus_data.primary_name(initial_view_no + 1)
-    assert some_consensus_data.primary_name(initial_view_no) != some_consensus_data.primary_name(initial_view_no - 1)
+    assert data.stable_checkpoint == 0
+    assert data.checkpoints == []
