@@ -248,13 +248,6 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(self):
         pass
 
-    def init_domain_req_handler(self):
-        return TestDomainRequestHandler(self.domainLedger,
-                                        self.states[DOMAIN_LEDGER_ID],
-                                        self.config, self.reqProcessors,
-                                        self.bls_bft.bls_store,
-                                        self.db_manager.get_store(TS_LABEL))
-
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)
         return TestCoreAuthnr(self.write_manager.txn_types,
