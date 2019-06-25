@@ -10,6 +10,7 @@ class DatabaseManager():
     def __init__(self):
         self.databases = {}  # type: Dict[int, Database]
         self.stores = {}
+        self.trackers = {}
         self._init_db_list()
 
     def _init_db_list(self):
@@ -37,10 +38,20 @@ class DatabaseManager():
             return None
         return self.databases[lid].state
 
+    def get_tracker(self, lid):
+        if lid not in self.trackers:
+            return None
+        return self.trackers[lid]
+
     def register_new_store(self, label, store):
         if label in self.stores:
             raise LogicError('Trying to add already existing store')
         self.stores[label] = store
+
+    def register_new_tracker(self, lid, tracker):
+        if lid in self.trackers:
+            raise LogicError("Trying to add already existing tracker")
+        self.trackers[lid] = tracker
 
     def get_store(self, label):
         if label not in self.stores:
