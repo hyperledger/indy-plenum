@@ -8,6 +8,8 @@ MAX_EVENTS_SIZE = 20
 SomeEvent = NamedTuple("SomeEvent", [("some_field", int)])
 
 
+# TODO: DEPRECATE EVERYTHING HERE
+
 @st.composite
 def some_event(draw):
     return SomeEvent(some_field=draw(st.integers()))

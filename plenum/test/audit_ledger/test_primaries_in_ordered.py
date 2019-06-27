@@ -14,7 +14,7 @@ def test_primaries_in_ordered_from_audit(test_node):
                                                    txn_root=pre_prepare.txnRootHash,
                                                    primaries=["Alpha", "Beta", "Gamma"],
                                                    valid_digests=pre_prepare.reqIdr)
-    test_node.audit_handler.post_batch_applied(three_pc_batch)
+    test_node.write_manager.audit_b_handler.post_batch_applied(three_pc_batch)
 
     replica.order_3pc_key(key)
 
@@ -38,7 +38,7 @@ def test_primaries_in_ordered_from_audit_for_tree_txns(test_node):
                                                        primaries=["Node{}".format(num)
                                                                   for num in range(i + 1)],
                                                        valid_digests=pp.reqIdr)
-        test_node.audit_handler.post_batch_applied(three_pc_batch)
+        test_node.write_manager.audit_b_handler.post_batch_applied(three_pc_batch)
         primaries[key] = three_pc_batch.primaries
 
     for key in reversed(list(primaries.keys())):

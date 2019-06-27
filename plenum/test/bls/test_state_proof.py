@@ -9,6 +9,8 @@ from plenum.common.txn_util import get_type, get_from, get_req_id, get_seq_no, g
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.test.bls.helper import validate_multi_signature, validate_proof_for_write, validate_proof_for_read
+from plenum.test.buy_handler import BuyHandler
+from plenum.test.constants import GET_BUY
 from plenum.test.helper import wait_for_requests_ordered, \
     randomOperation, sdk_send_random_requests, sdk_json_couples_to_request_list, sdk_send_random_and_check, \
     sdk_json_to_request_object
@@ -19,16 +21,16 @@ nodes_wth_bls = 4
 
 def check_result(txnPoolNodeSet, req, should_have_proof):
     for node in txnPoolNodeSet:
-        req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
-        key = req_handler.prepare_buy_key(req.identifier, req.reqId)
-        _, proof = req_handler.get_value_from_state(key, with_proof=True)
+        req_handler = node.read_manager.request_handlers[GET_BUY]
+        key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
+        _, _, _, proof = req_handler.lookup(key, with_proof=True)
 
         txn_time = get_utc_epoch()
-        result = req_handler.make_domain_result(req,
-                                                {TXN_TYPE: "buy"},
-                                                2,
-                                                txn_time,
-                                                proof)
+        result = req_handler.make_result(req,
+                                         {TXN_TYPE: "buy"},
+                                         2,
+                                         txn_time,
+                                         proof)
         assert result
         assert result[DATA] == {TXN_TYPE: "buy"}
         assert result[f.IDENTIFIER.nm] == req.identifier
@@ -52,9 +54,9 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
 
     req = reqs[0]
     for node in txnPoolNodeSet:
-        req_handler = node.get_req_handler(DOMAIN_LEDGER_ID)
-        key = req_handler.prepare_buy_key(req.identifier, req.reqId)
-        _, proof = req_handler.get_value_from_state(key, with_proof=True)
+        req_handler = node.read_manager.request_handlers[GET_BUY]
+        key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
+        _, _, _, proof = req_handler.lookup(key, with_proof=True)
         assert proof
         assert ROOT_HASH in proof
         assert MULTI_SIGNATURE in proof
@@ -156,9 +158,7 @@ def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
     req_dict, _ = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)[0]
     req = sdk_json_to_request_object(req_dict)
     wait_for_requests_ordered(looper, txnPoolNodeSet, [req])
-
-    req_handler = txnPoolNodeSet[0].get_req_handler(DOMAIN_LEDGER_ID)
-    key = req_handler.prepare_buy_key(req.identifier, req.reqId)
+    key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
 
     for node in txnPoolNodeSet:
         node.states[DOMAIN_LEDGER_ID].set(key, b'somevalue')

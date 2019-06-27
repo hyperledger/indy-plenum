@@ -23,12 +23,11 @@ class RequestHandler(metaclass=ABCMeta):
         properly formed request, etc
         """
 
-    @abstractmethod
-    def dynamic_validation(self, request: Request):
+    def gen_state_key(self, txn):
         """
-        Does dynamic validation (state based validation) on request.
-        Raises exception if request is invalid.
+        Generate state key(s).
         """
+        pass
 
     @property
     def state(self):

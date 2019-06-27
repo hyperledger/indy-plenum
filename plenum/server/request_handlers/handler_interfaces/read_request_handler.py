@@ -14,12 +14,7 @@ class ReadRequestHandler(RequestHandler):
     def __init__(self, database_manager: DatabaseManager, txn_type, ledger_id):
         super().__init__(database_manager, txn_type, ledger_id)
 
-    @abstractmethod
     def static_validation(self, request: Request):
-        pass
-
-    @abstractmethod
-    def dynamic_validation(self, request: Request):
         pass
 
     @abstractmethod
@@ -90,10 +85,8 @@ class ReadRequestHandler(RequestHandler):
             f.IDENTIFIER.nm: request.identifier,
             f.REQ_ID.nm: request.reqId
         }}
-        if last_seq_no:
-            result[f.SEQ_NO.nm] = last_seq_no
-        if update_time:
-            result[TXN_TIME] = update_time
+        result[f.SEQ_NO.nm] = last_seq_no
+        result[TXN_TIME] = update_time
         if proof and request.protocolVersion and \
                 request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
             result[STATE_PROOF] = proof

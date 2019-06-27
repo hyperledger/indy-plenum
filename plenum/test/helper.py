@@ -10,13 +10,14 @@ from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union
+from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union, Callable
 
 import base58
 import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from plenum.common.event_bus import ExternalBus
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
@@ -745,14 +746,16 @@ def wait_for_requests_ordered(looper, nodes, requests):
 
 
 def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
-                         tdir, plugin_paths, node_ha=None, client_ha=None):
+                         tdir, plugin_paths, bootstrap_cls=None,
+                         node_ha=None, client_ha=None):
     config_helper = node_config_helper_class(name, conf, chroot=tdir)
     return test_node_class(name,
                            config_helper=config_helper,
                            config=conf,
                            pluginPaths=plugin_paths,
                            ha=node_ha,
-                           cliha=client_ha)
+                           cliha=client_ha,
+                           bootstrap_cls=bootstrap_cls)
 
 
 # ####### SDK
@@ -1322,10 +1325,70 @@ class MockTimer(QueueTimer):
         self._ts = get_current_time if get_current_time else MockTimestamp(0)
         QueueTimer.__init__(self, self._ts)
 
-    def advance(self, seconds):
-        self._ts.value += seconds
-        self.service()
-
-    def update_time(self, value):
+    def set_time(self, value):
+        """
+        Update time and run scheduled callbacks afterwards
+        """
         self._ts.value = value
         self.service()
+
+    def sleep(self, seconds):
+        """
+        Simulate sleeping for given amount of seconds, and run scheduled callbacks afterwards
+        """
+        self.set_time(self._ts.value + seconds)
+
+    def advance(self):
+        """
+        Advance time to next scheduled callback and run that callback
+        """
+        if not self._events:
+            return
+
+        event = self._events.pop(0)
+        self._ts.value = event.timestamp
+        event.callback()
+
+    def advance_until(self, value):
+        """
+        Advance time in steps until required value running scheduled callbacks in process
+        """
+        while self._events and self._events[0].timestamp <= value:
+            self.advance()
+        self._ts.value = value
+
+    def run_for(self, seconds):
+        """
+        Simulate running for given amount of seconds, running scheduled callbacks at required timestamps
+        """
+        self.advance_until(self._ts.value + seconds)
+
+    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None):
+        """
+        Advance time in steps until condition is reached, running scheduled callbacks in process
+        Throws TimeoutError if fail to reach condition (under required timeout if defined)
+        """
+        deadline = self._ts.value + timeout if timeout else None
+        while self._events and not condition():
+            if deadline and self._events[0].timestamp > deadline:
+                raise TimeoutError("Failed to reach condition in required time")
+            self.advance()
+
+        if not condition():
+            raise TimeoutError("Condition will be never reached")
+
+    def run_to_completion(self):
+        """
+        Advance time in steps until nothing is scheduled
+        """
+        while self._events:
+            self.advance()
+
+
+class MockNetwork(ExternalBus):
+    def __init__(self):
+        super().__init__(self._send_message)
+        self.sent_messages = []
+
+    def _send_message(self, msg: Any, dst: ExternalBus.Destination):
+        self.sent_messages.append((msg, dst))
