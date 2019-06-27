@@ -6,11 +6,12 @@ import os
 from crypto.bls.bls_crypto import BlsCryptoVerifier
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
-from plenum.common.txn_util import get_type, reqToTxn
+from plenum.common.txn_util import get_type, reqToTxn, get_payload_data
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
+from plenum.test.buy_handler import BuyHandler
 from state.pruning_state import PruningState
-from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer
+from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer, domain_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, MULTI_SIGNATURE, \
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
@@ -29,12 +30,12 @@ logger = getlogger()
 def update_validate_bls_signature_without_key_proof(txnPoolNodeSet, value):
     default_param = {}
     for n in txnPoolNodeSet:
-        config = n.bls_bft.bls_key_register._pool_manager.config
+        config = n.bls_bft.bls_key_register._node.config
         default_param[n.name] = config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF
         config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = value
     yield value
     for n in txnPoolNodeSet:
-        n.bls_bft.bls_key_register._pool_manager. \
+        n.bls_bft.bls_key_register._node. \
             config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF = default_param[n.name]
 
 
@@ -239,7 +240,8 @@ def prepare_for_state_read(req: Request):
     if req.txn_type == "buy":
         from plenum.test.test_node import TestDomainRequestHandler
         txn = reqToTxn(req)
-        key, value = TestDomainRequestHandler.prepare_buy_for_state(txn)
+        key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
+        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
         return key, value
 
 

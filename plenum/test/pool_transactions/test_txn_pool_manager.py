@@ -34,7 +34,7 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
             break
     assert demoted_nym
     # Every node demote `demoted_node`
-    assert all(node.poolManager.reqHandler.getNodeData(demoted_nym)[SERVICES] == []
+    assert all(node.write_manager.get_node_data(demoted_nym)[SERVICES] == []
                for node in alive_pool)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,

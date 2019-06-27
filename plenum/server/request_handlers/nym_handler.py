@@ -1,3 +1,4 @@
+from _sha256 import sha256
 from binascii import hexlify
 
 from common.serializers.serialization import domain_state_serializer
@@ -47,9 +48,12 @@ class NymHandler(WriteRequestHandler):
 
     def gen_state_key(self, txn):
         nym = get_payload_data(txn).get(TARGET_NYM)
-        return nym_to_state_key(nym)
+        return self.make_state_path_for_nym(nym)
 
-    def update_state(self, txn, prev_result, is_committed=False):
+    def gen_txn_id(self, txn):
+        return hexlify(self.gen_state_key(txn)).decode()
+
+    def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
         nym = get_payload_data(txn).get(TARGET_NYM)
         existing_data = get_nym_details(self.state, nym,
@@ -100,3 +104,7 @@ class NymHandler(WriteRequestHandler):
             self._steward_count -= 1
         elif existing_data[ROLE] != STEWARD and new_data[ROLE] == STEWARD:
             self._steward_count += 1
+
+    @staticmethod
+    def make_state_path_for_nym(did) -> bytes:
+        return sha256(did.encode()).digest()

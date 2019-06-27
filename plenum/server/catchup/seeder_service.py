@@ -114,13 +114,13 @@ class SeederService:
             return
 
         if seq_no_start > ledger.size:
-            logger.error("{} cannot build consistency proof: start {} is more than ledger size {}".
-                         format(self, seq_no_start, ledger.size))
+            logger.warning("{} cannot build consistency proof: start {} is more than ledger size {}".
+                           format(self, seq_no_start, ledger.size))
             return
 
         if seq_no_end > ledger.size:
-            logger.error("{} cannot build consistency proof: end {} is more than ledger size {}".
-                         format(self, seq_no_end, ledger.size))
+            logger.warning("{} cannot build consistency proof: end {} is more than ledger size {}".
+                           format(self, seq_no_end, ledger.size))
             return
 
         if seq_no_start == 0:

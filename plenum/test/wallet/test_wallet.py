@@ -36,7 +36,7 @@ def test_wallet_multisig():
     idr1, signer1 = wallet.addIdentifier()
     idr2, signer2 = wallet.addIdentifier()
     idr3, signer3 = wallet.addIdentifier()
-    authnr = CoreAuthNr()
+    authnr = CoreAuthNr([], [], [])
     for idr, signer in [(idr1, signer1), (idr2, signer2), (idr3, signer3)]:
         authnr.addIdr(idr, signer.verkey)
 
