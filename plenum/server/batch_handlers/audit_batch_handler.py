@@ -17,7 +17,7 @@ logger = getlogger()
 
 class AuditBatchHandler(BatchRequestHandler):
 
-    def __init__(self, database_manager: DatabaseManager):
+    def __init__(self, database_manager: DatabaseManager, ):
         super().__init__(database_manager, AUDIT_LEDGER_ID)
         # TODO: move it to BatchRequestHandler
         self.tracker = LedgerUncommittedTracker(None, self.ledger.uncommitted_root_hash, self.ledger.size)

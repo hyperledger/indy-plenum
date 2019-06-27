@@ -72,6 +72,7 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
 
         # We will save node state at every pool batch, so we could revert it correctly
         self.node_states.append(last_state)
+        three_pc_batch.primaries = last_state.primaries
         return last_state.primaries
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):

@@ -1,45 +1,59 @@
 import json
 
-from plenum.common.constants import TXN_TYPE, DATA
+from plenum.common.constants import TXN_TYPE, DATA, CONFIG_LEDGER_ID
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data
 from plenum.common.types import f
-from plenum.server.config_req_handler import ConfigReqHandler
+from plenum.server.database_manager import DatabaseManager
+from plenum.server.request_handlers.handler_interfaces.read_request_handler import ReadRequestHandler
+from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
+from plenum.test.test_node import TestNodeBootstrap
+
 
 WRITE_CONF = 'write_conf'
 READ_CONF = 'read_conf'
 
 
-class TestConfigReqHandler(ConfigReqHandler):
-    write_types = {WRITE_CONF, }
-    query_types = {READ_CONF, }
+class WriteConfHandler(WriteRequestHandler):
+    def __init__(self, database_manager: DatabaseManager):
+        super().__init__(database_manager=database_manager,
+                         txn_type=WRITE_CONF,
+                         ledger_id=CONFIG_LEDGER_ID)
 
-    def __init__(self, ledger, state, domain_state, bls_store):
-        super().__init__(ledger, state, domain_state, bls_store)
-        self.query_handlers = {
-            READ_CONF: self.handle_get_conf,
-        }
+    def dynamic_validation(self, request: Request):
+        pass
 
-    def get_query_response(self, request: Request):
-        return self.query_handlers[request.operation[TXN_TYPE]](request)
+    def static_validation(self, request: Request):
+        pass
 
-    def updateState(self, txns, isCommitted=False):
-        for txn in txns:
-            self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
-
-    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
+    def update_state(self, txn, prev_result, request, is_committed=False):
         typ = get_type(txn)
         if typ == WRITE_CONF:
             conf = json.loads(get_payload_data(txn)[DATA])
             key, val = conf.popitem()
             self.state.set(key.encode(), val.encode())
 
-    def handle_get_conf(self, request: Request):
+
+class ReadConfHandler(ReadRequestHandler):
+    def __init__(self, database_manager: DatabaseManager):
+        super().__init__(database_manager, READ_CONF, CONFIG_LEDGER_ID)
+
+    def get_result(self, request: Request):
         key = request.operation[DATA]
         val = self.state.get(key.encode())
         return {f.IDENTIFIER.nm: request.identifier,
                 f.REQ_ID.nm: request.reqId,
                 **{DATA: json.dumps({key: val.decode()})}}
+
+
+class ConfigTestBootstrapClass(TestNodeBootstrap):
+
+    def register_config_req_handlers(self):
+        super().register_config_req_handlers()
+        write_rh = WriteConfHandler(self.node.db_manager)
+        read_rh = ReadConfHandler(self.node.db_manager)
+        self.node.write_manager.register_req_handler(write_rh)
+        self.node.read_manager.register_req_handler(read_rh)
 
 
 def write_conf_op(key, value):

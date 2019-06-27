@@ -46,6 +46,7 @@ class ConsProofService:
         self._quorum = Quorums(len(self._provider.all_nodes_names()))
         self._same_ledger_status = set()
         self._cons_proofs = {}
+        self._already_asked_for_cons_proofs_without_timeout = False
         self._requested_consistency_proof = set()
         self._last_txn_3PC_key = {}
 
@@ -59,6 +60,7 @@ class ConsProofService:
         self._quorum = Quorums(len(self._provider.all_nodes_names()))
         self._same_ledger_status = set()
         self._cons_proofs = {}
+        self._already_asked_for_cons_proofs_without_timeout = False
         self._requested_consistency_proof = set()
         self._last_txn_3PC_key = {}
 
@@ -86,6 +88,8 @@ class ConsProofService:
         if not self._is_catchup_needed():
             self._finish_no_catchup()
             return
+
+        self._try_asking_for_cons_proofs_without_timeout()
 
         if self._should_schedule_reask_cons_proofs():
             self._schedule_reask_cons_proof()
@@ -258,6 +262,33 @@ class ConsProofService:
             return False
 
         return True
+
+    def _try_asking_for_cons_proofs_without_timeout(self):
+        if self._already_asked_for_cons_proofs_without_timeout:
+            return
+
+        if len(self._cons_proofs) < self._quorum.n - self._quorum.f - 1:
+            return
+
+        sizes = [proof.seqNoEnd if proof else self._ledger.size for proof in self._cons_proofs.values()]
+        sizes.sort(reverse=True)
+
+        start = self._ledger.size
+        end = sizes[self._quorum.f]  # This is actually f+1's reply
+        if start >= end:
+            logger.info("{} not asking for equal cons proofs because "
+                        "it appears that less than f+1 nodes have more transactions".format(self))
+            return
+
+        logger.info("{} asking for consistency proof request: {}".format(self, self._ledger_id, start, end))
+        cons_proof_req = MessageReq(
+            CONSISTENCY_PROOF,
+            {f.LEDGER_ID.nm: self._ledger_id,
+             f.SEQ_NO_START.nm: start,
+             f.SEQ_NO_END.nm: end}
+        )
+        self._provider.send_to_nodes(cons_proof_req, nodes=self._provider.eligible_nodes())
+        self._already_asked_for_cons_proofs_without_timeout = True
 
     def _should_schedule_reask_cons_proofs(self):
         return len([v for v in self._cons_proofs.values() if v is not None]) == self._quorum.f + 1
