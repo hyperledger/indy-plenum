@@ -28,6 +28,7 @@ ERORR_MSG = "something went wrong"
 
 whitelist = [ERORR_MSG]
 
+
 def testLoggingTxnStateForValidRequest(
         looper, logsearch, txnPoolNodeSet,
         sdk_pool_handle, sdk_wallet_client):
@@ -96,8 +97,8 @@ def testLoggingTxnStateWhenCommitFails(
         pass
 
     def commitPatched(node, commitOrig, *args, **kwargs):
-        req_handler = node.get_req_handler(ledger_id=DOMAIN_LEDGER_ID)
-        req_handler.commit = commitOrig
+        batch_handler = node.write_manager.batch_handlers[DOMAIN_LEDGER_ID][0]
+        batch_handler.commit_batch = commitOrig
         raise SomeError(ERORR_MSG)
 
     excCounter = 0
@@ -116,9 +117,9 @@ def testLoggingTxnStateWhenCommitFails(
         return
 
     for node in txnPoolNodeSet:
-        req_handler = node.get_req_handler(ledger_id=DOMAIN_LEDGER_ID)
-        req_handler.commit = functools.partial(
-            commitPatched, node, req_handler.commit
+        batch_handler = node.write_manager.batch_handlers[DOMAIN_LEDGER_ID][0]
+        batch_handler.commit_batch = functools.partial(
+            commitPatched, node, batch_handler.commit_batch
         )
         node.executeBatch = functools.partial(
             executeBatchPatched, node, node.executeBatch

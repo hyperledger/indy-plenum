@@ -1,0 +1,104 @@
+@startuml
+
+
+
+package Database {
+DatabaseManager "1" *-- "N" Ledger
+DatabaseManager "1" *-- "N" State
+DatabaseManager "1" *-- "N" Store
+}
+
+package Common {
+abstract class Service
+Service "1" o-- "1" InternalEventBus
+Service "1" o-- "1" ExternalEventBus
+}
+
+package "Write Requests" {
+
+
+abstract class BatchRequestHandler
+abstract class RequestHandler
+
+WriteRequestManager "1" *-- "N" BatchRequestHandler
+WriteRequestManager "1" *-- "N" RequestHandler
+
+BatchRequestHandler o-- DatabaseManager
+RequestHandler o-- DatabaseManager
+
+}
+
+
+package "Read Requests" {
+
+ReadRequestService o-- DatabaseManager
+ActionRequestService o-- DatabaseManager
+ReadRequestService o-- ExternalEventBus
+ActionRequestService o-- ExternalEventBus
+
+}
+
+
+package Consensus {
+abstract class ConsensusService
+ConsensusService <|-- Service
+ConsensusService o-- InterProcessEventBus
+
+package "Node" {
+PropagateService <|-- ConsensusService
+MonitorService <|-- ConsensusService
+}
+
+package Replica {
+OrdererService <|-- ConsensusService
+CheckpointerService <|-- ConsensusService
+ViewChangeService <|-- ConsensusService
+
+ReplicaService o-- OrdererService
+ReplicaService o-- CheckpointerService
+ReplicaService o-- ViewChangeService
+ViewChangeService o-- ConsensusDataProvider
+OrdererService o-- ConsensusDataProvider
+CheckpointerService o-- ConsensusDataProvider
+}
+
+
+
+
+
+}
+
+package Catchup {
+abstract class CatchupService
+CatchupService <|-- Service
+
+NodeLeecherService "1" *-- "N" LedgerLeecherService
+LedgerLeecherService "1" *-- "1" ConsistencyProofService
+LedgerLeecherService "1" *-- "1" CatchupRepService
+
+SeederService <|-- ClientSeederService
+SeederService <|-- NodeSeederService
+
+
+CatchupRepService <|-- CatchupService
+ConsistencyProofService <|-- CatchupService
+ClientSeederService <|-- CatchupService
+NodeSeederService <|-- CatchupService
+}
+
+
+package Network {
+abstract class NetworkInterface
+ZmqNetworkService <|-- NetworkInterface
+NetworkService <|-- Service
+NetworkService o-- NetworkInterface
+}
+
+
+
+
+
+ExternalEventBus "1" o-- "1" NetworkService
+OrdererService "1" o-- "1" WriteRequestManager
+
+@enduml

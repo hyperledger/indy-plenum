@@ -21,7 +21,7 @@ from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
-    AUDIT_TXN_PRIMARIES
+    AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
 from plenum.common.hook_manager import HookManager
@@ -2919,9 +2919,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:
-            req_handler = self.node.ledger_to_req_handler.get(ledger_id)
-            if req_handler.ts_store:
-                last_timestamp = req_handler.ts_store.get_last_key()
+            ts_store = self.node.db_manager.get_store(TS_LABEL)
+            if ts_store:
+                last_timestamp = ts_store.get_last_key()
                 if last_timestamp:
                     last_timestamp = int(last_timestamp.decode())
                     self.logger.debug("Last ordered timestamp from store is : {}"

@@ -26,7 +26,7 @@ def pool_node_txns(poolTxnData):
 
 @pytest.fixture()
 def bls_key_register_ledger(node):
-    return BlsKeyRegisterPoolManager(node.poolManager)
+    return BlsKeyRegisterPoolManager(node)
 
 
 def test_current_committed_root(bls_key_register_ledger, node):

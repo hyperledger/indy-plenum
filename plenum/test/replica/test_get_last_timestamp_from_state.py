@@ -1,4 +1,4 @@
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, NYM
 from plenum.common.txn_util import get_txn_time
 from plenum.common.util import get_utc_epoch
 from plenum.test.helper import sdk_send_random_and_check
@@ -54,9 +54,9 @@ def test_choose_ts_from_state(looper,
                               1)
     primary_node = get_master_primary_node(txnPoolNodeSet)
     excpected_ts = get_utc_epoch() + 30
-    req_handler = primary_node.get_req_handler(DOMAIN_LEDGER_ID)
-    req_handler.ts_store.set(excpected_ts,
-                                  req_handler.state.headHash)
+    req_handler = primary_node.write_manager.request_handlers[NYM][0]
+    req_handler.database_manager.ts_store.set(excpected_ts,
+                                              req_handler.state.headHash)
     primary_node.master_replica.last_accepted_pre_prepare_time = None
     reply = sdk_send_random_and_check(looper,
                                       txnPoolNodeSet,

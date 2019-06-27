@@ -11,7 +11,7 @@ from plenum.test.pool_transactions.helper import sdk_add_new_nym, \
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
     oldThreshold = tconf.stewardThreshold
-    tconf.stewardThreshold = 5
+    tconf.stewardThreshold = 6
 
     def reset():
         tconf.stewardThreshold = oldThreshold
