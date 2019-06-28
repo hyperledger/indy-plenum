@@ -59,7 +59,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
     TaaAmlNotSetError, InvalidClientTaaAcceptanceError
 from plenum.common.has_file_storage import HasFileStorage
-# from plenum.common.hook_manager import HookManager
+from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
@@ -124,7 +124,7 @@ logger = getlogger()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
-           PluginLoaderHelper, MessageReqProcessor):
+           PluginLoaderHelper, MessageReqProcessor, HookManager):
     """
     A node in a plenum system.
     """
@@ -341,7 +341,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.init_ledger_manager()
 
-        # HookManager.__init__(self, NodeHooks.get_all_vals())
+        HookManager.__init__(self, NodeHooks.get_all_vals())
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
@@ -1846,7 +1846,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        # self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
+        self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
         self.verifySignature(cMsg)
         # self.execute_hook(NodeHooks.POST_SIG_VERIFICATION, cMsg)
         # Suspicions should only be raised when lot of sig failures are
@@ -2335,7 +2335,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #                   cons_time=cons_time)
         req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_manager.apply_request(request, cons_time)
-        ledger_id = self.ledger_id_for_request(request)
+        # ledger_id = self.ledger_id_for_request(request)
         # self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
         #                   cons_time=cons_time, ledger_id=ledger_id,
         #                   seq_no=seq_no, txn=txn)
@@ -3165,19 +3165,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         three_pc_batch.txn_root = Ledger.hashToStr(three_pc_batch.txn_root)
         three_pc_batch.state_root = Ledger.hashToStr(three_pc_batch.state_root)
 
-        # for req_key in valid_reqs_keys:
-            # self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
-            #                   pp_time=three_pc_batch.pp_time,
-            #                   state_root=three_pc_batch.state_root,
-            #                   txn_root=three_pc_batch.txn_root)
-
-        # self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED,
-        #                   ledger_id=three_pc_batch.ledger_id,
-        #                   pp_time=three_pc_batch.pp_time,
-        #                   reqs_keys=valid_reqs_keys,
-        #                   state_root=three_pc_batch.state_root,
-        #                   txn_root=three_pc_batch.txn_root)
-
         try:
             committedTxns = self.get_executer(three_pc_batch.ledger_id)(three_pc_batch)
         except Exception as exc:
@@ -3212,11 +3199,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, three_pc_batch.view_no, three_pc_batch.pp_seq_no,
                             three_pc_batch.ledger_id, three_pc_batch.state_root,
                             three_pc_batch.txn_root, [key for key in valid_reqs_keys]))
-
-        # for txn in committedTxns:
-            # self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
-            #                   pp_time=three_pc_batch.pp_time, state_root=three_pc_batch.state_root,
-            #                   txn_root=three_pc_batch.txn_root)
 
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])

@@ -971,9 +971,9 @@ class Replica(HasActionQueue, MessageProcessor):
         params = self._bls_bft_replica.update_pre_prepare(params, ledger_id)
 
         pre_prepare = PrePrepare(*params)
-        # if self.isMaster:
-            # rv = self.execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
-            # pre_prepare = rv if rv is not None else pre_prepare
+        if self.isMaster:
+            rv = self.execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
+            pre_prepare = rv if rv is not None else pre_prepare
 
         self.logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(reqs), ledger_id))
@@ -1131,17 +1131,17 @@ class Replica(HasActionQueue, MessageProcessor):
             return why_not_applied
 
         # 5. EXECUTE HOOK
-        # if self.isMaster:
-        #     try:
-        #         # self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
-        #     except Exception as ex:
-        #         self.logger.warning('{} encountered exception in replica '
-        #                             'hook {} : {}'.
-        #                             format(self, ReplicaHooks.APPLY_PPR, ex))
-        #         self.revert(pre_prepare.ledgerId,
-        #                     old_state_root,
-        #                     len(pre_prepare.reqIdr) - len(invalid_from_pp))
-        #         return PP_APPLY_HOOK_ERROR
+        if self.isMaster:
+            try:
+                self.execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
+            except Exception as ex:
+                self.logger.warning('{} encountered exception in replica '
+                                    'hook {} : {}'.
+                                    format(self, ReplicaHooks.APPLY_PPR, ex))
+                self.revert(pre_prepare.ledgerId,
+                            old_state_root,
+                            len(pre_prepare.reqIdr) - len(invalid_from_pp))
+                return PP_APPLY_HOOK_ERROR
 
         # 6. TRACK APPLIED
         self.outBox.extend(rejects)
@@ -1393,9 +1393,9 @@ class Replica(HasActionQueue, MessageProcessor):
         params = self._bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
-        # if self.isMaster:
-            # rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
-            # prepare = rv if rv is not None else prepare
+        if self.isMaster:
+            rv = self.execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
+            prepare = rv if rv is not None else prepare
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
 
@@ -1422,9 +1422,6 @@ class Replica(HasActionQueue, MessageProcessor):
             params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
-        # if self.isMaster:
-            # rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
-            # commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
@@ -1990,9 +1987,9 @@ class Replica(HasActionQueue, MessageProcessor):
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
                           self._get_primaries_for_ordered(pp))
-        # if self.isMaster:
-            # rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
-            # ordered = rv if rv is not None else ordered
+        if self.isMaster:
+            rv = self.execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
+            ordered = rv if rv is not None else ordered
 
         self._discard_ordered_req_keys(pp)
 
