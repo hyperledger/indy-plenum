@@ -59,7 +59,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
     TaaAmlNotSetError, InvalidClientTaaAcceptanceError
 from plenum.common.has_file_storage import HasFileStorage
-from plenum.common.hook_manager import HookManager
+# from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
@@ -124,7 +124,7 @@ logger = getlogger()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
-           PluginLoaderHelper, MessageReqProcessor, HookManager):
+           PluginLoaderHelper, MessageReqProcessor):
     """
     A node in a plenum system.
     """
@@ -341,7 +341,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.init_ledger_manager()
 
-        HookManager.__init__(self, NodeHooks.get_all_vals())
+        # HookManager.__init__(self, NodeHooks.get_all_vals())
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
@@ -1064,7 +1064,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._info_tool.stop()
         self.mode = None
-        self.execute_hook(NodeHooks.POST_NODE_STOPPED)
+        # self.execute_hook(NodeHooks.POST_NODE_STOPPED)
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
@@ -1846,9 +1846,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
+        # self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
         self.verifySignature(cMsg)
-        self.execute_hook(NodeHooks.POST_SIG_VERIFICATION, cMsg)
+        # self.execute_hook(NodeHooks.POST_SIG_VERIFICATION, cMsg)
         # Suspicions should only be raised when lot of sig failures are
         # observed
         # try:
@@ -2167,7 +2167,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if TXN_TYPE not in operation:
             raise InvalidClientRequest(identifier, req_id)
 
-        self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
+        # self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
         if operation[TXN_TYPE] != GET_TXN:
             # GET_TXN is generic, needs no request handler
             txn_type = operation[TXN_TYPE]
@@ -2186,7 +2186,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 req_manager.static_validation(request)
 
-        self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
+        # self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
 
     def validateTaaAcceptance(self, request: Request, req_pp_time: int):
 
@@ -2302,7 +2302,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         State based validation
         """
-        self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
+        # self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
 
         # Digest validation
         # TODO implicit caller's context: request is processed by (master) replica
@@ -2324,21 +2324,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         req_manager = self._get_manager_for_txn_type(txn_type=operation[TXN_TYPE])
         req_manager.dynamic_validation(request)
 
-        self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
+        # self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
     def applyReq(self, request: Request, cons_time: int):
         """
         Apply request to appropriate ledger and state. `cons_time` is the
         UTC epoch at which consensus was reached.
         """
-        self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
-                          cons_time=cons_time)
+        # self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
+        #                   cons_time=cons_time)
         req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
         seq_no, txn = req_manager.apply_request(request, cons_time)
         ledger_id = self.ledger_id_for_request(request)
-        self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
-                          cons_time=cons_time, ledger_id=ledger_id,
-                          seq_no=seq_no, txn=txn)
+        # self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
+        #                   cons_time=cons_time, ledger_id=ledger_id,
+        #                   seq_no=seq_no, txn=txn)
 
     def apply_stashed_reqs(self, three_pc_batch):
         request_ids = three_pc_batch.valid_digests
@@ -3165,18 +3165,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         three_pc_batch.txn_root = Ledger.hashToStr(three_pc_batch.txn_root)
         three_pc_batch.state_root = Ledger.hashToStr(three_pc_batch.state_root)
 
-        for req_key in valid_reqs_keys:
-            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
-                              pp_time=three_pc_batch.pp_time,
-                              state_root=three_pc_batch.state_root,
-                              txn_root=three_pc_batch.txn_root)
+        # for req_key in valid_reqs_keys:
+            # self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
+            #                   pp_time=three_pc_batch.pp_time,
+            #                   state_root=three_pc_batch.state_root,
+            #                   txn_root=three_pc_batch.txn_root)
 
-        self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED,
-                          ledger_id=three_pc_batch.ledger_id,
-                          pp_time=three_pc_batch.pp_time,
-                          reqs_keys=valid_reqs_keys,
-                          state_root=three_pc_batch.state_root,
-                          txn_root=three_pc_batch.txn_root)
+        # self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED,
+        #                   ledger_id=three_pc_batch.ledger_id,
+        #                   pp_time=three_pc_batch.pp_time,
+        #                   reqs_keys=valid_reqs_keys,
+        #                   state_root=three_pc_batch.state_root,
+        #                   txn_root=three_pc_batch.txn_root)
 
         try:
             committedTxns = self.get_executer(three_pc_batch.ledger_id)(three_pc_batch)
@@ -3213,10 +3213,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             three_pc_batch.ledger_id, three_pc_batch.state_root,
                             three_pc_batch.txn_root, [key for key in valid_reqs_keys]))
 
-        for txn in committedTxns:
-            self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
-                              pp_time=three_pc_batch.pp_time, state_root=three_pc_batch.state_root,
-                              txn_root=three_pc_batch.txn_root)
+        # for txn in committedTxns:
+            # self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
+            #                   pp_time=three_pc_batch.pp_time, state_root=three_pc_batch.state_root,
+            #                   txn_root=three_pc_batch.txn_root)
 
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
@@ -3254,21 +3254,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
         committed_txns = self.write_manager.commit_batch(three_pc_batch)
-        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=three_pc_batch.ledger_id,
-                          pp_time=three_pc_batch.pp_time, committed_txns=committed_txns,
-                          state_root=three_pc_batch.state_root, txn_root=three_pc_batch.txn_root)
+        # self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=three_pc_batch.ledger_id,
+        #                   pp_time=three_pc_batch.pp_time, committed_txns=committed_txns,
+        #                   state_root=three_pc_batch.state_root, txn_root=three_pc_batch.txn_root)
         self.updateSeqNoMap(committed_txns, three_pc_batch.ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committed_txns))
-        self.hook_pre_send_reply(updated_committed_txns, three_pc_batch.pp_time)
+        # self.hook_pre_send_reply(updated_committed_txns, three_pc_batch.pp_time)
         self.sendRepliesToClients(updated_committed_txns, three_pc_batch.pp_time)
-        self.hook_post_send_reply(updated_committed_txns, three_pc_batch.pp_time)
+        # self.hook_post_send_reply(updated_committed_txns, three_pc_batch.pp_time)
         return committed_txns
 
-    def hook_pre_send_reply(self, txns, pp_time):
-        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
-
-    def hook_post_send_reply(self, txns, pp_time):
-        self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
+    # def hook_pre_send_reply(self, txns, pp_time):
+    #     self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
+    #
+    # def hook_post_send_reply(self, txns, pp_time):
+    #     self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
     def onBatchCreated(self, three_pc_batch: ThreePcBatch):
         """
@@ -3286,7 +3286,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
+        # self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
 
     def onBatchRejected(self, ledger_id):
         """
@@ -3301,7 +3301,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
+        # self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
@@ -3533,7 +3533,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
             txn.update(ledger.merkleInfo(seq_no))
-            self.hook_pre_send_reply([txn], None)
+            # self.hook_pre_send_reply([txn], None)
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:

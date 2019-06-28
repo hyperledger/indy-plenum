@@ -38,7 +38,7 @@ def op(looper, sdk_wallet_stewards):
 
 
 def malicious_dynamic_validation(node, request: Request, req_pp_time: int):
-    node.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
+    # node.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
 
     node.validateTaaAcceptance(request, req_pp_time=req_pp_time)
 
@@ -46,7 +46,7 @@ def malicious_dynamic_validation(node, request: Request, req_pp_time: int):
     req_handler = node.write_manager.request_handlers[operation[TXN_TYPE]][0]
     req_handler.dynamic_validation(request)
 
-    node.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
+    # node.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
 
 def wait_one_batch(node, before):
