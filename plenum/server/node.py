@@ -373,8 +373,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
-        self.opVerifiers = self.getPluginsByType(pluginPaths,
-                                                 PLUGIN_TYPE_VERIFICATION)
 
     def network_stacks_init(self, seed):
         kwargs = dict(stackParams=self.poolManager.nstack,
@@ -2173,16 +2171,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             txn_type = operation[TXN_TYPE]
             req_manager = self._get_manager_for_txn_type(txn_type)
             if req_manager is None:
-                # TODO: This code should probably be removed.
-                if self.opVerifiers:
-                    try:
-                        for v in self.opVerifiers:
-                            v.verify(operation)
-                    except Exception as ex:
-                        raise InvalidClientRequest(identifier, req_id) from ex
-                else:
-                    raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
-                                               format(TXN_TYPE, operation[TXN_TYPE]))
+                raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
+                                           format(TXN_TYPE, operation[TXN_TYPE]))
             else:
                 req_manager.static_validation(request)
 
