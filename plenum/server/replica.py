@@ -25,6 +25,7 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
 # from plenum.common.hook_manager import HookManager
+from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.message_base import MessageBase
@@ -222,7 +223,7 @@ def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     return decorator
 
 
-class Replica(HasActionQueue, MessageProcessor):
+class Replica(HasActionQueue, MessageProcessor, HookManager):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -450,7 +451,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Defines if there was a batch after last catchup
         self.first_batch_after_catchup = False
 
-        # HookManager.__init__(self, ReplicaHooks.get_all_vals())
+        HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
