@@ -1669,15 +1669,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                  prepare)
 
-        # try:
-        #     # self.execute_hook(ReplicaHooks.VALIDATE_PR, prepare, ppReq)
-        # except Exception as ex:
-        #     self.logger.warning('{} encountered exception in replica '
-        #                         'hook {} : {}'.
-        #                         format(self, ReplicaHooks.VALIDATE_PR, ex))
-        #     raise SuspiciousNode(sender, Suspicions.PR_PLUGIN_EXCEPTION,
-        #                          prepare)
-
         # BLS multi-sig:
         self._bls_bft_replica.validate_prepare(prepare, sender)
 
