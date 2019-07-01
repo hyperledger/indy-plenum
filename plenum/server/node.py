@@ -52,7 +52,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -327,8 +327,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
         self._wallet = None
-        self.seqNoDB = self.loadSeqNoDB()
-        self.nodeStatusDB = self.loadNodeStatusDB()
 
         self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
 
@@ -496,6 +494,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def stateTsDbStorage(self):
         return self.db_manager.get_store(TS_LABEL)
+
+    @property
+    def seqNoDB(self):
+        return self.db_manager.get_store(SEQ_NO_DB_LABEL)
+
+    @property
+    def nodeStatusDB(self):
+        return self.db_manager.get_store(NODE_STATUS_DB_LABEL)
 
     @property
     def txn_type_to_ledger_id(self):
@@ -1069,10 +1075,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def closeAllKVStores(self):
         # Clear leveldb lock files
         logger.info("{} closing key-value storages".format(self), extra={"cli": False})
-        if self.seqNoDB:
-            self.seqNoDB.close()
-        if self.nodeStatusDB:
-            self.nodeStatusDB.close()
         self.db_manager.close()
 
     def reset(self):

@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 
 from common.exceptions import LogicError
-from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL
+from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL, SEQ_NO_DB_LABEL
 from plenum.common.ledger import Ledger
 from state.state import State
 
@@ -70,6 +70,10 @@ class DatabaseManager():
     @property
     def attribute_store(self):
         return self.get_store(ATTRIB_LABEL)
+
+    @property
+    def seq_no_db(self):
+        return self.get_store(SEQ_NO_DB_LABEL)
 
     # ToDo: implement it and use on close all KV stores
     def close(self):
