@@ -228,3 +228,122 @@ class WriteRequestManager(RequestManager):
     def on_catchup_finished(self):
         # ToDo: ugly thing, needs to be refactored
         self.audit_b_handler.on_catchup_finished()
+
+    def get_lid_for_request(self, request: Request):
+        if request.operation.get(TXN_TYPE) is None:
+            raise ValueError(
+                "{} TXN_TYPE is not defined for request {}".format(self, request)
+            )
+
+        typ = request.operation[TXN_TYPE]
+        return self.type_to_ledger_id[typ]
+
+    def do_taa_validation(self, request: Request, req_pp_time: int, config):
+
+        ledger_id = self.get_lid_for_request(request)
+        if not self.database_manager.is_taa_acceptance_required(ledger_id):
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance is not expected"
+                    " and not allowed in requests for ledger id {}"
+                    .format(ledger_id)
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: "
+                    "not required for ledger id {}"
+                    .format(self, request.reqId, ledger_id)
+                )
+                return
+
+        taa = None
+        taa_data = self.get_taa_data()
+        if taa_data is not None:
+            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
+
+        if taa is None:
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance has not been set yet"
+                    " and not allowed in requests"
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is not set"
+                    .format(self, request.reqId)
+                )
+                return
+
+        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
+            if request.taaAcceptance:
+                raise InvalidClientTaaAcceptanceError(
+                    request.identifier, request.reqId,
+                    "Txn Author Agreement acceptance is disabled"
+                    " and not allowed in requests"
+                )
+            else:
+                logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is disabled"
+                    .format(self, request.reqId)
+                )
+                return
+
+        if not taa_digest:
+            raise LogicError(
+                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
+                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
+            )
+
+        if not request.taaAcceptance:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance is required for ledger with id {}"
+                .format(ledger_id)
+            )
+
+        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
+        if r_taa_a_digest != taa_digest:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance digest is invalid or non-latest:"
+                " provided {}, expected {}"
+                .format(r_taa_a_digest, taa_digest)
+            )
+
+        r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
+        ts_lowest = (
+            taa_txn_time -
+            config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
+        )
+        ts_higest = (
+            req_pp_time +
+            config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
+        )
+        if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance time is inappropriate:"
+                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, ts_lowest, ts_higest)
+            )
+
+        taa_aml_data = self.get_taa_aml_data()
+        if taa_aml_data is None:
+            raise TaaAmlNotSetError(
+                "Txn Author Agreement acceptance mechanism list is not defined"
+            )
+
+        taa_aml = taa_aml_data[VALUE][AML]
+        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
+        if r_taa_a_mech not in taa_aml:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance mechanism is inappropriate:"
+                " provided {}, expected one of {}".format(r_taa_a_mech, sorted(taa_aml))
+            )
+
+        logger.trace(
+            "{} TAA acceptance passed for request {}".format(self, request.reqId)
+        )
+

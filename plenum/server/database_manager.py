@@ -17,10 +17,10 @@ class DatabaseManager():
         self._ledgers = {lid: db.ledger for lid, db in self.databases.items()}
         self._states = {lid: db.state for lid, db in self.databases.items() if db.state}
 
-    def register_new_database(self, lid, ledger: Ledger, state: Optional[State] = None):
+    def register_new_database(self, lid, ledger: Ledger, state: Optional[State] = None, taa_acceptance_required=True):
         if lid in self.databases:
             raise LogicError('Trying to add already existing database')
-        self.databases[lid] = Database(ledger, state)
+        self.databases[lid] = Database(ledger, state, taa_acceptance_required=taa_acceptance_required)
         self._init_db_list()
 
     def get_database(self, lid):
@@ -57,6 +57,11 @@ class DatabaseManager():
         if label not in self.stores:
             return None
         return self.stores[label]
+
+    def is_taa_acceptance_required(self, lid):
+        if lid not in self.databases:
+            return False
+        return self.databases[lid].taa_acceptance_required
 
     @property
     def states(self):
@@ -98,9 +103,14 @@ class DatabaseManager():
 
 
 class Database:
-    def __init__(self, ledger, state):
+    def __init__(self, ledger, state, taa_acceptance_required=True):
         self.ledger = ledger
         self.state = state
+        self._taa_acceptance_required = taa_acceptance_required
+
+    @property
+    def taa_acceptance_required(self):
+        return self._taa_acceptance_required
 
     def reset(self):
         self.ledger.reset_uncommitted()

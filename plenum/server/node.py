@@ -563,8 +563,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.configLedger,
             preCatchupStartClbk=self.preConfigLedgerCatchup,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-            taa_acceptance_required=False)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
 
     def prePoolLedgerCatchup(self, **kwargs):
@@ -859,8 +858,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.poolLedger,
                 preCatchupStartClbk=self.prePoolLedgerCatchup,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-                taa_acceptance_required=False)
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def _add_domain_ledger(self):
@@ -869,8 +867,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.domainLedger,
             preCatchupStartClbk=self.preDomainLedgerCatchup,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-            taa_acceptance_required=True)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
 
     def _add_audit_ledger(self):
@@ -879,8 +876,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.auditLedger,
             preCatchupStartClbk=self.preAuditLedgerCatchup,
             postCatchupCompleteClbk=self.postAuditLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-            taa_acceptance_required=False)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(AUDIT_LEDGER_ID)
 
     def getHashStore(self, name) -> HashStore:
@@ -2165,115 +2161,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 req_manager.static_validation(request)
 
-    def validateTaaAcceptance(self, request: Request, req_pp_time: int):
-
-        ledger_id = self.ledger_id_for_request(request)
-        if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is not expected"
-                    " and not allowed in requests for ledger id {}"
-                    .format(ledger_id)
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: "
-                    "not required for ledger id {}"
-                    .format(self, request.reqId, ledger_id)
-                )
-                return
-
-        taa = None
-        taa_data = self.write_manager.get_taa_data()
-        if taa_data is not None:
-            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
-
-        if taa is None:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance has not been set yet"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is not set"
-                    .format(self, request.reqId)
-                )
-                return
-
-        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is disabled"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is disabled"
-                    .format(self, request.reqId)
-                )
-                return
-
-        if not taa_digest:
-            raise LogicError(
-                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
-                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
-            )
-
-        if not request.taaAcceptance:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance is required for ledger with id {}"
-                .format(ledger_id)
-            )
-
-        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
-        if r_taa_a_digest != taa_digest:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance digest is invalid or non-latest:"
-                " provided {}, expected {}"
-                .format(r_taa_a_digest, taa_digest)
-            )
-
-        r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
-        ts_lowest = (
-            taa_txn_time -
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
-        )
-        ts_higest = (
-            req_pp_time +
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
-        )
-        if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance time is inappropriate:"
-                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, ts_lowest, ts_higest)
-            )
-
-        taa_aml_data = self.write_manager.get_taa_aml_data()
-        if taa_aml_data is None:
-            raise TaaAmlNotSetError(
-                "Txn Author Agreement acceptance mechanism list is not defined"
-            )
-
-        taa_aml = taa_aml_data[VALUE][AML]
-        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
-        if r_taa_a_mech not in taa_aml:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}, expected one of {}".format(r_taa_a_mech, sorted(taa_aml))
-            )
-
-        logger.trace(
-            "{} TAA acceptance passed for request {}".format(self, request.reqId)
-        )
-
     # TODO hooks might need pp_time as well
     def doDynamicValidation(self, request: Request, req_pp_time: int):
         """
@@ -2291,12 +2178,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if get_payload_digest(txn) == request.payload_digest:
                 raise SuspiciousPrePrepare('Trying to order already ordered request')
 
-        # TAA validation
-        self.validateTaaAcceptance(request, req_pp_time=req_pp_time)
-
         # specific validation for the request txn type
         operation = request.operation
         req_manager = self._get_manager_for_txn_type(txn_type=operation[TXN_TYPE])
+        # TAA validation
+        req_manager.do_taa_validation(request, req_pp_time, self.config)
         req_manager.dynamic_validation(request)
 
     def applyReq(self, request: Request, cons_time: int):

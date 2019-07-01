@@ -39,7 +39,7 @@ def op(looper, sdk_wallet_stewards):
 
 def malicious_dynamic_validation(node, request: Request, req_pp_time: int):
 
-    node.validateTaaAcceptance(request, req_pp_time=req_pp_time)
+    node.write_manager.do_taa_validation(request, req_pp_time=req_pp_time, config=node.config)
 
     operation = request.operation
     req_handler = node.write_manager.request_handlers[operation[TXN_TYPE]][0]

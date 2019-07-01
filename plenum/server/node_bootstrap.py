@@ -63,21 +63,25 @@ class NodeBootstrap:
         # Config ledger and state init
         self.node.db_manager.register_new_database(CONFIG_LEDGER_ID,
                                                    self.init_config_ledger(),
-                                                   self.init_config_state())
+                                                   self.init_config_state(),
+                                                   taa_acceptance_required=False)
 
         # Pool ledger init
         self.node.db_manager.register_new_database(POOL_LEDGER_ID,
                                                    self.init_pool_ledger(),
-                                                   self.init_pool_state())
+                                                   self.init_pool_state(),
+                                                   taa_acceptance_required=False)
 
         # Domain ledger init
         self.node.db_manager.register_new_database(DOMAIN_LEDGER_ID,
                                                    storage or self.init_domain_ledger(),
-                                                   self.init_domain_state())
+                                                   self.init_domain_state(),
+                                                   taa_acceptance_required=True)
 
         # Audit ledger init
         self.node.db_manager.register_new_database(AUDIT_LEDGER_ID,
-                                                   self.init_audit_ledger())
+                                                   self.init_audit_ledger(),
+                                                   taa_acceptance_required=False)
         # StateTsDbStorage
         self.init_state_ts_db_storage()
 
