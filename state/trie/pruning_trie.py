@@ -839,8 +839,8 @@ class Trie:
         if not is_string(key):
             raise Exception("Key must be string")
 
-        if len(key) > 32:
-            raise Exception("Max key length is 32")
+        # if len(key) > 32:
+        #     raise Exception("Max key length is 32")
 
         old_root = copy.deepcopy(self.root_node)
         self.root_node = self._delete_and_delete_storage(
