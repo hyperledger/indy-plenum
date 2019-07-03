@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from plenum.common.messages.node_messages import Checkpoint, PrePrepare
 from plenum.server.quorums import Quorums

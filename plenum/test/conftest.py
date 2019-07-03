@@ -58,7 +58,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer
+    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer, filter_items
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -1201,7 +1201,7 @@ def mock_timer():
 
 
 def _select_item_except(index, population, exclude: List = []):
-    limited_population = [item for item in population if item not in exclude]
+    limited_population = filter_items(population, exclude)
     return limited_population[index]
 
 

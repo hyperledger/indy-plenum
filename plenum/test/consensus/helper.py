@@ -16,7 +16,8 @@ class SimPool:
         self._network = SimNetwork(self._timer, self._random)
         validators = genNodeNames(node_count)
         primary_name = validators[0]
-        self._nodes = [ReplicaService(name, validators, primary_name, InternalBus(), self.network.create_peer(name))
+        self._nodes = [ReplicaService(name, validators, primary_name,
+                                      self._timer, InternalBus(), self.network.create_peer(name))
                        for name in validators]
 
     @property
