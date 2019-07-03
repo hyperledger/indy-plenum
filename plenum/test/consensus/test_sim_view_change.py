@@ -22,8 +22,6 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
                                     and node._data.view_no > initial_view_no
                                     for node in pool.nodes))
 
-    print(pool.timer._ts.value)
-
     # Make sure all nodes end up in same state
     for node_a, node_b in zip(pool.nodes, pool.nodes[1:]):
         assert node_a._data.view_no == node_b._data.view_no
@@ -31,7 +29,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
         assert node_a._data.preprepared == node_b._data.preprepared
 
 
-@pytest.mark.parametrize("seed", range(1))
+@pytest.mark.parametrize("seed", range(1000))
 def test_view_change_completes_under_normal_conditions(seed):
-    random = DefaultSimRandom()
+    random = DefaultSimRandom(seed)
     check_view_change_completes_under_normal_conditions(random)

@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from functools import partial
 from typing import Any, Iterable
 
@@ -12,15 +13,19 @@ class SimNetwork:
         self._random = random
         self._min_latency = 1
         self._max_latency = 500
-        self._peers = {}  # type: Dict[str, ExternalBus]
+        self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
 
     def create_peer(self, name: str) -> ExternalBus:
         if name in self._peers:
             raise ValueError("Peer with name '{}' already exists".format(name))
 
-        bus = ExternalBus(lambda msg, dst: self._send_message(name, msg, dst))
+        bus = ExternalBus(partial(self._send_message, name))
         self._peers[name] = bus
         return bus
+
+    def set_latency(self, min_value: int, max_value: int):
+        self._min_latency = min_value
+        self._max_latency = max_value
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:

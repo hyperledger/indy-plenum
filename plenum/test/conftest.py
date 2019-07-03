@@ -1195,9 +1195,14 @@ def random(request):
     return DefaultSimRandom(request.param)
 
 
+@pytest.fixture(params=[0, 1576800000.0])
+def initial_time(request):
+    return request.param
+
+
 @pytest.fixture
-def mock_timer():
-    return MockTimer()
+def mock_timer(initial_time):
+    return MockTimer(initial_time)
 
 
 def _select_item_except(index, population, exclude: List = []):
