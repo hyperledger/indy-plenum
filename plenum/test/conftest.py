@@ -10,7 +10,7 @@ import json
 from contextlib import ExitStack
 from functools import partial
 import time
-from typing import Dict, Any, Union, List
+from typing import Dict, Any, List
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
@@ -58,7 +58,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer, filter_items
+    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -1206,7 +1206,7 @@ def mock_timer(initial_time):
 
 
 def _select_item_except(index, population, exclude: List = []):
-    limited_population = filter_items(population, exclude)
+    limited_population = [item for item in population if item not in exclude]
     return limited_population[index]
 
 

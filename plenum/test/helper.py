@@ -432,10 +432,6 @@ def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):
             [nodeSet[x] if isinstance(x, str) else x for x in exclude]]
 
 
-def filter_items(items, exclude: List = []):
-    return [item for item in items if item not in exclude]
-
-
 def whitelistNode(toWhitelist: str, frm: Sequence[TestNode], *codes):
     for node in frm:
         node.whitelistNode(toWhitelist, *codes)
