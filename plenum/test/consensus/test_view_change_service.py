@@ -5,22 +5,21 @@ import pytest
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
 from plenum.server.consensus.view_change_service import ViewChangeService
-from plenum.test.consensus.helper import view_change_message
 from plenum.test.helper import MockNetwork
 
 
 @pytest.fixture
-def view_change_service(consensus_data, validators, initial_view_no):
+def view_change_service(consensus_data, mock_timer):
     def _service(name):
         data = consensus_data(name)
-        service = ViewChangeService(data, InternalBus(), MockNetwork())
+        service = ViewChangeService(data, mock_timer, InternalBus(), MockNetwork())
         return service
     return _service
 
 
 @pytest.fixture
-def view_change_message(validators):
-    def _view_change(view_no):
+def view_change_message():
+    def _view_change(view_no: int):
         vc = ViewChange(
             viewNo=view_no,
             stableCheckpoint=4,
@@ -34,12 +33,10 @@ def view_change_message(validators):
 
 @pytest.fixture
 def view_change_acks(validators, random):
-    def _view_change_acks(vc, vc_frm, primary, min_acks, max_acks):
+    def _view_change_acks(vc, vc_frm, primary, count):
         digest = ViewChangeService._view_change_digest(vc)
-        ack_count = random.integer(min_acks, max_acks)
-
         non_senders = [name for name in validators if name not in [vc_frm, primary]]
-        ack_frms = random.sample(non_senders, ack_count)
+        ack_frms = random.sample(non_senders, count)
         return [(ViewChangeAck(viewNo=vc.viewNo, name=vc_frm, digest=digest), ack_frm) for ack_frm in ack_frms]
     return _view_change_acks
 
@@ -107,6 +104,7 @@ def test_primary_doesnt_respond_to_view_change_message(
     assert len(service._network.sent_messages) == 0
 
 
+@pytest.mark.skip(reason="Not implemented")
 def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
         validators, primary, view_change_service, initial_view_no, view_change_message, view_change_acks):
     primary_name = primary(initial_view_no + 1)
@@ -118,9 +116,7 @@ def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
         vc = view_change_message(initial_view_no + 1)
         service._network.process_incoming(vc, vc_frm)
 
-        for ack, ack_frm in view_change_acks(vc, vc_frm, primary_name,
-                                             service._data.quorums.view_change_ack.value,
-                                             service._data.quorums.n - 1):
+        for ack, ack_frm in view_change_acks(vc, vc_frm, primary_name, len(validators) - 2):
             service._network.process_incoming(ack, ack_frm)
 
     assert len(service._network.sent_messages) == 1
@@ -130,15 +126,15 @@ def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
     assert msg.viewNo == initial_view_no + 1
 
 
-def test_view_change_digest_is_256_bit_hexdigest(random):
-    vc = view_change_message(random)
+def test_view_change_digest_is_256_bit_hexdigest(view_change_message, random):
+    vc = view_change_message(random.integer(0, 10000))
     digest = ViewChangeService._view_change_digest(vc)
     assert isinstance(digest, str)
     assert len(digest) == 64
     assert all(v in string.hexdigits for v in digest)
 
 
-def test_different_view_change_messages_have_different_digests(random):
-    vc = view_change_message(random)
-    other_vc = view_change_message(random)
+def test_different_view_change_messages_have_different_digests(view_change_message, random):
+    vc = view_change_message(random.integer(0, 10000))
+    other_vc = view_change_message(random.integer(0, 10000))
     assert ViewChangeService._view_change_digest(vc) != ViewChangeService._view_change_digest(other_vc)

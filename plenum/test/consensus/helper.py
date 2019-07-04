@@ -31,13 +31,3 @@ class SimPool:
     @property
     def nodes(self) -> List[ReplicaService]:
         return self._nodes
-
-
-def view_change_message(random: SimRandom, view_no: Optional[int] = None):
-    return ViewChange(
-        viewNo=view_no if view_no is not None else random.integer(0, 1000),
-        stableCheckpoint=random.integer(0, 1000),
-        prepared=[],
-        preprepared=[],
-        checkpoints=[]
-    )
