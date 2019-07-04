@@ -502,13 +502,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self._last_ordered_3pc
+        return self.consensus_provider.get_3pc_number()
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self._last_ordered_3pc = key3PC
-        self.logger.info('{} set last ordered as {}'.format(
-            self, self._last_ordered_3pc))
+        self.consensus_provider.set_3pc_number(key3PC)
+        self.logger.info('{} set last ordered as {}'.format(self, key3PC))
 
     @property
     def lastPrePrepareSeqNo(self):
@@ -805,7 +804,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         Return the current view number of this replica.
         """
-        return self.node.viewNo
+        return self.consensus_provider.view_no
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
@@ -894,7 +893,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
                 self.instId, pre_prepare.ppSeqNo)
 
-        self.consensus_provider.track_pp(pre_prepare)
+        self.consensus_provider.preprepare_batch(pre_prepare)
         self.trackBatches(pre_prepare, oldStateRootHash)
         return ledger_id
 
@@ -1151,7 +1150,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 6. TRACK APPLIED
         self.outBox.extend(rejects)
         self.addToPrePrepares(pre_prepare)
-        self.consensus_provider.track_pp(pre_prepare)
+        self.consensus_provider.preprepare_batch(pre_prepare)
 
         if self.isMaster:
             # BLS multi-sig:
@@ -1365,7 +1364,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         rv, reason = self.canCommit(prepare)
         if rv:
             pp = self.getPrePrepare(prepare.viewNo, prepare.ppSeqNo)
-            self.consensus_provider.track_prepared_pp(pp)
+            self.consensus_provider.prepare_batch(pp)
             self.doCommit(prepare)
         else:
             self.logger.debug("{} cannot send COMMIT since {}".format(self, reason))
@@ -1377,7 +1376,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         canOrder, reason = self.canOrder(commit)
         if canOrder:
             pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
-            self.consensus_provider.untrack_pp(pp)
+            # self.consensus_provider.free_batch(pp)
             self.logger.trace("{} returning request to node".format(self))
             self.doOrder(commit)
         else:
@@ -2809,7 +2808,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self.revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
                 pp = self.getPrePrepare(*key)
-                self.consensus_provider.untrack_pp(pp)
+                self.consensus_provider.free_batch(pp)
                 i += 1
             else:
                 break
@@ -2855,7 +2854,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._remove_stashed_checkpoints()
             self.h = 0
             self.H = sys.maxsize
-            self.consensus_provider.untrack_all()
+            self.consensus_provider.free_all()
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """
@@ -2880,7 +2879,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
             self._discard_ordered_req_keys(pp)
-            self.consensus_provider.untrack_pp(pp)
+            self.consensus_provider.free_batch(pp)
 
     def _remove_ordered_from_queue(self, last_caught_up_3PC=None):
         """

@@ -17,6 +17,7 @@ class ConsensusDataProvider:
     def __init__(self, name: str):
         self._name = name
         self.view_no = 0
+        self.pp_seq_no = 0
         self.waiting_for_new_view = False
         self.primary_name = None
         self._preprepared = []
@@ -29,6 +30,9 @@ class ConsensusDataProvider:
     def set_validators(self, validators: List[str]):
         self._validators = validators
         self._quorums = Quorums(len(validators))
+
+    def set_primary_name(self, primary_name: str):
+        self.primary_name = primary_name
 
     @property
     def validators(self) -> List[str]:
@@ -70,13 +74,13 @@ class ConsensusDataProvider:
     def checkpoints(self) -> List[Checkpoint]:
         return []
 
-    def track_pp(self, pp: PrePrepare):
+    def preprepare_batch(self, pp: PrePrepare):
         """
         After pp had validated, it placed into _preprepared list
         """
         self._preprepared.append(pp)
 
-    def track_prepared_pp(self, pp: PrePrepare):
+    def prepare_batch(self, pp: PrePrepare):
         """
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
@@ -87,9 +91,8 @@ class ConsensusDataProvider:
             raise LogicError('Unprepared pp must be stored in preprepared')
         self._preprepared.remove(pp)
         self._prepared.append(pp)
-        self._prepared.append(pp)
 
-    def untrack_pp(self, pp):
+    def free_batch(self, pp):
         """
         When 3pc batch had committed, rejected or catchuped till, it removed from _prepared list
         """
@@ -101,9 +104,18 @@ class ConsensusDataProvider:
             raise LogicError('Prepared pp must be stored in prepared')
         self._prepared.remove(pp)
 
-    def untrack_all(self):
+    def free_all(self):
         """
         When catchup finished, backups clear up their pre-prepares
         """
         self._prepared.clear()
         self._preprepared.clear()
+
+    def get_3pc_number(self):
+        return self.view_no, self.pp_seq_no
+
+    def set_3pc_number(self, key):
+        if len(key) != 2:
+            raise LogicError('3pc key must be a pair of two numbers')
+        self.view_no = key[0]
+        self.pp_seq_no = key[1]
