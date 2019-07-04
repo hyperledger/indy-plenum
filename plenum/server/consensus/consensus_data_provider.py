@@ -111,11 +111,11 @@ class ConsensusDataProvider:
         self._prepared.clear()
         self._preprepared.clear()
 
-    def get_3pc_number(self):
+    def get_3pc(self):
         return self.view_no, self.pp_seq_no
 
-    def set_3pc_number(self, key):
+    def set_3pc(self, key):
         if len(key) != 2:
-            raise LogicError('3pc key must be a pair of two numbers')
+            raise LogicError('3pc key must be a pair')
         self.view_no = key[0]
         self.pp_seq_no = key[1]

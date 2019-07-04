@@ -502,11 +502,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self.consensus_provider.get_3pc_number()
+        return self.consensus_provider.get_3pc()
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self.consensus_provider.set_3pc_number(key3PC)
+        self.consensus_provider.set_3pc(key3PC)
         self.logger.info('{} set last ordered as {}'.format(self, key3PC))
 
     @property
