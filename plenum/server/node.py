@@ -57,7 +57,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
     InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
-    TaaAmlNotSetError, InvalidClientTaaAcceptanceError
+    TaaAmlNotSetError, InvalidClientTaaAcceptanceError, UnauthorizedClientRequest
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
@@ -2359,11 +2359,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.applyReq(req, three_pc_batch.pp_time)
         self.onBatchCreated(three_pc_batch)
 
-    def handle_request_if_forced(self, request: Request):
+    def handle_request_if_forced(self, request: Request, frm):
         if request.isForced():
             req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
-            req_manager.dynamic_validation(request)
+            try:
+                req_manager.dynamic_validation(request)
+            except Exception as e:
+                self.transmitToClient(RequestNack(request.identifier, request.reqId, str(e)), frm)
+                self.doneProcessingReq(request.key)
+                return False
+
             req_manager.apply_forced_request(request)
+        return True
 
     @measure_time(MetricsName.PROCESS_REQUEST_TIME)
     def processRequest(self, request: Request, frm: str):
@@ -2419,7 +2426,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self.isProcessingReq(request.key):
                 self.startedProcessingReq(request.key, frm)
                 # forced request should be processed before consensus
-                self.handle_request_if_forced(request)
+                handle_result = self.handle_request_if_forced(request, frm)
+                if not handle_result:
+                    return
 
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
@@ -2496,7 +2505,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             self.startedProcessingReq(request.key, clientName)
             # forced request should be processed before consensus
-            self.handle_request_if_forced(request)
+            handle_result = self.handle_request_if_forced(request, clientName)
+            if not handle_result:
+                return
 
         else:
             if clientName is not None and \

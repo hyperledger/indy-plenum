@@ -37,8 +37,8 @@ class RequestManager(AbstractRequestManager):
         self._add_handler(typ, handler)
         self.txn_types.add(typ)
         self.type_to_ledger_id[typ] = ledger_id
-        self.ledger_id_to_types.setdefault(ledger_id, [])
-        self.ledger_id_to_types[ledger_id].append(typ)
+        self.ledger_id_to_types.setdefault(ledger_id, set())
+        self.ledger_id_to_types[ledger_id].add(typ)
 
     def is_valid_type(self, txn_type):
         return txn_type in self.txn_types
