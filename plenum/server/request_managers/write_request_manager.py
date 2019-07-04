@@ -4,10 +4,11 @@ from typing import Dict, List, Optional, Tuple
 from common.exceptions import LogicError
 from common.serializers.serialization import pool_state_serializer, config_state_serializer
 
-from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, VALUE, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
+from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 
+from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type
 from plenum.common.types import f
