@@ -2182,6 +2182,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         operation = request.operation
         req_manager = self._get_manager_for_txn_type(txn_type=operation[TXN_TYPE])
         # TAA validation
+        # For now, we need to call taa_validation not from dynamic_validation because
+        # req_pp_time is required
         req_manager.do_taa_validation(request, req_pp_time, self.config)
         req_manager.dynamic_validation(request)
 
@@ -3364,7 +3366,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
             txn.update(ledger.merkleInfo(seq_no))
-            # self.hook_pre_send_reply([txn], None)
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:

@@ -24,7 +24,6 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
-# from plenum.common.hook_manager import HookManager
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
