@@ -346,4 +346,3 @@ class WriteRequestManager(RequestManager):
         logger.trace(
             "{} TAA acceptance passed for request {}".format(self, request.reqId)
         )
-
