@@ -19,7 +19,7 @@ from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.request_handlers.nym_handler import NymHandler
 
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID, \
-    NODE_PRIMARY_STORAGE_SUFFIX, BLS_PREFIX, BLS_LABEL, TS_LABEL
+    NODE_PRIMARY_STORAGE_SUFFIX, BLS_PREFIX, BLS_LABEL, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL
 from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
@@ -51,27 +51,45 @@ class NodeBootstrap:
         ts_storage = self.node._get_state_ts_db_storage()
         self.node.db_manager.register_new_store(TS_LABEL, ts_storage)
 
+    def init_seq_no_db_storage(self):
+        seq_no_db_storage = self.node.loadSeqNoDB()
+        self.node.db_manager.register_new_store(SEQ_NO_DB_LABEL, seq_no_db_storage)
+
+    def init_node_status_db_storage(self):
+        node_status_db = self.node.loadNodeStatusDB()
+        self.node.db_manager.register_new_store(NODE_STATUS_DB_LABEL, node_status_db)
+
     def init_storages(self, storage=None):
         # Config ledger and state init
         self.node.db_manager.register_new_database(CONFIG_LEDGER_ID,
                                                    self.init_config_ledger(),
-                                                   self.init_config_state())
+                                                   self.init_config_state(),
+                                                   taa_acceptance_required=False)
 
         # Pool ledger init
         self.node.db_manager.register_new_database(POOL_LEDGER_ID,
                                                    self.init_pool_ledger(),
-                                                   self.init_pool_state())
+                                                   self.init_pool_state(),
+                                                   taa_acceptance_required=False)
 
         # Domain ledger init
         self.node.db_manager.register_new_database(DOMAIN_LEDGER_ID,
                                                    storage or self.init_domain_ledger(),
-                                                   self.init_domain_state())
+                                                   self.init_domain_state(),
+                                                   taa_acceptance_required=True)
 
         # Audit ledger init
         self.node.db_manager.register_new_database(AUDIT_LEDGER_ID,
-                                                   self.init_audit_ledger())
+                                                   self.init_audit_ledger(),
+                                                   taa_acceptance_required=False)
         # StateTsDbStorage
         self.init_state_ts_db_storage()
+
+        # seqNoDB storage
+        self.init_seq_no_db_storage()
+
+        # nodeStatusDB
+        self.init_node_status_db_storage()
 
     def init_bls_bft(self):
         self.node.bls_bft = self._create_bls_bft()

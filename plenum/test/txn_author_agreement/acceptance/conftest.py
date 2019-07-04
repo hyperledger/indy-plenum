@@ -51,9 +51,10 @@ def node_validator(txnPoolNodeSet):
 def validate_taa_acceptance_func_api(node_validator):
     def wrapped(signed_req_dict):
         signed_req_obj = SafeRequest(**signed_req_dict)
-        node_validator.validateTaaAcceptance(
+        node_validator.write_manager.do_taa_validation(
             signed_req_obj,
-            node_validator.master_replica.get_time_for_3pc_batch()
+            node_validator.master_replica.get_time_for_3pc_batch(),
+            node_validator.config
         )
     return wrapped
 

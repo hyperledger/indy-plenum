@@ -24,6 +24,9 @@ class RequestManager(AbstractRequestManager):
         self.type_to_ledger_id = {}
         self.ledger_id_to_types = {}
 
+    def do_taa_validation(self):
+        pass
+
     def remove_req_handler(self, txn_type):
         del self.request_handlers[txn_type]
         self.txn_types.remove(txn_type)
