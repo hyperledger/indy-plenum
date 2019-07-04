@@ -1321,8 +1321,8 @@ class MockTimestamp:
 
 
 class MockTimer(QueueTimer):
-    def __init__(self, get_current_time: Optional[MockTimestamp] = None):
-        self._ts = get_current_time if get_current_time else MockTimestamp(0)
+    def __init__(self, start_time: int = 0):
+        self._ts = MockTimestamp(start_time)
         QueueTimer.__init__(self, self._ts)
 
     def set_time(self, value):
@@ -1345,7 +1345,7 @@ class MockTimer(QueueTimer):
         if not self._events:
             return
 
-        event = self._events.pop(0)
+        event = self._pop_event()
         self._ts.value = event.timestamp
         event.callback()
 
@@ -1353,7 +1353,7 @@ class MockTimer(QueueTimer):
         """
         Advance time in steps until required value running scheduled callbacks in process
         """
-        while self._events and self._events[0].timestamp <= value:
+        while self._events and self._next_timestamp() <= value:
             self.advance()
         self._ts.value = value
 
@@ -1370,7 +1370,7 @@ class MockTimer(QueueTimer):
         """
         deadline = self._ts.value + timeout if timeout else None
         while self._events and not condition():
-            if deadline and self._events[0].timestamp > deadline:
+            if deadline and self._next_timestamp() > deadline:
                 raise TimeoutError("Failed to reach condition in required time")
             self.advance()
 

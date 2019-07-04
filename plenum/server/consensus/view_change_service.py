@@ -4,6 +4,7 @@ from typing import List
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
+from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 from plenum.server.quorums import Quorums
 
@@ -27,8 +28,9 @@ class ViewChangeVotesForView:
 
 
 class ViewChangeService:
-    def __init__(self, data: ConsensusDataProvider, bus: InternalBus, network: ExternalBus):
+    def __init__(self, data: ConsensusDataProvider, timer: TimerService, bus: InternalBus, network: ExternalBus):
         self._data = data
+        self._timer = timer
         self._bus = bus
         self._network = network
 

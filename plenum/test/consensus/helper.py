@@ -16,7 +16,8 @@ class SimPool:
         self._network = SimNetwork(self._timer, self._random)
         validators = genNodeNames(node_count)
         primary_name = validators[0]
-        self._nodes = [ReplicaService(name, validators, primary_name, InternalBus(), self.network.create_peer(name))
+        self._nodes = [ReplicaService(name, validators, primary_name,
+                                      self._timer, InternalBus(), self.network.create_peer(name))
                        for name in validators]
 
     @property
@@ -30,13 +31,3 @@ class SimPool:
     @property
     def nodes(self) -> List[ReplicaService]:
         return self._nodes
-
-
-def view_change_message(random: SimRandom, view_no: Optional[int] = None):
-    return ViewChange(
-        viewNo=view_no if view_no is not None else random.integer(0, 1000),
-        stableCheckpoint=random.integer(0, 1000),
-        prepared=[],
-        preprepared=[],
-        checkpoints=[]
-    )

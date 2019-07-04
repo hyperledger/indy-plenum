@@ -10,7 +10,7 @@ import json
 from contextlib import ExitStack
 from functools import partial
 import time
-from typing import Dict, Any, Union, List
+from typing import Dict, Any, List
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
@@ -1195,9 +1195,14 @@ def random(request):
     return DefaultSimRandom(request.param)
 
 
+@pytest.fixture(params=[0, 1576800000.0])
+def initial_time(request):
+    return request.param
+
+
 @pytest.fixture
-def mock_timer():
-    return MockTimer()
+def mock_timer(initial_time):
+    return MockTimer(initial_time)
 
 
 def _select_item_except(index, population, exclude: List = []):
