@@ -60,3 +60,20 @@ def test_stash_pongs_from_unknown(looper, create_stacks):
     check_no_stashed_pongs(looper, stack=beta, to=alpha.publicKey)
 
     check_pong_received(looper, alpha, beta.name)
+
+def test_stash_msg_to_unknown(looper, create_stacks):
+    '''
+    Beta should stash the pong for Alpha on Alpha's ping received when
+    Alpha is not connected yet.
+    '''
+    alpha, beta = create_stacks
+    # connectStack(alpha, beta)
+    alpha.transmitThroughListener("msg", beta.name)
+    connectStack(alpha, beta)
+
+    # check_stashed_pongs(looper, stack=beta, to=alpha.publicKey)
+
+    # connectStack(beta, alpha)
+    # check_no_stashed_pongs(looper, stack=beta, to=alpha.publicKey)
+    #
+    # check_pong_received(looper, alpha, beta.name)

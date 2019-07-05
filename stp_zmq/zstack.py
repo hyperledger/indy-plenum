@@ -130,6 +130,7 @@ class ZStack(NetworkInterface):
         self._stashed_to_disconnected = {}
         self._stashed_pongs = set()
         self._received_pings = set()
+        self._waiting_messages = dict()
 
     def __defaultMsgRejectHandler(self, reason: str, frm):
         pass
@@ -355,6 +356,7 @@ class ZStack(NetworkInterface):
     def open(self):
         # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
+        self.listener.setsockopt(zmq.ROUTER_MANDATORY, 1)
         if self.create_listener_monitor:
             self.listener_monitor = self.listener.get_monitor_socket()
         # noinspection PyUnresolvedReferences
@@ -802,6 +804,26 @@ class ZStack(NetworkInterface):
         return False, err_str
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
+        self._waiting_messages.setdefault(ident, [])
+        self._waiting_messages[ident].append(msg)
+        result = True
+        error_msg = None
+        for current_msg in list(self._waiting_messages[ident]):
+            result, error_msg, need_to_resend = self._transmit_one_msg_through_listener(current_msg,
+                                                                                        ident)
+            if not need_to_resend:
+                self._waiting_messages[ident].remove(current_msg)
+        return result, error_msg
+
+    def _transmit_one_msg_through_listener(self, msg, ident) -> Tuple[bool, Optional[str], bool]:
+
+        def prepare_error_msg(ex):
+            err_str = '{}{} got error {} while sending through listener to {}' \
+                .format(CONNECTION_PREFIX, self, ex, ident)
+            logger.warning(err_str)
+            return
+
+        need_to_resend = False
         if isinstance(ident, str):
             ident = ident.encode()
         try:
@@ -813,18 +835,19 @@ class ZStack(NetworkInterface):
                          format(self, msg, ident))
             self.metrics.add_event(self.mt_outgoing_size, len(msg))
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
-        except zmq.Again:
-            return False, None
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
             logger.warning(err_str)
-            return False, err_str
-        except Exception as e:
-            err_str = '{}{} got error {} while sending through listener to {}' \
-                .format(CONNECTION_PREFIX, self, e, ident)
-            logger.warning(err_str)
-            return False, err_str
-        return True, None
+            return False, err_str, need_to_resend
+        except zmq.Again as ex:
+            need_to_resend = True
+            return False, prepare_error_msg(ex), need_to_resend
+        except zmq.ZMQError as ex:
+            need_to_resend = (ex.errno == 113)
+            return False, prepare_error_msg(ex), need_to_resend
+        except Exception as ex:
+            return False, prepare_error_msg(ex), need_to_resend
+        return True, None, need_to_resend
 
     @staticmethod
     def serializeMsg(msg):
