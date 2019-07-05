@@ -84,7 +84,7 @@ Use project name `INDY`.
 
 ## How to Start Working with the Code
 
-Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/master/docs/setup-dev.md) in indy-node repo.
+Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/master/docs/source/setup-dev.md) in indy-node repo.
 It contains common setup for both indy-plenum and indy-node.
 
 
