@@ -1,8 +1,9 @@
-from plenum.common.event_bus import ExternalBus
+from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 
 
 class OrderingService:
-    def __init__(self, data: ConsensusDataProvider, network: ExternalBus):
+    def __init__(self, data: ConsensusDataProvider, bus: InternalBus, network: ExternalBus):
         self._data = data
+        self._bus = bus
         self._network = network

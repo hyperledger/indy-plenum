@@ -10,7 +10,7 @@ import json
 from contextlib import ExitStack
 from functools import partial
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
@@ -34,6 +34,7 @@ from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from plenum.test.node_catchup.helper import waitNodeDataEquality, check_last_3pc_master
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_pool_refresh, sdk_add_new_steward_and_node
+from plenum.test.simulation.sim_random import DefaultSimRandom
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.common.logging.handlers import TestingHandler
@@ -57,7 +58,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check
+    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -215,8 +216,9 @@ def getValueFromModule(request, name: str, default: Any = None):
                     format(name, value))
     else:
         value = default if default is not None else None
-        logger.info("no {} found in the module, using the default: {}".
-                    format(name, value))
+        # TODO: Default reports are spamming logs when lots of tests are running
+        # logger.info("no {} found in the module, using the default: {}".
+        #             format(name, value))
     return value
 
 
@@ -1186,3 +1188,38 @@ def sdk_new_node_caught_up(txnPoolNodeSet,
                 new_node.num_txns_caught_up_in_last_catchup)) > 0
 
     return new_node
+
+
+@pytest.fixture(params=range(100))
+def random(request):
+    return DefaultSimRandom(request.param)
+
+
+@pytest.fixture(params=[0, 1576800000.0])
+def initial_time(request):
+    return request.param
+
+
+@pytest.fixture
+def mock_timer(initial_time):
+    return MockTimer(initial_time)
+
+
+def _select_item_except(index, population, exclude: List = []):
+    limited_population = [item for item in population if item not in exclude]
+    return limited_population[index]
+
+
+@pytest.fixture(params=[0, 1, -1])
+def some_item(request):
+    return partial(_select_item_except, request.param)
+
+
+@pytest.fixture(params=[0, 1, -1])
+def other_item(request):
+    return partial(_select_item_except, request.param)
+
+
+@pytest.fixture(params=[0, 1, -1])
+def another_item(request):
+    return partial(_select_item_except, request.param)
