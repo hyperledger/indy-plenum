@@ -23,7 +23,7 @@ from plenum.test.txn_author_agreement.helper import (
     TaaData, expected_state_data, expected_data,
     TaaAmlData, expected_aml_data)
 
-from plenum.test.helper import sdk_get_and_check_replies, sdk_sign_and_submit_req_obj
+from plenum.test.helper import sdk_get_and_check_replies, sdk_sign_and_submit_req_obj, get_handler_by_type_wm
 from plenum.test.delayers import req_delay
 from plenum.test.testing_utils import FakeSomething
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -67,18 +67,12 @@ def write_manager(db_manager):
 
 @pytest.fixture(scope="module")
 def taa_handler(write_manager):
-    for h_l in write_manager.request_handlers.values():
-        for h in h_l:
-            if isinstance(h, TxnAuthorAgreementHandler):
-                return h
+    return get_handler_by_type_wm(write_manager, TxnAuthorAgreementHandler)
 
 
 @pytest.fixture(scope="module")
 def taa_aml_handler(write_manager):
-    for h_l in write_manager.request_handlers.values():
-        for h in h_l:
-            if isinstance(h, TxnAuthorAgreementAmlHandler):
-                return h
+    return get_handler_by_type_wm(write_manager, TxnAuthorAgreementAmlHandler)
 
 
 @pytest.fixture(scope='module')
