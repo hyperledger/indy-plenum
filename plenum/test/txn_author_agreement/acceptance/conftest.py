@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, date
 from enum import Enum
 import pytest
 
@@ -175,10 +176,11 @@ def taa_acceptance_time(request, get_txn_author_agreement):
         return marker.args[0]
     else:
         current_taa = get_txn_author_agreement()
-        return (
+        tmp = int((datetime.fromtimestamp(
             get_utc_epoch() if current_taa is None else
             current_taa.txn_time
-        )
+        ).date() - date(1970, 1, 1)).total_seconds())
+        return tmp
 
 
 @pytest.fixture

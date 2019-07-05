@@ -4,6 +4,7 @@ import time
 from binascii import unhexlify
 from collections import deque
 from contextlib import closing
+from datetime import datetime
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
@@ -2268,19 +2269,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
-        ts_lowest = (
+        datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
+        if datetime_r_taa.hour or datetime_r_taa.minute \
+                or datetime_r_taa.second or datetime_r_taa.microsecond:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "TAA timestamp {} is too precise and is a privacy risk."
+                .format(r_taa_a_ts))
+        date_lowest = datetime.utcfromtimestamp(
             taa_txn_time -
             self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
-        )
-        ts_higest = (
+        ).date()
+        date_higest = datetime.utcfromtimestamp(
             req_pp_time +
             self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
-        )
-        if (r_taa_a_ts < ts_lowest) or (r_taa_a_ts > ts_higest):
+        ).date()
+
+        if (datetime_r_taa.date() < date_lowest) or (datetime_r_taa.date() > date_higest):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "Txn Author Agreement acceptance time is inappropriate:"
-                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, ts_lowest, ts_higest)
+                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, date_lowest, date_higest)
             )
 
         taa_aml_data = self.write_manager.get_taa_aml_data()
