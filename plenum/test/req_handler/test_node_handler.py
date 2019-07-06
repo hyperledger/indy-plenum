@@ -28,7 +28,7 @@ def node_handler():
 
 @pytest.fixture(scope='function')
 def node_request():
-    return Request(identifier=randomString(),
+    return Request(identifier='12121212121212',
                    reqId=5,
                    operation={'type': NODE,
                               'dest': '12121212121212',

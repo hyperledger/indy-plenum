@@ -4,23 +4,26 @@ import pytest
 from indy.ledger import build_acceptance_mechanisms_request
 
 from common.serializers.serialization import config_state_serializer
+from plenum.server.database_manager import DatabaseManager
+from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
+from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
+from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from state.pruning_state import PruningState
 from storage.kv_in_memory import KeyValueStorageInMemory
 from ledger.compact_merkle_tree import CompactMerkleTree
 
 from plenum.common.constants import (
-    CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT
-)
+    CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT,
+    CONFIG_LEDGER_ID)
 from plenum.common.request import Request
 from plenum.common.ledger import Ledger
 from plenum.common.util import randomString
-from plenum.server.config_req_handler import ConfigReqHandler
 
 from plenum.test.txn_author_agreement.helper import (
     TaaData, expected_state_data, expected_data,
     TaaAmlData, expected_aml_data)
 
-from plenum.test.helper import sdk_get_and_check_replies, sdk_sign_and_submit_req_obj
+from plenum.test.helper import sdk_get_and_check_replies, sdk_sign_and_submit_req_obj, get_handler_by_type_wm
 from plenum.test.delayers import req_delay
 from plenum.test.testing_utils import FakeSomething
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -33,25 +36,43 @@ from .helper import (
 
 
 # Note. tconf is necessary for proper config initialization
-@pytest.fixture
+@pytest.fixture(scope="module")
 def config_ledger(tconf, tmpdir_factory):
     tdir = tmpdir_factory.mktemp('').strpath
     return Ledger(CompactMerkleTree(),
                   dataDir=tdir)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def config_state():
     return PruningState(KeyValueStorageInMemory())
 
 
-@pytest.fixture
-def config_req_handler(config_state,
-                       config_ledger):
-    return ConfigReqHandler(config_ledger,
-                            config_state,
-                            domain_state=FakeSomething(),
-                            bls_store=FakeSomething())
+@pytest.fixture(scope="module")
+def db_manager(config_state, config_ledger):
+    db = DatabaseManager()
+    db.register_new_database(CONFIG_LEDGER_ID, config_ledger, config_state)
+    return db
+
+
+@pytest.fixture(scope="module")
+def write_manager(db_manager):
+    wm = WriteRequestManager(db_manager)
+    taa_handler = TxnAuthorAgreementHandler(db_manager)
+    taa_aml_handler = TxnAuthorAgreementAmlHandler(db_manager)
+    wm.register_req_handler(taa_handler)
+    wm.register_req_handler(taa_aml_handler)
+    return wm
+
+
+@pytest.fixture(scope="module")
+def taa_handler(write_manager):
+    return get_handler_by_type_wm(write_manager, TxnAuthorAgreementHandler)
+
+
+@pytest.fixture(scope="module")
+def taa_aml_handler(write_manager):
+    return get_handler_by_type_wm(write_manager, TxnAuthorAgreementAmlHandler)
 
 
 @pytest.fixture(scope='module')
