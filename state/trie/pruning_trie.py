@@ -439,7 +439,7 @@ class Trie:
             if not from_seq_no or starts_with(nibbles, from_seq_no):
                 if node_type == NODE_TYPE_EXTENSION:
                     return self._check_that_tree_contains_exactly_these_values(
-                        sel`f._get_inner_node_from_extension(node),
+                        self._get_inner_node_from_extension(node),
                         kv_map,
                         from_seq_no[len(nibbles):],
                         prefix + nibbles
