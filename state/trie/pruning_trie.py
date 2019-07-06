@@ -10,6 +10,7 @@ from state.db.db import BaseDB
 from state.util.fast_rlp import encode_optimized, decode_optimized
 from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
 from storage.kv_in_memory import KeyValueStorageInMemory
+import functools
 
 rlp_encode = encode_optimized
 rlp_decode = decode_optimized
@@ -406,6 +407,48 @@ class Trie:
                 return self._get(sub_node, key[len(curr_key):])
             else:
                 return BLANK_NODE
+
+    def _check_that_tree_contains_exactly_these_values(self, node, kv_map, from_seq_no=[], prefix=[]):
+        node_type = self._get_node_type(node)
+
+        if node_type == NODE_TYPE_BLANK or not kv_map:
+            return True
+
+        elif node_type == NODE_TYPE_BRANCH:
+            if node[16]:
+                key = to_string(nibbles_to_bin(prefix))
+                if not from_seq_no and kv_map.pop(key, None) != node[16]:
+                    return False
+
+            correct_range = range(from_seq_no[0], 16) if from_seq_no else range(16)
+
+            for i in correct_range:
+                if not self._check_that_tree_contains_exactly_these_values(
+                    self._decode_to_node(node[i]),
+                    kv_map,
+                    from_seq_no[1:] if from_seq_no and from_seq_no[0] == i else [],
+                    prefix + [i]
+                ):
+                    return False
+                elif not kv_map:
+                    return True
+            return True
+
+        elif is_key_value_type(node_type):
+            nibbles = key_nibbles_from_key_value_node(node)
+            if not from_seq_no or starts_with(nibbles, from_seq_no):
+                if node_type == NODE_TYPE_EXTENSION:
+                    return self._check_that_tree_contains_exactly_these_values(
+                        self._get_inner_node_from_extension(node),
+                        kv_map,
+                        from_seq_no[len(nibbles):],
+                        prefix + nibbles
+                    )
+                else:
+                    key = to_string(nibbles_to_bin(prefix+nibbles))
+                    return not kv_map or kv_map.pop(key, None) == node[1]
+            else:
+                return True
 
     def _get_last_node_for_prfx(self, node, key_prfx, seen_prfx):
         """ get last node for the given prefix, also update `seen_prfx` to track the path already traversed
@@ -890,7 +933,10 @@ class Trie:
             sizes = sizes + [1 if node[-1] else 0]
             return sum(sizes)
 
-    def _to_dict(self, node):
+    def do_to_dict(self, node, suffix=[], limit=None):
+        return self._to_dict(node, suffix, limit, {"val": 0})
+
+    def _to_dict(self, node, suffix=[], limit=None, cnt={"val": 0}):
         '''convert (key, value) stored in this and the descendant nodes
         to dict items.
 
@@ -908,35 +954,50 @@ class Trie:
         if is_key_value_type(node_type):
             nibbles = key_nibbles_from_key_value_node(node)
             key = b'+'.join([to_string(x) for x in nibbles])
-            if node_type == NODE_TYPE_EXTENSION:
-                sub_dict = self._to_dict(self._get_inner_node_from_extension(node))
-            else:
-                sub_dict = {to_string(NIBBLE_TERMINATOR): node[1]}
-
-            # prepend key of this node to the keys of children
             res = {}
-            for sub_key, sub_value in sub_dict.items():
-                full_key = (key + b'+' + sub_key).strip(b'+')
-                res[full_key] = sub_value
+            if not suffix or starts_with(suffix, nibbles):
+                if node_type == NODE_TYPE_EXTENSION:
+                    sub_dict = self._to_dict(self._get_inner_node_from_extension(node), suffix[len(nibbles):], limit, cnt)
+                else:
+                    if not limit or cnt["val"] < limit + 1:
+                        sub_dict = {to_string(NIBBLE_TERMINATOR): node[1]}
+                        cnt["val"] += 1
+                    else:
+                        sub_dict = {}
+
+                # prepend key of this node to the keys of children
+                for sub_key, sub_value in sub_dict.items():
+                    full_key = (key + b'+' + sub_key).strip(b'+')
+                    res[full_key] = sub_value
             return res
 
         elif node_type == NODE_TYPE_BRANCH:
             res = {}
-            for i in range(16):
-                sub_dict = self._to_dict(self._decode_to_node(node[i]))
+
+            if node[16] and (not limit or cnt["val"] < limit + 1):
+                res[to_string(NIBBLE_TERMINATOR)] = node[-1]
+                cnt["val"] += 1
+
+            correct_range = range(suffix[0], 16) if suffix else range(16)
+            for i in correct_range:
+                if limit and cnt["val"] >= limit + 1:
+                    break
+                sub_dict = self._to_dict(
+                    self._decode_to_node(node[i]),
+                    suffix[1:] if suffix and i == suffix[0] else [],
+                    limit,
+                    cnt
+                )
 
                 for sub_key, sub_value in sub_dict.items():
                     full_key = (str_to_bytes(str(i)) +
                                 b'+' + sub_key).strip(b'+')
                     res[full_key] = sub_value
-
-            if node[16]:
-                res[to_string(NIBBLE_TERMINATOR)] = node[-1]
             return res
 
     def to_dict(self, node=None):
         node = node or self.root_node
-        d = self._to_dict(node)
+        d = self.do_to_dict(node)
         res = {}
         for key_str, value in d.items():
             key = self.nibble_key_str_to_bin(key_str)
@@ -1050,17 +1111,19 @@ class Trie:
         value = rv if rv != BLANK_NODE else None
         return (o, value) if get_value else o
 
-    def produce_spv_proof_for_keys_with_prefix(self, key_prfx, root=None, get_value=False):
+    def produce_spv_proof_for_keys_with_prefix(self, key_prfx, root=None, get_value=False, from_seq_no=None, limit=None):
         # Return a proof for keys in the trie with the given prefix.
         root = root if root is not None else self.root_node
         proof.push(RECORDING)
         seen_prfx = []
+        prfx = bin_to_nibbles(to_string(key_prfx))
         prefix_node = self._get_last_node_for_prfx(root,
-                                                   bin_to_nibbles(to_string(key_prfx)),
+                                                   prfx,
                                                    seen_prfx=seen_prfx)
         # The next line traverses the prefix node and the children of the
         # prefix node. Needed for generating the proof and the values
-        rv = self._to_dict(prefix_node)
+        from_seq_no = (prfx[len(seen_prfx):] + bin_to_nibbles(to_string(from_seq_no))) if from_seq_no else []
+        rv = self.do_to_dict(prefix_node, suffix=from_seq_no, limit=limit)
         # If values are needed then convert the keys appropriately
         if get_value:
             new_rv = {}
@@ -1080,8 +1143,13 @@ class Trie:
                                           get_value=get_value)
 
     def generate_state_proof_for_keys_with_prefix(self, key_prfx, root=None,
-                                                  serialize=False, get_value=False):
-        return self._generate_state_proof(key_prfx, self.produce_spv_proof_for_keys_with_prefix,
+                                                  serialize=False, get_value=False,
+                                                  from_seq_no=None, limit=None):
+        return self._generate_state_proof(key_prfx,
+                                          functools.partial(
+                                              self.produce_spv_proof_for_keys_with_prefix,
+                                              from_seq_no=from_seq_no,
+                                              limit=limit),
                                           root=root, serialize=serialize,
                                           get_value=get_value)
 
@@ -1121,7 +1189,8 @@ class Trie:
 
     @staticmethod
     def verify_spv_proof_multi(root, key_values, proof_nodes,
-                               serialized=False):
+                               serialized=False, from_seq_no=None, prefix=None):
+        key_values = copy.deepcopy(key_values)
         # Takes a list of proof nodes for several key values
         if serialized:
             proof_nodes = Trie.deserialize_proof(proof_nodes)
@@ -1137,16 +1206,16 @@ class Trie:
             proof.pop()
             return False
 
-        for k, v in key_values.items():
-            try:
-                _v = new_trie.get(k)
-            except Exception as e:
-                print(e)
-                proof.pop()
-                return False
-            if v != _v:
-                proof.pop()
-                return False
+        prefix = bin_to_nibbles(to_string(prefix)) if prefix else []
+
+        from_seq_no = bin_to_nibbles(to_string(from_seq_no)) if from_seq_no else []
+        seen_prfx = []
+        node = new_trie._get_last_node_for_prfx(new_trie.root_node, prefix, seen_prfx)
+
+        if not new_trie._check_that_tree_contains_exactly_these_values(node, key_values,
+                                                                       from_seq_no, prefix=seen_prfx):
+            proof.pop()
+            return False
 
         proof.pop()
         return True

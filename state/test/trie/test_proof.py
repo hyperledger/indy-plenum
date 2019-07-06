@@ -304,19 +304,19 @@ def test_proof_prefix_with_other_nodes():
     # Check returned values match the actual values
     assert encoded == val
     assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                              encoded, proof_nodes)
+                                              encoded, proof_nodes, prefix=prefix)
     # Check without value
     proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
         prefix.encode(), get_value=False)
     assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                              encoded, proof_nodes)
+                                              encoded, proof_nodes, prefix=prefix)
 
     # Change value of one of any random key
     encoded_new = deepcopy(encoded)
     random_key = next(iter(encoded_new.keys()))
     encoded_new[random_key] = rlp_encode([rlp_decode(encoded_new[random_key])[0] + b'2212'])
     assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                                  encoded_new, proof_nodes)
+                                                  encoded_new, proof_nodes, prefix=prefix)
 
 
 def test_proof_multiple_prefix_nodes():
@@ -358,18 +358,18 @@ def test_proof_multiple_prefix_nodes():
         # Check returned values match the actual values
         assert encoded == val
         assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                                  encoded, proof_nodes)
+                                                  encoded, proof_nodes, prefix=prefix)
         # Check without value
         proof_nodes = node_trie.generate_state_proof_for_keys_with_prefix(
             prefix.encode(), get_value=False)
         assert client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                                  encoded, proof_nodes)
+                                                  encoded, proof_nodes, prefix=prefix)
 
         # Verify keys with a different prefix
         encoded = {k.encode(): rlp_encode([v]) for k, v in key_vals.items() if
                    not k.startswith(prefix)}
         assert not client_trie.verify_spv_proof_multi(node_trie.root_hash,
-                                                      encoded, proof_nodes)
+                                                      encoded, proof_nodes, prefix=prefix)
 
 
 def test_get_proof_and_value():

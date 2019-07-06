@@ -106,9 +106,11 @@ class PruningState(State):
         return self._trie.generate_state_proof(key, root, serialize, get_value=get_value)
 
     def generate_state_proof_for_keys_with_prefix(self, key_prfx, root=None,
-                                                  serialize=False, get_value=False):
+                                                  serialize=False, get_value=False,
+                                                  from_seq_no=None, limit=None):
         return self._trie.generate_state_proof_for_keys_with_prefix(key_prfx, root,
-                                                                    serialize, get_value=get_value)
+                                                                    serialize, get_value=get_value,
+                                                                    from_seq_no=from_seq_no, limit=limit)
 
     @staticmethod
     def verify_state_proof(root, key, value, proof_nodes, serialized=False):
@@ -117,9 +119,10 @@ class PruningState(State):
                                      proof_nodes, serialized)
 
     @staticmethod
-    def verify_state_proof_multi(root, key_values, proof_nodes, serialized=False):
+    def verify_state_proof_multi(root, key_values, proof_nodes, serialized=False, from_seq_no=None, prefix=None):
         encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_values.items())
-        return Trie.verify_spv_proof_multi(root, encoded_key_values, proof_nodes, serialized)
+        return Trie.verify_spv_proof_multi(root, encoded_key_values, proof_nodes, serialized, from_seq_no=from_seq_no,
+                                           prefix=prefix)
 
     @staticmethod
     def encode_kv_for_verification(key, value):

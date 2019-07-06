@@ -1,4 +1,5 @@
 import random
+from copy import deepcopy
 
 import pytest
 
@@ -68,22 +69,25 @@ def test_state_proof_for_missing_data(state):
     assert PruningState.verify_state_proof(state.headHash, b'k1', None, p1)
 
 
-def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None, extra_nodes=False):
+def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None, extra_nodes={}, from_seq_no=None, limit=None):
     keys_suffices = keys_suffices if keys_suffices else [1, 4, 10, 11, 24, 99, 100]
     key_vals = {'{}{}'.format(prefix, k).encode():
-                str(random.randint(3000, 5000)).encode() for k in keys_suffices}
+                    str(random.randint(3000, 5000)).encode() for k in keys_suffices}
     for k, v in key_vals.items():
         state.set(k, v)
+    key_vals.update(extra_nodes)
 
-    prefix_prf, val = state.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True)
+    prefix_prf, val = state.generate_state_proof_for_keys_with_prefix(prefix.encode(), get_value=True,
+                                                                      from_seq_no=from_seq_no, limit=limit)
+    key_vals = sorted(deepcopy(key_vals).items())
+    start = key_vals.index(next(x for x in key_vals if x[0] == (prefix + from_seq_no).encode())) if from_seq_no else 0
+    key_vals = dict(key_vals[start:start+limit+1] if limit else key_vals[start:])
+
     encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_vals.items())
-    if extra_nodes:
-        assert val.items() >= encoded_key_values.items()
-    else:
-        assert val == encoded_key_values
+    assert val == encoded_key_values
 
     assert PruningState.verify_state_proof_multi(state.headHash, key_vals,
-                                                 prefix_prf)
+                                                 prefix_prf, prefix=prefix, from_seq_no=from_seq_no)
 
 
 def test_state_proof_for_key_prefix(state):
@@ -93,8 +97,9 @@ def test_state_proof_for_key_prefix(state):
 
 def test_state_proof_for_key_prefix_1(state):
     prefix = 'abcdefgh'
-    state.set(prefix.encode(), b'2122')
-    add_prefix_nodes_and_verify(state, prefix, extra_nodes=True)
+    value = b'2122'
+    state.set(prefix.encode(), value)
+    add_prefix_nodes_and_verify(state, prefix, extra_nodes={prefix.encode(): value})
 
 
 def test_state_proof_for_key_prefix_2(state):
@@ -117,3 +122,30 @@ def test_state_proof_for_key_prefix_4(state):
     # More than 16 suffices
     keys_suffices = {random.randint(150, 900) for _ in range(100)}
     add_prefix_nodes_and_verify(state, prefix, keys_suffices)
+
+
+def test_state_proof_for_key_prefix_4_limit(state):
+    prefix = 'abcdefgh'
+    state.set(b'zyxwvuts', b'1115')
+    state.set(b'rqponmlk', b'0989')
+    # More than 16 suffices
+    keys_suffices = {random.randint(150, 900) for _ in range(100)}
+    add_prefix_nodes_and_verify(state, prefix, keys_suffices, limit=5)
+
+
+def test_state_proof_for_key_prefix_4_seq_no(state):
+    prefix = 'abcdefgh'
+    state.set(b'zyxwvuts', b'1115')
+    state.set(b'rqponmlk', b'0989')
+    # More than 16 suffices
+    keys_suffices = {random.randint(150, 900) for _ in range(100)}
+    add_prefix_nodes_and_verify(state, prefix, keys_suffices, from_seq_no=str(list(keys_suffices)[5]))
+
+
+def test_state_proof_for_key_prefix_4_seq_no_and_limit(state):
+    prefix = 'abcdefgh'
+    state.set(b'zyxwvuts', b'1115')
+    state.set(b'rqponmlk', b'0989')
+    # More than 16 suffices
+    keys_suffices = {random.randint(150, 900) for _ in range(100)}
+    add_prefix_nodes_and_verify(state, prefix, keys_suffices, from_seq_no=str(list(keys_suffices)[5]), limit=5)
