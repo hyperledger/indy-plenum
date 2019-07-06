@@ -71,8 +71,7 @@ def test_state_proof_for_missing_data(state):
 
 def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None, extra_nodes={}, from_seq_no=None, limit=None):
     keys_suffices = keys_suffices if keys_suffices else [1, 4, 10, 11, 24, 99, 100]
-    key_vals = {'{}{}'.format(prefix, k).encode():
-                    str(random.randint(3000, 5000)).encode() for k in keys_suffices}
+    key_vals = {'{}{}'.format(prefix, k).encode(): str(random.randint(3000, 5000)).encode() for k in keys_suffices}
     for k, v in key_vals.items():
         state.set(k, v)
     key_vals.update(extra_nodes)
@@ -81,7 +80,7 @@ def add_prefix_nodes_and_verify(state, prefix, keys_suffices=None, extra_nodes={
                                                                       from_seq_no=from_seq_no, limit=limit)
     key_vals = sorted(deepcopy(key_vals).items())
     start = key_vals.index(next(x for x in key_vals if x[0] == (prefix + from_seq_no).encode())) if from_seq_no else 0
-    key_vals = dict(key_vals[start:start+limit+1] if limit else key_vals[start:])
+    key_vals = dict(key_vals[start:start + limit + 1] if limit else key_vals[start:])
 
     encoded_key_values = dict(PruningState.encode_kv_for_verification(k, v) for k, v in key_vals.items())
     assert val == encoded_key_values

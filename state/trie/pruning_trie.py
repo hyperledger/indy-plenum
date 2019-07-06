@@ -439,13 +439,13 @@ class Trie:
             if not from_seq_no or starts_with(nibbles, from_seq_no):
                 if node_type == NODE_TYPE_EXTENSION:
                     return self._check_that_tree_contains_exactly_these_values(
-                        self._get_inner_node_from_extension(node),
+                        sel`f._get_inner_node_from_extension(node),
                         kv_map,
                         from_seq_no[len(nibbles):],
                         prefix + nibbles
                     )
                 else:
-                    key = to_string(nibbles_to_bin(prefix+nibbles))
+                    key = to_string(nibbles_to_bin(prefix + nibbles))
                     return not kv_map or kv_map.pop(key, None) == node[1]
             else:
                 return True
