@@ -31,7 +31,7 @@ def node_request():
     return Request(identifier=randomString(),
                    reqId=5,
                    operation={'type': NODE,
-                              'dest': randomString(),
+                              'dest': '12121212121212',
                               TARGET_NYM: randomString(),
                               'data': {BLS_KEY: randomString(),
                                        BLS_KEY_PROOF: randomString(),
