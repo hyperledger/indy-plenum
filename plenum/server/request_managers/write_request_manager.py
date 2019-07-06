@@ -41,10 +41,10 @@ class WriteRequestManager(RequestManager):
         handler_list = self.request_handlers.setdefault(typ, [])
         handler_list.append(handler)
 
-    def register_req_handler(self, handler: WriteRequestHandler):
+    def register_req_handler(self, handler: WriteRequestHandler, ledger_id=None, typ=None):
         if not isinstance(handler, WriteRequestHandler):
             raise LogicError
-        self._register_req_handler(handler)
+        self._register_req_handler(handler, ledger_id=ledger_id, typ=typ)
 
     def register_batch_handler(self, handler: BatchRequestHandler,
                                ledger_id=None, add_to_begin=False):
