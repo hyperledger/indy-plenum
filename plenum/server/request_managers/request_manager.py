@@ -24,6 +24,9 @@ class RequestManager(AbstractRequestManager):
         self.type_to_ledger_id = {}
         self.ledger_id_to_types = {}
 
+    def do_taa_validation(self):
+        pass
+
     def remove_req_handler(self, txn_type):
         del self.request_handlers[txn_type]
         self.txn_types.remove(txn_type)
@@ -31,14 +34,14 @@ class RequestManager(AbstractRequestManager):
     def _add_handler(self, typ, handler):
         self.request_handlers[typ] = handler
 
-    def _register_req_handler(self, handler: RequestHandler, ledger_id=None):
-        typ = handler.txn_type
+    def _register_req_handler(self, handler: RequestHandler, ledger_id=None, typ=None):
+        typ = typ if typ is not None else handler.txn_type
         ledger_id = ledger_id if ledger_id is not None else handler.ledger_id
         self._add_handler(typ, handler)
         self.txn_types.add(typ)
         self.type_to_ledger_id[typ] = ledger_id
-        self.ledger_id_to_types.setdefault(ledger_id, [])
-        self.ledger_id_to_types[ledger_id].append(typ)
+        self.ledger_id_to_types.setdefault(ledger_id, set())
+        self.ledger_id_to_types[ledger_id].add(typ)
 
     def is_valid_type(self, txn_type):
         return txn_type in self.txn_types

@@ -1431,9 +1431,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
-        if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
-            commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
@@ -1678,15 +1675,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  prepare)
         elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                 prepare)
-
-        try:
-            self.execute_hook(ReplicaHooks.VALIDATE_PR, prepare, ppReq)
-        except Exception as ex:
-            self.logger.warning('{} encountered exception in replica '
-                                'hook {} : {}'.
-                                format(self, ReplicaHooks.VALIDATE_PR, ex))
-            raise SuspiciousNode(sender, Suspicions.PR_PLUGIN_EXCEPTION,
                                  prepare)
 
         # BLS multi-sig:
