@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Type, Dict, List, Any, Union
+from typing import Callable, Type, Dict, List, Any, Union, Iterable
 
 
 class InternalBus:

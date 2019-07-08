@@ -4,7 +4,6 @@ import time
 from binascii import unhexlify
 from collections import deque
 from contextlib import closing
-from datetime import datetime
 from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Callable
 
@@ -53,7 +52,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -82,7 +81,7 @@ from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
     get_txn_time, get_digest, TxnUtilConfig, get_payload_digest
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
-    PLUGIN_TYPE_PROCESSING, OPERATION, f
+    OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
@@ -95,13 +94,9 @@ from plenum.recorder.recorder import add_start_time, add_stop_time
 
 from plenum.client.wallet import Wallet
 
-from plenum.server.pool_req_handler import PoolRequestHandler
-from plenum.server.action_req_handler import ActionReqHandler
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr, CoreAuthNr
-from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.message_req_processor import MessageReqProcessor
@@ -119,7 +114,6 @@ from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
 from plenum.server.replicas import Replicas
 from plenum.server.req_authenticator import ReqAuthenticator
-from plenum.server.req_handler import RequestHandler
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
@@ -333,8 +327,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
         self._wallet = None
-        self.seqNoDB = self.loadSeqNoDB()
-        self.nodeStatusDB = self.loadNodeStatusDB()
 
         self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
 
@@ -381,10 +373,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
-        self.opVerifiers = self.getPluginsByType(pluginPaths,
-                                                 PLUGIN_TYPE_VERIFICATION)
-        self.reqProcessors = self.getPluginsByType(pluginPaths,
-                                                   PLUGIN_TYPE_PROCESSING)
 
     def network_stacks_init(self, seed):
         kwargs = dict(stackParams=self.poolManager.nstack,
@@ -504,6 +492,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.db_manager.get_store(TS_LABEL)
 
     @property
+    def seqNoDB(self):
+        return self.db_manager.get_store(SEQ_NO_DB_LABEL)
+
+    @property
+    def nodeStatusDB(self):
+        return self.db_manager.get_store(NODE_STATUS_DB_LABEL)
+
+    @property
     def txn_type_to_ledger_id(self):
         all_types = {}
         all_types.update(self.action_manager.type_to_ledger_id)
@@ -567,8 +563,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.configLedger,
             preCatchupStartClbk=self.preConfigLedgerCatchup,
             postCatchupCompleteClbk=self.postConfigLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-            taa_acceptance_required=False)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(CONFIG_LEDGER_ID)
 
     def prePoolLedgerCatchup(self, **kwargs):
@@ -863,8 +858,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.poolLedger,
                 preCatchupStartClbk=self.prePoolLedgerCatchup,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-                taa_acceptance_required=False)
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.on_new_ledger_added(POOL_LEDGER_ID)
 
     def _add_domain_ledger(self):
@@ -873,8 +867,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.domainLedger,
             preCatchupStartClbk=self.preDomainLedgerCatchup,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-            taa_acceptance_required=True)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
 
     def _add_audit_ledger(self):
@@ -883,8 +876,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.auditLedger,
             preCatchupStartClbk=self.preAuditLedgerCatchup,
             postCatchupCompleteClbk=self.postAuditLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger,
-            taa_acceptance_required=False)
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(AUDIT_LEDGER_ID)
 
     def getHashStore(self, name) -> HashStore:
@@ -1070,15 +1062,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._info_tool.stop()
         self.mode = None
-        self.execute_hook(NodeHooks.POST_NODE_STOPPED)
 
     def closeAllKVStores(self):
         # Clear leveldb lock files
         logger.info("{} closing key-value storages".format(self), extra={"cli": False})
-        if self.seqNoDB:
-            self.seqNoDB.close()
-        if self.nodeStatusDB:
-            self.nodeStatusDB.close()
         self.db_manager.close()
 
     def reset(self):
@@ -1854,15 +1841,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
         self.verifySignature(cMsg)
-        self.execute_hook(NodeHooks.POST_SIG_VERIFICATION, cMsg)
-        # Suspicions should only be raised when lot of sig failures are
-        # observed
-        # try:
-        #     self.verifySignature(cMsg)
-        # except UnknownIdentifier as ex:
-        #     raise
-        # except Exception as ex:
-        #     raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm
@@ -1969,11 +1947,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             state = self.getState(ledger_id)
             if state:
                 state.commit(rootHash=state.headHash)
-                ts_store = self.db_manager.get_store(TS_LABEL)
-                if ledger_id == DOMAIN_LEDGER_ID and ts_store:
+                if self.stateTsDbStorage and \
+                        (ledger_id == DOMAIN_LEDGER_ID or ledger_id == CONFIG_LEDGER_ID):
                     timestamp = get_txn_time(txn)
                     if timestamp is not None:
-                        ts_store.set(timestamp, state.headHash)
+                        self.stateTsDbStorage.set(timestamp, state.headHash)
                 logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                              .format(self, get_seq_no(txn), ledger_id,
                                      state_roots_serializer.serialize(bytes(state.committedHeadHash))))
@@ -2173,151 +2151,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if TXN_TYPE not in operation:
             raise InvalidClientRequest(identifier, req_id)
 
-        self.execute_hook(NodeHooks.PRE_STATIC_VALIDATION, request=request)
         if operation[TXN_TYPE] != GET_TXN:
             # GET_TXN is generic, needs no request handler
             txn_type = operation[TXN_TYPE]
             req_manager = self._get_manager_for_txn_type(txn_type)
             if req_manager is None:
-                # TODO: This code should probably be removed.
-                if self.opVerifiers:
-                    try:
-                        for v in self.opVerifiers:
-                            v.verify(operation)
-                    except Exception as ex:
-                        raise InvalidClientRequest(identifier, req_id) from ex
-                else:
-                    raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
-                                               format(TXN_TYPE, operation[TXN_TYPE]))
+                raise InvalidClientRequest(identifier, req_id, 'invalid {}: {}'.
+                                           format(TXN_TYPE, operation[TXN_TYPE]))
             else:
                 req_manager.static_validation(request)
-
-        self.execute_hook(NodeHooks.POST_STATIC_VALIDATION, request=request)
-
-    def validateTaaAcceptance(self, request: Request, req_pp_time: int):
-
-        ledger_id = self.ledger_id_for_request(request)
-        if not self.ledgerManager.ledger_info(ledger_id).taa_acceptance_required:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is not expected"
-                    " and not allowed in requests for ledger id {}"
-                    .format(ledger_id)
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: "
-                    "not required for ledger id {}"
-                    .format(self, request.reqId, ledger_id)
-                )
-                return
-
-        taa = None
-        taa_data = self.write_manager.get_taa_data()
-        if taa_data is not None:
-            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
-
-        if taa is None:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance has not been set yet"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is not set"
-                    .format(self, request.reqId)
-                )
-                return
-
-        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is disabled"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is disabled"
-                    .format(self, request.reqId)
-                )
-                return
-
-        if not taa_digest:
-            raise LogicError(
-                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
-                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
-            )
-
-        if not request.taaAcceptance:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance is required for ledger with id {}"
-                .format(ledger_id)
-            )
-
-        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
-        if r_taa_a_digest != taa_digest:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance digest is invalid or non-latest:"
-                " provided {}, expected {}"
-                .format(r_taa_a_digest, taa_digest)
-            )
-
-        r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
-        datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
-        if datetime_r_taa.hour or datetime_r_taa.minute \
-                or datetime_r_taa.second or datetime_r_taa.microsecond:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "TAA timestamp {} is too precise and is a privacy risk."
-                .format(r_taa_a_ts))
-        date_lowest = datetime.utcfromtimestamp(
-            taa_txn_time -
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
-        ).date()
-        date_higest = datetime.utcfromtimestamp(
-            req_pp_time +
-            self.config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
-        ).date()
-
-        if (datetime_r_taa.date() < date_lowest) or (datetime_r_taa.date() > date_higest):
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance time is inappropriate:"
-                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, date_lowest, date_higest)
-            )
-
-        taa_aml_data = self.write_manager.get_taa_aml_data()
-        if taa_aml_data is None:
-            raise TaaAmlNotSetError(
-                "Txn Author Agreement acceptance mechanism list is not defined"
-            )
-
-        taa_aml = taa_aml_data[VALUE][AML]
-        r_taa_a_mech = request.taaAcceptance[f.TAA_ACCEPTANCE_MECHANISM.nm]
-        if r_taa_a_mech not in taa_aml:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}, expected one of {}".format(r_taa_a_mech, sorted(taa_aml))
-            )
-
-        logger.trace(
-            "{} TAA acceptance passed for request {}".format(self, request.reqId)
-        )
 
     # TODO hooks might need pp_time as well
     def doDynamicValidation(self, request: Request, req_pp_time: int):
         """
         State based validation
         """
-        self.execute_hook(NodeHooks.PRE_DYNAMIC_VALIDATION, request=request)
-
         # Digest validation
         # TODO implicit caller's context: request is processed by (master) replica
         # as part of PrePrepare 3PC batch
@@ -2330,29 +2178,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if get_payload_digest(txn) == request.payload_digest:
                 raise SuspiciousPrePrepare('Trying to order already ordered request')
 
-        # TAA validation
-        self.validateTaaAcceptance(request, req_pp_time=req_pp_time)
-
         # specific validation for the request txn type
         operation = request.operation
         req_manager = self._get_manager_for_txn_type(txn_type=operation[TXN_TYPE])
+        # TAA validation
+        # For now, we need to call taa_validation not from dynamic_validation because
+        # req_pp_time is required
+        req_manager.do_taa_validation(request, req_pp_time, self.config)
         req_manager.dynamic_validation(request)
-
-        self.execute_hook(NodeHooks.POST_DYNAMIC_VALIDATION, request=request)
 
     def applyReq(self, request: Request, cons_time: int):
         """
         Apply request to appropriate ledger and state. `cons_time` is the
         UTC epoch at which consensus was reached.
         """
-        self.execute_hook(NodeHooks.PRE_REQUEST_APPLICATION, request=request,
-                          cons_time=cons_time)
         req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
-        seq_no, txn = req_manager.apply_request(request, cons_time)
-        ledger_id = self.ledger_id_for_request(request)
-        self.execute_hook(NodeHooks.POST_REQUEST_APPLICATION, request=request,
-                          cons_time=cons_time, ledger_id=ledger_id,
-                          seq_no=seq_no, txn=txn)
+        req_manager.apply_request(request, cons_time)
 
     def apply_stashed_reqs(self, three_pc_batch):
         request_ids = three_pc_batch.valid_digests
@@ -3190,19 +3031,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         three_pc_batch.txn_root = Ledger.hashToStr(three_pc_batch.txn_root)
         three_pc_batch.state_root = Ledger.hashToStr(three_pc_batch.state_root)
 
-        for req_key in valid_reqs_keys:
-            self.execute_hook(NodeHooks.PRE_REQUEST_COMMIT, req_key=req_key,
-                              pp_time=three_pc_batch.pp_time,
-                              state_root=three_pc_batch.state_root,
-                              txn_root=three_pc_batch.txn_root)
-
-        self.execute_hook(NodeHooks.PRE_BATCH_COMMITTED,
-                          ledger_id=three_pc_batch.ledger_id,
-                          pp_time=three_pc_batch.pp_time,
-                          reqs_keys=valid_reqs_keys,
-                          state_root=three_pc_batch.state_root,
-                          txn_root=three_pc_batch.txn_root)
-
         try:
             committedTxns = self.get_executer(three_pc_batch.ledger_id)(three_pc_batch)
         except Exception as exc:
@@ -3237,11 +3065,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, three_pc_batch.view_no, three_pc_batch.pp_seq_no,
                             three_pc_batch.ledger_id, three_pc_batch.state_root,
                             three_pc_batch.txn_root, [key for key in valid_reqs_keys]))
-
-        for txn in committedTxns:
-            self.execute_hook(NodeHooks.POST_REQUEST_COMMIT, txn=txn,
-                              pp_time=three_pc_batch.pp_time, state_root=three_pc_batch.state_root,
-                              txn_root=three_pc_batch.txn_root)
 
         first_txn_seq_no = get_seq_no(committedTxns[0])
         last_txn_seq_no = get_seq_no(committedTxns[-1])
@@ -3279,21 +3102,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def commitAndSendReplies(self, three_pc_batch: ThreePcBatch) -> List:
         logger.trace('{} going to commit and send replies to client'.format(self))
         committed_txns = self.write_manager.commit_batch(three_pc_batch)
-        self.execute_hook(NodeHooks.POST_BATCH_COMMITTED, ledger_id=three_pc_batch.ledger_id,
-                          pp_time=three_pc_batch.pp_time, committed_txns=committed_txns,
-                          state_root=three_pc_batch.state_root, txn_root=three_pc_batch.txn_root)
         self.updateSeqNoMap(committed_txns, three_pc_batch.ledger_id)
         updated_committed_txns = list(map(self.update_txn_with_extra_data, committed_txns))
-        self.hook_pre_send_reply(updated_committed_txns, three_pc_batch.pp_time)
         self.sendRepliesToClients(updated_committed_txns, three_pc_batch.pp_time)
-        self.hook_post_send_reply(updated_committed_txns, three_pc_batch.pp_time)
         return committed_txns
-
-    def hook_pre_send_reply(self, txns, pp_time):
-        self.execute_hook(NodeHooks.PRE_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
-
-    def hook_post_send_reply(self, txns, pp_time):
-        self.execute_hook(NodeHooks.POST_SEND_REPLY, committed_txns=txns, pp_time=pp_time)
 
     def onBatchCreated(self, three_pc_batch: ThreePcBatch):
         """
@@ -3311,8 +3123,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-        self.execute_hook(NodeHooks.POST_BATCH_CREATED, ledger_id, three_pc_batch.state_root)
-
     def onBatchRejected(self, ledger_id):
         """
         A batch of requests has been rejected, if stateRoot is None, reject
@@ -3325,8 +3135,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.write_manager.post_batch_rejected(ledger_id)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
-
-        self.execute_hook(NodeHooks.POST_BATCH_REJECTED, ledger_id)
 
     def sendRepliesToClients(self, committedTxns, ppTime):
         for txn in committedTxns:
@@ -3558,7 +3366,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
             txn.update(ledger.merkleInfo(seq_no))
-            self.hook_pre_send_reply([txn], None)
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:

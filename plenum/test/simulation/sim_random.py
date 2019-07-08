@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from random import Random
-from typing import Any
+from typing import Any, Iterable, List
 
 
 class SimRandom(ABC):
@@ -12,10 +12,17 @@ class SimRandom(ABC):
     def choice(self, *args) -> Any:
         pass
 
+    @abstractmethod
+    def sample(self, population: List, num: int) -> List:
+        pass
+
+    @abstractmethod
+    def shuffle(self, items: List) -> List:
+        pass
+
 
 class DefaultSimRandom(SimRandom):
-    # TODO: Consider making seed fixed to make it always deterministic
-    def __init__(self, seed=None):
+    def __init__(self, seed=0):
         self._random = Random(seed)
 
     def integer(self, min_value: int, max_value: int) -> int:
@@ -23,3 +30,11 @@ class DefaultSimRandom(SimRandom):
 
     def choice(self, *args) -> Any:
         return self._random.choice(args)
+
+    def sample(self, population: Iterable, num: int) -> List:
+        return self._random.sample(population, num)
+
+    def shuffle(self, items: List) -> List:
+        result = items.copy()
+        self._random.shuffle(result)
+        return result
