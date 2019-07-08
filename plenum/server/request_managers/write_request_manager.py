@@ -1,5 +1,5 @@
 from _sha256 import sha256
-from datetime import datetime
+from datetime import datetime, time
 from typing import Dict, List, Optional, Tuple
 
 from common.exceptions import LogicError
@@ -316,8 +316,7 @@ class WriteRequestManager(RequestManager):
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
         datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
-        if datetime_r_taa.hour or datetime_r_taa.minute \
-                or datetime_r_taa.second or datetime_r_taa.microsecond:
+        if datetime_r_taa.time() != time(0):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "TAA timestamp {} is too precise and is a privacy risk."

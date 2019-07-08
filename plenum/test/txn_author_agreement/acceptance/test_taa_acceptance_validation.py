@@ -10,6 +10,8 @@ from plenum.common.constants import AML, DOMAIN_LEDGER_ID
 
 from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
+SEC_PER_DAY = 24 * 60 * 60
+
 
 # make tests stricter
 @pytest.fixture(scope="module")
@@ -124,7 +126,7 @@ def test_taa_acceptance_time_near_lower_threshold(
     request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold_ts
     validate_taa_acceptance(request_dict)
 
-    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold_ts - 24 * 60 * 60
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = lower_threshold_ts - SEC_PER_DAY
     with pytest.raises(
         validation_error,
         match=(
@@ -161,7 +163,7 @@ def test_taa_acceptance_time_near_upper_threshold(
     request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold_ts
     validate_taa_acceptance(request_dict)
 
-    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold_ts + 24 * 60 * 60
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold_ts + SEC_PER_DAY
     with pytest.raises(
         validation_error,
         match=(
@@ -183,7 +185,6 @@ def test_taa_acceptance_uses_pp_time_instead_of_current_time(
     request_dict, latest_taa, monkeypatch
 ):
     taa_ts = latest_taa.txn_time
-    sec_in_day = 24 * 60 * 60
     pp_time = (
         max_last_accepted_pre_prepare_time
     )
@@ -201,7 +202,7 @@ def test_taa_acceptance_uses_pp_time_instead_of_current_time(
     request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold_ts
     validate_taa_acceptance(request_dict)
 
-    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold_ts + sec_in_day
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] = upper_threshold_ts + SEC_PER_DAY
     with pytest.raises(
         validation_error,
         match=(
@@ -246,12 +247,11 @@ def test_taa_acceptance_not_allowed_when_disabled(
     set_txn_author_agreement,
     add_taa_acceptance
 ):
-    sec_in_day = 24 * 60 * 60
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
         taa_text=taa_data.text,
         taa_version=taa_data.version,
-        taa_a_time=taa_data.txn_time // sec_in_day * sec_in_day
+        taa_a_time=taa_data.txn_time // SEC_PER_DAY * SEC_PER_DAY
     )
     request_dict = dict(**json.loads(request_json))
 
