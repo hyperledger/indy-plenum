@@ -58,3 +58,7 @@ def pre_prepare():
         0,
         True
     )
+
+@pytest.fixture
+def provider():
+    return ConsensusDataProvider('sample')
