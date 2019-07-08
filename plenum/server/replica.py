@@ -2168,7 +2168,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          format(self, (s, e), view_no, state.digest, ledger_id,
                                 self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
                                 self.stateRootHash(ledger_id, committed=False)))
-        self.send(Checkpoint(self.instId, view_no, s, e, state.digest))
+        checkpoint = Checkpoint(self.instId, view_no, s, e, state.digest)
+        self.send(checkpoint)
+        self.consensus_provider.append_checkpoint(checkpoint)
 
     def markCheckPointStable(self, seqNo):
         previousCheckpoints = []
@@ -2179,6 +2181,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # 2. choose another name
                 state = updateNamedTuple(state, isStable=True)
                 self.checkpoints[s, e] = state
+                self.consensus_provider.set_stable_checkpoint((s, e))
                 break
             else:
                 previousCheckpoints.append((s, e))
@@ -2189,6 +2192,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for k in previousCheckpoints:
             self.logger.trace("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
+            self.consensus_provider.remove_checkpoint(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
         self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
@@ -2342,6 +2346,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Clear any checkpoints, since they are valid only in a view
         self._gc(self.last_ordered_3pc)
         self.checkpoints.clear()
+        self.consensus_provider.remove_all_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
         self._clear_prev_view_pre_prepares()
 
@@ -2826,6 +2831,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
         self.checkpoints.clear()
+        self.consensus_provider.remove_all_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
@@ -2839,6 +2845,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.commits.clear()
             self.outBox.clear()
             self.checkpoints.clear()
+            self.consensus_provider.remove_all_checkpoints()
             self._remove_stashed_checkpoints()
             self.h = 0
             self.H = sys.maxsize

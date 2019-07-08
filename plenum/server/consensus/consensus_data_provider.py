@@ -1,5 +1,7 @@
 from typing import List
 
+from plenum.common.util import SortedDict
+
 from common.exceptions import LogicError
 
 from plenum.common.messages.node_messages import Checkpoint, PrePrepare
@@ -20,6 +22,8 @@ class ConsensusDataProvider:
         self.pp_seq_no = 0
         self.waiting_for_new_view = False
         self.primary_name = None
+        self._stable_checkpoint = None
+        self._checkpoints = SortedDict(lambda k: k[1])
         self._preprepared = []
         self._prepared = []
 
@@ -68,11 +72,14 @@ class ConsensusDataProvider:
 
     @property
     def stable_checkpoint(self) -> int:
-        return 0
+        return self._stable_checkpoint
 
     @property
     def checkpoints(self) -> List[Checkpoint]:
-        return []
+        """
+        List of Checkpoints, which has been sent, but not stabilized yet
+        """
+        return self._checkpoints.values()
 
     def preprepare_batch(self, pp: PrePrepare):
         """
@@ -119,3 +126,19 @@ class ConsensusDataProvider:
             raise LogicError('3pc key must be a pair')
         self.view_no = key[0]
         self.pp_seq_no = key[1]
+
+    def append_checkpoint(self, checkpoint: Checkpoint):
+        self._checkpoints[(checkpoint.seqNoStart, checkpoint.seqNoEnd)] = checkpoint
+
+    def remove_checkpoint(self, key):
+        if key not in self._checkpoints:
+            raise LogicError('key for removal must be in checkpoints')
+        del self._checkpoints[key]
+
+    def remove_all_checkpoints(self):
+        self._checkpoints.clear()
+
+    def set_stable_checkpoint(self, key):
+        if key not in self._checkpoints:
+            raise LogicError('key for stable checkpoint must be in checkpoints')
+        self._stable_checkpoint = key[1]
