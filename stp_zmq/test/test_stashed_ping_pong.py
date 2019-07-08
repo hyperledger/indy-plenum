@@ -61,6 +61,7 @@ def test_stash_pongs_from_unknown(looper, create_stacks):
 
     check_pong_received(looper, alpha, beta.name)
 
+
 def test_stash_msg_to_unknown(looper, create_stacks):
     '''
     Beta should stash the pong for Alpha on Alpha's ping received when
@@ -68,8 +69,17 @@ def test_stash_msg_to_unknown(looper, create_stacks):
     '''
     alpha, beta = create_stacks
     # connectStack(alpha, beta)
-    alpha.transmitThroughListener("msg", beta.name)
+    alpha.transmitThroughListener("msg1", beta.name)
     connectStack(alpha, beta)
+    connectStack(beta, alpha)
+    alpha.sendPingPong(beta.name, is_ping=True)
+    check_pong_received(looper, alpha, beta.name)
+
+    alpha.transmitThroughListener("msg2", beta.name)
+    # msg = beta.rxMsgs.popleft()
+    msg1 = (beta.rxMsgs.popleft())
+    msg2 = print(beta.rxMsgs.popleft())
+    print(1)
 
     # check_stashed_pongs(looper, stack=beta, to=alpha.publicKey)
 

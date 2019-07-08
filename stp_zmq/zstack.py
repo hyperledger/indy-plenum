@@ -821,7 +821,7 @@ class ZStack(NetworkInterface):
             err_str = '{}{} got error {} while sending through listener to {}' \
                 .format(CONNECTION_PREFIX, self, ex, ident)
             logger.warning(err_str)
-            return
+            return err_str
 
         need_to_resend = False
         if isinstance(ident, str):
