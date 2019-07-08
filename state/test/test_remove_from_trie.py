@@ -35,7 +35,7 @@ def sequence(data):
     for i in range(num):
         action = random.randint(0, 1)
         if action:
-            to_remove = random.randint(0, len(data)-1)
+            to_remove = random.randint(0, len(data) - 1)
             key, val = data.pop(to_remove)
         else:
             key = randomString()
