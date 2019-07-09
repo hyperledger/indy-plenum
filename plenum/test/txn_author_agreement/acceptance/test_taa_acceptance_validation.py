@@ -228,7 +228,7 @@ def test_taa_acceptance_uses_too_precise_time(
     with pytest.raises(
         validation_error,
         match=(
-            "TAA timestamp {} is too precise and is a privacy "
+            "Txn Author Agreement acceptance time {} is too precise and is a privacy "
             "risk.".format(request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm])
         )
     ):
