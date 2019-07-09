@@ -319,7 +319,8 @@ class WriteRequestManager(RequestManager):
         if datetime_r_taa.time() != time(0):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "TAA timestamp {} is too precise and is a privacy risk."
+                "Txn Author Agreement acceptance time {}"
+                " is too precise and is a privacy risk."
                 .format(r_taa_a_ts))
         date_lowest = datetime.utcfromtimestamp(
             taa_txn_time -
