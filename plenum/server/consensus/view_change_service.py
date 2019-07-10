@@ -6,6 +6,7 @@ from typing import List, Dict, Optional, Union
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
+from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 from plenum.server.quorums import Quorums
@@ -115,12 +116,13 @@ class ViewChangeService:
         self._timer = timer
         self._bus = bus
         self._network = network
-        self._stash = defaultdict(list)  # type: Dict[int, List[Tuple[Union[ViewChange, ViewChangeAck, NewView], str]]]
+        self._stasher = StashingRouter()
         self._votes = ViewChangeVotesForView(self._data.quorums)
 
-        network.subscribe(ViewChange, self.process_view_change_message)
-        network.subscribe(ViewChangeAck, self.process_view_change_ack_message)
-        network.subscribe(NewView, self.process_new_view_message)
+        self._stasher.subscribe(ViewChange, self.process_view_change_message)
+        self._stasher.subscribe(ViewChangeAck, self.process_view_change_ack_message)
+        self._stasher.subscribe(NewView, self.process_new_view_message)
+        self._stasher.subscribe_to(network)
 
     def start_view_change(self, view_no: Optional[int] = None):
         if view_no is None:
@@ -144,16 +146,12 @@ class ViewChangeService:
         )
         self._network.send(vc)
 
-        # TODO: Use generic stasher instead
-        for msg, frm in self._stash[view_no]:
-            self._network.process_incoming(msg, frm)
-        for v in list(self._stash.keys()):
-            if v <= view_no:
-                del self._stash[v]
+        self._stasher.unstash()
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
-        if not self._validate(msg, frm):
-            return
+        result = self._validate(msg, frm)
+        if result != PROCESS:
+            return result
 
         self._votes.add_view_change(msg, frm)
 
@@ -169,8 +167,9 @@ class ViewChangeService:
         self._network.send(vca, self._data.primary_name)
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
-        if not self._validate(msg, frm):
-            return
+        result = self._validate(msg, frm)
+        if result != PROCESS:
+            return result
 
         if not self._data.is_primary:
             return
@@ -179,8 +178,9 @@ class ViewChangeService:
         self._send_new_view_if_needed()
 
     def process_new_view_message(self, msg: NewView, frm: str):
-        if not self._validate(msg, frm):
-            return
+        result = self._validate(msg, frm)
+        if result != PROCESS:
+            return result
 
         self._data.waiting_for_new_view = False
 
@@ -192,21 +192,19 @@ class ViewChangeService:
         # TODO: Do we really need this?
         return self._find_primary(self._data.validators, view_no) == self._data.name
 
-    def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> bool:
+    def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
 
         if msg.viewNo < self._data.view_no:
-            return False
+            return DISCARD
 
         if msg.viewNo == self._data.view_no and not self._data.waiting_for_new_view:
-            return False
+            return DISCARD
 
         if msg.viewNo > self._data.view_no:
-            # TODO: Use generic stasher instead
-            self._stash[msg.viewNo].append((msg, frm))
-            return False
+            return STASH
 
-        return True
+        return PROCESS
 
     def _send_new_view_if_needed(self):
         if not self._votes.has_view_change_quorum:
