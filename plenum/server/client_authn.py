@@ -14,11 +14,8 @@ from plenum.common.exceptions import EmptySignature, \
     InsufficientSignatures, InsufficientCorrectSignatures
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
-from plenum.server.action_req_handler import ActionReqHandler
-from plenum.server.config_req_handler import ConfigReqHandler
-from plenum.server.domain_req_handler import DomainRequestHandler
-from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
+from plenum.server.request_handlers.utils import get_nym_details
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -160,8 +157,8 @@ class SimpleAuthNr(NaclAuthNr):
             # created identity, also its possible to have multiple uncommitted
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
-            nym = DomainRequestHandler.getNymDetails(
-                self.state, identifier, isCommitted=False)
+            nym = get_nym_details(
+                self.state, identifier, is_committed=False)
             if not nym:
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)

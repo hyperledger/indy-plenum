@@ -28,10 +28,10 @@ def node_handler():
 
 @pytest.fixture(scope='function')
 def node_request():
-    return Request(identifier=randomString(),
+    return Request(identifier='12121212121212',
                    reqId=5,
                    operation={'type': NODE,
-                              'dest': randomString(),
+                              'dest': '12121212121212',
                               TARGET_NYM: randomString(),
                               'data': {BLS_KEY: randomString(),
                                        BLS_KEY_PROOF: randomString(),

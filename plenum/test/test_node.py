@@ -9,9 +9,8 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
-from plenum.common.txn_util import get_from, get_req_id, get_payload_data, get_type
+from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
-from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
@@ -34,7 +33,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID, TS_LABEL, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
-from plenum.server import replica, req_handler
+from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
@@ -54,7 +53,6 @@ from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
 from plenum.common.config_helper import PNodeConfigHelper
-from hashlib import sha256
 from plenum.common.messages.node_messages import Reply
 
 logger = getlogger()
@@ -63,33 +61,6 @@ logger = getlogger()
 @spyable(methods=[CoreAuthNr.authenticate])
 class TestCoreAuthnr(CoreAuthNr):
     pass
-
-
-class TestDomainRequestHandler(DomainRequestHandler):
-    write_types = DomainRequestHandler.write_types.union({'buy', 'randombuy', })
-    query_types = DomainRequestHandler.query_types.union({'get_buy', })
-
-    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
-        typ = get_type(txn)
-        if typ == 'buy':
-            key, value = self.prepare_buy_for_state(txn)
-            self.state.set(key, value)
-            logger.trace('{} after adding to state, headhash is {}'.
-                         format(self, self.state.headHash))
-        else:
-            super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
-
-    def gen_txn_path(self, txn):
-        return None
-
-    @staticmethod
-    def prepare_buy_for_state(txn):
-        from common.serializers.serialization import domain_state_serializer
-        identifier = get_from(txn)
-        req_id = get_req_id(txn)
-        value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
-        key = BuyHandler.prepare_buy_key(identifier, req_id)
-        return key, value
 
 
 NodeRef = TypeVar('NodeRef', Node, str)
@@ -276,13 +247,6 @@ class TestNodeCore(StackedTester):
 
     def ensureKeysAreSetup(self):
         pass
-
-    def init_domain_req_handler(self):
-        return TestDomainRequestHandler(self.domainLedger,
-                                        self.states[DOMAIN_LEDGER_ID],
-                                        self.config, self.reqProcessors,
-                                        self.bls_bft.bls_store,
-                                        self.db_manager.get_store(TS_LABEL))
 
     def init_core_authenticator(self):
         state = self.getState(DOMAIN_LEDGER_ID)

@@ -19,9 +19,8 @@ from plenum.server.request_handlers.utils import is_steward, encode_state_value,
 
 class TxnAuthorAgreementHandler(WriteRequestHandler):
 
-    def __init__(self, database_manager: DatabaseManager, bls_crypto_verifier):
+    def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID)
-        self.bls_crypto_verifier = bls_crypto_verifier
 
     def static_validation(self, request: Request):
         pass
@@ -46,6 +45,9 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
         version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
+        self._update_txn_author_agreement(text, version, seq_no, txn_time)
+
+    def _update_txn_author_agreement(self, text, version, seq_no, txn_time):
         digest = StaticTAAHelper.taa_digest(text, version)
         data = encode_state_value({
             TXN_AUTHOR_AGREEMENT_TEXT: text,

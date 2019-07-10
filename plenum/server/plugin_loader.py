@@ -10,7 +10,7 @@ from typing import Any, Set, Dict
 from stp_core.common.log import getlogger
 
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
-    PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
+    PLUGIN_TYPE_STATS_CONSUMER
 
 logger = getlogger()
 
@@ -57,7 +57,7 @@ class PluginLoader:
         if not path:
             raise ValueError("path is required")
         self.path = path
-        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING,
+        self._validTypes = [PLUGIN_TYPE_VERIFICATION,
                             PLUGIN_TYPE_STATS_CONSUMER]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()

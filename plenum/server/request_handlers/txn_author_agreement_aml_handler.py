@@ -19,9 +19,8 @@ from plenum.server.request_handlers.utils import is_steward, encode_state_value
 class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
     state_serializer = pool_state_serializer
 
-    def __init__(self, database_manager: DatabaseManager, bls_crypto_verifier):
+    def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, TXN_AUTHOR_AGREEMENT_AML, CONFIG_LEDGER_ID)
-        self.bls_crypto_verifier = bls_crypto_verifier
 
     def static_validation(self, request: Request):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
@@ -44,6 +43,9 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
         payload = get_payload_data(txn)
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
+        self._update_txn_author_agreement_acceptance_mechanisms(payload, seq_no, txn_time)
+
+    def _update_txn_author_agreement_acceptance_mechanisms(self, payload, seq_no, txn_time):
         serialized_data = encode_state_value(payload, seq_no, txn_time, serializer=config_state_serializer)
         version = payload[AML_VERSION]
         self.state.set(StaticTAAHelper.state_path_taa_aml_latest(), serialized_data)

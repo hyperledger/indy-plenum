@@ -1392,3 +1392,10 @@ class MockNetwork(ExternalBus):
 
     def _send_message(self, msg: Any, dst: ExternalBus.Destination):
         self.sent_messages.append((msg, dst))
+
+
+def get_handler_by_type_wm(write_manager, h_type):
+    for h_l in write_manager.request_handlers.values():
+        for h in h_l:
+            if isinstance(h, h_type):
+                return h
