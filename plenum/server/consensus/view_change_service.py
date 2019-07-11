@@ -151,7 +151,7 @@ class ViewChangeService:
         )
         self._network.send(vc)
 
-        self._stasher.process_stashed()
+        self._stasher.process_all_stashed()
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
