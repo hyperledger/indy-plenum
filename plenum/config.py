@@ -393,6 +393,9 @@ ACCEPTABLE_FRESHNESS_INTERVALS_COUNT = 2
 # Limit for numbers of 3pc and checkpoint messages stashed in replica
 REPLICA_STASH_LIMIT = 100000
 
+# Limit for number of messages that are allowed to be stashed in view change service
+VIEW_CHANGE_SERVICE_STASH_LIMIT = 1000
+
 # Time, which we wait before request propagate, when discovered unfinalized preprepare
 PROPAGATE_REQUEST_DELAY = 2
 
