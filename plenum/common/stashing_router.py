@@ -13,6 +13,10 @@ STASH = 1
 
 class StashingQueue(ABC):
     @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @abstractmethod
     def push(self, item: Any) -> bool:
         """
         Try to add item to stash, returns True if successful, False otherwise
@@ -109,11 +113,28 @@ class StashingRouter:
         :param code: stash code, None if we need to unstash all
         :param stop_on_stash: whether processing should stop on first message that need to be re-stashed
         """
-        if code is not None:
-            self._process_stashed(code, stop_on_stash)
-        else:
+        if code is None:
             for code in sorted(self._queues.keys()):
-                self._process_stashed(code, stop_on_stash)
+                self.process_stashed(code, stop_on_stash)
+            return
+
+        queue = self._queues[code]
+        if stop_on_stash:
+            while queue:
+                msg_tuple = queue.pop()
+                if not self._resolve_and_process(*msg_tuple):
+                    break
+        else:
+            data = queue.pop_all()
+            for msg_tuple in data:
+                self._resolve_and_process(*msg_tuple)
+
+    def stash_size(self, code: Optional[int] = None):
+        if code is None:
+            return sum(len(q) for q in self._queues.values())
+
+        queue = self._queues.get(code)
+        return len(queue) if queue else 0
 
     def _process(self, handler: Handler, message: Any, *args) -> bool:
         """
@@ -152,15 +173,3 @@ class StashingRouter:
             # TODO: This is actually better be logged on info level with some throttling applied,
             #  however this cries for some generic easy to use solution, which we don't have yet.
             self._logger.debug("Cannot stash message {} with metadata {} - queue is full".format(message, args))
-
-    def _process_stashed(self, code: int, stop_on_stash: bool):
-        queue = self._queues[code]
-        if stop_on_stash:
-            while queue:
-                msg_tuple = queue.pop()
-                if not self._resolve_and_process(*msg_tuple):
-                    break
-        else:
-            data = queue.pop_all()
-            for msg_tuple in data:
-                self._resolve_and_process(*msg_tuple)

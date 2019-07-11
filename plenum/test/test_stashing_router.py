@@ -62,15 +62,19 @@ def test_stashing_router_can_stash_messages():
     msg_b = create_some_message()
     bus.send(msg_a)
     bus.send(msg_b)
+    assert router.stash_size() == 2
     assert calls == [msg_a, msg_b]
 
     router.process_stashed()
+    assert router.stash_size() == 1
     assert calls == [msg_a, msg_b, msg_a, msg_b]
 
     router.process_stashed()
+    assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_a, msg_b, msg_a]
 
     router.process_stashed()
+    assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_a, msg_b, msg_a]
 
 
@@ -92,18 +96,25 @@ def test_stashing_router_can_stash_messages_with_different_reasons():
     messages = [create_some_message() for _ in range(10)]
     for msg in messages:
         bus.send(msg)
+    assert router.stash_size() == len(messages)
+    assert router.stash_size(STASH + 0) + router.stash_size(STASH + 1) == router.stash_size()
 
     calls.clear()
     router.process_stashed()
+    assert router.stash_size() == len(messages)
     assert calls == sorted(messages, key=lambda m: m.int_field % 2)
 
     calls.clear()
     router.process_stashed(STASH + 0)
+    assert router.stash_size() == len(messages)
+    assert router.stash_size(STASH + 0) == len(calls)
     assert all(msg.int_field % 2 == 0 for msg in calls)
     assert all(msg in messages for msg in calls)
 
     calls.clear()
     router.process_stashed(STASH + 1)
+    assert router.stash_size() == len(messages)
+    assert router.stash_size(STASH + 1) == len(calls)
     assert all(msg.int_field % 2 != 0 for msg in calls)
     assert all(msg in messages for msg in calls)
 
@@ -158,20 +169,25 @@ def test_stashing_router_can_process_stashed_until_first_restash():
     bus.send(msg_c)
     bus.send(msg_d)
     bus.send(msg_e)
+    assert router.stash_size() == 3
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e]
 
     # Stash contains A, C, E, going to stop on C
     router.process_stashed(stop_on_stash=True)
+    assert router.stash_size() == 2
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c]
 
     # Stash contains E, C, going to stop on C
     router.process_stashed(stop_on_stash=True)
+    assert router.stash_size() == 1
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c, msg_e, msg_c]
 
     # Stash contains C, not going to stop
     router.process_stashed(stop_on_stash=True)
+    assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c, msg_e, msg_c, msg_c]
 
     # Stash doesn't contain anything
     router.process_stashed(stop_on_stash=True)
+    assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c, msg_e, msg_c, msg_c]
