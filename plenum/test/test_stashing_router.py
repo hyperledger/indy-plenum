@@ -1,13 +1,13 @@
 from unittest.mock import Mock
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.stashing_router import StashingRouter, STASH
+from plenum.common.stashing_router import StashingRouter, STASH, PROCESS, DISCARD
 from plenum.test.test_event_bus import SomeMessage, OtherMessage, create_some_message, create_other_message
 
 
 def test_stashing_router_correctly_routes_messages():
-    some_handler = Mock()
-    other_handler = Mock()
+    some_handler = Mock(return_value=PROCESS)
+    other_handler = Mock(return_value=DISCARD)
 
     bus = InternalBus()
     router = StashingRouter(10)
@@ -30,7 +30,7 @@ def test_stashing_router_correctly_routes_messages():
 
 
 def test_stashing_router_correctly_handles_multiple_arguments():
-    handler = Mock()
+    handler = Mock(return_value=PROCESS)
 
     bus = InternalBus()
     router = StashingRouter(10)
@@ -39,6 +39,44 @@ def test_stashing_router_correctly_handles_multiple_arguments():
 
     message = create_some_message()
     bus.send(message, 'hello')
+    handler.assert_called_once_with(message, 'hello')
+
+
+def test_process_all_stashed_doesnt_do_anything_when_there_are_no_items_in_stash():
+    handler = Mock(return_value=PROCESS)
+
+    bus = InternalBus()
+    router = StashingRouter(10)
+    router.subscribe(SomeMessage, handler)
+    router.subscribe_to(bus)
+
+    router.process_all_stashed()
+    handler.assert_not_called()
+
+    message = create_some_message()
+    bus.send(message, 'hello')
+    handler.assert_called_once_with(message, 'hello')
+
+    router.process_all_stashed()
+    handler.assert_called_once_with(message, 'hello')
+
+
+def test_process_stashed_until_restash_doesnt_do_anything_when_there_are_no_items_in_stash():
+    handler = Mock(return_value=PROCESS)
+
+    bus = InternalBus()
+    router = StashingRouter(10)
+    router.subscribe(SomeMessage, handler)
+    router.subscribe_to(bus)
+
+    router.process_stashed_until_first_restash()
+    handler.assert_not_called()
+
+    message = create_some_message()
+    bus.send(message, 'hello')
+    handler.assert_called_once_with(message, 'hello')
+
+    router.process_stashed_until_first_restash()
     handler.assert_called_once_with(message, 'hello')
 
 
@@ -65,15 +103,15 @@ def test_stashing_router_can_stash_messages():
     assert router.stash_size() == 2
     assert calls == [msg_a, msg_b]
 
-    router.process_stashed()
+    router.process_all_stashed()
     assert router.stash_size() == 1
     assert calls == [msg_a, msg_b, msg_a, msg_b]
 
-    router.process_stashed()
+    router.process_all_stashed()
     assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_a, msg_b, msg_a]
 
-    router.process_stashed()
+    router.process_all_stashed()
     assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_a, msg_b, msg_a]
 
@@ -100,19 +138,19 @@ def test_stashing_router_can_stash_messages_with_different_reasons():
     assert router.stash_size(STASH + 0) + router.stash_size(STASH + 1) == router.stash_size()
 
     calls.clear()
-    router.process_stashed()
+    router.process_all_stashed()
     assert router.stash_size() == len(messages)
     assert calls == sorted(messages, key=lambda m: m.int_field % 2)
 
     calls.clear()
-    router.process_stashed(STASH + 0)
+    router.process_all_stashed(STASH + 0)
     assert router.stash_size() == len(messages)
     assert router.stash_size(STASH + 0) == len(calls)
     assert all(msg.int_field % 2 == 0 for msg in calls)
     assert all(msg in messages for msg in calls)
 
     calls.clear()
-    router.process_stashed(STASH + 1)
+    router.process_all_stashed(STASH + 1)
     assert router.stash_size() == len(messages)
     assert router.stash_size(STASH + 1) == len(calls)
     assert all(msg.int_field % 2 != 0 for msg in calls)
@@ -142,7 +180,7 @@ def test_stashing_router_can_stash_and_sort_messages():
     assert calls == messages
 
     calls.clear()
-    router.process_stashed()
+    router.process_all_stashed()
     assert calls == sorted(messages, key=sort_key)
 
 
@@ -173,21 +211,21 @@ def test_stashing_router_can_process_stashed_until_first_restash():
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e]
 
     # Stash contains A, C, E, going to stop on C
-    router.process_stashed(stop_on_stash=True)
+    router.process_stashed_until_first_restash()
     assert router.stash_size() == 2
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c]
 
     # Stash contains E, C, going to stop on C
-    router.process_stashed(stop_on_stash=True)
+    router.process_stashed_until_first_restash()
     assert router.stash_size() == 1
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c, msg_e, msg_c]
 
     # Stash contains C, not going to stop
-    router.process_stashed(stop_on_stash=True)
+    router.process_stashed_until_first_restash()
     assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c, msg_e, msg_c, msg_c]
 
     # Stash doesn't contain anything
-    router.process_stashed(stop_on_stash=True)
+    router.process_stashed_until_first_restash()
     assert router.stash_size() == 0
     assert calls == [msg_a, msg_b, msg_c, msg_d, msg_e, msg_a, msg_c, msg_e, msg_c, msg_c]
