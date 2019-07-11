@@ -116,6 +116,42 @@ def test_stashing_router_can_stash_messages():
     assert calls == [msg_a, msg_b, msg_a, msg_b, msg_a]
 
 
+def test_stashing_router_can_stash_messages_with_metadata():
+    stash_count = 3
+    calls = []
+
+    def handler(msg, frm):
+        nonlocal stash_count
+        calls.append((msg, frm))
+        if stash_count > 0:
+            stash_count -= 1
+            return STASH
+
+    bus = InternalBus()
+    router = StashingRouter(10)
+    router.subscribe(SomeMessage, handler)
+    router.subscribe_to(bus)
+
+    msg_a = create_some_message()
+    msg_b = create_some_message()
+    bus.send(msg_a, 'A')
+    bus.send(msg_b, 'B')
+    assert router.stash_size() == 2
+    assert calls == [(msg_a, 'A'), (msg_b, 'B')]
+
+    router.process_all_stashed()
+    assert router.stash_size() == 1
+    assert calls == [(msg_a, 'A'), (msg_b, 'B'), (msg_a, 'A'), (msg_b, 'B')]
+
+    router.process_all_stashed()
+    assert router.stash_size() == 0
+    assert calls == [(msg_a, 'A'), (msg_b, 'B'), (msg_a, 'A'), (msg_b, 'B'), (msg_a, 'A')]
+
+    router.process_all_stashed()
+    assert router.stash_size() == 0
+    assert calls == [(msg_a, 'A'), (msg_b, 'B'), (msg_a, 'A'), (msg_b, 'B'), (msg_a, 'A')]
+
+
 def test_stashing_router_can_stash_messages_with_different_reasons():
     calls = []
 
