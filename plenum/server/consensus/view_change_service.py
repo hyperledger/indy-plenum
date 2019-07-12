@@ -1,15 +1,17 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
-from typing import List, Dict, Optional, Union
+from typing import List, Optional, Union
 
 from common.serializers.json_serializer import JsonSerializer
+from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
 from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 from plenum.server.quorums import Quorums
+from stp_core.common.log import getlogger
 
 
 def view_change_digest(msg: ViewChange) -> str:
@@ -112,11 +114,14 @@ class ViewChangeVotesForView:
 
 class ViewChangeService:
     def __init__(self, data: ConsensusDataProvider, timer: TimerService, bus: InternalBus, network: ExternalBus):
+        self._config = getConfig()
+        self._logger = getlogger()
+
         self._data = data
         self._timer = timer
         self._bus = bus
         self._network = network
-        self._stasher = StashingRouter()
+        self._stasher = StashingRouter(self._config.VIEW_CHANGE_SERVICE_STASH_LIMIT)
         self._votes = ViewChangeVotesForView(self._data.quorums)
 
         self._stasher.subscribe(ViewChange, self.process_view_change_message)
@@ -146,7 +151,7 @@ class ViewChangeService:
         )
         self._network.send(vc)
 
-        self._stasher.unstash()
+        self._stasher.process_all_stashed()
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
