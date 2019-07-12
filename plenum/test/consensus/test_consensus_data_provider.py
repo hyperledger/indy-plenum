@@ -6,9 +6,8 @@ from plenum.server.consensus.consensus_data_provider import ConsensusDataProvide
 def test_initial_consensus_state(some_item, other_item, validators):
     name = some_item(validators)
     primary = other_item(validators)
-    data = ConsensusDataProvider(name)
+    data = ConsensusDataProvider(name, validators)
     data.set_validators(validators)
-    data.set_primary_name(primary)
 
     # General info
     assert data.name == name
@@ -16,7 +15,7 @@ def test_initial_consensus_state(some_item, other_item, validators):
     # Validators
     assert data.validators == validators
     assert data.quorums.n == len(validators)
-    assert data.primary_name == primary
+    assert data.primary_name == None
 
     # View
     assert data.view_no == 0
@@ -31,7 +30,7 @@ def test_initial_consensus_state(some_item, other_item, validators):
     assert list(data.checkpoints) == []
 
 
-def test_pp_storages(pre_prepare, provider):
+def test_pp_storages_ordering(pre_prepare, provider):
     provider.preprepare_batch(pre_prepare)
     assert provider.preprepared
     assert not provider.prepared
@@ -40,15 +39,17 @@ def test_pp_storages(pre_prepare, provider):
     assert not provider.preprepared
     assert provider.prepared
 
-    provider.free_batch(pre_prepare)
+    provider.clear_batch(pre_prepare)
     assert not provider.preprepared
     assert not provider.prepared
 
+
+def test_pp_storages_freeing(pre_prepare, provider):
     provider.prepared.append(pre_prepare)
     provider.preprepared.append(pre_prepare)
     assert provider.preprepared
     assert provider.prepared
-    provider.free_all()
+    provider.clear_all_batches()
     assert not provider.preprepared
     assert not provider.prepared
 

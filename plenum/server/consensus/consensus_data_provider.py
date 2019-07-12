@@ -2,8 +2,6 @@ from typing import List
 
 from sortedcontainers import SortedListWithKey
 
-from plenum.common.util import SortedDict
-
 from common.exceptions import LogicError
 
 from plenum.common.messages.node_messages import Checkpoint, PrePrepare
@@ -111,9 +109,12 @@ class ConsensusDataProvider:
         When 3pc batch processed, it removed from _prepared list
         """
         # TODO: move logic checks upper the functions stack
-        if pp in self._preprepared == pp not in self._prepared:
+        if pp in self._preprepared == pp in self._prepared:
             raise LogicError('Batch can be only in one condition while clearing ')
-        self._prepared.remove(pp)
+        if pp in self._prepared:
+            self._prepared.remove(pp)
+        else:
+            self._preprepared.remove(pp)
 
     def clear_all_batches(self):
         """

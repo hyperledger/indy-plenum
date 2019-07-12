@@ -59,6 +59,7 @@ def pre_prepare():
         True
     )
 
+
 @pytest.fixture
-def provider():
-    return ConsensusDataProvider('sample')
+def provider(validators):
+    return ConsensusDataProvider('sample', validators)
