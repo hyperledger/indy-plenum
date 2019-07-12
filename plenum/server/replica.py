@@ -209,7 +209,6 @@ class ConsensusDataHelper:
         """
         if pp not in self.consensus_data.preprepared:
             raise LogicError('Unprepared pp must be stored in preprepared')
-        self.consensus_data.preprepared.remove(pp)
         self.consensus_data.prepared.append(pp)
 
     def clear_batch(self, pp: PrePrepare):
@@ -246,10 +245,10 @@ class ConsensusDataHelper:
         # because according to paper, checkpoints cleared only when next stabilized.
         # Avoid using it while implement other services.
         self.consensus_data.checkpoints.clear()
-        self.consensus_data.stable_checkpoint = None
+        self.consensus_data.stable_checkpoint = 0
 
     def set_stable_checkpoint(self, end_seq_no):
-        if not self.consensus_data.checkpoints.irange_key(end_seq_no, end_seq_no):
+        if not list(self.consensus_data.checkpoints.irange_key(end_seq_no, end_seq_no)):
             raise LogicError('Stable checkpoint must be in checkpoints')
         self.consensus_data.stable_checkpoint = end_seq_no
         self.clear_batch_till_seq_no(end_seq_no)

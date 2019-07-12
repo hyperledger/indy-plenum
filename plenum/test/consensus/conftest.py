@@ -1,12 +1,10 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import get_utc_epoch
-
 from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.view_change_service import ViewChangeService
-from plenum.server.replica import ConsensusDataHelper
 from plenum.test.greek import genNodeNames
 
 
@@ -59,8 +57,3 @@ def pre_prepare():
         0,
         True
     )
-
-
-@pytest.fixture
-def consensus_data_helper(validators):
-    return ConsensusDataHelper(ConsensusSharedData('sample', validators, 0))

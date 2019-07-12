@@ -1,7 +1,4 @@
-from plenum.common.util import SortedDict
-
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica import ConsensusDataHelper
 
 
 def test_initial_consensus_state(some_item, other_item, validators):
@@ -27,33 +24,5 @@ def test_initial_consensus_state(some_item, other_item, validators):
     assert data.prepared == []
 
     # Checkpoints
-    assert data.stable_checkpoint == None
+    assert data.stable_checkpoint == 0
     assert list(data.checkpoints) == []
-
-
-def test_pp_storages_ordering(pre_prepare, consensus_data_helper: ConsensusDataHelper):
-    consensus_data_helper.preprepare_batch(pre_prepare)
-    assert consensus_data_helper.consensus_data.preprepared
-    assert not consensus_data_helper.consensus_data.prepared
-
-    consensus_data_helper.prepare_batch(pre_prepare)
-    assert not consensus_data_helper.consensus_data.preprepared
-    assert consensus_data_helper.consensus_data.prepared
-
-    consensus_data_helper.clear_batch(pre_prepare)
-    assert not consensus_data_helper.consensus_data.preprepared
-    assert not consensus_data_helper.consensus_data.prepared
-
-
-def test_pp_storages_freeing(pre_prepare, consensus_data_helper):
-    consensus_data_helper.consensus_data.prepared.append(pre_prepare)
-    consensus_data_helper.consensus_data.preprepared.append(pre_prepare)
-    assert consensus_data_helper.consensus_data.preprepared
-    assert consensus_data_helper.consensus_data.prepared
-    consensus_data_helper.clear_all_batches()
-    assert not consensus_data_helper.consensus_data.preprepared
-    assert not consensus_data_helper.consensus_data.prepared
-
-
-def test_checkpoint_storages(consensus_data_helper):
-    pass
