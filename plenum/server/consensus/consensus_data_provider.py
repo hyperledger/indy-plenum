@@ -18,6 +18,11 @@ class ConsensusDataProvider:
         self.waiting_for_new_view = False
         self.primary_name = primary_name
 
+        self._legacy_vc_in_progress = False
+        self._is_participating = False
+        self._requests = []
+        self._last_ordered_3pc = (0, 0)
+
     @property
     def name(self) -> str:
         return self._name
@@ -67,3 +72,46 @@ class ConsensusDataProvider:
     @property
     def checkpoints(self) -> List[Checkpoint]:
         return []
+
+    """
+    Needs for OrderingService
+    """
+    @property
+    def legacy_vc_in_progress(self):
+        return self._legacy_vc_in_progress
+
+    @legacy_vc_in_progress.setter
+    def legacy_vc_in_progress(self, vc_status: bool):
+        self._legacy_vc_in_progress = vc_status
+
+    @property
+    def is_participating(self):
+        return self._is_participating
+
+    @is_participating.setter
+    def is_participating(self, particip_status: bool):
+        self._is_participating = particip_status
+
+    @property
+    def low_watermark(self):
+        pass
+
+    @property
+    def high_watermark(self):
+        pass
+
+    @property
+    def requests(self):
+        return self._requests
+
+    @property
+    def last_ordered_3pc(self) -> tuple:
+        return self._last_ordered_3pc
+
+    @last_ordered_3pc.setter
+    def last_ordered_3pc(self, key3PC):
+        self._last_ordered_3pc = key3PC
+        self.logger.info('{} set last ordered as {}'.format(
+            self, self._last_ordered_3pc))
+
+
