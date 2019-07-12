@@ -90,7 +90,7 @@ class ConsensusDataProvider:
             raise LogicError('New pp cannot be stored in preprepared')
         if pp in self._prepared:
             raise LogicError('New pp cannot be stored in prepared')
-        if pp.ppSeqNo < self._checkpoints[-1].seqNoEnd:
+        if self._checkpoints and pp.ppSeqNo < self._checkpoints[-1].seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
 
         self._preprepared.append(pp)
