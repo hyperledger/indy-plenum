@@ -26,7 +26,7 @@ class ConsensusDataProvider:
         self.primary_name = None
         self.set_validators(validators)
         self._stable_checkpoint = None
-        self._checkpoints = SortedListWithKey(lambda checkpoint: checkpoint.seqNoEnd)
+        self._checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
         self._preprepared = []
         self._prepared = []
 
