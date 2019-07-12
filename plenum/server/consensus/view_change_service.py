@@ -5,7 +5,7 @@ from common.serializers.json_serializer import JsonSerializer
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
 from plenum.common.timer import TimerService
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.quorums import Quorums
 
 
@@ -13,6 +13,7 @@ class ViewChangeVotesForView:
     """
     This is a container for view change votes for specific view
     """
+
     def __init__(self, quorums: Quorums):
         self._quorums = quorums
 
@@ -28,7 +29,7 @@ class ViewChangeVotesForView:
 
 
 class ViewChangeService:
-    def __init__(self, data: ConsensusDataProvider, timer: TimerService, bus: InternalBus, network: ExternalBus):
+    def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus):
         self._data = data
         self._timer = timer
         self._bus = bus

@@ -4,8 +4,9 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import get_utc_epoch
 
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.replica import ConsensusDataHelper
 from plenum.test.greek import genNodeNames
 
 
@@ -35,7 +36,7 @@ def primary(validators):
 @pytest.fixture
 def consensus_data(validators, primary, initial_view_no):
     def _data(name):
-        data = ConsensusDataProvider(name, validators, primary(initial_view_no))
+        data = ConsensusSharedData(name, validators, 0)
         data.view_no = initial_view_no
         return data
 
@@ -61,5 +62,5 @@ def pre_prepare():
 
 
 @pytest.fixture
-def provider(validators):
-    return ConsensusDataProvider('sample', validators)
+def consensus_data_helper(validators):
+    return ConsensusDataHelper(ConsensusSharedData('sample', validators, 0))
