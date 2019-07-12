@@ -14,7 +14,7 @@ class ConsensusSharedData:
     TODO: Restore primary name from audit ledger instead of passing through constructor
     """
 
-    def __init__(self, name: str, validators: List[str], inst_id):
+    def __init__(self, name: str, inst_id):
         self._name = name
         self.inst_id = inst_id
         self.view_no = 0
@@ -22,11 +22,12 @@ class ConsensusSharedData:
         self.pp_seq_no = 0
         self.waiting_for_new_view = False
         self.primary_name = None
-        self.set_validators(validators)
         self.stable_checkpoint = 0
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
         self.preprepared = []  # type:  List[PrePrepare]
         self.prepared = []  # type:  List[PrePrepare]
+        self._validators = []
+        self._quorums = None
 
     @property
     def name(self) -> str:

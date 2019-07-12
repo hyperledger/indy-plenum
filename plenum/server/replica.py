@@ -221,8 +221,8 @@ class ConsensusDataHelper:
             self.consensus_data.prepared.remove(pp)
 
     def clear_batch_till_seq_no(self, seq_no):
-        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo < seq_no]
-        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo < seq_no]
+        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo >= seq_no]
+        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo >= seq_no]
 
     def clear_all_batches(self):
         """
@@ -522,9 +522,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
         self._consensus_data = ConsensusSharedData(self.node.name,
-                                                   self.node.poolManager.node_ids_ordered_by_rank(
-                                                       self.node.nodeReg,
-                                                       self.node.poolManager._ordered_node_ids),
                                                    self.instId)
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
 

@@ -34,7 +34,7 @@ def primary(validators):
 @pytest.fixture
 def consensus_data(validators, primary, initial_view_no):
     def _data(name):
-        data = ConsensusSharedData(name, validators, 0)
+        data = ConsensusSharedData(name, 0)
         data.view_no = initial_view_no
         return data
 
