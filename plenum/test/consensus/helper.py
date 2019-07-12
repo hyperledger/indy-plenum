@@ -1,7 +1,6 @@
 from typing import Optional, List
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.node_messages import ViewChange
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer

@@ -3,7 +3,7 @@ import string
 import pytest
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
 from plenum.test.helper import MockNetwork
 
@@ -25,7 +25,7 @@ def view_change_message():
             stableCheckpoint=4,
             prepared=[],
             preprepared=[],
-            checkpoints=[]
+            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest='some')]
         )
         return vc
     return _view_change
