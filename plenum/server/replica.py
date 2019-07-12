@@ -1151,8 +1151,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         sender = self.generateName(sender, self.instId)
 
-        pp_key = ((msg.viewNo, msg.ppSeqNo) if
-        isinstance(msg, PrePrepare) else None)
+        pp_key = ((msg.viewNo, msg.ppSeqNo) if isinstance(msg, PrePrepare) else None)
 
         # the same PrePrepare might come here multiple times
         if (pp_key and (msg, sender) not in self.pre_prepare_tss[pp_key]):
@@ -1450,7 +1449,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         canOrder, reason = self.canOrder(commit)
         if canOrder:
-            pp = self.getPrePrepare(commit.viewNo, commit.ppSeqNo)
             self.logger.trace("{} returning request to node".format(self))
             self.doOrder(commit)
         else:
@@ -2033,8 +2031,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pp = self.getPrePrepare(*key)
         if pp is None:
             raise ValueError(
-                "{} no PrePrepare with a 'key' {} found"
-                    .format(self, key)
+                "{} no PrePrepare with a 'key' {} found".format(self, key)
             )
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
@@ -2188,19 +2185,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if self.isMaster:
             self.logger.display(
-                '{} has lagged for {} checkpoints so updating watermarks to {}'.
-                    format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+                '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
+                    self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
             self.h = stashed_checkpoint_ends[-1]
             if not self.isPrimary:
                 self.logger.display(
-                    '{} has lagged for {} checkpoints so the catchup procedure starts'.
-                        format(self, lag_in_checkpoints))
+                    '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
+                        self, lag_in_checkpoints))
                 self.node.start_catchup()
         else:
             self.logger.info(
                 '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
-                'shift watermarks and clean collections'.
-                    format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+                'shift watermarks and clean collections'.format(
+                    self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
             # Adjust last_ordered_3pc, shift watermarks, clean operational
             # collections and process stashed messages which now fit between
             # watermarks
@@ -2620,9 +2617,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 prefix=self
             )
 
-        return view_no == self.viewNo or (
-                view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
-            (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
+        return view_no == self.viewNo or (view_no < self.viewNo and self.last_prepared_before_view_change and
+                                          compare_3PC_keys((view_no, pp_seq_no),
+                                                           self.last_prepared_before_view_change) >= 0)
 
     def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
         for pp_seq_no in range(seq_frm, seq_to + 1):
@@ -2714,9 +2711,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pre_prepares = [pp for pp, _, _ in self.prePreparesPendingFinReqs
                         if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
         if pre_prepares:
-            if [pp for pp in pre_prepares if (
-                                                     pp.digest, pp.stateRootHash, pp.txnRootHash) == (
-                                                     digest, state_root, txn_root)]:
+            if [pp for pp in pre_prepares if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root)]:
                 self.logger.debug('{} not requesting a PRE-PREPARE since already '
                                   'found stashed for {}'.format(self, three_pc_key))
                 return False
@@ -2793,10 +2788,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
               ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
             return False
         else:
-            return (
-                    abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
-                    self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
-            )
+            return (abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                    self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS)
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """
