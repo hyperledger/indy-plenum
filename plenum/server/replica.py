@@ -47,7 +47,7 @@ from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from sortedcontainers import SortedList
+from sortedcontainers import SortedList, SortedListWithKey
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -235,7 +235,8 @@ class ConsensusDataHelper:
         self.consensus_data.checkpoints.add(checkpoint)
 
     def remove_checkpoint(self, end_seq_no):
-        new_checkpoints = [c for c in self.consensus_data.checkpoints if c.seqNoEnd != end_seq_no]
+        new_checkpoints = SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd != end_seq_no],
+                                            key=lambda checkpoint: checkpoint.seqNoEnd)
         if len(new_checkpoints) != len(self.consensus_data.checkpoints) - 1:
             raise LogicError('One checkpoint needed to be removed')
         self.consensus_data.checkpoints = new_checkpoints

@@ -1,4 +1,5 @@
 import pytest
+from plenum.common.messages.node_messages import Checkpoint
 
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica import ConsensusDataHelper
@@ -9,6 +10,15 @@ from plenum.test.consensus.conftest import pre_prepare
 @pytest.fixture
 def consensus_data_helper():
     return ConsensusDataHelper(ConsensusSharedData('sample', 0))
+
+
+@pytest.fixture
+def checkpoint():
+    return Checkpoint(instId=0,
+                      viewNo=0,
+                      seqNoStart=1,
+                      seqNoEnd=100,
+                      digest='digest')
 
 
 def test_pp_storages_ordering(pre_prepare, consensus_data_helper: ConsensusDataHelper):
@@ -52,4 +62,20 @@ def test_pp_storages_freeing_till(pre_prepare, consensus_data_helper: ConsensusD
     assert consensus_data_helper.consensus_data.preprepared
     assert consensus_data_helper.consensus_data.prepared
 
-# def test_checkpoint_storage()
+
+def test_checkpoint_storage(checkpoint, consensus_data_helper: ConsensusDataHelper):
+    consensus_data_helper.add_checkpoint(checkpoint)
+    assert checkpoint in consensus_data_helper.consensus_data.checkpoints
+    consensus_data_helper.remove_checkpoint(checkpoint.seqNoEnd)
+    assert checkpoint not in consensus_data_helper.consensus_data.checkpoints
+
+    consensus_data_helper.add_checkpoint(checkpoint)
+    assert checkpoint in consensus_data_helper.consensus_data.checkpoints
+    consensus_data_helper.reset_checkpoints()
+    assert checkpoint not in consensus_data_helper.consensus_data.checkpoints
+
+    consensus_data_helper.add_checkpoint(checkpoint)
+    assert checkpoint in consensus_data_helper.consensus_data.checkpoints
+    assert consensus_data_helper.consensus_data.stable_checkpoint == 0
+    consensus_data_helper.set_stable_checkpoint(checkpoint.seqNoEnd)
+    assert consensus_data_helper.consensus_data.stable_checkpoint == checkpoint.seqNoEnd
