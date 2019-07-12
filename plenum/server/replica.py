@@ -453,7 +453,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
-        self._consensus_data = ConsensusDataProvider(self.node.name)
+        self._consensus_data = ConsensusDataProvider(self.node.name,
+                                                     self.node.poolManager.node_ids_ordered_by_rank(
+                                                         self.node.nodeReg,
+                                                         self.node.poolManager._ordered_node_ids))
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
