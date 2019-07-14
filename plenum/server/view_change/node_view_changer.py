@@ -96,6 +96,9 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def node_status_db(self) -> KeyValueStorage:
         return self._node.nodeStatusDB
 
+    def view_setting_handler(self, view_no):
+        self._node.set_view_for_replicas(view_no)
+
 
 def create_view_changer(node, vchCls=ViewChanger):
     vc = vchCls(ViewChangerNodeDataProvider(node), node.timer)

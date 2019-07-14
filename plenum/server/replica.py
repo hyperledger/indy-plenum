@@ -233,8 +233,6 @@ class ConsensusDataHelper:
     def remove_checkpoint(self, end_seq_no):
         new_checkpoints = SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd != end_seq_no],
                                             key=lambda checkpoint: checkpoint.seqNoEnd)
-        if len(new_checkpoints) != len(self.consensus_data.checkpoints) - 1:
-            raise LogicError('One checkpoint needed to be removed')
         self.consensus_data.checkpoints = new_checkpoints
 
     def reset_checkpoints(self):
@@ -470,10 +468,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = self.get_current_time()
 
-        # self.lastOrderedPPSeqNo = 0
-        # Three phase key for the last ordered batch
-        self._last_ordered_3pc = (0, 0)
-
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
@@ -570,12 +564,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self._consensus_data.view_no, self._consensus_data.pp_seq_no
+        return self._consensus_data.last_ordered_3pc
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self._consensus_data.view_no = key3PC[0]
-        self._consensus_data.pp_seq_no = key3PC[1]
+        self._consensus_data.last_ordered_3pc = key3PC
         self.logger.info('{} set last ordered as {}'.format(self, key3PC))
 
     @property
@@ -3022,3 +3015,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def set_validators(self, validators):
         self._consensus_data.set_validators(validators)
+
+    def set_view_no(self, view_no):
+        self._consensus_data.view_no = view_no

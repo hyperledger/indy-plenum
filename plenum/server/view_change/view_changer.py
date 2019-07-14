@@ -130,6 +130,10 @@ class ViewChangerDataProvider(ABC):
     def node_status_db(self) -> Optional[KeyValueStorage]:
         pass
 
+    @abstractmethod
+    def view_setting_handler(self, view_no):
+        pass
+
 
 class ViewChanger():
 
@@ -205,6 +209,7 @@ class ViewChanger():
     def view_no(self, value):
         logger.info("{} setting view no to {}".format(self.name, value))
         self._view_no = value
+        self.provider.view_setting_handler(value)
 
     @property
     def name(self) -> str:

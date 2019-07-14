@@ -3523,3 +3523,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def get_validators(self):
         self.poolManager.node_ids_ordered_by_rank(
             self.nodeReg, self.poolManager.get_node_ids())
+
+    def set_view_for_replicas(self, view_no):
+        for r in self.replicas.values():
+            r.set_view_no(view_no)

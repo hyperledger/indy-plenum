@@ -19,7 +19,6 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.last_ordered_3pc = (0, 0)
-        self.pp_seq_no = 0
         self.waiting_for_new_view = False
         self.primary_name = None
         self.stable_checkpoint = 0
