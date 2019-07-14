@@ -17,6 +17,7 @@ class ReplicaService:
     def __init__(self, name: str, validators: List[str], primary_name: str,
                  timer: TimerService, bus: InternalBus, network: ExternalBus):
         self._data = ConsensusSharedData(name, validators, 0)
+        self._data.primary_name = primary_name
         self._orderer = OrderingService(self._data, bus, network)
         self._checkpointer = CheckpointService(self._data, bus, network)
         self._view_changer = ViewChangeService(self._data, timer, bus, network)

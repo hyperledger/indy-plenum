@@ -5,6 +5,7 @@ def test_initial_consensus_state(some_item, other_item, validators):
     name = some_item(validators)
     primary = other_item(validators)
     data = ConsensusSharedData(name, validators, 0)
+    data.primary_name = primary
     data.set_validators(validators)
 
     # General info
