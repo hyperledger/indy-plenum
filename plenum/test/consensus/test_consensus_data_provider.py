@@ -4,7 +4,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 def test_initial_consensus_state(some_item, other_item, validators):
     name = some_item(validators)
     primary = other_item(validators)
-    data = ConsensusSharedData(name, 0)
+    data = ConsensusSharedData(name, validators, 0)
     data.set_validators(validators)
 
     # General info

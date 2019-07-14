@@ -4,12 +4,12 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica import ConsensusDataHelper
 
-from plenum.test.consensus.conftest import pre_prepare
+from plenum.test.consensus.conftest import pre_prepare, validators
 
 
 @pytest.fixture
-def consensus_data_helper():
-    return ConsensusDataHelper(ConsensusSharedData('sample', 0))
+def consensus_data_helper(validators):
+    return ConsensusDataHelper(ConsensusSharedData('sample', validators, 0))
 
 
 @pytest.fixture

@@ -196,8 +196,6 @@ class ConsensusDataHelper:
         """
         if pp in self.consensus_data.preprepared:
             raise LogicError('New pp cannot be stored in preprepared')
-        if pp in self.consensus_data.prepared:
-            raise LogicError('New pp cannot be stored in prepared')
         if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
         self.consensus_data.preprepared.append(pp)
@@ -207,8 +205,6 @@ class ConsensusDataHelper:
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        if pp not in self.consensus_data.preprepared:
-            raise LogicError('Unprepared pp must be stored in preprepared')
         self.consensus_data.prepared.append(pp)
 
     def clear_batch(self, pp: PrePrepare):
@@ -523,6 +519,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
         self._consensus_data = ConsensusSharedData(self.node.name,
+                                                   self.node.poolManager.node_ids_ordered_by_rank(
+                                                       self.node.nodeReg, self.node.poolManager._ordered_node_ids),
                                                    self.instId)
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
 
@@ -3022,3 +3020,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def warn_suspicious_backup(self, nodeName, reason, code):
         self.logger.warning("backup replica {} raised suspicion on node {} for {}; suspicion code "
                             "is {}".format(self, nodeName, reason, code))
+
+    def set_validators(self, validators):
+        self._consensus_data.set_validators(validators)
