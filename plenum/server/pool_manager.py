@@ -424,3 +424,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             # cause cdp for every replica need to be independent
             r.set_validators(self.node_ids_ordered_by_rank(self.nodeReg,
                                                            self._ordered_node_ids))
+
+    def get_node_ids(self):
+        return self._ordered_node_ids

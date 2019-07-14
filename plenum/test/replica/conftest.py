@@ -36,7 +36,8 @@ class ReplicaFakeNode(FakeSomething):
             onBatchCreated=lambda self, *args, **kwargs: True,
             applyReq=lambda self, *args, **kwargs: True,
             primaries_batch_needed=False,
-            primaries=[]
+            primaries=[],
+            get_validators=lambda: []
         )
 
     @property

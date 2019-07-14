@@ -519,8 +519,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
         self._consensus_data = ConsensusSharedData(self.node.name,
-                                                   self.node.poolManager.node_ids_ordered_by_rank(
-                                                       self.node.nodeReg, self.node.poolManager._ordered_node_ids),
+                                                   self.node.get_validators(),
                                                    self.instId)
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
 
