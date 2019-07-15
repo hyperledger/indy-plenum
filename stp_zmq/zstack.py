@@ -1,6 +1,7 @@
 import inspect
 
 from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.timer import QueueTimer
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
@@ -68,7 +69,7 @@ class ZStack(NetworkInterface):
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
                  create_listener_monitor=False, metrics=NullMetricsCollector(),
-                 mt_incoming_size=None, mt_outgoing_size=None):
+                 mt_incoming_size=None, mt_outgoing_size=None, timer=QueueTimer()):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
@@ -131,6 +132,7 @@ class ZStack(NetworkInterface):
         self._stashed_pongs = set()
         self._received_pings = set()
         self._waiting_messages = dict()
+        self._timer = timer
 
     def __defaultMsgRejectHandler(self, reason: str, frm):
         pass
@@ -804,7 +806,8 @@ class ZStack(NetworkInterface):
         return False, err_str
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
-        self._waiting_messages.setdefault(ident, []).append(msg)
+        self._waiting_messages.setdefault(ident, (0.0, []))[1].append(msg)
+        self._waiting_messages[ident][0] = self._timer.get_current_time()
         result = True
         error_msg = None
         for current_msg in list(self._waiting_messages[ident]):
