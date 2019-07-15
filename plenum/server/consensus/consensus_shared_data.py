@@ -25,8 +25,9 @@ class ConsensusSharedData:
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
         self.preprepared = []  # type:  List[PrePrepare]
         self.prepared = []  # type:  List[PrePrepare]
-        self._validators = validators
+        self._validators = None
         self._quorums = None
+        self.set_validators(validators)
 
     @property
     def name(self) -> str:

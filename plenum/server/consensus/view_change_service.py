@@ -147,7 +147,7 @@ class ViewChangeService:
             stableCheckpoint=self._data.stable_checkpoint,
             prepared=prepared,
             preprepared=preprepared,
-            checkpoints=self._data.checkpoints
+            checkpoints=list(self._data.checkpoints)
         )
         self._network.send(vc)
 

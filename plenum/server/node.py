@@ -3521,7 +3521,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         bootstrap_cls(self).init_node(storage)
 
     def get_validators(self):
-        self.poolManager.node_ids_ordered_by_rank(
+        return self.poolManager.node_ids_ordered_by_rank(
             self.nodeReg, self.poolManager.get_node_ids())
 
     def set_view_for_replicas(self, view_no):

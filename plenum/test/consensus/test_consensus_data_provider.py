@@ -14,7 +14,7 @@ def test_initial_consensus_state(some_item, other_item, validators):
     # Validators
     assert data.validators == validators
     assert data.quorums.n == len(validators)
-    assert data.primary_name == None
+    assert data.primary_name == primary
 
     # View
     assert data.view_no == 0
