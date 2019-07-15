@@ -154,6 +154,11 @@ class FakeNode:
     def utc_epoch(self):
         return get_utc_epoch()
 
+    def get_validators(self):
+        return []
+
+    def set_view_for_replicas(self):
+        pass
 
 def test_has_view_change_quorum_number(tconf, tdir):
     """
