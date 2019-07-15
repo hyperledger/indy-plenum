@@ -4,6 +4,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.test.greek import genNodeNames
 
@@ -32,10 +33,16 @@ def primary(validators):
 
 
 @pytest.fixture
-def consensus_data(validators, primary, initial_view_no):
+def initial_checkpoints(initial_view_no):
+    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest='empty')]
+
+
+@pytest.fixture
+def consensus_data(validators, primary, initial_view_no, initial_checkpoints):
     def _data(name):
         data = ConsensusSharedData(name, validators, 0)
         data.view_no = initial_view_no
+        data.checkpoints = initial_checkpoints
         return data
 
     return _data

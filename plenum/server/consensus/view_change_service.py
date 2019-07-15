@@ -1,21 +1,25 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
-from typing import List, Optional, Union
+from typing import List, Optional, Union, NamedTuple, Dict, Any, Tuple, Set
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, PrePrepare, Checkpoint
 from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
+BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
+
 
 def view_change_digest(msg: ViewChange) -> str:
-    serialized = JsonSerializer().dumps(msg.__dict__)
+    msg_as_dict = msg.__dict__
+    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
+    serialized = JsonSerializer().dumps(msg_as_dict)
     return sha256(serialized).hexdigest()
 
 
@@ -29,6 +33,13 @@ class ViewChangeVotesForNode:
         self._view_change = None
         self._digest = None
         self._acks = defaultdict(set)  # Dict[str, Set[str]]
+
+    @property
+    def digest(self) -> Optional[str]:
+        """
+        Returns digest of received view change message
+        """
+        return self._digest
 
     @property
     def view_change(self) -> Optional[ViewChange]:
@@ -88,13 +99,14 @@ class ViewChangeVotesForView:
         self._votes = defaultdict(partial(ViewChangeVotesForNode, quorums))
 
     @property
-    def confirmed_votes(self) -> List[ViewChange]:
-        return [node_votes.view_change for node_votes in self._votes.values()
+    def confirmed_votes(self) -> List[Tuple[str, str]]:
+        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
                 if node_votes.is_confirmed]
 
-    @property
-    def has_view_change_quorum(self) -> bool:
-        return self._quorums.view_change.is_reached(len(self.confirmed_votes))
+    def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:
+        vc = self._votes[frm].view_change
+        if vc is not None and view_change_digest(vc) == digest:
+            return vc
 
     def add_view_change(self, msg: ViewChange, frm: str) -> bool:
         """
@@ -121,26 +133,45 @@ class ViewChangeService:
         self._timer = timer
         self._bus = bus
         self._network = network
-        self._stasher = StashingRouter(self._config.VIEW_CHANGE_SERVICE_STASH_LIMIT)
+        self._router = StashingRouter(self._config.VIEW_CHANGE_SERVICE_STASH_LIMIT)
         self._votes = ViewChangeVotesForView(self._data.quorums)
+        self._new_view = None   # type: Optional[NewView]
 
-        self._stasher.subscribe(ViewChange, self.process_view_change_message)
-        self._stasher.subscribe(ViewChangeAck, self.process_view_change_ack_message)
-        self._stasher.subscribe(NewView, self.process_new_view_message)
-        self._stasher.subscribe_to(network)
+        self._router.subscribe(ViewChange, self.process_view_change_message)
+        self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
+        self._router.subscribe(NewView, self.process_new_view_message)
+        self._router.subscribe_to(network)
+
+        self._old_prepared = {}     # type: Dict[int, BatchID]
+        self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
 
     def start_view_change(self, view_no: Optional[int] = None):
         if view_no is None:
             view_no = self._data.view_no + 1
 
-        # TODO: Calculate
-        prepared = []
-        preprepared = []
+        self._clear_old_batches(self._old_prepared)
+        self._clear_old_batches(self._old_preprepared)
+
+        for pp in self._data.prepared:
+            self._old_prepared[pp.ppSeqNo] = self._batch_id(pp)
+        prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
+
+        for pp in self._data.preprepared:
+            new_bid = self._batch_id(pp)
+            pretenders = self._old_preprepared.get(pp.ppSeqNo, [])
+            pretenders = [bid for bid in pretenders
+                          if bid.pp_digest != new_bid.pp_digest]
+            pretenders.append(new_bid)
+            self._old_preprepared[pp.ppSeqNo] = pretenders
+        preprepared = sorted([tuple(bid) for bids in self._old_preprepared.values() for bid in bids])
 
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
         self._data.primary_name = self._find_primary(self._data.validators, self._data.view_no)
+        self._data.preprepared.clear()
+        self._data.prepared.clear()
         self._votes.clear()
+        self._new_view = None
 
         vc = ViewChange(
             viewNo=self._data.view_no,
@@ -150,8 +181,9 @@ class ViewChangeService:
             checkpoints=list(self._data.checkpoints)
         )
         self._network.send(vc)
+        self._votes.add_view_change(vc, self._data.name)
 
-        self._stasher.process_all_stashed()
+        self._router.process_all_stashed()
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
@@ -171,6 +203,8 @@ class ViewChangeService:
         )
         self._network.send(vca, self._data.primary_name)
 
+        self._finish_view_change_if_needed()
+
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
@@ -187,15 +221,13 @@ class ViewChangeService:
         if result != PROCESS:
             return result
 
-        self._data.waiting_for_new_view = False
+        self._new_view = msg
+
+        self._finish_view_change_if_needed()
 
     @staticmethod
     def _find_primary(validators: List[str], view_no: int) -> str:
         return validators[view_no % len(validators)]
-
-    def _is_primary(self, view_no: int) -> bool:
-        # TODO: Do we really need this?
-        return self._find_primary(self._data.validators, view_no) == self._data.name
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
@@ -212,14 +244,167 @@ class ViewChangeService:
         return PROCESS
 
     def _send_new_view_if_needed(self):
-        if not self._votes.has_view_change_quorum:
+        confirmed_votes = self._votes.confirmed_votes
+        if not self._data.quorums.view_change.is_reached(len(confirmed_votes)):
             return
+
+        view_changes = [self._votes.get_view_change(*v) for v in confirmed_votes]
+        cp = self._calc_checkpoint(view_changes)
+        if cp is None:
+            return
+
+        batches = self._calc_batches(cp, view_changes)
 
         nv = NewView(
             viewNo=self._data.view_no,
-            viewChanges=self._votes.confirmed_votes,
-            checkpoint=None,
-            preprepares=[]
+            viewChanges=confirmed_votes,
+            checkpoint=cp,
+            batches=batches
         )
         self._network.send(nv)
+        self._new_view = nv
+        self._finish_view_change(cp, batches)
+
+    def _finish_view_change_if_needed(self):
+        if self._new_view is None:
+            return
+
+        view_changes = []
+        for name, vc_digest in self._new_view.viewChanges:
+            vc = self._votes.get_view_change(name, vc_digest)
+            # We don't have needed ViewChange, so we cannot validate NewView
+            if vc is None:
+                return
+            view_changes.append(vc)
+
+        cp = self._calc_checkpoint(view_changes)
+        if cp is None or cp != self._new_view.checkpoint:
+            # New primary is malicious
+            self.start_view_change()
+            assert False  # TODO: Test debugging purpose
+            return
+
+        batches = self._calc_batches(cp, view_changes)
+        if batches != self._new_view.batches:
+            # New primary is malicious
+            self.start_view_change()
+            assert False  # TODO: Test debugging purpose
+            return
+
+        self._finish_view_change(cp, batches)
+
+    def _finish_view_change(self, cp: Checkpoint, batches: List[BatchID]):
+        # Update checkpoint
+        self._data.stable_checkpoint = cp.seqNoEnd
+        self._data.checkpoints = [old_cp for old_cp in self._data.checkpoints if old_cp.seqNoEnd > cp.seqNoEnd]
+        self._data.checkpoints.append(cp)
+
+        # Update batches
+        # TODO: Actually we'll need to retrieve preprepares by ID from somewhere
+        self._data.preprepared = batches
+
+        # We finished a view change!
         self._data.waiting_for_new_view = False
+
+    def _clear_old_batches(self, batches: Dict[int, Any]):
+        for pp_seq_no in list(batches.keys()):
+            if pp_seq_no <= self._data.stable_checkpoint:
+                del batches[pp_seq_no]
+
+    @staticmethod
+    def _batch_id(batch: PrePrepare):
+        return BatchID(batch.viewNo, batch.ppSeqNo, batch.digest)
+
+    def _calc_checkpoint(self, vcs: List[ViewChange]) -> Optional[Checkpoint]:
+        checkpoints = []
+        for cur_vc in vcs:
+            for cur_cp in cur_vc.checkpoints:
+                # Don't add checkpoint to pretending ones if it is already there
+                if cur_cp in checkpoints:
+                    continue
+
+                # Don't add checkpoint to pretending ones if too many nodes already stabilized it
+                # TODO: Should we take into account view_no as well?
+                stable_checkpoint_not_higher = [vc for vc in vcs if cur_cp.seqNoEnd >= vc.stableCheckpoint]
+                if not self._data.quorums.strong.is_reached(len(stable_checkpoint_not_higher)):
+                    continue
+
+                # Don't add checkpoint to pretending ones if not enough nodes have it
+                have_checkpoint = [vc for vc in vcs if cur_cp in vc.checkpoints]
+                if not self._data.quorums.weak.is_reached(len(have_checkpoint)):
+                    continue
+
+                # All checks passed, this is a valid candidate checkpoint
+                checkpoints.append(cur_cp)
+
+        highest_cp = None
+        for cp in checkpoints:
+            # TODO: Should we take into account view_no as well?
+            if highest_cp is None or cp.seqNoEnd > highest_cp.seqNoEnd:
+                highest_cp = cp
+
+        return highest_cp
+
+    def _calc_batches(self, cp: Checkpoint, vcs: List[ViewChange]) -> List[BatchID]:
+        # TODO: Optimize this
+        batches = set()
+        for vc in vcs:
+            for _bid in vc.prepared:
+                bid = BatchID(*_bid)
+                if bid in batches:
+                    continue
+                if self._is_batch_prepared(bid, cp, vcs):
+                    batches.add(bid)
+
+            for _bid in vc.preprepared:
+                bid = BatchID(*_bid)
+                if bid in batches:
+                    continue
+                if self._is_batch_preprepared(bid, cp, vcs):
+                    batches.add(bid)
+
+        return sorted(batches)
+
+    def _is_batch_prepared(self, bid: BatchID, cp: Checkpoint, vcs: List[ViewChange]) -> bool:
+        if not self._is_inside_watermarks(bid, cp):
+            return False
+
+        def check(vc: ViewChange):
+            if bid.pp_seq_no <= vc.stableCheckpoint:
+                return False
+
+            for _some_bid in vc.prepared:
+                some_bid = BatchID(*_some_bid)
+                if some_bid.pp_seq_no != bid.pp_seq_no:
+                    continue
+                if some_bid.view_no < bid.view_no:
+                    return True
+                return some_bid == bid
+
+            return False
+
+        prepared_witnesses = sum(1 for vc in vcs if check(vc))
+        return self._data.quorums.strong.is_reached(prepared_witnesses)
+
+    def _is_batch_preprepared(self, bid: BatchID, cp: Checkpoint, vcs: List[ViewChange]) -> bool:
+        if not self._is_inside_watermarks(bid, cp):
+            return False
+
+        def check(vc: ViewChange):
+            for _some_bid in vc.preprepared:
+                some_bid = BatchID(*_some_bid)
+                if some_bid.pp_seq_no != bid.pp_seq_no:
+                    continue
+                if some_bid.pp_digest != bid.pp_digest:
+                    continue
+                if some_bid.view_no >= bid.view_no:
+                    return True
+
+            return False
+
+        preprepared_witnesses = sum(1 for vc in vcs if check(vc))
+        return self._data.quorums.weak.is_reached(preprepared_witnesses)
+
+    def _is_inside_watermarks(self, bid: BatchID, cp: Checkpoint) -> bool:
+        # TODO: Get log size from ConsensusDataProvider
+        return cp.seqNoEnd < bid.pp_seq_no <= cp.seqNoEnd + 300
