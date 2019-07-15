@@ -1,6 +1,7 @@
 from typing import List
 
 from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.timer import TimerService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
@@ -19,3 +20,7 @@ class ReplicaService:
         self._orderer = OrderingService(self._data, bus, network)
         self._checkpointer = CheckpointService(self._data, bus, network)
         self._view_changer = ViewChangeService(self._data, timer, bus, network)
+
+        # TODO: This is just for testing purposes only
+        self._data.checkpoints.append(
+            Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty'))

@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.test.greek import genNodeNames
@@ -28,9 +29,15 @@ def primary(validators):
 
 
 @pytest.fixture
-def consensus_data(validators, primary, initial_view_no):
+def initial_checkpoints(initial_view_no):
+    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest='empty')]
+
+
+@pytest.fixture
+def consensus_data(validators, primary, initial_view_no, initial_checkpoints):
     def _data(name):
         data = ConsensusDataProvider(name, validators, primary(initial_view_no))
         data.view_no = initial_view_no
+        data.checkpoints = initial_checkpoints
         return data
     return _data

@@ -1,6 +1,6 @@
 from typing import List
 
-from plenum.common.messages.node_messages import Checkpoint, PrePrepare
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.quorums import Quorums
 
 
@@ -113,5 +113,3 @@ class ConsensusDataProvider:
         self._last_ordered_3pc = key3PC
         self.logger.info('{} set last ordered as {}'.format(
             self, self._last_ordered_3pc))
-
-
