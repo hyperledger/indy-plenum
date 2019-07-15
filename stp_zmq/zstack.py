@@ -804,8 +804,7 @@ class ZStack(NetworkInterface):
         return False, err_str
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
-        self._waiting_messages.setdefault(ident, [])
-        self._waiting_messages[ident].append(msg)
+        self._waiting_messages.setdefault(ident, []).append(msg)
         result = True
         error_msg = None
         for current_msg in list(self._waiting_messages[ident]):
@@ -813,6 +812,8 @@ class ZStack(NetworkInterface):
                                                                                         ident)
             if not need_to_resend:
                 self._waiting_messages[ident].remove(current_msg)
+                if not self._waiting_messages[ident]:
+                    self._waiting_messages.pop(ident)
         return result, error_msg
 
     def _transmit_one_msg_through_listener(self, msg, ident) -> Tuple[bool, Optional[str], bool]:
