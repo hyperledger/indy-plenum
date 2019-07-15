@@ -11,12 +11,14 @@ def test_ordered_cleaning(tconf):
         ledger_ids=[0],
         viewNo=global_view_no,
         utc_epoch=get_utc_epoch,
+        get_validators=lambda: [],
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
     )
 
     replica = Replica(node, instId=0, config=tconf, bls_bft_replica=bls_bft_replica)
+    replica._consensus_data.view_no = global_view_no
     total = []
 
     num_requests_per_view = 3
@@ -40,6 +42,7 @@ def test_primary_names_cleaning(tconf):
         ledger_ids=[0],
         viewNo=0,
         utc_epoch=get_utc_epoch,
+        get_validators=lambda: [],
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -52,16 +55,19 @@ def test_primary_names_cleaning(tconf):
            [(0, "Node1:0")]
 
     node.viewNo += 1
+    replica._consensus_data.view_no = node.viewNo
     replica.primaryName = "Node2:0"
     assert list(replica.primaryNames.items()) == \
            [(0, "Node1:0"), (1, "Node2:0")]
 
     node.viewNo += 1
+    replica._consensus_data.view_no = node.viewNo
     replica.primaryName = "Node3:0"
     assert list(replica.primaryNames.items()) == \
            [(1, "Node2:0"), (2, "Node3:0")]
 
     node.viewNo += 1
+    replica._consensus_data.view_no = node.viewNo
     replica.primaryName = "Node4:0"
     assert list(replica.primaryNames.items()) == \
            [(2, "Node3:0"), (3, "Node4:0")]
