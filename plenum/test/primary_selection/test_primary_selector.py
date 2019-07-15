@@ -154,23 +154,12 @@ class FakeNode:
     def utc_epoch(self):
         return get_utc_epoch()
 
-<<<<<<< Updated upstream
-    def get_validators(self):
-        return []
-
-    def set_view_for_replicas(self):
-        pass
-=======
-<<<<<<< Updated upstream
-=======
     def get_validators(self):
         return []
 
     def set_view_for_replicas(self, a):
         pass
->>>>>>> Stashed changes
 
->>>>>>> Stashed changes
 
 def test_has_view_change_quorum_number(tconf, tdir):
     """
