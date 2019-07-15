@@ -1,6 +1,5 @@
 from typing import List
 
-from plenum.common.messages.node_messages import Checkpoint, PrePrepare
 from plenum.server.quorums import Quorums
 
 
@@ -17,6 +16,10 @@ class ConsensusDataProvider:
         self.view_no = 0
         self.waiting_for_new_view = False
         self.primary_name = primary_name
+        self.preprepared = []
+        self.prepared = []
+        self.checkpoints = []
+        self.stable_checkpoint = 0
 
     @property
     def name(self) -> str:
@@ -43,27 +46,3 @@ class ConsensusDataProvider:
     @property
     def is_primary(self) -> bool:
         return self.primary_name == self.name
-
-    @property
-    def preprepared(self) -> List[PrePrepare]:
-        """
-        List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
-        TODO: Make it simple field?
-        """
-        return []
-
-    @property
-    def prepared(self) -> List[PrePrepare]:
-        """
-        List of PrePrepare messages, for which quorum of Prepare messages is reached
-        TODO: Make it simple field?
-        """
-        return []
-
-    @property
-    def stable_checkpoint(self) -> int:
-        return 0
-
-    @property
-    def checkpoints(self) -> List[Checkpoint]:
-        return []
