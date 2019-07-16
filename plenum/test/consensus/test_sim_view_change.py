@@ -6,7 +6,7 @@ from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 
 def check_view_change_completes_under_normal_conditions(random: SimRandom):
     # Create random pool with random initial state
-    pool = some_pool(random)
+    pool, committed = some_pool(random)
 
     # Schedule view change at different time on all nodes
     for node in pool.nodes:
@@ -24,6 +24,12 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
         assert node_a._data.primary_name == node_b._data.primary_name
         assert node_a._data.stable_checkpoint == node_b._data.stable_checkpoint
         assert node_a._data.preprepared == node_b._data.preprepared
+
+    # Make sure that all committed reqs are ordered with the same ppSeqNo in the new view:
+    stable_checkpoint = pool.nodes[0]._data.stable_checkpoint
+    committed = [c for c in committed if c.pp_seq_no > stable_checkpoint]
+    for n in pool.nodes:
+        assert committed == n._data.preprepared[:len(committed)]
 
 
 @pytest.mark.parametrize("seed", range(1000))

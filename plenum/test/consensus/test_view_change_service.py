@@ -147,7 +147,7 @@ def test_different_view_change_messages_have_different_digests(view_change_messa
 @pytest.mark.skip(reason='Now new view IS ambiguous, we need to understand why')
 def test_new_view_is_unambiguous(random):
     # Create pool in some random initial state
-    pool = some_pool(random)
+    pool, _ = some_pool(random)
     quorums = pool.nodes[0]._data.quorums
 
     # Get view change votes from all nodes
@@ -159,7 +159,6 @@ def test_new_view_is_unambiguous(random):
         view_change_messages.append(network.sent_messages[0][0])
 
     # Check that final batches to order are unambiguous
-    cps = set()
     results = set()
     for _ in range(10):
         num_votes = quorums.strong.value
@@ -168,11 +167,11 @@ def test_new_view_is_unambiguous(random):
         #  all pool, so it doesn't matter which nodes view change service
         #  we are using. Probably it makes sense to make this function static
         #  to make test more clear
-        cp = pool.nodes[0]._view_changer._calc_checkpoint(votes)
+        cp = pool.nodes[0]._view_changer._new_view_builder.calc_checkpoint(votes)
         # All nodes in pool are honest, so we should always be able to decide
         # on stable checkpoint from n-f votes
         assert cp is not None
-        batches = pool.nodes[0]._view_changer._calc_batches(cp, votes)
-        results.add(tuple(batches))
-    assert len(cps) == 1
+        batches = pool.nodes[0]._view_changer._new_view_builder.calc_batches(cp, votes)
+        if batches is not None:
+            results.add(tuple(batches))
     assert len(results) == 1

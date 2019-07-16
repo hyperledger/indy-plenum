@@ -20,6 +20,7 @@ class ConsensusDataProvider:
         self.prepared = []
         self.checkpoints = []
         self.stable_checkpoint = 0
+        self.log_size = 300 # TODO: use config value
 
     @property
     def name(self) -> str:
