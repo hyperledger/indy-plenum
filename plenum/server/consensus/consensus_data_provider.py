@@ -1,6 +1,6 @@
 from typing import List
 
-from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from plenum.server.quorums import Quorums
 
 
@@ -17,6 +17,7 @@ class ConsensusDataProvider:
         self.view_no = 0
         self.waiting_for_new_view = False
         self.primary_name = primary_name
+        self.primaries = []
 
         self._legacy_vc_in_progress = False
         self._is_participating = False

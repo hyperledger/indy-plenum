@@ -1,5 +1,4 @@
-from typing import NamedTuple, List
-
+from typing import NamedTuple, List, Any
 
 ValidatorsChanged = NamedTuple('ValidatorsChange',
                                [('names', List[str])])
@@ -9,3 +8,11 @@ LegacyViewChangeStatusUpdate = NamedTuple('StartViewChange',
 
 ParticipatingStatus = NamedTuple('LedgerParticipatingStatus',
                                  [('is_participating', bool)])
+
+HookMessage = NamedTuple('HookMessage',
+                         [('hook', int),
+                          ('args', tuple)])
+
+OutboxMessage = NamedTuple('OutboxMessage',
+                           [('msg', Any)])
+
