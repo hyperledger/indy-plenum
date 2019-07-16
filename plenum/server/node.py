@@ -52,7 +52,8 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
+    LAST_SENT_PP_STORE_LABEL
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -328,8 +329,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
 
-        self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
-
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
@@ -506,6 +505,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         all_types.update(self.write_manager.type_to_ledger_id)
         all_types.update(self.read_manager.type_to_ledger_id)
         return all_types
+
+    @property
+    def last_sent_pp_store_helper(self):
+        return self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL)
 
     # EXECUTERS
     def default_executer(self, three_pc_batch: ThreePcBatch):
