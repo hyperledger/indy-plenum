@@ -389,7 +389,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         kwargs = dict(stackParams=self.poolManager.nstack,
                       msgHandler=self.handleOneNodeMsg,
                       registry=self.nodeReg,
-                      metrics=self.metrics)
+                      metrics=self.metrics,
+                      timer=self.timer)
         cls = self.nodeStackClass
         kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable

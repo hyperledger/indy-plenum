@@ -5,6 +5,7 @@ from plenum.common.timer import QueueTimer
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
+from stp_zmq.client_message_provider import ClientMessageProvider
 
 try:
     import ujson as json
@@ -16,7 +17,7 @@ import shutil
 import sys
 import time
 from binascii import hexlify, unhexlify
-from collections import deque
+from collections import deque, OrderedDict
 from typing import Mapping, Tuple, Any, Union, Optional, NamedTuple
 
 from common.exceptions import PlenumTypeError, PlenumValueError
@@ -69,7 +70,7 @@ class ZStack(NetworkInterface):
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, onlyListener=False, config=None, msgRejectHandler=None, queue_size=0,
                  create_listener_monitor=False, metrics=NullMetricsCollector(),
-                 mt_incoming_size=None, mt_outgoing_size=None, timer=QueueTimer()):
+                 mt_incoming_size=None, mt_outgoing_size=None, timer=None):
         self._name = name
         self.ha = ha
         self.basedirpath = basedirpath
@@ -131,8 +132,11 @@ class ZStack(NetworkInterface):
         self._stashed_to_disconnected = {}
         self._stashed_pongs = set()
         self._received_pings = set()
-        self._waiting_messages = dict()
-        self._timer = timer
+        self._client_message_provider = ClientMessageProvider(self.config,
+                                                              self.prepare_to_send,
+                                                              self.metrics,
+                                                              self.mt_outgoing_size,
+                                                              timer)
 
     def __defaultMsgRejectHandler(self, reason: str, frm):
         pass
@@ -358,6 +362,7 @@ class ZStack(NetworkInterface):
     def open(self):
         # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
+        self._client_message_provider.listener = self.listener
         self.listener.setsockopt(zmq.ROUTER_MANDATORY, 1)
         if self.create_listener_monitor:
             self.listener_monitor = self.listener.get_monitor_socket()
@@ -745,7 +750,8 @@ class ZStack(NetworkInterface):
 
     def send(self, msg: Any, remoteName: str = None, ha=None):
         if self.onlyListener:
-            return self.transmitThroughListener(msg, remoteName)
+            return self._client_message_provider.transmit_through_listener(msg,
+                                                                           remoteName)
         else:
             if remoteName is None:
                 r = []
@@ -804,54 +810,6 @@ class ZStack(NetworkInterface):
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
             logger.warning(err_str)
         return False, err_str
-
-    def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
-        self._waiting_messages.setdefault(ident, (0.0, []))[1].append(msg)
-        self._waiting_messages[ident][0] = self._timer.get_current_time()
-        result = True
-        error_msg = None
-        for current_msg in list(self._waiting_messages[ident]):
-            result, error_msg, need_to_resend = self._transmit_one_msg_through_listener(current_msg,
-                                                                                        ident)
-            if not need_to_resend:
-                self._waiting_messages[ident].remove(current_msg)
-                if not self._waiting_messages[ident]:
-                    self._waiting_messages.pop(ident)
-        return result, error_msg
-
-    def _transmit_one_msg_through_listener(self, msg, ident) -> Tuple[bool, Optional[str], bool]:
-
-        def prepare_error_msg(ex):
-            err_str = '{}{} got error {} while sending through listener to {}' \
-                .format(CONNECTION_PREFIX, self, ex, ident)
-            logger.warning(err_str)
-            return err_str
-
-        need_to_resend = False
-        if isinstance(ident, str):
-            ident = ident.encode()
-        try:
-            msg = self.prepare_to_send(msg)
-            # noinspection PyUnresolvedReferences
-            # self.listener.send_multipart([ident, self.signedMsg(msg)],
-            #                              flags=zmq.NOBLOCK)
-            logger.trace('{} transmitting {} to {} through listener socket'.
-                         format(self, msg, ident))
-            self.metrics.add_event(self.mt_outgoing_size, len(msg))
-            self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
-        except InvalidMessageExceedingSizeException as ex:
-            err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
-            logger.warning(err_str)
-            return False, err_str, need_to_resend
-        except zmq.Again as ex:
-            need_to_resend = True
-            return False, prepare_error_msg(ex), need_to_resend
-        except zmq.ZMQError as ex:
-            need_to_resend = (ex.errno == 113)
-            return False, prepare_error_msg(ex), need_to_resend
-        except Exception as ex:
-            return False, prepare_error_msg(ex), need_to_resend
-        return True, None, need_to_resend
 
     @staticmethod
     def serializeMsg(msg):
