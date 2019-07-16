@@ -1,4 +1,6 @@
 import pytest
+from copy import deepcopy
+
 from plenum.common.messages.node_messages import Checkpoint
 
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
@@ -65,9 +67,16 @@ def test_pp_storages_freeing_till(pre_prepare, consensus_data_helper: ConsensusD
 
 def test_checkpoint_storage(checkpoint, consensus_data_helper: ConsensusDataHelper):
     consensus_data_helper.add_checkpoint(checkpoint)
+    checkpoint_new = Checkpoint(instId=0,
+                                viewNo=0,
+                                seqNoStart=2,
+                                seqNoEnd=101,
+                                digest='digest')
+    consensus_data_helper.add_checkpoint(checkpoint_new)
     assert checkpoint in consensus_data_helper.consensus_data.checkpoints
-    consensus_data_helper.set_stable_checkpoint(checkpoint.seqNoEnd)
+    consensus_data_helper.set_stable_checkpoint(checkpoint_new.seqNoEnd)
     assert checkpoint not in consensus_data_helper.consensus_data.checkpoints
+    assert checkpoint_new in consensus_data_helper.consensus_data.checkpoints
 
     consensus_data_helper.add_checkpoint(checkpoint)
     assert checkpoint in consensus_data_helper.consensus_data.checkpoints

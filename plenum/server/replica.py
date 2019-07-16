@@ -230,11 +230,6 @@ class ConsensusDataHelper:
     def add_checkpoint(self, checkpoint: Checkpoint):
         self.consensus_data.checkpoints.add(checkpoint)
 
-    def remove_checkpoint(self, end_seq_no):
-        new_checkpoints = SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd != end_seq_no],
-                                            key=lambda checkpoint: checkpoint.seqNoEnd)
-        self.consensus_data.checkpoints = new_checkpoints
-
     def reset_checkpoints(self):
         # That function most probably redundant in PBFT approach,
         # because according to paper, checkpoints cleared only when next stabilized.
@@ -248,7 +243,7 @@ class ConsensusDataHelper:
         self.consensus_data.stable_checkpoint = end_seq_no
 
         self.consensus_data.checkpoints = \
-            SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd < end_seq_no],
+            SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd >= end_seq_no],
                               key=lambda checkpoint: checkpoint.seqNoEnd)
         self.clear_batch_till_seq_no(end_seq_no)
 
@@ -2255,7 +2250,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for k in previousCheckpoints:
             self.logger.trace("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-            self._consensus_data_helper.remove_checkpoint(k[1])
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
         self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
