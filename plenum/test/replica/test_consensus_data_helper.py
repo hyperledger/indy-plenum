@@ -66,7 +66,7 @@ def test_pp_storages_freeing_till(pre_prepare, consensus_data_helper: ConsensusD
 def test_checkpoint_storage(checkpoint, consensus_data_helper: ConsensusDataHelper):
     consensus_data_helper.add_checkpoint(checkpoint)
     assert checkpoint in consensus_data_helper.consensus_data.checkpoints
-    consensus_data_helper.remove_checkpoint(checkpoint.seqNoEnd)
+    consensus_data_helper.set_stable_checkpoint(checkpoint.seqNoEnd)
     assert checkpoint not in consensus_data_helper.consensus_data.checkpoints
 
     consensus_data_helper.add_checkpoint(checkpoint)

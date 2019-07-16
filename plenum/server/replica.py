@@ -246,6 +246,10 @@ class ConsensusDataHelper:
         if not list(self.consensus_data.checkpoints.irange_key(end_seq_no, end_seq_no)):
             raise LogicError('Stable checkpoint must be in checkpoints')
         self.consensus_data.stable_checkpoint = end_seq_no
+
+        self.consensus_data.checkpoints = \
+            SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd < end_seq_no],
+                              key=lambda checkpoint: checkpoint.seqNoEnd)
         self.clear_batch_till_seq_no(end_seq_no)
 
 
@@ -2855,8 +2859,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 discarded = invalid_index_serializer.deserialize(discarded)
                 self.logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self.revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
-                pp = self.getPrePrepare(*key)
-                self._consensus_data_helper.clear_batch(pp)
                 i += 1
             else:
                 break

@@ -12,19 +12,18 @@ def test_check_cdp_pp_storages(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
         check_prepared_empty(replica, reverse)
 
     def check_preprepared_empty(replica, reverse=False):
-        statement_pp = not bool(replica._consensus_data.preprepared)
-        statement_pp += reverse
-        assert statement_pp
+        statement_pp = bool(replica._consensus_data.preprepared)
+        statement_pp ^= reverse
+        assert not statement_pp
 
     def check_prepared_empty(replica, reverse=False):
-        statement_p = not bool(replica._consensus_data.prepared)
-        statement_p += reverse
-        assert statement_p
+        statement_p = bool(replica._consensus_data.prepared)
+        statement_p ^= reverse
+        assert not statement_p
 
     def operation_for_replicas(operation, node_set=txnPoolNodeSet, reverse=False):
         for node in node_set:
-            for replica in node.replicas.values():
-                operation(replica, reverse)
+            operation(node.master_replica, reverse)
 
     node_stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
