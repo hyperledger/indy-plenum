@@ -1,7 +1,10 @@
 import pytest
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.util import get_utc_epoch
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.test.greek import genNodeNames
 
@@ -25,6 +28,7 @@ def already_in_view_change(request):
 def primary(validators):
     def _primary_in_view(view_no):
         return ViewChangeService._find_primary(validators, view_no)
+
     return _primary_in_view
 
 
@@ -36,8 +40,27 @@ def initial_checkpoints(initial_view_no):
 @pytest.fixture
 def consensus_data(validators, primary, initial_view_no, initial_checkpoints):
     def _data(name):
-        data = ConsensusDataProvider(name, validators, primary(initial_view_no))
+        data = ConsensusSharedData(name, validators, 0)
         data.view_no = initial_view_no
         data.checkpoints = initial_checkpoints
         return data
+
     return _data
+
+
+@pytest.fixture
+def pre_prepare():
+    return PrePrepare(
+        0,
+        0,
+        1,
+        get_utc_epoch(),
+        ['f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be'],
+        '[]',
+        'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
+        DOMAIN_LEDGER_ID,
+        'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
+        '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
+        0,
+        True
+    )
