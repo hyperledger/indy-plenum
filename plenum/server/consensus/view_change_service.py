@@ -1,7 +1,7 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
-from typing import List, Optional, Union, NamedTuple, Dict, Any, Tuple, Set
+from typing import List, Optional, Union, NamedTuple, Dict, Any, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
@@ -324,7 +324,7 @@ class ViewChangeService:
 
 class NewViewBuilder:
 
-    def __init__(self, data: ConsensusDataProvider) -> None:
+    def __init__(self, data: ConsensusSharedData) -> None:
         self._data = data
 
     def calc_checkpoint(self, vcs: List[ViewChange]) -> Optional[Checkpoint]:
