@@ -361,7 +361,7 @@ class NewViewBuilder:
         # TODO: Optimize this
         batches = set()
         pp_seq_no = cp.seqNoEnd + 1
-        while pp_seq_no <=  cp.seqNoEnd + self._data.log_size:
+        while pp_seq_no <= cp.seqNoEnd + self._data.log_size:
             bid = self._try_find_batch_for_pp_seq_no(vcs, pp_seq_no)
             if bid:
                 batches.add(bid)
