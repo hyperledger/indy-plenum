@@ -389,8 +389,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         kwargs = dict(stackParams=self.poolManager.nstack,
                       msgHandler=self.handleOneNodeMsg,
                       registry=self.nodeReg,
-                      metrics=self.metrics,
-                      timer=self.timer)
+                      metrics=self.metrics)
         cls = self.nodeStackClass
         kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
@@ -402,7 +401,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msgHandler=self.handleOneClientMsg,
             # TODO, Reject is used when dynamic validation fails, use Reqnack
             msgRejectHandler=self.reject_client_msg_handler,
-            metrics=self.metrics)
+            metrics=self.metrics,
+            timer=self.timer)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 

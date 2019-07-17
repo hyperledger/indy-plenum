@@ -132,7 +132,8 @@ class ZStack(NetworkInterface):
         self._stashed_to_disconnected = {}
         self._stashed_pongs = set()
         self._received_pings = set()
-        self._client_message_provider = ClientMessageProvider(self.config,
+        self._client_message_provider = ClientMessageProvider(self.name,
+                                                              self.config,
                                                               self.prepare_to_send,
                                                               self.metrics,
                                                               self.mt_outgoing_size,
