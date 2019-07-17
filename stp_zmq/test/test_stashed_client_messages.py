@@ -34,7 +34,7 @@ def stacks(tdir, looper, alpha_handler):
         "auto": 2,
         "basedirpath": tdir
     }
-    timer = MockTimer(MockTimestamp(0))
+    timer = MockTimer(0)
     alpha = SimpleZStack(stackParams, alpha_handler.handle, aseed, False,
                          timer=timer)
 
@@ -44,7 +44,7 @@ def stacks(tdir, looper, alpha_handler):
         "auto": 2,
         "basedirpath": tdir
     }
-    timer = MockTimer(MockTimestamp(0))
+    timer = MockTimer(0)
     beta = SimpleZStack(stackParams, bHandler, bseed, True,
                         timer=timer)
 
@@ -88,6 +88,33 @@ def test_stash_msg_to_unknown(tdir, looper, stacks, alpha_handler):
         lambda msg_handler: assertExp(msg_handler.received_messages == [msg1, msg2]),
         alpha_handler))
     assert not pending_client_messages
+
+
+def test_resending_only_for_known_clients(tdir, looper, stacks, alpha_handler):
+    alpha, beta = stacks
+    unknown_identity = "unknown_identity"
+    pending_client_messages = beta._client_message_provider._pending_client_messages
+    msg1 = {'msg': 'msg1'}
+    msg2 = {'msg': 'msg2'}
+
+    beta.send(msg1, alpha.listener.IDENTITY)
+    beta.send(msg1, unknown_identity)
+    assert pending_client_messages[alpha.listener.IDENTITY] == [(0, msg1)]
+    assert pending_client_messages[unknown_identity] == [(0, msg1)]
+    message_pending_unknown_id = pending_client_messages[unknown_identity]
+    beta._client_message_provider._timer.set_time(1)
+
+    alpha.connect(name=beta.name, ha=beta.ha,
+                  verKeyRaw=beta.verKeyRaw, publicKeyRaw=beta.publicKeyRaw)
+
+    looper.runFor(0.25)
+
+    alpha.send(msg2, beta.name)
+    looper.run(eventually(
+        lambda msg_handler: assertExp(msg_handler.received_messages == [msg1, msg2]),
+        alpha_handler))
+    assert alpha.listener.IDENTITY not in pending_client_messages
+    assert pending_client_messages[unknown_identity] == message_pending_unknown_id
 
 
 def test_invalid_msgs_are_not_stashed(tdir, looper, stacks, alpha_handler, tconf):
@@ -149,6 +176,7 @@ def test_limit_msgs_for_client(tconf, looper, stacks, alpha_handler):
                   alpha.listener.IDENTITY)
     assert len(pending_client_messages[alpha.listener.IDENTITY]) == tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT
     assert pending_client_messages[alpha.listener.IDENTITY][0] != (0, create_msg(0))
+    assert pending_client_messages[alpha.listener.IDENTITY][0] == (0, create_msg(2))
     assert pending_client_messages[alpha.listener.IDENTITY][-1] == (0,
                                                                     create_msg(tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT + 1))
 
@@ -156,11 +184,12 @@ def test_limit_msgs_for_client(tconf, looper, stacks, alpha_handler):
 def test_limit_pending_queue(tconf, looper, stacks, alpha_handler):
     alpha, beta = stacks
     pending_client_messages = beta._client_message_provider._pending_client_messages
-    for i in range(tconf.PENDING_CLIENT_MESSAGES_LIMIT + 2):
+    for i in range(tconf.PENDING_CLIENT_LIMIT + 1):
         beta.send(create_msg(1), str(i))
-    assert len(pending_client_messages) == tconf.PENDING_CLIENT_MESSAGES_LIMIT
+    assert len(pending_client_messages) == tconf.PENDING_CLIENT_LIMIT
     assert str(0) not in pending_client_messages
-    assert str(tconf.PENDING_CLIENT_MESSAGES_LIMIT + 1) in pending_client_messages
+    assert str(1) in pending_client_messages
+    assert str(tconf.PENDING_CLIENT_LIMIT) in pending_client_messages
 
 
 def test_removing_old_stash(tdir, looper, tconf, stacks):

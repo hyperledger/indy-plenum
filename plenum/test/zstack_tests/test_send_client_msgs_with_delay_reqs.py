@@ -20,27 +20,16 @@ def test_resending_pending_client_msgs(looper,
                                        sdk_wallet_steward,
                                        tdir, tconf, allPluginsPath,
                                        monkeypatch):
-    faulty_nodes = list(txnPoolNodeSet[1:])
-
-    _, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
-        'EpsilonSteward', 'Epsilon', tdir, tconf,
-        allPluginsPath=allPluginsPath)
-
-    txnPoolNodeSet.append(new_node)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
-                         exclude_from_check=['check_last_ordered_3pc_backup'])
-    sdk_pool_refresh(looper, sdk_pool_handle)
-
+    problem_node = txnPoolNodeSet[1]
+    
     def fail_send_multipart(msg_parts, flags=0, copy=True, track=False, **kwargs):
         raise zmq.ZMQError(113, "")
 
     # Switch off replies for client from Beta, Gamma, Delta
-    for node in faulty_nodes:
+    for node in txnPoolNodeSet[2:]:
         monkeypatch.setattr(node.clientstack.listener, 'send_multipart',
                             lambda msg_parts, flags=0, copy=True, track=False, **kwargs: None)
-    monkeypatch.setattr(new_node.clientstack.listener, 'send_multipart',
+    monkeypatch.setattr(problem_node.clientstack.listener, 'send_multipart',
                         fail_send_multipart)
 
     start_master_last_ordered_3pc = txnPoolNodeSet[0].master_last_ordered_3PC[1]
@@ -55,7 +44,7 @@ def test_resending_pending_client_msgs(looper,
             lambda node: assertExp(node.master_last_ordered_3PC[1] ==
                                    start_master_last_ordered_3pc + 1), txnPoolNodeSet[0]))
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-    monkeypatch.delattr(new_node.clientstack.listener, 'send_multipart', raising=True)
+    monkeypatch.delattr(problem_node.clientstack.listener, 'send_multipart', raising=True)
 
     # Send the second request.
     sdk_reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
