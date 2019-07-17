@@ -1,6 +1,7 @@
 from copy import copy
 
 import pytest
+from stp_core.loop.eventually import eventually
 
 from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.messages.node_messages import Batch
@@ -109,6 +110,11 @@ def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
     """
     got_pi = False
     got_batch = False
+
+    def rxMsgsNotEmpty():
+        assert bStack.rxMsgs
+
+    looper.run(eventually(rxMsgsNotEmpty))
     while bStack.rxMsgs:
         m, frm = bStack.rxMsgs.popleft()
         if m.encode() not in bStack.healthMessages:

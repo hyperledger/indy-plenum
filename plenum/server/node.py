@@ -3519,3 +3519,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _bootstrap_node(self, bootstrap_cls, storage):
         bootstrap_cls(self).init_node(storage)
+
+    def get_validators(self):
+        return self.poolManager.node_ids_ordered_by_rank(
+            self.nodeReg, self.poolManager.get_node_ids())
+
+    def set_view_for_replicas(self, view_no):
+        for r in self.replicas.values():
+            r.set_view_no(view_no)

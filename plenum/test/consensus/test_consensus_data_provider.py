@@ -1,10 +1,12 @@
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 
 
 def test_initial_consensus_state(some_item, other_item, validators):
     name = some_item(validators)
     primary = other_item(validators)
-    data = ConsensusDataProvider(name, validators, primary)
+    data = ConsensusSharedData(name, validators, 0)
+    data.primary_name = primary
+    data.set_validators(validators)
 
     # General info
     assert data.name == name
@@ -24,4 +26,4 @@ def test_initial_consensus_state(some_item, other_item, validators):
 
     # Checkpoints
     assert data.stable_checkpoint == 0
-    assert data.checkpoints == []
+    assert list(data.checkpoints) == []

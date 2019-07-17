@@ -9,7 +9,7 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, PrePrepare, Checkpoint
 from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
 from plenum.common.timer import TimerService
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
@@ -125,7 +125,7 @@ class ViewChangeVotesForView:
 
 
 class ViewChangeService:
-    def __init__(self, data: ConsensusDataProvider, timer: TimerService, bus: InternalBus, network: ExternalBus):
+    def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus):
         self._config = getConfig()
         self._logger = getlogger()
 
@@ -182,7 +182,7 @@ class ViewChangeService:
             stableCheckpoint=self._data.stable_checkpoint,
             prepared=prepared,
             preprepared=preprepared,
-            checkpoints=self._data.checkpoints
+            checkpoints=list(self._data.checkpoints)
         )
         self._network.send(vc)
         self._votes.add_view_change(vc, self._data.name)

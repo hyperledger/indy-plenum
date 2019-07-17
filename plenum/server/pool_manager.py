@@ -192,6 +192,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             _updateNode(txn_data)
             self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, None))
 
+        self.set_validators_for_replicas()
+
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
         if nodeName == self.name:
@@ -415,3 +417,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if name == node_name:
                 return nym
         return None
+
+    def set_validators_for_replicas(self):
+        for r in self.node.replicas.values():
+            # We set new list of validators for every replica,
+            # cause cdp for every replica need to be independent
+            r.set_validators(self.node_ids_ordered_by_rank(self.nodeReg,
+                                                           self._ordered_node_ids))
+
+    def get_node_ids(self):
+        return self._ordered_node_ids
