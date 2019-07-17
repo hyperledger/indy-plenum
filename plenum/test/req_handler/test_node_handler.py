@@ -86,6 +86,8 @@ def test_node_handler_static_validation_fail_dest_and_key(node_handler, node_req
     node_request.operation['data'][BLS_KEY_PROOF] = randomString()
     node_request.operation['data'][BLS_KEY] = randomString()
     node_handler._verify_bls_key_proof_of_possession = lambda blskey_proof, blskey: True
+
+    node_request.operation[TARGET_NYM] = '0000000000'
     with pytest.raises(InvalidClientRequest, match="Node's dest is not correct Ed25519 key"):
         node_handler.static_validation(node_request)
 

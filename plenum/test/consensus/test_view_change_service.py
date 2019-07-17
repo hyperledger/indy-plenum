@@ -5,7 +5,6 @@ import pytest
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
-from plenum.test.consensus.helper import some_pool
 from plenum.test.helper import MockNetwork
 
 
@@ -15,6 +14,7 @@ def view_change_service(consensus_data, mock_timer):
         data = consensus_data(name)
         service = ViewChangeService(data, mock_timer, InternalBus(), MockNetwork())
         return service
+
     return _service
 
 
@@ -29,6 +29,7 @@ def view_change_message():
             checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest='some')]
         )
         return vc
+
     return _view_change
 
 
@@ -39,6 +40,7 @@ def view_change_acks(validators, random):
         non_senders = [name for name in validators if name not in [vc_frm, primary]]
         ack_frms = random.sample(non_senders, count)
         return [(ViewChangeAck(viewNo=vc.viewNo, name=vc_frm, digest=digest), ack_frm) for ack_frm in ack_frms]
+
     return _view_change_acks
 
 
@@ -142,37 +144,3 @@ def test_different_view_change_messages_have_different_digests(view_change_messa
     vc = view_change_message(random.integer(0, 10000))
     other_vc = view_change_message(random.integer(0, 10000))
     assert view_change_digest(vc) != view_change_digest(other_vc)
-
-
-@pytest.mark.skip(reason='Now new view IS ambiguous, we need to understand why')
-def test_new_view_is_unambiguous(random):
-    # Create pool in some random initial state
-    pool = some_pool(random)
-    quorums = pool.nodes[0]._data.quorums
-
-    # Get view change votes from all nodes
-    view_change_messages = []
-    for node in pool.nodes:
-        network = MockNetwork()
-        node._view_changer._network = network
-        node._view_changer.start_view_change()
-        view_change_messages.append(network.sent_messages[0][0])
-
-    # Check that final batches to order are unambiguous
-    cps = set()
-    results = set()
-    for _ in range(10):
-        num_votes = quorums.strong.value
-        votes = random.sample(view_change_messages, num_votes)
-        # TODO: These functions depends only on quorums which are same across
-        #  all pool, so it doesn't matter which nodes view change service
-        #  we are using. Probably it makes sense to make this function static
-        #  to make test more clear
-        cp = pool.nodes[0]._view_changer._calc_checkpoint(votes)
-        # All nodes in pool are honest, so we should always be able to decide
-        # on stable checkpoint from n-f votes
-        assert cp is not None
-        batches = pool.nodes[0]._view_changer._calc_batches(cp, votes)
-        results.add(tuple(batches))
-    assert len(cps) == 1
-    assert len(results) == 1

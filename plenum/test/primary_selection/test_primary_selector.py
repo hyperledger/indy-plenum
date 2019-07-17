@@ -154,6 +154,12 @@ class FakeNode:
     def utc_epoch(self):
         return get_utc_epoch()
 
+    def get_validators(self):
+        return []
+
+    def set_view_for_replicas(self, a):
+        pass
+
 
 def test_has_view_change_quorum_number(tconf, tdir):
     """
@@ -355,7 +361,8 @@ def test_primaries_selection_viewno_0(txnPoolNodeSetWithElector):
         primaries = set()
         view_no_bak = node.elector.viewNo
         node.elector.viewNo = view_no
-        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg, node.poolManager._ordered_node_ids)
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg,
+                                                                                node.poolManager._ordered_node_ids)
         master_primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert master_primary_rank == 0
         assert name == "Alpha" and instance_name == "Alpha:0"
@@ -388,7 +395,8 @@ def test_primaries_selection_viewno_5(txnPoolNodeSetWithElector):
         primaries = set()
         view_no_bak = node.elector.viewNo
         node.elector.viewNo = view_no
-        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg, node.poolManager._ordered_node_ids)
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg,
+                                                                                node.poolManager._ordered_node_ids)
         master_primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert master_primary_rank == 5
         assert name == "Zeta" and instance_name == "Zeta:0"
@@ -421,7 +429,8 @@ def test_primaries_selection_viewno_9(txnPoolNodeSetWithElector):
         primaries = set()
         view_no_bak = node.elector.viewNo
         node.elector.viewNo = view_no
-        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg, node.poolManager._ordered_node_ids)
+        name, instance_name = node.elector.next_primary_replica_name_for_master(node.nodeReg,
+                                                                                node.poolManager._ordered_node_ids)
         master_primary_rank = node.poolManager.get_rank_by_name(name, node.nodeReg, node.poolManager._ordered_node_ids)
         assert master_primary_rank == 2
         assert name == "Gamma" and instance_name == "Gamma:0"
@@ -458,7 +467,8 @@ def test_primaries_selection_gaps(txnPoolNodeSetWithElector):
         primary_0 = "Beta"
         primary_1 = "Delta"
         primaries = {primary_0, primary_1}
-        master_primary_rank = node.poolManager.get_rank_by_name(primary_0, node.nodeReg, node.poolManager._ordered_node_ids)
+        master_primary_rank = node.poolManager.get_rank_by_name(primary_0, node.nodeReg,
+                                                                node.poolManager._ordered_node_ids)
         name, instance_name = node.elector.next_primary_replica_name_for_backup(
             2, master_primary_rank, primaries, node.nodeReg, node.poolManager._ordered_node_ids)
         assert name == "Gamma" and \

@@ -26,6 +26,7 @@ class TestViewChangerWithAdjustedViewNo(TestViewChanger):
     def view_no(self, value):
         if value != 0:
             self.__view_no = value
+            self.provider.view_setting_handler(value)
 
 
 class TestNodeWithAdjustedViewNo(TestNode):

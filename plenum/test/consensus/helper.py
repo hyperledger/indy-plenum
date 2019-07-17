@@ -3,6 +3,7 @@ from typing import Optional, List
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from plenum.server.consensus.replica_service import ReplicaService
+from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer
 from plenum.test.simulation.sim_network import SimNetwork
@@ -48,7 +49,7 @@ def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoi
     )
 
 
-def some_pool(random: SimRandom) -> SimPool:
+def some_pool(random: SimRandom) -> (SimPool, List):
     pool_size = random.integer(4, 8)
     pool = SimPool(pool_size, random)
 
@@ -68,8 +69,8 @@ def some_pool(random: SimRandom) -> SimPool:
     max_p = sorted(p_count)[faulty]
     # Checkpoints
     cp_count = [1 + random.integer(0, min(max_p, p)) // seq_no_per_cp for p in pp_count]
-    max_stable_cp = sorted(cp_count)[faulty] - 1
-    stable_cp = [checkpoints[random.integer(0, min(max_stable_cp, cp))].seqNoEnd for cp in cp_count]
+    max_stable_cp_indx = sorted(cp_count)[faulty] - 1
+    stable_cp = [checkpoints[random.integer(0, min(max_stable_cp_indx, cp))].seqNoEnd for cp in cp_count]
 
     # Initialize consensus data
     for i, node in enumerate(pool.nodes):
@@ -78,4 +79,11 @@ def some_pool(random: SimRandom) -> SimPool:
         node._data.checkpoints = checkpoints[:cp_count[i]]
         node._data.stable_checkpoint = stable_cp[i]
 
-    return pool
+    committed = []
+    for i in range(1, max_batches):
+        prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
+        has_prepared_cert = prepare_count >= pool_size - faulty - 1
+        if has_prepared_cert:
+            committed.append(ViewChangeService.batch_id(batches[i - 1]))
+
+    return pool, committed

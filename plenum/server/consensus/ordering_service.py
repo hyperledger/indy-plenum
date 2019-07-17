@@ -23,7 +23,7 @@ from plenum.common.txn_util import get_payload_digest
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.propagator import Requests
 from plenum.server.replica import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
@@ -135,7 +135,7 @@ class ThreePCMsgValidator():
 class OrderingService:
 
     def __init__(self,
-                 data: ConsensusDataProvider,
+                 data: ConsensusSharedData,
                  timer: TimerService,
                  bus: InternalBus,
                  network: ExternalBus,

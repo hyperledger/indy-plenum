@@ -29,7 +29,8 @@ else:
 
 class ClientZStack(simple_zstack_class, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None,
-                 config=None, msgRejectHandler=None, metrics=NullMetricsCollector()):
+                 config=None, msgRejectHandler=None, metrics=NullMetricsCollector(),
+                 timer=None):
         config = config or getConfig()
 
         simple_zstack_class.__init__(
@@ -43,7 +44,8 @@ class ClientZStack(simple_zstack_class, MessageProcessor):
             create_listener_monitor=config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED,
             metrics=metrics,
             mt_incoming_size=MetricsName.INCOMING_CLIENT_MESSAGE_SIZE,
-            mt_outgoing_size=MetricsName.OUTGOING_CLIENT_MESSAGE_SIZE)
+            mt_outgoing_size=MetricsName.OUTGOING_CLIENT_MESSAGE_SIZE,
+            timer=timer)
         MessageProcessor.__init__(self, allowDictOnly=False)
 
         if config.CLIENT_STACK_RESTART_ENABLED and not config.TRACK_CONNECTED_CLIENTS_NUM_ENABLED:
