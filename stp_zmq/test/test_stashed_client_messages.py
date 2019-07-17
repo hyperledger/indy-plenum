@@ -143,20 +143,19 @@ def test_resending_for_old_stash_msgs(tdir, tconf, looper, stacks,
 
 def test_limit_msgs_for_client(tconf, looper, stacks, alpha_handler):
     alpha, beta = stacks
-    pending_client_messages = beta._client_message_provider._pending_client_messages 
+    pending_client_messages = beta._client_message_provider._pending_client_messages
     for i in range(tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT + 2):
         beta.send(create_msg(i),
                   alpha.listener.IDENTITY)
-    assert len(pending_client_messages[alpha.listener.IDENTITY]) == \
-           tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT
+    assert len(pending_client_messages[alpha.listener.IDENTITY]) == tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT
     assert pending_client_messages[alpha.listener.IDENTITY][0] != (0, create_msg(0))
-    assert pending_client_messages[alpha.listener.IDENTITY][-1] == \
-           (0, create_msg(tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT + 1))
+    assert pending_client_messages[alpha.listener.IDENTITY][-1] == (0,
+                                                                    create_msg(tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT + 1))
 
 
 def test_limit_pending_queue(tconf, looper, stacks, alpha_handler):
     alpha, beta = stacks
-    pending_client_messages = beta._client_message_provider._pending_client_messages 
+    pending_client_messages = beta._client_message_provider._pending_client_messages
     for i in range(tconf.PENDING_CLIENT_MESSAGES_LIMIT + 2):
         beta.send(create_msg(1), str(i))
     assert len(pending_client_messages) == tconf.PENDING_CLIENT_MESSAGES_LIMIT
@@ -166,7 +165,7 @@ def test_limit_pending_queue(tconf, looper, stacks, alpha_handler):
 
 def test_removing_old_stash(tdir, looper, tconf, stacks):
     _, node_stack = stacks
-    pending_client_messages = node_stack._client_message_provider._pending_client_messages 
+    pending_client_messages = node_stack._client_message_provider._pending_client_messages
     msg = create_msg(0)
     client_identity1 = "IDENTITY_1"
     client_identity2 = "IDENTITY_2"
@@ -179,7 +178,7 @@ def test_removing_old_stash(tdir, looper, tconf, stacks):
     node_stack.send(msg, client_identity2)
     assert client_identity1 not in pending_client_messages
     assert pending_client_messages[client_identity2] == [(tconf.REMOVE_CLIENT_MSG_TIMEOUT + 2,
-                                                              msg)]
+                                                          msg)]
 
     # test that the cleaning will be repeated
     new_time = (tconf.REMOVE_CLIENT_MSG_TIMEOUT + 2) * 2
@@ -188,4 +187,4 @@ def test_removing_old_stash(tdir, looper, tconf, stacks):
     assert client_identity1 not in pending_client_messages
     assert client_identity2 not in pending_client_messages
     assert pending_client_messages[client_identity3] == [(new_time,
-                                                              msg)]
+                                                          msg)]
