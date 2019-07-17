@@ -28,6 +28,7 @@ class ConsensusSharedData:
         self._validators = None
         self._quorums = None
         self.set_validators(validators)
+        self.log_size = 300  # TODO: use config value
 
     @property
     def name(self) -> str:

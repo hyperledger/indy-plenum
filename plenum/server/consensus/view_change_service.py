@@ -1,7 +1,7 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
-from typing import List, Optional, Union, NamedTuple, Dict, Any, Tuple, Set
+from typing import List, Optional, Union, NamedTuple, Dict, Any, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
@@ -130,6 +130,7 @@ class ViewChangeService:
         self._logger = getlogger()
 
         self._data = data
+        self._new_view_builder = NewViewBuilder(self._data)
         self._timer = timer
         self._bus = bus
         self._network = network
@@ -145,6 +146,9 @@ class ViewChangeService:
         self._old_prepared = {}     # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
 
+    def __repr__(self):
+        return self._data.name
+
     def start_view_change(self, view_no: Optional[int] = None):
         if view_no is None:
             view_no = self._data.view_no + 1
@@ -153,11 +157,11 @@ class ViewChangeService:
         self._clear_old_batches(self._old_preprepared)
 
         for pp in self._data.prepared:
-            self._old_prepared[pp.ppSeqNo] = self._batch_id(pp)
+            self._old_prepared[pp.ppSeqNo] = self.batch_id(pp)
         prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
 
         for pp in self._data.preprepared:
-            new_bid = self._batch_id(pp)
+            new_bid = self.batch_id(pp)
             pretenders = self._old_preprepared.get(pp.ppSeqNo, [])
             pretenders = [bid for bid in pretenders
                           if bid.pp_digest != new_bid.pp_digest]
@@ -249,11 +253,13 @@ class ViewChangeService:
             return
 
         view_changes = [self._votes.get_view_change(*v) for v in confirmed_votes]
-        cp = self._calc_checkpoint(view_changes)
+        cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None:
             return
 
-        batches = self._calc_batches(cp, view_changes)
+        batches = self._new_view_builder.calc_batches(cp, view_changes)
+        if batches is None:
+            return
 
         nv = NewView(
             viewNo=self._data.view_no,
@@ -277,14 +283,14 @@ class ViewChangeService:
                 return
             view_changes.append(vc)
 
-        cp = self._calc_checkpoint(view_changes)
+        cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None or cp != self._new_view.checkpoint:
             # New primary is malicious
             self.start_view_change()
             assert False  # TODO: Test debugging purpose
             return
 
-        batches = self._calc_batches(cp, view_changes)
+        batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches != self._new_view.batches:
             # New primary is malicious
             self.start_view_change()
@@ -312,10 +318,16 @@ class ViewChangeService:
                 del batches[pp_seq_no]
 
     @staticmethod
-    def _batch_id(batch: PrePrepare):
+    def batch_id(batch: PrePrepare):
         return BatchID(batch.viewNo, batch.ppSeqNo, batch.digest)
 
-    def _calc_checkpoint(self, vcs: List[ViewChange]) -> Optional[Checkpoint]:
+
+class NewViewBuilder:
+
+    def __init__(self, data: ConsensusSharedData) -> None:
+        self._data = data
+
+    def calc_checkpoint(self, vcs: List[ViewChange]) -> Optional[Checkpoint]:
         checkpoints = []
         for cur_vc in vcs:
             for cur_cp in cur_vc.checkpoints:
@@ -345,30 +357,43 @@ class ViewChangeService:
 
         return highest_cp
 
-    def _calc_batches(self, cp: Checkpoint, vcs: List[ViewChange]) -> List[BatchID]:
+    def calc_batches(self, cp: Checkpoint, vcs: List[ViewChange]) -> Optional[List[BatchID]]:
         # TODO: Optimize this
         batches = set()
-        for vc in vcs:
-            for _bid in vc.prepared:
-                bid = BatchID(*_bid)
-                if bid in batches:
-                    continue
-                if self._is_batch_prepared(bid, cp, vcs):
-                    batches.add(bid)
+        pp_seq_no = cp.seqNoEnd + 1
+        while pp_seq_no <= cp.seqNoEnd + self._data.log_size:
+            bid = self._try_find_batch_for_pp_seq_no(vcs, pp_seq_no)
+            if bid:
+                batches.add(bid)
+                pp_seq_no += 1
+                continue
 
-            for _bid in vc.preprepared:
-                bid = BatchID(*_bid)
-                if bid in batches:
-                    continue
-                if self._is_batch_preprepared(bid, cp, vcs):
-                    batches.add(bid)
+            if self._check_null_batch(vcs, pp_seq_no):
+                # TODO: the protocol says to do the loop for all pp_seq_no till h+L (apply NULL batches)
+                # Since we require sequential applying of PrePrepares, we can stop on the first non-found (NULL) batch
+                # Double-check this!
+                break
+
+            # not enough quorums yet
+            return None
 
         return sorted(batches)
 
-    def _is_batch_prepared(self, bid: BatchID, cp: Checkpoint, vcs: List[ViewChange]) -> bool:
-        if not self._is_inside_watermarks(bid, cp):
-            return False
+    def _try_find_batch_for_pp_seq_no(self, vcs, pp_seq_no):
+        for vc in vcs:
+            for _bid in vc.prepared:
+                bid = BatchID(*_bid)
+                if bid.pp_seq_no != pp_seq_no:
+                    continue
+                if not self._is_batch_prepared(bid, vcs):
+                    continue
+                if not self._is_batch_preprepared(bid, vcs):
+                    continue
+                return bid
 
+        return None
+
+    def _is_batch_prepared(self, bid: BatchID, vcs: List[ViewChange]) -> bool:
         def check(vc: ViewChange):
             if bid.pp_seq_no <= vc.stableCheckpoint:
                 return False
@@ -377,19 +402,17 @@ class ViewChangeService:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
                     continue
-                if some_bid.view_no < bid.view_no:
-                    return True
-                return some_bid == bid
-
-            return False
+                # not ( (v' < v) OR (v'==v and d'==d) )
+                if some_bid.view_no > bid.view_no:
+                    return False
+                if some_bid.view_no >= bid.view_no and some_bid.pp_digest != bid.pp_digest:
+                    return False
+            return True
 
         prepared_witnesses = sum(1 for vc in vcs if check(vc))
         return self._data.quorums.strong.is_reached(prepared_witnesses)
 
-    def _is_batch_preprepared(self, bid: BatchID, cp: Checkpoint, vcs: List[ViewChange]) -> bool:
-        if not self._is_inside_watermarks(bid, cp):
-            return False
-
+    def _is_batch_preprepared(self, bid: BatchID, vcs: List[ViewChange]) -> bool:
         def check(vc: ViewChange):
             for _some_bid in vc.preprepared:
                 some_bid = BatchID(*_some_bid)
@@ -405,6 +428,16 @@ class ViewChangeService:
         preprepared_witnesses = sum(1 for vc in vcs if check(vc))
         return self._data.quorums.weak.is_reached(preprepared_witnesses)
 
-    def _is_inside_watermarks(self, bid: BatchID, cp: Checkpoint) -> bool:
-        # TODO: Get log size from ConsensusDataProvider
-        return cp.seqNoEnd < bid.pp_seq_no <= cp.seqNoEnd + 300
+    def _check_null_batch(self, vcs, pp_seq_no):
+        def check(vc: ViewChange):
+            if pp_seq_no <= vc.stableCheckpoint:
+                return False
+
+            for _some_bid in vc.prepared:
+                some_bid = BatchID(*_some_bid)
+                if some_bid.pp_seq_no == pp_seq_no:
+                    return False
+            return True
+
+        null_batch_witnesses = sum(1 for vc in vcs if check(vc))
+        return self._data.quorums.strong.is_reached(null_batch_witnesses)
