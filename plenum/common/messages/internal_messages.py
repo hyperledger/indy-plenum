@@ -1,5 +1,7 @@
 from typing import NamedTuple, List, Any
 
+from plenum.common.messages.node_messages import CheckpointState
+
 ValidatorsChanged = NamedTuple('ValidatorsChange',
                                [('names', List[str])])
 
@@ -16,3 +18,18 @@ HookMessage = NamedTuple('HookMessage',
 OutboxMessage = NamedTuple('OutboxMessage',
                            [('msg', Any)])
 
+DoCheckpointMessage = NamedTuple('DoCheckpoinitMessage',
+                                 [('state', CheckpointState),
+                                  ('start_no', int),
+                                  ('end_no', int),
+                                  ('ledger_id', int),
+                                  ('view_no', int)])
+
+RemoveStashedCheckpoints = NamedTuple('RemoveStashedCheckpoints',
+                                      [('start_no', int),
+                                       ('end_no', int),
+                                       ('view_no', int),
+                                       ('all', bool)])
+
+RequestPropagates = NamedTuple('RequestPropagates',
+                               [('bad_requests', List)])

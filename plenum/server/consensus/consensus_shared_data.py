@@ -36,6 +36,7 @@ class ConsensusSharedData:
         self._low_watermark = 0
         self.log_size = 300  # TODO: use config value
         self._high_watermark = self._low_watermark + self.log_size
+        self._total_nodes = 0
 
     @property
     def name(self) -> str:
@@ -86,9 +87,17 @@ class ConsensusSharedData:
     def low_watermark(self):
         return self._low_watermark
 
+    @low_watermark.setter
+    def low_watermark(self, lw):
+        self._low_watermark = lw
+
     @property
     def high_watermark(self):
         return self._high_watermark
+
+    @high_watermark.setter
+    def high_watermark(self, hw):
+        self._high_watermark = hw
 
     @property
     def requests(self):
@@ -104,6 +113,14 @@ class ConsensusSharedData:
         # ToDo: does not need on first stage
         # self.logger.info('{} set last ordered as {}'.format(
         #     self, self._last_ordered_3pc))
+
+    @property
+    def total_nodes(self):
+        return self._total_nodes
+
+    @total_nodes.setter
+    def total_nodes(self, tn):
+        self._total_nodes = tn
 
     @property
     def last_checkpoint(self) -> Checkpoint:
