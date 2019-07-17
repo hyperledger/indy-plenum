@@ -10,6 +10,7 @@ from plenum.common.txn_util import get_type, reqToTxn, get_payload_data
 from plenum.server.quorums import Quorums
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum.test.buy_handler import BuyHandler
+from plenum.test.get_buy_handler import GetBuyHandler
 from state.pruning_state import PruningState
 from common.serializers.serialization import state_roots_serializer, proof_nodes_serializer, domain_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, MULTI_SIGNATURE, \
@@ -231,14 +232,12 @@ def validate_proof_for_write(result):
 
 def prepare_for_state(result):
     if get_type(result) == "buy":
-        from plenum.test.test_node import TestDomainRequestHandler
-        key, value = TestDomainRequestHandler.prepare_buy_for_state(result)
+        key, value = GetBuyHandler.prepare_buy_for_state(result)
         return key, value
 
 
 def prepare_for_state_read(req: Request):
     if req.txn_type == "buy":
-        from plenum.test.test_node import TestDomainRequestHandler
         txn = reqToTxn(req)
         key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
         value = domain_state_serializer.serialize({"amount": get_payload_data(txn)['amount']})
