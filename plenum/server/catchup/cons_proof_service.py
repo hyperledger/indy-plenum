@@ -443,16 +443,16 @@ class ConsProofService:
     def _schedule_reask_last_cons_proof(self, frm):
         if frm not in self._requested_consistency_proof:
             self._requested_consistency_proof.add(frm)
-            if self._consistency_proof_timer is not None:
-                self._consistency_proof_timer.stop()
-            self._consistency_proof_timer = \
-                RepeatingTimer(self._timer,
-                               self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
-                               self._reask_for_last_consistency_proof)
+            if self._consistency_proof_timer is None:
+                self._consistency_proof_timer = \
+                    RepeatingTimer(self._timer,
+                                   self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
+                                   self._reask_for_last_consistency_proof)
 
     def _cancel_reask(self):
         if self._consistency_proof_timer:
             self._consistency_proof_timer.stop()
+            self._consistency_proof_timer = None
         if self._ledger_status_timer:
             self._ledger_status_timer.stop()
         self._timer.cancel(self._request_CPs_if_needed)
