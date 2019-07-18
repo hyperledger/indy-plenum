@@ -47,7 +47,6 @@ class ConsProofService:
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._already_asked_for_cons_proofs_without_timeout = False
-        self._requested_consistency_proof = set()
         self._last_txn_3PC_key = {}
         self._ledger_status_timer = None
         self._consistency_proof_timer = None
@@ -63,7 +62,6 @@ class ConsProofService:
         self._same_ledger_status = set()
         self._cons_proofs = {}
         self._already_asked_for_cons_proofs_without_timeout = False
-        self._requested_consistency_proof = set()
         self._last_txn_3PC_key = {}
 
         if request_ledger_statuses:
@@ -117,7 +115,6 @@ class ConsProofService:
         self._is_working = False
         self._same_ledger_status = set()
         self._cons_proofs = {}
-        self._requested_consistency_proof = set()
 
         self._cancel_reask()
 
@@ -213,7 +210,7 @@ class ConsProofService:
         # in order to get the consistency proof from it
         my_ledger_status = build_ledger_status(self._ledger_id, self._provider)
         self._provider.send_to(my_ledger_status, frm)
-        self._schedule_reask_last_cons_proof(frm)
+        self._schedule_reask_last_cons_proof()
 
     def _process_same_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         # We are not behind the node which has sent the ledger status,
@@ -440,14 +437,12 @@ class ConsProofService:
                            self._config.LedgerStatusTimeout * (len(self._provider.all_nodes_names()) - 1),
                            self._reask_for_ledger_status)
 
-    def _schedule_reask_last_cons_proof(self, frm):
-        if frm not in self._requested_consistency_proof:
-            self._requested_consistency_proof.add(frm)
-            if self._consistency_proof_timer is None:
-                self._consistency_proof_timer = \
-                    RepeatingTimer(self._timer,
-                                   self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
-                                   self._reask_for_last_consistency_proof)
+    def _schedule_reask_last_cons_proof(self):
+        if self._consistency_proof_timer is None:
+            self._consistency_proof_timer = \
+                RepeatingTimer(self._timer,
+                               self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
+                               self._reask_for_last_consistency_proof)
 
     def _cancel_reask(self):
         if self._consistency_proof_timer:
