@@ -6,7 +6,7 @@ from plenum.common.channel import RxChannel, TxChannel, Router
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF
 from plenum.common.messages.node_messages import LedgerStatus, MessageReq, ConsistencyProof
 from plenum.common.metrics_collector import MetricsCollector, measure_time, MetricsName
-from plenum.common.timer import TimerService
+from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.types import f
 from plenum.common.util import min_3PC_key
 from plenum.server.catchup.utils import CatchupDataProvider, build_ledger_status, LedgerCatchupStart, CatchupTill
@@ -49,6 +49,9 @@ class ConsProofService:
         self._already_asked_for_cons_proofs_without_timeout = False
         self._requested_consistency_proof = set()
         self._last_txn_3PC_key = {}
+        self._ledger_status_timer = None
+        self._consistency_proof_timer = None
+
 
     def __repr__(self) -> str:
         return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
@@ -433,20 +436,22 @@ class ConsProofService:
         )
 
     def _schedule_reask_ledger_status(self):
-        self._timer.schedule(
-            delay=self._config.LedgerStatusTimeout * (len(self._provider.all_nodes_names()) - 1),
-            callback=self._reask_for_ledger_status
-        )
+        self._ledger_status_timer = \
+            RepeatingTimer(self._timer,
+                           self._config.LedgerStatusTimeout * (len(self._provider.all_nodes_names()) - 1),
+                           self._reask_for_ledger_status)
 
     def _schedule_reask_last_cons_proof(self, frm):
         if frm not in self._requested_consistency_proof:
             self._requested_consistency_proof.add(frm)
-            self._timer.schedule(
-                delay=self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
-                callback=self._reask_for_last_consistency_proof
-            )
+            self._consistency_proof_timer = \
+                RepeatingTimer(self._timer,
+                               self._config.ConsistencyProofsTimeout * (len(self._provider.all_nodes_names()) - 1),
+                               self._reask_for_last_consistency_proof)
 
     def _cancel_reask(self):
-        self._timer.cancel(self._reask_for_last_consistency_proof)
-        self._timer.cancel(self._reask_for_ledger_status)
+        if self._consistency_proof_timer:
+            self._consistency_proof_timer.stop()
+        if self._ledger_status_timer:
+            self._ledger_status_timer.stop()
         self._timer.cancel(self._request_CPs_if_needed)
