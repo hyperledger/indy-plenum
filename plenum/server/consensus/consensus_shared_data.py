@@ -37,6 +37,9 @@ class ConsensusSharedData:
         self.log_size = 300  # TODO: use config value
         self._high_watermark = self._low_watermark + self.log_size
         self._total_nodes = 0
+        self._pp_seq_no = 0
+        # ToDo: it should be set in view_change_service before view_change starting
+        self.legacy_last_prepared_before_view_change = None
 
     @property
     def name(self) -> str:
@@ -125,3 +128,11 @@ class ConsensusSharedData:
     @property
     def last_checkpoint(self) -> Checkpoint:
         return self.checkpoints[-1]
+
+    @property
+    def pp_seq_no(self):
+        return self._pp_seq_no
+
+    @pp_seq_no.setter
+    def pp_seq_no(self, pp_no):
+        self._pp_seq_no = pp_no

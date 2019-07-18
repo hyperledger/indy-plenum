@@ -46,7 +46,7 @@ from stp_core.common.log import getlogger
 
 
 class ThreePCMsgValidator:
-    def __init__(self, data):
+    def __init__(self, data: ConsensusSharedData):
         self._data = data
 
     @property
@@ -74,7 +74,7 @@ class ThreePCMsgValidator:
 
     @property
     def last_ordered_3pc(self):
-        return self._data.view_no, self._data.pp_seq_no
+        return self._data.last_ordered_3pc
 
     @property
     def is_participating(self):
@@ -125,9 +125,9 @@ class ThreePCMsgValidator:
                 return DISCARD, OLD_VIEW
             if not self.legacy_vc_in_progress:
                 return DISCARD, OLD_VIEW
-            if self.legacy_last_prepared_sertificate is None:
+            if self._data.legacy_last_prepared_before_view_change is None:
                 return DISCARD, OLD_VIEW
-            if compare_3PC_keys((view_no, pp_seq_no), self.legacy_last_prepared_sertificate) < 0:
+            if compare_3PC_keys((view_no, pp_seq_no), self._data.legacy_last_prepared_before_view_change) < 0:
                 return DISCARD, GREATER_PREP_CERT
         if view_no == self.view_no and self.legacy_vc_in_progress:
             return STASH_VIEW, FUTURE_VIEW
@@ -787,7 +787,7 @@ class OrderingService:
     @property
     def name(self):
         # ToDo: Change to real name
-        return "some_name"
+        return self._data.name
 
     @property
     def f(self):
