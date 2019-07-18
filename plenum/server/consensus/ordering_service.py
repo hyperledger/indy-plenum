@@ -91,9 +91,7 @@ class ThreePCMsgValidator:
     def can_order(self):
         if self.is_participating:
             return True
-        # if node.is_synced and node.view_change_in_progress:
-        # ToDo: Can we order during view_change?
-        if self.legacy_vc_in_progress:
+        if self._data.is_synced and self._data.legacy_vc_in_progress:
             return True
         return False
 
