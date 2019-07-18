@@ -6,7 +6,6 @@ from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.replica import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 from plenum.test.consensus.ordering_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
 from plenum.test.testing_utils import FakeSomething
