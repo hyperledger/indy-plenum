@@ -11,7 +11,7 @@ from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
-from plenum.test.consensus.ordering_service.helper import _register_pp_ts
+from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
 from plenum.test.testing_utils import FakeSomething
 

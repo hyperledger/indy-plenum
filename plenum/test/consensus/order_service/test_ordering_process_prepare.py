@@ -3,7 +3,7 @@ import pytest
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.util import updateNamedTuple
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.consensus.ordering_service.helper import _register_pp_ts
+from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import generate_state_root, create_prepare_from_pre_prepare
 
 PRIMARY_NAME = "Alpha:0"
