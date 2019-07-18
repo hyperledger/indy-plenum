@@ -26,7 +26,6 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
                               stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, shell=True)
     if result.returncode != 0:
-        # log("Output was: {}".format(result))
         log("STDERR: Test suit preparation error {}".format(result.stderr.read()))
         log("STDOUT: Test suit preparation error {}".format(result.stdout.read()))
         return -1
