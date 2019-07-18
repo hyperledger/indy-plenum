@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 import sys
 import argparse
 
@@ -20,10 +21,11 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
         log("Is going to repeat the test suite until failure")
     log("Preparing test suite with {}".format(pytest))
     testListFile = "test_list.txt"
-    collect_status = os.system('{} --collect-only {} > {}'.format(pytest, testDir, testListFile))
-
-    if collect_status != 0:
-        log("Test suit preparation error {}".format(collect_status))
+    # collect_status = os.system('{} --collect-only {} > {}'.format(pytest, testDir, testListFile))
+    result = subprocess.Popen('{} --collect-only {} > {}'.format(pytest, testDir, testListFile), stderr=subprocess.PIPE, shell=True)
+    if result.returncode != 0:
+        # log("Output was: {}".format(result))
+        log("Test suit preparation error {}".format(result.stderr.read()))
         return -1
 
     log("Reading collected modules file")
