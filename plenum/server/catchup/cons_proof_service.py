@@ -52,7 +52,6 @@ class ConsProofService:
         self._ledger_status_timer = None
         self._consistency_proof_timer = None
 
-
     def __repr__(self) -> str:
         return "{}:ConsProofService:{}".format(self._provider.node_name(), self._ledger_id)
 
