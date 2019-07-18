@@ -134,8 +134,8 @@ class ThreePCMsgValidator:
 
         # ToDo: we assume, that only is_participating needs checking orderability
         # If Catchup in View Change finished then process Commit messages
-        # if self.is_synced and self.legacy_vc_in_progress:
-        #     return PROCESS, None
+        if self._data.is_synced and self.legacy_vc_in_progress:
+            return PROCESS, None
 
         # 5. Check if Participating
         if not self.is_participating:
@@ -166,10 +166,11 @@ class OrderingService:
         self._network = network
         self._write_manager = write_manager
         self._is_master = is_master
+        self._name = self._data.name
 
         self._config = getConfig()
         self._logger = getlogger()
-        self._stasher = StashingRouter(self._config.ORDERING_SERVICE_STASH_LIMIT)
+        self._stasher = StashingRouter(self._config.REPLICA_STASH_LIMIT)
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,
@@ -787,7 +788,11 @@ class OrderingService:
     @property
     def name(self):
         # ToDo: Change to real name
-        return self._data.name
+        return self._name
+
+    @name.setter
+    def name(self, n):
+        self._name = n
 
     @property
     def f(self):
@@ -799,7 +804,7 @@ class OrderingService:
         # successfully complete, the node must have reached the same state
         # as other nodes
         self._data.low_watermark = 0
-        self._lastPrePrepareSeqNo = self.h
+        self._lastPrePrepareSeqNo = self._data.low_watermark
 
     """Method from legacy code"""
     def l__should_reset_watermarks_before_new_view(self):
@@ -887,8 +892,11 @@ class OrderingService:
         Remove stashed received checkpoints up to `till_3pc_key` if provided,
         otherwise remove all stashed received checkpoints
         """
+        # ToDo: Maybe need to change message format?
         self._bus.send(RemoveStashedCheckpoints(view_no=view_no,
-                                                all=True))
+                                                all=True,
+                                                start_no=0,
+                                                end_no=0))
         # ToDo: Should we send some notification for checkpoint service?
         # if till_3pc_key is None:
         #     self.stashedRecvdCheckpoints.clear()
@@ -1142,7 +1150,7 @@ class OrderingService:
         self._network.send(MessageReq(**{
             f.MSG_TYPE.nm: typ,
             f.PARAMS.nm: params
-        }), recipients=frm)
+        }), dst=frm)
 
     """Method from legacy code"""
     def l_setup_last_ordered_for_non_master(self):
@@ -1444,7 +1452,7 @@ class OrderingService:
         """
         key = (pp.viewNo, pp.ppSeqNo)
         # ToDo:
-        self._data.prepared[key] = pp
+        self.prePrepares[key] = pp
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self.l_dequeue_prepares(*key)
@@ -1746,7 +1754,8 @@ class OrderingService:
 
         self._bus.send(RemoveStashedCheckpoints(start_no=start_no,
                                                 end_no=end_no,
-                                                view_no=view_no))
+                                                view_no=view_no,
+                                                all=False))
         # ToDo: remove the next code after integration phase
         # # Remove all checkpoints from previous views if any
         # self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))

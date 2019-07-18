@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.startable import Mode
 from plenum.server.consensus.ordering_service import ThreePCMsgValidator
 from plenum.server.replica_validator_enums import PROCESS, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
     STASH_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, GREATER_PREP_CERT
@@ -159,3 +160,15 @@ def test_commit_greater_then_legacy_last_prepared_sertificate(validator, view_no
                                    pp_seq_no=pp_seq_no,
                                    inst_id=inst_id)
     assert validator.validate(commit) == (DISCARD, GREATER_PREP_CERT)
+
+
+def test_process_if_synced_and_vc_in_progress(validator, view_no, inst_id, pp_seq_no):
+    validator._data.view_no = view_no + 1
+    validator._data.node_mode = Mode.synced
+    validator._data.legacy_vc_in_progress = True
+    validator._data.legacy_last_prepared_before_view_change = (view_no, pp_seq_no + 1)
+    _, _, commit = create_3pc_msgs(view_no=view_no,
+                                   pp_seq_no=pp_seq_no + 1,
+                                   inst_id=inst_id)
+
+    assert validator.validate(commit) == (PROCESS, None)

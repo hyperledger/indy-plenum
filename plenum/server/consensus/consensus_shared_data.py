@@ -2,6 +2,9 @@ from typing import List
 
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
+
+from plenum.common.startable import Mode
+from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
 
 
@@ -23,7 +26,7 @@ class ConsensusSharedData:
 
         self._legacy_vc_in_progress = False
         self._is_participating = False
-        self._requests = []
+        self._requests = Requests()
         self._last_ordered_3pc = (0, 0)
         self.primary_name = None
         self.stable_checkpoint = 0
@@ -33,11 +36,12 @@ class ConsensusSharedData:
         self._validators = None
         self._quorums = None
         self.set_validators(validators)
-        self._low_watermark = 0
+        self.low_watermark = 0
         self.log_size = 300  # TODO: use config value
-        self._high_watermark = self._low_watermark + self.log_size
-        self._total_nodes = 0
-        self._pp_seq_no = 0
+        self.high_watermark = self.low_watermark + self.log_size
+        self._total_nodes = len(self.validators)
+        self.pp_seq_no = 0
+        self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting
         self.legacy_last_prepared_before_view_change = None
 
@@ -87,20 +91,8 @@ class ConsensusSharedData:
         self._is_participating = particip_status
 
     @property
-    def low_watermark(self):
-        return self._low_watermark
-
-    @low_watermark.setter
-    def low_watermark(self, lw):
-        self._low_watermark = lw
-
-    @property
-    def high_watermark(self):
-        return self._high_watermark
-
-    @high_watermark.setter
-    def high_watermark(self, hw):
-        self._high_watermark = hw
+    def is_synced(self):
+        return Mode.is_done_syncing(self.node_mode)
 
     @property
     def requests(self):
@@ -128,11 +120,3 @@ class ConsensusSharedData:
     @property
     def last_checkpoint(self) -> Checkpoint:
         return self.checkpoints[-1]
-
-    @property
-    def pp_seq_no(self):
-        return self._pp_seq_no
-
-    @pp_seq_no.setter
-    def pp_seq_no(self, pp_no):
-        self._pp_seq_no = pp_no
