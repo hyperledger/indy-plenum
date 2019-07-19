@@ -1,12 +1,14 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.test.greek import genNodeNames
+from plenum.test.helper import MockTimer, MockNetwork
 
 
 @pytest.fixture(params=[4, 6, 7, 8])
@@ -47,6 +49,10 @@ def consensus_data(validators, primary, initial_view_no, initial_checkpoints):
 
     return _data
 
+@pytest.fixture
+def view_change_service():
+    data = ConsensusSharedData("some_name", genNodeNames(4), 0)
+    return ViewChangeService(data, MockTimer(0), InternalBus(), MockNetwork())
 
 @pytest.fixture
 def pre_prepare():
@@ -64,3 +70,18 @@ def pre_prepare():
         0,
         True
     )
+
+
+@pytest.fixture
+def view_change_message():
+    def _view_change(view_no: int):
+        vc = ViewChange(
+            viewNo=view_no,
+            stableCheckpoint=4,
+            prepared=[],
+            preprepared=[],
+            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest='some')]
+        )
+        return vc
+
+    return _view_change
