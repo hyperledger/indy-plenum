@@ -655,8 +655,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
         self._cancel(self._check_view_change_completed)
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=self._view_change_timeout)
+        self.schedule_view_change_completion_check(self._view_change_timeout)
 
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
@@ -692,6 +691,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for replica in self.replicas.values():
             replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
+
+    def schedule_view_change_completion_check(self, timeout):
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=timeout)
 
     def on_view_propagated(self):
         """
