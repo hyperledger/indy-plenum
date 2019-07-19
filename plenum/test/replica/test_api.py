@@ -9,7 +9,7 @@ nodeCount = 4
 def test_is_next_pre_prepare(replica):
     pp_view_no = 2
     pp_seq_no = 1
-    replica._last_ordered_3pc = (1, 2)
+    replica.last_ordered_3pc = (1, 2)
 
     assert replica.viewNo != pp_view_no
     assert not replica._Replica__is_next_pre_prepare(pp_view_no, pp_seq_no)

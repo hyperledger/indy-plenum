@@ -293,6 +293,7 @@ MAX_STACK_RESTART_TIME_DEVIATION = 300  # seconds
 
 VIEW_CHANGE_TIMEOUT = 420  # seconds
 INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = 60
+INSTANCE_CHANGE_RESEND_TIMEOUT = 60
 INSTANCE_CHANGE_TIMEOUT = 60
 MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 300
 
@@ -392,6 +393,9 @@ ACCEPTABLE_FRESHNESS_INTERVALS_COUNT = 2
 
 # Limit for numbers of 3pc and checkpoint messages stashed in replica
 REPLICA_STASH_LIMIT = 100000
+
+# Limit for number of messages that are allowed to be stashed in view change service
+VIEW_CHANGE_SERVICE_STASH_LIMIT = 1000
 
 # Time, which we wait before request propagate, when discovered unfinalized preprepare
 PROPAGATE_REQUEST_DELAY = 2
