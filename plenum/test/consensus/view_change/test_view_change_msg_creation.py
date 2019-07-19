@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.messages.node_messages import ViewChange, Checkpoint
 from plenum.server.consensus.view_change_service import view_change_digest
-from plenum.test.consensus.helper import some_preprepare
+from plenum.test.consensus.view_change.helper import some_preprepare
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def test_view_change_data_multiple(view_change_service, data):
     data.view_no = 0
     cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='empty')
     data.checkpoints.add(cp1)
-    data.stable_checkpoint = 10
+    data.stable_checkpoint = 0
     data.prepared = [some_preprepare(0, 1, "digest1"),
                      some_preprepare(0, 2, "digest2")]
     data.preprepared = [some_preprepare(0, 1, "digest1"),
@@ -64,19 +64,46 @@ def test_view_change_data_multiple(view_change_service, data):
     assert msg.viewNo == 1
     assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
     assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
-    assert msg.stableCheckpoint == 10
+    assert msg.stableCheckpoint == 0
     assert msg.checkpoints == [cp1]
 
     # view 1 -> 2
     data.view_no = 1
     cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=10, seqNoEnd=20, digest='empty')
     data.checkpoints.add(cp2)
-    data.stable_checkpoint = 20
-    data.prepared = [some_preprepare(1, 11, "digest1"),
-                     some_preprepare(1, 12, "digest2")]
+    data.stable_checkpoint = 0
+    data.prepared = [some_preprepare(1, 11, "digest11"),
+                     some_preprepare(1, 12, "digest12")]
     data.preprepared = [some_preprepare(1, 11, "digest11"),
                         some_preprepare(1, 12, "digest12"),
                         some_preprepare(1, 13, "digest13")]
+    view_change_service.start_view_change()
+
+    assert data.prepared == []
+    assert data.preprepared == []
+    assert data.view_no == 2
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 2
+    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2"),
+                            (1, 11, "digest11"), (1, 12, "digest12")]
+    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3"),
+                               (1, 11, "digest11"), (1, 12, "digest12"), (1, 13, "digest13")]
+    assert msg.stableCheckpoint == 0
+    assert msg.checkpoints == [cp1, cp2]
+
+
+def test_view_change_data_multiple_respects_checkpoint(view_change_service, data):
+    # view 0 -> 1
+    data.view_no = 0
+    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='empty')
+    data.checkpoints.add(cp1)
+    data.stable_checkpoint = 0
+    data.prepared = [some_preprepare(0, 1, "digest1"),
+                     some_preprepare(0, 2, "digest2")]
+    data.preprepared = [some_preprepare(0, 1, "digest1"),
+                        some_preprepare(0, 2, "digest2"),
+                        some_preprepare(0, 3, "digest3")]
     view_change_service.start_view_change()
 
     assert data.prepared == []
@@ -85,11 +112,32 @@ def test_view_change_data_multiple(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
-    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2"),
-                            (1, 11, "digest11"), (1, 12, "digest12")]
-    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3"),
-                               (1, 11, "digest11"), (1, 12, "digest12"), (1, 13, "digest13")]
-    assert msg.stableCheckpoint == 20
+    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
+    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
+    assert msg.stableCheckpoint == 0
+    assert msg.checkpoints == [cp1]
+
+    # view 1 -> 2
+    data.view_no = 1
+    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=10, seqNoEnd=20, digest='empty')
+    data.checkpoints.add(cp2)
+    data.stable_checkpoint = 10
+    data.prepared = [some_preprepare(1, 11, "digest11"),
+                     some_preprepare(1, 12, "digest12")]
+    data.preprepared = [some_preprepare(1, 11, "digest11"),
+                        some_preprepare(1, 12, "digest12"),
+                        some_preprepare(1, 13, "digest13")]
+    view_change_service.start_view_change()
+
+    assert data.prepared == []
+    assert data.preprepared == []
+    assert data.view_no == 2
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 2
+    assert msg.prepared == [(1, 11, "digest11"), (1, 12, "digest12")]
+    assert msg.preprepared == [(1, 11, "digest11"), (1, 12, "digest12"), (1, 13, "digest13")]
+    assert msg.stableCheckpoint == 10
     assert msg.checkpoints == [cp1, cp2]
 
 

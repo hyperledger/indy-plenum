@@ -1,11 +1,8 @@
-import string
-
 import pytest
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
 from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
-from plenum.test.consensus.helper import some_preprepare
 from plenum.test.helper import MockNetwork
 
 
