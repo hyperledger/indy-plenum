@@ -10,7 +10,7 @@ from plenum.test.simulation.sim_random import DefaultSimRandom
 N = 4
 F = 1
 
-TestRunningTimeLimitSec = 600
+# TestRunningTimeLimitSec = 600
 
 
 @pytest.fixture
@@ -22,11 +22,6 @@ def consensus_data_provider():
 @pytest.fixture
 def builder(consensus_data_provider):
     return NewViewBuilder(consensus_data_provider)
-
-
-@pytest.fixture
-def strong_quorum(consensus_data_provider):
-    return consensus_data_provider.quorums.strong.value
 
 
 def test_calc_batches_empty(builder):
@@ -447,9 +442,6 @@ def test_calc_checkpoints_digest(builder):
     cp1_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='d1')
     cp2_d2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='d2')
     cp2_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='d1')
-    cp3_d3 = Checkpoint(instId=0, viewNo=0, seqNoStart=10, seqNoEnd=20, digest='d3')
-    cp3_d2 = Checkpoint(instId=0, viewNo=0, seqNoStart=10, seqNoEnd=20, digest='d2')
-    cp3_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=10, seqNoEnd=20, digest='d1')
 
     vc1_d1 = ViewChange(viewNo=0, stableCheckpoint=0,
                         prepared=[(1, 1, "digest1")],
