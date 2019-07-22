@@ -1,4 +1,5 @@
 import itertools
+import time
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
 from typing import Tuple, List, Set, Optional, Dict, Iterable
@@ -87,13 +88,6 @@ class ThreePCMsgValidator:
     def has_already_ordered(self, view_no, pp_seq_no):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self.last_ordered_3pc) >= 0
-
-    def can_order(self):
-        if self.is_participating:
-            return True
-        if self._data.is_synced and self._data.legacy_vc_in_progress:
-            return True
-        return False
 
     def validate(self, msg):
         view_no = getattr(msg, f.VIEW_NO.nm, None)
@@ -299,6 +293,7 @@ class OrderingService:
         self.stashed_out_of_order_commits = {}
 
         self._freshness_checker = FreshnessChecker(freshness_timeout=self._config.STATE_FRESHNESS_UPDATE_INTERVAL)
+        self._skip_send_3pc_ts = None
 
         self._consensus_data_helper = ConsensusDataHelper(self._data)
 
@@ -758,7 +753,7 @@ class OrderingService:
 
         :return: Returns name if primary is known, None otherwise
         """
-        return self._primary_name
+        return self._data.primary_name
 
     @primary_name.setter
     def primary_name(self, value: Optional[str]) -> None:
@@ -771,8 +766,8 @@ class OrderingService:
             self.warned_no_primary = False
         self.primary_names[self.view_no] = value
         self.l_compact_primary_names()
-        if value != self._primary_name:
-            self._primary_name = value
+        if value != self._data.primary_name:
+            self._data.primary_name = value
             self._logger.info("{} setting primaryName for view no {} to: {}".
                               format(self, self.view_no, value))
             if value is None:
@@ -786,11 +781,11 @@ class OrderingService:
     @property
     def name(self):
         # ToDo: Change to real name
-        return self._name
+        return self._data.name
 
     @name.setter
     def name(self, n):
-        self._name = n
+        self._data._name = n
 
     @property
     def f(self):
@@ -2075,3 +2070,49 @@ class OrderingService:
         if self.is_master:
             self.l_do_dynamic_validation(req, cons_time)
             self._write_manager.apply_request(req, cons_time)
+
+    def can_send_3pc_batch(self):
+        if not self._data.is_primary:
+            return False
+        if not self._data.is_participating:
+            return False
+        # ToDo: is pre_view_change_in_progress needed?
+        # if self.replica.node.pre_view_change_in_progress:
+        #     return False
+        if self.view_no < self.last_ordered_3pc[0]:
+            return False
+        if self.view_no == self.last_ordered_3pc[0]:
+            if self._lastPrePrepareSeqNo < self.last_ordered_3pc[1]:
+                return False
+            # This check is done for current view only to simplify logic and avoid
+            # edge cases between views, especially taking into account that we need
+            # to send a batch in new view as soon as possible
+            if self._config.Max3PCBatchesInFlight is not None:
+                batches_in_flight = self._lastPrePrepareSeqNo - self.last_ordered_3pc[1]
+                if batches_in_flight >= self._config.Max3PCBatchesInFlight:
+                    if self.l_can_log_skip_send_3pc():
+                        self._logger.info("{} not creating new batch because there already {} in flight out of {} allowed".
+                                          format(self.name, batches_in_flight, self._config.Max3PCBatchesInFlight))
+                    return False
+
+        self._skip_send_3pc_ts = None
+        return True
+
+    def l_can_log_skip_send_3pc(self):
+        current_time = time.perf_counter()
+        if self._skip_send_3pc_ts is None:
+            self._skip_send_3pc_ts = current_time
+            return True
+
+        if current_time - self._skip_send_3pc_ts > self._config.Max3PCBatchWait:
+            self._skip_send_3pc_ts = current_time
+            return True
+
+        return False
+
+    def can_order(self):
+        if self._data.is_participating:
+            return True
+        if self._data.is_synced and self._data.legacy_vc_in_progress:
+            return True
+        return False

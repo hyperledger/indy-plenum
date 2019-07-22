@@ -2,6 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.startable import Mode
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
@@ -64,3 +65,17 @@ def pre_prepare():
         0,
         True
     )
+
+
+@pytest.fixture(scope='function',
+                params=[Mode.starting, Mode.discovering, Mode.discovered,
+                        Mode.syncing, Mode.synced])
+def mode_not_participating(request):
+    return request.param
+
+
+@pytest.fixture(scope='function',
+                params=[Mode.starting, Mode.discovering, Mode.discovered,
+                        Mode.syncing, Mode.synced, Mode.participating])
+def mode(request):
+    return request.param

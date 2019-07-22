@@ -84,11 +84,7 @@ class ConsensusSharedData:
 
     @property
     def is_participating(self):
-        return self._is_participating
-
-    @is_participating.setter
-    def is_participating(self, particip_status: bool):
-        self._is_participating = particip_status
+        return self.node_mode == Mode.participating
 
     @property
     def is_synced(self):
@@ -111,11 +107,7 @@ class ConsensusSharedData:
 
     @property
     def total_nodes(self):
-        return self._total_nodes
-
-    @total_nodes.setter
-    def total_nodes(self, tn):
-        self._total_nodes = tn
+        return len(self.validators)
 
     @property
     def last_checkpoint(self) -> Checkpoint:
