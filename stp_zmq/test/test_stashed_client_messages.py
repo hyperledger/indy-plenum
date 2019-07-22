@@ -178,7 +178,8 @@ def test_limit_msgs_for_client(tconf, looper, stacks, alpha_handler):
     assert pending_client_messages[alpha.listener.IDENTITY][0] != (0, create_msg(0))
     assert pending_client_messages[alpha.listener.IDENTITY][0] == (0, create_msg(2))
     assert pending_client_messages[alpha.listener.IDENTITY][-1] == (0,
-                                                                    create_msg(tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT + 1))
+                                                                    create_msg(
+                                                                        tconf.PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT + 1))
 
 
 def test_limit_pending_queue(tconf, looper, stacks, alpha_handler):
@@ -217,3 +218,23 @@ def test_removing_old_stash(tdir, looper, tconf, stacks):
     assert client_identity2 not in pending_client_messages
     assert pending_client_messages[client_identity3] == [(new_time,
                                                           msg)]
+
+
+def test_correct_removal(looper, stacks, tconf):
+    _, node_stack = stacks
+    client_identity1 = "IDENTITY1"
+    client_identity2 = "IDENTITY2"
+
+    msg_1 = create_msg(0)
+    msg_2 = create_msg(1)
+
+    node_stack.send(msg_1, client_identity1)
+    node_stack.send(msg_2, client_identity2)
+
+    node_stack._client_message_provider._pending_client_messages['IDENTITY2'][0] = (tconf.REMOVE_CLIENT_MSG_TIMEOUT,
+                                                                                    msg_2)
+
+    new_time = tconf.REMOVE_CLIENT_MSG_TIMEOUT
+    node_stack._client_message_provider._timer.set_time(new_time)
+
+    node_stack._client_message_provider._remove_old_messages()
