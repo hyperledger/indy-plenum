@@ -481,55 +481,66 @@ def test_calc_checkpoints_digest(builder):
     assert builder.calc_checkpoint(vcs) == cp2_d2
 
 
-@pytest.fixture(params=range(2))
-def random(request):
-    return DefaultSimRandom(request.param)
+# @pytest.fixture(params=range(2))
+# def random(request):
+#     return DefaultSimRandom(request.param)
 
 
-def test_combinations(builder, random):
+def test_calc_batches_combinations(builder, random):
     MAX_PP_SEQ_NO = 20
+    CHEQ_FREQ = 10
     MAX_VIEW_NO = 3
     MAX_DIGEST_ID = 20
 
     cp1 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=0, digest='d1')
-    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=10, digest='d2')
-
-    batch_ids = [(viewno, pp_seq_no, "digest{}".format(digest_id))
-                 for viewno in range(1, MAX_VIEW_NO)
-                 for pp_seq_no in range(1, MAX_PP_SEQ_NO)
-                 for digest_id in range(1, MAX_DIGEST_ID)]
+    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=CHEQ_FREQ, digest='d2')
 
     for i in range(100):
         for vc_count in range(N - F, N + 1):
             view_changes = []
+
+            # 1. INIT
             for i in range(vc_count):
+                # PRE-PREPARED
                 num_preprepares = random.integer(0, MAX_PP_SEQ_NO)
-                pre_prepares = random.sample(batch_ids, num_preprepares),
+                pre_prepares = [(random.integer(0, MAX_VIEW_NO), i, "digest{}".format(random.integer(1, MAX_DIGEST_ID)))
+                                for i in range(1, num_preprepares + 1)]
 
-                num_prepares = random.integer(0, MAX_PP_SEQ_NO)
-                prepares = random.sample(pre_prepares, len(pre_prepares)),
-                additional_prepares = random.sample(batch_ids, num_prepares),
-                prepares = list(set(prepares) | set(additional_prepares))
+                # PREPARED
+                prepares_mode = random.sample(['all-preprepared', 'half-preprepared', 'random-preprepared', 'random'],
+                                              1)
+                if prepares_mode == ['all-preprepared']:
+                    prepares = pre_prepares
+                elif prepares_mode == ['half-preprepared']:
+                    prepares = pre_prepares[:(num_preprepares // 2)]
+                elif prepares_mode == ['random-preprepared']:
+                    prepares = random.sample(pre_prepares, len(pre_prepares))
+                elif prepares_mode == ['random']:
+                    num_prepares = random.integer(0, MAX_PP_SEQ_NO)
+                    prepares = [
+                        (random.integer(0, MAX_VIEW_NO), i, "digest{}".format(random.integer(1, MAX_DIGEST_ID)))
+                        for i in range(1, num_prepares + 1)]
+                else:
+                    assert False, str(prepares_mode)
 
+                # CHECKPOINTS
+                checkpoints = random.sample([cp1, cp2], 1)
+                stable_checkpoint = random.sample([0, CHEQ_FREQ], 1)[0]
                 view_changes.append(ViewChange(
                     viewNo=MAX_VIEW_NO,
-                    stableCheckpoint=random.sample([0, 10], 1)[0],
+                    stableCheckpoint=stable_checkpoint,
                     prepared=prepares,
                     preprepared=pre_prepares,
-                    checkpoints=random.sample([cp1, cp2], 1),
+                    checkpoints=checkpoints
                 ))
 
+            # 2. EXECUTE
             batches1 = builder.calc_batches(cp1, list(view_changes))
             batches2 = builder.calc_batches(cp2, list(view_changes))
 
+            # 3. VALIDATE
             committed = calc_committed(view_changes, MAX_PP_SEQ_NO, N, F)
-            print(committed)
-
-            if committed:
-                assert batches1 is not None
-                assert batches2 is not None
-
+            if committed and batches1:
                 assert committed == batches1[:len(committed)]
-
                 committed = [c for c in committed if c.pp_seq_no > cp2.seqNoEnd]
                 assert committed == batches2[:len(committed)]

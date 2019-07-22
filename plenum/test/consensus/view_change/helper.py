@@ -110,29 +110,20 @@ def calc_committed(view_changes, max_pp_seq_no, n, f) -> List[BatchID]:
 
         return False
 
-    def check_preprepared_in_vc(vc, batch_id):
-        # check that (view_no, pp_seq_no, digest) is present in VC's preprepared
-        for pp_batch_id in vc.preprepared:
-            if check_in_batch(batch_id, pp_batch_id, check_view_no=True):
-                return True
-
-        return False
-
-    def find_batch_id():
+    def find_batch_id(pp_seq_no):
         for vc in view_changes:
             for batch_id in vc.prepared:
+                if batch_id[1] != pp_seq_no:
+                    continue
                 prepared_count = sum(1 for vc in view_changes if check_prepared_in_vc(vc, batch_id))
                 if prepared_count < n - f:
                     continue
-                # preprepared_count = sum(1 for vc in view_changes if check_preprepared_in_vc(vc, batch_id))
-                # if preprepared_count < f + 1:
-                #     continue
                 return batch_id
         return None
 
     committed = []
     for pp_seq_no in range(1, max_pp_seq_no):
-        batch_id = find_batch_id()
+        batch_id = find_batch_id(pp_seq_no)
         if batch_id is not None:
             committed.append(BatchID(*batch_id))
 
