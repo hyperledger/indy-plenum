@@ -6,7 +6,7 @@ from typing import Dict, Optional, Sequence
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import VERKEY, ROLE, GET_TXN
+from plenum.common.constants import VERKEY, ROLE, GET_TXN, NYM
 from plenum.common.exceptions import EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, CouldNotAuthenticate, \
@@ -15,7 +15,7 @@ from plenum.common.exceptions import EmptySignature, \
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
-from plenum.server.request_handlers.utils import get_nym_details
+from plenum.server.request_handlers.utils import get_nym_details, get_request_type, nym_ident_is_dest, get_target_verkey
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -84,8 +84,13 @@ class ClientAuthNr:
 
 class NaclAuthNr(ClientAuthNr):
 
+    def __init__(self):
+        super().__init__()
+        self.specific_verkey_validation = dict()
+        self.specific_verkey_validation[NYM] = self.nym_specific_auth
+
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
-                           threshold: Optional[int]=None, verifier: Verifier=DidVerifier):
+                           threshold: Optional[int] = None, verifier: Verifier = DidVerifier):
         num_sigs = len(signatures)
         if threshold is not None:
             if num_sigs < threshold:
@@ -100,11 +105,15 @@ class NaclAuthNr(ClientAuthNr):
                 raise InvalidSignatureFormat from ex
 
             ser = self.serializeForSig(msg, identifier=idr)
-            verkey = self.getVerkey(idr)
 
+            verkey = self.getVerkey(idr)
             if verkey is None:
-                raise CouldNotAuthenticate(
-                    'Can not find verkey for {}'.format(idr))
+                specific_verkey = self.specific_authentication(msg)
+                if specific_verkey is None:
+                    raise CouldNotAuthenticate(
+                        'Can not find verkey for {}'.format(idr))
+                else:
+                    verkey = specific_verkey
 
             vr = verifier(verkey, identifier=idr)
             if vr.verify(sig, ser):
@@ -128,6 +137,22 @@ class NaclAuthNr(ClientAuthNr):
         return serialize_msg_for_signing(
             msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
+    def specific_authentication(self, msg):
+        typ = get_request_type(msg)
+        verkey_validation = self.specific_verkey_validation.get(typ)
+        if verkey_validation is None:
+            return None
+        verkey = verkey_validation(msg)
+        return verkey
+
+    def nym_specific_auth(self, msg):
+        # As far as we allow non-ledger nyms send their own txn,
+        # we need to check if it's target verkey is correct
+        if nym_ident_is_dest(msg):
+            return get_target_verkey(msg)
+        else:
+            return None
+
 
 class SimpleAuthNr(NaclAuthNr):
     """
@@ -136,6 +161,7 @@ class SimpleAuthNr(NaclAuthNr):
     """
 
     def __init__(self, state=None):
+        super().__init__()
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]
         self.state = state
@@ -157,10 +183,9 @@ class SimpleAuthNr(NaclAuthNr):
             # created identity, also its possible to have multiple uncommitted
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
-            nym = get_nym_details(
-                self.state, identifier, is_committed=False)
+            nym = get_nym_details(self.state, identifier, is_committed=False)
             if not nym:
-                raise UnknownIdentifier(identifier)
+                return None
         return nym.get(VERKEY)
 
     def authenticate(self,
@@ -207,9 +232,9 @@ class CoreAuthMixin:
             raise EmptyIdentifier
         return msg[f.IDENTIFIER.nm]
 
-    def authenticate(self, req_data, identifier: Optional[str]=None,
-                     signature: Optional[str]=None, threshold: Optional[int] = None,
-                     verifier: Verifier=DidVerifier):
+    def authenticate(self, req_data, identifier: Optional[str] = None,
+                     signature: Optional[str] = None, threshold: Optional[int] = None,
+                     verifier: Verifier = DidVerifier):
         """
         Prepares the data to be serialised for signing and then verifies the
         signature
