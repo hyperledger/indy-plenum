@@ -13,6 +13,8 @@ from plenum.server.request_handlers.utils import get_nym_details
 from plenum.test.helper import sdk_get_and_check_replies
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 
+NEW_ROLE = None
+
 
 @pytest.fixture(scope='module')
 def patch_nym_validation(txnPoolNodeSet):
@@ -37,34 +39,46 @@ def patch_nym_validation(txnPoolNodeSet):
                                                                                            NYM][0])
 
 
-def test_signing_out_of_ledger(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle, patch_nym_validation):
+@pytest.fixture(scope='function')
+def nym_txn_data(looper, sdk_wallet_client):
     seed = randomString(32)
-    alias = randomString(5)
-    role = None
 
     wh, _ = sdk_wallet_client
-    (sender_did, sender_verkey) = \
+    sender_did, sender_verkey = \
         looper.loop.run_until_complete(create_and_store_my_did(wh, json.dumps({'seed': seed})))
-    nym_request = looper.loop.run_until_complete(build_nym_request(sender_did, sender_did, sender_verkey, alias, role))
+    return wh, randomString(5), sender_did, sender_verkey
+
+
+def test_signing_out_of_ledger(looper, txnPoolNodeSet, nym_txn_data, sdk_pool_handle, patch_nym_validation):
+    wh, alias, sender_did, sender_verkey = nym_txn_data
+    nym_request = looper.loop.run_until_complete(
+        build_nym_request(sender_did, sender_did, sender_verkey, alias, NEW_ROLE))
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
     sdk_get_and_check_replies(looper, [request_couple])
 
     details = get_nym_details(txnPoolNodeSet[0].states[1], sender_did, is_committed=True)
-    assert details[ROLE] == role
+    assert details[ROLE] == NEW_ROLE
     assert details[VERKEY] == sender_verkey
 
 
-def test_signing_out_of_ledger_empty_verkey(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle,
+def test_signing_out_of_ledger_empty_verkey(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
                                             patch_nym_validation):
-    seed = randomString(32)
-    alias = randomString(5)
-    role = None
+    wh, alias, sender_did, sender_verkey = nym_txn_data
 
-    wh, _ = sdk_wallet_client
-    (sender_did, sender_verkey) = \
-        looper.loop.run_until_complete(create_and_store_my_did(wh, json.dumps({'seed': seed})))
-    nym_request = looper.loop.run_until_complete(build_nym_request(sender_did, sender_did, None, alias, role))
+    nym_request = looper.loop.run_until_complete(build_nym_request(sender_did, sender_did, None, alias, NEW_ROLE))
+
+    request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
+
+    with pytest.raises(RequestNackedException, match='Can not find verkey for {}'.format(sender_did)):
+        sdk_get_and_check_replies(looper, [request_couple])
+
+
+def test_non_ledger_nym_sending_with_different_dest(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle):
+    wh, alias, sender_did, sender_verkey = nym_txn_data
+
+    nym_request = looper.loop.run_until_complete(
+        build_nym_request(sender_did, sdk_wallet_client[1], sender_verkey, alias, NEW_ROLE))
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
 
