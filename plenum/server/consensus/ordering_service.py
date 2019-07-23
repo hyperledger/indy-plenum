@@ -32,13 +32,13 @@ from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, g
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.models import Prepares, Commits
-from plenum.server.propagator import Requests
-from plenum.server.replica import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
+from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Replica, TPCStat, Stats, ConsensusDataHelper, OrderedTracker
+    PP_CHECK_WRONG_TIME, Stats, ConsensusDataHelper, OrderedTracker, TPCStat
 from plenum.server.replica_freshness_checker import FreshnessChecker
+from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, \
     STASH_VIEW, FUTURE_VIEW, OLD_VIEW, PROCESS, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, \
     STASH_WATERMARKS
@@ -1347,7 +1347,7 @@ class OrderingService:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
 
-        digest = Replica.batchDigest(reqs)
+        digest = replica_batch_digest(reqs)
         if digest != pre_prepare.digest:
             return PP_APPLY_WRONG_DIGEST
 
