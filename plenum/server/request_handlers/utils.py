@@ -60,8 +60,8 @@ def get_request_type(req: dict):
 
 
 def nym_ident_is_dest(req: dict):
-    return req[IDENTIFIER] == req[OPERATION][TARGET_NYM]
+    return req[IDENTIFIER] == req[OPERATION].get(TARGET_NYM)
 
 
 def get_target_verkey(req: dict):
-    return req[OPERATION][VERKEY]
+    return req[OPERATION].get(VERKEY)
