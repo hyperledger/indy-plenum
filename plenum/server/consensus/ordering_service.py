@@ -14,7 +14,8 @@ from common.serializers.serialization import state_roots_serializer, invalid_ind
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, ReplicaHooks, AUDIT_LEDGER_ID, TXN_TYPE, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, PREPREPARE, PREPARE, COMMIT
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, PREPREPARE, PREPARE, COMMIT, \
+    DOMAIN_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
@@ -2216,3 +2217,227 @@ class OrderingService:
         return view_no == self.view_no or (view_no < self.view_no and self._data.legacy_last_prepared_before_view_change and
                                           compare_3PC_keys((view_no, pp_seq_no),
                                                            self._data.legacy_last_prepared_before_view_change) >= 0)
+
+    def l_send_3pc_batch(self):
+        if not self.can_send_3pc_batch():
+            return 0
+
+        sent_batches = set()
+
+        # 1. send 3PC batches with requests for every ledger
+        self.l_send_3pc_batches_for_ledgers(sent_batches)
+
+        # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
+        # and send an empty 3PC batch to update the state if needed
+        self.l_send_3pc_freshness_batch(sent_batches)
+
+        # 3. send 3PC batch if new primaries elected
+        self.l_send_3pc_primaries_batch(sent_batches)
+
+        # 4. update ts of last sent 3PC batch
+        if len(sent_batches) > 0:
+            self.lastBatchCreated = self.get_current_time()
+
+        return len(sent_batches)
+
+    def l_send_3pc_primaries_batch(self, sent_batches):
+        # As we've selected new primaries, we need to send 3pc batch,
+        # so this primaries can be saved in audit ledger
+        if not sent_batches and self._data.primaries_batch_needed:
+            self._logger.debug("Sending a 3PC batch to propagate newly selected primaries")
+            self._data.primaries_batch_needed = False
+            sent_batches.add(self.l_do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
+
+    def l_send_3pc_freshness_batch(self, sent_batches):
+        if not self._config.UPDATE_STATE_FRESHNESS:
+            return
+
+        if not self.is_master:
+            return
+
+        # Update freshness for all outdated ledgers sequentially without any waits
+        # TODO: Consider sending every next update in Max3PCBatchWait only
+        outdated_ledgers = self._freshness_checker.check_freshness(self.get_time_for_3pc_batch())
+        for ledger_id, ts in outdated_ledgers.items():
+            if ledger_id in sent_batches:
+                self._logger.debug("Ledger {} is not updated for {} seconds, "
+                                  "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
+                continue
+
+            self._logger.info("Ledger {} is not updated for {} seconds, "
+                             "so its freshness state is going to be updated now".format(ledger_id, ts))
+            sent_batches.add(
+                self.l_do_send_3pc_batch(ledger_id=ledger_id))
+
+    def l_send_3pc_batches_for_ledgers(self, sent_batches):
+        # TODO: Consider sending every next update in Max3PCBatchWait only
+        for ledger_id, q in self.requestQueues.items():
+            if len(q) == 0:
+                continue
+
+            queue_full = len(q) >= self._config.Max3PCBatchSize
+            timeout = self.lastBatchCreated + self._config.Max3PCBatchWait < self.get_current_time()
+            if not queue_full and not timeout:
+                continue
+
+            sent_batches.add(
+                self.l_do_send_3pc_batch(ledger_id=ledger_id))
+
+    def l_do_send_3pc_batch(self, ledger_id):
+        oldStateRootHash = self.l_stateRootHash(ledger_id, to_str=False)
+        pre_prepare = self.l_create_3pc_batch(ledger_id)
+        self.l_sendPrePrepare(pre_prepare)
+        if not self.is_master:
+            self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
+                self._data.inst_id, pre_prepare.ppSeqNo)
+
+        self._consensus_data_helper.preprepare_batch(pre_prepare)
+        self.l_trackBatches(pre_prepare, oldStateRootHash)
+        return ledger_id
+
+    def l_create_3pc_batch(self, ledger_id):
+        pp_seq_no = self.lastPrePrepareSeqNo + 1
+        pool_state_root_hash = self.l_stateRootHash(POOL_LEDGER_ID)
+        self._logger.debug("{} creating batch {} for ledger {} with state root {}".format(
+            self, pp_seq_no, ledger_id,
+            self.l_stateRootHash(ledger_id, to_str=False)))
+
+        if self.last_accepted_pre_prepare_time is None:
+            last_ordered_ts = self.l_get_last_timestamp_from_state(ledger_id)
+            if last_ordered_ts:
+                self.last_accepted_pre_prepare_time = last_ordered_ts
+
+        # DO NOT REMOVE `view_no` argument, used while replay
+        # tm = self.utc_epoch
+        tm = self.l_get_utc_epoch_for_preprepare(self._data.inst_id, self.view_no,
+                                               pp_seq_no)
+
+        reqs, invalid_indices, rejects = self.l_consume_req_queue_for_pre_prepare(
+            ledger_id, tm, self.view_no, pp_seq_no)
+        if self.is_master:
+            three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
+                                          inst_id=self._data.inst_id,
+                                          view_no=self.view_no,
+                                          pp_seq_no=pp_seq_no,
+                                          pp_time=tm,
+                                          state_root=self.l_stateRootHash(ledger_id, to_str=False),
+                                          txn_root=self.l_txnRootHash(ledger_id, to_str=False),
+                                          primaries=[],
+                                          valid_digests=self.l_get_valid_req_ids_from_all_requests(
+                                              reqs, invalid_indices))
+            self.post_batch_creation(three_pc_batch)
+
+        digest = replica_batch_digest(reqs)
+        state_root_hash = self.l_stateRootHash(ledger_id)
+        audit_txn_root_hash = self.l_txnRootHash(AUDIT_LEDGER_ID)
+
+        """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
+        params = [
+            self._data.inst_id,
+            self.view_no,
+            pp_seq_no,
+            tm,
+            [req.digest for req in reqs],
+            invalid_index_serializer.serialize(invalid_indices, toBytes=False),
+            digest,
+            ledger_id,
+            state_root_hash,
+            self.l_txnRootHash(ledger_id),
+            0,
+            True,
+            pool_state_root_hash,
+            audit_txn_root_hash
+        ]
+
+        # BLS multi-sig:
+        params = self.l_bls_bft_replica.update_pre_prepare(params, ledger_id)
+
+        pre_prepare = PrePrepare(*params)
+        if self.is_master:
+            rv = self.l_execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
+            pre_prepare = rv if rv is not None else pre_prepare
+
+        self._logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
+            self, len(reqs), ledger_id))
+        self.lastPrePrepareSeqNo = pp_seq_no
+        self.last_accepted_pre_prepare_time = tm
+        if self.is_master:
+            self.send_outbox(rejects)
+        return pre_prepare
+
+    def l_get_last_timestamp_from_state(self, ledger_id):
+        if ledger_id == DOMAIN_LEDGER_ID:
+            ts_store = self.db_manager.get_store(TS_LABEL)
+            if ts_store:
+                last_timestamp = ts_store.get_last_key()
+                if last_timestamp:
+                    last_timestamp = int(last_timestamp.decode())
+                    self._logger.debug("Last ordered timestamp from store is : {}"
+                                      "".format(last_timestamp))
+                    return last_timestamp
+        return None
+
+    # This is to enable replaying, inst_id, view_no and pp_seq_no are used
+    # while replaying
+    def l_get_utc_epoch_for_preprepare(self, inst_id, view_no, pp_seq_no):
+        tm = self.get_time_for_3pc_batch()
+        if self.last_accepted_pre_prepare_time and \
+                tm < self.last_accepted_pre_prepare_time:
+            tm = self.last_accepted_pre_prepare_time
+        return tm
+
+    def l_consume_req_queue_for_pre_prepare(self, ledger_id, tm,
+                                          view_no, pp_seq_no):
+        reqs = []
+        rejects = []
+        invalid_indices = []
+        idx = 0
+        while len(reqs) < self._config.Max3PCBatchSize \
+                and self.requestQueues[ledger_id]:
+            key = self.requestQueues[ledger_id].pop(0)
+            if key in self._requests:
+                fin_req = self._requests[key].finalised
+                malicious_req = False
+                try:
+                    self.l_processReqDuringBatch(fin_req,
+                                               tm)
+
+                except (
+                        InvalidClientMessageException,
+                        UnknownIdentifier
+                ) as ex:
+                    self._logger.warning('{} encountered exception {} while processing {}, '
+                                        'will reject'.format(self, ex, fin_req))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    invalid_indices.append(idx)
+                except SuspiciousPrePrepare:
+                    malicious_req = True
+                finally:
+                    if not malicious_req:
+                        reqs.append(fin_req)
+                if not malicious_req:
+                    idx += 1
+            else:
+                self._logger.debug('{} found {} in its request queue but the '
+                                  'corresponding request was removed'.format(self, key))
+
+        return reqs, invalid_indices, rejects
+
+    def l_sendPrePrepare(self, ppReq: PrePrepare):
+        self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+        self.l_send(ppReq, TPCStat.PrePrepareSent)
+
+    def l_send(self, msg, stat=None) -> None:
+        """
+        Send a message to the node on which this replica resides.
+
+        :param stat:
+        :param rid: remote id of one recipient (sends to all recipients if None)
+        :param msg: the message to send
+        """
+        self._logger.trace("{} sending {}".format(self, msg.__class__.__name__),
+                          extra={"cli": True, "tags": ['sending']})
+        self._logger.trace("{} sending {}".format(self, msg))
+        if stat:
+            self.stats.inc(stat)
+        self.send_outbox(msg)

@@ -41,6 +41,7 @@ class ConsensusSharedData:
         self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting
         self.legacy_last_prepared_before_view_change = None
+        self.primaries_batch_needed = False
 
     @property
     def name(self) -> str:
