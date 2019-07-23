@@ -24,10 +24,9 @@ class ConsensusSharedData:
         self.waiting_for_new_view = False
         self.primaries = []
 
-        self._legacy_vc_in_progress = False
-        self._is_participating = False
-        self._requests = Requests()
-        self._last_ordered_3pc = (0, 0)
+        self.legacy_vc_in_progress = False
+        self.requests = Requests()
+        self.last_ordered_3pc = (0, 0)
         self.primary_name = None
         self.stable_checkpoint = 0
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
@@ -39,7 +38,6 @@ class ConsensusSharedData:
         self.low_watermark = 0
         self.log_size = 300  # TODO: use config value
         self.high_watermark = self.low_watermark + self.log_size
-        self._total_nodes = len(self.validators)
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting
@@ -71,17 +69,6 @@ class ConsensusSharedData:
     def is_primary(self) -> bool:
         return self.primary_name == self.name
 
-    """
-    Needs for OrderingService
-    """
-    @property
-    def legacy_vc_in_progress(self):
-        return self._legacy_vc_in_progress
-
-    @legacy_vc_in_progress.setter
-    def legacy_vc_in_progress(self, vc_status: bool):
-        self._legacy_vc_in_progress = vc_status
-
     @property
     def is_participating(self):
         return self.node_mode == Mode.participating
@@ -89,21 +76,6 @@ class ConsensusSharedData:
     @property
     def is_synced(self):
         return Mode.is_done_syncing(self.node_mode)
-
-    @property
-    def requests(self):
-        return self._requests
-
-    @property
-    def last_ordered_3pc(self) -> tuple:
-        return self._last_ordered_3pc
-
-    @last_ordered_3pc.setter
-    def last_ordered_3pc(self, key3PC):
-        self._last_ordered_3pc = key3PC
-        # ToDo: does not need on first stage
-        # self.logger.info('{} set last ordered as {}'.format(
-        #     self, self._last_ordered_3pc))
 
     @property
     def total_nodes(self):
