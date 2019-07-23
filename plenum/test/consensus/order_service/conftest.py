@@ -144,3 +144,9 @@ def orderer_with_requests(orderer, fake_requests):
 @pytest.fixture()
 def validator(consensus_data):
     return ThreePCMsgValidator(consensus_data)
+
+
+@pytest.fixture()
+def primary_orderer(orderer):
+    orderer.name = orderer.primary_name
+    return orderer

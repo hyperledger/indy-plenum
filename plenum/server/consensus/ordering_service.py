@@ -27,7 +27,8 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
 from plenum.common.types import f
-from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement
+from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
+    get_utc_epoch
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.models import Prepares, Commits
@@ -150,7 +151,8 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  is_master=True,
-                 get_current_time=None):
+                 get_current_time=None,
+                 get_time_for_3pc_batch=None):
         self._data = data
         self._requests = self._data.requests
         self._timer = timer
@@ -159,6 +161,7 @@ class OrderingService:
         self._write_manager = write_manager
         self._is_master = is_master
         self._name = self._data.name
+        self.get_time_for_3pc_batch = get_time_for_3pc_batch or get_utc_epoch
 
         self._config = getConfig()
         self._logger = getlogger()
@@ -574,6 +577,13 @@ class OrderingService:
         :param pre_prepare: message
         :param sender: name of the node that sent this message
         """
+        pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        # the same PrePrepare might come here multiple times
+        if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
+            # TODO more clean solution would be to set timestamps
+            # earlier (e.g. in zstack)
+            self.pre_prepare_tss[pp_key][pre_prepare, sender] = self.get_time_for_3pc_batch()
+
         result, reason = self._validate(pre_prepare)
         if result != PROCESS:
             return result
@@ -870,7 +880,7 @@ class OrderingService:
                                .format(self, request_key))
 
         # ToDo: do we need ordered messages there?
-        # self.ordered.clear_below_view(self.viewNo - 1)
+        self.ordered.clear_below_view(self.view_no - 1)
 
         # BLS multi-sig:
         self.l_bls_bft_replica.gc(till3PCKey)
@@ -1127,9 +1137,10 @@ class OrderingService:
         Request preprepare
         """
         if recipients is None:
-            recipients = self._network.connecteds
+            recipients = self._network.connecteds.copy()
             primary_name = self.primary_name[:self.primary_name.rfind(":")]
-            recipients.discard(primary_name)
+            if primary_name in recipients:
+                del recipients[primary_name]
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
@@ -2116,3 +2127,19 @@ class OrderingService:
         if self._data.is_synced and self._data.legacy_vc_in_progress:
             return True
         return False
+
+    @staticmethod
+    def generateName(node_name: str, inst_id: int):
+        """
+        Create and return the name for a replica using its nodeName and
+        instanceId.
+         Ex: Alpha:1
+        """
+
+        if isinstance(node_name, str):
+            # Because sometimes it is bytes (why?)
+            if ":" in node_name:
+                # Because in some cases (for requested messages) it
+                # already has ':'. This should be fixed.
+                return node_name
+        return "{}:{}".format(node_name, inst_id)

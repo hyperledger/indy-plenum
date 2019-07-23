@@ -3,12 +3,6 @@ import pytest
 from plenum.common.startable import Mode
 
 
-@pytest.fixture()
-def primary_orderer(orderer):
-    orderer.name = orderer.primary_name
-    return orderer
-
-
 def test_can_send_3pc_batch_by_primary_only(primary_orderer):
     assert primary_orderer.can_send_3pc_batch()
     primary_orderer.primary_name = "SomeNode:0"
