@@ -1,4 +1,5 @@
 import itertools
+import logging
 import time
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
@@ -8,6 +9,7 @@ import math
 from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
 
+from common.exceptions import PlenumValueError
 from common.serializers.serialization import state_roots_serializer, invalid_index_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
@@ -2143,3 +2145,74 @@ class OrderingService:
                 # already has ':'. This should be fixed.
                 return node_name
         return "{}:{}".format(node_name, inst_id)
+
+    def l_dequeue_pre_prepares(self):
+        """
+        Dequeue any received PRE-PREPAREs that did not have finalized requests
+        or the replica was missing any PRE-PREPAREs before it
+        :return:
+        """
+        ppsReady = []
+        # Check if any requests have become finalised belonging to any stashed
+        # PRE-PREPAREs.
+        for i, (pp, sender, reqIds) in enumerate(
+                self.prePreparesPendingFinReqs):
+            finalised = set()
+            for r in reqIds:
+                if self._requests.is_finalised(r):
+                    finalised.add(r)
+            diff = reqIds.difference(finalised)
+            # All requests become finalised
+            if not diff:
+                ppsReady.append(i)
+            self.prePreparesPendingFinReqs[i] = (pp, sender, diff)
+
+        for i in sorted(ppsReady, reverse=True):
+            pp, sender, _ = self.prePreparesPendingFinReqs.pop(i)
+            self.prePreparesPendingPrevPP[pp.viewNo, pp.ppSeqNo] = (pp, sender)
+
+        r = 0
+        while self.prePreparesPendingPrevPP and self.l__is_next_pre_prepare(
+                *self.prePreparesPendingPrevPP.iloc[0]):
+            _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
+            if not self.l_can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
+                self.l_discard(pp, "Pre-Prepare from a previous view",
+                               self._logger.debug)
+                continue
+            self._logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
+            self.process_preprepare(pp, sender)
+            r += 1
+        return r
+
+    # TODO: Convert this into a free function?
+    def l_discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
+        """
+        Discard a message and log a reason using the specified `logMethod`.
+
+        :param msg: the message to discard
+        :param reason: the reason why this message is being discarded
+        :param logMethod: the logging function to be used
+        :param cliOutput: if truthy, informs a CLI that the logged msg should
+        be printed
+        """
+        reason = "" if not reason else " because {}".format(reason)
+        logMethod("{} discarding message {}{}".format(self, msg, reason),
+                  extra={"cli": cliOutput})
+
+    def l_can_pp_seq_no_be_in_view(self, view_no, pp_seq_no):
+        """
+        Checks if the `pp_seq_no` could have been in view `view_no`. It will
+        return False when the `pp_seq_no` belongs to a later view than
+        `view_no` else will return True
+        :return:
+        """
+        if view_no > self.view_no:
+            raise PlenumValueError(
+                'view_no', view_no,
+                "<= current view_no {}".format(self.view_no),
+                prefix=self
+            )
+
+        return view_no == self.view_no or (view_no < self.view_no and self._data.legacy_last_prepared_before_view_change and
+                                          compare_3PC_keys((view_no, pp_seq_no),
+                                                           self._data.legacy_last_prepared_before_view_change) >= 0)
