@@ -1,13 +1,9 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-<<<<<<< HEAD
-from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
-=======
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
->>>>>>> public/master
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
