@@ -15,7 +15,8 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("digest", LimitedLengthStringField),
     ("protocolVersion", ProtocolVersionField),
     ("taaAcceptance", ClientTAAAcceptance),
-    ('signatures', MapField)
+    ('signatures', MapField),
+    ('endorser', IdentifierField)
 ])
 
 
