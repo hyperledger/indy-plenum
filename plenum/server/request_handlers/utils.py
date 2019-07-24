@@ -1,7 +1,8 @@
 from _sha256 import sha256
 
 from common.serializers.serialization import domain_state_serializer
-from plenum.common.constants import STEWARD, ROLE, TRUSTEE
+from plenum.common.constants import STEWARD, ROLE, TRUSTEE, TXN_TYPE, IDENTIFIER, TARGET_NYM, VERKEY
+from plenum.common.types import OPERATION
 
 LAST_SEQ_NO = "lsn"
 VALUE = "val"
@@ -38,9 +39,7 @@ def nym_to_state_key(nym: str) -> bytes:
     return sha256(nym.encode()).digest()
 
 
-def encode_state_value(
-    value, seqNo, txnTime, serializer=domain_state_serializer
-):
+def encode_state_value(value, seqNo, txnTime, serializer=domain_state_serializer):
     return serializer.serialize({
         LAST_SEQ_NO: seqNo,
         LAST_UPDATE_TIME: txnTime,
@@ -54,3 +53,15 @@ def decode_state_value(encoded_value, serializer=domain_state_serializer):
     last_seq_no = decoded.get(LAST_SEQ_NO)
     last_update_time = decoded.get(LAST_UPDATE_TIME)
     return value, last_seq_no, last_update_time
+
+
+def get_request_type(req: dict):
+    return req[OPERATION][TXN_TYPE]
+
+
+def nym_ident_is_dest(req: dict):
+    return req[IDENTIFIER] == req[OPERATION].get(TARGET_NYM)
+
+
+def get_target_verkey(req: dict):
+    return req[OPERATION].get(VERKEY)

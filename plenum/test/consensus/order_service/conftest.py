@@ -6,8 +6,9 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, 
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
-from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
@@ -68,7 +69,7 @@ def orderer(consensus_data, internal_bus, external_bus, name, write_manager, txn
                               write_manager=write_manager,
                               bls_bft_replica=bls_bft_replica,
                               is_master=is_master)
-    orderer._data.is_participating = True
+    orderer._data.node_mode = Mode.participating
     orderer.primary_name = "Alpha:0"
     orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
     orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
@@ -137,4 +138,15 @@ def orderer_with_requests(orderer, fake_requests):
         orderer._requests.add(req)
         orderer._requests.set_finalised(req)
 
+    return orderer
+
+
+@pytest.fixture()
+def validator(consensus_data):
+    return ThreePCMsgValidator(consensus_data)
+
+
+@pytest.fixture()
+def primary_orderer(orderer):
+    orderer.name = orderer.primary_name
     return orderer
