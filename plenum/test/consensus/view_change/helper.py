@@ -3,7 +3,7 @@ from typing import Optional, List
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from plenum.server.consensus.replica_service import ReplicaService
-from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer
 from plenum.test.simulation.sim_network import SimNetwork
@@ -34,13 +34,17 @@ class SimPool:
         return self._nodes
 
 
-def some_preprepare(random: SimRandom, view_no: int, pp_seq_no: int) -> PrePrepare:
+def some_preprepare(view_no: int, pp_seq_no: int, digest: str) -> PrePrepare:
     return PrePrepare(
         instId=0, viewNo=view_no, ppSeqNo=pp_seq_no, ppTime=1499906903,
-        reqIdr=[], discarded="", digest=random.string(40),
+        reqIdr=[], discarded="", digest=digest,
         ledgerId=1, stateRootHash=None, txnRootHash=None,
         sub_seq_no=0, final=True
     )
+
+
+def some_random_preprepare(random: SimRandom, view_no: int, pp_seq_no: int) -> PrePrepare:
+    return some_preprepare(view_no, pp_seq_no, random.string(40))
 
 
 def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoint:
@@ -58,7 +62,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     faulty = (pool_size - 1) // 3
     seq_no_per_cp = 10
     max_batches = 50
-    batches = [some_preprepare(random, 0, n) for n in range(1, max_batches)]
+    batches = [some_random_preprepare(random, 0, n) for n in range(1, max_batches)]
     checkpoints = [some_checkpoint(random, 0, n) for n in range(0, max_batches, seq_no_per_cp)]
 
     # Preprepares
@@ -82,8 +86,45 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     committed = []
     for i in range(1, max_batches):
         prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
-        has_prepared_cert = prepare_count >= pool_size - faulty - 1
+        has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
             committed.append(ViewChangeService.batch_id(batches[i - 1]))
 
     return pool, committed
+
+
+def calc_committed(view_changes, max_pp_seq_no, n, f) -> List[BatchID]:
+    def check_in_batch(batch_id, some_batch_id, check_view_no=False):
+        if check_view_no and (batch_id[0] != some_batch_id[0]):
+            return False
+        return batch_id[1] == some_batch_id[1] and batch_id[2] == some_batch_id[2]
+
+    def check_prepared_in_vc(vc, batch_id):
+        # check that (pp_seq_no, digest) is present in VC's prepared and preprepared
+        for p_batch_id in vc.prepared:
+            if not check_in_batch(batch_id, p_batch_id, check_view_no=True):
+                continue
+            for pp_batch_id in vc.preprepared:
+                if check_in_batch(batch_id, pp_batch_id, check_view_no=True):
+                    return True
+
+        return False
+
+    def find_batch_id(pp_seq_no):
+        for vc in view_changes:
+            for batch_id in vc.prepared:
+                if batch_id[1] != pp_seq_no:
+                    continue
+                prepared_count = sum(1 for vc in view_changes if check_prepared_in_vc(vc, batch_id))
+                if prepared_count < n - f:
+                    continue
+                return batch_id
+        return None
+
+    committed = []
+    for pp_seq_no in range(1, max_pp_seq_no):
+        batch_id = find_batch_id(pp_seq_no)
+        if batch_id is not None:
+            committed.append(BatchID(*batch_id))
+
+    return committed
