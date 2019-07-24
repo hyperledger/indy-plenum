@@ -52,13 +52,6 @@ class AbstractMsgValidator(metaclass=ABCMeta):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self.last_ordered_3pc) >= 0
 
-    def can_order(self):
-        if self.is_participating:
-            return True
-        if self._data.is_synced and self._data.legacy_vc_in_progress:
-            return True
-        return False
-
     @abstractmethod
     def validate(self, msg):
         pass
