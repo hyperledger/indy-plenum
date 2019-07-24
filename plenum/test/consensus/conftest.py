@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.startable import Mode
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.util import get_utc_epoch
@@ -70,6 +71,20 @@ def pre_prepare():
         0,
         True
     )
+
+
+@pytest.fixture(scope='function',
+                params=[Mode.starting, Mode.discovering, Mode.discovered,
+                        Mode.syncing, Mode.synced])
+def mode_not_participating(request):
+    return request.param
+
+
+@pytest.fixture(scope='function',
+                params=[Mode.starting, Mode.discovering, Mode.discovered,
+                        Mode.syncing, Mode.synced, Mode.participating])
+def mode(request):
+    return request.param
 
 
 @pytest.fixture
