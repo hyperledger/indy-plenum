@@ -6,7 +6,7 @@ from typing import Dict, Optional, Sequence
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import VERKEY, ROLE, GET_TXN, NYM
+from plenum.common.constants import VERKEY, ROLE, GET_TXN, NYM, IDENTIFIER
 from plenum.common.exceptions import EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, CouldNotAuthenticate, \
@@ -84,11 +84,6 @@ class ClientAuthNr:
 
 class NaclAuthNr(ClientAuthNr):
 
-    def __init__(self):
-        super().__init__()
-        self.specific_verkey_validation = dict()
-        self.specific_verkey_validation[NYM] = self.nym_specific_auth
-
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
                            threshold: Optional[int] = None, verifier: Verifier = DidVerifier):
         num_sigs = len(signatures)
@@ -106,14 +101,10 @@ class NaclAuthNr(ClientAuthNr):
 
             ser = self.serializeForSig(msg, identifier=idr)
 
-            verkey = self.getVerkey(idr)
+            verkey = self.getVerkey(msg)
             if verkey is None:
-                specific_verkey = self.specific_authentication(msg)
-                if specific_verkey is None:
-                    raise CouldNotAuthenticate(
-                        'Can not find verkey for {}'.format(idr))
-                else:
-                    verkey = specific_verkey
+                raise CouldNotAuthenticate(
+                    'Can not find verkey for {}'.format(idr))
 
             vr = verifier(verkey, identifier=idr)
             if vr.verify(sig, ser):
@@ -130,28 +121,12 @@ class NaclAuthNr(ClientAuthNr):
         pass
 
     @abstractmethod
-    def getVerkey(self, identifier):
+    def getVerkey(self, request):
         pass
 
     def serializeForSig(self, msg, identifier=None, topLevelKeysToIgnore=None):
         return serialize_msg_for_signing(
             msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
-
-    def specific_authentication(self, msg):
-        typ = get_request_type(msg)
-        verkey_validation = self.specific_verkey_validation.get(typ)
-        if verkey_validation is None:
-            return None
-        verkey = verkey_validation(msg)
-        return verkey
-
-    def nym_specific_auth(self, msg):
-        # As far as we allow non-ledger nyms send their own txn,
-        # we need to check if it's target verkey is correct
-        if nym_ident_is_dest(msg):
-            return get_target_verkey(msg)
-        else:
-            return None
 
 
 class SimpleAuthNr(NaclAuthNr):
@@ -161,10 +136,11 @@ class SimpleAuthNr(NaclAuthNr):
     """
 
     def __init__(self, state=None):
-        super().__init__()
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]
         self.state = state
+        self.specific_verkey_validation = dict()
+        self.specific_verkey_validation[NYM] = self.nym_specific_auth
 
     def addIdr(self, identifier, verkey, role=None):
         if identifier in self.clients:
@@ -175,17 +151,24 @@ class SimpleAuthNr(NaclAuthNr):
             ROLE: role
         }
 
-    def getVerkey(self, identifier):
-        nym = self.clients.get(identifier)
+    def getVerkey(self, request):
+        ident = request[IDENTIFIER]
+        nym = self.clients.get(ident)
         if not nym:
             # Querying uncommitted identities since a batch might contain
             # both identity creation request and a request by that newly
             # created identity, also its possible to have multiple uncommitted
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
-            nym = get_nym_details(self.state, identifier, is_committed=False)
+            nym = get_nym_details(self.state, ident, is_committed=False)
             if not nym:
-                return None
+                # If DID wasn't found in ledger and state, it might be
+                # non-ledger request, so we need to look for verkey in request
+                verkey = self.specific_authentication(request)
+                if not verkey:
+                    return None
+                else:
+                    return verkey
         return nym.get(VERKEY)
 
     def authenticate(self,
@@ -195,6 +178,22 @@ class SimpleAuthNr(NaclAuthNr):
                      threshold: Optional[int] = None):
         signatures = {identifier: signature}
         return self.authenticate_multi(msg, signatures=signatures, threshold=threshold)
+
+    def specific_authentication(self, request):
+        typ = get_request_type(request)
+        verkey_validation = self.specific_verkey_validation.get(typ)
+        if verkey_validation is None:
+            return None
+        verkey = verkey_validation(request)
+        return verkey
+
+    def nym_specific_auth(self, request):
+        # As far as we allow non-ledger nyms send their own txn,
+        # we need to check if it's target verkey is correct
+        if nym_ident_is_dest(request):
+            return get_target_verkey(request)
+        else:
+            return None
 
 
 class CoreAuthMixin:
