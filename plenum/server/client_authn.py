@@ -101,7 +101,7 @@ class NaclAuthNr(ClientAuthNr):
 
             ser = self.serializeForSig(msg, identifier=idr)
 
-            verkey = self.getVerkey(msg)
+            verkey = self.getVerkey(idr, msg)
             if verkey is None:
                 raise CouldNotAuthenticate(
                     'Can not find verkey for {}'.format(idr))
@@ -121,7 +121,7 @@ class NaclAuthNr(ClientAuthNr):
         pass
 
     @abstractmethod
-    def getVerkey(self, request):
+    def getVerkey(self, ident, request):
         pass
 
     def serializeForSig(self, msg, identifier=None, topLevelKeysToIgnore=None):
@@ -139,8 +139,7 @@ class SimpleAuthNr(NaclAuthNr):
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]
         self.state = state
-        self.specific_verkey_validation = dict()
-        self.specific_verkey_validation[NYM] = self.nym_specific_auth
+        self.specific_verkey_validation = {NYM: self.nym_specific_auth}
 
     def addIdr(self, identifier, verkey, role=None):
         if identifier in self.clients:
@@ -151,8 +150,7 @@ class SimpleAuthNr(NaclAuthNr):
             ROLE: role
         }
 
-    def getVerkey(self, request):
-        ident = request[IDENTIFIER]
+    def getVerkey(self, ident, request):
         nym = self.clients.get(ident)
         if not nym:
             # Querying uncommitted identities since a batch might contain
@@ -164,11 +162,8 @@ class SimpleAuthNr(NaclAuthNr):
             if not nym:
                 # If DID wasn't found in ledger and state, it might be
                 # non-ledger request, so we need to look for verkey in request
-                verkey = self.specific_authentication(request)
-                if not verkey:
-                    return None
-                else:
-                    return verkey
+                verkey = self.get_verkey_specific(request)
+                return verkey
         return nym.get(VERKEY)
 
     def authenticate(self,
@@ -179,7 +174,7 @@ class SimpleAuthNr(NaclAuthNr):
         signatures = {identifier: signature}
         return self.authenticate_multi(msg, signatures=signatures, threshold=threshold)
 
-    def specific_authentication(self, request):
+    def get_verkey_specific(self, request):
         typ = get_request_type(request)
         verkey_validation = self.specific_verkey_validation.get(typ)
         if verkey_validation is None:

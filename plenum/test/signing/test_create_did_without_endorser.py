@@ -49,7 +49,7 @@ def nym_txn_data(looper, sdk_wallet_client):
     return wh, randomString(5), sender_did, sender_verkey
 
 
-def test_signing_out_of_ledger(looper, txnPoolNodeSet, nym_txn_data, sdk_pool_handle, patch_nym_validation):
+def test_create_did_without_endorser(looper, txnPoolNodeSet, nym_txn_data, sdk_pool_handle, patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
     nym_request = looper.loop.run_until_complete(
         build_nym_request(sender_did, sender_did, sender_verkey, alias, NEW_ROLE))
@@ -62,7 +62,7 @@ def test_signing_out_of_ledger(looper, txnPoolNodeSet, nym_txn_data, sdk_pool_ha
     assert details[VERKEY] == sender_verkey
 
 
-def test_signing_out_of_ledger_empty_verkey(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
+def test_create_did_without_endorser_empty_verkey(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
                                             patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
 
@@ -74,7 +74,7 @@ def test_signing_out_of_ledger_empty_verkey(looper, nym_txn_data, sdk_wallet_cli
         sdk_get_and_check_replies(looper, [request_couple])
 
 
-def test_non_ledger_nym_sending_with_different_dest(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
+def test_create_did_without_endorser_different_dest(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
                                                     patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
 
