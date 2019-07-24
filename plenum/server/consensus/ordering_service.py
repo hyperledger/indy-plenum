@@ -1894,7 +1894,7 @@ class OrderingService:
         # were stashed due to lack of commits before them and orders them if it
         # can
 
-        if not self._validator.can_order():
+        if not self.can_order():
             return
 
         self._logger.debug('{} trying to order from out of order commits. '
