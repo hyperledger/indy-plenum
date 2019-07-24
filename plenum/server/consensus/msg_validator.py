@@ -117,7 +117,7 @@ class CheckpointMsgValidator(AbstractMsgValidator):
         self._checkpoint_state = checkpoint_state
 
     def validate(self, msg):
-        inst_id = getattr(msg, f.INST_ID.nm, None)
+        # inst_id = getattr(msg, f.INST_ID.nm, None)
         view_no = getattr(msg, f.VIEW_NO.nm, None)
 
         # ToDO: this checks should be performed in previous level (ReplicaService)

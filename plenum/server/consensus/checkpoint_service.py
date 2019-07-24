@@ -336,7 +336,7 @@ class CheckpointService:
         if not list(self._data.checkpoints.irange_key(end_seq_no, end_seq_no)):
             raise LogicError('Stable checkpoint must be in checkpoints')
         self._data.stable_checkpoint = end_seq_no
-        
+
         self._data.checkpoints = \
             SortedListWithKey([c for c in self._data.checkpoints if c.seqNoEnd >= end_seq_no],
                               key=lambda checkpoint: checkpoint.seqNoEnd)
