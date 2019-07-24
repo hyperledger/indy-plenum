@@ -301,6 +301,7 @@ class ViewChangeService:
 
     def _finish_view_change(self, cp: Checkpoint, batches: List[BatchID]):
         # Update checkpoint
+        # TODO: change to self._bus.send(FinishViewChange(cp)) in scope of the task INDY-2179
         self._data.stable_checkpoint = cp.seqNoEnd
         self._data.checkpoints = [old_cp for old_cp in self._data.checkpoints if old_cp.seqNoEnd > cp.seqNoEnd]
         self._data.checkpoints.append(cp)

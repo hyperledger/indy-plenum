@@ -2104,6 +2104,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
 
+    # TODO: remove it after INDY-2179
     @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
                           MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
     def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
@@ -2127,6 +2128,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return False
         return True
 
+    # TODO: remove it after INDY-2179
     def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         seqNoEnd = msg.seqNoEnd
         seqNoStart = msg.seqNoStart
@@ -2150,6 +2152,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.checkIfCheckpointStable(key)
         return True
 
+    # TODO: remove it after INDY-2179
     def __start_catchup_if_needed(self):
         stashed_checkpoint_ends = self.stashed_checkpoints_with_quorum()
         lag_in_checkpoints = len(stashed_checkpoint_ends)
@@ -2189,6 +2192,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # watermarks
             self._caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
 
+    # TODO: remove it after INDY-2179
     def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self.checkpoints.keys():
             if s <= ppSeqNo <= e:
@@ -2208,6 +2212,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.doCheckpoint(state, s, e, ledger_id, view_no)
             self.processStashedCheckpoints((s, e), view_no)
 
+    # TODO: remove it after INDY-2179
     @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
                           MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
     def doCheckpoint(self, state, s, e, ledger_id, view_no):
@@ -2230,6 +2235,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.send(checkpoint)
         self._consensus_data_helper.add_checkpoint(checkpoint)
 
+    # TODO: remove it after INDY-2179
     def markCheckPointStable(self, seqNo):
         previousCheckpoints = []
         for (s, e), state in self.checkpoints.items():
@@ -2254,6 +2260,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
+    # TODO: remove it after INDY-2179
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
         if self.quorums.checkpoint.is_reached(len(ckState.receivedDigests)):
@@ -2264,6 +2271,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self, ckState.receivedDigests.keys()))
             return False
 
+    # TODO: remove it after INDY-2179
     def stashCheckpoint(self, ck: Checkpoint, sender: str):
         self.logger.debug('{} stashing {} from {}'.format(self, ck, sender))
         seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
@@ -2286,6 +2294,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
+    # TODO: remove it after INDY-2179
     def stashed_checkpoints_with_quorum(self):
         end_pp_seq_numbers = []
         quorum = self.quorums.checkpoint
@@ -2295,6 +2304,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 end_pp_seq_numbers.append(seq_no_end)
         return sorted(end_pp_seq_numbers)
 
+    # TODO: remove it after INDY-2179
     def processStashedCheckpoints(self, key, view_no):
         # Remove all checkpoints from previous views if any
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
@@ -2407,6 +2417,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
         self._clear_prev_view_pre_prepares()
 
+    # TODO: remove it after INDY-2179
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
         # successfully complete, the node must have reached the same state
@@ -2414,6 +2425,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
 
+    # TODO: remove it after INDY-2179
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
@@ -2421,6 +2433,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             return self.checkpoints.peekitem(0)
 
+    # TODO: remove it after INDY-2179
     @property
     def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
@@ -2428,6 +2441,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         else:
             return self.checkpoints.peekitem(-1)
 
+    # TODO: remove it after INDY-2179
     def is_pp_seq_no_stable(self, msg: Checkpoint):
         """
         :param ppSeqNo:
@@ -2950,6 +2964,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             del self.outBox[i]
         return removed
 
+    # TODO: remove it after INDY-2179
     def _remove_stashed_checkpoints(self, till_3pc_key=None):
         """
         Remove stashed received checkpoints up to `till_3pc_key` if provided,

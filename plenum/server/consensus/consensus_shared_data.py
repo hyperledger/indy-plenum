@@ -36,7 +36,7 @@ class ConsensusSharedData:
         self._validators = None
         self._quorums = None
         self.set_validators(validators)
-        self.low_watermark = 0
+        self._low_watermark = 0
         self.log_size = 300  # TODO: use config value
         self.high_watermark = self.low_watermark + self.log_size
         self._total_nodes = len(self.validators)
@@ -119,4 +119,17 @@ class ConsensusSharedData:
 
     @property
     def last_checkpoint(self) -> Checkpoint:
-        return self.checkpoints[-1]
+        if not self.checkpoints:
+            return None
+        else:
+            return self.checkpoints[-1]
+
+    @property
+    def low_watermark(self):
+        return self._low_watermark
+
+    @low_watermark.setter
+    def low_watermark(self, value: int):
+        self._low_watermark = value
+        self.high_watermark = value + self.log_size
+

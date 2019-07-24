@@ -29,6 +29,7 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
 from plenum.server.propagator import Requests
 from plenum.server.replica import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
@@ -43,107 +44,6 @@ from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, DISCARD, I
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
-
-
-class ThreePCMsgValidator:
-    def __init__(self, data: ConsensusSharedData):
-        self._data = data
-
-    @property
-    def view_no(self):
-        return self._data.view_no
-
-    @property
-    def low_watermark(self):
-        return self._data.low_watermark
-
-    @property
-    def high_watermark(self):
-        return self._data.high_watermark
-
-    @property
-    def legacy_last_prepared_sertificate(self):
-        """
-        We assume, that prepared list is an ordered list, and the last element is
-        the last quorumed Prepared
-        """
-        if self._data.prepared:
-            last_prepared = self._data.prepared[-1]
-            return last_prepared.view_no, last_prepared.pp_seq_no
-        return self.last_ordered_3pc
-
-    @property
-    def last_ordered_3pc(self):
-        return self._data.last_ordered_3pc
-
-    @property
-    def is_participating(self):
-        return self._data.is_participating
-
-    @property
-    def legacy_vc_in_progress(self):
-        return self._data.legacy_vc_in_progress
-
-    def has_already_ordered(self, view_no, pp_seq_no):
-        return compare_3PC_keys((view_no, pp_seq_no),
-                                self.last_ordered_3pc) >= 0
-
-    def can_order(self):
-        if self.is_participating:
-            return True
-        if self._data.is_synced and self._data.legacy_vc_in_progress:
-            return True
-        return False
-
-    def validate(self, msg):
-        view_no = getattr(msg, f.VIEW_NO.nm, None)
-        pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
-
-        # ToDO: this checks should be performed in previous level (ReplicaService)
-        # 1. Check INSTANCE_ID
-        # if inst_id is None or inst_id != self.replica.instId:
-        #     return DISCARD, INCORRECT_INSTANCE
-
-        # 2. Check pp_seq_no
-        if pp_seq_no == 0:
-            # should start with 1
-            return DISCARD, INCORRECT_PP_SEQ_NO
-
-        # 3. Check already ordered
-        if self.has_already_ordered(view_no, pp_seq_no):
-            return DISCARD, ALREADY_ORDERED
-
-        # 4. Check viewNo
-        if view_no > self.view_no:
-            return STASH_VIEW, FUTURE_VIEW
-        if view_no < self.view_no - 1:
-            return DISCARD, OLD_VIEW
-        if view_no == self.view_no - 1:
-            if not isinstance(msg, Commit):
-                return DISCARD, OLD_VIEW
-            if not self.legacy_vc_in_progress:
-                return DISCARD, OLD_VIEW
-            if self._data.legacy_last_prepared_before_view_change is None:
-                return DISCARD, OLD_VIEW
-            if compare_3PC_keys((view_no, pp_seq_no), self._data.legacy_last_prepared_before_view_change) < 0:
-                return DISCARD, GREATER_PREP_CERT
-        if view_no == self.view_no and self.legacy_vc_in_progress:
-            return STASH_VIEW, FUTURE_VIEW
-
-        # ToDo: we assume, that only is_participating needs checking orderability
-        # If Catchup in View Change finished then process Commit messages
-        if self._data.is_synced and self.legacy_vc_in_progress:
-            return PROCESS, None
-
-        # 5. Check if Participating
-        if not self.is_participating:
-            return STASH_CATCH_UP, CATCHING_UP
-
-        # 6. Check watermarks
-        if not (self.low_watermark < pp_seq_no <= self.high_watermark):
-            return STASH_WATERMARKS, OUTSIDE_WATERMARKS
-
-        return PROCESS, None
 
 
 class OrderingService:
@@ -1717,7 +1617,7 @@ class OrderingService:
         #     self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         # else:
         #     self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
-
+        # TODO: remove it after INDY-2137
         self.l_addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
         # BLS multi-sig:
@@ -1726,6 +1626,7 @@ class OrderingService:
         return True
 
     """Method from legacy code"""
+    # TODO: remove it after INDY-2137
     def l_addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self._data.checkpoints.keys():
             if s <= ppSeqNo <= e:
