@@ -85,7 +85,7 @@ class ClientMessageProvider:
         return True, None, need_to_resend
 
     def _remove_old_messages(self):
-        for ident in self._pending_client_messages.keys():
+        for ident in list(self._pending_client_messages.keys()):
             for timestamp, current_msg in list(self._pending_client_messages[ident]):
                 if self._timer.get_current_time() - timestamp >= self._config.REMOVE_CLIENT_MSG_TIMEOUT:
                     self._remove_message(ident, (timestamp, current_msg))
