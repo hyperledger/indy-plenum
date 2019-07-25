@@ -59,7 +59,8 @@ class OrderingService:
                  bls_bft_replica: BlsBftReplica,
                  is_master=True,
                  get_current_time=None,
-                 get_time_for_3pc_batch=None):
+                 get_time_for_3pc_batch=None,
+                 stasher=None):
         self._data = data
         self._requests = self._data.requests
         self._timer = timer
@@ -72,7 +73,7 @@ class OrderingService:
 
         self._config = getConfig()
         self._logger = getlogger()
-        self._stasher = StashingRouter(self._config.REPLICA_STASH_LIMIT)
+        self._stasher = stasher if stasher else StashingRouter(self._config.REPLICA_STASH_LIMIT)
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,

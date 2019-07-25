@@ -18,6 +18,10 @@ class AbstractMsgValidator(metaclass=ABCMeta):
         return self._data.view_no
 
     @property
+    def inst_id(self):
+        return self._data.inst_id
+
+    @property
     def low_watermark(self):
         return self._data.low_watermark
 
@@ -112,18 +116,13 @@ class ThreePCMsgValidator(AbstractMsgValidator):
 
 class CheckpointMsgValidator(AbstractMsgValidator):
 
-    def __init__(self, data: ConsensusSharedData, checkpoint_state: SortedDict):
-        super().__init__(data)
-        self._checkpoint_state = checkpoint_state
-
     def validate(self, msg):
-        # inst_id = getattr(msg, f.INST_ID.nm, None)
+        inst_id = getattr(msg, f.INST_ID.nm, None)
         view_no = getattr(msg, f.VIEW_NO.nm, None)
 
-        # ToDO: this checks should be performed in previous level (ReplicaService)
         # 1. Check INSTANCE_ID
-        # if inst_id is None or inst_id != self.replica.instId:
-        #     return DISCARD, INCORRECT_INSTANCE
+        if inst_id is None or inst_id != self.inst_id:
+            return DISCARD, INCORRECT_INSTANCE
 
         # 2. Check if already stable
         if self._is_pp_seq_no_stable(msg):
@@ -151,10 +150,4 @@ class CheckpointMsgValidator(AbstractMsgValidator):
         :return: True if ppSeqNo is less than or equal to last stable
         checkpoint, false otherwise
         """
-        pp_seq_no = msg.seqNoEnd
-        ck = self._checkpoint_state.peekitem(0) if self._checkpoint_state else None
-        if ck:
-            _, ckState = ck
-            return ckState.isStable and ckState.seqNo >= pp_seq_no
-        else:
-            return False
+        return msg.seqNoEnd <= self._data.stable_checkpoint

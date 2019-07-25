@@ -1,8 +1,10 @@
 from typing import List
 
 from crypto.bls.bls_bft_replica import BlsBftReplica
+from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
@@ -22,13 +24,16 @@ class ReplicaService:
                  bls_bft_replica: BlsBftReplica=None):
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = primary_name
+        config = getConfig()
+        stasher = StashingRouter(config.REPLICA_STASH_LIMIT)
         self._orderer = OrderingService(data=self._data,
                                         timer=timer,
                                         bus=bus,
                                         network=network,
                                         write_manager=write_manager,
-                                        bls_bft_replica=bls_bft_replica)
-        self._checkpointer = CheckpointService(self._data, bus, network)
+                                        bls_bft_replica=bls_bft_replica,
+                                        stasher=stasher)
+        self._checkpointer = CheckpointService(self._data, bus, network, stasher)
         self._view_changer = ViewChangeService(self._data, timer, bus, network)
 
         # TODO: This is just for testing purposes only

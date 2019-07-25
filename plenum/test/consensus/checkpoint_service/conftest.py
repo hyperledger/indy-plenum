@@ -1,0 +1,22 @@
+import pytest
+
+from plenum.common.startable import Mode
+from plenum.common.stashing_router import StashingRouter
+from plenum.server.consensus.checkpoint_service import CheckpointService
+
+
+@pytest.fixture()
+def stasher(tconf):
+    return StashingRouter(tconf.REPLICA_STASH_LIMIT)
+
+
+@pytest.fixture()
+def checkpoint_service(consensus_data, internal_bus, external_bus, name,
+                       bls_bft_replica, is_master, stasher):
+    checkpoint_service = CheckpointService(data=consensus_data(name),
+                                           bus=internal_bus,
+                                           network=external_bus,
+                                           is_master=is_master,
+                                           stasher=stasher)
+    checkpoint_service._data.node_mode = Mode.participating
+    return checkpoint_service

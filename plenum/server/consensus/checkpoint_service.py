@@ -15,7 +15,6 @@ from plenum.common.stashing_router import DISCARD, PROCESS, StashingRouter
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
-from plenum.server.replica import measure_replica_time, TPCStat, ConsensusDataHelper
 from stp_core.common.log import getlogger
 
 
@@ -30,15 +29,14 @@ class CheckpointService:
         self._checkpoint_state = SortedDict(lambda k: k[1])
         self._stasher = stasher
         self._is_master = is_master
-        self._validator = CheckpointMsgValidator(self._data, self._checkpoint_state)
-        self._consensus_data_helper = ConsensusDataHelper(self._data)
+        self._validator = CheckpointMsgValidator(self._data)
 
         # Stashed checkpoints for each view. The key of the outermost
         # dictionary is the view_no, value being a dictionary with key as the
         # range of the checkpoint and its value again being a mapping between
         # senders and their sent checkpoint
-        # Dict[view_no, Dict[(seqNoStart, seqNoEnd),  Dict[str, Checkpoint]]]
-        self.stashed_recvd_checkpoints = {}
+        # Dict[view_no, Dict[(seqNoStart, seqNoEnd),  Dict[sender, Checkpoint]]]
+        self._stashed_recvd_checkpoints = {}
 
         self._config = getConfig()
         self._logger = getlogger()
@@ -57,8 +55,8 @@ class CheckpointService:
     def last_ordered_3pc(self):
         return self._data.last_ordered_3pc
 
-    @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
-                          MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
+    # @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
+    #                       MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
     def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
@@ -91,7 +89,9 @@ class CheckpointService:
         for pp in reversed(self._data.preprepared):
             if pp.ppSeqNo == ordered.ppSeqNo:
                 self._add_to_checkpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
-                break
+                return
+        raise LogicError("CheckpointService | Can't process Ordered msg because "
+                         "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo))
 
     def _start_catchup_if_needed(self):
         stashed_checkpoint_ends = self._stashed_checkpoints_with_quorum()
@@ -116,7 +116,7 @@ class CheckpointService:
             self._logger.display(
                 '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
                     self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
-            self.h = stashed_checkpoint_ends[-1]
+            self._data.low_watermark = stashed_checkpoint_ends[-1]
             if not self._data.is_primary:
                 self._logger.display(
                     '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
@@ -133,8 +133,7 @@ class CheckpointService:
             self._bus.send(StartBackupCatchup((self.view_no, stashed_checkpoint_ends[-1])))
 
     def caught_up_till_3pc(self, last_caught_up_3PC):
-        self._data.checkpoints.clear()
-        self._consensus_data_helper.reset_checkpoints()
+        self.reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
@@ -157,8 +156,8 @@ class CheckpointService:
                 self._do_checkpoint(state, s, e, ledger_id, view_no)
             self._process_stashed_checkpoints((s, e), view_no)
 
-    @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
-                          MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
+    # @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
+    #                       MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
     def _do_checkpoint(self, state, s, e, ledger_id, view_no):
         # TODO CheckpointState/Checkpoint is not a namedtuple anymore
         # 1. check if updateNamedTuple works for the new message type
@@ -180,7 +179,7 @@ class CheckpointService:
         #                          self.stateRootHash(ledger_id, committed=False)))
         checkpoint = Checkpoint(self._data.inst_id, view_no, s, e, state.digest)
         self._network.send(checkpoint)
-        self._data.checkpoints.add(checkpoint)
+        self._data.checkpoints.append(checkpoint)
 
     def _mark_checkpoint_stable(self, seqNo):
         previousCheckpoints = []
@@ -203,7 +202,7 @@ class CheckpointService:
             self._logger.trace("{} removing previous checkpoint {}".format(self, k))
             self._checkpoint_state.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, seqNo))
-        self._bus.send(Cleanup((self.view_no, seqNo)))  # call l_gc(OrderingService)
+        self._bus.send(Cleanup((self.view_no, seqNo)))  # call OrderingService.l_gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def _check_if_checkpoint_stable(self, key: Tuple[int, int]):
@@ -219,9 +218,9 @@ class CheckpointService:
     def _stash_checkpoint(self, ck: Checkpoint, sender: str):
         self._logger.debug('{} stashing {} from {}'.format(self, ck, sender))
         seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
-        if ck.viewNo not in self.stashed_recvd_checkpoints:
-            self.stashed_recvd_checkpoints[ck.viewNo] = {}
-        stashed_for_view = self.stashed_recvd_checkpoints[ck.viewNo]
+        if ck.viewNo not in self._stashed_recvd_checkpoints:
+            self._stashed_recvd_checkpoints[ck.viewNo] = {}
+        stashed_for_view = self._stashed_recvd_checkpoints[ck.viewNo]
         if (seqNoStart, seqNoEnd) not in stashed_for_view:
             stashed_for_view[seqNoStart, seqNoEnd] = {}
         stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
@@ -229,7 +228,7 @@ class CheckpointService:
     def _stashed_checkpoints_with_quorum(self):
         end_pp_seq_numbers = []
         quorum = self._data.quorums.checkpoint
-        for (_, seq_no_end), senders in self.stashed_recvd_checkpoints.get(
+        for (_, seq_no_end), senders in self._stashed_recvd_checkpoints.get(
                 self.view_no, {}).items():
             if quorum.is_reached(len(senders)):
                 end_pp_seq_numbers.append(seq_no_end)
@@ -239,40 +238,40 @@ class CheckpointService:
         # Remove all checkpoints from previous views if any
         self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, 0))
 
-        if key not in self.stashed_recvd_checkpoints.get(view_no, {}):
+        if key not in self._stashed_recvd_checkpoints.get(view_no, {}):
             self._logger.trace("{} have no stashed checkpoints for {}")
             return
 
         # Get a snapshot of all the senders of stashed checkpoints for `key`
-        senders = list(self.stashed_recvd_checkpoints[view_no][key].keys())
+        senders = list(self._stashed_recvd_checkpoints[view_no][key].keys())
         total_processed = 0
         consumed = 0
 
         for sender in senders:
             # Check if the checkpoint from `sender` is still in
-            # `stashedRecvdCheckpoints` because it might be removed from there
+            # `stashed_recvd_checkpoints` because it might be removed from there
             # in case own checkpoint was stabilized when we were processing
             # stashed checkpoints from previous senders in this loop
-            if view_no in self.stashed_recvd_checkpoints \
-                    and key in self.stashed_recvd_checkpoints[view_no] \
-                    and sender in self.stashed_recvd_checkpoints[view_no][key]:
+            if view_no in self._stashed_recvd_checkpoints \
+                    and key in self._stashed_recvd_checkpoints[view_no] \
+                    and sender in self._stashed_recvd_checkpoints[view_no][key]:
                 if self.process_checkpoint(
-                        self.stashed_recvd_checkpoints[view_no][key].pop(sender),
+                        self._stashed_recvd_checkpoints[view_no][key].pop(sender),
                         sender):
                     consumed += 1
                 # Note that if `process_checkpoint` returned False then the
                 # checkpoint from `sender` was re-stashed back to
-                # `stashedRecvdCheckpoints`
+                # `stashed_recvd_checkpoints`
                 total_processed += 1
 
         # If we have consumed stashed checkpoints for `key` from all the
         # senders then remove entries which have become empty
-        if view_no in self.stashed_recvd_checkpoints \
-                and key in self.stashed_recvd_checkpoints[view_no] \
-                and len(self.stashed_recvd_checkpoints[view_no][key]) == 0:
-            del self.stashed_recvd_checkpoints[view_no][key]
-            if len(self.stashed_recvd_checkpoints[view_no]) == 0:
-                del self.stashed_recvd_checkpoints[view_no]
+        if view_no in self._stashed_recvd_checkpoints \
+                and key in self._stashed_recvd_checkpoints[view_no] \
+                and len(self._stashed_recvd_checkpoints[view_no][key]) == 0:
+            del self._stashed_recvd_checkpoints[view_no][key]
+            if len(self._stashed_recvd_checkpoints[view_no]) == 0:
+                del self._stashed_recvd_checkpoints[view_no]
 
         restashed = total_processed - consumed
         self._logger.info('{} processed {} stashed checkpoints for {}, '
@@ -286,10 +285,6 @@ class CheckpointService:
         # successfully complete, the node must have reached the same state
         # as other nodes
         self._data.low_watermark = 0
-        self._lastPrePrepareSeqNo = self.h
-
-    def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
-        return self._data.low_watermark < ppSeqNo <= self._data.high_watermark
 
     def update_watermark_from_3pc(self):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
@@ -304,25 +299,25 @@ class CheckpointService:
         otherwise remove all stashed received checkpoints
         """
         if till_3pc_key is None:
-            self.stashed_recvd_checkpoints.clear()
+            self._stashed_recvd_checkpoints.clear()
             self._logger.info('{} removing all stashed checkpoints'.format(self))
             return
 
-        for view_no in list(self.stashed_recvd_checkpoints.keys()):
+        for view_no in list(self._stashed_recvd_checkpoints.keys()):
 
             if view_no < till_3pc_key[0]:
                 self._logger.info('{} removing stashed checkpoints for view {}'.format(self, view_no))
-                del self.stashed_recvd_checkpoints[view_no]
+                del self._stashed_recvd_checkpoints[view_no]
 
             elif view_no == till_3pc_key[0]:
-                for (s, e) in list(self.stashed_recvd_checkpoints[view_no].keys()):
+                for (s, e) in list(self._stashed_recvd_checkpoints[view_no].keys()):
                     if e <= till_3pc_key[1]:
                         self._logger.info('{} removing stashed checkpoints: '
                                           'viewNo={}, seqNoStart={}, seqNoEnd={}'.
                                           format(self, view_no, s, e))
-                        del self.stashed_recvd_checkpoints[view_no][(s, e)]
-                if len(self.stashed_recvd_checkpoints[view_no]) == 0:
-                    del self.stashed_recvd_checkpoints[view_no]
+                        del self._stashed_recvd_checkpoints[view_no][(s, e)]
+                if len(self._stashed_recvd_checkpoints[view_no]) == 0:
+                    del self._stashed_recvd_checkpoints[view_no]
 
     def reset_checkpoints(self):
         # That function most probably redundant in PBFT approach,
