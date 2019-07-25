@@ -42,6 +42,7 @@ class ConsensusSharedData:
         # ToDo: it should be set in view_change_service before view_change starting
         self.legacy_last_prepared_before_view_change = None
         self.primaries_batch_needed = False
+        self.requestQueues = {}
 
     @property
     def name(self) -> str:

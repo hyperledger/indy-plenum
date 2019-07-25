@@ -9,6 +9,9 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 
 import gc
 import psutil
+
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import NodeModeMsg, PrimariesBatchNeeded, CurrentPrimaries
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -166,6 +169,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.internal_bus = InternalBus()
         self.ha = ha
         self.cliname = cliname
         self.cliha = cliha
@@ -209,7 +213,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.addGenesisNyms()
 
-        self.mode = None  # type: Optional[Mode]
+        self._mode = None  # type: Optional[Mode]
+
+        # List of current replica's primaries, used for persisting in audit ledger
+        # and restoration current primaries from audit ledger
+        self._primaries = []
+
+        # Flag which node set, when it have set new primaries and need to send batch
+        self._primaries_batch_needed = False
 
         self.network_stacks_init(seed)
 
@@ -342,13 +353,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
-
-        # List of current replica's primaries, used for persisting in audit ledger
-        # and restoration current primaries from audit ledger
-        self.primaries = []
-
-        # Flag which node set, when it have set new primaries and need to send batch
-        self.primaries_batch_needed = False
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -554,6 +558,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer is None:
             return False
         return self.view_changer.view_change_in_progress
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, m):
+        self._mode = m
+        self.internal_bus.send(NodeModeMsg(m))
+
+    @property
+    def primaries_batch_needed(self):
+        return self._primaries_batch_needed
+
+    @primaries_batch_needed.setter
+    def primaries_batch_needed(self, fl):
+        self._primaries_batch_needed = fl
+        self.internal_bus.send(PrimariesBatchNeeded(fl))
+
+    @property
+    def primaries(self):
+        return self._primaries
+
+    @primaries.setter
+    def primaries(self, ps):
+        self._primaries = ps
+        self.internal_bus.send(CurrentPrimaries(ps))
 
     @property
     def pre_view_change_in_progress(self):

@@ -1,6 +1,6 @@
 from typing import NamedTuple, List, Any
 
-from plenum.common.messages.node_messages import CheckpointState
+from plenum.common.messages.node_messages import CheckpointState, PrePrepare
 
 ValidatorsChanged = NamedTuple('ValidatorsChange',
                                [('names', List[str])])
@@ -33,3 +33,17 @@ RemoveStashedCheckpoints = NamedTuple('RemoveStashedCheckpoints',
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
+
+NodeModeMsg = NamedTuple('NodeModeMsg',
+                         [('mode', int)])
+
+PrimariesBatchNeeded = NamedTuple('PrimariesBatchNeeded',
+                                  [('pbn', bool)])
+
+CurrentPrimaries = NamedTuple('CurrentPrimaries',
+                              [('primaries', list)])
+
+TryOrderMsg = NamedTuple('TryOrderMsg',
+                         [('inst_id', int),
+                          ('key', tuple),
+                          ('pp', PrePrepare)])

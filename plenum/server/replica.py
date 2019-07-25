@@ -28,6 +28,8 @@ from plenum.common.exceptions import SuspiciousNode, \
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.internal_messages import NodeModeMsg, LegacyViewChangeStatusUpdate, PrimariesBatchNeeded, \
+    CurrentPrimaries, TryOrderMsg
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -144,6 +146,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger = getlogger(self.name)
         self.validator = ReplicaValidator(self)
         self.stasher = ReplicaStasher(self)
+        self._consensus_data = ConsensusSharedData(self.generateName(self.node.name, self.instId),
+                                                   self.node.get_validators(),
+                                                   self.instId)
 
         self.outBox = deque()
         """
@@ -324,17 +329,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
-        self._consensus_data = ConsensusSharedData(self.node.name,
-                                                   self.node.get_validators(),
-                                                   self.instId)
+        self._bootstrap_consensus_data()
+        self._subscribe_to_internal_msgs()
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
 
-        self._internal_bus = InternalBus()
         self._external_bus = ExternalBus(send_handler=self.send)
 
         self._ordering_service = OrderingService(self._consensus_data,
                                                  timer=self.node,
-                                                 bus=self._internal_bus,
+                                                 bus=self.node.internal_bus,
                                                  network=self._external_bus,
                                                  write_manager=self.node.write_manager,
                                                  bls_bft_replica=self._bls_bft_replica,
@@ -348,6 +351,38 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             (Commit, self._ordering_service.process_commit),
             (Checkpoint, self.process_checkpoint),
         )
+
+    def _bootstrap_consensus_data(self):
+        self._consensus_data.requests = self.requests
+        self._consensus_data.low_watermark = self.h
+        self._consensus_data.high_watermark = self.H
+        self._consensus_data.node_mode = self.node.mode
+        self._consensus_data.requestQueues = self.requestQueues
+        self._consensus_data.primaries_batch_needed = self.node.primaries_batch_needed
+
+    def _try_order_msg(self, msg: TryOrderMsg):
+        if self._consensus_data.inst_id == msg.inst_id:
+            self.order_3pc_key(msg.key, pp=msg.pp)
+
+    def _primaries_list_msg(self, msg: CurrentPrimaries):
+        self._consensus_data.primaries = msg.primaries
+
+    def _primaries_batch_needed_msg(self, msg: PrimariesBatchNeeded):
+        self._consensus_data.primaries_batch_needed = msg.pbn
+
+    def _node_mode_msg(self, msg: NodeModeMsg):
+        self._consensus_data.node_mode = msg.mode
+
+    def _legacy_vc_in_progress(self, msg: LegacyViewChangeStatusUpdate):
+        self._consensus_data.legacy_vc_in_progress = msg.in_progress
+
+    def _subscribe_to_internal_msgs(self):
+        self.node.internal_bus.subscribe(NodeModeMsg, self._node_mode_msg)
+        self.node.internal_bus.subscribe(LegacyViewChangeStatusUpdate, self._legacy_vc_in_progress)
+        self.node.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_msg)
+        self.node.internal_bus.subscribe(CurrentPrimaries, self._primaries_list_msg)
+        self.node.internal_bus.subscribe(Ordered, self.send)
+        self.node.internal_bus.subscribe(TryOrderMsg, self._try_order_msg)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -393,6 +428,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.H = self._h + self.config.LOG_SIZE
         self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
         self.stasher.unstash_watermarks()
+        self._consensus_data.low_watermark = n
+        self._consensus_data.high_watermark = self.H
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -503,6 +540,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.compact_primary_names()
         if value != self._primaryName:
             self._primaryName = value
+            self._consensus_data.primary_name = value
             self.logger.info("{} setting primaryName for view no {} to: {}".
                              format(self, self.viewNo, value))
             if value is None:
@@ -715,26 +753,27 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
     def send_3pc_batch(self):
-        if not self.validator.can_send_3pc_batch():
-            return 0
-
-        sent_batches = set()
-
-        # 1. send 3PC batches with requests for every ledger
-        self._send_3pc_batches_for_ledgers(sent_batches)
-
-        # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
-        # and send an empty 3PC batch to update the state if needed
-        self._send_3pc_freshness_batch(sent_batches)
-
-        # 3. send 3PC batch if new primaries elected
-        self._send_3pc_primaries_batch(sent_batches)
-
-        # 4. update ts of last sent 3PC batch
-        if len(sent_batches) > 0:
-            self.lastBatchCreated = self.get_current_time()
-
-        return len(sent_batches)
+        return self._ordering_service.l_send_3pc_batch()
+        # if not self.validator.can_send_3pc_batch():
+        #     return 0
+        #
+        # sent_batches = set()
+        #
+        # # 1. send 3PC batches with requests for every ledger
+        # self._send_3pc_batches_for_ledgers(sent_batches)
+        #
+        # # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
+        # # and send an empty 3PC batch to update the state if needed
+        # self._send_3pc_freshness_batch(sent_batches)
+        #
+        # # 3. send 3PC batch if new primaries elected
+        # self._send_3pc_primaries_batch(sent_batches)
+        #
+        # # 4. update ts of last sent 3PC batch
+        # if len(sent_batches) > 0:
+        #     self.lastBatchCreated = self.get_current_time()
+        #
+        # return len(sent_batches)
 
     def _send_3pc_batches_for_ledgers(self, sent_batches):
         # TODO: Consider sending every next update in Max3PCBatchWait only
@@ -1846,8 +1885,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @measure_replica_time(MetricsName.ORDER_3PC_BATCH_TIME,
                           MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
-    def order_3pc_key(self, key):
-        pp = self.getPrePrepare(*key)
+    def order_3pc_key(self, key, pp: PrePrepare=None):
+        pp = pp or self.getPrePrepare(*key)
         if pp is None:
             raise ValueError(
                 "{} no PrePrepare with a 'key' {} found".format(self, key)

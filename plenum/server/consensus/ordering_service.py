@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, OutboxMessage, DoCheckpointMessage, \
-    RemoveStashedCheckpoints, RequestPropagates
+    RemoveStashedCheckpoints, RequestPropagates, TryOrderMsg
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName
@@ -278,7 +278,7 @@ class OrderingService:
         self.warned_no_primary = False
 
         # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = {}  # type: Dict[int, OrderedSet]
+        self.requestQueues = self._data.requestQueues  # type: Dict[int, OrderedSet]
 
         self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int]]
 
@@ -291,6 +291,8 @@ class OrderingService:
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo).
         self.ordered = OrderedTracker()
+
+        self.lastBatchCreated = self.get_current_time()
 
         # Commits which are not being ordered since commits with lower
         # sequence numbers have not been ordered yet. Key is the
@@ -307,6 +309,9 @@ class OrderingService:
         self._stasher.subscribe(Prepare, self.process_prepare)
         self._stasher.subscribe(Commit, self.process_commit)
         self._stasher.subscribe_to(network)
+
+    def __repr__(self):
+        return self.name
 
     def process_prepare(self, prepare: Prepare, sender: str):
         """
@@ -580,6 +585,7 @@ class OrderingService:
         :param pre_prepare: message
         :param sender: name of the node that sent this message
         """
+        sender = self.generateName(sender, self._data.inst_id)
         pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         # the same PrePrepare might come here multiple times
         if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
@@ -793,7 +799,6 @@ class OrderingService:
 
     @property
     def name(self):
-        # ToDo: Change to real name
         return self._data.name
 
     @name.setter
@@ -1052,7 +1057,8 @@ class OrderingService:
                 return PP_APPLY_HOOK_ERROR
 
         # 6. TRACK APPLIED
-        self.send_outbox(rejects)
+        if rejects:
+            self.send_outbox(rejects)
         self.l_addToPrePrepares(pre_prepare)
 
         if self.is_master:
@@ -1668,7 +1674,8 @@ class OrderingService:
     def l_doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
         self._logger.debug("{} ordering COMMIT {}".format(self, key))
-        return self.l_order_3pc_key(key)
+        self._bus.send(TryOrderMsg(self._data.inst_id, key, self.l_getPrePrepare(*key)))
+        # return self.l_order_3pc_key(key)
 
     """Method from legacy code"""
     def l_order_3pc_key(self, key):
@@ -1844,7 +1851,7 @@ class OrderingService:
                         ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
                 break
         else:
-            return self.db_manager.primaries
+            return self._data.primaries
 
     """Method from legacy code"""
     def l_discard_ordered_req_keys(self, pp: PrePrepare):
@@ -2025,7 +2032,7 @@ class OrderingService:
             self._logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
     def send_outbox(self, msg):
-        self._bus.send(OutboxMessage(msg=msg))
+        self._network.send(msg)
 
     def post_batch_rejection(self, ledger_id):
         """
@@ -2361,7 +2368,7 @@ class OrderingService:
             self, len(reqs), ledger_id))
         self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
-        if self.is_master:
+        if self.is_master and rejects:
             self.send_outbox(rejects)
         return pre_prepare
 

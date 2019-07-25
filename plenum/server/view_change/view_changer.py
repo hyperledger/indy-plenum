@@ -5,6 +5,8 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from common.exceptions import LogicError
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import LegacyViewChangeStatusUpdate
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
@@ -139,10 +141,11 @@ class ViewChangerDataProvider(ABC):
 
 class ViewChanger():
 
-    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
+    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService, internal_bus: InternalBus):
         self.provider = provider
         self._timer = timer
         self.pre_vc_strategy = None
+        self._internal_bus = internal_bus
 
         self._view_no = 0  # type: int
 
@@ -230,6 +233,7 @@ class ViewChanger():
     @view_change_in_progress.setter
     def view_change_in_progress(self, value: bool):
         self._view_change_in_progress = value
+        self._internal_bus.send(LegacyViewChangeStatusUpdate(value))
 
     @property
     def quorum(self) -> int:
