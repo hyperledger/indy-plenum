@@ -32,7 +32,7 @@ class ConsensusSharedData:
         self.preprepared = []  # type:  List[PrePrepare]
         self.prepared = []  # type:  List[PrePrepare]
         self._validators = None
-        self._quorums = None
+        self.quorums = None
         self.set_validators(validators)
         self.low_watermark = 0
         self.log_size = 300  # TODO: use config value
@@ -58,13 +58,6 @@ class ConsensusSharedData:
         List of validator nodes aliases
         """
         return self._validators
-
-    @property
-    def quorums(self) -> Quorums:
-        """
-        List of quorums
-        """
-        return self._quorums
 
     @property
     def is_primary(self) -> bool:

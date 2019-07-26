@@ -60,8 +60,8 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
         def check_commits(commit_key):
             for n in fast_nodes:
                 for r in n.replicas.values():
-                    assert commit_key in r.commits
-                    assert len(r.commits[commit_key].voters) == 1
+                    assert commit_key in r._ordering_service.commits
+                    assert len(r._ordering_service.commits[commit_key].voters) == 1
 
         looper.run(eventually(check_commits,
                               (view_no, last_ordered[1] + 2)))

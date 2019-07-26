@@ -63,10 +63,10 @@ class Replicas:
         for req_queue in replica.requestQueues.values():
             for req_key in req_queue:
                 req_keys.add(req_key)
-        for pp in replica.sentPrePrepares.values():
+        for pp in replica._ordering_service.sentPrePrepares.values():
             for req_key in pp.reqIdr:
                 req_keys.add(req_key)
-        for pp in replica.prePrepares.values():
+        for pp in replica._ordering_service.prePrepares.values():
             for req_key in pp.reqIdr:
                 req_keys.add(req_key)
 
@@ -184,7 +184,7 @@ class Replicas:
             reqId, duration = unordered
 
             # get ppSeqNo and viewNo
-            preprepares = replica.sentPrePrepares if replica.isPrimary else replica.prePrepares
+            preprepares = replica._ordering_service.sentPrePrepares if replica.isPrimary else replica._ordering_service.prePrepares
             ppSeqNo = None
             viewNo = None
             for key in preprepares:
@@ -196,7 +196,7 @@ class Replicas:
                 logger.warning('Unordered request with reqId: {} was not found in prePrepares. '
                                'Prepares count: {}, Commits count: {}'.format(reqId,
                                                                               len(replica.prepares),
-                                                                              len(replica.commits)))
+                                                                              len(replica._ordering_service.commits)))
                 continue
 
             # get pre-prepare sender
@@ -211,8 +211,8 @@ class Replicas:
                 str_prepares = ', '.join(prepares)
 
             # get commits info
-            commits = replica.commits[(viewNo, ppSeqNo)][0] \
-                if (viewNo, ppSeqNo) in replica.commits else []
+            commits = replica._ordering_service.commits[(viewNo, ppSeqNo)][0] \
+                if (viewNo, ppSeqNo) in replica._ordering_service.commits else []
             n_commits = len(commits)
             str_commits = 'noone'
             if n_commits:

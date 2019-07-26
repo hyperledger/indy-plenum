@@ -79,13 +79,13 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # (Note that a primary replica removes requests from requestQueues
     # when creating a batch with them.)
     if slow_replica.isPrimary:
-        assert slow_replica.sentPrePrepares
+        assert slow_replica._ordering_service.sentPrePrepares
     else:
         assert slow_replica.requestQueues[DOMAIN_LEDGER_ID]
-        assert slow_replica.prePrepares
-    assert slow_replica.prepares
-    assert slow_replica.commits
-    assert slow_replica.batches
+        assert slow_replica._ordering_service.prePrepares
+    assert slow_replica._ordering_service.prepares
+    assert slow_replica._ordering_service.commits
+    assert slow_replica._ordering_service.batches
     assert slow_replica.checkpoints
 
     # Ensure that there are some quorumed stashed checkpoints
@@ -112,11 +112,11 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # Ensure that the collections related to requests, batches and
     # own checkpoints have been cleared
     assert not slow_replica.requestQueues[DOMAIN_LEDGER_ID]
-    assert not slow_replica.sentPrePrepares
-    assert not slow_replica.prePrepares
-    assert not slow_replica.prepares
-    assert not slow_replica.commits
-    assert not slow_replica.batches
+    assert not slow_replica._ordering_service.sentPrePrepares
+    assert not slow_replica._ordering_service.prePrepares
+    assert not slow_replica._ordering_service.prepares
+    assert not slow_replica._ordering_service.commits
+    assert not slow_replica._ordering_service.batches
     assert not slow_replica.checkpoints
 
     # Ensure that now there are no quorumed stashed checkpoints

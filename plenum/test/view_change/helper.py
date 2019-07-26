@@ -259,10 +259,10 @@ def check_replica_queue_empty(node):
 
     assert len(replica.prePrepares) == 0
     assert len(replica.prePreparesPendingFinReqs) == 0
-    assert len(replica.prepares) == 0
-    assert len(replica.sentPrePrepares) == 0
-    assert len(replica.batches) == 0
-    assert len(replica.commits) == 0
+    assert len(replica._ordering_service.prepares) == 0
+    assert len(replica._ordering_service.sentPrePrepares) == 0
+    assert len(replica._ordering_service.batches) == 0
+    assert len(replica._ordering_service.commits) == 0
     assert len(replica.commitsWaitingForPrepare) == 0
     assert len(replica.ordered) == 0
 
@@ -384,5 +384,5 @@ def check_prepare_certificate(nodes, ppSeqNo):
     for node in nodes:
         key = (node.viewNo, ppSeqNo)
         quorum = node.master_replica.quorums.prepare.value
-        assert node.master_replica.prepares.hasQuorum(ThreePhaseKey(*key),
+        assert node.master_replica._ordering_service.prepares.hasQuorum(ThreePhaseKey(*key),
                                                        quorum)

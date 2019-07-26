@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import Callable, Type, Dict, List, Any, Union, Iterable
 
+from stp_core.network.network_interface import NetworkInterface
+
 
 class InternalBus:
     def __init__(self):
@@ -20,16 +22,12 @@ class ExternalBus:
     SendHandler = Callable[[Any, Destination], None]
     RecvHandler = Callable[[Any, str], None]
 
-    def __init__(self, send_handler: SendHandler):
+    def __init__(self, send_handler: SendHandler, nodestack: NetworkInterface=None):
         self._send_handler = send_handler
         self._recv_handlers = InternalBus()
 
         # list of connected nodes
-        self._connecteds = {}
-
-    @property
-    def connecteds(self):
-        return self._connecteds
+        self.nodestack = nodestack
 
     def subscribe(self, message_type: Type, recv_handler: RecvHandler):
         self._recv_handlers.subscribe(message_type, recv_handler)

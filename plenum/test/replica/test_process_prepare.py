@@ -46,7 +46,7 @@ def pre_prepare(r, _pre_prepare):
 def test_process_valid_prepare(r, pre_prepare, prepare):
     r.processPrePrepare(pre_prepare, PRIMARY_NAME)
     r.processPrepare(prepare, NON_PRIMARY_NAME)
-    assert r.prepares.hasPrepareFrom(prepare, NON_PRIMARY_NAME)
+    assert r._ordering_service.prepares.hasPrepareFrom(prepare, NON_PRIMARY_NAME)
 
 
 def test_validate_prepare_from_primary(r, prepare):

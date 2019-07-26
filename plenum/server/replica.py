@@ -29,7 +29,7 @@ from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NodeModeMsg, LegacyViewChangeStatusUpdate, PrimariesBatchNeeded, \
-    CurrentPrimaries, TryOrderMsg
+    CurrentPrimaries, AddToCheckpointMsg, RemoveStashedCheckpoints, OnViewChangeStartMsg, OnCatchupFinishedMsg
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -121,23 +121,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         HasActionQueue.__init__(self)
         self.get_current_time = get_current_time or time.perf_counter
         self.get_time_for_3pc_batch = get_time_for_3pc_batch or node.utc_epoch
-        self.stats = Stats(TPCStat)
+        # self.stats = Stats(TPCStat)
         self.config = config or getConfig()
         self.metrics = metrics
 
-        # self.inBoxRouter = Router(
-        #     (ReqKey, self.readyFor3PC),
-        #     (PrePrepare, self.process_three_phase_msg),
-        #     (Prepare, self.process_three_phase_msg),
-        #     (Commit, self.process_three_phase_msg),
-        #     (Checkpoint, self.process_checkpoint),
-        # )
-
-        self.threePhaseRouter = Replica3PRouter(
-            self,
-            (PrePrepare, self.processPrePrepare),
-            (Prepare, self.processPrepare),
-            (Commit, self.processCommit)
+        self.inBoxRouter = Router(
+            (ReqKey, self.readyFor3PC),
+            (PrePrepare, self.process_three_phase_msg),
+            (Prepare, self.process_three_phase_msg),
+            (Commit, self.process_three_phase_msg),
+            (Checkpoint, self.process_checkpoint),
         )
 
         self.node = node
@@ -246,12 +239,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # replica during that view
         self.primaryNames = OrderedDict()  # type: OrderedDict[int, str]
 
-        # Commits which are not being ordered since commits with lower
-        # sequence numbers have not been ordered yet. Key is the
-        # viewNo and value a map of pre-prepare sequence number to commit
-        # type: Dict[int,Dict[int,Commit]]
-        self.stashed_out_of_order_commits = {}
-
         self.checkpoints = SortedDict(lambda k: k[1])
 
         # Stashed checkpoints for each view. The key of the outermost
@@ -287,7 +274,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
-        self.last_prepared_before_view_change = None
+        self._last_prepared_before_view_change = None
 
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
@@ -333,10 +320,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._subscribe_to_internal_msgs()
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
 
-        self._external_bus = ExternalBus(send_handler=self.send)
+        self._external_bus = ExternalBus(send_handler=self.send, nodestack=self.node.nodestack)
 
         self._ordering_service = OrderingService(self._consensus_data,
-                                                 timer=self.node,
+                                                 timer=self.node.timer,
                                                  bus=self.node.internal_bus,
                                                  network=self._external_bus,
                                                  write_manager=self.node.write_manager,
@@ -344,13 +331,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                  is_master=isMaster,
                                                  get_current_time=self.get_current_time,
                                                  get_time_for_3pc_batch=self.get_time_for_3pc_batch)
-        self.inBoxRouter = Router(
-            (ReqKey, self.readyFor3PC),
+        self.threePhaseRouter = Replica3PRouter(
+            self,
             (PrePrepare, self._ordering_service.process_preprepare),
             (Prepare, self._ordering_service.process_prepare),
-            (Commit, self._ordering_service.process_commit),
-            (Checkpoint, self.process_checkpoint),
+            (Commit, self._ordering_service.process_commit)
         )
+        # self.inBoxRouter = Router(
+        #     (ReqKey, self.readyFor3PC),
+        #     (PrePrepare, self._ordering_service.process_preprepare),
+        #     (Prepare, self._ordering_service.process_prepare),
+        #     (Commit, self._ordering_service.process_commit),
+        #     (Checkpoint, self.process_checkpoint),
+        # )
 
     def _bootstrap_consensus_data(self):
         self._consensus_data.requests = self.requests
@@ -359,10 +352,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._consensus_data.node_mode = self.node.mode
         self._consensus_data.requestQueues = self.requestQueues
         self._consensus_data.primaries_batch_needed = self.node.primaries_batch_needed
+        self._consensus_data.quorums = self.quorums
 
-    def _try_order_msg(self, msg: TryOrderMsg):
+    def _add_to_checkpoint_msg(self, msg: AddToCheckpointMsg):
         if self._consensus_data.inst_id == msg.inst_id:
-            self.order_3pc_key(msg.key, pp=msg.pp)
+            self.addToCheckpoint(ppSeqNo=msg.pp_seq_no,
+                                 digest=msg.digest,
+                                 ledger_id=msg.ledger_id,
+                                 view_no=msg.view_no)
 
     def _primaries_list_msg(self, msg: CurrentPrimaries):
         self._consensus_data.primaries = msg.primaries
@@ -376,13 +373,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _legacy_vc_in_progress(self, msg: LegacyViewChangeStatusUpdate):
         self._consensus_data.legacy_vc_in_progress = msg.in_progress
 
+    def _remove_stashed_checkpoints_msg(self, msg:RemoveStashedCheckpoints):
+        if self._consensus_data.inst_id == msg.inst_id:
+            self._remove_stashed_checkpoints(msg.till_3pc_key)
+
     def _subscribe_to_internal_msgs(self):
         self.node.internal_bus.subscribe(NodeModeMsg, self._node_mode_msg)
         self.node.internal_bus.subscribe(LegacyViewChangeStatusUpdate, self._legacy_vc_in_progress)
         self.node.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_msg)
         self.node.internal_bus.subscribe(CurrentPrimaries, self._primaries_list_msg)
         self.node.internal_bus.subscribe(Ordered, self.send)
-        self.node.internal_bus.subscribe(TryOrderMsg, self._try_order_msg)
+        self.node.internal_bus.subscribe(AddToCheckpointMsg, self._add_to_checkpoint_msg)
+        self.node.internal_bus.subscribe(RemoveStashedCheckpoints, self._remove_stashed_checkpoints_msg)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -419,6 +421,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return root
 
     @property
+    def last_prepared_before_view_change(self):
+        return self._consensus_data.legacy_last_prepared_before_view_change
+
+    @last_prepared_before_view_change.setter
+    def last_prepared_before_view_change(self, lst):
+        self._consensus_data.legacy_last_prepared_before_view_change = lst
+
+    @property
     def h(self) -> int:
         return self._h
 
@@ -453,6 +463,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         if n > self._lastPrePrepareSeqNo:
             self._lastPrePrepareSeqNo = n
+            # ToDo: need to pass it into ordering service through ConsensusDataProvider
+            self._ordering_service._lastPrePrepareSeqNo = n
         else:
             self.logger.debug(
                 '{} cannot set lastPrePrepareSeqNo to {} as its '
@@ -584,10 +596,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._setup_for_non_master_after_view_change(self.viewNo)
 
     def on_view_change_start(self):
-        if self.isMaster:
-            lst = self.last_prepared_certificate_in_view()
-            self.last_prepared_before_view_change = lst
-            self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
+        self.node.internal_bus.send(OnViewChangeStartMsg(self._consensus_data.inst_id))
+        # if self.isMaster:
+        #     lst = self.last_prepared_certificate_in_view()
+        #     self.last_prepared_before_view_change = lst
+        #     self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
         if self.isMaster:
@@ -635,13 +648,13 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # pp_seq_no of PREPAREs with count of PREPAREs for each
         seq_no_p = set()
 
-        for (v, p) in self.prePreparesPendingPrevPP:
+        for (v, p) in self._ordering_service.prePreparesPendingPrevPP:
             if v == view_no:
                 seq_no_pp.add(p)
             if v > view_no:
                 break
 
-        for (v, p), pr in self.preparesWaitingForPrePrepare.items():
+        for (v, p), pr in self._ordering_service.preparesWaitingForPrePrepare.items():
             if v == view_no and len(pr) >= self.quorums.prepare.value:
                 seq_no_p.add(p)
 
@@ -670,7 +683,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
                 self.update_watermark_from_3pc()
-                self.first_batch_after_catchup = False
+                self._ordering_service.first_batch_after_catchup = False
 
     def _setup_for_non_master_after_view_change(self, current_view):
         if not self.isMaster:
@@ -737,6 +750,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         Return the current view number of this replica.
         """
         return self._consensus_data.view_no
+
+    @property
+    def stashed_out_of_order_commits(self):
+        # Commits which are not being ordered since commits with lower
+        # sequence numbers have not been ordered yet. Key is the
+        # viewNo and value a map of pre-prepare sequence number to commit
+        # type: Dict[int,Dict[int,Commit]]
+        return self._ordering_service.stashed_out_of_order_commits
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
@@ -1012,12 +1033,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pp_key = ((msg.viewNo, msg.ppSeqNo) if isinstance(msg, PrePrepare) else None)
 
         # the same PrePrepare might come here multiple times
-        if (pp_key and (msg, sender) not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and (msg, sender) not in self._ordering_service.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
+            self._ordering_service.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
 
-        result, reason = self.validator.validate_3pc_msg(msg)
+        result, reason = self._ordering_service._validate(msg)
         if result == DISCARD:
             self.discard(msg, "{} discard message {} from {} "
                               "with the reason: {}".format(self, msg, sender, reason),
@@ -1259,7 +1280,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         try:
             if self.validatePrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
-                self.stats.inc(TPCStat.PrepareRcvd)
+                self._ordering_service.stats.inc(TPCStat.PrepareRcvd)
                 self.logger.debug("{} processed incoming PREPARE {}".format(
                     self, (prepare.viewNo, prepare.ppSeqNo)))
             else:
@@ -1283,7 +1304,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self, (commit.viewNo, commit.ppSeqNo), sender))
 
         if self.validateCommit(commit, sender):
-            self.stats.inc(TPCStat.CommitRcvd)
+            self._ordering_service.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
             self.logger.debug("{} processed incoming COMMIT{}".format(
                 self, (commit.viewNo, commit.ppSeqNo)))
@@ -1532,7 +1553,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.last_accepted_pre_prepare_time = pp.ppTime
         self.dequeue_prepares(*key)
         self.dequeue_commits(*key)
-        self.stats.inc(TPCStat.PrePrepareRcvd)
+        self._ordering_service.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
     def has_sent_prepare(self, request) -> bool:
@@ -1923,7 +1944,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._discard_ordered_req_keys(pp)
 
-        self.send(ordered, TPCStat.OrderSent)
+        self.send(ordered)#, TPCStat.OrderSent)
 
         ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
                       "state root {}, txn root {}, audit root {}".format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
@@ -2123,7 +2144,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.trace("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
-        self._gc((self.viewNo, seqNo))
+        self._ordering_service.l_gc((self.viewNo, seqNo))
+        # self._gc((self.viewNo, seqNo))
         self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
@@ -2273,11 +2295,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
         # Clear any checkpoints, since they are valid only in a view
-        self._gc(self.last_ordered_3pc)
+        # ToDo: Need to send a cmd like ViewChangeStart into internal bus
+        # self._gc(self.last_ordered_3pc)
+        self._ordering_service.l_gc(self.last_ordered_3pc)
         self.checkpoints.clear()
         self._consensus_data_helper.reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
-        self._clear_prev_view_pre_prepares()
+        # ToDo: get rid of directly calling
+        self._ordering_service._clear_prev_view_pre_prepares()
+        # self._clear_prev_view_pre_prepares()
 
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
@@ -2699,7 +2725,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return True
         return False
 
-    def send(self, msg, stat=None) -> None:
+    def send(self, msg, to_nodes=None) -> None:
         """
         Send a message to the node on which this replica resides.
 
@@ -2710,8 +2736,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.trace("{} sending {}".format(self, msg.__class__.__name__),
                           extra={"cli": True, "tags": ['sending']})
         self.logger.trace("{} sending {}".format(self, msg))
-        if stat:
-            self.stats.inc(stat)
+        if to_nodes:
+            self.node.sendToNodes(msg, names=to_nodes)
+            return
         self.outBox.append(msg)
 
     def revert_unordered_batches(self):
@@ -2739,7 +2766,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
     def on_catch_up_finished(self, last_caught_up_3PC=None, master_last_ordered_3PC=None):
-
+        self.node.internal_bus.send(OnCatchupFinishedMsg(self._consensus_data.inst_id,
+                                                         last_caught_up_3PC=last_caught_up_3PC,
+                                                         master_last_ordered_3PC=master_last_ordered_3PC))
         if master_last_ordered_3PC and last_caught_up_3PC and \
                 compare_3PC_keys(master_last_ordered_3PC,
                                  last_caught_up_3PC) > 0:
@@ -2752,8 +2781,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
-        self._remove_till_caught_up_3pc(last_caught_up_3PC)
-        self._remove_ordered_from_queue(last_caught_up_3PC)
         self.checkpoints.clear()
         self._consensus_data_helper.reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
@@ -2762,11 +2789,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _catchup_clear_for_backup(self):
         if not self.isPrimary:
             self.last_ordered_3pc = (self.viewNo, 0)
-            self.batches.clear()
-            self.sentPrePrepares.clear()
-            self.prePrepares.clear()
-            self.prepares.clear()
-            self.commits.clear()
             self.outBox.clear()
             self.checkpoints.clear()
             self._consensus_data_helper.reset_checkpoints()

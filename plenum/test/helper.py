@@ -345,8 +345,8 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
                                   ppSeqNo: int):
     for replica in replicas:
         key = (viewNo, ppSeqNo)
-        assert key in replica.commits
-        received = len(replica.commits[key][1])
+        assert key in replica._ordering_service.commits
+        received = len(replica._ordering_service.commits[key][1])
         minimum = replica.quorums.commit.value
         assert received > minimum
 

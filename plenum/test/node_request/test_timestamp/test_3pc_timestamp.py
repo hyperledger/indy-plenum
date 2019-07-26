@@ -44,7 +44,7 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
             rec_prps = defaultdict(list)
             for p in recvd_prepares(r):
                 rec_prps[(p.viewNo, p.ppSeqNo)].append(p)
-            pp_coll = r.sentPrePrepares if r.isPrimary else r.prePrepares
+            pp_coll = r._ordering_service.sentPrePrepares if r.isPrimary else r._ordering_service.prePrepares
             for key, pp in pp_coll.items():
                 for p in rec_prps[key]:
                     assert pp.ppTime == p.ppTime

@@ -23,8 +23,8 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, txnPoolNodeSet, delay_co
                                                 preprepared1):
     def sendPrepareFromPrimary(instId):
         primary = getPrimaryReplica(txnPoolNodeSet, instId)
-        viewNo, ppSeqNo = next(iter(primary.sentPrePrepares.keys()))
-        ppReq = primary.sentPrePrepares[viewNo, ppSeqNo]
+        viewNo, ppSeqNo = next(iter(primary._ordering_service.sentPrePrepares.keys()))
+        ppReq = primary._ordering_service.sentPrePrepares[viewNo, ppSeqNo]
         primary.doPrepare(ppReq)
 
         def chk():

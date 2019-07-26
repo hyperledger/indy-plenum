@@ -18,18 +18,16 @@ HookMessage = NamedTuple('HookMessage',
 OutboxMessage = NamedTuple('OutboxMessage',
                            [('msg', Any)])
 
-DoCheckpointMessage = NamedTuple('DoCheckpoinitMessage',
-                                 [('state', CheckpointState),
-                                  ('start_no', int),
-                                  ('end_no', int),
-                                  ('ledger_id', int),
-                                  ('view_no', int)])
+AddToCheckpointMsg = NamedTuple('AddToCheckpointMsg',
+                                [('inst_id', int),
+                                 ('pp_seq_no', int),
+                                 ('digest', str),
+                                 ('ledger_id', int),
+                                 ('view_no', int)])
 
 RemoveStashedCheckpoints = NamedTuple('RemoveStashedCheckpoints',
-                                      [('start_no', int),
-                                       ('end_no', int),
-                                       ('view_no', int),
-                                       ('all', bool)])
+                                      [('inst_id', int),
+                                       ('till_3pc_key', tuple)])
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
@@ -43,7 +41,12 @@ PrimariesBatchNeeded = NamedTuple('PrimariesBatchNeeded',
 CurrentPrimaries = NamedTuple('CurrentPrimaries',
                               [('primaries', list)])
 
-TryOrderMsg = NamedTuple('TryOrderMsg',
-                         [('inst_id', int),
-                          ('key', tuple),
-                          ('pp', PrePrepare)])
+RevertUnorderedBatches = NamedTuple('RevertUnorderedBatches', [('inst_id', int)])
+
+OnViewChangeStartMsg = NamedTuple('OnViewChangeStartMsg',
+                                  [('inst_id', int)])
+
+OnCatchupFinishedMsg = NamedTuple('OnCatchupFinished',
+                                  [('inst_id', int),
+                                   ('last_caught_up_3PC', tuple),
+                                   ('master_last_ordered_3PC', tuple)])

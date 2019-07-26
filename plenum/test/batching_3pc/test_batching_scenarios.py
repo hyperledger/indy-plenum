@@ -49,6 +49,6 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     for r in otherR:
-        seqNos = [a['pp'].ppSeqNo for a in getAllArgs(r, r.addToPrePrepares)]
+        seqNos = [a['pp'].ppSeqNo for a in getAllArgs(r, r._ordering_service.l_addToPrePrepares)]
         seqNos.reverse()
         assert sorted(seqNos) == seqNos

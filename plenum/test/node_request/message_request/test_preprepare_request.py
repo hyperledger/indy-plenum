@@ -54,7 +54,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
         assert count_requested_preprepare_resp(
             slow_node) - old_count_resp == (1 if increase else 0)
 
-    for pp in primary_node.master_replica.sentPrePrepares.values():
+    for pp in primary_node.master_replica._ordering_service.sentPrePrepares.values():
         for rep in [n.master_replica for n in other_primary_nodes]:
             prepare = Prepare(rep.instId,
                               pp.viewNo,

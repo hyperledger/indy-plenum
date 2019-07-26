@@ -205,8 +205,8 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
 
             for replica in allReplicas:
                 key = primary.viewNo, primary.lastPrePrepareSeqNo
-                if key in replica.prepares:
-                    actualMsgs = len(replica.prepares[key].voters)
+                if key in replica._ordering_service.prepares:
+                    actualMsgs = len(replica._ordering_service.prepares[key].voters)
 
                     passes += int(msgCountOK(nodeCount,
                                              faultyNodes,
@@ -305,8 +305,8 @@ def checkCommitted(looper, txnPoolNodeSet, prepared1, instIds, faultyNodes=0):
 
             key = (primaryReplica.viewNo, primaryReplica.lastPrePrepareSeqNo)
             for r in allReplicas:
-                if key in r.commits:
-                    rcvdCommitRqst = r.commits[key]
+                if key in r._ordering_service.commits:
+                    rcvdCommitRqst = r._ordering_service.commits[key]
                     actualMsgsReceived = len(rcvdCommitRqst.voters)
 
                     passes += int(msgCountOK(nodeCount,
@@ -350,9 +350,9 @@ def chk_commits_prepares_recvd(count, receivers, sender):
             if replica.instId not in counts:
                 counts[replica.instId] = 0
             nm = sender_replica_names[replica.instId]
-            for commit in replica.commits.values():
+            for commit in replica._ordering_service.commits.values():
                 counts[replica.instId] += int(nm in commit.voters)
-            for prepare in replica.prepares.values():
+            for prepare in replica._ordering_service.prepares.values():
                 counts[replica.instId] += int(nm in prepare.voters)
     for c in counts.values():
         assert count == c, "expected {}, but have {}".format(count, c)
