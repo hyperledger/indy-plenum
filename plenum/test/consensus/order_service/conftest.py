@@ -8,7 +8,7 @@ from plenum.common.timer import QueueTimer
 from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
-
+from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 
 @pytest.fixture()
 def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
