@@ -23,8 +23,7 @@ def viewNo(tconf, request):
 def validator(consensus_data):
     data = consensus_data("some_name")
     data.node_mode = Mode.participating
-    return CheckpointMsgValidator(data,
-                                  SortedDict(lambda k: k[1]))
+    return CheckpointMsgValidator(data)
 
 
 def checkpoint(view_no, inst_id, seq_no_start, seq_no_end):
