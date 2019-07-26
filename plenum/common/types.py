@@ -25,6 +25,7 @@ class f:  # provides a namespace for reusable field constants
     TIE_AMONG = Field("tieAmong", List[str])
     ROUND = Field("round", int)
     IDENTIFIER = Field('identifier', str)
+    ENDORSER = Field('endorser', str)
     DIGEST = Field('digest', str)
     PAYLOAD_DIGEST = Field('payloadDigest', str)
     DIGESTS = Field('digests', List[str])
