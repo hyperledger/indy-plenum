@@ -1,5 +1,6 @@
 from typing import List
 
+from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
@@ -27,15 +28,19 @@ class ConsensusSharedData:
         self.requests = Requests()
         self.last_ordered_3pc = (0, 0)
         self.primary_name = None
+        # seqNoEnd of the last stabilized checkpoint
         self.stable_checkpoint = 0
+        # Checkpoint messages which the current node sent.
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
+        # List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
         self.preprepared = []  # type:  List[PrePrepare]
+        # List of PrePrepare messages, for which quorum of Prepare messages is reached
         self.prepared = []  # type:  List[PrePrepare]
         self._validators = None
         self._quorums = None
         self.set_validators(validators)
         self._low_watermark = 0
-        self.log_size = 300  # TODO: use config value
+        self.log_size = getConfig().LOG_SIZE
         self.high_watermark = self.low_watermark + self.log_size
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
