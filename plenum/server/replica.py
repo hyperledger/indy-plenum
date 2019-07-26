@@ -679,6 +679,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._gc_before_new_view()
             if self.__should_reset_watermarks_before_new_view():
                 self._reset_watermarks_before_new_view()
+                # add OrderingService.lastPrePrepareSeqNo = 0 after INDY-2179
 
     def __should_reset_watermarks_before_new_view(self):
         if self.viewNo <= 0:

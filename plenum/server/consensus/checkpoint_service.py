@@ -132,10 +132,10 @@ class CheckpointService:
             # watermarks
             self._bus.send(StartBackupCatchup((self.view_no, stashed_checkpoint_ends[-1])))
 
-    def caught_up_till_3pc(self, last_caught_up_3PC):
+    def caught_up_till_3pc(self, catchup_msg: StartBackupCatchup):
         self.reset_checkpoints()
-        self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
-        self.update_watermark_from_3pc()
+        self._remove_stashed_checkpoints(till_3pc_key=catchup_msg.caught_up_till_3pc)
+        self.update_watermark_from_3pc(catchup_msg.caught_up_till_3pc)
 
     def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self._checkpoint_state.keys():
@@ -286,10 +286,11 @@ class CheckpointService:
         # as other nodes
         self._data.low_watermark = 0
 
-    def update_watermark_from_3pc(self):
+    def update_watermark_from_3pc(self, last_ordered_3pc=None):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
             self._logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            self._data.low_watermark = self.last_ordered_3pc[1]
+            self._data.low_watermark = self.last_ordered_3pc[1] if last_ordered_3pc is None \
+                else last_ordered_3pc[1]
         else:
             self._logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
@@ -336,11 +337,7 @@ class CheckpointService:
             SortedListWithKey([c for c in self._data.checkpoints if c.seqNoEnd >= end_seq_no],
                               key=lambda checkpoint: checkpoint.seqNoEnd)
 
-        for start, end in list(self._checkpoint_state.keys()):
-            if end < end_seq_no:
-                self._checkpoint_state.pop((start, end))
-        self._clear_batch_till_seq_no(end_seq_no)
-
-    def _clear_batch_till_seq_no(self, seq_no):
-        self._data.preprepared = [pp for pp in self._data.preprepared if pp.ppSeqNo >= seq_no]
-        self._data.prepared = [p for p in self._data.prepared if p.ppSeqNo >= seq_no]
+    # TODO: move to OrderingService as a handler for Cleanup messages
+    # def _clear_batch_till_seq_no(self, seq_no):
+    #     self._data.preprepared = [pp for pp in self._data.preprepared if pp.ppSeqNo >= seq_no]
+    #     self._data.prepared = [p for p in self._data.prepared if p.ppSeqNo >= seq_no]
