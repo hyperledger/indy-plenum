@@ -373,7 +373,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _legacy_vc_in_progress(self, msg: LegacyViewChangeStatusUpdate):
         self._consensus_data.legacy_vc_in_progress = msg.in_progress
 
-    def _remove_stashed_checkpoints_msg(self, msg:RemoveStashedCheckpoints):
+    def _remove_stashed_checkpoints_msg(self, msg: RemoveStashedCheckpoints):
         if self._consensus_data.inst_id == msg.inst_id:
             self._remove_stashed_checkpoints(msg.till_3pc_key)
 
@@ -1944,7 +1944,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._discard_ordered_req_keys(pp)
 
-        self.send(ordered)#, TPCStat.OrderSent)
+        self.send(ordered)
 
         ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
                       "state root {}, txn root {}, audit root {}".format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
@@ -2311,6 +2311,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # as other nodes
         self.h = 0
         self._lastPrePrepareSeqNo = self.h
+        # ToDo: get rid of directly pass
+        self._ordering_service._lastPrePrepareSeqNo = self.h
 
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:

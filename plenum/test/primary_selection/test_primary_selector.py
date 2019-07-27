@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import base58
 import pytest
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 
@@ -83,6 +84,9 @@ class FakeNode:
 
         # callbacks
         self.onBatchCreated = lambda self, *args, **kwargs: True
+
+        self.primaries_batch_needed = False
+        self.internal_bus = InternalBus()
 
     @property
     def viewNo(self):

@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
     RemoveStashedCheckpoints, RequestPropagates, RevertUnorderedBatches, AddToCheckpointMsg, OnViewChangeStartMsg, \
-    OnCatchupFinishedMsg
+    OnCatchupFinishedMsg, PrimariesBatchNeeded
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName
@@ -1439,7 +1439,7 @@ class OrderingService:
         #     self._metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
-                                                   pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
+                                                 pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
 
     @property
     def lastPrePrepareSeqNo(self):
@@ -2152,8 +2152,8 @@ class OrderingService:
             )
 
         return view_no == self.view_no or (view_no < self.view_no and self._data.legacy_last_prepared_before_view_change and
-                                          compare_3PC_keys((view_no, pp_seq_no),
-                                                           self._data.legacy_last_prepared_before_view_change) >= 0)
+                                           compare_3PC_keys((view_no, pp_seq_no),
+                                                            self._data.legacy_last_prepared_before_view_change) >= 0)
 
     def l_send_3pc_batch(self):
         if not self.can_send_3pc_batch():
@@ -2182,7 +2182,8 @@ class OrderingService:
         # so this primaries can be saved in audit ledger
         if not sent_batches and self._data.primaries_batch_needed:
             self._logger.debug("Sending a 3PC batch to propagate newly selected primaries")
-            self._data.primaries_batch_needed = False
+            self._bus.send(PrimariesBatchNeeded(False))
+            # self._data.primaries_batch_needed = False
             sent_batches.add(self.l_do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
 
     def l_send_3pc_freshness_batch(self, sent_batches):
@@ -2198,11 +2199,11 @@ class OrderingService:
         for ledger_id, ts in outdated_ledgers.items():
             if ledger_id in sent_batches:
                 self._logger.debug("Ledger {} is not updated for {} seconds, "
-                                  "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
+                                   "but a 3PC for this ledger has been just sent".format(ledger_id, ts))
                 continue
 
             self._logger.info("Ledger {} is not updated for {} seconds, "
-                             "so its freshness state is going to be updated now".format(ledger_id, ts))
+                              "so its freshness state is going to be updated now".format(ledger_id, ts))
             sent_batches.add(
                 self.l_do_send_3pc_batch(ledger_id=ledger_id))
 
@@ -2247,7 +2248,7 @@ class OrderingService:
         # DO NOT REMOVE `view_no` argument, used while replay
         # tm = self.utc_epoch
         tm = self.l_get_utc_epoch_for_preprepare(self._data.inst_id, self.view_no,
-                                               pp_seq_no)
+                                                 pp_seq_no)
 
         reqs, invalid_indices, rejects = self.l_consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
@@ -2311,7 +2312,7 @@ class OrderingService:
                 if last_timestamp:
                     last_timestamp = int(last_timestamp.decode())
                     self._logger.debug("Last ordered timestamp from store is : {}"
-                                      "".format(last_timestamp))
+                                       "".format(last_timestamp))
                     return last_timestamp
         return None
 
@@ -2325,7 +2326,7 @@ class OrderingService:
         return tm
 
     def l_consume_req_queue_for_pre_prepare(self, ledger_id, tm,
-                                          view_no, pp_seq_no):
+                                            view_no, pp_seq_no):
         reqs = []
         rejects = []
         invalid_indices = []
@@ -2338,14 +2339,14 @@ class OrderingService:
                 malicious_req = False
                 try:
                     self.l_processReqDuringBatch(fin_req,
-                                               tm)
+                                                 tm)
 
                 except (
                         InvalidClientMessageException,
                         UnknownIdentifier
                 ) as ex:
                     self._logger.warning('{} encountered exception {} while processing {}, '
-                                        'will reject'.format(self, ex, fin_req))
+                                         'will reject'.format(self, ex, fin_req))
                     rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
                     invalid_indices.append(idx)
                 except SuspiciousPrePrepare:
@@ -2357,7 +2358,7 @@ class OrderingService:
                     idx += 1
             else:
                 self._logger.debug('{} found {} in its request queue but the '
-                                  'corresponding request was removed'.format(self, key))
+                                   'corresponding request was removed'.format(self, key))
 
         return reqs, invalid_indices, rejects
 
