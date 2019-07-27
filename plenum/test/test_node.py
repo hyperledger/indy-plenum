@@ -11,6 +11,7 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
 from crypto.bls.bls_bft import BlsBft
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
@@ -442,6 +443,7 @@ replica_spyables = [
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
     replica.Replica.markCheckPointStable,
     replica.Replica.request_propagates_if_needed,
+    OrderingService._revert_unordered_batches,
 ]
 
 

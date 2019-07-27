@@ -1308,7 +1308,7 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
 
 
 def check_missing_pre_prepares(nodes, count):
-    assert all(count <= len(replica.prePreparesPendingPrevPP)
+    assert all(count <= len(replica._ordering_service.prePreparesPendingPrevPP)
                for replica in getNonPrimaryReplicas(nodes, instId=0))
 
 

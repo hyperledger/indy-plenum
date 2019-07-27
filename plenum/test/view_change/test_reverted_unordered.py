@@ -67,8 +67,8 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
 
     def chk1():
         # slow_node reverted all batches
-        rv = getAllReturnVals(slow_node.master_replica,
-                              slow_node.master_replica.revert_unordered_batches)
+        rv = getAllReturnVals(slow_node.master_replica._ordering_service,
+                              slow_node.master_replica._ordering_service._revert_unordered_batches)
         assert sent_batches in rv
 
     looper.run(eventually(chk1, retryWait=1))

@@ -4,6 +4,7 @@ from collections import deque
 import functools
 import pytest
 
+from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
 from plenum.common.timer import QueueTimer
@@ -41,7 +42,8 @@ def fake_node(tconf):
                                               size=100)),
                          nodestack=FakeSomething(
                              service=lambda *args, **kwargs: eventually(lambda: True)),
-                         set_view_for_replicas= lambda view_no: None
+                         set_view_for_replicas= lambda view_no: None,
+                         internal_bus=InternalBus()
                          )
     node.metrics = functools.partial(Node._createMetricsCollector, node)()
     node.process_one_node_message = functools.partial(Node.process_one_node_message, node)
