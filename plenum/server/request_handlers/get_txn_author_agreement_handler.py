@@ -59,7 +59,7 @@ class GetTxnAuthorAgreementHandler(ReadRequestHandler):
             data = self.state.get_for_root_hash(head_hash, StaticTAAHelper.state_path_taa_digest(digest.decode()))
 
         if data is not None:
-            value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+            value, last_seq_no, last_update_time, _ = decode_state_value(data, serializer=config_state_serializer)
             return self.make_result(request, value, last_seq_no, last_update_time, proof)
 
         return self.make_result(request, None, proof=proof)

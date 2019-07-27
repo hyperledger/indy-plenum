@@ -164,6 +164,10 @@ def get_protocol_version(txn):
     return txn[TXN_PAYLOAD].get(TXN_PAYLOAD_PROTOCOL_VERSION, None)
 
 
+def get_endorser(txn):
+    return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_ENDORSER, None)
+
+
 def is_forced(txn):
     force = get_payload_data(txn).get(FORCE, None)
     if force is None:

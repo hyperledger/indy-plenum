@@ -63,7 +63,7 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
 
     def _decode_state_value(self, encoded):
         if encoded:
-            value, last_seq_no, last_update_time = decode_state_value(encoded,
-                                                                      serializer=config_state_serializer)
+            value, last_seq_no, last_update_time, _ = decode_state_value(encoded,
+                                                                         serializer=config_state_serializer)
             return value, last_seq_no, last_update_time
         return None, None, None

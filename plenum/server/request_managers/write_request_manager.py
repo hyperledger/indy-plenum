@@ -178,7 +178,7 @@ class WriteRequestManager(RequestManager):
     # TODO return object as result instead
     def get_taa_data(self, digest: Optional[str] = None,
                      version: Optional[str] = None,
-                     isCommitted: bool = True) -> Optional[Tuple[Dict, str]]:
+                     isCommitted: bool = True) -> Optional[Tuple[Tuple, str]]:
         data = None
         if digest is None:
             digest = self.get_taa_digest(version=version, isCommitted=isCommitted)
@@ -188,9 +188,10 @@ class WriteRequestManager(RequestManager):
                 isCommitted=isCommitted
             )
         if data is not None:
-            data = decode_state_value(
+            value, last_seq_no, last_update_time, _ = decode_state_value(
                 data, serializer=config_state_serializer)
-        return None if data is None else (data, digest)
+            return (value, last_seq_no, last_update_time), digest
+        return None
 
     def get_taa_aml_data(self, version: Optional[str] = None, isCommitted: bool = True):
         path = self._state_path_taa_aml_latest() if version is None \

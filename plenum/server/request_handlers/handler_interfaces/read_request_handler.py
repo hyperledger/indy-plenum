@@ -73,12 +73,12 @@ class ReadRequestHandler(RequestHandler):
         head_hash = self.state.committedHeadHash if is_committed else self.state.headHash
         encoded, proof = self._get_value_from_state(path, head_hash, with_proof=with_proof)
         if encoded:
-            value, last_seq_no, last_update_time = decode_state_value(encoded)
-            return value, last_seq_no, last_update_time, proof
-        return None, None, None, proof
+            value, last_seq_no, last_update_time, endorser = decode_state_value(encoded)
+            return value, last_seq_no, last_update_time, proof, endorser
+        return None, None, None, proof, None
 
     @staticmethod
-    def make_result(request, data, last_seq_no=None, update_time=None, proof=None):
+    def make_result(request, data, last_seq_no=None, update_time=None, proof=None, endorser=None):
 
         result = {**request.operation, **{
             DATA: data,
@@ -87,6 +87,8 @@ class ReadRequestHandler(RequestHandler):
         }}
         result[f.SEQ_NO.nm] = last_seq_no
         result[TXN_TIME] = update_time
+        if endorser is not None:
+            result[f.ENDORSER.nm] = endorser
         if proof and request.protocolVersion and \
                 request.protocolVersion >= PlenumProtocolVersion.STATE_PROOF_SUPPORT.value:
             result[STATE_PROOF] = proof

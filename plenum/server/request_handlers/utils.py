@@ -7,6 +7,7 @@ from plenum.common.types import OPERATION
 LAST_SEQ_NO = "lsn"
 VALUE = "val"
 LAST_UPDATE_TIME = "lut"
+ENDORSER = "endorser"
 
 
 def is_steward(state, nym, is_committed: bool = False):
@@ -39,12 +40,15 @@ def nym_to_state_key(nym: str) -> bytes:
     return sha256(nym.encode()).digest()
 
 
-def encode_state_value(value, seqNo, txnTime, serializer=domain_state_serializer):
-    return serializer.serialize({
+def encode_state_value(value, seqNo, txnTime, endorser=None, serializer=domain_state_serializer):
+    result = {
         LAST_SEQ_NO: seqNo,
         LAST_UPDATE_TIME: txnTime,
         VALUE: value
-    })
+    }
+    if endorser is not None:
+        result[ENDORSER] = endorser
+    return serializer.serialize(result)
 
 
 def decode_state_value(encoded_value, serializer=domain_state_serializer):
@@ -52,7 +56,8 @@ def decode_state_value(encoded_value, serializer=domain_state_serializer):
     value = decoded.get(VALUE)
     last_seq_no = decoded.get(LAST_SEQ_NO)
     last_update_time = decoded.get(LAST_UPDATE_TIME)
-    return value, last_seq_no, last_update_time
+    endorser = decoded.get(ENDORSER)
+    return value, last_seq_no, last_update_time, endorser
 
 
 def get_request_type(req: dict):

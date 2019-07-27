@@ -46,7 +46,7 @@ class GetTxnAuthorAgreementAmlHandler(ReadRequestHandler):
 
     def _return_txn_author_agreement_aml(self, request, proof, data=None):
         if data is not None:
-            value, last_seq_no, last_update_time = decode_state_value(data, serializer=config_state_serializer)
+            value, last_seq_no, last_update_time, _ = decode_state_value(data, serializer=config_state_serializer)
             return self.make_result(request, value, last_seq_no, last_update_time, proof)
 
         return self.make_result(request, None, proof=proof)

@@ -93,6 +93,6 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
 
     def _decode_state_value(self, encoded):
         if encoded:
-            value, last_seq_no, last_update_time = decode_state_value(encoded)
-            return value, last_seq_no, last_update_time
-        return None, None, None
+            value, last_seq_no, last_update_time, endorser = decode_state_value(encoded)
+            return value, last_seq_no, last_update_time, endorser
+        return None, None, None, None
