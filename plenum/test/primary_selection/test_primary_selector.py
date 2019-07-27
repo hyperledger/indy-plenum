@@ -14,6 +14,7 @@ from plenum.server.node import Node
 
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.server.view_change.node_view_changer import create_view_changer
+from plenum.test.testing_utils import FakeSomething
 from stp_core.types import HA
 
 from plenum.common.startable import Mode
@@ -59,6 +60,11 @@ class FakeNode:
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
         self.nodeStatusDB = None
+        self.primaries_batch_needed = False
+        self.internal_bus = InternalBus()
+        self.quorums = Quorums(self.totalNodes)
+        self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
+        self.write_manager = FakeSomething()
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
@@ -84,9 +90,6 @@ class FakeNode:
 
         # callbacks
         self.onBatchCreated = lambda self, *args, **kwargs: True
-
-        self.primaries_batch_needed = False
-        self.internal_bus = InternalBus()
 
     @property
     def viewNo(self):
