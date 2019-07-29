@@ -12,7 +12,8 @@ from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_
 
 @pytest.fixture()
 def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
-            txn_roots, state_roots, bls_bft_replica, is_master):
+            txn_roots, state_roots, bls_bft_replica):
+    is_master = True  # TODO: change to a fixture
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,
