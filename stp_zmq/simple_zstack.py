@@ -17,7 +17,8 @@ class SimpleZStack(ZStack):
                  create_listener_monitor=False,
                  metrics=NullMetricsCollector(),
                  mt_incoming_size=None,
-                 mt_outgoing_size=None):
+                 mt_outgoing_size=None,
+                 timer=None):
 
         # TODO: sighex is unused as of now, remove once test is removed or
         # maybe use sighex to generate all keys, DECISION DEFERRED
@@ -47,4 +48,5 @@ class SimpleZStack(ZStack):
                          create_listener_monitor=create_listener_monitor,
                          metrics=metrics,
                          mt_incoming_size=mt_incoming_size,
-                         mt_outgoing_size=mt_outgoing_size)
+                         mt_outgoing_size=mt_outgoing_size,
+                         timer=timer)

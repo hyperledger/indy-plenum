@@ -116,3 +116,7 @@ class LastSentPpStoreHelper:
                            .format(self.node, e))
             return False
         return stored
+
+    def close(self):
+        # Need for database_manager
+        pass

@@ -76,6 +76,7 @@ def fake_node(tdir, tconf, request):
     node._is_initial_view_change_now = functools.partial(Node._is_initial_view_change_now, node)
     node.msgsForFutureViews = {}
     node.msgsToViewChanger = deque()
+    node.set_view_for_replicas = lambda a: None
     node.view_changer.view_no = request.param
     node.view_changer.last_completed_view_no = request.param
     node.view_changer.pre_vc_strategy = None

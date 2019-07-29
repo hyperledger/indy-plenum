@@ -38,6 +38,7 @@ from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, 
     mostCommonElement, SortedDict, firstKey
 from plenum.config import CHK_FREQ
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -46,7 +47,7 @@ from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from sortedcontainers import SortedList
+from sortedcontainers import SortedList, SortedListWithKey
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -183,6 +184,68 @@ class OrderedTracker:
         for v in list(self._batches.keys()):
             if v < view_no:
                 del self._batches[v]
+
+
+class ConsensusDataHelper:
+    def __init__(self, consensus_data: ConsensusSharedData):
+        self.consensus_data = consensus_data
+
+    def preprepare_batch(self, pp: PrePrepare):
+        """
+        After pp had validated, it placed into _preprepared list
+        """
+        if pp in self.consensus_data.preprepared:
+            raise LogicError('New pp cannot be stored in preprepared')
+        if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
+            raise LogicError('ppSeqNo cannot be lower than last checkpoint')
+        self.consensus_data.preprepared.append(pp)
+
+    def prepare_batch(self, pp: PrePrepare):
+        """
+        After prepared certificate for pp had collected,
+        it removed from _preprepared and placed into _prepared list
+        """
+        self.consensus_data.prepared.append(pp)
+
+    def clear_batch(self, pp: PrePrepare):
+        """
+        When 3pc batch processed, it removed from _prepared list
+        """
+        if pp in self.consensus_data.preprepared:
+            self.consensus_data.preprepared.remove(pp)
+        if pp in self.consensus_data.prepared:
+            self.consensus_data.prepared.remove(pp)
+
+    def clear_batch_till_seq_no(self, seq_no):
+        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo >= seq_no]
+        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo >= seq_no]
+
+    def clear_all_batches(self):
+        """
+        Clear up all preprepared and prepared
+        """
+        self.consensus_data.prepared.clear()
+        self.consensus_data.preprepared.clear()
+
+    def add_checkpoint(self, checkpoint: Checkpoint):
+        self.consensus_data.checkpoints.add(checkpoint)
+
+    def reset_checkpoints(self):
+        # That function most probably redundant in PBFT approach,
+        # because according to paper, checkpoints cleared only when next stabilized.
+        # Avoid using it while implement other services.
+        self.consensus_data.checkpoints.clear()
+        self.consensus_data.stable_checkpoint = 0
+
+    def set_stable_checkpoint(self, end_seq_no):
+        if not list(self.consensus_data.checkpoints.irange_key(end_seq_no, end_seq_no)):
+            raise LogicError('Stable checkpoint must be in checkpoints')
+        self.consensus_data.stable_checkpoint = end_seq_no
+
+        self.consensus_data.checkpoints = \
+            SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd >= end_seq_no],
+                              key=lambda checkpoint: checkpoint.seqNoEnd)
+        self.clear_batch_till_seq_no(end_seq_no)
 
 
 PP_CHECK_NOT_FROM_PRIMARY = 0
@@ -404,10 +467,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = self.get_current_time()
 
-        # self.lastOrderedPPSeqNo = 0
-        # Three phase key for the last ordered batch
-        self._last_ordered_3pc = (0, 0)
-
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
@@ -451,6 +510,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.first_batch_after_catchup = False
 
         HookManager.__init__(self, ReplicaHooks.get_all_vals())
+
+        self._consensus_data = ConsensusSharedData(self.node.name,
+                                                   self.node.get_validators(),
+                                                   self.instId)
+        self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -499,13 +563,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self._last_ordered_3pc
+        return self._consensus_data.last_ordered_3pc
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self._last_ordered_3pc = key3PC
-        self.logger.info('{} set last ordered as {}'.format(
-            self, self._last_ordered_3pc))
+        self._consensus_data.last_ordered_3pc = key3PC
+        self.logger.info('{} set last ordered as {}'.format(self, key3PC))
 
     @property
     def lastPrePrepareSeqNo(self):
@@ -802,7 +865,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         Return the current view number of this replica.
         """
-        return self.node.viewNo
+        return self._consensus_data.view_no
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
@@ -890,6 +953,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if not self.isMaster:
             self.node.last_sent_pp_store_helper.store_last_sent_pp_seq_no(
                 self.instId, pre_prepare.ppSeqNo)
+
+        self._consensus_data_helper.preprepare_batch(pre_prepare)
         self.trackBatches(pre_prepare, oldStateRootHash)
         return ledger_id
 
@@ -1000,8 +1065,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                                tm)
 
                 except (
-                    InvalidClientMessageException,
-                    UnknownIdentifier
+                        InvalidClientMessageException,
+                        UnknownIdentifier
                 ) as ex:
                     self.logger.warning('{} encountered exception {} while processing {}, '
                                         'will reject'.format(self, ex, fin_req))
@@ -1072,8 +1137,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         sender = self.generateName(sender, self.instId)
 
-        pp_key = ((msg.viewNo, msg.ppSeqNo) if
-                  isinstance(msg, PrePrepare) else None)
+        pp_key = ((msg.viewNo, msg.ppSeqNo) if isinstance(msg, PrePrepare) else None)
 
         # the same PrePrepare might come here multiple times
         if (pp_key and (msg, sender) not in self.pre_prepare_tss[pp_key]):
@@ -1146,6 +1210,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # 6. TRACK APPLIED
         self.outBox.extend(rejects)
         self.addToPrePrepares(pre_prepare)
+        self._consensus_data_helper.preprepare_batch(pre_prepare)
 
         if self.isMaster:
             # BLS multi-sig:
@@ -1358,6 +1423,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         rv, reason = self.canCommit(prepare)
         if rv:
+            pp = self.getPrePrepare(prepare.viewNo, prepare.ppSeqNo)
+            self._consensus_data_helper.prepare_batch(pp)
             self.doCommit(prepare)
         else:
             self.logger.debug("{} cannot send COMMIT since {}".format(self, reason))
@@ -1422,9 +1489,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             params = self._bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
-        if self.isMaster:
-            rv = self.execute_hook(ReplicaHooks.CREATE_CM, commit)
-            commit = rv if rv is not None else commit
 
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
@@ -1535,7 +1599,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 return PP_APPLY_ROOT_HASH_MISMATCH
 
             # TODO: move this kind of validation to batch handlers
-            if f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash != self.txnRootHash(AUDIT_LEDGER_ID):
+            if f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash != self.txnRootHash(
+                    AUDIT_LEDGER_ID):
                 return PP_APPLY_AUDIT_HASH_MISMATCH
 
         return None
@@ -1669,15 +1734,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  prepare)
         elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                 prepare)
-
-        try:
-            self.execute_hook(ReplicaHooks.VALIDATE_PR, prepare, ppReq)
-        except Exception as ex:
-            self.logger.warning('{} encountered exception in replica '
-                                'hook {} : {}'.
-                                format(self, ReplicaHooks.VALIDATE_PR, ex))
-            raise SuspiciousNode(sender, Suspicions.PR_PLUGIN_EXCEPTION,
                                  prepare)
 
         # BLS multi-sig:
@@ -1897,7 +1953,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                     continue
                 pToRemove = set()
                 for p, commit in self.stashed_out_of_order_commits[v].items():
-                    if (v, p) in self.ordered or\
+                    if (v, p) in self.ordered or \
                             self.has_already_ordered(*(commit.viewNo, commit.ppSeqNo)):
                         pToRemove.add(p)
                         continue
@@ -1961,8 +2017,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pp = self.getPrePrepare(*key)
         if pp is None:
             raise ValueError(
-                "{} no PrePrepare with a 'key' {} found"
-                .format(self, key)
+                "{} no PrePrepare with a 'key' {} found".format(self, key)
             )
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
@@ -2116,19 +2171,19 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         if self.isMaster:
             self.logger.display(
-                '{} has lagged for {} checkpoints so updating watermarks to {}'.
-                format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+                '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
+                    self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
             self.h = stashed_checkpoint_ends[-1]
             if not self.isPrimary:
                 self.logger.display(
-                    '{} has lagged for {} checkpoints so the catchup procedure starts'.
-                    format(self, lag_in_checkpoints))
+                    '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
+                        self, lag_in_checkpoints))
                 self.node.start_catchup()
         else:
             self.logger.info(
                 '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
-                'shift watermarks and clean collections'.
-                format(self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
+                'shift watermarks and clean collections'.format(
+                    self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
             # Adjust last_ordered_3pc, shift watermarks, clean operational
             # collections and process stashed messages which now fit between
             # watermarks
@@ -2171,7 +2226,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                          format(self, (s, e), view_no, state.digest, ledger_id,
                                 self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
                                 self.stateRootHash(ledger_id, committed=False)))
-        self.send(Checkpoint(self.instId, view_no, s, e, state.digest))
+        checkpoint = Checkpoint(self.instId, view_no, s, e, state.digest)
+        self.send(checkpoint)
+        self._consensus_data_helper.add_checkpoint(checkpoint)
 
     def markCheckPointStable(self, seqNo):
         previousCheckpoints = []
@@ -2182,6 +2239,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # 2. choose another name
                 state = updateNamedTuple(state, isStable=True)
                 self.checkpoints[s, e] = state
+                self._consensus_data_helper.set_stable_checkpoint(e)
                 break
             else:
                 previousCheckpoints.append((s, e))
@@ -2289,8 +2347,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         reqKeys = set()
 
         for key3PC, pp in itertools.chain(
-            self.sentPrePrepares.items(),
-            self.prePrepares.items()
+                self.sentPrePrepares.items(),
+                self.prePrepares.items()
         ):
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
                 tpcKeys.add(key3PC)
@@ -2345,6 +2403,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Clear any checkpoints, since they are valid only in a view
         self._gc(self.last_ordered_3pc)
         self.checkpoints.clear()
+        self._consensus_data_helper.reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
         self._clear_prev_view_pre_prepares()
 
@@ -2543,9 +2602,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 prefix=self
             )
 
-        return view_no == self.viewNo or (
-            view_no < self.viewNo and self.last_prepared_before_view_change and compare_3PC_keys(
-                (view_no, pp_seq_no), self.last_prepared_before_view_change) >= 0)
+        return view_no == self.viewNo or (view_no < self.viewNo and self.last_prepared_before_view_change and
+                                          compare_3PC_keys((view_no, pp_seq_no),
+                                                           self.last_prepared_before_view_change) >= 0)
 
     def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
         for pp_seq_no in range(seq_frm, seq_to + 1):
@@ -2637,9 +2696,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pre_prepares = [pp for pp, _, _ in self.prePreparesPendingFinReqs
                         if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
         if pre_prepares:
-            if [pp for pp in pre_prepares if (
-                pp.digest, pp.stateRootHash, pp.txnRootHash) == (
-                    digest, state_root, txn_root)]:
+            if [pp for pp in pre_prepares if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root)]:
                 self.logger.debug('{} not requesting a PRE-PREPARE since already '
                                   'found stashed for {}'.format(self, three_pc_key))
                 return False
@@ -2713,13 +2770,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 pp.ppTime < self.last_accepted_pre_prepare_time):
             return False
         elif ((tpcKey not in self.pre_prepare_tss) or
-                ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
+              ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
             return False
         else:
-            return (
-                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
-                self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
-            )
+            return (abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                    self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS)
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """
@@ -2827,6 +2882,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
         self.checkpoints.clear()
+        self._consensus_data_helper.reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
         self.update_watermark_from_3pc()
 
@@ -2840,9 +2896,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.commits.clear()
             self.outBox.clear()
             self.checkpoints.clear()
+            self._consensus_data_helper.reset_checkpoints()
             self._remove_stashed_checkpoints()
             self.h = 0
             self.H = sys.maxsize
+            self._consensus_data_helper.clear_all_batches()
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """
@@ -2867,6 +2925,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
             self._discard_ordered_req_keys(pp)
+            self._consensus_data_helper.clear_batch(pp)
 
     def _remove_ordered_from_queue(self, last_caught_up_3PC=None):
         """
@@ -2949,3 +3008,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def warn_suspicious_backup(self, nodeName, reason, code):
         self.logger.warning("backup replica {} raised suspicion on node {} for {}; suspicion code "
                             "is {}".format(self, nodeName, reason, code))
+
+    def set_validators(self, validators):
+        self._consensus_data.set_validators(validators)
+
+    def set_view_no(self, view_no):
+        self._consensus_data.view_no = view_no

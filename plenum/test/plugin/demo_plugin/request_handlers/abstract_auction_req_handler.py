@@ -8,7 +8,6 @@ from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.ledger_req_handler import LedgerRequestHandler
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
     AUCTION_START, GET_BAL, AMOUNT, AUCTION_LEDGER_ID

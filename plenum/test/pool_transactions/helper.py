@@ -16,7 +16,7 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import sdk_sign_request_objects, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_sign_request_strings \
+    sdk_get_and_check_replies, sdk_sign_request_strings
 
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_node import TestNode, \
@@ -48,7 +48,7 @@ def prepare_new_node_data(tconf, tdir, newNodeName, configClass=PNodeConfigHelpe
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
     config_helper = configClass(newNodeName, tconf, chroot=tdir)
     pubkey, verkey, bls_key, key_proof = initNodeKeysForBothStacks(newNodeName, config_helper.keys_dir,
-                                                   sigseed, override=True)
+                                                                   sigseed, override=True)
     return sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof
 
 
@@ -545,3 +545,17 @@ def sdk_add_2_nodes(looper, txnPoolNodeSet,
         sdk_pool_refresh(looper, sdk_pool_handle)
         new_nodes.append(new_node)
     return new_nodes
+
+
+def sdk_add_new_nym_without_waiting(looper, sdk_pool_handle, creators_wallet,
+                                    alias=None, role=None, seed=None,
+                                    dest=None, verkey=None, skipverkey=False):
+    seed = seed or randomString(32)
+    alias = alias or randomString(5)
+    wh, _ = creators_wallet
+
+    nym_request, new_did = looper.loop.run_until_complete(
+        prepare_nym_request(creators_wallet, seed,
+                            alias, role, dest, verkey, skipverkey))
+    sdk_sign_and_send_prepared_request(looper, creators_wallet,
+                                       sdk_pool_handle, nym_request)
