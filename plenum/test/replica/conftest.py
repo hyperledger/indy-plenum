@@ -22,10 +22,12 @@ class ReplicaFakeNode(FakeSomething):
             name="fake stack",
             connecteds={"Alpha", "Beta", "Gamma", "Delta"}
         )
+        self.replicas = []
+        self.viewNo = viewNo
         super().__init__(
             name="fake node",
             ledger_ids=ledger_ids,
-            viewNo=viewNo,
+            _viewNo=viewNo,
             quorums=quorums,
             nodestack=node_stack,
             utc_epoch=lambda *args: get_utc_epoch(),
@@ -36,8 +38,19 @@ class ReplicaFakeNode(FakeSomething):
             onBatchCreated=lambda self, *args, **kwargs: True,
             applyReq=lambda self, *args, **kwargs: True,
             primaries_batch_needed=False,
-            primaries=[]
+            primaries=[],
+            get_validators=lambda: []
         )
+
+    @property
+    def viewNo(self):
+        return self._viewNo
+
+    @viewNo.setter
+    def viewNo(self, viewNo):
+        self._viewNo = viewNo
+        for replica in self.replicas:
+            replica._consensus_data.viewNo = viewNo
 
     @property
     def is_synced(self) -> bool:
@@ -46,6 +59,11 @@ class ReplicaFakeNode(FakeSomething):
     @property
     def isParticipating(self) -> bool:
         return self.mode == Mode.participating
+
+    def add_replica(self, replica):
+        self.replicas.append(replica)
+        for replica in self.replicas:
+            replica._consensus_data.view_no = self.viewNo
 
 
 @pytest.fixture(scope='function', params=[0, 10])
@@ -111,6 +129,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
         get_current_time=mock_timestamp,
         get_time_for_3pc_batch=mock_timestamp
     )
+    node.add_replica(replica)
     ReplicaFakeNode.master_last_ordered_3PC = replica.last_ordered_3pc
 
     replica.last_accepted_pre_prepare_time = replica.get_time_for_3pc_batch()
