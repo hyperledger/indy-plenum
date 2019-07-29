@@ -67,8 +67,8 @@ def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint
         assert sender in checkpoint_service._checkpoint_state[key].receivedDigests
 
 
-def test_process_checkpoint_stash_recvd(checkpoint_service, checkpoint, pre_prepare,
-                                        tconf, ordered, validators, is_master):
+def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, checkpoint, pre_prepare,
+                                                        tconf, ordered, validators, is_master):
     global caught_msg
     caught_msg = None
     checkpoint_service._bus.subscribe(StartMasterCatchup, catch_msg)

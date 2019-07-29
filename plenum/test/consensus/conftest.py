@@ -121,7 +121,7 @@ def internal_bus():
     ib = InternalBus()
     ib.msgs = {}
     ib.subscribe(RequestPropagates, rp_handler)
-    return InternalBus()
+    return ib
 
 
 @pytest.fixture()

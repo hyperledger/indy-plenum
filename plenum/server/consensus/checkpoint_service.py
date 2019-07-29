@@ -15,6 +15,7 @@ from plenum.common.stashing_router import DISCARD, PROCESS, StashingRouter
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
+from plenum.server.database_manager import DatabaseManager
 from stp_core.common.log import getlogger
 
 
@@ -22,7 +23,7 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, is_master=True):
+                 stasher: StashingRouter, db_manager: DatabaseManager, is_master=True):
         self._data = data
         self._bus = bus
         self._network = network
@@ -30,6 +31,7 @@ class CheckpointService:
         self._stasher = stasher
         self._is_master = is_master
         self._validator = CheckpointMsgValidator(self._data)
+        self._db_manager = db_manager
 
         # Stashed checkpoints for each view. The key of the outermost
         # dictionary is the view_no, value being a dictionary with key as the
@@ -133,7 +135,7 @@ class CheckpointService:
             self._bus.send(StartBackupCatchup((self.view_no, stashed_checkpoint_ends[-1])))
 
     def caught_up_till_3pc(self, catchup_msg: StartBackupCatchup):
-        self.reset_checkpoints()
+        self._reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=catchup_msg.caught_up_till_3pc)
         self.update_watermark_from_3pc(catchup_msg.caught_up_till_3pc)
 
@@ -169,14 +171,14 @@ class CheckpointService:
                                  ).hexdigest(),
                                  digests=[])
         self._checkpoint_state[s, e] = state
-        self._logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} .".
-                          format(self, (s, e), view_no, state.digest, ledger_id))
-        # TODO: add txnRootHash, stateRootHash
-        # self._logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
-        #                   "txn root hash {}. Committed state root hash {} Uncommitted state root hash {}".
-        #                   format(self, (s, e), view_no, state.digest, ledger_id,
-        #                          self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
-        #                          self.stateRootHash(ledger_id, committed=False)))
+        self._logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
+                          "txn root hash {}. Committed state root hash {} Uncommitted state root hash {}".
+                          format(self, (s, e), view_no, state.digest, ledger_id,
+                                 self._db_manager.get_txn_root_hash(ledger_id),
+                                 self._db_manager.get_state_root_hash(ledger_id,
+                                                                      committed=True),
+                                 self._db_manager.get_state_root_hash(ledger_id,
+                                                                      committed=False)))
         checkpoint = Checkpoint(self._data.inst_id, view_no, s, e, state.digest)
         self._network.send(checkpoint)
         self._data.checkpoints.append(checkpoint)
@@ -320,12 +322,13 @@ class CheckpointService:
                 if len(self._stashed_recvd_checkpoints[view_no]) == 0:
                     del self._stashed_recvd_checkpoints[view_no]
 
-    def reset_checkpoints(self):
+    def _reset_checkpoints(self):
         # That function most probably redundant in PBFT approach,
         # because according to paper, checkpoints cleared only when next stabilized.
         # Avoid using it while implement other services.
         self._checkpoint_state.clear()
         self._data.checkpoints.clear()
+        # TODO: change to = 1 in ViewChangeService integration.
         self._data.stable_checkpoint = 0
 
     def _set_stable_checkpoint(self, end_seq_no):
