@@ -829,6 +829,16 @@ def sdk_multisign_request_object(looper, sdk_wallet, req):
     wh, did = sdk_wallet
     return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
 
+def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
+    wh, did = sdk_wallet
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
+                      taaAcceptance=taa_acceptance,
+                      endorser=endorser)
+    req_str = json.dumps(request.as_dict)
+    resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
+    return json.loads(resp)
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
@@ -1062,12 +1072,13 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
     return sdk_reqs
 
 
-def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None):
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
     wallet_h, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
     request = Request(operation=op, reqId=reqId,
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
-                      taaAcceptance=taa_acceptance)
+                      taaAcceptance=taa_acceptance,
+                      endorser=endorser)
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
     return json.loads(resp)
@@ -1321,8 +1332,8 @@ class MockTimestamp:
 
 
 class MockTimer(QueueTimer):
-    def __init__(self, get_current_time: Optional[MockTimestamp] = None):
-        self._ts = get_current_time if get_current_time else MockTimestamp(0)
+    def __init__(self, start_time: int = 0):
+        self._ts = MockTimestamp(start_time)
         QueueTimer.__init__(self, self._ts)
 
     def set_time(self, value):
@@ -1345,7 +1356,7 @@ class MockTimer(QueueTimer):
         if not self._events:
             return
 
-        event = self._events.pop(0)
+        event = self._pop_event()
         self._ts.value = event.timestamp
         event.callback()
 
@@ -1353,7 +1364,7 @@ class MockTimer(QueueTimer):
         """
         Advance time in steps until required value running scheduled callbacks in process
         """
-        while self._events and self._events[0].timestamp <= value:
+        while self._events and self._next_timestamp() <= value:
             self.advance()
         self._ts.value = value
 
@@ -1370,7 +1381,7 @@ class MockTimer(QueueTimer):
         """
         deadline = self._ts.value + timeout if timeout else None
         while self._events and not condition():
-            if deadline and self._events[0].timestamp > deadline:
+            if deadline and self._next_timestamp() > deadline:
                 raise TimeoutError("Failed to reach condition in required time")
             self.advance()
 
@@ -1392,3 +1403,10 @@ class MockNetwork(ExternalBus):
 
     def _send_message(self, msg: Any, dst: ExternalBus.Destination):
         self.sent_messages.append((msg, dst))
+
+
+def get_handler_by_type_wm(write_manager, h_type):
+    for h_l in write_manager.request_handlers.values():
+        for h in h_l:
+            if isinstance(h, h_type):
+                return h

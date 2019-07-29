@@ -26,7 +26,7 @@ def domain_state(tconf):
 @pytest.fixture(scope="function")
 def txn_author_agreement_aml_handler(tconf, domain_state):
     data_manager = DatabaseManager()
-    handler = TxnAuthorAgreementAmlHandler(data_manager, FakeSomething())
+    handler = TxnAuthorAgreementAmlHandler(data_manager)
     state = PruningState(KeyValueStorageInMemory())
     data_manager.register_new_database(handler.ledger_id,
                                        FakeSomething(),

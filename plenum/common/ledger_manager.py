@@ -77,8 +77,7 @@ class LedgerManager:
     def addLedger(self, ledger_id: int, ledger: Ledger,
                   preCatchupStartClbk: Optional[Callable] = None,
                   postCatchupCompleteClbk: Optional[Callable] = None,
-                  postTxnAddedToLedgerClbk: Optional[Callable] = None,
-                  taa_acceptance_required: bool = True):
+                  postTxnAddedToLedgerClbk: Optional[Callable] = None):
 
         if ledger_id in self.ledgerRegistry:
             logger.error("{} already present in ledgers so cannot replace that ledger".format(ledger_id))
@@ -91,7 +90,6 @@ class LedgerManager:
             postCatchupCompleteClbk=postCatchupCompleteClbk,
             postTxnAddedToLedgerClbk=postTxnAddedToLedgerClbk,
             verifier=MerkleVerifier(ledger.hasher),
-            taa_acceptance_required=taa_acceptance_required
         )
 
         self._node_leecher.register_ledger(ledger_id)

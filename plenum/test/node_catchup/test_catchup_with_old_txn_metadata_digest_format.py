@@ -33,12 +33,14 @@ def test_catchup_with_old_txn_metadata_digest_format(tdir, tconf,
     # Patch payload metadata, note that it will prevent pool from sending adequate replies to clients
     def append_old_payload_metadata(
             txn, frm=None, req_id=None,
-            digest=None, payload_digest=None, taa_acceptance=None):
-        txn = append_payload_metadata(txn, frm, req_id, digest, payload_digest, taa_acceptance)
+            digest=None, payload_digest=None, taa_acceptance=None,
+            endorser=None):
+        txn = append_payload_metadata(txn, frm, req_id, digest, payload_digest, taa_acceptance, endorser)
         metadata = txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA]
         del metadata[TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST]
         metadata[TXN_PAYLOAD_METADATA_DIGEST] = payload_digest
         return txn
+
     monkeypatch.setattr(txn_util, 'append_payload_metadata', append_old_payload_metadata)
 
     # Check pool initial state

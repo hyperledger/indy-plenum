@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, date
 from enum import Enum
 import pytest
 
@@ -51,9 +52,10 @@ def node_validator(txnPoolNodeSet):
 def validate_taa_acceptance_func_api(node_validator):
     def wrapped(signed_req_dict):
         signed_req_obj = SafeRequest(**signed_req_dict)
-        node_validator.validateTaaAcceptance(
+        node_validator.write_manager.do_taa_validation(
             signed_req_obj,
-            node_validator.master_replica.get_time_for_3pc_batch()
+            node_validator.master_replica.get_time_for_3pc_batch(),
+            node_validator.config
         )
     return wrapped
 
@@ -175,10 +177,10 @@ def taa_acceptance_time(request, get_txn_author_agreement):
         return marker.args[0]
     else:
         current_taa = get_txn_author_agreement()
-        return (
+        return int((datetime.fromtimestamp(
             get_utc_epoch() if current_taa is None else
             current_taa.txn_time
-        )
+        ).date() - date(1970, 1, 1)).total_seconds())
 
 
 @pytest.fixture
