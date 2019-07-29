@@ -6,19 +6,6 @@ from plenum.common.constants import (
 )
 
 
-@pytest.mark.parametrize(
-    "ledger_id,required",
-    [
-        (POOL_LEDGER_ID, False),
-        (DOMAIN_LEDGER_ID, True),
-        (CONFIG_LEDGER_ID, False),
-        (AUDIT_LEDGER_ID, False),
-    ]
-)
-def test_ledger_requires_taa_acceptance_default(node_validator, ledger_id, required):
-    assert required == node_validator.ledgerManager.ledgerRegistry[ledger_id].taa_acceptance_required
-
-
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_when_taa_not_set(
     validate_taa_acceptance, all_request_types, request_dict

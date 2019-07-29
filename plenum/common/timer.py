@@ -32,8 +32,8 @@ class QueueTimer(TimerService):
         return len(self._events)
 
     def service(self):
-        while len(self._events) and self._events[0].timestamp <= self._get_current_time():
-            self._events.pop(0).callback()
+        while len(self._events) and self._next_timestamp() <= self._get_current_time():
+            self._pop_event().callback()
 
     def get_current_time(self) -> float:
         return self._get_current_time()
@@ -46,6 +46,12 @@ class QueueTimer(TimerService):
         indexes = [i for i, ev in enumerate(self._events) if ev.callback == callback]
         for i in reversed(indexes):
             del self._events[i]
+
+    def _next_timestamp(self):
+        return self._events[0].timestamp
+
+    def _pop_event(self) -> TimerEvent:
+        return self._events.pop(0)
 
 
 class RepeatingTimer:

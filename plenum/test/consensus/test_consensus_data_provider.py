@@ -1,20 +1,29 @@
-from plenum.server.consensus.consensus_data_provider import ConsensusDataProvider
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 
 
-def test_initial_3pc_state():
-    state = ConsensusDataProvider('some_node')
+def test_initial_consensus_state(some_item, other_item, validators):
+    name = some_item(validators)
+    primary = other_item(validators)
+    data = ConsensusSharedData(name, validators, 0)
+    data.primary_name = primary
+    data.set_validators(validators)
 
     # General info
-    assert state.name == 'some_node'
+    assert data.name == name
+
+    # Validators
+    assert data.validators == validators
+    assert data.quorums.n == len(validators)
+    assert data.primary_name == primary
 
     # View
-    assert state.view_no == 0
-    assert not state.waiting_for_new_view
+    assert data.view_no == 0
+    assert not data.waiting_for_new_view
 
     # 3PC votes
-    assert state.preprepared == []
-    assert state.prepared == []
+    assert data.preprepared == []
+    assert data.prepared == []
 
     # Checkpoints
-    assert state.stable_checkpoint == 0
-    assert state.checkpoints == []
+    assert data.stable_checkpoint == 0
+    assert list(data.checkpoints) == []

@@ -11,9 +11,7 @@ from plenum.server.quorums import Quorums
 from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
 from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
-from stp_core.ratchet import Ratchet
 
-from plenum.common.throttler import Throttler
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
@@ -130,6 +128,14 @@ class ViewChangerDataProvider(ABC):
     def node_status_db(self) -> Optional[KeyValueStorage]:
         pass
 
+    @abstractmethod
+    def view_setting_handler(self, view_no):
+        pass
+
+    @abstractmethod
+    def schedule_resend_inst_chng(self):
+        pass
+
 
 class ViewChanger():
 
@@ -165,8 +171,6 @@ class ViewChanger():
         self.previous_master_primary = None
 
         self.set_defaults()
-
-        self.initInsChngThrottling()
 
         # Action for _schedule instanceChange messages
         self.instance_change_action = None
@@ -205,6 +209,7 @@ class ViewChanger():
     def view_no(self, value):
         logger.info("{} setting view no to {}".format(self.name, value))
         self._view_no = value
+        self.provider.view_setting_handler(value)
 
     @property
     def name(self) -> str:
@@ -340,6 +345,7 @@ class ViewChanger():
 
     def on_view_change_not_completed_in_time(self):
         self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
+        self.provider.schedule_resend_inst_chng()
 
     def on_replicas_count_changed(self):
         self.propose_view_change(Suspicions.REPLICAS_COUNT_CHANGED)
@@ -484,31 +490,22 @@ class ViewChanger():
         # `ViewChangeWindowSize` seconds or the last sent instance change
         # message was sent long enough ago then instance change message can be
         # sent otherwise no.
-        canSendInsChange, cooldown = self.insChngThrottler.acquire()
-        if canSendInsChange:
-            logger.info(
-                "{}{} sending an instance change with view_no {}"
-                " since {}".format(
-                    VIEW_CHANGE_PREFIX,
-                    self,
-                    view_no,
-                    suspicion.reason))
-            logger.info("{}{} metrics for monitor: {}"
-                        .format(MONITORING_PREFIX, self,
-                                self.provider.pretty_metrics()))
-            msg = self._create_instance_change_msg(view_no, suspicion.code)
-            self.send(msg)
-            # record instance change vote for self and try to change the view
-            # if quorum is reached
-            self._on_verified_instance_change_msg(msg, self.name)
-        else:
-            logger.info("{} cannot send instance change sooner then {} seconds".format(self, cooldown))
 
-    # noinspection PyAttributeOutsideInit
-    def initInsChngThrottling(self):
-        windowSize = self.config.ViewChangeWindowSize
-        ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
-        self.insChngThrottler = Throttler(windowSize, ratchet.get, self._timer.get_current_time)
+        logger.info(
+            "{}{} sending an instance change with view_no {}"
+            " since {}".format(
+                VIEW_CHANGE_PREFIX,
+                self,
+                view_no,
+                suspicion.reason))
+        logger.info("{}{} metrics for monitor: {}"
+                    .format(MONITORING_PREFIX, self,
+                            self.provider.pretty_metrics()))
+        msg = self._create_instance_change_msg(view_no, suspicion.code)
+        self.send(msg)
+        # record instance change vote for self and try to change the view
+        # if quorum is reached
+        self._on_verified_instance_change_msg(msg, self.name)
 
     def _create_instance_change_msg(self, view_no, suspicion_code):
         return InstanceChange(view_no, suspicion_code)
@@ -584,8 +581,6 @@ class ViewChanger():
         self.previous_master_primary = self.provider.current_primary_name()
         self.set_defaults()
         self._process_vcd_for_future_view()
-
-        self.initInsChngThrottling()
 
         self.provider.notify_view_change_start()
         self.provider.start_catchup()
