@@ -444,6 +444,7 @@ replica_spyables = [
     replica.Replica.markCheckPointStable,
     replica.Replica.request_propagates_if_needed,
     OrderingService._revert_unordered_batches,
+    OrderingService.l_request_pre_prepare_for_prepare,
 ]
 
 

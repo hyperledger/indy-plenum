@@ -50,3 +50,7 @@ OnCatchupFinishedMsg = NamedTuple('OnCatchupFinished',
                                   [('inst_id', int),
                                    ('last_caught_up_3PC', tuple),
                                    ('master_last_ordered_3PC', tuple)])
+
+UpdateWatermark = NamedTuple('UpdateWatermark',
+                             [('inst_id', int)])
+

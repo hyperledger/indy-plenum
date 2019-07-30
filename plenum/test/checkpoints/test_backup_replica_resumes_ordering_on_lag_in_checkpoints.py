@@ -111,7 +111,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Ensure that the collections related to requests, batches and
     # own checkpoints have been cleared
-    assert not slow_replica.requestQueues[DOMAIN_LEDGER_ID]
+    assert not slow_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]
     assert not slow_replica._ordering_service.sentPrePrepares
     assert not slow_replica._ordering_service.prePrepares
     assert not slow_replica._ordering_service.prepares

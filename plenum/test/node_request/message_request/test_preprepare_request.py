@@ -20,7 +20,7 @@ def count_requested_preprepare_resp(node):
 def count_requested_preprepare_req(node):
     # Returns the number of times an attempt was made to request PRE-PREPARE
     sr = node.master_replica
-    return get_count(sr, sr._request_pre_prepare_for_prepare)
+    return get_count(sr, sr._ordering_service.l_request_pre_prepare_for_prepare)
 
 
 def test_node_request_preprepare(looper, txnPoolNodeSet,

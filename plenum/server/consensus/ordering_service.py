@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
     RemoveStashedCheckpoints, RequestPropagates, RevertUnorderedBatches, AddToCheckpointMsg, OnViewChangeStartMsg, \
-    OnCatchupFinishedMsg, PrimariesBatchNeeded
+    OnCatchupFinishedMsg, PrimariesBatchNeeded, NodeModeMsg, UpdateWatermark
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName
@@ -310,6 +310,7 @@ class OrderingService:
         self._stasher.subscribe_to(network)
         self._bus.subscribe(RevertUnorderedBatches, self._revert_unordered_batches)
         self._bus.subscribe(OnViewChangeStartMsg, self.l_on_view_change_start)
+        self._bus.subscribe(OnCatchupFinishedMsg, self.on_catchup_finished)
 
     def __repr__(self):
         return self.name
@@ -1190,7 +1191,7 @@ class OrderingService:
                 self._logger.info('{} Setting last ordered for non-master as {}'.
                                   format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.view_no, lowest_prepared - 1)
-                self.l_update_watermark_from_3pc()
+                self._bus.send(UpdateWatermark(inst_id=self._data.inst_id))
                 self.first_batch_after_catchup = False
 
     """Method from legacy code"""
@@ -1572,7 +1573,7 @@ class OrderingService:
     def l_update_watermark_from_3pc(self):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
             self._logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            self.h = self.last_ordered_3pc[1]
+            self._data.low_watermark = self.last_ordered_3pc[1]
         else:
             self._logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 

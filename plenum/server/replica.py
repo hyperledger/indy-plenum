@@ -29,7 +29,8 @@ from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NodeModeMsg, LegacyViewChangeStatusUpdate, PrimariesBatchNeeded, \
-    CurrentPrimaries, AddToCheckpointMsg, RemoveStashedCheckpoints, OnViewChangeStartMsg, OnCatchupFinishedMsg
+    CurrentPrimaries, AddToCheckpointMsg, RemoveStashedCheckpoints, OnViewChangeStartMsg, OnCatchupFinishedMsg, \
+    UpdateWatermark
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -254,7 +255,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Low water mark
         self._h = 0  # type: int
         # Set high water mark (`H`) too
-        self.h = 0  # type: int
+        self.H = 0  # type: int
 
         self._lastPrePrepareSeqNo = self.h  # type: int
 
@@ -382,6 +383,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.node.internal_bus.subscribe(Ordered, self.send)
         self.node.internal_bus.subscribe(AddToCheckpointMsg, self._add_to_checkpoint_msg)
         self.node.internal_bus.subscribe(RemoveStashedCheckpoints, self._remove_stashed_checkpoints_msg)
+        self.node.internal_bus.subscribe(UpdateWatermark, self.update_watermark)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -2780,6 +2782,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
+        self._ordering_service._caught_up_till_3pc(last_caught_up_3PC)
         self.checkpoints.clear()
         self._consensus_data_helper.reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
@@ -2908,3 +2911,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def set_view_no(self, view_no):
         self._consensus_data.view_no = view_no
+
+    def update_watermark(self, msg: UpdateWatermark):
+        if msg.inst_id != self.instId:
+            return
+        self.update_watermark_from_3pc()

@@ -89,7 +89,7 @@ def break_backup_replica(txnPoolNodeSet):
 def repair_broken_replica(replica):
     replica.threePhaseRouter.extend(
         (
-            (PrePrepare, replica.processPrePrepare),
+            (PrePrepare, replica._ordering_service.process_preprepare),
         )
     )
     return replica
