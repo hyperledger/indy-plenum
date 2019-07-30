@@ -20,7 +20,7 @@ class ReplicaService:
     """
 
     def __init__(self, name: str, validators: List[str], primary_name: str,
-                 timer: TimerService, bus: InternalBus, network: ExternalBus, write_manager: WriteRequestManager=None,
+                 timer: TimerService, bus: InternalBus, network: ExternalBus, write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica=None):
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = primary_name

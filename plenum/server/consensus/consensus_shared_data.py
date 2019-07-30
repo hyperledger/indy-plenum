@@ -100,3 +100,5 @@ class ConsensusSharedData:
     def low_watermark(self, value: int):
         self._low_watermark = value
         self.high_watermark = value + self.log_size
+        # self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
+        # self.stasher.unstash_watermarks()

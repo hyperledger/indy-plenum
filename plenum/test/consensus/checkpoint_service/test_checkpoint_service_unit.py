@@ -124,8 +124,7 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
                                                                 False)
     checkpoint_service._data.checkpoints.append(checkpoint)
 
-    # send StartBackupCatchup to the internal bus
-    checkpoint_service._bus.send(StartBackupCatchup((checkpoint_service.view_no, key[1])))
+    checkpoint_service.caught_up_till_3pc((checkpoint_service.view_no, key[1]))
 
     assert checkpoint_service._data.low_watermark == key[1]
     assert not checkpoint_service._checkpoint_state

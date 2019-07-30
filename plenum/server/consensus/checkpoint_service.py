@@ -1,4 +1,5 @@
 import math
+import sys
 from _sha256 import sha256
 from typing import Tuple
 
@@ -43,11 +44,11 @@ class CheckpointService:
         self._config = getConfig()
         self._logger = getlogger()
 
-        self._stasher.subscribe(Checkpoint, self.process_checkpoint)
-        self._stasher.subscribe_to(network)
-
-        self._bus.subscribe(Ordered, self.process_ordered)
-        self._bus.subscribe(StartBackupCatchup, self.caught_up_till_3pc)
+        # self._stasher.subscribe(Checkpoint, self.process_checkpoint)
+        # self._stasher.subscribe_to(network)
+        #
+        # self._bus.subscribe(Ordered, self.process_ordered)
+        # self._bus.subscribe(StartBackupCatchup, self.caught_up_till_3pc)
 
     @property
     def view_no(self):
@@ -133,11 +134,22 @@ class CheckpointService:
             # collections and process stashed messages which now fit between
             # watermarks
             self._bus.send(StartBackupCatchup((self.view_no, stashed_checkpoint_ends[-1])))
+            self.caught_up_till_3pc((self.view_no, stashed_checkpoint_ends[-1]))
 
-    def caught_up_till_3pc(self, catchup_msg: StartBackupCatchup):
+    def gc_before_new_view(self):
         self._reset_checkpoints()
-        self._remove_stashed_checkpoints(till_3pc_key=catchup_msg.caught_up_till_3pc)
-        self.update_watermark_from_3pc(catchup_msg.caught_up_till_3pc)
+        self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, 0))
+
+    def caught_up_till_3pc(self, caught_up_till_3pc):
+        self._reset_checkpoints()
+        self._remove_stashed_checkpoints(till_3pc_key=caught_up_till_3pc)
+        self.update_watermark_from_3pc(caught_up_till_3pc)
+
+    def catchup_clear_for_backup(self):
+        self._reset_checkpoints()
+        self._remove_stashed_checkpoints()
+        self._data.low_watermark = 0
+        self._data.high_watermark = sys.maxsize
 
     def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self._checkpoint_state.keys():
@@ -282,11 +294,23 @@ class CheckpointService:
 
         return total_processed
 
-    def _reset_watermarks_before_new_view(self):
+    def reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
         # successfully complete, the node must have reached the same state
         # as other nodes
         self._data.low_watermark = 0
+
+    def should_reset_watermarks_before_new_view(self):
+        if self.view_no <= 0:
+            return False
+        if self.last_ordered_3pc[0] == self.view_no and self.last_ordered_3pc[1] > 0:
+            return False
+        return True
+
+    def set_watermarks(self, low_watermark: int, high_watermark: int = None):
+        self._data.low_watermark = low_watermark
+        if high_watermark is not None:
+            self._data.high_watermark = high_watermark
 
     def update_watermark_from_3pc(self, last_ordered_3pc=None):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):

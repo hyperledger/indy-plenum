@@ -22,6 +22,6 @@ def test_propagate_primary_is_Master_watermarks_not_changed_if_last_ordered_not_
 def test_reset_watermarks_before_new_view(checkpoint_service, tconf, is_master):
     checkpoint_service._is_master = is_master
     checkpoint_service._data.low_watermark = 100
-    checkpoint_service._reset_watermarks_before_new_view()
+    checkpoint_service.reset_watermarks_before_new_view()
     assert checkpoint_service._data.low_watermark == 0
     assert checkpoint_service._data.high_watermark == tconf.LOG_SIZE
