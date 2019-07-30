@@ -1,8 +1,9 @@
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected
+from stp_core.loop.eventually import eventually
 
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
@@ -18,8 +19,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
-                         exclude_from_check="check_last_ordered_3pc_backup")
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
     # Epsilon did not participate in ordering of the batch with EpsilonSteward
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
@@ -37,7 +37,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     for replica in new_node.replicas.values():
-        assert len(replica.checkpoints) == 1
+        looper.run(eventually(lambda r: assertExp(len(r.checkpoints) == 1), replica))
 
         assert len(replica.stashedRecvdCheckpoints) == 0
 

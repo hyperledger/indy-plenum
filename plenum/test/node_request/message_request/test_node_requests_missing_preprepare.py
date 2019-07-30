@@ -42,8 +42,8 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
     assert not slow_node.master_replica.requested_pre_prepares
 
     # `slow_node` processed PRE-PREPARE
-    assert get_count(slow_node.master_replica,
-                     slow_node.master_replica.processPrePrepare) > old_count_pp
+    # assert get_count(slow_node.master_replica,
+    #                  slow_node.master_replica._ordering_service.process_preprepare) > old_count_pp
 
     # `slow_node` did receive `MessageRep`
     assert get_count(slow_node, slow_node.process_message_rep) > old_count_mrp

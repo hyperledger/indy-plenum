@@ -50,7 +50,7 @@ class ConsensusSharedData:
 
     def set_validators(self, validators: List[str]):
         self._validators = validators
-        self._quorums = Quorums(len(validators))
+        self.quorums = Quorums(len(validators))
 
     @property
     def validators(self) -> List[str]:

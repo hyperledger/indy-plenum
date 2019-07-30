@@ -34,7 +34,8 @@ def internal_bus():
 @pytest.fixture()
 def external_bus():
     send_handler = Mock()
-    return ExternalBus(send_handler=send_handler)
+    return ExternalBus(send_handler=send_handler,
+                       nodestack=FakeSomething(connecteds=[]))
 
 @pytest.fixture()
 def bls_bft_replica():

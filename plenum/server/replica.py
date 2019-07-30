@@ -276,21 +276,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # started, applicable only to master instance
         self._last_prepared_before_view_change = None
 
-        # Tracks for which keys PRE-PREPAREs have been requested.
-        # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
-        self.requested_pre_prepares = {}
-
-        # Tracks for which keys PREPAREs have been requested.
-        # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
-        self.requested_prepares = {}
-
-        # Tracks for which keys COMMITs have been requested.
-        # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
-        self.requested_commits = {}
-
         # Time of the last PRE-PREPARE which satisfied all validation rules
         # (time, digest, roots were all correct). This time is not to be
         # reverted even if the PRE-PREPAREs are not ordered. This implies that
@@ -344,6 +329,18 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         #     (Commit, self._ordering_service.process_commit),
         #     (Checkpoint, self.process_checkpoint),
         # )
+
+    @property
+    def requested_pre_prepares(self):
+        return self._ordering_service.requested_pre_prepares
+
+    @property
+    def requested_prepares(self):
+        return self._ordering_service.requested_prepares
+
+    @property
+    def requested_commits(self):
+        return self._ordering_service.requested_commits
 
     def _bootstrap_consensus_data(self):
         self._consensus_data.requests = self.requests
@@ -853,7 +850,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @staticmethod
     def batchDigest(reqs):
-        replica_batch_digest(reqs)
+        return replica_batch_digest(reqs)
 
     @measure_replica_time(MetricsName.REQUEST_PROCESSING_TIME,
                           MetricsName.BACKUP_REQUEST_PROCESSING_TIME)

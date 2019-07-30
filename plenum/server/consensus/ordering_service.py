@@ -1471,6 +1471,7 @@ class OrderingService:
         key = (pp.viewNo, pp.ppSeqNo)
         # ToDo:
         self.prePrepares[key] = pp
+        self._consensus_data_helper.preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self.l_dequeue_prepares(*key)
@@ -1834,7 +1835,7 @@ class OrderingService:
         # were stashed due to lack of commits before them and orders them if it
         # can
 
-        if not self._validator.can_order():
+        if not self.can_order():
             return
 
         self._logger.debug('{} trying to order from out of order commits. '
