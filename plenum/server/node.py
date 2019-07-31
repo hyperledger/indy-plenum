@@ -165,7 +165,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.cliname = cliname
         self.cliha = cliha
         self.timer = QueueTimer()
-        self.poolManager = None # type: TxnPoolManager
+        self.poolManager = None  # type: TxnPoolManager
         self.ledgerManager = None
         self.bls_bft = None
         self.write_req_validator = None
