@@ -161,7 +161,7 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     pre_prepare.ppSeqNo = key[1]
     ordered.ppSeqNo = pre_prepare.ppSeqNo
     checkpoint_service._data.preprepared.append(pre_prepare)
-    checkpoint_service._bus.send(ordered)
+    checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, key[0], key[1], pre_prepare, check_shared_data=True)
     state = updateNamedTuple(checkpoint_service._checkpoint_state[key],
                              digest=checkpoint.digest)
@@ -194,9 +194,9 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
 def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
     with pytest.raises(LogicError, match="CheckpointService | Can't process Ordered msg because "
                                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo)):
-        checkpoint_service._bus.send(ordered)
+        checkpoint_service.process_ordered(ordered)
     checkpoint_service._data.preprepared.append(pre_prepare)
-    checkpoint_service._bus.send(ordered)
+    checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, 1, tconf.CHK_FREQ, pre_prepare)
 
     pre_prepare.ppSeqNo = tconf.CHK_FREQ
@@ -205,13 +205,13 @@ def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
     state = updateNamedTuple(checkpoint_service._checkpoint_state[1, tconf.CHK_FREQ],
                              digests=["digest"] * (tconf.CHK_FREQ - 1))
     checkpoint_service._checkpoint_state[1, tconf.CHK_FREQ] = state
-    checkpoint_service._bus.send(ordered)
+    checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, 1, tconf.CHK_FREQ, pre_prepare, check_shared_data=True)
 
     pre_prepare.ppSeqNo += 1
     ordered.ppSeqNo = pre_prepare.ppSeqNo
     checkpoint_service._data.preprepared.append(pre_prepare)
-    checkpoint_service._bus.send(ordered)
+    checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, tconf.CHK_FREQ + 1, tconf.CHK_FREQ * 2, pre_prepare)
 
 

@@ -17,6 +17,7 @@ from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.replica_stasher import ReplicaStasher
 from stp_core.common.log import getlogger
 
 
@@ -24,7 +25,8 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, db_manager: DatabaseManager, is_master=True):
+                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
+                 is_master=True):
         self._data = data
         self._bus = bus
         self._network = network
@@ -43,6 +45,8 @@ class CheckpointService:
 
         self._config = getConfig()
         self._logger = getlogger()
+
+        self._old_stasher = old_stasher
 
         # self._stasher.subscribe(Checkpoint, self.process_checkpoint)
         # self._stasher.subscribe_to(network)
@@ -119,7 +123,7 @@ class CheckpointService:
             self._logger.display(
                 '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
                     self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
-            self._data.low_watermark = stashed_checkpoint_ends[-1]
+            self.set_watermarks(low_watermark=stashed_checkpoint_ends[-1])
             if not self._data.is_primary:
                 self._logger.display(
                     '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
@@ -148,8 +152,8 @@ class CheckpointService:
     def catchup_clear_for_backup(self):
         self._reset_checkpoints()
         self._remove_stashed_checkpoints()
-        self._data.low_watermark = 0
-        self._data.high_watermark = sys.maxsize
+        self.set_watermarks(low_watermark=0,
+                            high_watermark=sys.maxsize)
 
     def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self._checkpoint_state.keys():
@@ -211,7 +215,7 @@ class CheckpointService:
         else:
             self._logger.debug("{} could not find {} in checkpoints".format(self, seqNo))
             return
-        self._data.low_watermark = seqNo
+        self.set_watermarks(low_watermark=seqNo)
         for k in previousCheckpoints:
             self._logger.trace("{} removing previous checkpoint {}".format(self, k))
             self._checkpoint_state.pop(k)
@@ -298,7 +302,7 @@ class CheckpointService:
         # Reset any previous view watermarks since for view change to
         # successfully complete, the node must have reached the same state
         # as other nodes
-        self._data.low_watermark = 0
+        self.set_watermarks(low_watermark=0)
 
     def should_reset_watermarks_before_new_view(self):
         if self.view_no <= 0:
@@ -309,14 +313,22 @@ class CheckpointService:
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark
-        if high_watermark is not None:
-            self._data.high_watermark = high_watermark
+        if high_watermark is None:
+            self._data.high_watermark = self._data.low_watermark + self._config.LOG_SIZE \
+                if high_watermark is None else \
+                high_watermark
+
+        self._logger.info('{} set watermarks as {} {}'.format(self,
+                                                              self._data.low_watermark,
+                                                              self._data.high_watermark))
+        self._old_stasher.unstash_watermarks()
 
     def update_watermark_from_3pc(self, last_ordered_3pc=None):
         if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
             self._logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            self._data.low_watermark = self.last_ordered_3pc[1] if last_ordered_3pc is None \
+            low_watermark = self.last_ordered_3pc[1] if last_ordered_3pc is None \
                 else last_ordered_3pc[1]
+            self.set_watermarks(low_watermark)
         else:
             self._logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 

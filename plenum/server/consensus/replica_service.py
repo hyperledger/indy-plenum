@@ -11,6 +11,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
+from plenum.test.testing_utils import FakeSomething
 
 
 class ReplicaService:
@@ -34,7 +35,8 @@ class ReplicaService:
                                         bls_bft_replica=bls_bft_replica,
                                         stasher=stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
-                                               write_manager.database_manager)
+                                               write_manager.database_manager,
+                                               old_stasher=FakeSomething(unstash_watermarks=lambda: None))
         self._view_changer = ViewChangeService(self._data, timer, bus, network)
 
         # TODO: This is just for testing purposes only
