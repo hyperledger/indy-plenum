@@ -25,8 +25,11 @@ def test_node(
         config_helper=config_helper,
         config=tconf,
         pluginPaths=allPluginsPath)
-    node.view_changer = FakeSomething(view_no=1,
+    view_no = 1
+    node.view_changer = FakeSomething(view_no=view_no,
                                       view_change_in_progress=False)
+    for r in node.replicas.values():
+        r._consensus_data.view_no = view_no
     node.mode = Mode.participating
     yield node
     node.onStopping() # TODO stop won't call onStopping as we are in Stopped state

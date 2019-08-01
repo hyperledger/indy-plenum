@@ -263,9 +263,9 @@ class ViewChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
-        (f.PREPARED.nm, IterableField(AnyField())),           # list of PrePrepare
-        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of PrePrepare
-        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoint
+        (f.PREPARED.nm, IterableField(AnyField())),           # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoints TODO: should we change to tuples?
     )
 
 
@@ -283,8 +283,9 @@ class NewView(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.VIEW_CHANGES.nm, IterableField(AnyField())),       # list of tuples (node_name, view_change_digest)
-        (f.CHECKPOINT.nm, AnyField()),                        # Checkpoint to be selected as stable
-        (f.PREPREPARES.nm, IterableField(AnyField()))         # list of PrePrepares that should get into new view
+        (f.CHECKPOINT.nm, AnyField()),                        # Checkpoint to be selected as stable (TODO: or tuple?)
+        (f.BATCHES.nm, IterableField(AnyField()))             # list of tuples (view_no, pp_seq_no, pp_digest)
+                                                              # that should get into new view
     )
 
 

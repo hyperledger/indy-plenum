@@ -11,6 +11,7 @@ from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
 from plenum.server.batch_handlers.ts_store_batch_handler import TsStoreBatchHandler
 from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
+from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.get_txn_author_agreement_handler import GetTxnAuthorAgreementHandler
@@ -19,7 +20,8 @@ from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.request_handlers.nym_handler import NymHandler
 
 from plenum.common.constants import POOL_LEDGER_ID, AUDIT_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID, \
-    NODE_PRIMARY_STORAGE_SUFFIX, BLS_PREFIX, BLS_LABEL, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL
+    NODE_PRIMARY_STORAGE_SUFFIX, BLS_PREFIX, BLS_LABEL, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
+    LAST_SENT_PP_STORE_LABEL
 from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
@@ -59,6 +61,10 @@ class NodeBootstrap:
         node_status_db = self.node.loadNodeStatusDB()
         self.node.db_manager.register_new_store(NODE_STATUS_DB_LABEL, node_status_db)
 
+    def init_last_sent_pp_store(self):
+        last_sent_pp_store = LastSentPpStoreHelper(self.node)
+        self.node.db_manager.register_new_store(LAST_SENT_PP_STORE_LABEL, last_sent_pp_store)
+
     def init_storages(self, storage=None):
         # Config ledger and state init
         self.node.db_manager.register_new_database(CONFIG_LEDGER_ID,
@@ -90,6 +96,9 @@ class NodeBootstrap:
 
         # nodeStatusDB
         self.init_node_status_db_storage()
+
+        # last_sent_pp_store
+        self.init_last_sent_pp_store()
 
     def init_bls_bft(self):
         self.node.bls_bft = self._create_bls_bft()

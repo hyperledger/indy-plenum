@@ -52,7 +52,8 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL
+    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
+    LAST_SENT_PP_STORE_LABEL
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -328,8 +329,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
 
-        self.last_sent_pp_store_helper = LastSentPpStoreHelper(self)
-
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
@@ -390,7 +389,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msgHandler=self.handleOneClientMsg,
             # TODO, Reject is used when dynamic validation fails, use Reqnack
             msgRejectHandler=self.reject_client_msg_handler,
-            metrics=self.metrics)
+            metrics=self.metrics,
+            timer=self.timer)
         cls = self.clientStackClass
         kwargs.update(seed=seed)
 
@@ -506,6 +506,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         all_types.update(self.write_manager.type_to_ledger_id)
         all_types.update(self.read_manager.type_to_ledger_id)
         return all_types
+
+    @property
+    def last_sent_pp_store_helper(self):
+        return self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL)
 
     # EXECUTERS
     def default_executer(self, three_pc_batch: ThreePcBatch):
@@ -651,8 +655,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
         self._cancel(self._check_view_change_completed)
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=self._view_change_timeout)
+        self.schedule_view_change_completion_check(self._view_change_timeout)
 
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
@@ -688,6 +691,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for replica in self.replicas.values():
             replica.clear_requests_and_fix_last_ordered()
         self.monitor.reset()
+
+    def schedule_view_change_completion_check(self, timeout):
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=timeout)
 
     def on_view_propagated(self):
         """
@@ -3519,3 +3526,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _bootstrap_node(self, bootstrap_cls, storage):
         bootstrap_cls(self).init_node(storage)
+
+    def get_validators(self):
+        return self.poolManager.node_ids_ordered_by_rank(
+            self.nodeReg, self.poolManager.get_node_ids())
+
+    def set_view_for_replicas(self, view_no):
+        for r in self.replicas.values():
+            r.set_view_no(view_no)

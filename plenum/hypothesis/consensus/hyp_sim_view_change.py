@@ -1,7 +1,7 @@
 from hypothesis import strategies as st, given
 
 from plenum.hypothesis.helper import HypothesisSimRandom
-from plenum.test.consensus.test_sim_view_change import check_view_change_completes_under_normal_conditions
+from plenum.test.consensus.view_change.test_sim_view_change import check_view_change_completes_under_normal_conditions
 
 
 @given(st.data())

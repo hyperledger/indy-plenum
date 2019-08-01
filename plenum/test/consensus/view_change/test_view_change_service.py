@@ -1,5 +1,3 @@
-import string
-
 import pytest
 
 from plenum.common.event_bus import InternalBus
@@ -14,21 +12,8 @@ def view_change_service(consensus_data, mock_timer):
         data = consensus_data(name)
         service = ViewChangeService(data, mock_timer, InternalBus(), MockNetwork())
         return service
+
     return _service
-
-
-@pytest.fixture
-def view_change_message():
-    def _view_change(view_no: int):
-        vc = ViewChange(
-            viewNo=view_no,
-            stableCheckpoint=4,
-            prepared=[],
-            preprepared=[],
-            checkpoints=[]
-        )
-        return vc
-    return _view_change
 
 
 @pytest.fixture
@@ -38,6 +23,7 @@ def view_change_acks(validators, random):
         non_senders = [name for name in validators if name not in [vc_frm, primary]]
         ack_frms = random.sample(non_senders, count)
         return [(ViewChangeAck(viewNo=vc.viewNo, name=vc_frm, digest=digest), ack_frm) for ack_frm in ack_frms]
+
     return _view_change_acks
 
 
@@ -127,17 +113,3 @@ def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
     assert dst is None  # message was broadcast
     assert isinstance(msg, NewView)
     assert msg.viewNo == initial_view_no + 1
-
-
-def test_view_change_digest_is_256_bit_hexdigest(view_change_message, random):
-    vc = view_change_message(random.integer(0, 10000))
-    digest = view_change_digest(vc)
-    assert isinstance(digest, str)
-    assert len(digest) == 64
-    assert all(v in string.hexdigits for v in digest)
-
-
-def test_different_view_change_messages_have_different_digests(view_change_message, random):
-    vc = view_change_message(random.integer(0, 10000))
-    other_vc = view_change_message(random.integer(0, 10000))
-    assert view_change_digest(vc) != view_change_digest(other_vc)
