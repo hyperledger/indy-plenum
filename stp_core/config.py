@@ -44,6 +44,10 @@ HEARTBEAT_FREQ = 5      # seconds
 ZMQ_CLIENT_QUEUE_SIZE = 100  # messages (0 - no limit)
 ZMQ_NODE_QUEUE_SIZE = 20000  # messages (0 - no limit)
 ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE = 10000
+PENDING_CLIENT_LIMIT = 100
+PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT = 100
+RESEND_CLIENT_MSG_TIMEOUT = 30
+REMOVE_CLIENT_MSG_TIMEOUT = 60 * 5
 
 # All messages exceeding the limit will be rejected without processing
 MSG_LEN_LIMIT = 128 * 1024

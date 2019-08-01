@@ -1,10 +1,8 @@
-import string
-
 import pytest
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
-from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
 from plenum.test.helper import MockNetwork
 
 
@@ -14,30 +12,18 @@ def view_change_service(consensus_data, mock_timer):
         data = consensus_data(name)
         service = ViewChangeService(data, mock_timer, InternalBus(), MockNetwork())
         return service
+
     return _service
-
-
-@pytest.fixture
-def view_change_message():
-    def _view_change(view_no: int):
-        vc = ViewChange(
-            viewNo=view_no,
-            stableCheckpoint=4,
-            prepared=[],
-            preprepared=[],
-            checkpoints=[]
-        )
-        return vc
-    return _view_change
 
 
 @pytest.fixture
 def view_change_acks(validators, random):
     def _view_change_acks(vc, vc_frm, primary, count):
-        digest = ViewChangeService._view_change_digest(vc)
+        digest = view_change_digest(vc)
         non_senders = [name for name in validators if name not in [vc_frm, primary]]
         ack_frms = random.sample(non_senders, count)
         return [(ViewChangeAck(viewNo=vc.viewNo, name=vc_frm, digest=digest), ack_frm) for ack_frm in ack_frms]
+
     return _view_change_acks
 
 
@@ -76,10 +62,13 @@ def test_start_view_change_increases_next_view_changes_primary_and_broadcasts_vi
 
 def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new_primary(
         some_item, other_item, validators, primary, view_change_service, initial_view_no, view_change_message):
-    non_primary_name = some_item(validators, exclude=[primary(initial_view_no + 1)])
+    next_view_no = initial_view_no + 1
+    non_primary_name = some_item(validators, exclude=[primary(next_view_no)])
     service = view_change_service(non_primary_name)
+    service.start_view_change()
+    service._network.sent_messages.clear()
 
-    vc = view_change_message(initial_view_no + 1)
+    vc = view_change_message(next_view_no)
     frm = other_item(validators, exclude=[non_primary_name])
     service._network.process_incoming(vc, frm)
 
@@ -89,7 +78,7 @@ def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new
     assert isinstance(msg, ViewChangeAck)
     assert msg.viewNo == vc.viewNo
     assert msg.name == frm
-    assert msg.digest == ViewChangeService._view_change_digest(vc)
+    assert msg.digest == view_change_digest(vc)
 
 
 def test_primary_doesnt_respond_to_view_change_message(
@@ -104,12 +93,12 @@ def test_primary_doesnt_respond_to_view_change_message(
     assert len(service._network.sent_messages) == 0
 
 
-@pytest.mark.skip(reason="Not implemented")
 def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
         validators, primary, view_change_service, initial_view_no, view_change_message, view_change_acks):
     primary_name = primary(initial_view_no + 1)
     service = view_change_service(primary_name)
     service.start_view_change()
+    service._network.sent_messages.clear()
 
     non_primaries = [item for item in validators if item != primary_name]
     for vc_frm in non_primaries:
@@ -124,17 +113,3 @@ def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
     assert dst is None  # message was broadcast
     assert isinstance(msg, NewView)
     assert msg.viewNo == initial_view_no + 1
-
-
-def test_view_change_digest_is_256_bit_hexdigest(view_change_message, random):
-    vc = view_change_message(random.integer(0, 10000))
-    digest = ViewChangeService._view_change_digest(vc)
-    assert isinstance(digest, str)
-    assert len(digest) == 64
-    assert all(v in string.hexdigits for v in digest)
-
-
-def test_different_view_change_messages_have_different_digests(view_change_message, random):
-    vc = view_change_message(random.integer(0, 10000))
-    other_vc = view_change_message(random.integer(0, 10000))
-    assert ViewChangeService._view_change_digest(vc) != ViewChangeService._view_change_digest(other_vc)

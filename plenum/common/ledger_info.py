@@ -8,8 +8,7 @@ class LedgerInfo:
                  preCatchupStartClbk,
                  postCatchupCompleteClbk,
                  postTxnAddedToLedgerClbk,
-                 verifier,
-                 taa_acceptance_required=True):
+                 verifier):
 
         self.id = id
         self.ledger = ledger
@@ -19,12 +18,6 @@ class LedgerInfo:
         self.postTxnAddedToLedgerClbk = postTxnAddedToLedgerClbk
         self.verifier = verifier
 
-        self._taa_acceptance_required = taa_acceptance_required
-
     @property
     def ledger_summary(self):
         return self.id, len(self.ledger), self.ledger.root_hash
-
-    @property
-    def taa_acceptance_required(self):
-        return self._taa_acceptance_required

@@ -166,6 +166,7 @@ class ClientMessageValidator(MessageValidator):
         (f.SIGS.nm, MapField(IdentifierField(),
                              SignatureField(max_length=SIGNATURE_FIELD_LIMIT),
                              optional=True, nullable=True)),
+        (f.ENDORSER.nm, IdentifierField(optional=True)),
     )
 
     def __init__(self, operation_schema_is_strict, *args, **kwargs):
@@ -188,9 +189,17 @@ class ClientMessageValidator(MessageValidator):
         identifier = dct.get(f.IDENTIFIER.nm, None)
         signatures = dct.get(f.SIGS.nm, None)
         signature = dct.get(f.SIG.nm, None)
+        endorser = dct.get(f.ENDORSER.nm, None)
         if signatures and signature:
             self._raise_invalid_message(
-                'Request must not contains both fields "signatures" and "signature"')
+                'Request can not contain both fields "signatures" and "signature"')
+        if endorser is not None:
+            if not signatures or endorser not in signatures:
+                self._raise_invalid_message("Endorser must sign the request")
+            if identifier is None:
+                self._raise_invalid_message("Author's Identifier must be present when sending via Endorser")
+            if not signatures or identifier not in signatures:
+                self._raise_invalid_message("Author must sign the request when sending via Endorser")
         if identifier and signatures and identifier not in signatures:
             self._raise_invalid_message(
                 'The identifier is not contained in signatures')

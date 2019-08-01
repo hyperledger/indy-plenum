@@ -27,7 +27,7 @@ def domain_state(tconf):
 @pytest.fixture(scope="function")
 def txn_author_agreement_handler(tconf, domain_state):
     data_manager = DatabaseManager()
-    handler = TxnAuthorAgreementHandler(data_manager, FakeSomething())
+    handler = TxnAuthorAgreementHandler(data_manager)
     state = State()
     state.txn_list = {}
     state.get = lambda key, isCommitted=False: state.txn_list.get(key, None)

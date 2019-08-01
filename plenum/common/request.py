@@ -21,6 +21,7 @@ class Request:
                  signatures: Dict[str, str] = None,
                  protocolVersion: int = None,
                  taaAcceptance: Dict = None,
+                 endorser: Identifier = None,
                  # Intentionally omitting *args
                  **kwargs):
         self._identifier = identifier
@@ -30,6 +31,7 @@ class Request:
         self.operation = operation
         self.protocolVersion = protocolVersion
         self.taaAcceptance = taaAcceptance
+        self.endorser = endorser
         self._digest = None
         self._payload_digest = None
         for nm in PLUGIN_CLIENT_REQUEST_FIELDS:
@@ -67,6 +69,8 @@ class Request:
             rv[f.PROTOCOL_VERSION.nm] = self.protocolVersion
         if self.taaAcceptance is not None:
             rv[f.TAA_ACCEPTANCE.nm] = self.taaAcceptance
+        if self.endorser is not None:
+            rv[f.ENDORSER.nm] = self.endorser
         return rv
 
     def __eq__(self, other):
@@ -112,6 +116,8 @@ class Request:
             dct[f.PROTOCOL_VERSION.nm] = self.protocolVersion
         if self.taaAcceptance is not None:
             dct[f.TAA_ACCEPTANCE.nm] = self.taaAcceptance
+        if self.endorser is not None:
+            dct[f.ENDORSER.nm] = self.endorser
         return dct
 
     def __setstate__(self, state):
