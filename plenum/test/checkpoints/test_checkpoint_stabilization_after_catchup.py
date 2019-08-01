@@ -26,9 +26,9 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
 
     master_replica = new_node.replicas._master_replica
 
-    assert len(master_replica.checkpoints) == 0
+    assert len(master_replica._checkpointer._checkpoint_state) == 0
 
-    assert len(master_replica.stashedRecvdCheckpoints) == 0
+    assert len(master_replica._checkpointer._stashed_recvd_checkpoints) == 0
 
     assert master_replica.h == 2
     assert master_replica.H == 17
@@ -37,9 +37,9 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     for replica in new_node.replicas.values():
-        assert len(replica.checkpoints) == 1
+        assert len(replica._checkpointer._checkpoint_state) == 1
 
-        assert len(replica.stashedRecvdCheckpoints) == 0
+        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
 
         assert replica.h == 2
         assert replica.H == 17
@@ -51,21 +51,21 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     looper.runFor(stabilization_timeout)
 
     for replica in new_node.replicas.values():
-        assert len(replica.checkpoints) == 2
-        keys_iter = iter(replica.checkpoints)
+        assert len(replica._checkpointer._checkpoint_state) == 2
+        keys_iter = iter(replica._checkpointer._checkpoint_state)
 
         assert next(keys_iter) == (3, 5)
-        assert replica.checkpoints[3, 5].seqNo == 5
-        assert replica.checkpoints[3, 5].digest is None
-        assert replica.checkpoints[3, 5].isStable is False
+        assert replica._checkpointer._checkpoint_state[3, 5].seqNo == 5
+        assert replica._checkpointer._checkpoint_state[3, 5].digest is None
+        assert replica._checkpointer._checkpoint_state[3, 5].isStable is False
 
         assert next(keys_iter) == (6, 10)
-        assert replica.checkpoints[6, 10].seqNo == 9
-        assert replica.checkpoints[6, 10].digest is None
-        assert replica.checkpoints[6, 10].isStable is False
+        assert replica._checkpointer._checkpoint_state[6, 10].seqNo == 9
+        assert replica._checkpointer._checkpoint_state[6, 10].digest is None
+        assert replica._checkpointer._checkpoint_state[6, 10].isStable is False
 
         # nothing is stashed since it's ordered during catch-up
-        assert len(replica.stashedRecvdCheckpoints) == 0
+        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
 
         assert replica.h == 2
         assert replica.H == 17
@@ -75,15 +75,15 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     looper.runFor(stabilization_timeout)
 
     for replica in new_node.replicas.values():
-        assert len(replica.checkpoints) == 1
-        keys_iter = iter(replica.checkpoints)
+        assert len(replica._checkpointer._checkpoint_state) == 1
+        keys_iter = iter(replica._checkpointer._checkpoint_state)
 
         assert next(keys_iter) == (6, 10)
-        assert replica.checkpoints[6, 10].seqNo == 10
-        assert replica.checkpoints[6, 10].digest is not None
-        assert replica.checkpoints[6, 10].isStable is True
+        assert replica._checkpointer._checkpoint_state[6, 10].seqNo == 10
+        assert replica._checkpointer._checkpoint_state[6, 10].digest is not None
+        assert replica._checkpointer._checkpoint_state[6, 10].isStable is True
 
-        assert len(replica.stashedRecvdCheckpoints) == 0
+        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
 
         assert replica.h == 10
         assert replica.H == 25

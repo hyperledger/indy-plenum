@@ -39,7 +39,8 @@ class ReplicaFakeNode(FakeSomething):
             applyReq=lambda self, *args, **kwargs: True,
             primaries_batch_needed=False,
             primaries=[],
-            get_validators=lambda: []
+            get_validators=lambda: [],
+            db_manager=None
         )
 
     @property

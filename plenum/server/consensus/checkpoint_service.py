@@ -12,12 +12,13 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import StartMasterCatchup, StartBackupCatchup, Cleanup
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName
-from plenum.common.stashing_router import DISCARD, PROCESS, StashingRouter
+from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_stasher import ReplicaStasher
+from plenum.server.replica_validator_enums import DISCARD, PROCESS, ALREADY_STABLE
 from stp_core.common.log import getlogger
 
 
@@ -65,6 +66,25 @@ class CheckpointService:
     # @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
     #                       MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
     def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
+        """
+        Process checkpoint messages
+        :return: whether processed (True) or stashed (False)
+        """
+        self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
+        result, reason = self._validator.validate(msg)
+        if result == DISCARD:
+            self._logger.trace("{} discard message {} from {} "
+                               "with the reason: {}".format(self, msg, sender, reason))
+        elif result == PROCESS:
+            self._do_process_checkpoint(msg, sender)
+        else:
+            self._logger.debug("{} stashing checkpoint message {} with "
+                               "the reason: {}".format(self, msg, reason))
+            self._old_stasher.stash((msg, sender), result)
+            return False
+        return True
+
+    def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
 
@@ -137,8 +157,10 @@ class CheckpointService:
             # Adjust last_ordered_3pc, shift watermarks, clean operational
             # collections and process stashed messages which now fit between
             # watermarks
-            self._bus.send(StartBackupCatchup((self.view_no, stashed_checkpoint_ends[-1])))
-            self.caught_up_till_3pc((self.view_no, stashed_checkpoint_ends[-1]))
+            key_3pc = (self.view_no, stashed_checkpoint_ends[-1])
+            self._bus.send(StartBackupCatchup(inst_id=self._data.inst_id,
+                                              caught_up_till_3pc=key_3pc))
+            self.caught_up_till_3pc(key_3pc)
 
     def gc_before_new_view(self):
         self._reset_checkpoints()
@@ -220,7 +242,7 @@ class CheckpointService:
             self._logger.trace("{} removing previous checkpoint {}".format(self, k))
             self._checkpoint_state.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, seqNo))
-        self._bus.send(Cleanup((self.view_no, seqNo)))  # call OrderingService.l_gc()
+        self._bus.send(Cleanup(self._data.inst_id, (self.view_no, seqNo)))  # call OrderingService.l_gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def _check_if_checkpoint_stable(self, key: Tuple[int, int]):
@@ -313,10 +335,9 @@ class CheckpointService:
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark
-        if high_watermark is None:
-            self._data.high_watermark = self._data.low_watermark + self._config.LOG_SIZE \
-                if high_watermark is None else \
-                high_watermark
+        self._data.high_watermark = self._data.low_watermark + self._config.LOG_SIZE \
+            if high_watermark is None else \
+            high_watermark
 
         self._logger.info('{} set watermarks as {} {}'.format(self,
                                                               self._data.low_watermark,
@@ -324,11 +345,11 @@ class CheckpointService:
         self._old_stasher.unstash_watermarks()
 
     def update_watermark_from_3pc(self, last_ordered_3pc=None):
-        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
-            self._logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            low_watermark = self.last_ordered_3pc[1] if last_ordered_3pc is None \
-                else last_ordered_3pc[1]
-            self.set_watermarks(low_watermark)
+        if True or last_ordered_3pc is None:
+            last_ordered_3pc = self.last_ordered_3pc
+        if (last_ordered_3pc is not None) and (last_ordered_3pc[0] == self.view_no):
+            self._logger.info("update_watermark_from_3pc to {}".format(last_ordered_3pc))
+            self.set_watermarks(last_ordered_3pc[1])
         else:
             self._logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
@@ -375,6 +396,9 @@ class CheckpointService:
         self._data.checkpoints = \
             SortedListWithKey([c for c in self._data.checkpoints if c.seqNoEnd >= end_seq_no],
                               key=lambda checkpoint: checkpoint.seqNoEnd)
+
+    def __str__(self) -> str:
+        return "{}:{} - checkpoint_service".format(self._data.name, self._data.inst_id)
 
     # TODO: move to OrderingService as a handler for Cleanup messages
     # def _clear_batch_till_seq_no(self, seq_no):

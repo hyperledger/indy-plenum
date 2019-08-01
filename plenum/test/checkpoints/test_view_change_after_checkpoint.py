@@ -49,7 +49,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
             # Checkpoint was started after sending audit txn
             # assert not r.checkpoints
             # No stashed checkpoint for previous view
-            assert not [view_no for view_no in r.stashedRecvdCheckpoints if view_no < r.viewNo]
+            assert not [view_no for view_no in r._checkpointer._stashed_recvd_checkpoints if view_no < r.viewNo]
             assert r._h == 0
             # from audit txn
             assert r._lastPrePrepareSeqNo == 1

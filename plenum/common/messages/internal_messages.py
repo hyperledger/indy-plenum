@@ -37,7 +37,9 @@ RequestPropagates = NamedTuple('RequestPropagates',
 StartMasterCatchup = NamedTuple('StartMasterCatchup', [])
 
 StartBackupCatchup = NamedTuple('StartBackupCatchup',
-                                [('caught_up_till_3pc', tuple)])
+                                [('inst_id', int),
+                                 ('caught_up_till_3pc', tuple)])
 
 Cleanup = NamedTuple('Cleanup',
-                     [('cleanup_till_3pc', tuple)])
+                     [('inst_id', int),
+                      ('cleanup_till_3pc', tuple)])

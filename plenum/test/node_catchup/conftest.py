@@ -62,7 +62,7 @@ def broken_node_and_others(txnPoolNodeSet):
 
     def brokenSendToReplica(msg, frm):
         logger.warning(
-            "{} is broken. 'sendToReplica' does nothing".format(node.name))
+            "{} is broken. 'sendToReplica' does nothing. {} from {}".format(node.name, msg, frm))
 
     node.nodeMsgRouter.extend(
         (

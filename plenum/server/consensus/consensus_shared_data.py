@@ -39,9 +39,8 @@ class ConsensusSharedData:
         self._validators = None
         self._quorums = None
         self.set_validators(validators)
-        self._low_watermark = 0
-        self.log_size = getConfig().LOG_SIZE
-        self.high_watermark = self.low_watermark + self.log_size
+        self.low_watermark = 0
+        self.high_watermark = self.low_watermark + getConfig().LOG_SIZE
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting
@@ -91,14 +90,3 @@ class ConsensusSharedData:
             return None
         else:
             return self.checkpoints[-1]
-
-    @property
-    def low_watermark(self):
-        return self._low_watermark
-
-    @low_watermark.setter
-    def low_watermark(self, value: int):
-        self._low_watermark = value
-        self.high_watermark = value + self.log_size
-        # self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
-        # self.stasher.unstash_watermarks()

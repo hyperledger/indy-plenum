@@ -97,7 +97,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.H == LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
-    assert slow_replica.stashed_checkpoints_with_quorum()
+    assert slow_replica._checkpointer._stashed_checkpoints_with_quorum()
 
     # Ensure that now there are 3PC-messages stashed
     # as laying outside of the watermarks
@@ -120,7 +120,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
-    assert not slow_replica.stashed_checkpoints_with_quorum()
+    assert not slow_replica._checkpointer._stashed_checkpoints_with_quorum()
 
     # Ensure that now there are no 3PC-messages stashed
     # as laying outside of the watermarks

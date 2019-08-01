@@ -21,8 +21,7 @@ def test_checkpoint_created(chkFreqPatched, looper, txnPoolNodeSet, sdk_pool_han
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                               chkFreqPatched.Max3PCBatchSize)
 
-    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + 30
-    looper.runFor(timeout)
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1, timeout=timeout))
 
 

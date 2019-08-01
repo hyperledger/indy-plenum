@@ -29,7 +29,7 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
 
     for n in txnPoolNodeSet:
         for r in n.replicas.values():
-            r.update_watermark_from_3pc()
+            r._checkpointer.update_watermark_from_3pc()
 
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
@@ -76,7 +76,7 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
 
 def _check_checkpoint_finalize(nodes, start_pp_seq_no, end_pp_seq_no):
     for n in nodes:
-        checkpoint = n.master_replica.checkpoints[(start_pp_seq_no, end_pp_seq_no)]
+        checkpoint = n.master_replica._checkpointer._checkpoint_state[(start_pp_seq_no, end_pp_seq_no)]
         assert checkpoint.isStable
 
 
