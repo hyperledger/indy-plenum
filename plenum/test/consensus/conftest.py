@@ -33,7 +33,7 @@ def primary(validators):
     def _primary_in_view(view_no):
         f = (len(validators) - 1) // 3
         return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
-                                                              validators=validators)
+                                                              validators=validators)[0]
 
     return _primary_in_view
 

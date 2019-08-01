@@ -58,6 +58,7 @@ class FakeNode:
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
+            2: Replica(node=self, instId=2, isMaster=False, config=self.config)
         }
         self.requiredNumberOfInstances = 2
         self._found = False
