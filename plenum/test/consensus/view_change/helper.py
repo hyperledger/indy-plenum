@@ -8,6 +8,7 @@ from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer
 from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
+from plenum.test.testing_utils import FakeSomething
 
 
 class SimPool:
@@ -18,7 +19,8 @@ class SimPool:
         validators = genNodeNames(node_count)
         primary_name = validators[0]
         self._nodes = [ReplicaService(name, validators, primary_name,
-                                      self._timer, InternalBus(), self.network.create_peer(name))
+                                      self._timer, InternalBus(), self.network.create_peer(name),
+                                      write_manager=FakeSomething(database_manager=None))
                        for name in validators]
 
     @property

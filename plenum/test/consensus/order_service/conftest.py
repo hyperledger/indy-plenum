@@ -1,67 +1,19 @@
 import pytest
-from unittest.mock import Mock
 from orderedset._orderedset import OrderedSet
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, POOL_LEDGER_ID
-from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
 from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
-from plenum.server.database_manager import DatabaseManager
-from plenum.server.request_managers.write_request_manager import WriteRequestManager
-from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
-from plenum.test.testing_utils import FakeSomething
-
-
-@pytest.fixture(params=[True, False])
-def is_master(request):
-    return request.param
+from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 
 @pytest.fixture()
-def internal_bus():
-    def rp_handler(ib, msg):
-        ib.msgs.setdefault(type(msg), []).append(msg)
-
-    ib = InternalBus()
-    ib.msgs = {}
-    ib.subscribe(RequestPropagates, rp_handler)
-    return InternalBus()
-
-@pytest.fixture()
-def external_bus():
-    send_handler = Mock()
-    return ExternalBus(send_handler=send_handler)
-
-@pytest.fixture()
-def bls_bft_replica():
-    return FakeSomething(gc=lambda *args, **kwargs: True,
-                         validate_pre_prepare=lambda *args, **kwargs: None,
-                         update_prepare=lambda params, lid: params,
-                         process_prepare=lambda *args, **kwargs: None,
-                         process_pre_prepare=lambda *args, **kwargs: None,
-                         validate_prepare=lambda *args, **kwargs: None,
-                         update_commit=lambda params, pre_prepare: params,
-                         process_commit=lambda *args, **kwargs: None)
-
-@pytest.fixture()
-def db_manager():
-    dbm = DatabaseManager()
-    return dbm
-
-@pytest.fixture()
-def write_manager(db_manager):
-    return WriteRequestManager(database_manager=db_manager)
-
-@pytest.fixture()
-def name():
-    return "OrderingService"
-
-@pytest.fixture()
-def orderer(consensus_data, internal_bus, external_bus, name, write_manager, txn_roots, state_roots, bls_bft_replica):
+def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
+            txn_roots, state_roots, bls_bft_replica):
+    is_master = True  # TODO: change to a fixture
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,

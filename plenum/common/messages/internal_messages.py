@@ -33,3 +33,11 @@ RemoveStashedCheckpoints = NamedTuple('RemoveStashedCheckpoints',
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
+
+StartMasterCatchup = NamedTuple('StartMasterCatchup', [])
+
+StartBackupCatchup = NamedTuple('StartBackupCatchup',
+                                [('caught_up_till_3pc', tuple)])
+
+Cleanup = NamedTuple('Cleanup',
+                     [('cleanup_till_3pc', tuple)])
