@@ -55,7 +55,7 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
     setattr(replica.node, 'viewNo', 2)
 
     # This shouldn't crash
-    replica._remove_stashed_checkpoints(till_3pc_key)
+    replica._checkpointer._remove_stashed_checkpoints(till_3pc_key)
 
 
 def test_last_prepared_none_if_no_prepares(replica):
