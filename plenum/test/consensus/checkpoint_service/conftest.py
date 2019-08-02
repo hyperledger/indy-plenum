@@ -13,13 +13,12 @@ def stasher(tconf):
 
 @pytest.fixture()
 def checkpoint_service(consensus_data, internal_bus, external_bus, name,
-                       bls_bft_replica, is_master, stasher, db_manager):
+                       bls_bft_replica, stasher, db_manager):
     checkpoint_service = CheckpointService(data=consensus_data(name),
                                            bus=internal_bus,
                                            network=external_bus,
                                            stasher=stasher,
                                            db_manager=db_manager,
-                                           old_stasher=FakeSomething(unstash_watermarks=lambda: None),
-                                           is_master=is_master)
+                                           old_stasher=FakeSomething(unstash_watermarks=lambda: None))
     checkpoint_service._data.node_mode = Mode.participating
     return checkpoint_service

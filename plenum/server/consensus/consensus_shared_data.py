@@ -17,12 +17,13 @@ class ConsensusSharedData:
     TODO: Restore primary name from audit ledger instead of passing through constructor
     """
 
-    def __init__(self, name: str, validators: List[str], inst_id: int):
+    def __init__(self, name: str, validators: List[str], inst_id: int, is_master: bool = True):
         self._name = name
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
         self.primaries = []
+        self.is_master = is_master
 
         self.legacy_vc_in_progress = False
         self.requests = Requests()

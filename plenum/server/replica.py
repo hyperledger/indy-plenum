@@ -467,7 +467,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._consensus_data = ConsensusSharedData(self.node.name,
                                                    self.node.get_validators(),
-                                                   self.instId)
+                                                   self.instId,
+                                                   self.isMaster)
         self._lastPrePrepareSeqNo = self._consensus_data.low_watermark  # type: int
 
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
@@ -2678,6 +2679,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def set_view_no(self, view_no):
         self._consensus_data.view_no = view_no
 
+    def set_view_change_status(self, legacy_vc_in_progress):
+        self._consensus_data.legacy_vc_in_progress = legacy_vc_in_progress
+
     def set_mode(self, mode):
         self._consensus_data.node_mode = mode
 
@@ -2687,8 +2691,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  network=self._external_bus,
                                  stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
                                  db_manager=self.node.db_manager,
-                                 old_stasher=self.stasher,
-                                 is_master=self.isMaster)
+                                 old_stasher=self.stasher)
 
     def _init_replica_stasher(self):
         return ReplicaStasher(self)

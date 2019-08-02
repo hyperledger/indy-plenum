@@ -47,9 +47,9 @@ def initial_checkpoints(initial_view_no):
 
 
 @pytest.fixture
-def consensus_data(validators, primary, initial_view_no, initial_checkpoints):
+def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is_master):
     def _data(name):
-        data = ConsensusSharedData(name, validators, 0)
+        data = ConsensusSharedData(name, validators, 0, is_master)
         data.view_no = initial_view_no
         data.checkpoints.update(initial_checkpoints)
         return data

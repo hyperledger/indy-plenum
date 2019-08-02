@@ -3565,3 +3565,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         internal_bus = InternalBus()
         internal_bus.subscribe(StartMasterCatchup, self._process_start_master_catchup_msg)
         return internal_bus
+
+    def set_view_change_status(self, value: bool):
+        """
+        Remove this method after a PBFT ViewChange integration
+        """
+        for r in self.replicas.values():
+            r.set_view_change_status(value)

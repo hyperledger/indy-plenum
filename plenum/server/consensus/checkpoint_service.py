@@ -15,6 +15,7 @@ from plenum.common.metrics_collector import MetricsName
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_stasher import ReplicaStasher
@@ -26,14 +27,12 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
-                 is_master=True):
+                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher):
         self._data = data
         self._bus = bus
         self._network = network
         self._checkpoint_state = SortedDict(lambda k: k[1])
         self._stasher = stasher
-        self._is_master = is_master
         self._validator = CheckpointMsgValidator(self._data)
         self._db_manager = db_manager
 
@@ -58,13 +57,21 @@ class CheckpointService:
     @property
     def view_no(self):
         return self._data.view_no
+    
+    @property
+    def is_master(self):
+        return self._data.is_master
+    
+    @property
+    def view_no(self):
+        return self._data.view_no
 
     @property
     def last_ordered_3pc(self):
         return self._data.last_ordered_3pc
 
-    # @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
-    #                       MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
+    @measure_consensus_time(MetricsName.PROCESS_CHECKPOINT_TIME,
+                            MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
     def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
@@ -102,7 +109,7 @@ class CheckpointService:
         checkpoint_state = self._checkpoint_state[key]
         # Raise the error only if master since only master's last
         # ordered 3PC is communicated during view change
-        if self._is_master and checkpoint_state.digest != msg.digest:
+        if self.is_master and checkpoint_state.digest != msg.digest:
             self._logger.warning("{} received an incorrect digest {} for "
                                  "checkpoint {} from {}".format(self, msg.digest, key, sender))
             return True
@@ -138,7 +145,7 @@ class CheckpointService:
         if not is_stashed_enough:
             return
 
-        if self._is_master:
+        if self.is_master:
             self._logger.display(
                 '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
                     self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
@@ -195,8 +202,8 @@ class CheckpointService:
                 self._do_checkpoint(state, s, e, ledger_id, view_no)
             self._process_stashed_checkpoints((s, e), view_no)
 
-    # @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
-    #                       MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
+    @measure_consensus_time(MetricsName.SEND_CHECKPOINT_TIME,
+                            MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
     def _do_checkpoint(self, state, s, e, ledger_id, view_no):
         # TODO CheckpointState/Checkpoint is not a namedtuple anymore
         # 1. check if updateNamedTuple works for the new message type
