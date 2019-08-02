@@ -57,14 +57,10 @@ class CheckpointService:
     @property
     def view_no(self):
         return self._data.view_no
-    
+
     @property
     def is_master(self):
         return self._data.is_master
-    
-    @property
-    def view_no(self):
-        return self._data.view_no
 
     @property
     def last_ordered_3pc(self):
