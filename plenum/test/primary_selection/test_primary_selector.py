@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import base58
 import pytest
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 
@@ -80,6 +81,7 @@ class FakeNode:
         self.ledgerManager.last_caught_up_3PC = (0, 0)
         self.master_last_ordered_3PC = (0, 0)
         self.seqNoDB = {}
+        self.internal_bus = InternalBus()
 
         # callbacks
         self.onBatchCreated = lambda self, *args, **kwargs: True

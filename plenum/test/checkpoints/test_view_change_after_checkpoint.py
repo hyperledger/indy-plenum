@@ -50,11 +50,11 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
             # assert not r.checkpoints
             # No stashed checkpoint for previous view
             assert not [view_no for view_no in r._checkpointer._stashed_recvd_checkpoints if view_no < r.viewNo]
-            assert r._h == 0
+            assert r.h == 0
             # from audit txn
             assert r._lastPrePrepareSeqNo == 1
             assert r.h == 0
-            assert r.H == r._h + chkFreqPatched.LOG_SIZE
+            assert r.H == r.h + chkFreqPatched.LOG_SIZE
 
     # All this manipulations because after view change we will send an empty batch for auditing
     checkRequestCounts(txnPoolNodeSet, 0, 1)
