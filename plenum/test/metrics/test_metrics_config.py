@@ -19,7 +19,8 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
     total_iters = 5
     iter_time = total_time / total_iters
 
-    for _ in range(total_iters):
+    for i in range(total_iters):
+        print(i)
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 15)
         looper.runFor(iter_time)
 

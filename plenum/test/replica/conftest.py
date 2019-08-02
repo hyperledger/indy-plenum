@@ -1,6 +1,7 @@
 import pytest
 from orderedset._orderedset import OrderedSet
 
+from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID
@@ -40,7 +41,8 @@ class ReplicaFakeNode(FakeSomething):
             primaries_batch_needed=False,
             primaries=[],
             get_validators=lambda: [],
-            db_manager=None
+            db_manager=None,
+            internal_bus=InternalBus()
         )
 
     @property

@@ -2680,7 +2680,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER, len(self.master_replica.checkpoints))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
+                               len(self.master_replica._consensus_data.checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
                                sum_for_values(self.master_replica._checkpointer._stashed_recvd_checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
