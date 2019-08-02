@@ -137,6 +137,9 @@ class FakeNode:
     def num_txns_caught_up_in_last_catchup(self):
         return Node.num_txns_caught_up_in_last_catchup(self)
 
+    def set_view_change_status(self, value):
+        return Node.set_view_change_status(self, value)
+
     def mark_request_as_executed(self, request):
         Node.mark_request_as_executed(self, request)
 
