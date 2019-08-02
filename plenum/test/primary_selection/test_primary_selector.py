@@ -7,6 +7,7 @@ from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LED
 from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.database_manager import DatabaseManager
 
 from plenum.server.propagator import Requests
 
@@ -45,6 +46,8 @@ class FakeNode:
     def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
+        self.internal_bus = InternalBus()
+        self.db_manager = DatabaseManager()
         self.timer = QueueTimer()
         self.f = 1
         self.replicas = dict()
@@ -81,7 +84,6 @@ class FakeNode:
         self.ledgerManager.last_caught_up_3PC = (0, 0)
         self.master_last_ordered_3PC = (0, 0)
         self.seqNoDB = {}
-        self.internal_bus = InternalBus()
 
         # callbacks
         self.onBatchCreated = lambda self, *args, **kwargs: True

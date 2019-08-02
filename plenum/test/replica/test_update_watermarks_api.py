@@ -59,7 +59,7 @@ def test_catchup_clear_for_backup(replica):
 def test_reset_watermarks_before_new_view_on_master(replica, tconf):
     replica.isMaster = True
     replica._checkpointer.set_watermarks(low_watermark=100)
-    replica._reset_watermarks_before_new_view()
+    replica._checkpointer.reset_watermarks_before_new_view()
     assert replica.h == 0
     assert replica.H == tconf.LOG_SIZE
     assert replica._lastPrePrepareSeqNo == replica.h
@@ -68,7 +68,7 @@ def test_reset_watermarks_before_new_view_on_master(replica, tconf):
 def test_reset_watermarks_before_new_view_non_master(replica, tconf):
     replica.isMaster = False
     replica._checkpointer.set_watermarks(low_watermark=100)
-    replica._reset_watermarks_before_new_view()
+    replica._checkpointer.reset_watermarks_before_new_view()
     assert replica.h == 0
     assert replica.H == tconf.LOG_SIZE
     assert replica._lastPrePrepareSeqNo == replica.h

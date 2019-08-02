@@ -450,11 +450,13 @@ replica_spyables = [
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stasher = TestReplicaStasher(self)
         # Each TestReplica gets it's own outbox stasher, all of which TestNode
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
+
+    def _init_replica_stasher(self):
+        return TestReplicaStasher(self)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,

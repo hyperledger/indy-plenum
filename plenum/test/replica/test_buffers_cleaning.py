@@ -1,5 +1,6 @@
 from plenum.common.event_bus import InternalBus
 from plenum.common.util import get_utc_epoch
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
 
@@ -13,7 +14,8 @@ def test_ordered_cleaning(tconf):
         viewNo=global_view_no,
         utc_epoch=get_utc_epoch,
         get_validators=lambda: [],
-        internal_bus=InternalBus()
+        internal_bus=InternalBus(),
+        db_manager=DatabaseManager()
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -45,6 +47,8 @@ def test_primary_names_cleaning(tconf):
         viewNo=0,
         utc_epoch=get_utc_epoch,
         get_validators=lambda: [],
+        internal_bus=InternalBus(),
+        db_manager=DatabaseManager()
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,

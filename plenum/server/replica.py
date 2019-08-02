@@ -299,7 +299,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
         self.validator = ReplicaValidator(self)
-        self.stasher = ReplicaStasher(self)
+        self.stasher = self._init_replica_stasher()
 
         self.outBox = deque()
         """
@@ -2689,6 +2689,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  db_manager=self.node.db_manager,
                                  old_stasher=self.stasher,
                                  is_master=self.isMaster)
+
+    def _init_replica_stasher(self):
+        return ReplicaStasher(self)
 
     def _cleanup_process(self, msg: Cleanup):
         if msg.inst_id != self.instId:
