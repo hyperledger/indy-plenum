@@ -489,7 +489,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             (Commit, self.processCommit)
         )
 
-
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
         # the request key is removed, so fast lookup and removal of
