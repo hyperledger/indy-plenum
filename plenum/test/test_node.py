@@ -458,7 +458,7 @@ class TestReplica(replica.Replica):
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,
-                                     bus=InternalBus(),
+                                     bus=self.node.internal_bus,
                                      network=self._external_bus,
                                      stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
                                      db_manager=self.node.db_manager,
@@ -470,6 +470,7 @@ checkpointer_spyables = [
     CheckpointService.set_watermarks,
     CheckpointService._mark_checkpoint_stable,
     CheckpointService.process_checkpoint,
+    CheckpointService.discard,
 ]
 
 

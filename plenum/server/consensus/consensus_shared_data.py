@@ -40,7 +40,8 @@ class ConsensusSharedData:
         self._quorums = None
         self.set_validators(validators)
         self.low_watermark = 0
-        self.high_watermark = self.low_watermark + getConfig().LOG_SIZE
+        self.log_size = getConfig().LOG_SIZE
+        self.high_watermark = self.low_watermark + self.log_size
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting

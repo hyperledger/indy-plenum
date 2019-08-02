@@ -73,16 +73,15 @@ class CheckpointService:
         self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         result, reason = self._validator.validate(msg)
         if result == DISCARD:
-            self._logger.trace("{} discard message {} from {} "
-                               "with the reason: {}".format(self, msg, sender, reason))
+            self.discard(msg, reason, sender)
+            return False
         elif result == PROCESS:
-            self._do_process_checkpoint(msg, sender)
+            return self._do_process_checkpoint(msg, sender)
         else:
             self._logger.debug("{} stashing checkpoint message {} with "
                                "the reason: {}".format(self, msg, reason))
             self._old_stasher.stash((msg, sender), result)
             return False
-        return True
 
     def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
@@ -169,7 +168,7 @@ class CheckpointService:
     def caught_up_till_3pc(self, caught_up_till_3pc):
         self._reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=caught_up_till_3pc)
-        self.update_watermark_from_3pc(caught_up_till_3pc)
+        self.update_watermark_from_3pc()
 
     def catchup_clear_for_backup(self):
         self._reset_checkpoints()
@@ -344,9 +343,8 @@ class CheckpointService:
                                                               self._data.high_watermark))
         self._old_stasher.unstash_watermarks()
 
-    def update_watermark_from_3pc(self, last_ordered_3pc=None):
-        if True or last_ordered_3pc is None:
-            last_ordered_3pc = self.last_ordered_3pc
+    def update_watermark_from_3pc(self):
+        last_ordered_3pc = self.last_ordered_3pc
         if (last_ordered_3pc is not None) and (last_ordered_3pc[0] == self.view_no):
             self._logger.info("update_watermark_from_3pc to {}".format(last_ordered_3pc))
             self.set_watermarks(last_ordered_3pc[1])
@@ -404,3 +402,7 @@ class CheckpointService:
     # def _clear_batch_till_seq_no(self, seq_no):
     #     self._data.preprepared = [pp for pp in self._data.preprepared if pp.ppSeqNo >= seq_no]
     #     self._data.prepared = [p for p in self._data.prepared if p.ppSeqNo >= seq_no]
+
+    def discard(self, msg, reason, sender):
+        self._logger.trace("{} discard message {} from {} "
+                           "with the reason: {}".format(self, msg, sender, reason))
