@@ -11,7 +11,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import StartMasterCatchup, StartBackupCatchup, Cleanup
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
-from plenum.common.metrics_collector import MetricsName
+from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
@@ -27,7 +27,8 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher):
+                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
+                 metrics: MetricsCollector = NullMetricsCollector(),):
         self._data = data
         self._bus = bus
         self._network = network
@@ -35,6 +36,7 @@ class CheckpointService:
         self._stasher = stasher
         self._validator = CheckpointMsgValidator(self._data)
         self._db_manager = db_manager
+        self.metrics = metrics
 
         # Stashed checkpoints for each view. The key of the outermost
         # dictionary is the view_no, value being a dictionary with key as the

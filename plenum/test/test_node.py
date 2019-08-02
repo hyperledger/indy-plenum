@@ -464,7 +464,8 @@ class TestReplica(replica.Replica):
                                      network=self._external_bus,
                                      stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
                                      db_manager=self.node.db_manager,
-                                     old_stasher=self.stasher)
+                                     old_stasher=self.stasher,
+                                     metrics=self.metrics)
 
 
 checkpointer_spyables = [

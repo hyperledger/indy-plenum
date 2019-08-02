@@ -102,3 +102,7 @@ def validator(consensus_data):
 def primary_orderer(orderer):
     orderer.name = orderer.primary_name
     return orderer
+
+@pytest.fixture()
+def name():
+    return "OrderingService"

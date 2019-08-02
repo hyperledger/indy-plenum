@@ -151,8 +151,3 @@ def db_manager():
 @pytest.fixture()
 def write_manager(db_manager):
     return WriteRequestManager(database_manager=db_manager)
-
-
-@pytest.fixture()
-def name():
-    return "OrderingService"

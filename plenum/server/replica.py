@@ -2691,7 +2691,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  network=self._external_bus,
                                  stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
                                  db_manager=self.node.db_manager,
-                                 old_stasher=self.stasher)
+                                 old_stasher=self.stasher,
+                                 metrics=self.metrics)
 
     def _init_replica_stasher(self):
         return ReplicaStasher(self)
