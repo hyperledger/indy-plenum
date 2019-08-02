@@ -2,7 +2,7 @@ import pytest
 
 from common.exceptions import LogicError
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.internal_messages import Cleanup, StartBackupCatchup, StartMasterCatchup
+from plenum.common.messages.internal_messages import CheckpointStabilized, StartBackupCatchup, StartMasterCatchup
 from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare, CheckpointState
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
@@ -138,7 +138,7 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
 def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, ordered, validators, is_master):
     global caught_msg
     caught_msg = None
-    checkpoint_service._bus.subscribe(Cleanup, catch_msg)
+    checkpoint_service._bus.subscribe(CheckpointStabilized, catch_msg)
     quorum = checkpoint_service._data.quorums.checkpoint.value
     n = len(validators)
     assert quorum == n - getMaxFailures(n) - 1
@@ -185,8 +185,8 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     assert checkpoint_service._data.low_watermark == checkpoint.seqNoEnd
 
     # check that a Cleanup msg has been sent
-    assert isinstance(caught_msg, Cleanup)
-    assert caught_msg.cleanup_till_3pc == (checkpoint.viewNo, checkpoint.seqNoEnd)
+    assert isinstance(caught_msg, CheckpointStabilized)
+    assert caught_msg.last_stable_3pc == (checkpoint.viewNo, checkpoint.seqNoEnd)
 
     # check that old checkpoint_states has been removed
     assert old_key not in checkpoint_service._checkpoint_state

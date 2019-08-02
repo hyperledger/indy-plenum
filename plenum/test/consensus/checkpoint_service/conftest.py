@@ -12,9 +12,9 @@ def stasher(tconf):
 
 
 @pytest.fixture()
-def checkpoint_service(consensus_data, internal_bus, external_bus, name,
+def checkpoint_service(consensus_data, internal_bus, external_bus,
                        bls_bft_replica, stasher, db_manager):
-    checkpoint_service = CheckpointService(data=consensus_data(name),
+    checkpoint_service = CheckpointService(data=consensus_data("CheckpointService"),
                                            bus=internal_bus,
                                            network=external_bus,
                                            stasher=stasher,

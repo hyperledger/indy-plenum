@@ -40,6 +40,6 @@ StartBackupCatchup = NamedTuple('StartBackupCatchup',
                                 [('inst_id', int),
                                  ('caught_up_till_3pc', tuple)])
 
-Cleanup = NamedTuple('Cleanup',
-                     [('inst_id', int),
-                      ('cleanup_till_3pc', tuple)])
+CheckpointStabilized = NamedTuple('CheckpointStabilized',
+                                  [('inst_id', int),
+                                   ('last_stable_3pc', tuple)])

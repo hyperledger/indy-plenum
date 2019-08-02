@@ -9,7 +9,7 @@ from common.exceptions import LogicError
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import StartMasterCatchup, StartBackupCatchup, Cleanup
+from plenum.common.messages.internal_messages import StartMasterCatchup, StartBackupCatchup, CheckpointStabilized
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
@@ -246,7 +246,7 @@ class CheckpointService:
             self._logger.trace("{} removing previous checkpoint {}".format(self, k))
             self._checkpoint_state.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, seqNo))
-        self._bus.send(Cleanup(self._data.inst_id, (self.view_no, seqNo)))  # call OrderingService.l_gc()
+        self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, seqNo)))  # call OrderingService.l_gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def _check_if_checkpoint_stable(self, key: Tuple[int, int]):

@@ -28,7 +28,7 @@ from plenum.common.exceptions import SuspiciousNode, \
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import StartBackupCatchup, StartMasterCatchup, Cleanup
+from plenum.common.messages.internal_messages import StartBackupCatchup, StartMasterCatchup, CheckpointStabilized
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -2697,11 +2697,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _init_replica_stasher(self):
         return ReplicaStasher(self)
 
-    def _cleanup_process(self, msg: Cleanup):
+    def _cleanup_process(self, msg: CheckpointStabilized):
         if msg.inst_id != self.instId:
             return
-        self._gc(msg.cleanup_till_3pc)
+        self._gc(msg.last_stable_3pc)
 
     def _subscribe_to_internal_msgs(self):
         self.node.internal_bus.subscribe(StartBackupCatchup, self._caught_up_backup)
-        self.node.internal_bus.subscribe(Cleanup, self._cleanup_process)
+        self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)
