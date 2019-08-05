@@ -9,7 +9,7 @@ from common.exceptions import LogicError
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import StartMasterCatchup, StartBackupCatchup, CheckpointStabilized
+from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
@@ -54,7 +54,6 @@ class CheckpointService:
         # self._stasher.subscribe_to(network)
         #
         # self._bus.subscribe(Ordered, self.process_ordered)
-        # self._bus.subscribe(StartBackupCatchup, self.caught_up_till_3pc)
 
     @property
     def view_no(self):
@@ -152,7 +151,7 @@ class CheckpointService:
                 self._logger.display(
                     '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
                         self, lag_in_checkpoints))
-                self._bus.send(StartMasterCatchup())
+                self._bus.send(NeedMasterCatchup())
         else:
             self._logger.info(
                 '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
@@ -162,8 +161,8 @@ class CheckpointService:
             # collections and process stashed messages which now fit between
             # watermarks
             key_3pc = (self.view_no, stashed_checkpoint_ends[-1])
-            self._bus.send(StartBackupCatchup(inst_id=self._data.inst_id,
-                                              caught_up_till_3pc=key_3pc))
+            self._bus.send(NeedBackupCatchup(inst_id=self._data.inst_id,
+                                             caught_up_till_3pc=key_3pc))
             self.caught_up_till_3pc(key_3pc)
 
     def gc_before_new_view(self):

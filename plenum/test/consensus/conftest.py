@@ -125,12 +125,6 @@ def internal_bus():
 
 
 @pytest.fixture()
-def external_bus():
-    send_handler = Mock()
-    return ExternalBus(send_handler=send_handler)
-
-
-@pytest.fixture()
 def bls_bft_replica():
     return FakeSomething(gc=lambda *args, **kwargs: True,
                          validate_pre_prepare=lambda *args, **kwargs: None,

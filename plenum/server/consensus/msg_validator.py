@@ -9,59 +9,14 @@ from plenum.server.replica_validator_enums import DISCARD, INCORRECT_PP_SEQ_NO, 
     OUTSIDE_WATERMARKS, INCORRECT_INSTANCE, ALREADY_STABLE
 
 
-class AbstractMsgValidator(metaclass=ABCMeta):
+class ThreePCMsgValidator:
+
     def __init__(self, data: ConsensusSharedData):
         self._data = data
 
-    @property
-    def view_no(self):
-        return self._data.view_no
-
-    @property
-    def inst_id(self):
-        return self._data.inst_id
-
-    @property
-    def low_watermark(self):
-        return self._data.low_watermark
-
-    @property
-    def high_watermark(self):
-        return self._data.high_watermark
-
-    @property
-    def legacy_last_prepared_sertificate(self):
-        """
-        We assume, that prepared list is an ordered list, and the last element is
-        the last quorumed Prepared
-        """
-        if self._data.prepared:
-            last_prepared = self._data.prepared[-1]
-            return last_prepared.view_no, last_prepared.pp_seq_no
-        return self.last_ordered_3pc
-
-    @property
-    def last_ordered_3pc(self):
-        return self._data.last_ordered_3pc
-
-    @property
-    def is_participating(self):
-        return self._data.is_participating
-
-    @property
-    def legacy_vc_in_progress(self):
-        return self._data.legacy_vc_in_progress
-
     def has_already_ordered(self, view_no, pp_seq_no):
         return compare_3PC_keys((view_no, pp_seq_no),
-                                self.last_ordered_3pc) >= 0
-
-    @abstractmethod
-    def validate(self, msg):
-        pass
-
-
-class ThreePCMsgValidator(AbstractMsgValidator):
+                                self._data.last_ordered_3pc) >= 0
 
     def validate(self, msg):
         view_no = getattr(msg, f.VIEW_NO.nm, None)
@@ -82,46 +37,49 @@ class ThreePCMsgValidator(AbstractMsgValidator):
             return DISCARD, ALREADY_ORDERED
 
         # 4. Check viewNo
-        if view_no > self.view_no:
+        if view_no > self._data.view_no:
             return STASH_VIEW, FUTURE_VIEW
-        if view_no < self.view_no - 1:
+        if view_no < self._data.view_no - 1:
             return DISCARD, OLD_VIEW
-        if view_no == self.view_no - 1:
+        if view_no == self._data.view_no - 1:
             if not isinstance(msg, Commit):
                 return DISCARD, OLD_VIEW
-            if not self.legacy_vc_in_progress:
+            if not self._data.legacy_vc_in_progress:
                 return DISCARD, OLD_VIEW
             if self._data.legacy_last_prepared_before_view_change is None:
                 return DISCARD, OLD_VIEW
             if compare_3PC_keys((view_no, pp_seq_no), self._data.legacy_last_prepared_before_view_change) < 0:
                 return DISCARD, GREATER_PREP_CERT
-        if view_no == self.view_no and self.legacy_vc_in_progress:
+        if view_no == self._data.view_no and self._data.legacy_vc_in_progress:
             return STASH_VIEW, FUTURE_VIEW
 
         # ToDo: we assume, that only is_participating needs checking orderability
         # If Catchup in View Change finished then process Commit messages
-        if self._data.is_synced and self.legacy_vc_in_progress:
+        if self._data.is_synced and self._data.legacy_vc_in_progress:
             return PROCESS, None
 
         # 5. Check if Participating
-        if not self.is_participating:
+        if not self._data.is_participating:
             return STASH_CATCH_UP, CATCHING_UP
 
         # 6. Check watermarks
-        if not (self.low_watermark < pp_seq_no <= self.high_watermark):
+        if not (self._data.low_watermark < pp_seq_no <= self._data.high_watermark):
             return STASH_WATERMARKS, OUTSIDE_WATERMARKS
 
         return PROCESS, None
 
 
-class CheckpointMsgValidator(AbstractMsgValidator):
+class CheckpointMsgValidator:
+
+    def __init__(self, data: ConsensusSharedData):
+        self._data = data
 
     def validate(self, msg):
         inst_id = getattr(msg, f.INST_ID.nm, None)
         view_no = getattr(msg, f.VIEW_NO.nm, None)
 
         # 1. Check INSTANCE_ID
-        if inst_id is None or inst_id != self.inst_id:
+        if inst_id is None or inst_id != self._data.inst_id:
             return DISCARD, INCORRECT_INSTANCE
 
         # 2. Check if already stable
@@ -129,17 +87,17 @@ class CheckpointMsgValidator(AbstractMsgValidator):
             return DISCARD, ALREADY_STABLE
 
         # 3. Check if from old view
-        if view_no < self.view_no:
+        if view_no < self._data.view_no:
             return DISCARD, OLD_VIEW
 
         # 4. Check if from future view
-        if view_no > self.view_no:
+        if view_no > self._data.view_no:
             return STASH_VIEW, FUTURE_VIEW
-        if view_no == self.view_no and self.legacy_vc_in_progress:
+        if view_no == self._data.view_no and self._data.legacy_vc_in_progress:
             return STASH_VIEW, FUTURE_VIEW
 
         # 3. Check if Participating
-        if not self.is_participating:
+        if not self._data.is_participating:
             return STASH_CATCH_UP, CATCHING_UP
 
         return PROCESS, None

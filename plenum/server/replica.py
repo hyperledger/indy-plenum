@@ -28,7 +28,7 @@ from plenum.common.exceptions import SuspiciousNode, \
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import StartBackupCatchup, StartMasterCatchup, CheckpointStabilized
+from plenum.common.messages.internal_messages import NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -2569,7 +2569,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.first_batch_after_catchup = True
         self.stasher.unstash_catchup()
 
-    def _caught_up_backup(self, msg: StartBackupCatchup):
+    def _caught_up_backup(self, msg: NeedBackupCatchup):
         if self.instId != msg.inst_id:
             return
         self._caught_up_till_3pc(msg.caught_up_till_3pc)
@@ -2703,5 +2703,5 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._gc(msg.last_stable_3pc)
 
     def _subscribe_to_internal_msgs(self):
-        self.node.internal_bus.subscribe(StartBackupCatchup, self._caught_up_backup)
+        self.node.internal_bus.subscribe(NeedBackupCatchup, self._caught_up_backup)
         self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)

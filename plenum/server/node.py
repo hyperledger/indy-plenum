@@ -11,7 +11,7 @@ import gc
 import psutil
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import StartBackupCatchup, StartMasterCatchup
+from plenum.common.messages.internal_messages import NeedBackupCatchup, NeedMasterCatchup
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -3558,12 +3558,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for r in self.replicas.values():
             r.set_view_no(view_no)
 
-    def _process_start_master_catchup_msg(self, msg: StartMasterCatchup):
+    def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
     def _init_internal_bus(self):
         internal_bus = InternalBus()
-        internal_bus.subscribe(StartMasterCatchup, self._process_start_master_catchup_msg)
+        internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
         return internal_bus
 
     def set_view_change_status(self, value: bool):
