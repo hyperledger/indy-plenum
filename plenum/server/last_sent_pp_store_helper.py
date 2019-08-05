@@ -76,7 +76,9 @@ class LastSentPpStoreHelper:
         replica = self.node.replicas[inst_id]
         replica.lastPrePrepareSeqNo = pair_3pc[1]
         replica.last_ordered_3pc = (pair_3pc[0], pair_3pc[1])
-        replica.update_watermark_from_3pc()
+        # TODO: add the method update_watermark_from_3pc to replica
+        # or solve this problem better
+        replica._checkpointer.update_watermark_from_3pc()
 
     def _save_last_stored(self, value: Dict):
         serialized_value = node_status_db_serializer.serialize(value)

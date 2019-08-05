@@ -1,8 +1,10 @@
+from unittest.mock import Mock
+
 import pytest
 
 from common.exceptions import LogicError
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.internal_messages import Cleanup, StartBackupCatchup, StartMasterCatchup
+from plenum.common.messages.internal_messages import CheckpointStabilized, NeedBackupCatchup, NeedMasterCatchup
 from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare, CheckpointState
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
@@ -47,14 +49,6 @@ def checkpoint(ordered, tconf):
                       digest='digest')
 
 
-caught_msg = None
-
-
-def catch_msg(msg):
-    global caught_msg
-    caught_msg = msg
-
-
 def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint, tconf, is_master):
     key = (checkpoint.seqNoStart, checkpoint.seqNoEnd)
     sender = "sender"
@@ -69,10 +63,10 @@ def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint
 
 def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, checkpoint, pre_prepare,
                                                         tconf, ordered, validators, is_master):
-    global caught_msg
-    caught_msg = None
-    checkpoint_service._bus.subscribe(StartMasterCatchup, catch_msg)
-    checkpoint_service._bus.subscribe(StartBackupCatchup, catch_msg)
+    master_catchup_handler = Mock()
+    backup_catchup_handler = Mock()
+    checkpoint_service._bus.subscribe(NeedMasterCatchup, master_catchup_handler)
+    checkpoint_service._bus.subscribe(NeedBackupCatchup, backup_catchup_handler)
 
     quorum = checkpoint_service._data.quorums.checkpoint.value
     print(quorum)
@@ -101,10 +95,11 @@ def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, chec
 
     if is_master:
         assert checkpoint_service._data.low_watermark == key[1]
-        assert isinstance(caught_msg, StartMasterCatchup)
+        master_catchup_handler.assert_called_once_with(NeedMasterCatchup())
     else:
-        assert isinstance(caught_msg, StartBackupCatchup)
-        assert caught_msg.caught_up_till_3pc == (checkpoint_service.view_no, key[1])
+        backup_catchup_handler.assert_called_once_with(NeedBackupCatchup(inst_id=checkpoint_service._data.inst_id,
+                                                                         caught_up_till_3pc=(checkpoint_service.view_no,
+                                                                                             key[1])))
 
 
 def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
@@ -124,7 +119,8 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
                                                                 False)
     checkpoint_service._data.checkpoints.append(checkpoint)
 
-    checkpoint_service.caught_up_till_3pc((checkpoint_service.view_no, key[1]))
+    checkpoint_service._data.last_ordered_3pc = (checkpoint_service.view_no, key[1])
+    checkpoint_service.caught_up_till_3pc(checkpoint_service._data.last_ordered_3pc)
 
     assert checkpoint_service._data.low_watermark == key[1]
     assert not checkpoint_service._checkpoint_state
@@ -135,9 +131,8 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
 
 
 def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, ordered, validators, is_master):
-    global caught_msg
-    caught_msg = None
-    checkpoint_service._bus.subscribe(Cleanup, catch_msg)
+    checkpoint_stabilized_handler = Mock()
+    checkpoint_service._bus.subscribe(CheckpointStabilized, checkpoint_stabilized_handler)
     quorum = checkpoint_service._data.quorums.checkpoint.value
     n = len(validators)
     assert quorum == n - getMaxFailures(n) - 1
@@ -184,8 +179,9 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     assert checkpoint_service._data.low_watermark == checkpoint.seqNoEnd
 
     # check that a Cleanup msg has been sent
-    assert isinstance(caught_msg, Cleanup)
-    assert caught_msg.cleanup_till_3pc == (checkpoint.viewNo, checkpoint.seqNoEnd)
+    checkpoint_stabilized_handler.assert_called_once_with(
+        CheckpointStabilized(inst_id=checkpoint_service._data.inst_id,
+                             last_stable_3pc=(checkpoint.viewNo, checkpoint.seqNoEnd)))
 
     # check that old checkpoint_states has been removed
     assert old_key not in checkpoint_service._checkpoint_state

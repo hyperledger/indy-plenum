@@ -52,7 +52,7 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
                           fast_nodes,
                           1, CHK_FREQ))
     for n in slow_nodes:
-        assert not n.master_replica.checkpoints[(1, CHK_FREQ)].isStable
+        assert not n.master_replica._checkpointer._checkpoint_state[(1, CHK_FREQ)].isStable
 
     # View change start emulation for change viewNo and fix last prepare
     # certificate, because if we start a real view change then checkpoints will
@@ -69,7 +69,7 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
         node.viewNo -= 1
     ensure_view_change(looper, txnPoolNodeSet)
     for n in slow_nodes:
-        assert not n.master_replica.checkpoints[(1, CHK_FREQ)].isStable
+        assert not n.master_replica._checkpointer._checkpoint_state[(1, CHK_FREQ)].isStable
     # Check ordering the last txn before catchup. Check client reply is enough
     # because slow_nodes contains 3 nodes and without their replies sdk method
     # for get reply will not successfully finish.
@@ -81,7 +81,7 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     # check view change finish and checkpoints were cleaned
     ensureElectionsDone(looper, txnPoolNodeSet)
     for n in slow_nodes:
-        assert (1, CHK_FREQ) not in n.master_replica.checkpoints
+        assert (1, CHK_FREQ) not in n.master_replica._checkpointer._checkpoint_state
     # check that all nodes have same data after new txns ordering
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, CHK_FREQ)
@@ -108,7 +108,7 @@ def last_prepared_certificate(nodes, num):
 
 def check_checkpoint_finalize(nodes, start_pp_seq_no, end_pp_seq_no):
     for n in nodes:
-        checkpoint = n.master_replica.checkpoints[(start_pp_seq_no, end_pp_seq_no)]
+        checkpoint = n.master_replica._checkpointer._checkpoint_state[(start_pp_seq_no, end_pp_seq_no)]
         assert checkpoint.isStable
 
 

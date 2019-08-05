@@ -17,12 +17,13 @@ class ConsensusSharedData:
     TODO: Restore primary name from audit ledger instead of passing through constructor
     """
 
-    def __init__(self, name: str, validators: List[str], inst_id: int):
+    def __init__(self, name: str, validators: List[str], inst_id: int, is_master: bool = True):
         self._name = name
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
         self.primaries = []
+        self.is_master = is_master
 
         self.legacy_vc_in_progress = False
         self.requests = Requests()
@@ -39,7 +40,7 @@ class ConsensusSharedData:
         self._validators = None
         self._quorums = None
         self.set_validators(validators)
-        self._low_watermark = 0
+        self.low_watermark = 0
         self.log_size = getConfig().LOG_SIZE
         self.high_watermark = self.low_watermark + self.log_size
         self.pp_seq_no = 0
@@ -91,14 +92,3 @@ class ConsensusSharedData:
             return None
         else:
             return self.checkpoints[-1]
-
-    @property
-    def low_watermark(self):
-        return self._low_watermark
-
-    @low_watermark.setter
-    def low_watermark(self, value: int):
-        self._low_watermark = value
-        self.high_watermark = value + self.log_size
-        # self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
-        # self.stasher.unstash_watermarks()

@@ -4,8 +4,10 @@ from contextlib import ExitStack
 import base58
 import pytest
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.database_manager import DatabaseManager
 
 from plenum.server.propagator import Requests
 
@@ -44,6 +46,8 @@ class FakeNode:
     def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
+        self.internal_bus = InternalBus()
+        self.db_manager = DatabaseManager()
         self.timer = QueueTimer()
         self.f = 1
         self.replicas = dict()
@@ -132,6 +136,9 @@ class FakeNode:
 
     def num_txns_caught_up_in_last_catchup(self):
         return Node.num_txns_caught_up_in_last_catchup(self)
+
+    def set_view_change_status(self, value):
+        return Node.set_view_change_status(self, value)
 
     def mark_request_as_executed(self, request):
         Node.mark_request_as_executed(self, request)

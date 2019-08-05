@@ -47,9 +47,9 @@ def initial_checkpoints(initial_view_no):
 
 
 @pytest.fixture
-def consensus_data(validators, primary, initial_view_no, initial_checkpoints):
+def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is_master):
     def _data(name):
-        data = ConsensusSharedData(name, validators, 0)
+        data = ConsensusSharedData(name, validators, 0, is_master)
         data.view_no = initial_view_no
         data.checkpoints.update(initial_checkpoints)
         return data
@@ -125,12 +125,6 @@ def internal_bus():
 
 
 @pytest.fixture()
-def external_bus():
-    send_handler = Mock()
-    return ExternalBus(send_handler=send_handler)
-
-
-@pytest.fixture()
 def bls_bft_replica():
     return FakeSomething(gc=lambda *args, **kwargs: True,
                          validate_pre_prepare=lambda *args, **kwargs: None,
@@ -151,8 +145,3 @@ def db_manager():
 @pytest.fixture()
 def write_manager(db_manager):
     return WriteRequestManager(database_manager=db_manager)
-
-
-@pytest.fixture()
-def name():
-    return "OrderingService"
