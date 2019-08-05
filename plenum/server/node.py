@@ -10,6 +10,8 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 import gc
 import psutil
 
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import NeedBackupCatchup, NeedMasterCatchup
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -204,7 +206,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.addGenesisNyms()
 
-        self.mode = None  # type: Optional[Mode]
+        self._mode = None  # type: Optional[Mode]
 
         self.network_stacks_init(seed)
 
@@ -242,6 +244,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.instances = Instances()
 
         self.monitor_init(pluginPaths)
+
+        self.internal_bus = self._init_internal_bus()
 
         self.replicas = self.create_replicas()
 
@@ -343,6 +347,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, value):
+        self._mode = value
+        for r in self.replicas.values():
+            r.set_mode(value)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -2685,9 +2699,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER, len(self.master_replica.checkpoints))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
+                               len(self.master_replica._consensus_data.checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
-                               sum_for_values(self.master_replica.stashedRecvdCheckpoints))
+                               sum_for_values(self.master_replica._checkpointer._stashed_recvd_checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
                                self.master_replica.stasher.num_stashed_watermarks)
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
@@ -2715,8 +2730,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         def sum_for_backups(field):
             return sum(len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
 
+        def sum_for_backups_data(field):
+            return sum(len(getattr(r._consensus_data, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
+
         def sum_for_values_for_backups(field):
             return sum(sum_for_values(getattr(r, field))
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        def sum_for_values_for_backups_checkpointer(field):
+            return sum(sum_for_values(getattr(r._checkpointer, field))
                        for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
@@ -2737,9 +2759,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
                                sum_for_values_for_backups('stashed_out_of_order_commits'))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups('checkpoints'))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups_data('checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
-                               sum_for_values_for_backups('stashedRecvdCheckpoints'))
+                               sum_for_values_for_backups_checkpointer('_stashed_recvd_checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
                                sum(r.stasher.num_stashed_watermarks for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
@@ -3556,3 +3578,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def set_view_for_replicas(self, view_no):
         for r in self.replicas.values():
             r.set_view_no(view_no)
+
+    def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
+        self.start_catchup()
+
+    def _init_internal_bus(self):
+        internal_bus = InternalBus()
+        internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
+        return internal_bus
+
+    def set_view_change_status(self, value: bool):
+        """
+        Remove this method after a PBFT ViewChange integration
+        """
+        for r in self.replicas.values():
+            r.set_view_change_status(value)

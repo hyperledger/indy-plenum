@@ -34,6 +34,6 @@ def test_unstash_watermarks(replica, msg, looper):
     _, pre_prepare = msg
     replica.stasher.stash(msg, STASH_WATERMARKS)
     assert replica.stasher.num_stashed_watermarks > 0
-    replica.h = pre_prepare.ppSeqNo
+    replica._checkpointer.set_watermarks(low_watermark=pre_prepare.ppSeqNo)
     assert replica.stasher.num_stashed_watermarks == 0
     assert replica.inBox.popleft() == msg

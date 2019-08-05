@@ -259,7 +259,7 @@ def test_check_watermarks_default(validator, pp_seq_no, result):
     (100000, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
 ])
 def test_check_watermarks_changed(validator, pp_seq_no, result):
-    validator.replica.h = 100
+    validator.replica._checkpointer.set_watermarks(low_watermark=100)
     for msg in create_3pc_msgs(view_no=validator.view_no,
                                pp_seq_no=pp_seq_no,
                                inst_id=validator.inst_id):

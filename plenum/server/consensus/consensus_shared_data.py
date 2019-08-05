@@ -1,5 +1,6 @@
 from typing import List
 
+from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
@@ -16,27 +17,32 @@ class ConsensusSharedData:
     TODO: Restore primary name from audit ledger instead of passing through constructor
     """
 
-    def __init__(self, name: str, validators: List[str], inst_id: int):
+    def __init__(self, name: str, validators: List[str], inst_id: int, is_master: bool = True):
         self._name = name
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
         self.primaries = []
+        self.is_master = is_master
 
         self.legacy_vc_in_progress = False
         self.requests = Requests()
         self.last_ordered_3pc = (0, 0)
         self.primary_name = None
+        # seqNoEnd of the last stabilized checkpoint
         self.stable_checkpoint = 0
+        # Checkpoint messages which the current node sent.
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
+        # List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
         self.preprepared = []  # type:  List[PrePrepare]
+        # List of PrePrepare messages, for which quorum of Prepare messages is reached
         self.prepared = []  # type:  List[PrePrepare]
         self._validators = None
         self._quorums = None
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
-        self.log_size = 300  # TODO: use config value
+        self.log_size = getConfig().LOG_SIZE
         self.high_watermark = self.low_watermark + self.log_size
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
@@ -83,4 +89,7 @@ class ConsensusSharedData:
 
     @property
     def last_checkpoint(self) -> Checkpoint:
-        return self.checkpoints[-1]
+        if not self.checkpoints:
+            return None
+        else:
+            return self.checkpoints[-1]

@@ -9,8 +9,11 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
+from plenum.common.event_bus import InternalBus
+from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
+from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
@@ -52,7 +55,7 @@ from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.common.messages.node_messages import Reply
+from plenum.common.messages.node_messages import Reply, Checkpoint
 
 logger = getlogger()
 
@@ -405,7 +408,6 @@ replica_spyables = [
     replica.Replica.processPrePrepare,
     replica.Replica.processPrepare,
     replica.Replica.processCommit,
-    replica.Replica.process_checkpoint,
     replica.Replica.doPrepare,
     replica.Replica.doOrder,
     replica.Replica.discard,
@@ -422,7 +424,6 @@ replica_spyables = [
     replica.Replica.is_pre_prepare_time_correct,
     replica.Replica.is_pre_prepare_time_acceptable,
     replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
-    replica.Replica.markCheckPointStable,
     replica.Replica.request_propagates_if_needed,
 ]
 
@@ -431,11 +432,35 @@ replica_spyables = [
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stasher = TestReplicaStasher(self)
         # Each TestReplica gets it's own outbox stasher, all of which TestNode
         # processes in its overridden serviceReplicaOutBox
         self.outBoxTestStasher = \
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
+
+    def _init_replica_stasher(self):
+        return TestReplicaStasher(self)
+
+    def _init_checkpoint_service(self) -> CheckpointService:
+        return TestCheckpointService(data=self._consensus_data,
+                                     bus=self.node.internal_bus,
+                                     network=self._external_bus,
+                                     stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
+                                     db_manager=self.node.db_manager,
+                                     old_stasher=self.stasher,
+                                     metrics=self.metrics)
+
+
+checkpointer_spyables = [
+    CheckpointService.set_watermarks,
+    CheckpointService._mark_checkpoint_stable,
+    CheckpointService.process_checkpoint,
+    CheckpointService.discard,
+]
+
+
+@spyable(methods=checkpointer_spyables)
+class TestCheckpointService(CheckpointService):
+    pass
 
 
 class TestReplicas(Replicas):

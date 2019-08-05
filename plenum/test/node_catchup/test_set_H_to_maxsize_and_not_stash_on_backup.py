@@ -39,6 +39,9 @@ def test_set_H_greater_then_last_ppseqno(looper,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, LOG_SIZE)
     # check, that all of node set up watermark greater, then default and
     # ppSeqNo with number LOG_SIZE + 1 will be out from default watermark
+    assert txnPoolNodeSet[0].replicas[1].last_ordered_3pc[1] > 0
+    looper.runFor(30)
+    assert txnPoolNodeSet[0].replicas[1].last_ordered_3pc[1] == LOG_SIZE
     for n in txnPoolNodeSet:
         for r in n.replicas._replicas.values():
             assert r.h >= LOG_SIZE

@@ -245,8 +245,8 @@ opt last_caught_up_3PC > Master's last_ordered_3pc
                     - commits <i>- up to last_caught_up_3PC,
                     - requestQueues <i>- requests from 3PC batches up to last_caught_up_3PC,
                     - ORDEREDs from outBox  <i>- up to last_caught_up_3PC,
-                    - checkpoints  <i>- completely,
-                    - stashedRecvdCheckpoints  <i>- up to last_caught_up_3PC
+                    - _checkpointer._checkpoint_state   <i>- completely,
+                    - _checkpointer._stashed_recvd_checkpoints  <i>- up to last_caught_up_3PC
             end note
 
             Node4 -> Node4: Update replica's watermarks to\n(last_caught_up_3PC[1], last_caught_up_3PC[1] + LOG_SIZE)
@@ -281,8 +281,8 @@ opt last_caught_up_3PC > Master's last_ordered_3pc
                         - commits,
                         - requestQueues,
                         - outBox,
-                        - checkpoints,
-                        - stashedRecvdCheckpoints
+                        - _checkpointer._checkpoint_state,
+                        - _checkpointer._stashed_recvd_checkpoints
                 end note
 
                 Node4 -> Node4: Update replica's watermarks to (0, sys.maxsize)
