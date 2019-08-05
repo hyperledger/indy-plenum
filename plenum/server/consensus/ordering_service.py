@@ -35,6 +35,7 @@ from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, g
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
@@ -51,100 +52,6 @@ from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
 
-class ThreePCMsgValidator:
-    def __init__(self, data: ConsensusSharedData):
-        self._data = data
-
-    @property
-    def view_no(self):
-        return self._data.view_no
-
-    @property
-    def low_watermark(self):
-        return self._data.low_watermark
-
-    @property
-    def high_watermark(self):
-        return self._data.high_watermark
-
-    @property
-    def last_ordered_3pc(self):
-        return self._data.last_ordered_3pc
-
-    @property
-    def legacy_last_prepared_sertificate(self):
-        """
-        We assume, that prepared list is an ordered list, and the last element is
-        the last quorumed Prepared
-        """
-        if self._data.prepared:
-            last_prepared = self._data.prepared[-1]
-            return last_prepared.view_no, last_prepared.pp_seq_no
-        return self.last_ordered_3pc
-
-    @property
-    def is_participating(self):
-        return self._data.is_participating
-
-    @property
-    def legacy_vc_in_progress(self):
-        return self._data.legacy_vc_in_progress
-
-    def has_already_ordered(self, view_no, pp_seq_no):
-        return compare_3PC_keys((view_no, pp_seq_no),
-                                self.last_ordered_3pc) >= 0
-
-    def validate(self, msg):
-        view_no = getattr(msg, f.VIEW_NO.nm, None)
-        pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
-
-        # ToDO: this checks should be performed in previous level (ReplicaService)
-        # 1. Check INSTANCE_ID
-        # if inst_id is None or inst_id != self.replica.instId:
-        #     return DISCARD, INCORRECT_INSTANCE
-
-        # 2. Check pp_seq_no
-        if pp_seq_no == 0:
-            # should start with 1
-            return DISCARD, INCORRECT_PP_SEQ_NO
-
-        # 3. Check already ordered
-        if self.has_already_ordered(view_no, pp_seq_no):
-            return DISCARD, ALREADY_ORDERED
-
-        # 4. Check viewNo
-        if view_no > self.view_no:
-            return STASH_VIEW, FUTURE_VIEW
-        if view_no < self.view_no - 1:
-            return DISCARD, OLD_VIEW
-        if view_no == self.view_no - 1:
-            if not isinstance(msg, Commit):
-                return DISCARD, OLD_VIEW
-            if not self.legacy_vc_in_progress:
-                return DISCARD, OLD_VIEW
-            if self._data.legacy_last_prepared_before_view_change is None:
-                return DISCARD, OLD_VIEW
-            if compare_3PC_keys((view_no, pp_seq_no), self._data.legacy_last_prepared_before_view_change) < 0:
-                return DISCARD, GREATER_PREP_CERT
-        if view_no == self.view_no and self.legacy_vc_in_progress:
-            return STASH_VIEW, FUTURE_VIEW
-
-        # ToDo: we assume, that only is_participating needs checking orderability
-        # If Catchup in View Change finished then process Commit messages
-        if self._data.is_synced and self.legacy_vc_in_progress:
-            return PROCESS, None
-
-        # 5. Check if Participating
-        if not self.is_participating:
-            return STASH_CATCH_UP, CATCHING_UP
-
-        # 6. Check watermarks
-        if not (self.low_watermark < pp_seq_no <= self.high_watermark):
-            return STASH_WATERMARKS, OUTSIDE_WATERMARKS
-
-        return PROCESS, None
-
-
 class OrderingService:
 
     def __init__(self,
@@ -156,7 +63,8 @@ class OrderingService:
                  bls_bft_replica: BlsBftReplica,
                  is_master=True,
                  get_current_time=None,
-                 get_time_for_3pc_batch=None):
+                 get_time_for_3pc_batch=None,
+                 stasher=None):
         self._data = data
         self._requests = self._data.requests
         self._timer = timer
@@ -169,7 +77,7 @@ class OrderingService:
 
         self._config = getConfig()
         self._logger = getlogger()
-        self._stasher = StashingRouter(self._config.REPLICA_STASH_LIMIT)
+        self._stasher = stasher if stasher else StashingRouter(self._config.REPLICA_STASH_LIMIT)
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,

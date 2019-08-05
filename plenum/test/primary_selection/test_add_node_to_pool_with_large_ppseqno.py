@@ -22,7 +22,7 @@ def _set_ppseqno(nodes, new_ppsn):
     for node in nodes:
         for repl in node.replicas.values():
             repl.lastPrePrepareSeqNo = new_ppsn
-            repl.h = new_ppsn
+            repl._checkpointer.set_watermarks(low_watermark=new_ppsn)
             repl.last_ordered_3pc = (repl.viewNo, new_ppsn)
 
 

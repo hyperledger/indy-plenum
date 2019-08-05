@@ -41,6 +41,7 @@ class ReplicaFakeNode(FakeSomething):
             primaries_batch_needed=False,
             primaries=[],
             get_validators=lambda: [],
+            db_manager=None,
             internal_bus=InternalBus(),
             write_manager=FakeSomething(),
         )

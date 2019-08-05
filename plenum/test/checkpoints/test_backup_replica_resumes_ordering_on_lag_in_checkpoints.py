@@ -4,7 +4,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_requests, assertExp
+from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check
 from stp_core.loop.eventually import eventually
 
 nodeCount = 4
@@ -26,7 +26,7 @@ def tconf(tconf):
 def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
         looper, chkFreqPatched, reqs_for_checkpoint,
         one_replica_and_others_in_backup_instance,
-        sdk_pool_handle, sdk_wallet_client, view_change_done):
+        sdk_pool_handle, sdk_wallet_client, view_change_done, txnPoolNodeSet):
     """
     Verifies resumption of ordering 3PC-batches on a backup replica
     on detection of a lag in checkpoints
@@ -86,14 +86,14 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     assert slow_replica._ordering_service.prepares
     assert slow_replica._ordering_service.commits
     assert slow_replica._ordering_service.batches
-    assert slow_replica.checkpoints
+    assert slow_replica._checkpointer._checkpoint_state
 
     # Ensure that there are some quorumed stashed checkpoints
-    assert slow_replica.stashed_checkpoints_with_quorum()
+    assert slow_replica._checkpointer._stashed_checkpoints_with_quorum()
 
     # Send more requests to reach catch-up number of checkpoints
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
-                             reqs_for_checkpoint)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              sdk_wallet_client, reqs_for_checkpoint)
 
     # Ensure that the replica has adjusted last_ordered_3pc to the end
     # of the last checkpoint
@@ -117,10 +117,10 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     assert not slow_replica._ordering_service.prepares
     assert not slow_replica._ordering_service.commits
     assert not slow_replica._ordering_service.batches
-    assert not slow_replica.checkpoints
+    assert not slow_replica._checkpointer._checkpoint_state
 
     # Ensure that now there are no quorumed stashed checkpoints
-    assert not slow_replica.stashed_checkpoints_with_quorum()
+    assert not slow_replica._checkpointer._stashed_checkpoints_with_quorum()
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
@@ -201,7 +201,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     assert slow_replica.H == LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
-    assert slow_replica.stashed_checkpoints_with_quorum()
+    assert slow_replica._checkpointer._stashed_checkpoints_with_quorum()
 
     # Receive belated Checkpoints
     slow_replica.node.nodeIbStasher.reset_delays_and_process_delayeds()
@@ -209,7 +209,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     # Ensure that the replica has ordered the batch for the last sent request
     looper.run(
         eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == \
-                        (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 2)),
+                                           (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 2)),
                    slow_replica,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -219,7 +219,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
-    assert not slow_replica.stashed_checkpoints_with_quorum()
+    assert not slow_replica._checkpointer._stashed_checkpoints_with_quorum()
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)

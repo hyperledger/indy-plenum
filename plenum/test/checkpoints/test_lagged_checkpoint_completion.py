@@ -34,17 +34,17 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     # has not completed the checkpoint.
     def check():
         for replica in slow_node.replicas.values():
-            assert len(replica.checkpoints) == 1
-            assert (1, 5) in replica.checkpoints
-            assert replica.checkpoints[(1, 5)].seqNo == 4
-            assert replica.checkpoints[(1, 5)].digest is None
-            assert replica.checkpoints[(1, 5)].isStable is False
+            assert len(replica._checkpointer._checkpoint_state) == 1
+            assert (1, 5) in replica._checkpointer._checkpoint_state
+            assert replica._checkpointer._checkpoint_state[(1, 5)].seqNo == 4
+            assert replica._checkpointer._checkpoint_state[(1, 5)].digest is None
+            assert replica._checkpointer._checkpoint_state[(1, 5)].isStable is False
 
-            assert len(replica.stashedRecvdCheckpoints) == 1
-            assert 0 in replica.stashedRecvdCheckpoints
-            assert len(replica.stashedRecvdCheckpoints[0]) == 1
-            assert (1, 5) in replica.stashedRecvdCheckpoints[0]
-            assert len(replica.stashedRecvdCheckpoints[0][(1, 5)]) == \
+            assert len(replica._checkpointer._stashed_recvd_checkpoints) == 1
+            assert 0 in replica._checkpointer._stashed_recvd_checkpoints
+            assert len(replica._checkpointer._stashed_recvd_checkpoints[0]) == 1
+            assert (1, 5) in replica._checkpointer._stashed_recvd_checkpoints[0]
+            assert len(replica._checkpointer._stashed_recvd_checkpoints[0][(1, 5)]) == \
                 len(txnPoolNodeSet) - 1
 
     stabilization_timeout = \
@@ -59,10 +59,10 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     looper.runFor(waits.expectedOrderingTime(len(txnPoolNodeSet)))
 
     for replica in slow_node.replicas.values():
-        assert len(replica.checkpoints) == 1
-        assert (1, 5) in replica.checkpoints
-        assert replica.checkpoints[(1, 5)].seqNo == 5
-        assert replica.checkpoints[(1, 5)].digest is not None
-        assert replica.checkpoints[(1, 5)].isStable is True
+        assert len(replica._checkpointer._checkpoint_state) == 1
+        assert (1, 5) in replica._checkpointer._checkpoint_state
+        assert replica._checkpointer._checkpoint_state[(1, 5)].seqNo == 5
+        assert replica._checkpointer._checkpoint_state[(1, 5)].digest is not None
+        assert replica._checkpointer._checkpoint_state[(1, 5)].isStable is True
 
-        assert len(replica.stashedRecvdCheckpoints) == 0
+        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0

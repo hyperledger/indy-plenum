@@ -43,7 +43,8 @@ def fake_node(tconf):
                          nodestack=FakeSomething(
                              service=lambda *args, **kwargs: eventually(lambda: True)),
                          set_view_for_replicas= lambda view_no: None,
-                         internal_bus=InternalBus()
+                         internal_bus=InternalBus(),
+                         set_view_change_status=lambda view_no: None
                          )
     node.metrics = functools.partial(Node._createMetricsCollector, node)()
     node.process_one_node_message = functools.partial(Node.process_one_node_message, node)

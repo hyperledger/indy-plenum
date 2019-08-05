@@ -62,7 +62,7 @@ def test_discard_process_three_phase_already_ordered_msg(test_node, looper):
     inst_id = 0
     replica = test_node.replicas[inst_id]
     replica.last_ordered_3pc = (test_node.viewNo, 100)
-    replica.update_watermark_from_3pc()
+    replica._checkpointer.update_watermark_from_3pc()
     view_no = test_node.viewNo
     pp_seq_no = replica.h
     msg = create_prepare((view_no, pp_seq_no), generate_state_root(), inst_id)

@@ -138,6 +138,10 @@ class ViewChangerDataProvider(ABC):
     def schedule_resend_inst_chng(self):
         pass
 
+    @abstractmethod
+    def set_view_change_status(self, value: bool):
+        pass
+
 
 class ViewChanger():
 
@@ -234,6 +238,7 @@ class ViewChanger():
     def view_change_in_progress(self, value: bool):
         self._view_change_in_progress = value
         self._internal_bus.send(LegacyViewChangeStatusUpdate(value))
+        self.provider.set_view_change_status(value)
 
     @property
     def quorum(self) -> int:

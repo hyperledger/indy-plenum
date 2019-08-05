@@ -1,6 +1,7 @@
 from typing import Dict, Optional
 
 from common.exceptions import LogicError
+from common.serializers.serialization import state_roots_serializer
 from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL, SEQ_NO_DB_LABEL
 from plenum.common.ledger import Ledger
 from state.state import State
@@ -33,10 +34,28 @@ class DatabaseManager():
             return None
         return self.databases[lid].ledger
 
+    def get_txn_root_hash(self, ledger_str, to_str=True):
+        ledger = self.get_ledger(ledger_str)
+        if ledger is None:
+            return None
+        root = ledger.uncommitted_root_hash
+        if to_str:
+            root = ledger.hashToStr(root)
+        return root
+
     def get_state(self, lid):
         if lid not in self.databases:
             return None
         return self.databases[lid].state
+
+    def get_state_root_hash(self, ledger_id, to_str=True, committed=False):
+        state = self.get_state(ledger_id)
+        if state is None:
+            return None
+        root = state.committedHeadHash if committed else state.headHash
+        if to_str:
+            root = state_roots_serializer.serialize(bytes(root))
+        return root
 
     def get_tracker(self, lid):
         if lid not in self.trackers:
