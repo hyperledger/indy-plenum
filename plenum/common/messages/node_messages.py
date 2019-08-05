@@ -24,16 +24,6 @@ from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FI
 
 # TODO set of classes are not hashable but MessageBase expects that
 
-class Nomination(MessageBase):
-    typename = NOMINATE
-
-    schema = (
-        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
-    )
-
 
 class Batch(MessageBase):
     typename = BATCH
@@ -41,28 +31,6 @@ class Batch(MessageBase):
     schema = (
         (f.MSGS.nm, IterableField(SerializedValueField())),
         (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT)),
-    )
-
-
-class Reelection(MessageBase):
-    typename = REELECTION
-
-    schema = (
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.ROUND.nm, NonNegativeNumberField()),
-        (f.TIE_AMONG.nm, IterableField(TieAmongField(max_length=TIE_IDR_FIELD_LIMIT))),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-    )
-
-
-class Primary(MessageBase):
-    typename = PRIMARY
-
-    schema = (
-        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
     )
 
 
@@ -263,9 +231,9 @@ class ViewChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
-        (f.PREPARED.nm, IterableField(AnyField())),           # list of tuples (view_no, pp_seq_no, pp_digest)
-        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of tuples (view_no, pp_seq_no, pp_digest)
-        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoints TODO: should we change to tuples?
+        (f.PREPARED.nm, IterableField(AnyField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.PREPREPARED.nm, IterableField(AnyField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
 
 
@@ -282,10 +250,10 @@ class NewView(MessageBase):
     typename = NEW_VIEW
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.VIEW_CHANGES.nm, IterableField(AnyField())),       # list of tuples (node_name, view_change_digest)
-        (f.CHECKPOINT.nm, AnyField()),                        # Checkpoint to be selected as stable (TODO: or tuple?)
-        (f.BATCHES.nm, IterableField(AnyField()))             # list of tuples (view_no, pp_seq_no, pp_digest)
-                                                              # that should get into new view
+        (f.VIEW_CHANGES.nm, IterableField(AnyField())),  # list of tuples (node_name, view_change_digest)
+        (f.CHECKPOINT.nm, AnyField()),  # Checkpoint to be selected as stable (TODO: or tuple?)
+        (f.BATCHES.nm, IterableField(AnyField()))  # list of tuples (view_no, pp_seq_no, pp_digest)
+        # that should get into new view
     )
 
 
@@ -412,9 +380,6 @@ class MessageRep(MessageBase):
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
-
-ElectionType = (Nomination, Primary, Reelection)
-ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
     f.VIEW_NO,

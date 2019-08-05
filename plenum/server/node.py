@@ -433,9 +433,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # ClientRequest and Propagation, which both require client
         # signature verification
         self.authnWhitelist = (
-            Nomination,
-            Primary,
-            Reelection,
             Batch,
             ViewChangeDone,
             PrePrepare,

@@ -82,24 +82,6 @@ def delayerMethod(method, delay):
     return inner
 
 
-def nom_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
-    # Delayer of NOMINATE requests
-    return delayerMsgTuple(
-        delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
-
-
-def prim_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
-    # Delayer of PRIMARY requests
-    return delayerMsgTuple(
-        delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
-
-
-def rel_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
-    # Delayer of REELECTION requests
-    return delayerMsgTuple(
-        delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
-
-
 def ppgDelay(delay: float = DEFAULT_DELAY, sender_filter: str = None):
     # Delayer of PROPAGATE requests
     return delayerMsgTuple(delay, Propagate, senderFilter=sender_filter)
