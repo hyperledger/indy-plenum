@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, NamedTuple
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
@@ -7,6 +7,12 @@ from sortedcontainers import SortedListWithKey
 from plenum.common.startable import Mode
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
+
+BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
+
+
+def batch_id(batch: PrePrepare):
+    return BatchID(batch.viewNo, batch.ppSeqNo, batch.digest)
 
 
 class ConsensusSharedData:
@@ -34,9 +40,9 @@ class ConsensusSharedData:
         # Checkpoint messages which the current node sent.
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
         # List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
-        self.preprepared = []  # type:  List[PrePrepare]
+        self.preprepared = []  # type:  List[BatchID]
         # List of PrePrepare messages, for which quorum of Prepare messages is reached
-        self.prepared = []  # type:  List[PrePrepare]
+        self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self._quorums = None
         self.set_validators(validators)

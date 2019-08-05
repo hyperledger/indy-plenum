@@ -3,7 +3,7 @@ from typing import Optional, List
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from plenum.server.consensus.replica_service import ReplicaService
-from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
+from plenum.server.consensus.view_change_service import BatchID
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer
 from plenum.test.simulation.sim_network import SimNetwork
@@ -37,13 +37,7 @@ class SimPool:
 
 
 def some_preprepare(view_no: int, pp_seq_no: int, digest: str) -> PrePrepare:
-    return PrePrepare(
-        instId=0, viewNo=view_no, ppSeqNo=pp_seq_no, ppTime=1499906903,
-        reqIdr=[], discarded="", digest=digest,
-        ledgerId=1, stateRootHash=None, txnRootHash=None,
-        sub_seq_no=0, final=True
-    )
-
+    return BatchID(view_no=view_no, pp_seq_no=pp_seq_no, pp_digest=digest)
 
 def some_random_preprepare(random: SimRandom, view_no: int, pp_seq_no: int) -> PrePrepare:
     return some_preprepare(view_no, pp_seq_no, random.string(40))
@@ -90,7 +84,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
         has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
-            committed.append(ViewChangeService.batch_id(batches[i - 1]))
+            committed.append(batches[i - 1])
 
     return pool, committed
 

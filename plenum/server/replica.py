@@ -42,7 +42,7 @@ from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, 
 from plenum.config import CHK_FREQ
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, batch_id
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -198,31 +198,34 @@ class ConsensusDataHelper:
         """
         After pp had validated, it placed into _preprepared list
         """
-        if pp in self.consensus_data.preprepared:
+        pp_batch_id = batch_id(pp)
+        if pp_batch_id in self.consensus_data.preprepared:
             raise LogicError('New pp cannot be stored in preprepared')
-        if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
+        if self.consensus_data.checkpoints and pp.pp_seq_no < self.consensus_data.last_checkpoint.seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
-        self.consensus_data.preprepared.append(pp)
+        self.consensus_data.preprepared.append(pp_batch_id)
 
     def prepare_batch(self, pp: PrePrepare):
         """
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        self.consensus_data.prepared.append(pp)
+        pp_batch_id = batch_id(pp)
+        self.consensus_data.prepared.append(pp_batch_id)
 
-    def clear_batch(self, pp: PrePrepare):
+    def clear_batch(self, pp: PrePrepare, batch_id=None):
         """
         When 3pc batch processed, it removed from _prepared list
         """
-        if pp in self.consensus_data.preprepared:
-            self.consensus_data.preprepared.remove(pp)
-        if pp in self.consensus_data.prepared:
-            self.consensus_data.prepared.remove(pp)
+        pp_batch_id = batch_id(pp)
+        if pp_batch_id in self.consensus_data.preprepared:
+            self.consensus_data.preprepared.remove(pp_batch_id)
+        if pp_batch_id in self.consensus_data.prepared:
+            self.consensus_data.prepared.remove(pp_batch_id)
 
     def clear_batch_till_seq_no(self, seq_no):
-        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo >= seq_no]
-        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo >= seq_no]
+        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.pp_seq_no >= seq_no]
+        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.pp_seq_no >= seq_no]
 
     def clear_all_batches(self):
         """

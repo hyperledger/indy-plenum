@@ -8,6 +8,7 @@ from plenum.common.messages.internal_messages import CheckpointStabilized, NeedB
 from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare, CheckpointState
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.consensus_shared_data import batch_id
 from plenum.test.helper import create_pre_prepare_params
 
 
@@ -155,7 +156,7 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
                                                                 False)
     pre_prepare.ppSeqNo = key[1]
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, key[0], key[1], pre_prepare, check_shared_data=True)
     state = updateNamedTuple(checkpoint_service._checkpoint_state[key],
@@ -191,13 +192,13 @@ def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
     with pytest.raises(LogicError, match="CheckpointService | Can't process Ordered msg because "
                                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo)):
         checkpoint_service.process_ordered(ordered)
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, 1, tconf.CHK_FREQ, pre_prepare)
 
     pre_prepare.ppSeqNo = tconf.CHK_FREQ
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(batch_id(pre_prepare))
     state = updateNamedTuple(checkpoint_service._checkpoint_state[1, tconf.CHK_FREQ],
                              digests=["digest"] * (tconf.CHK_FREQ - 1))
     checkpoint_service._checkpoint_state[1, tconf.CHK_FREQ] = state
@@ -206,7 +207,7 @@ def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
 
     pre_prepare.ppSeqNo += 1
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, tconf.CHK_FREQ + 1, tconf.CHK_FREQ * 2, pre_prepare)
 
