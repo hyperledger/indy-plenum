@@ -154,8 +154,8 @@ class ViewChangeService:
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
 
-        for pp_batch_id in self._data.prepared:
-            self._old_prepared[pp_batch_id.pp_seq_no] = pp_batch_id
+        for batch_id in self._data.prepared:
+            self._old_prepared[batch_id.pp_seq_no] = batch_id
         prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
 
         for new_bid in self._data.preprepared:
