@@ -6,7 +6,7 @@ import base58
 from indy_crypto import IndyCryptoError
 
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
-from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
+from ursacl.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
     Signature, MultiSignature, ProofOfPossession
 
 logging.getLogger("indy_crypto").setLevel(logging.WARNING)
