@@ -2,7 +2,7 @@ import os
 from crypto.bls.bls_crypto import BlsGroupParamsLoader
 from crypto.bls.bls_factory import BlsFactoryCrypto
 from crypto.bls.bls_key_manager import BlsKeyManager
-from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, BlsCryptoSignerIndyCrypto, \
+from crypto.bls..bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, BlsCryptoSignerIndyCrypto, \
     BlsCryptoVerifierIndyCrypto
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 

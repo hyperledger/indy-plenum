@@ -3,8 +3,8 @@ import pytest
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
     BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
-from indy_crypto import IndyCryptoError
-from indy_crypto.error import ErrorCode
+from ursacl import IndyCryptoError
+from ursacl.error import ErrorCode
 
 
 @pytest.fixture()
