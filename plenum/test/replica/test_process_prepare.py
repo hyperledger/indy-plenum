@@ -44,8 +44,8 @@ def pre_prepare(r, _pre_prepare):
 
 
 def test_process_valid_prepare(r, pre_prepare, prepare):
-    r.processPrePrepare(pre_prepare, PRIMARY_NAME)
-    r.processPrepare(prepare, NON_PRIMARY_NAME)
+    r._ordering_service.process_preprepare(pre_prepare, PRIMARY_NAME)
+    r._ordering_service.process_preprepare(prepare, NON_PRIMARY_NAME)
     assert r._ordering_service.prepares.hasPrepareFrom(prepare, NON_PRIMARY_NAME)
 
 
@@ -55,8 +55,8 @@ def test_validate_prepare_from_primary(r, prepare):
 
 
 def test_validate_duplicate_prepare(r, pre_prepare, prepare):
-    r.processPrePrepare(pre_prepare, PRIMARY_NAME)
-    r.processPrepare(prepare, NON_PRIMARY_NAME)
+    r._ordering_service.process_preprepare(pre_prepare, PRIMARY_NAME)
+    r._ordering_service.process_preprepare(prepare, NON_PRIMARY_NAME)
     with pytest.raises(SuspiciousNode, match=str(Suspicions.DUPLICATE_PR_SENT.code)):
         r.validatePrepare(prepare, NON_PRIMARY_NAME)
 
@@ -69,32 +69,33 @@ def test_validate_prepare_no_preprepare(r, prepare):
     # PrePrepare can be delayed, so just enqueue
     else:
         r.validatePrepare(prepare, NON_PRIMARY_NAME)
-        assert (prepare, NON_PRIMARY_NAME) in r.preparesWaitingForPrePrepare[prepare.viewNo, prepare.ppSeqNo]
+        assert (prepare, NON_PRIMARY_NAME) in r._ordering_service.preparesWaitingForPrePrepare[prepare.viewNo,
+                                                                                               prepare.ppSeqNo]
 
 
 def test_validate_prepare_wrong_digest(r, pre_prepare, prepare):
-    r.processPrePrepare(pre_prepare, PRIMARY_NAME)
+    r._ordering_service.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, digest='fake_digest')
     with pytest.raises(SuspiciousNode, match=str(Suspicions.PR_DIGEST_WRONG.code)):
         r.validatePrepare(prepare, NON_PRIMARY_NAME)
 
 
 def test_validate_prepare_wrong_txn_root(r, pre_prepare, prepare):
-    r.processPrePrepare(pre_prepare, PRIMARY_NAME)
+    r._ordering_service.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, txnRootHash=generate_state_root())
     with pytest.raises(SuspiciousNode, match=str(Suspicions.PR_TXN_WRONG.code)):
         r.validatePrepare(prepare, NON_PRIMARY_NAME)
 
 
 def test_validate_prepare_wrong_state_root(r, pre_prepare, prepare):
-    r.processPrePrepare(pre_prepare, PRIMARY_NAME)
+    r._ordering_service.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, stateRootHash=generate_state_root())
     with pytest.raises(SuspiciousNode, match=str(Suspicions.PR_STATE_WRONG.code)):
         r.validatePrepare(prepare, NON_PRIMARY_NAME)
 
 
 def test_validate_prepare_wrong_audit_root(r, pre_prepare, prepare):
-    r.processPrePrepare(pre_prepare, PRIMARY_NAME)
+    r._ordering_service.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, auditTxnRootHash=generate_state_root())
     with pytest.raises(SuspiciousNode, match=str(Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG.code)):
         r.validatePrepare(prepare, NON_PRIMARY_NAME)

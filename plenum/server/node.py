@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedBackupCatchup, NeedMasterCatchup, \
-    NodeModeMsg, PrimariesBatchNeeded, CurrentPrimaries, \
+    PrimariesBatchNeeded, CurrentPrimaries, \
     RevertUnorderedBatches
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -1313,6 +1313,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         for inst_id, replica in self.replicas.items():
             if not replica.isMaster and replica.primaryName is not None:
+                replica.update_connecteds(self.nodestack.connecteds)
                 primary_node_name = replica.primaryName.split(':')[0]
                 if primary_node_name in joined:
                     self.primaries_disconnection_times[inst_id] = None
@@ -1510,7 +1511,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         num_processed = 0
         for message in self.replicas.get_output(limit):
             num_processed += 1
-            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint)):
+            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq)):
                 self.send(message)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)

@@ -337,8 +337,8 @@ def checkPrepareReqSent(replica: TestReplica, key: str,
 def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,
                                    ppSeqNo: int):
     key = (viewNo, ppSeqNo)
-    assert key in replica.prepares
-    assert len(replica.prepares[key][1]) >= replica.quorums.prepare.value
+    assert key in replica._ordering_service.prepares
+    assert len(replica._ordering_service.prepares[key][1]) >= replica.quorums.prepare.value
 
 
 def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,

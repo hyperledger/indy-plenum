@@ -25,8 +25,8 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
 
     stash_pp = []
     stash_p = []
-    orig_pp_method = slow_rep.processPrePrepare
-    orig_p_method = slow_rep.processPrepare
+    orig_pp_method = slow_rep._ordering_service.process_preprepare
+    orig_p_method = slow_rep._ordering_service.process_prepare
 
     def patched_pp(self, msg, sender):
         stash_pp.append((msg, sender))
@@ -34,9 +34,9 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
     def patched_p(self, msg, sender):
         stash_p.append((msg, sender))
 
-    slow_rep.processPrePrepare = \
+    slow_rep._ordering_service.process_preprepare = \
         types.MethodType(patched_pp, slow_rep)
-    slow_rep.processPrepare = \
+    slow_rep._ordering_service.process_prepare = \
         types.MethodType(patched_p, slow_rep)
 
     def chk1():

@@ -18,10 +18,10 @@ def test_nodes_make_view_change_only_on_master_suspicious(
     bacup_primary.batchDigest = lambda reqs: 'asd'
 
     non_primary_backup = txnPoolNodeSet[0].replicas[1]
-    old_pp = non_primary_backup.spylog.count(non_primary_backup.processPrePrepare)
+    old_pp = non_primary_backup.spylog.count(non_primary_backup._ordering_service.process_preprepare)
 
     def pp_processed(replica, old_pp):
-        assert replica.spylog.count(replica.processPrePrepare) == old_pp + 1
+        assert replica.spylog.count(replica._ordering_service.process_preprepare) == old_pp + 1
 
     bacup_primary._do_send_3pc_batch(DOMAIN_LEDGER_ID)
     looper.run(eventually(pp_processed, non_primary_backup, old_pp))
@@ -30,7 +30,7 @@ def test_nodes_make_view_change_only_on_master_suspicious(
     waitForViewChange(looper, txnPoolNodeSet, old_view)
 
     non_primary_master = txnPoolNodeSet[1].replicas[0]
-    old_pp = non_primary_master.spylog.count(non_primary_master.processPrePrepare)
+    old_pp = non_primary_master.spylog.count(non_primary_master._ordering_service.process_preprepare)
 
     master_primary._do_send_3pc_batch(DOMAIN_LEDGER_ID)
     looper.run(eventually(pp_processed, non_primary_master, old_pp))

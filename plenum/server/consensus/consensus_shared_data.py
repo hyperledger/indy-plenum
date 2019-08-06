@@ -28,6 +28,9 @@ class ConsensusSharedData:
         self.legacy_vc_in_progress = False
         self.requests = Requests()
         self.last_ordered_3pc = (0, 0)
+        # Indicates name of the primary replica of this protocol instance.
+        # None in case the replica does not know who the primary of the
+        # instance is
         self.primary_name = None
         # seqNoEnd of the last stabilized checkpoint
         self.stable_checkpoint = 0
@@ -46,6 +49,8 @@ class ConsensusSharedData:
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting
+        # 3 phase key for the last prepared certificate before view change
+        # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
         self.primaries_batch_needed = False
         self.requestQueues = {}
@@ -67,7 +72,7 @@ class ConsensusSharedData:
 
     @property
     def is_primary(self) -> bool:
-        return self.primary_name == self.name
+        return None if self.primary_name is None else self.primary_name == self.name
 
     @property
     def is_participating(self):

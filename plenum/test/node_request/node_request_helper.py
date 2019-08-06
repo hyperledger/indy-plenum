@@ -4,6 +4,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
@@ -64,7 +65,7 @@ def checkPrePrepared(looper,
             method for primary must be 0 with or without faults in system
             """
             l1 = len([param for param in
-                      getAllArgs(primary, primary.processPrePrepare)])
+                      getAllArgs(primary, primary._ordering_service.process_preprepare)])
             assert l1 == 0, 'Primary {} sees no pre-prepare'.format(primary)
 
         def nonPrimarySeesCorrectNumberOfPREPREPAREs():
@@ -96,7 +97,7 @@ def checkPrePrepared(looper,
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
-                                  getAllArgs(npr, npr.processPrePrepare)
+                                  getAllArgs(npr, npr._ordering_service.process_preprepare)
                                   if (param['pre_prepare'][0:3] +
                                       param['pre_prepare'][4:],
                                       param['sender']) == (
@@ -189,7 +190,8 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
             1. no of PREPARE sent by primary should be 0
             """
             for r in allReplicas:
-                for param in getAllArgs(r, Replica.processPrepare):
+                for param in getAllArgs(r._ordering_service,
+                                        OrderingService.process_preprepare):
                     sender = param['sender']
                     assert sender != primary.name
 
@@ -223,7 +225,7 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary,
-                                         primary.processPrepare)
+                                         primary._ordering_service.process_prepare)
                               if (param['prepare'].instId,
                                   param['prepare'].viewNo,
                                   param['prepare'].ppSeqNo) == (
@@ -255,13 +257,12 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                     [
                         param for param in getAllArgs(
                         npr,
-                        npr.processPrepare) if (
-                                                   param['prepare'].instId,
-                                                   param['prepare'].viewNo,
-                                                   param['prepare'].ppSeqNo) == (
-                                                   primary.instId,
-                                                   primary.viewNo,
-                                                   primary.lastPrePrepareSeqNo)])
+                        npr._ordering_service.process_prepare) if (param['prepare'].instId,
+                                                                   param['prepare'].viewNo,
+                                                                   param['prepare'].ppSeqNo) == (
+                                                                      primary.instId,
+                                                                      primary.viewNo,
+                                                                      primary.lastPrePrepareSeqNo)])
 
                 passes += int(msgCountOK(nodeCount,
                                          faultyNodes,

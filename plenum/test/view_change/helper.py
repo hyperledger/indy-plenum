@@ -257,14 +257,14 @@ def disconnect_master_primary(nodes):
 def check_replica_queue_empty(node):
     replica = node.replicas[0]
 
-    assert len(replica.prePrepares) == 0
-    assert len(replica.prePreparesPendingFinReqs) == 0
+    assert len(replica._ordering_service.prePrepares) == 0
+    assert len(replica._ordering_service.prePreparesPendingFinReqs) == 0
     assert len(replica._ordering_service.prepares) == 0
     assert len(replica._ordering_service.sentPrePrepares) == 0
     assert len(replica._ordering_service.batches) == 0
     assert len(replica._ordering_service.commits) == 0
-    assert len(replica.commitsWaitingForPrepare) == 0
-    assert len(replica.ordered) == 0
+    assert len(replica._ordering_service.commitsWaitingForPrepare) == 0
+    assert len(replica._ordering_service.ordered) == 0
 
 
 def check_all_replica_queue_empty(nodes):

@@ -21,11 +21,10 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
-    RemoveStashedCheckpoints, RequestPropagates, RevertUnorderedBatches, AddToCheckpointMsg, OnViewChangeStartMsg, \
-    OnCatchupFinishedMsg, PrimariesBatchNeeded, NodeModeMsg, UpdateWatermark
+    RequestPropagates, RevertUnorderedBatches, PrimariesBatchNeeded, BackupSetupLastOrdered
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
-from plenum.common.metrics_collector import MetricsName
+from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
 from plenum.common.request import Request
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService, RepeatingTimer
@@ -35,6 +34,7 @@ from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, g
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
@@ -64,7 +64,9 @@ class OrderingService:
                  is_master=True,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
-                 stasher=None):
+                 stasher=None,
+                 metrics: MetricsCollector = NullMetricsCollector()):
+        self.metrics = metrics
         self._data = data
         self._requests = self._data.requests
         self._timer = timer
@@ -89,8 +91,21 @@ class OrderingService:
         Maps from legacy replica code
         """
         self._state_root_serializer = state_roots_serializer
+
+        # Keeps a map of PRE-PREPAREs which did not satisfy timestamp
+        # criteria, they can be accepted if >f PREPAREs are encountered.
+        # This is emptied on view change. With each PRE-PREPARE, a flag is
+        # stored which indicates whether there are sufficient acceptable
+        # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = {}
+
         self.legacy_preprepares = SortedDict(lambda k: (k[0], k[1]))
+
+        # Time of the last PRE-PREPARE which satisfied all validation rules
+        # (time, digest, roots were all correct). This time is not to be
+        # reverted even if the PRE-PREPAREs are not ordered. This implies that
+        # the next primary would have seen all accepted PRE-PREPAREs or another
+        # view change will happen
         self.last_accepted_pre_prepare_time = None
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
@@ -142,7 +157,7 @@ class OrderingService:
         # Defines if there was a batch after last catchup
         self.first_batch_after_catchup = False
 
-        self._lastPrePrepareSeqNo = self._data.low_watermark
+        self._lastPrePrepareSeqNo = self._data.low_watermark  # type: int
 
         # COMMITs that are stored for which there are no PRE-PREPARE or PREPARE
         # received
@@ -217,12 +232,12 @@ class OrderingService:
         self._stasher.subscribe(Commit, self.process_commit)
         self._stasher.subscribe_to(network)
         self._bus.subscribe(RevertUnorderedBatches, self._revert_unordered_batches)
-        self._bus.subscribe(OnViewChangeStartMsg, self.l_on_view_change_start)
-        self._bus.subscribe(OnCatchupFinishedMsg, self.on_catchup_finished)
 
     def __repr__(self):
         return self.name
 
+    @measure_consensus_time(MetricsName.PROCESS_PREPARE_TIME,
+                            MetricsName.BACKUP_PROCESS_PREPARE_TIME)
     def process_prepare(self, prepare: Prepare, sender: str):
         """
         Validate and process the PREPARE specified.
@@ -425,6 +440,8 @@ class OrderingService:
             return False
         return self.primary_names[viewNo] == self.name
 
+    @measure_consensus_time(MetricsName.PROCESS_COMMIT_TIME,
+                            MetricsName.BACKUP_PROCESS_COMMIT_TIME)
     def process_commit(self, commit: Commit, sender: str):
         """
         Validate and process the COMMIT specified.
@@ -487,6 +504,8 @@ class OrderingService:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
 
+    @measure_consensus_time(MetricsName.PROCESS_PREPREPARE_TIME,
+                            MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
     def process_preprepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Validate and process provided PRE-PREPARE, create and
@@ -643,6 +662,7 @@ class OrderingService:
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, lo_tuple):
         self._data.last_ordered_3pc = lo_tuple
+        self._logger.info('{} set last ordered as {}'.format(self, lo_tuple))
 
     @property
     def l_lastPrePrepare(self):
@@ -687,29 +707,6 @@ class OrderingService:
         """
         return self._data.primary_name
 
-    @primary_name.setter
-    def primary_name(self, value: Optional[str]) -> None:
-        """
-        Set the value of isPrimary.
-
-        :param value: the value to set isPrimary to
-        """
-        if value is not None:
-            self.warned_no_primary = False
-        self.primary_names[self.view_no] = value
-        self.l_compact_primary_names()
-        if value != self._data.primary_name:
-            self._data.primary_name = value
-            self._logger.info("{} setting primaryName for view no {} to: {}".
-                              format(self, self.view_no, value))
-            if value is None:
-                # Since the GC needs to happen after a primary has been
-                # decided.
-                return
-            self.l_gc_before_new_view()
-            if self.l__should_reset_watermarks_before_new_view():
-                self.l_reset_watermarks_before_new_view()
-
     @property
     def name(self):
         return self._data.name
@@ -721,31 +718,6 @@ class OrderingService:
     @property
     def f(self):
         return getMaxFailures(self._data.total_nodes)
-
-    """Method from legacy code"""
-    def l_reset_watermarks_before_new_view(self):
-        # Reset any previous view watermarks since for view change to
-        # successfully complete, the node must have reached the same state
-        # as other nodes
-        self._data.low_watermark = 0
-        self._lastPrePrepareSeqNo = self._data.low_watermark
-
-    """Method from legacy code"""
-    def l__should_reset_watermarks_before_new_view(self):
-        if self.view_no <= 0:
-            return False
-        if self.last_ordered_3pc[0] == self.view_no and self.last_ordered_3pc[1] > 0:
-            return False
-        return True
-
-    """Method from legacy code"""
-    def l_gc_before_new_view(self):
-        # Trigger GC for all batches of old view
-        # Clear any checkpoints, since they are valid only in a view
-        self.l_gc(self.last_ordered_3pc)
-        self._data.checkpoints.clear()
-        self.l_remove_stashed_checkpoints(till_3pc_key=(self._data.view_no, 0))
-        self._clear_prev_view_pre_prepares()
 
     """Method from legacy code"""
     def l_gc(self, till3PCKey):
@@ -809,37 +781,6 @@ class OrderingService:
     """Method from legacy code"""
     def l_discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
-
-    """Method from legacy code"""
-    def l_remove_stashed_checkpoints(self, till_3pc_key=None):
-        """
-        Remove stashed received checkpoints up to `till_3pc_key` if provided,
-        otherwise remove all stashed received checkpoints
-        """
-        # ToDo: Maybe need to change message format?
-        self._bus.send(RemoveStashedCheckpoints(inst_id=self._data.inst_id,
-                                                till_3pc_key=till_3pc_key))
-        # ToDo: Should we send some notification for checkpoint service?
-        # if till_3pc_key is None:
-        #     self.stashedRecvdCheckpoints.clear()
-        #     self._logger.info('{} removing all stashed checkpoints'.format(self))
-        #     return
-        #
-        # for view_no in list(self.stashedRecvdCheckpoints.keys()):
-        #
-        #     if view_no < till_3pc_key[0]:
-        #         self._logger.info('{} removing stashed checkpoints for view {}'.format(self, view_no))
-        #         del self.stashedRecvdCheckpoints[view_no]
-        #
-        #     elif view_no == till_3pc_key[0]:
-        #         for (s, e) in list(self.stashedRecvdCheckpoints[view_no].keys()):
-        #             if e <= till_3pc_key[1]:
-        #                 self._logger.info('{} removing stashed checkpoints: '
-        #                                  'viewNo={}, seqNoStart={}, seqNoEnd={}'.
-        #                                  format(self, view_no, s, e))
-        #                 del self.stashedRecvdCheckpoints[view_no][(s, e)]
-        #         if len(self.stashedRecvdCheckpoints[view_no]) == 0:
-        #             del self.stashedRecvdCheckpoints[view_no]
 
     def _clear_prev_view_pre_prepares(self):
         to_remove = []
@@ -1058,7 +999,7 @@ class OrderingService:
         Request preprepare
         """
         if recipients is None:
-            recipients = self._network.nodestack.connecteds.copy()
+            recipients = self._network.connecteds.copy()
             primary_name = self.primary_name[:self.primary_name.rfind(":")]
             if primary_name in recipients:
                 recipients.remove(primary_name)
@@ -1070,9 +1011,10 @@ class OrderingService:
         Request commit
         """
         if recipients is None:
-            recipients = self._network.nodestack.connecteds.copy()
+            recipients = self._network.connecteds.copy()
         return self._request_three_phase_msg(three_pc_key, self.requested_commits, COMMIT, recipients)
 
+    @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def _request_msg(self, typ, params: Dict, frm: List[str] = None):
         self.l_send(MessageReq(**{
             f.MSG_TYPE.nm: typ,
@@ -1099,7 +1041,7 @@ class OrderingService:
                 self._logger.info('{} Setting last ordered for non-master as {}'.
                                   format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.view_no, lowest_prepared - 1)
-                self._bus.send(UpdateWatermark(inst_id=self._data.inst_id))
+                self._bus.send(BackupSetupLastOrdered(inst_id=self._data.inst_id))
                 self.first_batch_after_catchup = False
 
     """Method from legacy code"""
@@ -1343,9 +1285,9 @@ class OrderingService:
             self, pp, prevStateRootHash))
         # ToDo: for first stage we will exclude metrics
         # if self.is_master:
-        #     self._metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        #     self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
         # else:
-        #     self._metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        #     self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]
@@ -1454,6 +1396,8 @@ class OrderingService:
         return self.prepares.hasPrepareFrom(request, self.name)
 
     """Method from legacy code"""
+    @measure_consensus_time(MetricsName.SEND_PREPARE_TIME,
+                          MetricsName.BACKUP_SEND_PREPARE_TIME)
     def l_doPrepare(self, pp: PrePrepare):
         self._logger.debug("{} Sending PREPARE{} at {}".format(
             self, (pp.viewNo, pp.ppSeqNo), self.get_current_time()))
@@ -1532,6 +1476,8 @@ class OrderingService:
         else:
             self._logger.debug("{} cannot send COMMIT since {}".format(self, reason))
 
+    @measure_consensus_time(MetricsName.SEND_COMMIT_TIME,
+                            MetricsName.BACKUP_SEND_COMMIT_TIME)
     def l_doCommit(self, p: Prepare):
         """
         Create a commit message from the given Prepare message and trigger the
@@ -1592,6 +1538,8 @@ class OrderingService:
         return self.l_order_3pc_key(key)
 
     """Method from legacy code"""
+    @measure_consensus_time(MetricsName.ORDER_3PC_BATCH_TIME,
+                          MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
     def l_order_3pc_key(self, key):
         pp = self.l_getPrePrepare(*key)
         if pp is None:
@@ -1630,7 +1578,7 @@ class OrderingService:
 
         self.l_discard_ordered_req_keys(pp)
 
-        self.l_send(ordered, stat=TPCStat.OrderSent)
+        self._bus.send(ordered)
 
         ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
                       "state root {}, txn root {}, audit root {}".format(self, pp.viewNo, pp.ppSeqNo, pp.ledgerId,
@@ -1641,31 +1589,16 @@ class OrderingService:
         self._logger.info("{}, requests ordered {}, discarded {}".
                           format(ordered_msg, len(valid_reqIdr), len(invalid_reqIdr)))
 
-        # ToDo: add metrics in integration phase
-        # if self.isMaster:
-        #     self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
-        #     self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
-        # else:
-        #     self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
-
-        self._bus.send(AddToCheckpointMsg(self._data.inst_id,
-                                          pp.ppSeqNo,
-                                          pp.digest,
-                                          pp.ledgerId,
-                                          pp.viewNo))
+        if self.is_master:
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_SIZE, len(valid_reqIdr) + len(invalid_reqIdr))
+            self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
+        else:
+            self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
 
         # BLS multi-sig:
         self.l_bls_bft_replica.process_order(key, self._data.quorums, pp)
 
         return True
-
-    """Method from legacy code"""
-    def process_stashed_checkpoints(self, start_no, end_no, view_no):
-
-        self._bus.send(RemoveStashedCheckpoints(start_no=start_no,
-                                                end_no=end_no,
-                                                view_no=view_no,
-                                                all=False))
 
     """Method from legacy code"""
     def l_addToOrdered(self, view_no: int, pp_seq_no: int):
@@ -1872,7 +1805,7 @@ class OrderingService:
             self._logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
     def send_outbox(self, msg, dst=None):
-        self._network.send(msg, dst=dst)
+        self._network.send(msg, dst)
 
     def post_batch_rejection(self, ledger_id):
         """
@@ -1921,6 +1854,8 @@ class OrderingService:
         self._write_manager.dynamic_validation(request)
 
     """Method from legacy code"""
+    @measure_consensus_time(MetricsName.REQUEST_PROCESSING_TIME,
+                            MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
     def l_processReqDuringBatch(self,
                                 req: Request,
                                 cons_time: int):
@@ -2143,6 +2078,8 @@ class OrderingService:
         self.l_trackBatches(pre_prepare, oldStateRootHash)
         return ledger_id
 
+    @measure_consensus_time(MetricsName.CREATE_3PC_BATCH_TIME,
+                            MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
     def l_create_3pc_batch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
         pool_state_root_hash = self.l_stateRootHash(POOL_LEDGER_ID)
@@ -2272,6 +2209,8 @@ class OrderingService:
 
         return reqs, invalid_indices, rejects
 
+    @measure_consensus_time(MetricsName.SEND_PREPREPARE_TIME,
+                            MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def l_sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.l_send(ppReq, stat=TPCStat.PrePrepareSent)
@@ -2310,12 +2249,6 @@ class OrderingService:
                 break
         self._logger.info('{} reverted {} batches before starting catch up'.format(self, i))
 
-    def l_on_view_change_start(self, msg: OnViewChangeStartMsg):
-        if self._data.inst_id == msg.inst_id and self.is_master:
-            lst = self.l_last_prepared_certificate_in_view()
-            self._data.legacy_last_prepared_before_view_change = lst
-            self._logger.info('{} setting last prepared for master to {}'.format(self, lst))
-
     def l_last_prepared_certificate_in_view(self) -> Optional[Tuple[int, int]]:
         # Pick the latest sent COMMIT in the view.
         # TODO: Consider stashed messages too?
@@ -2328,26 +2261,20 @@ class OrderingService:
                 keys.append(key)
         return max_3PC_key(keys) if keys else None
 
-    def on_catchup_finished(self, msg: OnCatchupFinishedMsg):
-        if msg.master_last_ordered_3PC and msg.last_caught_up_3PC and \
-                compare_3PC_keys(msg.master_last_ordered_3PC,
-                                 msg.last_caught_up_3PC) > 0:
-            if self.is_master:
-                self._caught_up_till_3pc(msg.last_caught_up_3PC)
-            else:
-                self._catchup_clear_for_backup()
-                self.first_batch_after_catchup = True
-
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
-    def _catchup_clear_for_backup(self):
+    def catchup_clear_for_backup(self):
         if not self._data.is_primary:
+            self.last_ordered_3pc = (self._data.view_no, 0)
             self.batches.clear()
             self.sentPrePrepares.clear()
             self.prePrepares.clear()
             self.prepares.clear()
             self.commits.clear()
+            self._data.prepared.clear()
+            self._data.preprepared.clear()
+            self.first_batch_after_catchup = True
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         """
@@ -2373,3 +2300,23 @@ class OrderingService:
             self.commits.pop(key, None)
             self.l_discard_ordered_req_keys(pp)
             self._consensus_data_helper.clear_batch(pp)
+
+    def get_sent_preprepare(self, viewNo, ppSeqNo):
+        key = (viewNo, ppSeqNo)
+        return self.sentPrePrepares.get(key)
+
+    def get_sent_prepare(self, viewNo, ppSeqNo):
+        key = (viewNo, ppSeqNo)
+        if key in self.prepares:
+            prepare = self.prepares[key].msg
+            if self.prepares.hasPrepareFrom(prepare, self.name):
+                return prepare
+        return None
+
+    def get_sent_commit(self, viewNo, ppSeqNo):
+        key = (viewNo, ppSeqNo)
+        if key in self.commits:
+            commit = self.commits[key].msg
+            if self.commits.hasCommitFrom(commit, self.name):
+                return commit
+        return None

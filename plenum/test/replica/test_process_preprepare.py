@@ -41,7 +41,7 @@ def pre_prepare(replica, _pre_prepare):
 
 def test_process_pre_prepare_validation(replica_with_requests,
                                         pre_prepare):
-    replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
+    replica_with_requests._ordering_service.process_preprepare(pre_prepare, replica_with_requests.primaryName)
 
 
 def test_process_pre_prepare_validation_old_schema_no_pool(replica_with_requests,
@@ -53,7 +53,7 @@ def test_process_pre_prepare_validation_old_schema_no_pool(replica_with_requests
 
     pp = PrePrepare(**deserialized_pp)
     register_pp_ts(replica_with_requests, pp, replica_with_requests.primaryName)
-    replica_with_requests.processPrePrepare(pp, replica_with_requests.primaryName)
+    replica_with_requests._ordering_service.process_preprepare(pp, replica_with_requests.primaryName)
 
 
 def test_process_pre_prepare_validation_old_schema_no_audit(replica_with_requests,
@@ -65,7 +65,7 @@ def test_process_pre_prepare_validation_old_schema_no_audit(replica_with_request
 
     pp = PrePrepare(**deserialized_pp)
     register_pp_ts(replica_with_requests, pp, replica_with_requests.primaryName)
-    replica_with_requests.processPrePrepare(pp, replica_with_requests.primaryName)
+    replica_with_requests._ordering_service.process_preprepare(pp, replica_with_requests.primaryName)
 
 
 def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_requests,
@@ -86,7 +86,7 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(replica_with_request
     register_pp_ts(replica_with_requests, pre_prepare, replica_with_requests.primaryName)
 
     with pytest.raises(SuspiciousNode):
-        replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
+        replica_with_requests._ordering_service.process_preprepare(pre_prepare, replica_with_requests.primaryName)
 
 
 def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests,
@@ -107,7 +107,7 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(replica_with_requests
     register_pp_ts(replica_with_requests, pre_prepare, replica_with_requests.primaryName)
 
     with pytest.raises(SuspiciousNode):
-        replica_with_requests.processPrePrepare(pre_prepare, replica_with_requests.primaryName)
+        replica_with_requests._ordering_service.process_preprepare(pre_prepare, replica_with_requests.primaryName)
 
 
 def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
@@ -120,8 +120,10 @@ def test_process_pre_prepare_with_not_final_request(replica, pre_prepare):
 
     replica.node.request_propagates = request_propagates
 
-    replica.processPrePrepare(pre_prepare, replica.primaryName)
-    assert (pre_prepare, replica.primaryName, set(pre_prepare.reqIdr)) in replica.prePreparesPendingFinReqs
+    replica._ordering_service.process_preprepare(pre_prepare, replica.primaryName)
+    assert (pre_prepare,
+            replica.primaryName,
+            set(pre_prepare.reqIdr)) in replica._ordering_service.prePreparesPendingFinReqs
 
 
 def test_process_pre_prepare_with_ordered_request(replica, pre_prepare):
@@ -137,8 +139,10 @@ def test_process_pre_prepare_with_ordered_request(replica, pre_prepare):
     replica.node.request_propagates = request_propagates
 
     with pytest.raises(SuspiciousNode):
-        replica.processPrePrepare(pre_prepare, replica.primaryName)
-    assert (pre_prepare, replica.primaryName, set(pre_prepare.reqIdr)) not in replica.prePreparesPendingFinReqs
+        replica._ordering_service.process_preprepare(pre_prepare, replica.primaryName)
+    assert (pre_prepare,
+            replica.primaryName,
+            set(pre_prepare.reqIdr)) not in replica._ordering_service.prePreparesPendingFinReqs
 
 
 def test_suspicious_on_wrong_sub_seq_no(replica_with_requests, pre_prepare):

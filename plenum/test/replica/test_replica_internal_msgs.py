@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import NodeModeMsg, LegacyViewChangeStatusUpdate, PrimariesBatchNeeded, \
+from plenum.common.messages.internal_messages import PrimariesBatchNeeded, \
     CurrentPrimaries
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.test.consensus.conftest import mode
@@ -37,16 +37,6 @@ def primaries(request):
 
 def send_msg(bus: InternalBus, msg: Any):
     bus.send(msg)
-
-
-def test_pass_node_mode(consensus_data, ib, mode):
-    send_msg(ib, NodeModeMsg(mode))
-    assert consensus_data.node_mode == mode
-
-
-def test_pass_vc_in_progress(consensus_data, ib, vc_in_progress):
-    send_msg(ib, LegacyViewChangeStatusUpdate(vc_in_progress))
-    assert consensus_data.legacy_vc_in_progress == vc_in_progress
 
 
 def test_pass_primaries_batch_needed(consensus_data, ib, pb_needed):

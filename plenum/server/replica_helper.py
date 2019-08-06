@@ -152,33 +152,6 @@ class ConsensusDataHelper:
         self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo >= seq_no]
         self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo >= seq_no]
 
-    def clear_all_batches(self):
-        """
-        Clear up all preprepared and prepared
-        """
-        self.consensus_data.prepared.clear()
-        self.consensus_data.preprepared.clear()
-
-    def add_checkpoint(self, checkpoint: Checkpoint):
-        self.consensus_data.checkpoints.add(checkpoint)
-
-    def reset_checkpoints(self):
-        # That function most probably redundant in PBFT approach,
-        # because according to paper, checkpoints cleared only when next stabilized.
-        # Avoid using it while implement other services.
-        self.consensus_data.checkpoints.clear()
-        self.consensus_data.stable_checkpoint = 0
-
-    def set_stable_checkpoint(self, end_seq_no):
-        if not list(self.consensus_data.checkpoints.irange_key(end_seq_no, end_seq_no)):
-            raise LogicError('Stable checkpoint must be in checkpoints')
-        self.consensus_data.stable_checkpoint = end_seq_no
-
-        self.consensus_data.checkpoints = \
-            SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd >= end_seq_no],
-                              key=lambda checkpoint: checkpoint.seqNoEnd)
-        self.clear_batch_till_seq_no(end_seq_no)
-
 
 class OrderedTracker:
     def __init__(self):

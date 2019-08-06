@@ -6,7 +6,6 @@ from functools import partial
 
 from common.exceptions import LogicError
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import LegacyViewChangeStatusUpdate
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
@@ -237,7 +236,6 @@ class ViewChanger():
     @view_change_in_progress.setter
     def view_change_in_progress(self, value: bool):
         self._view_change_in_progress = value
-        self._internal_bus.send(LegacyViewChangeStatusUpdate(value))
         self.provider.set_view_change_status(value)
 
     @property

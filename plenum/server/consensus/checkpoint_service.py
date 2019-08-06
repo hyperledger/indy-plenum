@@ -9,7 +9,8 @@ from common.exceptions import LogicError
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized
+from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
+    BackupSetupLastOrdered
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
@@ -53,7 +54,8 @@ class CheckpointService:
         # self._stasher.subscribe(Checkpoint, self.process_checkpoint)
         # self._stasher.subscribe_to(network)
         #
-        # self._bus.subscribe(Ordered, self.process_ordered)
+        self._bus.subscribe(Ordered, self.process_ordered)
+        self._bus.subscribe(BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
 
     @property
     def view_no(self):
@@ -115,7 +117,14 @@ class CheckpointService:
         self._check_if_checkpoint_stable(key)
         return True
 
+    def process_backup_setup_last_ordered(self, msg: BackupSetupLastOrdered):
+        if msg.inst_id != self._data.inst_id:
+            return
+        self.update_watermark_from_3pc()
+
     def process_ordered(self, ordered: Ordered):
+        if ordered.instId != self._data.inst_id:
+            return
         for pp in reversed(self._data.preprepared):
             if pp.ppSeqNo == ordered.ppSeqNo:
                 self._add_to_checkpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
@@ -400,7 +409,7 @@ class CheckpointService:
                               key=lambda checkpoint: checkpoint.seqNoEnd)
 
     def __str__(self) -> str:
-        return "{}:{} - checkpoint_service".format(self._data.name, self._data.inst_id)
+        return "{} - checkpoint_service".format(self._data.name)
 
     # TODO: move to OrderingService as a handler for Cleanup messages
     # def _clear_batch_till_seq_no(self, seq_no):

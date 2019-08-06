@@ -22,12 +22,16 @@ class ExternalBus:
     SendHandler = Callable[[Any, Destination], None]
     RecvHandler = Callable[[Any, str], None]
 
-    def __init__(self, send_handler: SendHandler, nodestack: NetworkInterface=None):
+    def __init__(self, send_handler: SendHandler):
         self._send_handler = send_handler
         self._recv_handlers = InternalBus()
 
         # list of connected nodes
-        self.nodestack = nodestack
+        self._connecteds = {}
+
+    @property
+    def connecteds(self):
+        return self._connecteds
 
     def subscribe(self, message_type: Type, recv_handler: RecvHandler):
         self._recv_handlers.subscribe(message_type, recv_handler)
@@ -37,3 +41,6 @@ class ExternalBus:
 
     def process_incoming(self, message: Any, frm: str):
         self._recv_handlers.send(message, frm)
+
+    def update_connecteds(self, connecteds: dict):
+        self._connecteds = connecteds

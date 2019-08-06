@@ -146,8 +146,7 @@ class PreprepareHandler(BaseHandler):
         return pp
 
     def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
-        return self.node.replicas[params['inst_id']]._ordering_service.sentPrePrepares.get((
-            params['view_no'], params['pp_seq_no']))
+        return self.node.replicas[params['inst_id']].get_sent_preprepare(params['view_no'], params['pp_seq_no'])
 
     def processor(self, validated_msg: PrePrepare, params: Dict[str, Any], frm: str) -> None:
         inst_id = params['inst_id']
