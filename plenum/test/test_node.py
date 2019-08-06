@@ -149,14 +149,6 @@ class TestNodeCore(StackedTester):
         view_changer.node = self
         return view_changer
 
-    def delaySelfNomination(self, delay: Seconds):
-        if isinstance(self.primaryDecider, PrimarySelector):
-            raise RuntimeError('Does not support nomination since primary is '
-                               'selected deterministically')
-        else:
-            raise RuntimeError('Unknown primary decider encountered {}'.
-                               format(self.primaryDecider))
-
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
         delayerCheckPerf = partial(delayers.delayerMethod,

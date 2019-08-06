@@ -102,6 +102,7 @@ class f:  # provides a namespace for reusable field constants
     VIEW_CHANGES = Field("viewChanges", List[Tuple[str, str]])       # name, vc_digest
     CHECKPOINT = Field("checkpoint", Any)                            # Any ==Checkpoint
     BATCHES = Field("batches", List[Tuple[int, int, str]])           # view_no, pp_seq_no, pp_digest
+    ORIGINAL_VIEW_NO = Field('originalViewNo', int)
 
 
 OPERATION = 'operation'

@@ -46,7 +46,6 @@ def setup(txnPoolNodeSet):
     Z = txnPoolNodeSet[-1]
     for node in G, Z:
         makeNodeFaulty(node, changesRequest)
-        # node.delaySelfNomination(10)
     return adict(faulties=(G, Z))
 
 

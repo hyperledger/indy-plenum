@@ -159,6 +159,8 @@ class Prepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
                                                    nullable=True)),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
+                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -171,6 +173,8 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
+                                                       nullable=True)),
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))

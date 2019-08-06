@@ -7,10 +7,11 @@ from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
-from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
+from plenum.common.stashing_router import StashingRouter, DISCARD
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.quorums import Quorums
+from plenum.server.replica_validator_enums import PROCESS, STASH_VIEW
 from stp_core.common.log import getlogger
 
 
@@ -240,7 +241,7 @@ class ViewChangeService:
             return DISCARD
 
         if msg.viewNo > self._data.view_no:
-            return STASH
+            return STASH_VIEW
 
         return PROCESS
 

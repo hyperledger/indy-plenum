@@ -1,12 +1,12 @@
 from abc import ABCMeta, abstractmethod
 
-from plenum.common.messages.node_messages import Commit, Checkpoint
+from plenum.common.messages.node_messages import Commit, Checkpoint, NewView, Prepare, PrePrepare
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, SortedDict
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, STASH_VIEW, \
     FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, PROCESS, STASH_CATCH_UP, CATCHING_UP, STASH_WATERMARKS, \
-    OUTSIDE_WATERMARKS, INCORRECT_INSTANCE, ALREADY_STABLE
+    OUTSIDE_WATERMARKS, INCORRECT_INSTANCE, ALREADY_STABLE, STASH_WIATING_NEW_VIEW, WAITING_FOR_NEW_VIEW
 
 
 class ThreePCMsgValidator:

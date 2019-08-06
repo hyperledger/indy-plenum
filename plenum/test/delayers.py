@@ -4,8 +4,7 @@ from typing import Iterable, List, Optional
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.request import Request
 
-from plenum.common.messages.node_messages import Nomination, Reelection, Primary, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
+from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState
 from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
