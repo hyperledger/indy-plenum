@@ -3,7 +3,7 @@ from logging import getLogger
 from typing import Sequence, Optional
 
 import base58
-from ursa import IndyCryptoError
+from ursa.indy_error import IndyCryptoError
 
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
 from ursa.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
