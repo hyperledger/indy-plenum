@@ -10,6 +10,7 @@ from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
@@ -36,7 +37,9 @@ def already_in_view_change(request):
 @pytest.fixture
 def primary(validators):
     def _primary_in_view(view_no):
-        return ViewChangeService._find_primary(validators, view_no)
+        f = (len(validators) - 1) // 3
+        return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
+                                                              validators=validators)[0]
 
     return _primary_in_view
 
@@ -56,10 +59,12 @@ def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is
 
     return _data
 
+
 @pytest.fixture
 def view_change_service():
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
     return ViewChangeService(data, MockTimer(0), InternalBus(), MockNetwork())
+
 
 @pytest.fixture
 def pre_prepare():
