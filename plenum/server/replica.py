@@ -142,7 +142,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         are put back on the queue on a state change
         """
 
-        self.isMaster = isMaster
+        self._is_master = isMaster
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -160,9 +160,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
-
-        self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int]]
-        # Tuple[int, float, bytes]]
 
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
@@ -190,16 +187,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             (Checkpoint, self._checkpointer.process_checkpoint),
         )
 
-        self._ordering_service = OrderingService(self._consensus_data,
-                                                 timer=self.node.timer,
-                                                 bus=self.node.internal_bus,
-                                                 network=self._external_bus,
-                                                 write_manager=self.node.write_manager,
-                                                 bls_bft_replica=self._bls_bft_replica,
-                                                 is_master=isMaster,
-                                                 get_current_time=self.get_current_time,
-                                                 get_time_for_3pc_batch=self.get_time_for_3pc_batch,
-                                                 metrics=self.metrics)
+        self._ordering_service = self._init_ordering_service()
         self.threePhaseRouter = Replica3PRouter(
             self,
             (PrePrepare, self._ordering_service.process_preprepare),
@@ -226,6 +214,15 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     @property
     def requested_prepares(self):
         return self._ordering_service.requested_prepares
+
+    @property
+    def isMaster(self):
+        return self._is_master
+
+    @isMaster.setter
+    def isMaster(self, value):
+        self._is_master = value
+        self._consensus_data.is_master = value
 
     @property
     def requested_commits(self):
@@ -398,7 +395,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._gc_before_new_view()
             if self._checkpointer.should_reset_watermarks_before_new_view():
                 self._checkpointer.reset_watermarks_before_new_view()
-                self.lastPrePrepareSeqNo = 0
+                self._ordering_service._lastPrePrepareSeqNo = 0
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -411,7 +408,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.primaryNames.pop(view_no)
 
     def primaryChanged(self, primaryName):
-        self.batches.clear()
+        self._ordering_service.batches.clear()
         if self.isMaster:
             # Since there is no temporary state data structure and state root
             # is explicitly set to correct value
@@ -698,14 +695,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self.last_ordered_3pc) >= 0
 
-    def addToOrdered(self, view_no: int, pp_seq_no: int):
-        self.ordered.add(view_no, pp_seq_no)
-        self.last_ordered_3pc = (view_no, pp_seq_no)
-
-        self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
-        self.requested_prepares.pop((view_no, pp_seq_no), None)
-        self.requested_commits.pop((view_no, pp_seq_no), None)
-
     def dequeue_pre_prepares(self):
         return self._ordering_service.l_dequeue_pre_prepares()
 
@@ -798,17 +787,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         Revert changes to ledger (uncommitted) and state made by any requests
         that have not been ordered.
         """
-        i = 0
-        for key in sorted(self.batches.keys(), reverse=True):
-            if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                ledger_id, discarded, _, prevStateRoot, len_reqIdr = self.batches.pop(key)
-                discarded = invalid_index_serializer.deserialize(discarded)
-                self.logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
-                i += 1
-            else:
-                break
-        return i
+        return self._ordering_service.revert_unordered_batches()
 
     def on_catch_up_finished(self, last_caught_up_3PC=None, master_last_ordered_3PC=None):
         if master_last_ordered_3PC and last_caught_up_3PC and \
@@ -817,6 +796,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if self.isMaster:
                 self._caught_up_till_3pc(last_caught_up_3PC)
             else:
+                self._ordering_service.first_batch_after_catchup = True
                 self._catchup_clear_for_backup()
         self.stasher.unstash_catchup()
 
@@ -829,7 +809,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._caught_up_till_3pc(msg.caught_up_till_3pc)
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
-        self.last_ordered_3pc = last_caught_up_3PC
         self._ordering_service._caught_up_till_3pc(last_caught_up_3PC)
         self._checkpointer.caught_up_till_3pc(last_caught_up_3PC)
 
@@ -927,3 +906,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if msg.instId != self.instId:
             return
         self.send(msg)
+
+    def _init_ordering_service(self) -> OrderingService:
+        return OrderingService(self._consensus_data,
+                               timer=self.node.timer,
+                               bus=self.node.internal_bus,
+                               network=self._external_bus,
+                               write_manager=self.node.write_manager,
+                               bls_bft_replica=self._bls_bft_replica,
+                               get_current_time=self.get_current_time,
+                               get_time_for_3pc_batch=self.get_time_for_3pc_batch,
+                               metrics=self.metrics)

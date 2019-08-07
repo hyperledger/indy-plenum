@@ -35,7 +35,7 @@ def setup(txnPoolNodeSet):
             node.nodeStatusDB.remove(LAST_SENT_PRE_PREPARE)
         for replica in node.replicas.values():
             replica._checkpointer.set_watermarks(low_watermark=0)
-            replica._lastPrePrepareSeqNo = 0
+            replica._ordering_service._lastPrePrepareSeqNo = 0
             replica.last_ordered_3pc = (replica.viewNo, 0)
 
 

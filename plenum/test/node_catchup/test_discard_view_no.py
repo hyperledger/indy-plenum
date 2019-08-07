@@ -44,7 +44,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     _, did = sdk_wallet_client
     primaryRepl = getPrimaryReplica(txnPoolNodeSet)
     inst_id = 0
-    three_pc = create_pre_prepare_no_bls(primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
+    three_pc = create_pre_prepare_no_bls(primaryRepl.node.db_manager.get_state_root_hash(DOMAIN_LEDGER_ID),
                                          viewNo,
                                          pp_seq_no=10,
                                          inst_id=inst_id)

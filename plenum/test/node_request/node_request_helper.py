@@ -65,7 +65,8 @@ def checkPrePrepared(looper,
             method for primary must be 0 with or without faults in system
             """
             l1 = len([param for param in
-                      getAllArgs(primary, primary._ordering_service.process_preprepare)])
+                      getAllArgs(primary._ordering_service,
+                                 primary._ordering_service.process_preprepare)])
             assert l1 == 0, 'Primary {} sees no pre-prepare'.format(primary)
 
         def nonPrimarySeesCorrectNumberOfPREPREPAREs():
@@ -86,18 +87,19 @@ def checkPrePrepared(looper,
                 init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
-                primary.stateRootHash(DOMAIN_LEDGER_ID),
-                primary.txnRootHash(DOMAIN_LEDGER_ID),
+                primary.node.db_manager.get_state_root_hash(DOMAIN_LEDGER_ID),
+                primary.node.db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID),
                 0,
                 True,
-                primary.stateRootHash(POOL_LEDGER_ID),
-                primary.txnRootHash(AUDIT_LEDGER_ID)
+                primary.node.db_manager.get_state_root_hash(POOL_LEDGER_ID),
+                primary.node.db_manager.get_txn_root_hash(AUDIT_LEDGER_ID)
             )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
-                                  getAllArgs(npr, npr._ordering_service.process_preprepare)
+                                  getAllArgs(npr._ordering_service,
+                                             npr._ordering_service.process_preprepare)
                                   if (param['pre_prepare'][0:3] +
                                       param['pre_prepare'][4:],
                                       param['sender']) == (
@@ -123,7 +125,8 @@ def checkPrePrepared(looper,
              will be zero and primary must be marked as malicious.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary, primary.sendPrePrepare)
+                              getAllArgs(primary._ordering_service,
+                                         primary._ordering_service.l_sendPrePrepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
                               primary.batchDigest([propagated1, ])])
@@ -147,7 +150,8 @@ def checkPrePrepared(looper,
             passes = 0
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
-                          getAllArgs(npr, npr.addToPrePrepares)
+                          getAllArgs(npr._ordering_service,
+                                     npr._ordering_service.l_addToPrePrepares)
                           if param['pp'].reqIdr[0] == propagated1.digest
                           and param['pp'].digest ==
                           primary.batchDigest([propagated1, ])])

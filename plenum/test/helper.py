@@ -309,7 +309,8 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    prePreparesSent = getAllArgs(replica._ordering_service,
+                                 replica._ordering_service.l_sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
     assert (req.digest,) in \
@@ -319,15 +320,15 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
-        params = getAllArgs(replica, replica._can_process_pre_prepare)
+        params = getAllArgs(replica._ordering_service, replica._ordering_service.l_can_process_pre_prepare)
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
-    paramsList = getAllArgs(replica, replica.canPrepare)
-    rv = getAllReturnVals(replica,
-                          replica.canPrepare)
+    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service.l_canPrepare)
+    rv = getAllReturnVals(replica._ordering_service,
+                          replica._ordering_service.l_canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
     assert (key,) in args
     idx = args.index((key,))

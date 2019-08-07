@@ -23,7 +23,7 @@ def test_replica_received_preprepare_with_ordered_request(looper,
                               sdk_pool_handle, sdk_wallet_steward, 1)
 
     replica = txnPoolNodeSet[1].master_replica
-    params = replica.spylog.getLastParams(OrderingService.process_preprepare)
+    params = replica._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
     pp = params["pre_prepare"]
     sender = params["sender"]
     start_request_propagate_count = replica.node.spylog.count(Node.request_propagates)
@@ -55,7 +55,7 @@ def test_replica_received_preprepare_with_unknown_request(looper,
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 1)
 
-    params = replica.spylog.getLastParams(Replica._ordering_service.process_preprepare)
+    params = replica._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
     pp = params["pre_prepare"]
     sender = params["sender"]
     looper.runFor(tconf.PROPAGATE_REQUEST_DELAY)

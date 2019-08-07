@@ -5,7 +5,9 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
@@ -43,7 +45,9 @@ class ReplicaFakeNode(FakeSomething):
             get_validators=lambda: [],
             db_manager=None,
             internal_bus=InternalBus(),
-            write_manager=FakeSomething(),
+            write_manager=FakeSomething(database_manager=DatabaseManager(),
+                                        apply_request=lambda req, cons_time: None),
+            timer=QueueTimer()
         )
 
     @property
@@ -137,12 +141,13 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     ReplicaFakeNode.master_last_ordered_3PC = replica.last_ordered_3pc
 
     replica.last_accepted_pre_prepare_time = replica.get_time_for_3pc_batch()
-    replica.revert = lambda ledgerId, stateRootHash, reqCount: None
     replica.primaryName = "Alpha:{}".format(replica.instId)
     replica.primaryNames[replica.viewNo] = replica.primaryName
 
-    replica.txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
-    replica.stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    replica._ordering_service.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
+    replica._ordering_service.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    replica._ordering_service.l_revert = lambda ledgerId, stateRootHash, reqCount: None
+    replica._ordering_service.post_batch_creation = lambda three_pc_batch: None
 
     replica.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
 
@@ -164,7 +169,7 @@ def primary_replica(replica):
 
 @pytest.fixture(scope='function')
 def replica_with_requests(replica, fake_requests):
-    replica._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
+    replica._ordering_service.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         replica.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         replica.requests.add(req)

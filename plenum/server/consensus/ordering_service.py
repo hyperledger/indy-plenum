@@ -61,7 +61,6 @@ class OrderingService:
                  network: ExternalBus,
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
-                 is_master=True,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
                  stasher=None,
@@ -73,7 +72,6 @@ class OrderingService:
         self._bus = bus
         self._network = network
         self._write_manager = write_manager
-        self._is_master = is_master
         self._name = self._data.name
         self.get_time_for_3pc_batch = get_time_for_3pc_batch or get_utc_epoch
 
@@ -231,7 +229,6 @@ class OrderingService:
         self._stasher.subscribe(Prepare, self.process_prepare)
         self._stasher.subscribe(Commit, self.process_commit)
         self._stasher.subscribe_to(network)
-        self._bus.subscribe(RevertUnorderedBatches, self._revert_unordered_batches)
 
     def __repr__(self):
         return self.name
@@ -696,7 +693,7 @@ class OrderingService:
 
     @property
     def is_master(self):
-        return self._is_master
+        return self._data.is_master
 
     @property
     def primary_name(self):
@@ -2230,13 +2227,11 @@ class OrderingService:
             self.stats.inc(stat)
         self.send_outbox(msg, dst=dst)
 
-    def _revert_unordered_batches(self, msg: RevertUnorderedBatches):
+    def revert_unordered_batches(self):
         """
         Revert changes to ledger (uncommitted) and state made by any requests
         that have not been ordered.
         """
-        if msg.inst_id != self._data.inst_id:
-            return
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
@@ -2262,6 +2257,7 @@ class OrderingService:
         return max_3PC_key(keys) if keys else None
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
+        self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
     def catchup_clear_for_backup(self):

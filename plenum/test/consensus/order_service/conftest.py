@@ -13,14 +13,12 @@ from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_
 @pytest.fixture()
 def orderer(consensus_data, internal_bus, name, write_manager,
             txn_roots, state_roots, bls_bft_replica):
-    is_master = True  # TODO: change to a fixture
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,
                               network=MockNetwork(),
                               write_manager=write_manager,
-                              bls_bft_replica=bls_bft_replica,
-                              is_master=is_master)
+                              bls_bft_replica=bls_bft_replica,)
     orderer._data.node_mode = Mode.participating
     orderer.primary_name = "Alpha:0"
     orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
