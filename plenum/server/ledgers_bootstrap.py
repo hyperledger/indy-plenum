@@ -6,7 +6,7 @@ from crypto.bls.bls_bft import BlsBft
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.constants import AUDIT_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID, \
-    NODE_PRIMARY_STORAGE_SUFFIX, BLS_LABEL
+    NODE_PRIMARY_STORAGE_SUFFIX, BLS_LABEL, HS_MEMORY
 from plenum.common.ledger import Ledger
 from plenum.persistence.storage import initStorage
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
@@ -24,12 +24,13 @@ from plenum.server.request_managers.action_request_manager import ActionRequestM
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from state.pruning_state import PruningState
-from state.state import State
 
 from storage.helper import initHashStore, initKeyValueStorage
 from stp_core.common.log import getlogger
 
 logger = getlogger()
+
+IN_MEMORY_LOCATION = '//!memory!'
 
 # TODO: This can be improved in several ways
 #  - if register_batch_handler gets some improvements it will be possible to group
@@ -79,8 +80,8 @@ class LedgersBootstrap:
     def update_txn_with_extra_data(self, txn):
         raise NotImplemented
 
-    def init_ledgers(self, domain_storage):
-        self.init_storages(domain_storage=domain_storage)
+    def init_ledgers(self):
+        self.init_storages()
         self.init_bls_bft()
         self.register_req_handlers()
         self.register_batch_handlers()
@@ -174,7 +175,8 @@ class LedgersBootstrap:
         self._init_state_from_ledger(DOMAIN_LEDGER_ID)
 
     def _create_ledger(self, name: str, use_genesis: bool) -> Ledger:
-        hash_store = initHashStore(self.data_location, name, self.config)
+        hs_type = HS_MEMORY if self.data_location == IN_MEMORY_LOCATION else None
+        hash_store = initHashStore(self.data_location, name, self.config, hs_type=hs_type)
         txn_file_name = getattr(self.config, "{}TransactionsFile".format(name))
 
         genesis_txn_initiator = None
