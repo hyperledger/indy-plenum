@@ -1,19 +1,18 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
-from typing import List, Optional, Union, NamedTuple, Dict, Any, Tuple
+from typing import List, Optional, Union, Dict, Any, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, PrePrepare, Checkpoint
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
 from plenum.common.timer import TimerService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
-
-BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
 def view_change_digest(msg: ViewChange) -> str:
@@ -136,15 +135,16 @@ class ViewChangeService:
         self._network = network
         self._router = StashingRouter(self._config.VIEW_CHANGE_SERVICE_STASH_LIMIT)
         self._votes = ViewChangeVotesForView(self._data.quorums)
-        self._new_view = None   # type: Optional[NewView]
+        self._new_view = None  # type: Optional[NewView]
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
         self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
         self._router.subscribe(NewView, self.process_new_view_message)
         self._router.subscribe_to(network)
 
-        self._old_prepared = {}     # type: Dict[int, BatchID]
+        self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
+        self._primaries_selector = RoundRobinPrimariesSelector()
 
     def __repr__(self):
         return self._data.name
@@ -156,22 +156,23 @@ class ViewChangeService:
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
 
-        for pp in self._data.prepared:
-            self._old_prepared[pp.ppSeqNo] = self.batch_id(pp)
+        for batch_id in self._data.prepared:
+            self._old_prepared[batch_id.pp_seq_no] = batch_id
         prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
 
-        for pp in self._data.preprepared:
-            new_bid = self.batch_id(pp)
-            pretenders = self._old_preprepared.get(pp.ppSeqNo, [])
+        for new_bid in self._data.preprepared:
+            pretenders = self._old_preprepared.get(new_bid.pp_seq_no, [])
             pretenders = [bid for bid in pretenders
                           if bid.pp_digest != new_bid.pp_digest]
             pretenders.append(new_bid)
-            self._old_preprepared[pp.ppSeqNo] = pretenders
+            self._old_preprepared[new_bid.pp_seq_no] = pretenders
         preprepared = sorted([tuple(bid) for bids in self._old_preprepared.values() for bid in bids])
 
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
-        self._data.primary_name = self._find_primary(self._data.validators, self._data.view_no)
+        self._data.primary_name = self._primaries_selector.select_primaries(view_no=self._data.view_no,
+                                                                            instance_count=self._data.quorums.f + 1,
+                                                                            validators=self._data.validators)[0]
         self._data.preprepared.clear()
         self._data.prepared.clear()
         self._votes.clear()
@@ -228,10 +229,6 @@ class ViewChangeService:
         self._new_view = msg
 
         self._finish_view_change_if_needed()
-
-    @staticmethod
-    def _find_primary(validators: List[str], view_no: int) -> str:
-        return validators[view_no % len(validators)]
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
@@ -317,10 +314,6 @@ class ViewChangeService:
         for pp_seq_no in list(batches.keys()):
             if pp_seq_no <= self._data.stable_checkpoint:
                 del batches[pp_seq_no]
-
-    @staticmethod
-    def batch_id(batch: PrePrepare):
-        return BatchID(batch.viewNo, batch.ppSeqNo, batch.digest)
 
 
 class NewViewBuilder:
