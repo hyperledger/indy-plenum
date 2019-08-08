@@ -10,6 +10,7 @@ from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewV
 from plenum.common.stashing_router import StashingRouter, DISCARD
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
 from plenum.server.replica_validator_enums import PROCESS, STASH_VIEW
 from stp_core.common.log import getlogger
@@ -144,6 +145,7 @@ class ViewChangeService:
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
+        self._primaries_selector = RoundRobinPrimariesSelector()
 
     def __repr__(self):
         return self._data.name
@@ -155,8 +157,8 @@ class ViewChangeService:
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
 
-        for pp_batch_id in self._data.prepared:
-            self._old_prepared[pp_batch_id.pp_seq_no] = pp_batch_id
+        for batch_id in self._data.prepared:
+            self._old_prepared[batch_id.pp_seq_no] = batch_id
         prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
 
         for new_bid in self._data.preprepared:
@@ -169,7 +171,9 @@ class ViewChangeService:
 
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
-        self._data.primary_name = self._find_primary(self._data.validators, self._data.view_no)
+        self._data.primary_name = self._primaries_selector.select_primaries(view_no=self._data.view_no,
+                                                                            instance_count=self._data.quorums.f + 1,
+                                                                            validators=self._data.validators)[0]
         self._data.preprepared.clear()
         self._data.prepared.clear()
         self._votes.clear()
@@ -226,10 +230,6 @@ class ViewChangeService:
         self._new_view = msg
 
         self._finish_view_change_if_needed()
-
-    @staticmethod
-    def _find_primary(validators: List[str], view_no: int) -> str:
-        return validators[view_no % len(validators)]
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation

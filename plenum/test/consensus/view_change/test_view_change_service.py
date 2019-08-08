@@ -27,19 +27,6 @@ def view_change_acks(validators, random):
     return _view_change_acks
 
 
-def test_view_change_primary_selection(validators, initial_view_no):
-    primary = ViewChangeService._find_primary(validators, initial_view_no)
-    prev_primary = ViewChangeService._find_primary(validators, initial_view_no - 1)
-    next_primary = ViewChangeService._find_primary(validators, initial_view_no + 1)
-
-    assert primary in validators
-    assert prev_primary in validators
-    assert next_primary in validators
-
-    assert primary != prev_primary
-    assert primary != next_primary
-
-
 def test_start_view_change_increases_next_view_changes_primary_and_broadcasts_view_change_message(
         some_item, validators, view_change_service, initial_view_no):
     service = view_change_service(some_item(validators))

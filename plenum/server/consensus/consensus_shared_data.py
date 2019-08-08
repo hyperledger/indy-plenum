@@ -11,8 +11,8 @@ from plenum.server.quorums import Quorums
 BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
-def batch_id(batch: PrePrepare):
-    return BatchID(batch.viewNo, batch.ppSeqNo, batch.digest)
+def preprepare_to_batch_id(pre_prepare: PrePrepare) -> BatchID:
+    return BatchID(pre_prepare.viewNo, pre_prepare.ppSeqNo, pre_prepare.digest)
 
 
 class ConsensusSharedData:
@@ -39,12 +39,13 @@ class ConsensusSharedData:
         self.stable_checkpoint = 0
         # Checkpoint messages which the current node sent.
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
-        # List of PrePrepare messages, for which quorum of Prepare messages is not reached yet
+        # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is not reached yet
         self.preprepared = []  # type:  List[BatchID]
-        # List of PrePrepare messages, for which quorum of Prepare messages is reached
+        # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is reached
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self._quorums = None
+        # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
         self.log_size = getConfig().LOG_SIZE

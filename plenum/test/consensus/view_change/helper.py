@@ -36,13 +36,6 @@ class SimPool:
         return self._nodes
 
 
-def some_preprepare(view_no: int, pp_seq_no: int, digest: str) -> PrePrepare:
-    return BatchID(view_no=view_no, pp_seq_no=pp_seq_no, pp_digest=digest)
-
-def some_random_preprepare(random: SimRandom, view_no: int, pp_seq_no: int) -> PrePrepare:
-    return some_preprepare(view_no, pp_seq_no, random.string(40))
-
-
 def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoint:
     return Checkpoint(
         instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no, digest=random.string(40)
@@ -58,7 +51,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     faulty = (pool_size - 1) // 3
     seq_no_per_cp = 10
     max_batches = 50
-    batches = [some_random_preprepare(random, 0, n) for n in range(1, max_batches)]
+    batches = [BatchID(0, n, random.string(40)) for n in range(1, max_batches)]
     checkpoints = [some_checkpoint(random, 0, n) for n in range(0, max_batches, seq_no_per_cp)]
 
     # Preprepares
