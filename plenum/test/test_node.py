@@ -42,7 +42,6 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -137,11 +136,6 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
-    def newPrimaryDecider(self):
-        pdCls = self.primaryDecider if self.primaryDecider else \
-            TestPrimarySelector
-        return pdCls(self)
-
     def newViewChanger(self):
         view_changer = self.view_changer if self.view_changer is not None \
             else create_view_changer(self, TestViewChanger)
@@ -150,12 +144,8 @@ class TestNodeCore(StackedTester):
         return view_changer
 
     def delaySelfNomination(self, delay: Seconds):
-        if isinstance(self.primaryDecider, PrimarySelector):
-            raise RuntimeError('Does not support nomination since primary is '
-                               'selected deterministically')
-        else:
-            raise RuntimeError('Unknown primary decider encountered {}'.
-                               format(self.primaryDecider))
+        raise RuntimeError('Unknown primary decider encountered {}'.
+                           format(self.primaryDecider))
 
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
@@ -383,14 +373,6 @@ class TestNode(TestNodeCore, Node):
 
     def restart_clientstack(self):
         self.clientstack.restart()
-
-
-selector_spyables = [PrimarySelector.decidePrimaries]
-
-
-@spyable(methods=selector_spyables)
-class TestPrimarySelector(PrimarySelector):
-    pass
 
 
 view_changer_spyables = [
@@ -965,7 +947,6 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo
     assert node.viewNo == proposedViewNo
-    assert node.elector.viewNo == proposedViewNo
 
 
 def timeThis(func, *args, **kwargs):

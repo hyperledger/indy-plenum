@@ -7,9 +7,10 @@ from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
-from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD
+from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
 
@@ -143,6 +144,7 @@ class ViewChangeService:
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
+        self._primaries_selector = RoundRobinPrimariesSelector()
 
     def __repr__(self):
         return self._data.name
@@ -168,7 +170,9 @@ class ViewChangeService:
 
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
-        self._data.primary_name = self._find_primary(self._data.validators, self._data.view_no)
+        self._data.primary_name = self._primaries_selector.select_primaries(view_no=self._data.view_no,
+                                                                            instance_count=self._data.quorums.f + 1,
+                                                                            validators=self._data.validators)[0]
         self._data.preprepared.clear()
         self._data.prepared.clear()
         self._votes.clear()
@@ -226,11 +230,7 @@ class ViewChangeService:
 
         self._finish_view_change_if_needed()
 
-    @staticmethod
-    def _find_primary(validators: List[str], view_no: int) -> str:
-        return validators[view_no % len(validators)]
-
-    def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str, STASH=None) -> int:
+    def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
 
         if msg.viewNo < self._data.view_no:
