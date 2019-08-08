@@ -125,9 +125,9 @@ class CheckpointService:
     def process_ordered(self, ordered: Ordered):
         if ordered.instId != self._data.inst_id:
             return
-        for pp in reversed(self._data.preprepared):
-            if pp.ppSeqNo == ordered.ppSeqNo:
-                self._add_to_checkpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
+        for batch_id in reversed(self._data.preprepared):
+            if batch_id.pp_seq_no == ordered.ppSeqNo:
+                self._add_to_checkpoint(batch_id.pp_seq_no, batch_id.pp_digest, ordered.ledgerId, batch_id.view_no)
                 return
         raise LogicError("CheckpointService | Can't process Ordered msg because "
                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo))

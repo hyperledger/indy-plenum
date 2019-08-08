@@ -39,7 +39,7 @@ from plenum.common.request import Request, ReqKey
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
