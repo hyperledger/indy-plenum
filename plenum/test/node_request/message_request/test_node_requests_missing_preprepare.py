@@ -59,5 +59,5 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
     assert len(recv_reqs) == 0
 
     # All nodes including the `slow_node` ordered the same requests
-    assert check_if_all_equal_in_list([n.master_replica.ordered
+    assert check_if_all_equal_in_list([n.master_replica._ordering_service.ordered
                                        for n in txnPoolNodeSet])

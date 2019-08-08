@@ -4,7 +4,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, 
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.server.replica import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
+from plenum.server.replica_helper import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params

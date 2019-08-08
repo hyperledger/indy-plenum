@@ -38,7 +38,7 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
         replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
     replica._ordering_service.first_batch_after_catchup = True
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
 
@@ -61,7 +61,7 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
 
@@ -87,7 +87,7 @@ def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
     replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
         .append((prepare, txnPoolNodeSet[-1].name))
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
 
@@ -113,7 +113,7 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
     for node in txnPoolNodeSet:
         replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
 
@@ -141,7 +141,7 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
         replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
 
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == last_ordered_3pc
 
 
