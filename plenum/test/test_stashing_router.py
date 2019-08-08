@@ -1,7 +1,8 @@
 from unittest.mock import Mock
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.stashing_router import StashingRouter, STASH, PROCESS, DISCARD
+from plenum.common.stashing_router import StashingRouter, DISCARD
+from plenum.server.replica_validator_enums import PROCESS, STASH_VIEW, STASH_WATERMARKS
 from plenum.test.test_event_bus import SomeMessage, OtherMessage, create_some_message, create_other_message
 
 
@@ -89,7 +90,7 @@ def test_stashing_router_can_stash_messages():
         calls.append(msg)
         if stash_count > 0:
             stash_count -= 1
-            return STASH
+            return STASH_VIEW
 
     bus = InternalBus()
     router = StashingRouter(10)
@@ -125,7 +126,7 @@ def test_stashing_router_can_stash_messages_with_metadata():
         calls.append((msg, frm))
         if stash_count > 0:
             stash_count -= 1
-            return STASH
+            return STASH_VIEW
 
     bus = InternalBus()
     router = StashingRouter(10)
@@ -158,9 +159,9 @@ def test_stashing_router_can_stash_messages_with_different_reasons():
     def handler(message: SomeMessage):
         calls.append(message)
         if message.int_field % 2 == 0:
-            return STASH + 0
+            return STASH_VIEW
         else:
-            return STASH + 1
+            return STASH_WATERMARKS
 
     bus = InternalBus()
     router = StashingRouter(10)
@@ -171,7 +172,7 @@ def test_stashing_router_can_stash_messages_with_different_reasons():
     for msg in messages:
         bus.send(msg)
     assert router.stash_size() == len(messages)
-    assert router.stash_size(STASH + 0) + router.stash_size(STASH + 1) == router.stash_size()
+    assert router.stash_size(STASH_VIEW) + router.stash_size(STASH_WATERMARKS) == router.stash_size()
 
     calls.clear()
     router.process_all_stashed()
@@ -179,16 +180,16 @@ def test_stashing_router_can_stash_messages_with_different_reasons():
     assert calls == sorted(messages, key=lambda m: m.int_field % 2)
 
     calls.clear()
-    router.process_all_stashed(STASH + 0)
+    router.process_all_stashed(STASH_VIEW)
     assert router.stash_size() == len(messages)
-    assert router.stash_size(STASH + 0) == len(calls)
+    assert router.stash_size(STASH_VIEW) == len(calls)
     assert all(msg.int_field % 2 == 0 for msg in calls)
     assert all(msg in messages for msg in calls)
 
     calls.clear()
-    router.process_all_stashed(STASH + 1)
+    router.process_all_stashed(STASH_WATERMARKS)
     assert router.stash_size() == len(messages)
-    assert router.stash_size(STASH + 1) == len(calls)
+    assert router.stash_size(STASH_WATERMARKS) == len(calls)
     assert all(msg.int_field % 2 != 0 for msg in calls)
     assert all(msg in messages for msg in calls)
 
@@ -198,14 +199,14 @@ def test_stashing_router_can_stash_and_sort_messages():
 
     def handler(message: SomeMessage):
         calls.append(message)
-        return STASH
+        return STASH_VIEW
 
     def sort_key(message: SomeMessage):
         return message.int_field
 
     bus = InternalBus()
     router = StashingRouter(10)
-    router.set_sorted_stasher(STASH, key=sort_key)
+    router.set_sorted_stasher(STASH_VIEW, key=sort_key)
     router.subscribe(SomeMessage, handler)
     router.subscribe_to(bus)
 
@@ -226,7 +227,7 @@ def test_stashing_router_can_process_stashed_until_first_restash():
     def handler(msg):
         calls.append(msg)
         if len(calls) % 2 != 0:
-            return STASH
+            return STASH_VIEW
 
     bus = InternalBus()
     router = StashingRouter(10)
