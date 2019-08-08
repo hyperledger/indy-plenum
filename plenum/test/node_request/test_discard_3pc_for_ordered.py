@@ -55,7 +55,7 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
 
     def count_discarded(inst_id, count):
         for node in other_nodes:
-            assert countDiscarded(node.replicas[inst_id],
+            assert countDiscarded(node.replicas[inst_id].stasher,
                                   'already ordered 3 phase message') == count
 
     # `slow_node` did not receive any PREPAREs or COMMITs

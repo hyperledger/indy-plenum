@@ -11,7 +11,7 @@ import gc
 import psutil
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries
+from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries, NeedMasterCatchup
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
