@@ -410,5 +410,3 @@ class CheckpointService:
     def discard(self, msg, reason, sender):
         self._logger.trace("{} discard message {} from {} "
                            "with the reason: {}".format(self, msg, sender, reason))
-
-

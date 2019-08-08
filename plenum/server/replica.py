@@ -608,7 +608,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         # TODO should handle SuspiciousNode here
         r = self.dequeue_pre_prepares()
-        #r += self.inBoxRouter.handleAllSync(self.inBox, limit)
+        # r += self.inBoxRouter.handleAllSync(self.inBox, limit)
         r += self._handle_external_messages(self.inBox, limit)
         r += self.send_3pc_batch()
         r += self._serviceActions()

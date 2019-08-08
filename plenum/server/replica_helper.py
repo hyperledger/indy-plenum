@@ -126,8 +126,7 @@ class ConsensusDataHelper:
         After pp had validated, it placed into _preprepared list
         """
         if preprepare_to_batch_id(pp) in self.consensus_data.preprepared:
-            pass
-            #raise LogicError('New pp cannot be stored in preprepared')
+            raise LogicError('New pp cannot be stored in preprepared')
         if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
         self.consensus_data.preprepared.append(preprepare_to_batch_id(pp))
