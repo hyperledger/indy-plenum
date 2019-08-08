@@ -280,7 +280,7 @@ class Propagator:
         num_replicas = self.replicas.num_replicas
         logger.debug('{} forwarding request {} to {} replicas'
                      .format(self, key, num_replicas))
-        self.replicas.pass_message(ReqKey(key))
+        self.internal_bus.send(ReqKey(key))
         self.monitor.requestUnOrdered(key)
         self.requests.mark_as_forwarded(request, num_replicas)
 

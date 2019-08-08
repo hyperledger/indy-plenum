@@ -2,10 +2,11 @@ import pytest
 
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.util import SortedDict
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, CATCHING_UP, ALREADY_STABLE, \
+from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, CATCHING_UP, ALREADY_STABLE, \
     STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW
 
 

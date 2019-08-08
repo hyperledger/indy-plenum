@@ -1,3 +1,4 @@
+from plenum.server.replica_validator_enums import STASH_VIEW
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -32,7 +33,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
     logger.debug('{} will delay its view change'.format(lagging_node))
 
     def chk_fut_view(is_empty):
-        num_stashed = lagging_node.master_replica.stasher.num_stashed_future_view
+        num_stashed = lagging_node.master_replica.stasher.stash_size(STASH_VIEW)
         if is_empty:
             assert num_stashed == 0
         else:

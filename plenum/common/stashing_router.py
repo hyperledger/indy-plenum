@@ -87,7 +87,7 @@ class SortedStash(StashingQueue):
 
 
 class StashingRouter:
-    Handler = Callable[..., Optional[int]]
+    Handler = Callable[..., Optional[Tuple[int, str]]]
 
     def __init__(self, limit: int):
         self._limit = limit
@@ -98,8 +98,8 @@ class StashingRouter:
     def set_sorted_stasher(self, code: int, key: Callable):
         self._queues[code] = SortedStash(self._limit, key)
 
-    def subscribe(self, message_type: Type, handler: Handler):
-        if message_type in self._handlers:
+    def subscribe(self, message_type: Type, handler: Handler, allow_override=False):
+        if not allow_override and message_type in self._handlers:
             raise LogicError("Trying to assign handler {} for message type {}, "
                              "but another handler is already assigned {}".
                              format(handler, message_type, self._handlers[message_type]))
@@ -158,7 +158,7 @@ class StashingRouter:
         Tries to process message using given handler. Returns True if message
         was stashed for reprocessing in future, False otherwise.
         """
-        code = handler(message, *args)
+        code, reason = handler(message, *args)
 
         # If handler returned either None or PROCESS we assume it successfully processed message
         # and no further action is needed
@@ -166,21 +166,26 @@ class StashingRouter:
             return True
 
         if code == DISCARD:
-            self._logger.trace("Discarded message {} with metadata {}".format(message, args))
+            self.discard(message, args, reason)
             return True
 
-        self._stash(code, message, *args)
+        self._stash(code, reason, message, *args)
         return False
 
     def _resolve_and_process(self, message: Any, *args) -> bool:
         handler = self._handlers[type(message)]
         return self._process(handler, message, *args)
 
-    def _stash(self, code: int, message: Any, *args):
-        self._logger.trace("Stashing message {} with metadata {}".format(message, args))
+    def _stash(self, code: int, reason: str, message: Any, *args):
+        self._logger.trace("Stashing message {} with metadata {} "
+                           "with the reason {}".format(message, args, reason))
 
         queue = self._queues.setdefault(code, UnsortedStash(self._limit))
         if not queue.push(message, *args):
             # TODO: This is actually better be logged on info level with some throttling applied,
             #  however this cries for some generic easy to use solution, which we don't have yet.
             self._logger.debug("Cannot stash message {} with metadata {} - queue is full".format(message, args))
+
+    def discard(self, msg, args, reason):
+        self._logger.trace("Discarded message {} with metadata {} "
+                           "with the reason {}".format(msg, args, reason))

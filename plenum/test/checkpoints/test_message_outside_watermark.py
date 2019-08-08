@@ -1,21 +1,22 @@
 from plenum.common.constants import PREPREPARE, PREPARE, CHECKPOINT
 from plenum.server.node import Node
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay, chk_delay
 from plenum.test.helper import countDiscarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     checkNodeDataForInequality
-from plenum.test.test_node import getNonPrimaryReplicas, TestReplica, TestReplicaStasher
+from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from plenum.test.helper import sdk_send_random_and_check
 
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
 
 
-def discardCounts(replicas, pat):
+def discardCounts(checkpoint_services, pat):
     counts = {}
-    for r in replicas:
-        counts[r.name] = countDiscarded(r, pat)
+    for r in checkpoint_services:
+        counts[str(r)] = countDiscarded(r, pat)
     return counts
 
 
@@ -50,16 +51,16 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(
     slowNode.nodeIbStasher.delay(chk_delay(300))
 
     initialDomainLedgerSize = slowNode.domainLedger.size
-    oldStashCount = slowReplica.stasher.num_stashed_watermarks
+    oldStashCount = slowReplica.stasher.stash_size(STASH_WATERMARKS)
     slowReplica._checkpointer.set_watermarks(slowReplica.h, LOG_SIZE)
     # 1. Send requests more than fit between the watermarks on the slow node
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_for_logsize + 2)
 
     # Verify that the slow node stashes the batches outside of its watermarks
-    newStashCount = slowReplica.stasher.num_stashed_watermarks
+    newStashCount = slowReplica.stasher.stash_size(STASH_WATERMARKS)
     assert newStashCount > oldStashCount
 
-    oldDiscardCounts = discardCounts([n.replicas[backupInstId] for n in txnPoolNodeSet if n != slowNode],
+    oldDiscardCounts = discardCounts([n.replicas[backupInstId]._checkpointer for n in txnPoolNodeSet if n != slowNode],
                                      'achieved stable checkpoint')
 
     # 2. Deliver the sent PREPREPAREs and PREPAREs to the slow node
@@ -75,7 +76,7 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(
     # Also verify that the other nodes discard the COMMITs from the slow node
     # since they have already achieved stable checkpoints for these COMMITs.
     counts = discardCounts(
-        [n.replicas[backupInstId] for n in txnPoolNodeSet if n != slowNode],
+        [n.replicas[backupInstId]._checkpointer for n in txnPoolNodeSet if n != slowNode],
         'achieved stable checkpoint')
     for nm, count in counts.items():
         assert count > oldDiscardCounts[nm]

@@ -7,8 +7,7 @@ from sortedcontainers import SortedListWithKey
 
 from common.exceptions import LogicError
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 
 PP_CHECK_NOT_FROM_PRIMARY = 0
 PP_CHECK_TO_PRIMARY = 1
@@ -126,31 +125,32 @@ class ConsensusDataHelper:
         """
         After pp had validated, it placed into _preprepared list
         """
-        if pp in self.consensus_data.preprepared:
-            raise LogicError('New pp cannot be stored in preprepared')
+        if preprepare_to_batch_id(pp) in self.consensus_data.preprepared:
+            pass
+            #raise LogicError('New pp cannot be stored in preprepared')
         if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
-        self.consensus_data.preprepared.append(pp)
+        self.consensus_data.preprepared.append(preprepare_to_batch_id(pp))
 
     def prepare_batch(self, pp: PrePrepare):
         """
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        self.consensus_data.prepared.append(pp)
+        self.consensus_data.prepared.append(preprepare_to_batch_id(pp))
 
     def clear_batch(self, pp: PrePrepare):
         """
         When 3pc batch processed, it removed from _prepared list
         """
-        if pp in self.consensus_data.preprepared:
-            self.consensus_data.preprepared.remove(pp)
-        if pp in self.consensus_data.prepared:
-            self.consensus_data.prepared.remove(pp)
+        if preprepare_to_batch_id(pp) in self.consensus_data.preprepared:
+            self.consensus_data.preprepared.remove(preprepare_to_batch_id(pp))
+        if preprepare_to_batch_id(pp) in self.consensus_data.prepared:
+            self.consensus_data.prepared.remove(preprepare_to_batch_id(pp))
 
     def clear_batch_till_seq_no(self, seq_no):
-        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo >= seq_no]
-        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo >= seq_no]
+        self.consensus_data.preprepared = [bid for bid in self.consensus_data.preprepared if bid.pp_seq_no >= seq_no]
+        self.consensus_data.prepared = [bid for bid in self.consensus_data.prepared if bid.pp_seq_no >= seq_no]
 
 
 class OrderedTracker:

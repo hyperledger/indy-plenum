@@ -16,7 +16,6 @@ from plenum.server.client_authn import CoreAuthNr
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.node_bootstrap import NodeBootstrap
-from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
 from plenum.test.get_buy_handler import GetBuyHandler
@@ -409,19 +408,18 @@ class TestViewChanger(ViewChanger):
 
 
 replica_stasher_spyables = [
-    ReplicaStasher.stash
+    StashingRouter._stash,
+    StashingRouter.discard
 ]
 
 
 @spyable(methods=replica_stasher_spyables)
-class TestReplicaStasher(ReplicaStasher):
+class TestStashingRouter(StashingRouter):
     pass
 
 
 replica_spyables = [
-    replica.Replica.discard,
     replica.Replica.revert_unordered_batches,
-    replica.Replica.process_three_phase_msg,
     replica.Replica.process_requested_pre_prepare,
     replica.Replica.process_requested_prepare,
     replica.Replica._send_ordered,
@@ -439,15 +437,14 @@ class TestReplica(replica.Replica):
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
     def _init_replica_stasher(self):
-        return TestReplicaStasher(self)
+        return TestStashingRouter(self.config.REPLICA_STASH_LIMIT)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,
                                      bus=self.node.internal_bus,
                                      network=self._external_bus,
-                                     stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
+                                     stasher=self.stasher,
                                      db_manager=self.node.db_manager,
-                                     old_stasher=self.stasher,
                                      metrics=self.metrics)
 
     def _init_ordering_service(self) -> OrderingService:
@@ -459,6 +456,7 @@ class TestReplica(replica.Replica):
                                    bls_bft_replica=self._bls_bft_replica,
                                    get_current_time=self.get_current_time,
                                    get_time_for_3pc_batch=self.get_time_for_3pc_batch,
+                                   stasher=self.stasher,
                                    metrics=self.metrics)
 
 

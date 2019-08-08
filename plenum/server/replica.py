@@ -47,7 +47,7 @@ from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest, TPCStat
 from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import DISCARD, PROCESS, STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.replica_helper import ConsensusDataHelper
 from sortedcontainers import SortedList, SortedListWithKey
@@ -177,23 +177,24 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
         self._external_bus = ExternalBus(send_handler=self.send)
         self._bootstrap_consensus_data()
+        self._subscribe_to_external_msgs()
         self._subscribe_to_internal_msgs()
         self._checkpointer = self._init_checkpoint_service()
-        self.inBoxRouter = Router(
-            (ReqKey, self.readyFor3PC),
-            (PrePrepare, self.process_three_phase_msg),
-            (Prepare, self.process_three_phase_msg),
-            (Commit, self.process_three_phase_msg),
-            (Checkpoint, self._checkpointer.process_checkpoint),
-        )
+        # self.inBoxRouter = Router(
+        #     (ReqKey, self.readyFor3PC),
+        #     (PrePrepare, self.process_three_phase_msg),
+        #     (Prepare, self.process_three_phase_msg),
+        #     (Commit, self.process_three_phase_msg),
+        #     (Checkpoint, self._checkpointer.process_checkpoint),
+        # )
 
         self._ordering_service = self._init_ordering_service()
-        self.threePhaseRouter = Replica3PRouter(
-            self,
-            (PrePrepare, self._ordering_service.process_preprepare),
-            (Prepare, self._ordering_service.process_prepare),
-            (Commit, self._ordering_service.process_commit)
-        )
+        # self.threePhaseRouter = Replica3PRouter(
+        #     self,
+        #     (PrePrepare, self._ordering_service.process_preprepare),
+        #     (Prepare, self._ordering_service.process_prepare),
+        #     (Commit, self._ordering_service.process_commit)
+        # )
         # self.inBoxRouter = Router(
         #     (ReqKey, self.readyFor3PC),
         #     (PrePrepare, self._ordering_service.process_preprepare),
@@ -206,6 +207,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def first_batch_after_catchup(self):
         # Defines if there was a batch after last catchup
         return self._ordering_service.first_batch_after_catchup
+
+    @property
+    def external_bus(self):
+        # Defines if there was a batch after last catchup
+        return self._external_bus
 
     @property
     def requested_pre_prepares(self):
@@ -243,12 +249,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _primaries_batch_needed_msg(self, msg: PrimariesBatchNeeded):
         self._consensus_data.primaries_batch_needed = msg.pbn
 
+    def _subscribe_to_external_msgs(self):
+        # self._external_bus.subscribe(ReqKey, self.readyFor3PC)
+        pass
+
     def _subscribe_to_internal_msgs(self):
         self.node.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_msg)
         self.node.internal_bus.subscribe(CurrentPrimaries, self._primaries_list_msg)
         self.node.internal_bus.subscribe(Ordered, self._send_ordered)
         self.node.internal_bus.subscribe(NeedBackupCatchup, self._caught_up_backup)
         self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)
+        self.node.internal_bus.subscribe(ReqKey, self.readyFor3PC)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -431,7 +442,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def on_view_change_done(self):
         if self.isMaster:
             self.last_prepared_before_view_change = None
-        self.stasher.unstash_future_view()
+        self.stasher.process_all_stashed(STASH_VIEW)
 
     def clear_requests_and_fix_last_ordered(self):
         if self.isMaster:
@@ -565,27 +576,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def send_3pc_batch(self):
         return self._ordering_service.l_send_3pc_batch()
-        # if not self.validator.can_send_3pc_batch():
-        #     return 0
-        #
-        # sent_batches = set()
-        #
-        # # 1. send 3PC batches with requests for every ledger
-        # self._send_3pc_batches_for_ledgers(sent_batches)
-        #
-        # # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
-        # # and send an empty 3PC batch to update the state if needed
-        # self._send_3pc_freshness_batch(sent_batches)
-        #
-        # # 3. send 3PC batch if new primaries elected
-        # self._send_3pc_primaries_batch(sent_batches)
-        #
-        # # 4. update ts of last sent 3PC batch
-        # if len(sent_batches) > 0:
-        #     self.lastBatchCreated = self.get_current_time()
-        #
-        # return len(sent_batches)
-
 
     @staticmethod
     def batchDigest(reqs):
@@ -618,67 +608,62 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         """
         # TODO should handle SuspiciousNode here
         r = self.dequeue_pre_prepares()
-        r += self.inBoxRouter.handleAllSync(self.inBox, limit)
+        #r += self.inBoxRouter.handleAllSync(self.inBox, limit)
+        r += self._handle_external_messages(self.inBox, limit)
         r += self.send_3pc_batch()
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
-    def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
+    def _handle_external_messages(self, deq: deque, limit=None) -> int:
         """
-        Process a 3-phase (pre-prepare, prepare and commit) request.
-        Dispatch the request only if primary has already been decided, otherwise
-        stash it.
+        Synchronously handle all items in a deque.
 
-        :param msg: the Three Phase message, one of PRE-PREPARE, PREPARE,
-            COMMIT
-        :param sender: name of the node that sent this message
+        :param deq: a deque of items to be handled by this router
+        :param limit: the number of items in the deque to the handled
+        :return: the number of items handled successfully
         """
-        sender = self.generateName(sender, self.instId)
-
-        pp_key = ((msg.viewNo, msg.ppSeqNo) if isinstance(msg, PrePrepare) else None)
-
-        # the same PrePrepare might come here multiple times
-        if (pp_key and (msg, sender) not in self._ordering_service.pre_prepare_tss[pp_key]):
-            # TODO more clean solution would be to set timestamps
-            # earlier (e.g. in zstack)
-            self._ordering_service.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
-
-        result, reason = self._ordering_service._validate(msg)
-        if result == DISCARD:
-            self.discard(msg, "{} discard message {} from {} "
-                              "with the reason: {}".format(self, msg, sender, reason),
-                         self.logger.trace)
-        elif result == PROCESS:
-            self.threePhaseRouter.handleSync((msg, sender))
-        else:
-            self.logger.debug("{} stashing 3 phase message {} with "
-                              "the reason: {}".format(self, msg, reason))
-            self.stasher.stash((msg, sender), result)
-
-    def tryPrepare(self, pp: PrePrepare):
-        """
-        Try to send the Prepare message if the PrePrepare message is ready to
-        be passed into the Prepare phase.
-        """
-        rv, msg = self.canPrepare(pp)
-        if rv:
-            self.doPrepare(pp)
-        else:
-            self.logger.debug("{} cannot send PREPARE since {}".format(self, msg))
-
-    # @property
-    # def __last_pp_3pc(self):
-    #     last_pp = self.lastPrePrepare
-    #     if not last_pp:
-    #         return self.last_ordered_3pc
+        count = 0
+        while deq and (not limit or count < limit):
+            count += 1
+            msg = deq.popleft()
+            external_msg, sender = msg
+            sender = self.generateName(sender, self.instId)
+            self._external_bus.process_incoming(external_msg, sender)
+        return count
     #
-    #     last_3pc = (last_pp.viewNo, last_pp.ppSeqNo)
-    #     if compare_3PC_keys(self.last_ordered_3pc, last_3pc) > 0:
-    #         return last_3pc
+    # def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
+    #     """
+    #     Process a 3-phase (pre-prepare, prepare and commit) request.
+    #     Dispatch the request only if primary has already been decided, otherwise
+    #     stash it.
     #
-    #     return self.last_ordered_3pc
+    #     :param msg: the Three Phase message, one of PRE-PREPARE, PREPARE,
+    #         COMMIT
+    #     :param sender: name of the node that sent this message
+    #     """
+    #     sender = self.generateName(sender, self.instId)
+    #
+    #     pp_key = ((msg.viewNo, msg.ppSeqNo) if isinstance(msg, PrePrepare) else None)
+    #
+    #     # the same PrePrepare might come here multiple times
+    #     if (pp_key and (msg, sender) not in self._ordering_service.pre_prepare_tss[pp_key]):
+    #         # TODO more clean solution would be to set timestamps
+    #         # earlier (e.g. in zstack)
+    #         self._ordering_service.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
+    #
+    #     result, reason = self._ordering_service._validate(msg)
+    #     if result == DISCARD:
+    #         self.discard(msg, "{} discard message {} from {} "
+    #                           "with the reason: {}".format(self, msg, sender, reason),
+    #                      self.logger.trace)
+    #     elif result == PROCESS:
+    #         self.threePhaseRouter.handleSync((msg, sender))
+    #     else:
+    #         self.logger.debug("{} stashing 3 phase message {} with "
+    #                           "the reason: {}".format(self, msg, reason))
+    #         self.stasher.stash((msg, sender), result)
 
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
@@ -750,7 +735,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
             else None
         if stashed_data is None or curr_data == stashed_data:
-            return self.process_three_phase_msg(msg, sender)
+            return self._external_bus.process_incoming(msg, sender)
 
         self.discard(msg, reason='{} does not have expected state {}'.
                      format(THREE_PC_PREFIX, stashed_data),
@@ -798,7 +783,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             else:
                 self._ordering_service.first_batch_after_catchup = True
                 self._catchup_clear_for_backup()
-        self.stasher.unstash_catchup()
+        self.stasher.process_all_stashed(STASH_CATCH_UP)
 
     def discard_req_key(self, ledger_id, req_key):
         return self._ordering_service.l_discard_req_key(ledger_id, req_key)
@@ -889,13 +874,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return CheckpointService(data=self._consensus_data,
                                  bus=self.node.internal_bus,
                                  network=self._external_bus,
-                                 stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
+                                 stasher=self.stasher,
                                  db_manager=self.node.db_manager,
-                                 old_stasher=self.stasher,
                                  metrics=self.metrics)
 
     def _init_replica_stasher(self):
-        return ReplicaStasher(self)
+        return StashingRouter(self.config.REPLICA_STASH_LIMIT)
 
     def _cleanup_process(self, msg: CheckpointStabilized):
         if msg.inst_id != self.instId:
@@ -916,4 +900,5 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                bls_bft_replica=self._bls_bft_replica,
                                get_current_time=self.get_current_time,
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
+                               stasher=self.stasher,
                                metrics=self.metrics)

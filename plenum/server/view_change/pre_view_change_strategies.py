@@ -100,11 +100,13 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
             logger.info("VCStartMsgStrategy: Got {} messages from nodestack".format(msgs_count))
             strategy.stashedNodeInBox = await VCStartMsgStrategy._process_node_inbox_3PC(node)
             logger.info("VCStartMsgStrategy: {} not 3PC msgs was stashed".format(len(strategy.stashedNodeInBox)))
-            node.master_replica.inBox.append(vcc_msg)
+            node.internal_bus.send(vcc_msg)
 
     """Handler for processing ViewChangeStart message on replica's inBoxRouter"""
     @staticmethod
     def on_view_change_continued(replica, msg: ViewChangeContinueMessage):
+        if not replica.isMaster:
+            return
         strategy = replica.node.view_changer.pre_vc_strategy
         proposed_view_no = msg.proposed_view_no
         replica.logger.info("VCStartMsgStrategy: got ViewChangeContinueMessage with proposed_view_no: {}".format(proposed_view_no))
@@ -125,17 +127,16 @@ class VCStartMsgStrategy(PreViewChangeStrategy):
 
     def _set_req_handlers(self):
         node_msg_router = self.node.nodeMsgRouter
-        replica_msg_router = self.replica.inBoxRouter
+        replicas_internal_bus = self.node.internal_bus
 
         if ViewChangeStartMessage not in node_msg_router.routes:
             processor = partial(VCStartMsgStrategy.on_view_change_started,
                                 self.node)
             node_msg_router.add((ViewChangeStartMessage, processor))
 
-        if ViewChangeContinueMessage not in replica_msg_router.routes:
-            processor = partial(VCStartMsgStrategy.on_view_change_continued,
-                                self.replica)
-            replica_msg_router.add((ViewChangeContinueMessage, processor))
+        processor = partial(VCStartMsgStrategy.on_view_change_continued,
+                            self.replica)
+        replicas_internal_bus.subscribe(ViewChangeContinueMessage, processor)
 
 
 preVCStrategies = {

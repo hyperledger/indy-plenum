@@ -61,13 +61,7 @@ def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # The master replica of the new node stops to receive 3PC-messages
-    new_node.master_replica.threePhaseRouter.extend(
-        (
-            (PrePrepare, lambda *x, **y: None),
-            (Prepare, lambda *x, **y: None),
-            (Commit, lambda *x, **y: None),
-        )
-    )
+    new_node.master_replica.stasher._process = lambda *x, **y: None
 
     completed_catchups_before_reqs = get_number_of_completed_catchups(new_node)
 

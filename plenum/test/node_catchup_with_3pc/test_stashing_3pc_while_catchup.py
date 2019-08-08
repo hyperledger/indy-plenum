@@ -4,6 +4,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.startable import Mode
 from plenum.server.node import Node
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
 from plenum.test.delayers import cr_delay
 from plenum.test.pool_transactions.helper import \
@@ -61,7 +62,7 @@ def test_3pc_while_catchup(tdir, tconf,
                                       )
 
     initial_all_ledgers_caught_up = lagging_node.spylog.count(Node.allLedgersCaughtUp)
-    assert all(replica.stasher.num_stashed_catchup == 0 for inst_id, replica in lagging_node.replicas.items())
+    assert all(replica.stasher.stash_size(STASH_CATCH_UP) == 0 for inst_id, replica in lagging_node.replicas.items())
 
     with delay_rules(lagging_node.nodeIbStasher, cr_delay(ledger_filter=DOMAIN_LEDGER_ID)):
         looper.add(lagging_node)
@@ -79,7 +80,7 @@ def test_3pc_while_catchup(tdir, tconf,
                                   sdk_wallet_client, 10)
 
         assert lagging_node.mode == Mode.syncing
-        assert all(replica.stasher.num_stashed_catchup > 0 for inst_id, replica in lagging_node.replicas.items())
+        assert all(replica.stasher.stash_size(STASH_CATCH_UP) > 0 for inst_id, replica in lagging_node.replicas.items())
 
     # check that the catch-up is finished
     looper.run(
@@ -96,4 +97,4 @@ def test_3pc_while_catchup(tdir, tconf,
     )
 
     waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
-    assert all(replica.stasher.num_stashed_catchup == 0 for inst_id, replica in lagging_node.replicas.items())
+    assert all(replica.stasher.stash_size(STASH_CATCH_UP) == 0 for inst_id, replica in lagging_node.replicas.items())

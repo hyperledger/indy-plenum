@@ -13,14 +13,14 @@ from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBack
     BackupSetupLastOrdered
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
-from plenum.common.stashing_router import StashingRouter
+from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_stasher import ReplicaStasher
-from plenum.server.replica_validator_enums import DISCARD, PROCESS, ALREADY_STABLE
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from stp_core.common.log import getlogger
 
 
@@ -28,7 +28,7 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
+                 stasher: StashingRouter, db_manager: DatabaseManager,
                  metrics: MetricsCollector = NullMetricsCollector(),):
         self._data = data
         self._bus = bus
@@ -49,11 +49,9 @@ class CheckpointService:
         self._config = getConfig()
         self._logger = getlogger()
 
-        self._old_stasher = old_stasher
+        self._stasher.subscribe(Checkpoint, self.process_checkpoint)
+        self._stasher.subscribe_to(network)
 
-        # self._stasher.subscribe(Checkpoint, self.process_checkpoint)
-        # self._stasher.subscribe_to(network)
-        #
         self._bus.subscribe(Ordered, self.process_ordered)
         self._bus.subscribe(BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
 
@@ -71,23 +69,16 @@ class CheckpointService:
 
     @measure_consensus_time(MetricsName.PROCESS_CHECKPOINT_TIME,
                             MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
-    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
+    def process_checkpoint(self, msg: Checkpoint, sender: str) -> (bool, str):
         """
         Process checkpoint messages
         :return: whether processed (True) or stashed (False)
         """
         self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         result, reason = self._validator.validate(msg)
-        if result == DISCARD:
-            self.discard(msg, reason, sender)
-            return False
-        elif result == PROCESS:
-            return self._do_process_checkpoint(msg, sender)
-        else:
-            self._logger.debug("{} stashing checkpoint message {} with "
-                               "the reason: {}".format(self, msg, reason))
-            self._old_stasher.stash((msg, sender), result)
-            return False
+        if result == PROCESS:
+            self._do_process_checkpoint(msg, sender)
+        return result, reason
 
     def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
@@ -354,7 +345,7 @@ class CheckpointService:
         self._logger.info('{} set watermarks as {} {}'.format(self,
                                                               self._data.low_watermark,
                                                               self._data.high_watermark))
-        self._old_stasher.unstash_watermarks()
+        self._stasher.process_all_stashed(STASH_WATERMARKS)
 
     def update_watermark_from_3pc(self):
         last_ordered_3pc = self.last_ordered_3pc
@@ -419,3 +410,5 @@ class CheckpointService:
     def discard(self, msg, reason, sender):
         self._logger.trace("{} discard message {} from {} "
                            "with the reason: {}".format(self, msg, sender, reason))
+
+

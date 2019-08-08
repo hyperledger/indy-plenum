@@ -26,7 +26,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Re
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
 from plenum.common.request import Request
-from plenum.common.stashing_router import StashingRouter
+from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
 from plenum.common.types import f
@@ -44,8 +44,8 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, ConsensusDataHelper, OrderedTracker, TPCStat
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, \
-    STASH_VIEW, FUTURE_VIEW, OLD_VIEW, PROCESS, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, \
+from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, \
+    STASH_VIEW, FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, \
     STASH_WATERMARKS
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
@@ -245,7 +245,7 @@ class OrderingService:
         """
         result, reason = self._validate(prepare)
         if result != PROCESS:
-            return result
+            return result, reason
 
         key = (prepare.viewNo, prepare.ppSeqNo)
         self._logger.debug("{} received PREPARE{} from {}".format(self, key, sender))
@@ -263,6 +263,7 @@ class OrderingService:
                 self._logger.trace("{} cannot process incoming PREPARE".format(self))
         except SuspiciousNode as ex:
             self.report_suspicious_node(ex)
+        return None, None
 
     def l_validatePrepare(self, prepare: Prepare, sender: str) -> bool:
         """
@@ -366,7 +367,7 @@ class OrderingService:
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
                 stashed_pp[key] = (pp, sender, True)
-                self.process_preprepare(pp, sender)
+                self._network.process_incoming(pp, sender)
                 return True
         return False
 
@@ -449,7 +450,7 @@ class OrderingService:
         """
         result, reason = self._validate(commit)
         if result != PROCESS:
-            return result
+            return result, reason
 
         self._logger.debug("{} received COMMIT{} from {}".format(
             self, (commit.viewNo, commit.ppSeqNo), sender))
@@ -459,7 +460,7 @@ class OrderingService:
             self.l_addToCommits(commit, sender)
             self._logger.debug("{} processed incoming COMMIT{}".format(
                 self, (commit.viewNo, commit.ppSeqNo)))
-        return result
+        return result, reason
 
     """Method from legacy code"""
     def l_validateCommit(self, commit: Commit, sender: str) -> bool:
@@ -511,7 +512,6 @@ class OrderingService:
         :param pre_prepare: message
         :param sender: name of the node that sent this message
         """
-        # sender = self.generateName(sender, self._data.inst_id)
         pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         # the same PrePrepare might come here multiple times
         if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
@@ -519,10 +519,9 @@ class OrderingService:
             # earlier (e.g. in zstack)
             self.pre_prepare_tss[pp_key][pre_prepare, sender] = self.get_time_for_3pc_batch()
 
-        # ToDo: temporary we will call _validate from replica
-        # result, reason = self._validate(pre_prepare)
-        # if result != PROCESS:
-        #     return result
+        result, reason = self._validate(pre_prepare)
+        if result != PROCESS:
+            return result, reason
 
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self._logger.debug("{} received PRE-PREPARE{} from {}".format(self, key, sender))
@@ -555,7 +554,7 @@ class OrderingService:
                     report_suspicious(Suspicions.PPR_SUB_SEQ_NO_WRONG)
                 elif why_not_applied == PP_NOT_FINAL:
                     # this is fine, just wait for another
-                    return
+                    return None, None
                 elif why_not_applied == PP_APPLY_AUDIT_HASH_MISMATCH:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
                 elif why_not_applied == PP_REQUEST_ALREADY_ORDERED:
@@ -603,13 +602,13 @@ class OrderingService:
             for payload_key in non_fin_payload:
                 if self.db_manager.get_store(SEQ_NO_DB_LABEL).get_by_payload_digest(payload_key) != (None, None):
                     signal_suspicious(payload_key)
-                    return
+                    return None, None
 
             # for absents we can only check full digest
             for full_key in absents:
                 if self.db_manager.get_store(SEQ_NO_DB_LABEL).get_by_full_digest(full_key) is not None:
                     signal_suspicious(full_key)
-                    return
+                    return None, None
 
             bad_reqs = absents | non_fin
             self.l_enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
@@ -645,6 +644,7 @@ class OrderingService:
             report_suspicious(Suspicions.PPR_BLS_MULTISIG_WRONG)
         else:
             self._logger.warning("Unknown PRE-PREPARE check status: {}".format(why_not))
+        return None, None
 
     """Properties from legacy code"""
 
@@ -1337,7 +1337,7 @@ class OrderingService:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
                 self._logger.debug("{} popping stashed PREPARE{}".format(self, key))
-                self.process_prepare(prepare, sender)
+                self._network.process_incoming(prepare, sender)
                 i += 1
             self.preparesWaitingForPrePrepare.pop(key)
             self._logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
@@ -1357,7 +1357,7 @@ class OrderingService:
                 commit, sender = self.commitsWaitingForPrepare[
                     key].popleft()
                 self._logger.debug("{} popping stashed COMMIT{}".format(self, key))
-                self.process_commit(commit, sender)
+                self._network.process_incoming(commit, sender)
 
                 i += 1
             self.commitsWaitingForPrepare.pop(key)
@@ -1394,7 +1394,7 @@ class OrderingService:
 
     """Method from legacy code"""
     @measure_consensus_time(MetricsName.SEND_PREPARE_TIME,
-                          MetricsName.BACKUP_SEND_PREPARE_TIME)
+                            MetricsName.BACKUP_SEND_PREPARE_TIME)
     def l_doPrepare(self, pp: PrePrepare):
         self._logger.debug("{} Sending PREPARE{} at {}".format(
             self, (pp.viewNo, pp.ppSeqNo), self.get_current_time()))
@@ -1536,7 +1536,7 @@ class OrderingService:
 
     """Method from legacy code"""
     @measure_consensus_time(MetricsName.ORDER_3PC_BATCH_TIME,
-                          MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
+                            MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
     def l_order_3pc_key(self, key):
         pp = self.l_getPrePrepare(*key)
         if pp is None:
@@ -1960,7 +1960,7 @@ class OrderingService:
                                self._logger.debug)
                 continue
             self._logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
-            self.process_preprepare(pp, sender)
+            self._network.process_incoming(pp, sender)
             r += 1
         return r
 
