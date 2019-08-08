@@ -41,18 +41,18 @@ class OrderingServiceMsgValidator:
     def _validate_3pc(self, msg):
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
 
-        ### DISCARD CHECKS first
+        # DISCARD CHECKS first
 
         # Check if below lower watermark (meaning it's already ordered)
         if pp_seq_no <= self._data.low_watermark:
             return DISCARD, ALREADY_ORDERED
 
-        ### Default checks next
+        # Default checks next
         res, reason = self._validate_base(msg)
         if res != PROCESS:
             return res, reason
 
-        ### STASH CHECKS finally
+        # STASH CHECKS finally
 
         # Check if waiting for new view
         if self._data.waiting_for_new_view:
@@ -62,19 +62,19 @@ class OrderingServiceMsgValidator:
         if pp_seq_no is not None and pp_seq_no > self._data.high_watermark:
             return STASH_WATERMARKS, OUTSIDE_WATERMARKS
 
-        ### PROCESS
+        # PROCESS
         return PROCESS, None
 
     def _validate_base(self, msg):
         view_no = getattr(msg, f.VIEW_NO.nm, None)
 
-        ### DISCARD CHECKS
+        # DISCARD CHECKS
 
         # Check if from old view
         if view_no < self._data.view_no:
             return DISCARD, OLD_VIEW
 
-        ### STASH CHECKS
+        # STASH CHECKS
 
         # Check if from future view
         if view_no > self._data.view_no:
@@ -84,7 +84,7 @@ class OrderingServiceMsgValidator:
         if not self._data.is_participating:
             return STASH_CATCH_UP, CATCHING_UP
 
-        ### PROCESS
+        # PROCESS
         return PROCESS, None
 
     def _has_already_ordered(self, msg):

@@ -17,4 +17,3 @@ WAITING_FOR_NEW_VIEW = "Waiting for new view message"
 GREATER_PREP_CERT = "Greater than last prepared certificate"
 ALREADY_ORDERED = "Already ordered"
 ALREADY_STABLE = "Already stable checkpoint"
-
