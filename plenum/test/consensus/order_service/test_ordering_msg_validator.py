@@ -1,22 +1,32 @@
 import pytest
 
+from plenum.common.messages.node_messages import NewView
 from plenum.common.startable import Mode
-from plenum.server.consensus.consensus_shared_data import BatchID
-from plenum.server.consensus.msg_validator import OrderingServiceMsgValidator
-from plenum.server.consensus.ordering_service import ThreePCMsgValidator
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_validator_enums import PROCESS, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
-    STASH_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, GREATER_PREP_CERT
+    STASH_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, STASH_WIATING_NEW_VIEW, \
+    WAITING_FOR_NEW_VIEW
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig
 
 
-@pytest.fixture(scope='function', params=[0, 1])
-def inst_id(request):
+@pytest.fixture(scope='function', params=[0, 2])
+def view_no(tconf, request):
     return request.param
 
 
-@pytest.fixture(scope='function', params=[0, 2])
-def view_no(tconf, request):
+@pytest.fixture(scope='function', params=[Mode.starting,
+                                          Mode.discovering,
+                                          Mode.discovered,
+                                          Mode.syncing,
+                                          Mode.synced,
+                                          Mode.participating])
+def mode(tconf, request):
+    return request.param
+
+
+@pytest.fixture(scope='function', params=[True, False])
+def waiting_for_new_view(tconf, request):
     return request.param
 
 
@@ -29,30 +39,109 @@ def validator(consensus_data, view_no):
     return OrderingServiceMsgValidator(data=cd)
 
 
-@pytest.fixture(scope='function', params=[1, 2, 3])
-def pp_seq_no(request):
-    return request.param
+def pre_prepare(view_no, pp_seq_no):
+    return create_pre_prepare_no_bls(generate_state_root(),
+                                     view_no=view_no,
+                                     pp_seq_no=pp_seq_no,
+                                     inst_id=0)
 
 
-def create_3pc_msgs(view_no, pp_seq_no, inst_id):
-    pre_prepare = create_pre_prepare_no_bls(generate_state_root(),
-                                            view_no=view_no,
-                                            pp_seq_no=pp_seq_no,
-                                            inst_id=inst_id)
-    prepare = create_prepare(req_key=(view_no, pp_seq_no),
-                             state_root=generate_state_root(),
-                             inst_id=inst_id)
-    commit = create_commit_no_bls_sig(req_key=(view_no, pp_seq_no),
-                                      inst_id=inst_id)
-    return [pre_prepare, prepare, commit]
+def prepare(view_no, pp_seq_no):
+    return create_prepare(req_key=(view_no, pp_seq_no),
+                          state_root=generate_state_root(),
+                          inst_id=0)
 
 
-def test_check_all_correct(validator, inst_id):
-    validator._data.node_mode = Mode.participating
-    for msg in create_3pc_msgs(view_no=validator._data.view_no,
-                               pp_seq_no=1,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (PROCESS, None)
+def commit(view_no, pp_seq_no):
+    return create_commit_no_bls_sig(req_key=(view_no, pp_seq_no),
+                                    inst_id=0)
+
+
+def new_view(view_no):
+    return NewView(view_no, [], [], [])
+
+
+def test_process_correct_pre_prepare(validator, view_no):
+    assert validator.validate_pre_prepare(
+        pre_prepare(view_no=view_no, pp_seq_no=1)) == (PROCESS, None)
+
+
+def test_process_correct_prepare(validator, view_no):
+    assert validator.validate_prepare(
+        prepare(view_no=view_no, pp_seq_no=1)) == (PROCESS, None)
+
+
+def test_process_correct_commit(validator, view_no):
+    assert validator.validate_commit(
+        commit(view_no=view_no, pp_seq_no=1)) == (PROCESS, None)
+
+
+def test_process_correct_new_view(validator, view_no):
+    assert validator.validate_new_view(
+        new_view(view_no=view_no)) == (PROCESS, None)
+
+
+def test_discard_old_view(validator, view_no, mode, waiting_for_new_view):
+    validator._data.node_mode = mode
+    validator._data.waiting_for_new_view = waiting_for_new_view
+
+    validator._data.view_no = view_no + 2
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (DISCARD, OLD_VIEW)
+    assert validator.validate_prepare(prepare(view_no, 1)) == (DISCARD, OLD_VIEW)
+    assert validator.validate_commit(commit(view_no, 1)) == (DISCARD, OLD_VIEW)
+    assert validator.validate_new_view(new_view(view_no)) == (DISCARD, OLD_VIEW)
+
+    validator._data.view_no = view_no + 1
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (DISCARD, OLD_VIEW)
+    assert validator.validate_prepare(prepare(view_no, 1)) == (DISCARD, OLD_VIEW)
+    assert validator.validate_commit(commit(view_no, 1)) == (DISCARD, OLD_VIEW)
+    assert validator.validate_new_view(new_view(view_no)) == (DISCARD, OLD_VIEW)
+
+
+@pytest.mark.parametrize('pp_seq_no, result', [
+    (1, (DISCARD, ALREADY_ORDERED)),
+    (50, (DISCARD, ALREADY_ORDERED)),
+    (99, (DISCARD, ALREADY_ORDERED)),
+    (100, (DISCARD, ALREADY_ORDERED)),
+    (101, (PROCESS, None)),
+    (300, (PROCESS, None)),
+    (399, (PROCESS, None)),
+])
+def test_discard_below_watermark_3pc(validator, view_no, pp_seq_no, result):
+    validator._data.low_watermark = 100
+    validator._data.high_watermark = 400
+    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == result
+    assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == result
+    assert validator.validate_commit(commit(view_no, pp_seq_no)) == result
+
+
+def test_discard_below_watermark_3pc_no_stash(validator, view_no, mode, waiting_for_new_view):
+    validator._data.node_mode = mode
+    validator._data.waiting_for_new_view = waiting_for_new_view
+    validator._data.low_watermark = 100
+    validator._data.high_watermark = 400
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 99)) == (DISCARD, ALREADY_ORDERED)
+    assert validator.validate_prepare(prepare(view_no, 99)) == (DISCARD, ALREADY_ORDERED)
+    assert validator.validate_commit(commit(view_no, 99)) == (DISCARD, ALREADY_ORDERED)
+
+
+@pytest.mark.parametrize('pp_seq_no, result', [
+    (1, (DISCARD, ALREADY_ORDERED)),
+    (9, (DISCARD, ALREADY_ORDERED)),
+    (10, (DISCARD, ALREADY_ORDERED)),
+    (11, (PROCESS, None)),
+    (12, (PROCESS, None)),
+    (100, (PROCESS, None))
+])
+def test_discard_ordered_pre_prepare(validator, view_no, pp_seq_no, result):
+    validator._data.last_ordered_3pc = (view_no, 10)
+    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == result
+
+
+@pytest.mark.parametrize('pp_seq_no', [1, 5, 9, 10])
+def test_discard_ordered_pre_prepare_no_stash(validator, view_no, pp_seq_no, mode, waiting_for_new_view):
+    validator._data.last_ordered_3pc = (view_no, 10)
+    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (DISCARD, ALREADY_ORDERED)
 
 
 @pytest.mark.parametrize('mode, result', [
@@ -63,117 +152,57 @@ def test_check_all_correct(validator, inst_id):
     (Mode.synced, (STASH_CATCH_UP, CATCHING_UP)),
     (Mode.participating, (PROCESS, None)),
 ])
-def test_check_while_catchup(validator, mode, result, inst_id):
+def test_stash_while_catchup(validator, view_no, mode, result):
     validator._data.node_mode = mode
-    for msg in create_3pc_msgs(view_no=validator._data.view_no,
-                               pp_seq_no=1,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == result
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == result
+    assert validator.validate_prepare(prepare(view_no, 1)) == result
+    assert validator.validate_commit(commit(view_no, 1)) == result
+    assert validator.validate_new_view(new_view(view_no)) == result
 
 
-def test_check_current_view(validator, inst_id, view_no):
-    validator._data.view_no = view_no
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=1,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (PROCESS, None)
+def test_stash_future_view(validator, view_no):
+    assert validator.validate_pre_prepare(pre_prepare(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_prepare(prepare(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_commit(commit(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_new_view(new_view(view_no + 1)) == (STASH_VIEW, FUTURE_VIEW)
+
+    assert validator.validate_pre_prepare(pre_prepare(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_prepare(prepare(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_commit(commit(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_new_view(new_view(view_no + 2)) == (STASH_VIEW, FUTURE_VIEW)
 
 
-def test_check_old_view(validator, inst_id, view_no):
-    validator._data.view_no = view_no + 2
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=1,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (DISCARD, OLD_VIEW)
-
-
-def test_check_future_view(validator, inst_id):
-    for msg in create_3pc_msgs(view_no=validator._data.view_no + 1,
-                               pp_seq_no=1,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
-
-
-@pytest.mark.parametrize('mode', [
-    Mode.starting,
-    Mode.discovering,
-    Mode.discovered,
-    Mode.syncing,
-    Mode.synced,
-    Mode.participating
-])
-@pytest.mark.parametrize('waiting_for_new_view', [True, False])
-def test_check_previous_view(validator, inst_id, view_no, mode, waiting_for_new_view):
-    validator._data.waiting_for_new_view = waiting_for_new_view
-    validator._data.node_mode = mode
-    validator._data.view_no = view_no + 1
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=1,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (DISCARD, OLD_VIEW)
-
-
-# assume last ordered is 10
-@pytest.mark.parametrize('pp_seq_no', [0, 1, 9, 10, 11, 12, 100])
-def test_check_ordered(validator, pp_seq_no, view_no, inst_id):
-    validator._data.last_ordered_3pc = (view_no, 10)
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=pp_seq_no,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (PROCESS, None)
+def test_stash_waiting_for_new_view_3pc(validator, view_no):
+    validator._data.waiting_for_new_view = True
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (STASH_WIATING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_prepare(prepare(view_no, 1)) == (STASH_WIATING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_commit(commit(view_no, 1)) == (STASH_WIATING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
 
 
 @pytest.mark.parametrize('pp_seq_no, result', [
-    (0, (DISCARD, INCORRECT_PP_SEQ_NO)),
-    (1, (PROCESS, None)),
-    (100, (PROCESS, None)),
-    (299, (PROCESS, None)),
-    (300, (PROCESS, None)),
-    # assume [0, 300]
-    (301, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
-    (302, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
-    (100000, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
-])
-def test_check_watermarks_default(validator, pp_seq_no, result, view_no, inst_id):
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=pp_seq_no,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == result
-
-
-@pytest.mark.parametrize('pp_seq_no, result', [
-    # assume [100, 400]
-    (0, (DISCARD, INCORRECT_PP_SEQ_NO)),
-    (1, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
-    (99, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
-    (100, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
     (101, (PROCESS, None)),
+    (300, (PROCESS, None)),
+    (399, (PROCESS, None)),
     (400, (PROCESS, None)),
     (401, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
     (402, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
     (100000, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
 ])
-def test_check_watermarks_changed(validator, pp_seq_no, result, view_no, inst_id):
+def test_stash_above_watermark_3pc(validator, view_no, pp_seq_no, result):
     validator._data.low_watermark = 100
     validator._data.high_watermark = 400
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=pp_seq_no,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == result
+    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == result
+    assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == result
+    assert validator.validate_commit(commit(view_no, pp_seq_no)) == result
 
 
-def test_check_zero_pp_seq_no(validator, view_no, inst_id):
-    for msg in create_3pc_msgs(view_no=view_no,
-                               pp_seq_no=0,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (DISCARD, INCORRECT_PP_SEQ_NO)
+def test_process_waiting_for_new_view_new_view(validator, view_no):
+    validator._data.waiting_for_new_view = True
+    assert validator.validate_new_view(new_view(view_no)) == (PROCESS, None)
 
 
-@pytest.mark.parametrize('pp_seq_no', [0, 1, 9, 10, 11, 12, 100])
-def test_check_ordered_not_participating(validator, pp_seq_no, inst_id):
-    validator._data.last_ordered_3pc = (validator._data.view_no, 10)
-    validator._data.node_mode = Mode.syncing
-    for msg in create_3pc_msgs(view_no=validator._data.view_no,
-                               pp_seq_no=pp_seq_no,
-                               inst_id=inst_id):
-        assert validator.validate(msg) == (STASH_CATCH_UP, CATCHING_UP)
+@pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
+def test_process_ordered_prepare_commit(validator, view_no, pp_seq_no):
+    validator._data.last_ordered_3pc = (view_no, 10)
+    assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == (PROCESS, None)
+    assert validator.validate_commit(commit(view_no, pp_seq_no)) == (PROCESS, None)

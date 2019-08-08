@@ -1,4 +1,11 @@
+from plenum.common.messages.node_messages import PrePrepare, Commit, Prepare, NewView
 from plenum.common.stashing_router import DISCARD
+from plenum.common.types import f
+from plenum.common.util import compare_3PC_keys
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.replica_validator_enums import PROCESS, ALREADY_ORDERED, STASH_WIATING_NEW_VIEW, \
+    WAITING_FOR_NEW_VIEW, STASH_WATERMARKS, OUTSIDE_WATERMARKS, OLD_VIEW, STASH_VIEW, FUTURE_VIEW, STASH_CATCH_UP, \
+    CATCHING_UP
 
 
 class OrderingServiceMsgValidator:
@@ -7,15 +14,12 @@ class OrderingServiceMsgValidator:
         self._data = data
 
     def validate_pre_prepare(self, msg: PrePrepare):
-        res, reason = self._validate_3pc(msg)
-        if res != PROCESS:
-            return res, reason
-
         # we discard already ordered PrePrepares
+        # check for discarded first of all
         if self._has_already_ordered(msg):
             return DISCARD, ALREADY_ORDERED
 
-        return PROCESS, None
+        return self._validate_3pc(msg)
 
     def validate_prepare(self, msg: Prepare):
         # process Prepares that have been already ordered
@@ -35,19 +39,20 @@ class OrderingServiceMsgValidator:
         return self._validate_base(msg)
 
     def _validate_3pc(self, msg):
-        res, reason = self._validate_base(msg)
-        if res != PROCESS:
-            return res, reason
-
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
 
-        ### DISCARD CHECKS
+        ### DISCARD CHECKS first
 
         # Check if below lower watermark (meaning it's already ordered)
         if pp_seq_no <= self._data.low_watermark:
             return DISCARD, ALREADY_ORDERED
 
-        ### STASH CHECKS
+        ### Default checks next
+        res, reason = self._validate_base(msg)
+        if res != PROCESS:
+            return res, reason
+
+        ### STASH CHECKS finally
 
         # Check if waiting for new view
         if self._data.waiting_for_new_view:
