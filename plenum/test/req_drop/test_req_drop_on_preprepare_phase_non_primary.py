@@ -105,7 +105,7 @@ def test_req_drop_on_preprepare_phase_on_non_primary_and_then_ordered(
         # and it can receive Propagates before a PrePrepare for the next replica is received,
         # so that the for the second replica all requests will be already finalized.
         tmp = getAllArgs(lagged_node, TestNode.request_propagates)
-        assert len(tmp) >= 1
+        assert len(tmp.bad_requests) >= 1
 
     timeout = howlong
     looper.run(eventually(check_propagates_requested, retryWait=.5, timeout=timeout))

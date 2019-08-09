@@ -40,7 +40,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
         types.MethodType(patched_p, slow_rep)
 
     def chk1():
-        assert len(slow_rep.commitsWaitingForPrepare) > 0
+        assert len(slow_rep._ordering_service.commitsWaitingForPrepare) > 0
 
     sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delay
@@ -53,8 +53,8 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
         orig_p_method(m, s)
 
     def chk2():
-        assert len(slow_rep.commitsWaitingForPrepare) == 0
-        assert slow_rep.spylog.count(slow_rep.doOrder.__name__) == 1
+        assert len(slow_rep._ordering_service.commitsWaitingForPrepare) == 0
+        assert slow_rep._ordering_service.spylog.count(slow_rep._ordering_service.l_doOrder.__name__) == 1
 
     timeout = waits.expectedOrderingTime(len(non_prim_reps) + 1) + 2 * delay
     looper.run(eventually(chk2, retryWait=1, timeout=timeout))

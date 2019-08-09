@@ -195,7 +195,7 @@ class Replicas:
             if ppSeqNo is None or viewNo is None:
                 logger.warning('Unordered request with reqId: {} was not found in prePrepares. '
                                'Prepares count: {}, Commits count: {}'.format(reqId,
-                                                                              len(replica.prepares),
+                                                                              len(replica._ordering_service.prepares),
                                                                               len(replica._ordering_service.commits)))
                 continue
 

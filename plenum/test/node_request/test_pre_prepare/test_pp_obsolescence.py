@@ -134,7 +134,7 @@ def test_ts_is_set_for_stahed_pp(primary_replica, ts_now, pp, sender_replica):
 
 def test_ts_is_not_set_for_non_pp(primary_replica, ts_now, pp, sender_replica):
     pp = FakeSomethingHashable(**pp.__dict__)
-    primary_replica._stasher.subscribe(FakeSomethingHashable, lambda *x, **y: None)
+    primary_replica.stasher.subscribe(FakeSomethingHashable, lambda *x, **y: None)
     primary_replica._external_bus.process_incoming(pp, sender_replica)
     assert len(primary_replica._ordering_service.pre_prepare_tss) == 0
 

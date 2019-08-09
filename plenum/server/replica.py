@@ -30,7 +30,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import PrimariesBatchNeeded, \
     CurrentPrimaries, \
-    NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized
+    NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized, ThrowSuspiciousNode
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -260,6 +260,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.node.internal_bus.subscribe(NeedBackupCatchup, self._caught_up_backup)
         self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)
         self.node.internal_bus.subscribe(ReqKey, self.readyFor3PC)
+        self.node.internal_bus.subscribe(ThrowSuspiciousNode, self._process_suspicious_node)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -885,6 +886,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if msg.inst_id != self.instId:
             return
         self._ordering_service.l_gc(msg.last_stable_3pc)
+
+    def _process_suspicious_node(self, msg: ThrowSuspiciousNode):
+        if msg.inst_id != self.instId:
+            return
+        self.report_suspicious_node(msg.ex)
 
     def _send_ordered(self, msg: Ordered):
         if msg.instId != self.instId:

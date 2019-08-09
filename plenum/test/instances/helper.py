@@ -25,4 +25,4 @@ def sentPrepare(replica: TestReplica, viewNo: int = None, ppSeqNo: int = None):
 def recvd_prepares(replica: TestReplica):
     return [arg['prepare']
             for arg in getAllArgs(replica._ordering_service,
-                                  OrderingService.process_preprepare)]
+                                  OrderingService.process_prepare)]

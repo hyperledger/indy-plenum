@@ -87,12 +87,12 @@ def checkPrePrepared(looper,
                 init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
-                primary.node.db_manager.get_state_root_hash(DOMAIN_LEDGER_ID),
-                primary.node.db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.l_stateRootHash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.l_txnRootHash(DOMAIN_LEDGER_ID),
                 0,
                 True,
-                primary.node.db_manager.get_state_root_hash(POOL_LEDGER_ID),
-                primary.node.db_manager.get_txn_root_hash(AUDIT_LEDGER_ID)
+                primary._ordering_service.l_stateRootHash(POOL_LEDGER_ID),
+                primary._ordering_service.l_txnRootHash(AUDIT_LEDGER_ID)
             )
 
             passes = 0
@@ -195,7 +195,7 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
             """
             for r in allReplicas:
                 for param in getAllArgs(r._ordering_service,
-                                        OrderingService.process_preprepare):
+                                        OrderingService.process_prepare):
                     sender = param['sender']
                     assert sender != primary.name
 
@@ -228,7 +228,7 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
              n-f-1 with faults.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary,
+                              getAllArgs(primary._ordering_service,
                                          primary._ordering_service.process_prepare)
                               if (param['prepare'].instId,
                                   param['prepare'].viewNo,
@@ -260,7 +260,7 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                 actualMsgs = len(
                     [
                         param for param in getAllArgs(
-                        npr,
+                        npr._ordering_service,
                         npr._ordering_service.process_prepare) if (param['prepare'].instId,
                                                                    param['prepare'].viewNo,
                                                                    param['prepare'].ppSeqNo) == (

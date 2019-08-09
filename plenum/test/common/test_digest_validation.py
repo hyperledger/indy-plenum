@@ -3,6 +3,8 @@ import types
 
 import pytest
 from indy.did import create_and_store_my_did
+
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.replica import Replica
 
 from plenum.common.messages.node_messages import InstanceChange
@@ -197,16 +199,16 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
     txnPoolNodeSet.remove(replica.node)
     old_reverts = {}
     for i, node in enumerate(txnPoolNodeSet):
-        old_reverts[i] = node.master_replica.spylog.count(Replica.revert)
+        old_reverts[i] = node.master_replica._ordering_service.spylog.count(OrderingService.l_revert)
         node.seqNoDB._keyValueStorage.remove(req.digest)
         node.seqNoDB._keyValueStorage.remove(req.payload_digest)
 
     ppReq = replica.create_3pc_batch(DOMAIN_LEDGER_ID)
     ppReq._fields['reqIdr'] = [req.digest, req.digest]
-    replica.sendPrePrepare(ppReq)
+    replica._ordering_service.l_sendPrePrepare(ppReq)
 
     def reverts():
         for i, node in enumerate(txnPoolNodeSet):
-            assert old_reverts[i] + 1 == node.master_replica.spylog.count(Replica.revert)
+            assert old_reverts[i] + 1 == node.master_replica._ordering_service.spylog.count(OrderingService.l_revert)
 
     looper.run(eventually(reverts))

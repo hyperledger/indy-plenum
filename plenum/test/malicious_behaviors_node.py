@@ -163,11 +163,11 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     evilMethod = types.MethodType(evilMethod, replica)
 
     if msgType == PrePrepare:
-        replica.sendPrePrepare = evilMethod
+        replica._ordering_service.l_sendPrePrepare = evilMethod
     elif msgType == Prepare:
-        replica.doPrepare = evilMethod
+        replica._ordering_service.l_doPrepare = evilMethod
     elif msgType == Commit:
-        replica.doCommit = evilMethod
+        replica._ordering_service.l_doCommit = evilMethod
     else:
         common.error.error("Not a 3 phase message")
 

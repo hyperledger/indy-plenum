@@ -96,8 +96,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         init_discarded(),
         primaryRepl.batchDigest([request2]),
         DOMAIN_LEDGER_ID,
-        primaryRepl.node.db_manager.get_state_root_hash(DOMAIN_LEDGER_ID),
-        primaryRepl.node.db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID),
+        primaryRepl._ordering_service.l_stateRootHash(DOMAIN_LEDGER_ID),
+        primaryRepl._ordering_service.l_txnRootHash(DOMAIN_LEDGER_ID),
         0,
         True
     )

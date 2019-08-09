@@ -11,7 +11,8 @@ import gc
 import psutil
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries, NeedMasterCatchup
+from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries, NeedMasterCatchup, \
+    RequestPropagates
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -3610,6 +3611,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _init_internal_bus(self):
         internal_bus = InternalBus()
         internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
+        internal_bus.subscribe(RequestPropagates, self.request_propagates)
         return internal_bus
 
     def set_view_change_status(self, value: bool):

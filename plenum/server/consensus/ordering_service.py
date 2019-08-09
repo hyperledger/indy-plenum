@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
-    RequestPropagates, RevertUnorderedBatches, PrimariesBatchNeeded, BackupSetupLastOrdered
+    RequestPropagates, RevertUnorderedBatches, PrimariesBatchNeeded, BackupSetupLastOrdered, ThrowSuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -96,8 +96,6 @@ class OrderingService:
         # stored which indicates whether there are sufficient acceptable
         # PREPAREs or not
         self.pre_prepares_stashed_for_incorrect_time = {}
-
-        self.legacy_preprepares = SortedDict(lambda k: (k[0], k[1]))
 
         # Time of the last PRE-PREPARE which satisfied all validation rules
         # (time, digest, roots were all correct). This time is not to be
@@ -792,7 +790,8 @@ class OrderingService:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
     def report_suspicious_node(self, ex: SuspiciousNode):
-        self._bus.send(ex)
+        self._bus.send(ThrowSuspiciousNode(inst_id=self._data.inst_id,
+                                           ex=ex))
 
     def _validate(self, msg):
         return self._validator.validate(msg)
@@ -823,7 +822,7 @@ class OrderingService:
             return PP_CHECK_NOT_FROM_PRIMARY
 
         # Already has a PRE-PREPARE with same 3 phase key
-        if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.legacy_preprepares:
+        if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
         if not self.l_is_pre_prepare_time_acceptable(pre_prepare, sender):

@@ -54,7 +54,7 @@ def test_catchup_not_triggered_if_another_in_progress(
         "and after that starts catchup")
 
     repaired_node = repair_broken_node(broken_node)
-
+    print(repaired_node.name)
     initial_do_start_catchup_times = repaired_node.spylog.count(Node._do_start_catchup)
     initial_all_ledgers_caught_up = repaired_node.spylog.count(Node.allLedgersCaughtUp)
 
@@ -91,7 +91,7 @@ def test_catchup_not_triggered_if_another_in_progress(
         looper.run(
             eventually(lambda: assertExp(
                 repaired_node.master_replica._checkpointer.spylog.count(CheckpointService.process_checkpoint) -
-                process_checkpoint_times_before ==
+                process_checkpoint_times_before >=
                 (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                 (len(txnPoolNodeSet) - 1)),
                        timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet))))

@@ -1,5 +1,6 @@
 from typing import NamedTuple, List, Any
 
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.node_messages import CheckpointState, PrePrepare
 
 # TODO: should be removed
@@ -40,3 +41,7 @@ NeedBackupCatchup = NamedTuple('NeedBackupCatchup',
 CheckpointStabilized = NamedTuple('CheckpointStabilized',
                                   [('inst_id', int),
                                    ('last_stable_3pc', tuple)])
+
+ThrowSuspiciousNode = NamedTuple('ThrowSuspiciousNode',
+                                 [('inst_id', int),
+                                  ('ex', SuspiciousNode)])
