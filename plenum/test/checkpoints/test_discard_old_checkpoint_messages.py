@@ -16,9 +16,8 @@ def test_discard_checkpoint_msg_for_stable_checkpoint(chkFreqPatched, looper,
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1))
     node1 = txnPoolNodeSet[0]
     rep1 = node1.replicas[0]
-    key, stableChk = rep1.firstCheckPoint
-    oldChkpointMsg = Checkpoint(rep1.instId, rep1.viewNo, *key, stableChk.digest)
+    oldChkpointMsg = rep1._consensus_data.checkpoints[0]
     rep1.send(oldChkpointMsg)
-    recvReplicas = [n.replicas[0] for n in txnPoolNodeSet[1:]]
+    recvReplicas = [n.replicas[0]._checkpointer for n in txnPoolNodeSet[1:]]
     looper.run(eventually(checkDiscardMsg, recvReplicas, oldChkpointMsg,
                           ALREADY_STABLE, retryWait=1))

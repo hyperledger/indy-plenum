@@ -1,4 +1,5 @@
 import itertools
+import time
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
 from typing import Tuple, List, Set, Optional, Dict, Iterable
@@ -26,9 +27,11 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
 from plenum.common.types import f
-from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement
+from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
+    get_utc_epoch
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
 from plenum.server.propagator import Requests
 from plenum.server.replica import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
@@ -45,107 +48,6 @@ from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
 
-class ThreePCMsgValidator:
-    def __init__(self, data: ConsensusSharedData):
-        self._data = data
-
-    @property
-    def view_no(self):
-        return self._data.view_no
-
-    @property
-    def low_watermark(self):
-        return self._data.low_watermark
-
-    @property
-    def high_watermark(self):
-        return self._data.high_watermark
-
-    @property
-    def legacy_last_prepared_sertificate(self):
-        """
-        We assume, that prepared list is an ordered list, and the last element is
-        the last quorumed Prepared
-        """
-        if self._data.prepared:
-            last_prepared = self._data.prepared[-1]
-            return last_prepared.view_no, last_prepared.pp_seq_no
-        return self.last_ordered_3pc
-
-    @property
-    def last_ordered_3pc(self):
-        return self._data.last_ordered_3pc
-
-    @property
-    def is_participating(self):
-        return self._data.is_participating
-
-    @property
-    def legacy_vc_in_progress(self):
-        return self._data.legacy_vc_in_progress
-
-    def has_already_ordered(self, view_no, pp_seq_no):
-        return compare_3PC_keys((view_no, pp_seq_no),
-                                self.last_ordered_3pc) >= 0
-
-    def can_order(self):
-        if self.is_participating:
-            return True
-        if self._data.is_synced and self._data.legacy_vc_in_progress:
-            return True
-        return False
-
-    def validate(self, msg):
-        view_no = getattr(msg, f.VIEW_NO.nm, None)
-        pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
-
-        # ToDO: this checks should be performed in previous level (ReplicaService)
-        # 1. Check INSTANCE_ID
-        # if inst_id is None or inst_id != self.replica.instId:
-        #     return DISCARD, INCORRECT_INSTANCE
-
-        # 2. Check pp_seq_no
-        if pp_seq_no == 0:
-            # should start with 1
-            return DISCARD, INCORRECT_PP_SEQ_NO
-
-        # 3. Check already ordered
-        if self.has_already_ordered(view_no, pp_seq_no):
-            return DISCARD, ALREADY_ORDERED
-
-        # 4. Check viewNo
-        if view_no > self.view_no:
-            return STASH_VIEW, FUTURE_VIEW
-        if view_no < self.view_no - 1:
-            return DISCARD, OLD_VIEW
-        if view_no == self.view_no - 1:
-            if not isinstance(msg, Commit):
-                return DISCARD, OLD_VIEW
-            if not self.legacy_vc_in_progress:
-                return DISCARD, OLD_VIEW
-            if self._data.legacy_last_prepared_before_view_change is None:
-                return DISCARD, OLD_VIEW
-            if compare_3PC_keys((view_no, pp_seq_no), self._data.legacy_last_prepared_before_view_change) < 0:
-                return DISCARD, GREATER_PREP_CERT
-        if view_no == self.view_no and self.legacy_vc_in_progress:
-            return STASH_VIEW, FUTURE_VIEW
-
-        # ToDo: we assume, that only is_participating needs checking orderability
-        # If Catchup in View Change finished then process Commit messages
-        if self._data.is_synced and self.legacy_vc_in_progress:
-            return PROCESS, None
-
-        # 5. Check if Participating
-        if not self.is_participating:
-            return STASH_CATCH_UP, CATCHING_UP
-
-        # 6. Check watermarks
-        if not (self.low_watermark < pp_seq_no <= self.high_watermark):
-            return STASH_WATERMARKS, OUTSIDE_WATERMARKS
-
-        return PROCESS, None
-
-
 class OrderingService:
 
     def __init__(self,
@@ -156,7 +58,9 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  is_master=True,
-                 get_current_time=None):
+                 get_current_time=None,
+                 get_time_for_3pc_batch=None,
+                 stasher=None):
         self._data = data
         self._requests = self._data.requests
         self._timer = timer
@@ -165,10 +69,11 @@ class OrderingService:
         self._write_manager = write_manager
         self._is_master = is_master
         self._name = self._data.name
+        self.get_time_for_3pc_batch = get_time_for_3pc_batch or get_utc_epoch
 
         self._config = getConfig()
         self._logger = getlogger()
-        self._stasher = StashingRouter(self._config.REPLICA_STASH_LIMIT)
+        self._stasher = stasher if stasher else StashingRouter(self._config.REPLICA_STASH_LIMIT)
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,
@@ -299,6 +204,7 @@ class OrderingService:
         self.stashed_out_of_order_commits = {}
 
         self._freshness_checker = FreshnessChecker(freshness_timeout=self._config.STATE_FRESHNESS_UPDATE_INTERVAL)
+        self._skip_send_3pc_ts = None
 
         self._consensus_data_helper = ConsensusDataHelper(self._data)
 
@@ -579,6 +485,13 @@ class OrderingService:
         :param pre_prepare: message
         :param sender: name of the node that sent this message
         """
+        pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        # the same PrePrepare might come here multiple times
+        if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
+            # TODO more clean solution would be to set timestamps
+            # earlier (e.g. in zstack)
+            self.pre_prepare_tss[pp_key][pre_prepare, sender] = self.get_time_for_3pc_batch()
+
         result, reason = self._validate(pre_prepare)
         if result != PROCESS:
             return result
@@ -758,7 +671,7 @@ class OrderingService:
 
         :return: Returns name if primary is known, None otherwise
         """
-        return self._primary_name
+        return self._data.primary_name
 
     @primary_name.setter
     def primary_name(self, value: Optional[str]) -> None:
@@ -771,8 +684,8 @@ class OrderingService:
             self.warned_no_primary = False
         self.primary_names[self.view_no] = value
         self.l_compact_primary_names()
-        if value != self._primary_name:
-            self._primary_name = value
+        if value != self._data.primary_name:
+            self._data.primary_name = value
             self._logger.info("{} setting primaryName for view no {} to: {}".
                               format(self, self.view_no, value))
             if value is None:
@@ -786,11 +699,11 @@ class OrderingService:
     @property
     def name(self):
         # ToDo: Change to real name
-        return self._name
+        return self._data.name
 
     @name.setter
     def name(self, n):
-        self._name = n
+        self._data._name = n
 
     @property
     def f(self):
@@ -875,7 +788,7 @@ class OrderingService:
                                .format(self, request_key))
 
         # ToDo: do we need ordered messages there?
-        # self.ordered.clear_below_view(self.viewNo - 1)
+        self.ordered.clear_below_view(self.view_no - 1)
 
         # BLS multi-sig:
         self.l_bls_bft_replica.gc(till3PCKey)
@@ -1132,9 +1045,10 @@ class OrderingService:
         Request preprepare
         """
         if recipients is None:
-            recipients = self._network.connecteds
+            recipients = self._network.connecteds.copy()
             primary_name = self.primary_name[:self.primary_name.rfind(":")]
-            recipients.discard(primary_name)
+            if primary_name in recipients:
+                del recipients[primary_name]
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
@@ -1717,7 +1631,7 @@ class OrderingService:
         #     self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         # else:
         #     self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
-
+        # TODO: remove it after INDY-2137
         self.l_addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
         # BLS multi-sig:
@@ -1726,6 +1640,7 @@ class OrderingService:
         return True
 
     """Method from legacy code"""
+    # TODO: remove it after INDY-2137
     def l_addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
         for (s, e) in self._data.checkpoints.keys():
             if s <= ppSeqNo <= e:
@@ -1888,7 +1803,7 @@ class OrderingService:
         # were stashed due to lack of commits before them and orders them if it
         # can
 
-        if not self._validator.can_order():
+        if not self.can_order():
             return
 
         self._logger.debug('{} trying to order from out of order commits. '
@@ -2075,3 +1990,65 @@ class OrderingService:
         if self.is_master:
             self.l_do_dynamic_validation(req, cons_time)
             self._write_manager.apply_request(req, cons_time)
+
+    def can_send_3pc_batch(self):
+        if not self._data.is_primary:
+            return False
+        if not self._data.is_participating:
+            return False
+        # ToDo: is pre_view_change_in_progress needed?
+        # if self.replica.node.pre_view_change_in_progress:
+        #     return False
+        if self.view_no < self.last_ordered_3pc[0]:
+            return False
+        if self.view_no == self.last_ordered_3pc[0]:
+            if self._lastPrePrepareSeqNo < self.last_ordered_3pc[1]:
+                return False
+            # This check is done for current view only to simplify logic and avoid
+            # edge cases between views, especially taking into account that we need
+            # to send a batch in new view as soon as possible
+            if self._config.Max3PCBatchesInFlight is not None:
+                batches_in_flight = self._lastPrePrepareSeqNo - self.last_ordered_3pc[1]
+                if batches_in_flight >= self._config.Max3PCBatchesInFlight:
+                    if self.l_can_log_skip_send_3pc():
+                        self._logger.info("{} not creating new batch because there already {} in flight out of {} allowed".
+                                          format(self.name, batches_in_flight, self._config.Max3PCBatchesInFlight))
+                    return False
+
+        self._skip_send_3pc_ts = None
+        return True
+
+    def l_can_log_skip_send_3pc(self):
+        current_time = time.perf_counter()
+        if self._skip_send_3pc_ts is None:
+            self._skip_send_3pc_ts = current_time
+            return True
+
+        if current_time - self._skip_send_3pc_ts > self._config.Max3PCBatchWait:
+            self._skip_send_3pc_ts = current_time
+            return True
+
+        return False
+
+    def can_order(self):
+        if self._data.is_participating:
+            return True
+        if self._data.is_synced and self._data.legacy_vc_in_progress:
+            return True
+        return False
+
+    @staticmethod
+    def generateName(node_name: str, inst_id: int):
+        """
+        Create and return the name for a replica using its nodeName and
+        instanceId.
+         Ex: Alpha:1
+        """
+
+        if isinstance(node_name, str):
+            # Because sometimes it is bytes (why?)
+            if ":" in node_name:
+                # Because in some cases (for requested messages) it
+                # already has ':'. This should be fixed.
+                return node_name
+        return "{}:{}".format(node_name, inst_id)

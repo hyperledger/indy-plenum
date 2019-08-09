@@ -2,6 +2,8 @@ import pytest
 
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
+from plenum.common.util import SortedDict
+from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, CATCHING_UP, ALREADY_STABLE, \
     STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW
@@ -18,8 +20,10 @@ def viewNo(tconf, request):
 
 
 @pytest.fixture(scope='function')
-def validator(replica, inst_id):
-    return ReplicaValidator(replica=replica)
+def validator(consensus_data):
+    data = consensus_data("some_name")
+    data.node_mode = Mode.participating
+    return CheckpointMsgValidator(data)
 
 
 def checkpoint(view_no, inst_id, seq_no_start, seq_no_end):
@@ -31,19 +35,19 @@ def checkpoint(view_no, inst_id, seq_no_start, seq_no_end):
 
 
 def test_check_all_correct(validator):
-    msg = checkpoint(view_no=validator.view_no,
-                     inst_id=validator.inst_id,
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=10)
-    assert validator.validate_checkpoint_msg(msg) == (PROCESS, None)
+    assert validator.validate(msg) == (PROCESS, None)
 
 
 def test_check_inst_id_incorrect(validator):
-    msg = checkpoint(view_no=validator.view_no,
-                     inst_id=validator.inst_id + 1,
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id + 1,
                      seq_no_start=0,
                      seq_no_end=10)
-    assert validator.validate_checkpoint_msg(msg) == (DISCARD, INCORRECT_INSTANCE)
+    assert validator.validate(msg) == (DISCARD, INCORRECT_INSTANCE)
 
 
 @pytest.mark.parametrize('mode, result', [
@@ -54,13 +58,15 @@ def test_check_inst_id_incorrect(validator):
     (Mode.synced, (STASH_CATCH_UP, CATCHING_UP)),
     (Mode.participating, (PROCESS, None)),
 ])
+
+
 def test_check_participating(validator, mode, result):
-    validator.replica.node.mode = mode
-    msg = checkpoint(view_no=validator.view_no,
-                     inst_id=validator.inst_id,
+    validator._data.node_mode = mode
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=10)
-    assert validator.validate_checkpoint_msg(msg) == result
+    assert validator.validate(msg) == result
 
 
 @pytest.mark.parametrize('seq_no_end, result', [
@@ -74,12 +80,12 @@ def test_check_participating(validator, mode, result):
     (100, (PROCESS, None)),
 ])
 def test_check_stable(validator, seq_no_end, result):
-    validator.replica.is_pp_seq_no_stable = lambda msg: msg.seqNoEnd <= 20
-    msg = checkpoint(view_no=validator.view_no,
-                     inst_id=validator.inst_id,
+    validator._is_pp_seq_no_stable = lambda msg: msg.seqNoEnd <= 20
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=seq_no_end)
-    assert validator.validate_checkpoint_msg(msg) == result
+    assert validator.validate(msg) == result
 
 
 @pytest.mark.parametrize('seq_no_end, result', [
@@ -93,35 +99,36 @@ def test_check_stable(validator, seq_no_end, result):
     (100, (STASH_CATCH_UP, CATCHING_UP)),
 ])
 def test_check_stable_not_participating(validator, seq_no_end, result):
-    validator.replica.is_pp_seq_no_stable = lambda msg: msg.seqNoEnd <= 20
-    validator.replica.node.mode = Mode.syncing
-    msg = checkpoint(view_no=validator.view_no,
-                     inst_id=validator.inst_id,
+    validator._is_pp_seq_no_stable = lambda msg: msg.seqNoEnd <= 20
+    validator._data.node_mode = Mode.syncing
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=seq_no_end)
-    assert validator.validate_checkpoint_msg(msg) == result
+    assert validator.validate(msg) == result
 
 
 def test_check_old_view(validator):
-    msg = checkpoint(view_no=validator.view_no - 1,
-                     inst_id=validator.inst_id,
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=10)
-    assert validator.validate_checkpoint_msg(msg) == (DISCARD, OLD_VIEW)
+    validator._data.view_no += 1
+    assert validator.validate(msg) == (DISCARD, OLD_VIEW)
 
 
 def test_check_future_view(validator):
-    msg = checkpoint(view_no=validator.view_no + 1,
-                     inst_id=validator.inst_id,
+    msg = checkpoint(view_no=validator._data.view_no + 1,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=10)
-    assert validator.validate_checkpoint_msg(msg) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
 
 
 def test_check_view_chnange(validator):
-    validator.replica.node.view_change_in_progress = True
-    msg = checkpoint(view_no=validator.view_no,
-                     inst_id=validator.inst_id,
+    validator._data.legacy_vc_in_progress = True
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
                      seq_no_start=0,
                      seq_no_end=10)
-    assert validator.validate_checkpoint_msg(msg) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)

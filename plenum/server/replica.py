@@ -22,23 +22,27 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES, TS_LABEL
+from plenum.common.event_bus import ExternalBus, InternalBus
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.internal_messages import NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
+from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_payload_data, get_seq_no
 from plenum.common.types import f
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict, firstKey
 from plenum.config import CHK_FREQ
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -194,31 +198,34 @@ class ConsensusDataHelper:
         """
         After pp had validated, it placed into _preprepared list
         """
-        if pp in self.consensus_data.preprepared:
+        batch_id = preprepare_to_batch_id(pp)
+        if batch_id in self.consensus_data.preprepared:
             raise LogicError('New pp cannot be stored in preprepared')
-        if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
+        if self.consensus_data.checkpoints and batch_id.pp_seq_no < self.consensus_data.last_checkpoint.seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
-        self.consensus_data.preprepared.append(pp)
+        self.consensus_data.preprepared.append(batch_id)
 
     def prepare_batch(self, pp: PrePrepare):
         """
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        self.consensus_data.prepared.append(pp)
+        batch_id = preprepare_to_batch_id(pp)
+        self.consensus_data.prepared.append(batch_id)
 
-    def clear_batch(self, pp: PrePrepare):
+    def clear_batch(self, pp: PrePrepare, batch_id=None):
         """
         When 3pc batch processed, it removed from _prepared list
         """
-        if pp in self.consensus_data.preprepared:
-            self.consensus_data.preprepared.remove(pp)
-        if pp in self.consensus_data.prepared:
-            self.consensus_data.prepared.remove(pp)
+        batch_id = preprepare_to_batch_id(pp)
+        if batch_id in self.consensus_data.preprepared:
+            self.consensus_data.preprepared.remove(batch_id)
+        if batch_id in self.consensus_data.prepared:
+            self.consensus_data.prepared.remove(batch_id)
 
     def clear_batch_till_seq_no(self, seq_no):
-        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.ppSeqNo >= seq_no]
-        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.ppSeqNo >= seq_no]
+        self.consensus_data.preprepared = [pp for pp in self.consensus_data.preprepared if pp.pp_seq_no >= seq_no]
+        self.consensus_data.prepared = [p for p in self.consensus_data.prepared if p.pp_seq_no >= seq_no]
 
     def clear_all_batches(self):
         """
@@ -226,26 +233,6 @@ class ConsensusDataHelper:
         """
         self.consensus_data.prepared.clear()
         self.consensus_data.preprepared.clear()
-
-    def add_checkpoint(self, checkpoint: Checkpoint):
-        self.consensus_data.checkpoints.add(checkpoint)
-
-    def reset_checkpoints(self):
-        # That function most probably redundant in PBFT approach,
-        # because according to paper, checkpoints cleared only when next stabilized.
-        # Avoid using it while implement other services.
-        self.consensus_data.checkpoints.clear()
-        self.consensus_data.stable_checkpoint = 0
-
-    def set_stable_checkpoint(self, end_seq_no):
-        if not list(self.consensus_data.checkpoints.irange_key(end_seq_no, end_seq_no)):
-            raise LogicError('Stable checkpoint must be in checkpoints')
-        self.consensus_data.stable_checkpoint = end_seq_no
-
-        self.consensus_data.checkpoints = \
-            SortedListWithKey([c for c in self.consensus_data.checkpoints if c.seqNoEnd >= end_seq_no],
-                              key=lambda checkpoint: checkpoint.seqNoEnd)
-        self.clear_batch_till_seq_no(end_seq_no)
 
 
 PP_CHECK_NOT_FROM_PRIMARY = 0
@@ -310,27 +297,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.config = config or getConfig()
         self.metrics = metrics
 
-        self.inBoxRouter = Router(
-            (ReqKey, self.readyFor3PC),
-            (PrePrepare, self.process_three_phase_msg),
-            (Prepare, self.process_three_phase_msg),
-            (Commit, self.process_three_phase_msg),
-            (Checkpoint, self.process_checkpoint),
-        )
-
-        self.threePhaseRouter = Replica3PRouter(
-            self,
-            (PrePrepare, self.processPrePrepare),
-            (Prepare, self.processPrepare),
-            (Commit, self.processCommit)
-        )
-
         self.node = node
         self.instId = instId
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
         self.validator = ReplicaValidator(self)
-        self.stasher = ReplicaStasher(self)
+        self.stasher = self._init_replica_stasher()
 
         self.outBox = deque()
         """
@@ -434,24 +406,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # type: Dict[int,Dict[int,Commit]]
         self.stashed_out_of_order_commits = {}
 
-        self.checkpoints = SortedDict(lambda k: k[1])
-
-        # Stashed checkpoints for each view. The key of the outermost
-        # dictionary is the view_no, value being a dictionary with key as the
-        # range of the checkpoint and its value again being a mapping between
-        # senders and their sent checkpoint
-        self.stashedRecvdCheckpoints = {}  # type: Dict[int, Dict[Tuple,
-
         # Flag being used for preterm exit from the loop in the method
         # `processStashedMsgsForNewWaterMarks`. See that method for details.
         self.consumedAllStashedMsgs = True
-
-        # Low water mark
-        self._h = 0  # type: int
-        # Set high water mark (`H`) too
-        self.h = 0  # type: int
-
-        self._lastPrePrepareSeqNo = self.h  # type: int
 
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, OrderedSet]
@@ -513,8 +470,28 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._consensus_data = ConsensusSharedData(self.node.name,
                                                    self.node.get_validators(),
-                                                   self.instId)
+                                                   self.instId,
+                                                   self.isMaster)
+        self._lastPrePrepareSeqNo = self._consensus_data.low_watermark  # type: int
+
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
+        self._external_bus = ExternalBus(send_handler=self.send)
+        self._subscribe_to_internal_msgs()
+        self._checkpointer = self._init_checkpoint_service()
+        self.inBoxRouter = Router(
+            (ReqKey, self.readyFor3PC),
+            (PrePrepare, self.process_three_phase_msg),
+            (Prepare, self.process_three_phase_msg),
+            (Commit, self.process_three_phase_msg),
+            (Checkpoint, self._checkpointer.process_checkpoint),
+        )
+
+        self.threePhaseRouter = Replica3PRouter(
+            self,
+            (PrePrepare, self.processPrePrepare),
+            (Prepare, self.processPrepare),
+            (Commit, self.processCommit)
+        )
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -552,14 +529,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     @property
     def h(self) -> int:
-        return self._h
+        return self._consensus_data.low_watermark
 
-    @h.setter
-    def h(self, n):
-        self._h = n
-        self.H = self._h + self.config.LOG_SIZE
-        self.logger.info('{} set watermarks as {} {}'.format(self, self.h, self.H))
-        self.stasher.unstash_watermarks()
+    @property
+    def H(self) -> int:
+        return self._consensus_data.high_watermark
 
     @property
     def last_ordered_3pc(self) -> tuple:
@@ -677,15 +651,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 # decided.
                 return
             self._gc_before_new_view()
-            if self.__should_reset_watermarks_before_new_view():
-                self._reset_watermarks_before_new_view()
-
-    def __should_reset_watermarks_before_new_view(self):
-        if self.viewNo <= 0:
-            return False
-        if self.last_ordered_3pc[0] == self.viewNo and self.last_ordered_3pc[1] > 0:
-            return False
-        return True
+            if self._checkpointer.should_reset_watermarks_before_new_view():
+                self._checkpointer.reset_watermarks_before_new_view()
+                self._lastPrePrepareSeqNo = 0
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -745,12 +713,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             # if this is a Primary that is re-connected (that is view change is not actually changed,
             # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
-            self.update_watermark_from_3pc()
+            self._checkpointer.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
-            self.h = 0
-            self.H = sys.maxsize
+            self._checkpointer.set_watermarks(low_watermark=0,
+                                              high_watermark=sys.maxsize)
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
@@ -798,7 +766,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.logger.info('{} Setting last ordered for non-master as {}'.
                                  format(self, self.last_ordered_3pc))
                 self.last_ordered_3pc = (self.viewNo, lowest_prepared - 1)
-                self.update_watermark_from_3pc()
+                self._checkpointer.update_watermark_from_3pc()
                 self.first_batch_after_catchup = False
 
     def _setup_for_non_master_after_view_change(self, current_view):
@@ -2067,8 +2035,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         else:
             self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
-
-        self.addToCheckpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
+        self._checkpointer._add_to_checkpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
 
         # BLS multi-sig:
         self._bls_bft_replica.process_order(key, self.quorums, pp)
@@ -2104,176 +2071,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
 
-    @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
-                          MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
-    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
-        """
-        Process checkpoint messages
-
-        :return: whether processed (True) or stashed (False)
-        """
-        self.logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
-        result, reason = self.validator.validate_checkpoint_msg(msg)
-        if result == DISCARD:
-            self.discard(msg, "{} discard message {} from {} "
-                              "with the reason: {}".format(self, msg, sender, reason),
-                         self.logger.trace)
-        elif result == PROCESS:
-            self._do_process_checkpoint(msg, sender)
-        else:
-            self.logger.debug("{} stashing checkpoint message {} with "
-                              "the reason: {}".format(self, msg, reason))
-            self.stasher.stash((msg, sender), result)
-            return False
-        return True
-
-    def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
-        seqNoEnd = msg.seqNoEnd
-        seqNoStart = msg.seqNoStart
-        key = (seqNoStart, seqNoEnd)
-
-        if key not in self.checkpoints or not self.checkpoints[key].digest:
-            self.stashCheckpoint(msg, sender)
-            self._remove_stashed_checkpoints(self.last_ordered_3pc)
-            self.__start_catchup_if_needed()
-            return False
-
-        checkpoint_state = self.checkpoints[key]
-        # Raise the error only if master since only master's last
-        # ordered 3PC is communicated during view change
-        if self.isMaster and checkpoint_state.digest != msg.digest:
-            self.logger.warning("{} received an incorrect digest {} for "
-                                "checkpoint {} from {}".format(self, msg.digest, key, sender))
-            return True
-
-        checkpoint_state.receivedDigests[sender] = msg.digest
-        self.checkIfCheckpointStable(key)
-        return True
-
-    def __start_catchup_if_needed(self):
-        stashed_checkpoint_ends = self.stashed_checkpoints_with_quorum()
-        lag_in_checkpoints = len(stashed_checkpoint_ends)
-        if self.checkpoints:
-            (s, e) = firstKey(self.checkpoints)
-            # If the first stored own checkpoint has a not aligned lower bound
-            # (this means that it was started after a catch-up), is complete
-            # and there is a quorumed stashed checkpoint from other replicas
-            # with the same end then don't include this stashed checkpoint
-            # into the lag
-            if s % self.config.CHK_FREQ != 0 \
-                    and self.checkpoints[(s, e)].seqNo == e \
-                    and e in stashed_checkpoint_ends:
-                lag_in_checkpoints -= 1
-        is_stashed_enough = \
-            lag_in_checkpoints > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
-        if not is_stashed_enough:
-            return
-
-        if self.isMaster:
-            self.logger.display(
-                '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
-                    self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
-            self.h = stashed_checkpoint_ends[-1]
-            if not self.isPrimary:
-                self.logger.display(
-                    '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
-                        self, lag_in_checkpoints))
-                self.node.start_catchup()
-        else:
-            self.logger.info(
-                '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
-                'shift watermarks and clean collections'.format(
-                    self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
-            # Adjust last_ordered_3pc, shift watermarks, clean operational
-            # collections and process stashed messages which now fit between
-            # watermarks
-            self._caught_up_till_3pc((self.viewNo, stashed_checkpoint_ends[-1]))
-
-    def addToCheckpoint(self, ppSeqNo, digest, ledger_id, view_no):
-        for (s, e) in self.checkpoints.keys():
-            if s <= ppSeqNo <= e:
-                state = self.checkpoints[s, e]  # type: CheckpointState
-                state.digests.append(digest)
-                state = updateNamedTuple(state, seqNo=ppSeqNo)
-                self.checkpoints[s, e] = state
-                break
-        else:
-            s, e = ppSeqNo, math.ceil(ppSeqNo / self.config.CHK_FREQ) * self.config.CHK_FREQ
-            self.logger.debug("{} adding new checkpoint state for {}".format(self, (s, e)))
-            state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
-            self.checkpoints[s, e] = state
-
-        if state.seqNo == e:
-            if len(state.digests) == self.config.CHK_FREQ:
-                self.doCheckpoint(state, s, e, ledger_id, view_no)
-            self.processStashedCheckpoints((s, e), view_no)
-
-    @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
-                          MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
-    def doCheckpoint(self, state, s, e, ledger_id, view_no):
-        # TODO CheckpointState/Checkpoint is not a namedtuple anymore
-        # 1. check if updateNamedTuple works for the new message type
-        # 2. choose another name
-        state = updateNamedTuple(state,
-                                 digest=sha256(
-                                     serialize_msg_for_signing(
-                                         state.digests)
-                                 ).hexdigest(),
-                                 digests=[])
-        self.checkpoints[s, e] = state
-        self.logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
-                         "txn root hash {}. Committed state root hash {} Uncommitted state root hash {}".
-                         format(self, (s, e), view_no, state.digest, ledger_id,
-                                self.txnRootHash(ledger_id), self.stateRootHash(ledger_id, committed=True),
-                                self.stateRootHash(ledger_id, committed=False)))
-        checkpoint = Checkpoint(self.instId, view_no, s, e, state.digest)
-        self.send(checkpoint)
-        self._consensus_data_helper.add_checkpoint(checkpoint)
-
-    def markCheckPointStable(self, seqNo):
-        previousCheckpoints = []
-        for (s, e), state in self.checkpoints.items():
-            if e == seqNo:
-                # TODO CheckpointState/Checkpoint is not a namedtuple anymore
-                # 1. check if updateNamedTuple works for the new message type
-                # 2. choose another name
-                state = updateNamedTuple(state, isStable=True)
-                self.checkpoints[s, e] = state
-                self._consensus_data_helper.set_stable_checkpoint(e)
-                break
-            else:
-                previousCheckpoints.append((s, e))
-        else:
-            self.logger.debug("{} could not find {} in checkpoints".format(self, seqNo))
-            return
-        self.h = seqNo
-        for k in previousCheckpoints:
-            self.logger.trace("{} removing previous checkpoint {}".format(self, k))
-            self.checkpoints.pop(k)
-        self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, seqNo))
-        self._gc((self.viewNo, seqNo))
-        self.logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
-
-    def checkIfCheckpointStable(self, key: Tuple[int, int]):
-        ckState = self.checkpoints[key]
-        if self.quorums.checkpoint.is_reached(len(ckState.receivedDigests)):
-            self.markCheckPointStable(ckState.seqNo)
-            return True
-        else:
-            self.logger.debug('{} has state.receivedDigests as {}'.format(
-                self, ckState.receivedDigests.keys()))
-            return False
-
-    def stashCheckpoint(self, ck: Checkpoint, sender: str):
-        self.logger.debug('{} stashing {} from {}'.format(self, ck, sender))
-        seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
-        if ck.viewNo not in self.stashedRecvdCheckpoints:
-            self.stashedRecvdCheckpoints[ck.viewNo] = {}
-        stashed_for_view = self.stashedRecvdCheckpoints[ck.viewNo]
-        if (seqNoStart, seqNoEnd) not in stashed_for_view:
-            stashed_for_view[seqNoStart, seqNoEnd] = {}
-        stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
-
     def _clear_prev_view_pre_prepares(self):
         to_remove = []
         for idx, (pp, _, _) in enumerate(self.prePreparesPendingFinReqs):
@@ -2285,61 +2082,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for (v, p) in list(self.prePreparesPendingPrevPP.keys()):
             if v < self.viewNo:
                 self.prePreparesPendingPrevPP.pop((v, p))
-
-    def stashed_checkpoints_with_quorum(self):
-        end_pp_seq_numbers = []
-        quorum = self.quorums.checkpoint
-        for (_, seq_no_end), senders in self.stashedRecvdCheckpoints.get(
-                self.viewNo, {}).items():
-            if quorum.is_reached(len(senders)):
-                end_pp_seq_numbers.append(seq_no_end)
-        return sorted(end_pp_seq_numbers)
-
-    def processStashedCheckpoints(self, key, view_no):
-        # Remove all checkpoints from previous views if any
-        self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
-
-        if key not in self.stashedRecvdCheckpoints.get(view_no, {}):
-            self.logger.trace("{} have no stashed checkpoints for {}")
-            return
-
-        # Get a snapshot of all the senders of stashed checkpoints for `key`
-        senders = list(self.stashedRecvdCheckpoints[view_no][key].keys())
-        total_processed = 0
-        consumed = 0
-
-        for sender in senders:
-            # Check if the checkpoint from `sender` is still in
-            # `stashedRecvdCheckpoints` because it might be removed from there
-            # in case own checkpoint was stabilized when we were processing
-            # stashed checkpoints from previous senders in this loop
-            if view_no in self.stashedRecvdCheckpoints \
-                    and key in self.stashedRecvdCheckpoints[view_no] \
-                    and sender in self.stashedRecvdCheckpoints[view_no][key]:
-                if self.process_checkpoint(
-                        self.stashedRecvdCheckpoints[view_no][key].pop(sender),
-                        sender):
-                    consumed += 1
-                # Note that if `process_checkpoint` returned False then the
-                # checkpoint from `sender` was re-stashed back to
-                # `stashedRecvdCheckpoints`
-                total_processed += 1
-
-        # If we have consumed stashed checkpoints for `key` from all the
-        # senders then remove entries which have become empty
-        if view_no in self.stashedRecvdCheckpoints \
-                and key in self.stashedRecvdCheckpoints[view_no] \
-                and len(self.stashedRecvdCheckpoints[view_no][key]) == 0:
-            del self.stashedRecvdCheckpoints[view_no][key]
-            if len(self.stashedRecvdCheckpoints[view_no]) == 0:
-                del self.stashedRecvdCheckpoints[view_no]
-
-        restashed = total_processed - consumed
-        self.logger.info('{} processed {} stashed checkpoints for {}, '
-                         '{} of them were stashed again'.
-                         format(self, total_processed, key, restashed))
-
-        return total_processed
 
     def _gc(self, till3PCKey):
         self.logger.info("{} cleaning up till {}".format(self, till3PCKey))
@@ -2402,52 +2144,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Trigger GC for all batches of old view
         # Clear any checkpoints, since they are valid only in a view
         self._gc(self.last_ordered_3pc)
-        self.checkpoints.clear()
-        self._consensus_data_helper.reset_checkpoints()
-        self._remove_stashed_checkpoints(till_3pc_key=(self.viewNo, 0))
+        self._checkpointer.gc_before_new_view()
         self._clear_prev_view_pre_prepares()
-
-    def _reset_watermarks_before_new_view(self):
-        # Reset any previous view watermarks since for view change to
-        # successfully complete, the node must have reached the same state
-        # as other nodes
-        self.h = 0
-        self._lastPrePrepareSeqNo = self.h
-
-    @property
-    def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
-        if not self.checkpoints:
-            return None
-        else:
-            return self.checkpoints.peekitem(0)
-
-    @property
-    def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
-        if not self.checkpoints:
-            return None
-        else:
-            return self.checkpoints.peekitem(-1)
-
-    def is_pp_seq_no_stable(self, msg: Checkpoint):
-        """
-        :param ppSeqNo:
-        :return: True if ppSeqNo is less than or equal to last stable
-        checkpoint, false otherwise
-        """
-        pp_seq_no = msg.seqNoEnd
-        ck = self.firstCheckPoint
-        if ck:
-            _, ckState = ck
-            return ckState.isStable and ckState.seqNo >= pp_seq_no
-        else:
-            return False
 
     def has_already_ordered(self, view_no, pp_seq_no):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self.last_ordered_3pc) >= 0
-
-    def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
-        return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
@@ -2858,13 +2560,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 break
         return i
 
-    def update_watermark_from_3pc(self):
-        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.viewNo):
-            self.logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            self.h = self.last_ordered_3pc[1]
-        else:
-            self.logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
-
     def on_catch_up_finished(self, last_caught_up_3PC=None, master_last_ordered_3PC=None):
 
         if master_last_ordered_3PC and last_caught_up_3PC and \
@@ -2877,14 +2572,16 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                 self.first_batch_after_catchup = True
         self.stasher.unstash_catchup()
 
+    def _caught_up_backup(self, msg: NeedBackupCatchup):
+        if self.instId != msg.inst_id:
+            return
+        self._caught_up_till_3pc(msg.caught_up_till_3pc)
+
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
         self._remove_ordered_from_queue(last_caught_up_3PC)
-        self.checkpoints.clear()
-        self._consensus_data_helper.reset_checkpoints()
-        self._remove_stashed_checkpoints(till_3pc_key=last_caught_up_3PC)
-        self.update_watermark_from_3pc()
+        self._checkpointer.caught_up_till_3pc(last_caught_up_3PC)
 
     def _catchup_clear_for_backup(self):
         if not self.isPrimary:
@@ -2895,11 +2592,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.prepares.clear()
             self.commits.clear()
             self.outBox.clear()
-            self.checkpoints.clear()
-            self._consensus_data_helper.reset_checkpoints()
-            self._remove_stashed_checkpoints()
-            self.h = 0
-            self.H = sys.maxsize
+            self._checkpointer.catchup_clear_for_backup()
             self._consensus_data_helper.clear_all_batches()
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
@@ -2950,32 +2643,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             del self.outBox[i]
         return removed
 
-    def _remove_stashed_checkpoints(self, till_3pc_key=None):
-        """
-        Remove stashed received checkpoints up to `till_3pc_key` if provided,
-        otherwise remove all stashed received checkpoints
-        """
-        if till_3pc_key is None:
-            self.stashedRecvdCheckpoints.clear()
-            self.logger.info('{} removing all stashed checkpoints'.format(self))
-            return
-
-        for view_no in list(self.stashedRecvdCheckpoints.keys()):
-
-            if view_no < till_3pc_key[0]:
-                self.logger.info('{} removing stashed checkpoints for view {}'.format(self, view_no))
-                del self.stashedRecvdCheckpoints[view_no]
-
-            elif view_no == till_3pc_key[0]:
-                for (s, e) in list(self.stashedRecvdCheckpoints[view_no].keys()):
-                    if e <= till_3pc_key[1]:
-                        self.logger.info('{} removing stashed checkpoints: '
-                                         'viewNo={}, seqNoStart={}, seqNoEnd={}'.
-                                         format(self, view_no, s, e))
-                        del self.stashedRecvdCheckpoints[view_no][(s, e)]
-                if len(self.stashedRecvdCheckpoints[view_no]) == 0:
-                    del self.stashedRecvdCheckpoints[view_no]
-
     def _get_last_timestamp_from_state(self, ledger_id):
         if ledger_id == DOMAIN_LEDGER_ID:
             ts_store = self.node.db_manager.get_store(TS_LABEL)
@@ -3014,3 +2681,30 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def set_view_no(self, view_no):
         self._consensus_data.view_no = view_no
+
+    def set_view_change_status(self, legacy_vc_in_progress):
+        self._consensus_data.legacy_vc_in_progress = legacy_vc_in_progress
+
+    def set_mode(self, mode):
+        self._consensus_data.node_mode = mode
+
+    def _init_checkpoint_service(self) -> CheckpointService:
+        return CheckpointService(data=self._consensus_data,
+                                 bus=self.node.internal_bus,
+                                 network=self._external_bus,
+                                 stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
+                                 db_manager=self.node.db_manager,
+                                 old_stasher=self.stasher,
+                                 metrics=self.metrics)
+
+    def _init_replica_stasher(self):
+        return ReplicaStasher(self)
+
+    def _cleanup_process(self, msg: CheckpointStabilized):
+        if msg.inst_id != self.instId:
+            return
+        self._gc(msg.last_stable_3pc)
+
+    def _subscribe_to_internal_msgs(self):
+        self.node.internal_bus.subscribe(NeedBackupCatchup, self._caught_up_backup)
+        self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)

@@ -42,6 +42,11 @@ def expect_suspicious(orderer, suspicious_code):
     orderer.report_suspicious_node = reportSuspiciousNodeEx
 
 
+def test_process_pre_prepare_validation(orderer_with_requests,
+                                        pre_prepare):
+    orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
+
+
 def test_process_pre_prepare_with_incorrect_pool_state_root(orderer_with_requests,
                                                             state_roots, txn_roots, multi_sig, fake_requests):
     expect_suspicious(orderer_with_requests, Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code)

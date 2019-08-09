@@ -25,7 +25,7 @@ class ExternalBus:
         self._recv_handlers = InternalBus()
 
         # list of connected nodes
-        self._connecteds = []
+        self._connecteds = {}
 
     @property
     def connecteds(self):

@@ -9,6 +9,10 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 
 import gc
 import psutil
+
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import NeedBackupCatchup, NeedMasterCatchup
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -53,7 +57,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -109,8 +113,6 @@ from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import TxnPoolManager
-from plenum.server.primary_decider import PrimaryDecider
-from plenum.server.primary_selector import PrimarySelector
 from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
 from plenum.server.replicas import Replicas
@@ -153,7 +155,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  plugins_dir: str = None,
                  node_info_dir: str = None,
                  view_changer: ViewChanger = None,
-                 primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
                  config=None,
@@ -161,16 +162,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  bootstrap_cls=NodeBootstrap):
         """
         Create a new node.
-
-        :param clientAuthNr: client authenticator implementation to be used
-        :param primaryDecider: the mechanism to be used to decide the primary
-        of a protocol instance
         """
         self.ha = ha
         self.cliname = cliname
         self.cliha = cliha
         self.timer = QueueTimer()
-        self.poolManager = None
+        self.poolManager = None  # type: TxnPoolManager
         self.ledgerManager = None
         self.bls_bft = None
         self.write_req_validator = None
@@ -209,7 +206,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.addGenesisNyms()
 
-        self.mode = None  # type: Optional[Mode]
+        self._mode = None  # type: Optional[Mode]
 
         self.network_stacks_init(seed)
 
@@ -220,7 +217,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         MessageReqProcessor.__init__(self, metrics=self.metrics)
 
         self.view_changer = view_changer
-        self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
         self.clientInBox = deque()
@@ -243,11 +239,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self._elector = None  # type: PrimaryDecider
+        self.primaries_selector = RoundRobinPrimariesSelector()  # type: PrimariesSelector
 
         self.instances = Instances()
 
         self.monitor_init(pluginPaths)
+
+        self.internal_bus = self._init_internal_bus()
 
         self.replicas = self.create_replicas()
 
@@ -349,6 +347,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, value):
+        self._mode = value
+        for r in self.replicas.values():
+            r.set_mode(value)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -620,14 +628,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @view_changer.setter
     def view_changer(self, value):
         self._view_changer = value
-
-    @property
-    def elector(self) -> PrimaryDecider:
-        return self._elector
-
-    @elector.setter
-    def elector(self, value):
-        self._elector = value
 
     # EXTERNAL EVENTS
 
@@ -970,8 +970,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.clientstack.start()
 
             self.view_changer = self.newViewChanger()
-            self.elector = self.newPrimaryDecider()
-
             self.schedule_initial_propose_view_change()
 
             self.schedule_node_status_dump()
@@ -1021,12 +1019,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.view_changer
         else:
             return create_view_changer(self)
-
-    def newPrimaryDecider(self):
-        if self.primaryDecider:
-            return self.primaryDecider
-        else:
-            return PrimarySelector(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -1087,7 +1079,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # self.clientstack.conns.clear()
         self.aqStash.clear()
         self.actionQueue.clear()
-        self.elector = None
         self.view_changer = None
 
     @async_measure_time(MetricsName.NODE_PROD_TIME)
@@ -1255,7 +1246,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.status = Status.started_hungry
             else:
                 self.status = Status.starting
-        self.elector.nodeCount = self.connectedNodeCount
 
         if self.master_primary_name in joined:
             self.primaries_disconnection_times[self.master_replica.instId] = None
@@ -2030,7 +2020,60 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.view_change_in_progress:
                 self.view_changer.on_catchup_complete()
             else:
-                self.elector.on_catchup_complete()
+                self.select_primaries_on_catchup_complete()
+
+    def select_primaries_on_catchup_complete(self):
+        # Select primaries after usual catchup (not view change)
+        ledger = self.getLedger(AUDIT_LEDGER_ID)
+        self.backup_instance_faulty_processor.restore_replicas()
+        self.drop_primaries()
+        if len(ledger) == 0:
+            self.select_primaries()
+        else:
+            # Emulate view change start
+            self.view_changer.previous_view_no = self.viewNo
+            self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.view_changer.previous_master_primary = self.master_primary_name
+            self.view_changer.set_defaults()
+
+            self.primaries = self._get_last_audited_primaries()
+            if len(self.replicas) != len(self.primaries):
+                logger.error('Audit ledger has inconsistent number of nodes. '
+                             'Node primaries = {}'.format(self.primaries))
+            if any(p not in self.nodeReg for p in self.primaries):
+                logger.error('Audit ledger has inconsistent names of primaries. '
+                             'Node primaries = {}'.format(self.primaries))
+            # Similar functionality to select_primaries
+            for instance_id, replica in self.replicas.items():
+                if instance_id == 0:
+                    self.start_participating()
+                replica.primaryChanged(
+                    Replica.generateName(self.primaries[instance_id], instance_id))
+                self.primary_selected(instance_id)
+
+        # Primary propagation
+        last_sent_pp_seq_no_restored = False
+        for replica in self.replicas.values():
+            replica.on_propagate_primary_done()
+        if self.view_changer.previous_view_no == 0:
+            last_sent_pp_seq_no_restored = \
+                self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
+
+        # Emulate view_change ending
+        self.on_view_propagated()
+
+    def _get_last_audited_primaries(self):
+        audit = self.getLedger(AUDIT_LEDGER_ID)
+        last_txn = audit.get_last_committed_txn()
+        last_txn_prim_value = get_payload_data(last_txn)[AUDIT_TXN_PRIMARIES]
+
+        if isinstance(last_txn_prim_value, int):
+            seq_no = get_seq_no(last_txn) - last_txn_prim_value
+            last_txn_prim_value = get_payload_data(audit.getBySeqNo(seq_no))[AUDIT_TXN_PRIMARIES]
+
+        return last_txn_prim_value
 
     def is_catchup_needed(self) -> bool:
         # More than one catchup may be needed during the current ViewChange protocol
@@ -2627,15 +2670,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                len(self.view_changer._next_view_indications))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_VIEW_CHANGE_DONE, len(self.view_changer._view_change_done))
 
-        if self.primaryDecider:
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_ACTION_QUEUE, len(self.primaryDecider.actionQueue))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_AQ_STASH, len(self.primaryDecider.aqStash))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_REPEATING_ACTIONS,
-                                   len(self.primaryDecider.repeatingActions))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_SCHEDULED, len(self.primaryDecider.scheduled))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
-
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
@@ -2665,9 +2699,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER, len(self.master_replica.checkpoints))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
+                               len(self.master_replica._consensus_data.checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
-                               sum_for_values(self.master_replica.stashedRecvdCheckpoints))
+                               sum_for_values(self.master_replica._checkpointer._stashed_recvd_checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
                                self.master_replica.stasher.num_stashed_watermarks)
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
@@ -2695,8 +2730,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         def sum_for_backups(field):
             return sum(len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
 
+        def sum_for_backups_data(field):
+            return sum(len(getattr(r._consensus_data, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
+
         def sum_for_values_for_backups(field):
             return sum(sum_for_values(getattr(r, field))
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        def sum_for_values_for_backups_checkpointer(field):
+            return sum(sum_for_values(getattr(r._checkpointer, field))
                        for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
@@ -2717,9 +2759,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
                                sum_for_values_for_backups('stashed_out_of_order_commits'))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups('checkpoints'))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups_data('checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
-                               sum_for_values_for_backups('stashedRecvdCheckpoints'))
+                               sum_for_values_for_backups_checkpointer('_stashed_recvd_checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
                                sum(r.stasher.num_stashed_watermarks for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
@@ -2913,6 +2955,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule_view_change()
 
+    def get_primaries_for_current_view(self):
+        return self.primaries_selector.select_primaries(view_no=self.viewNo,
+                                                        instance_count=self.requiredNumberOfInstances,
+                                                        validators=self.poolManager.node_names_ordered_by_rank())
+
     def select_primaries(self):
         # If you want to refactor primaries selection,
         # please take a look at https://jira.hyperledger.org/browse/INDY-1946
@@ -2920,10 +2967,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.backup_instance_faulty_processor.restore_replicas()
         self.ensure_primaries_dropped()
 
-        self.primaries = self.elector.process_selection(
-            self.requiredNumberOfInstances,
-            self.nodeReg, self.poolManager._ordered_node_ids)
-
+        self.primaries = self.get_primaries_for_current_view()
         pc = len(self.primaries)
         rc = len(self.replicas)
         if pc != rc:
@@ -3534,3 +3578,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def set_view_for_replicas(self, view_no):
         for r in self.replicas.values():
             r.set_view_no(view_no)
+
+    def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
+        self.start_catchup()
+
+    def _init_internal_bus(self):
+        internal_bus = InternalBus()
+        internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
+        return internal_bus
+
+    def set_view_change_status(self, value: bool):
+        """
+        Remove this method after a PBFT ViewChange integration
+        """
+        for r in self.replicas.values():
+            r.set_view_change_status(value)

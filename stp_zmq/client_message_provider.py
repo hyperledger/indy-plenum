@@ -58,7 +58,7 @@ class ClientMessageProvider:
         def prepare_error_msg(ex):
             err_str = '{}{} got error {} while sending through listener to {}' \
                 .format(CONNECTION_PREFIX, self, ex, ident)
-            logger.warning(err_str)
+            logger.debug(err_str)
             return err_str
 
         need_to_resend = False
@@ -72,7 +72,7 @@ class ClientMessageProvider:
             self.listener.send_multipart([ident, msg], flags=zmq.NOBLOCK)
         except InvalidMessageExceedingSizeException as ex:
             err_str = '{}Cannot transmit message. Error {}'.format(CONNECTION_PREFIX, ex)
-            logger.warning(err_str)
+            logger.debug(err_str)
             return False, err_str, need_to_resend
         except zmq.Again as ex:
             need_to_resend = True
@@ -85,7 +85,7 @@ class ClientMessageProvider:
         return True, None, need_to_resend
 
     def _remove_old_messages(self):
-        for ident in self._pending_client_messages.keys():
+        for ident in list(self._pending_client_messages.keys()):
             for timestamp, current_msg in list(self._pending_client_messages[ident]):
                 if self._timer.get_current_time() - timestamp >= self._config.REMOVE_CLIENT_MSG_TIMEOUT:
                     self._remove_message(ident, (timestamp, current_msg))

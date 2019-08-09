@@ -84,8 +84,8 @@ def primary_replicas_iter(*nodes):
 
 
 def nodes_have_checkpoints(*nodes):
-    return all(replica.checkpoints for replica in primary_replicas_iter(*nodes))
+    return all(replica._checkpointer._checkpoint_state for replica in primary_replicas_iter(*nodes))
 
 
 def nodes_do_not_have_checkpoints(*nodes):
-    return all(not replica.checkpoints for replica in primary_replicas_iter(*nodes))
+    return all(not replica._checkpointer._checkpoint_state for replica in primary_replicas_iter(*nodes))
