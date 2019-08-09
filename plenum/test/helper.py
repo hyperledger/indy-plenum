@@ -17,7 +17,11 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from crypto.bls.bls_factory import BlsFactoryCrypto
 from plenum.common.event_bus import ExternalBus
+from plenum.common.member.member import Member
+from plenum.common.member.steward import Steward
+from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
@@ -31,11 +35,11 @@ from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
-    CURRENT_PROTOCOL_VERSION
+    CURRENT_PROTOCOL_VERSION, STEWARD, VALIDATOR, TRUSTEE, DATA, BLS_KEY, BLS_KEY_PROOF
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
-from plenum.common.txn_util import get_req_id, get_from
+from plenum.common.txn_util import get_req_id, get_from, get_payload_data
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
@@ -1410,3 +1414,77 @@ def get_handler_by_type_wm(write_manager, h_type):
         for h in h_l:
             if isinstance(h, h_type):
                 return h
+
+
+def create_pool_txn_data(node_names: List[str],
+                         crypto_factory: BlsFactoryCrypto,
+                         get_free_port: Callable[[], int]):
+    nodeCount = len(node_names)
+    data = {'txns': [], 'seeds': {}, 'nodesWithBls': {}}
+    for i, node_name in zip(range(1, nodeCount + 1), node_names):
+        data['seeds'][node_name] = node_name + '0' * (32 - len(node_name))
+        steward_name = 'Steward' + str(i)
+        data['seeds'][steward_name] = steward_name + '0' * (32 - len(steward_name))
+
+        n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
+        s_idr = DidSigner(seed=data['seeds'][steward_name].encode())
+
+        data['txns'].append(
+                Member.nym_txn(nym=s_idr.identifier,
+                               verkey=s_idr.verkey,
+                               role=STEWARD,
+                               name=steward_name,
+                               seq_no=i)
+        )
+
+        node_txn = Steward.node_txn(steward_nym=s_idr.identifier,
+                                    node_name=node_name,
+                                    nym=n_idr,
+                                    ip='127.0.0.1',
+                                    node_port=get_free_port(),
+                                    client_port=get_free_port(),
+                                    client_ip='127.0.0.1',
+                                    services=[VALIDATOR],
+                                    seq_no=i)
+
+        _, bls_key, bls_key_proof = crypto_factory.generate_bls_keys(
+            seed=data['seeds'][node_name])
+        get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
+        get_payload_data(node_txn)[DATA][BLS_KEY_PROOF] = bls_key_proof
+        data['nodesWithBls'][node_name] = True
+
+        data['txns'].append(node_txn)
+
+    # Add 4 Trustees
+    for i in range(4):
+        trustee_name = 'Trs' + str(i)
+        data['seeds'][trustee_name] = trustee_name + '0' * (
+                32 - len(trustee_name))
+        t_sgnr = DidSigner(seed=data['seeds'][trustee_name].encode())
+        data['txns'].append(
+            Member.nym_txn(nym=t_sgnr.identifier,
+                           verkey=t_sgnr.verkey,
+                           role=TRUSTEE,
+                           name=trustee_name)
+        )
+
+    more_data_seeds = \
+        {
+            "Alice": "99999999999999999999999999999999",
+            "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "John": "dddddddddddddddddddddddddddddddd",
+            "Les": "ffffffffffffffffffffffffffffffff"
+        }
+    more_data_users = []
+    for more_name, more_seed in more_data_seeds.items():
+        signer = DidSigner(seed=more_seed.encode())
+        more_data_users.append(
+            Member.nym_txn(nym=signer.identifier,
+                           verkey=signer.verkey,
+                           name=more_name,
+                           creator="5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC")
+        )
+
+    data['txns'].extend(more_data_users)
+    data['seeds'].update(more_data_seeds)
+    return data

@@ -23,9 +23,9 @@ class NodeBootstrap(LedgersBootstrap):
             action_req_manager=node.action_manager,
             name=node.name,
             config=node.config,
-            data_location=node.dataLocation,
-            genesis_dir=node.genesis_dir,
             ledger_ids=node.ledger_ids)
+        self.set_data_location(node.dataLocation)
+        self.set_genesis_location(node.genesis_dir)
         self.node = node
 
     def init_node(self, domain_storage):

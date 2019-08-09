@@ -4,7 +4,9 @@ from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
+from ledger.genesis_txn.genesis_txn_initiator_from_mem import GenesisTxnInitiatorFromMem
 from plenum.common.constants import AUDIT_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_PRIMARY_STORAGE_SUFFIX, BLS_LABEL, HS_MEMORY
 from plenum.common.ledger import Ledger
@@ -30,8 +32,6 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
-IN_MEMORY_LOCATION = '//!memory!'
-
 # TODO: This can be improved in several ways
 #  - if register_batch_handler gets some improvements it will be possible to group
 #    functions by ledger instead of by initialization stage
@@ -52,8 +52,6 @@ class LedgersBootstrap:
                  action_req_manager: ActionRequestManager,
                  name: str,
                  config: Any,
-                 data_location: str,
-                 genesis_dir: str,
                  ledger_ids: List[int]):
         self.write_manager = write_req_manager
         self.read_manager = read_req_manager
@@ -63,10 +61,25 @@ class LedgersBootstrap:
         # TODO: vvv Move into some node config container class? vvv
         self.name = name
         self.config = config
-        self.data_location = data_location
-        self.genesis_dir = genesis_dir
         self.ledger_ids = ledger_ids
+        self.data_location = None
+        self.pool_genesis = None  # type: Optional[GenesisTxnInitiator]
+        self.domain_genesis = None  # type: Optional[GenesisTxnInitiator]
         # TODO: ^^^
+
+    def set_data_location(self, data_location: str):
+        self.data_location = data_location
+
+    def set_genesis_location(self, genesis_dir: str):
+        pool_genesis_file = getattr(self.config, "poolTransactionsFile")
+        self.pool_genesis = GenesisTxnInitiatorFromFile(genesis_dir, pool_genesis_file)
+
+        domain_genesis_file = getattr(self.config, "domainTransactionsFile")
+        self.domain_genesis = GenesisTxnInitiatorFromFile(genesis_dir, domain_genesis_file)
+
+    def set_genesis_transactions(self, pool_txns: List, domain_txns: List):
+        self.pool_genesis = GenesisTxnInitiatorFromMem(pool_txns)
+        self.domain_genesis = GenesisTxnInitiatorFromMem(domain_txns)
 
     @property
     def bls_bft(self) -> BlsBft:
@@ -89,12 +102,12 @@ class LedgersBootstrap:
 
     def init_storages(self, domain_storage=None):
         self.db_manager.register_new_database(CONFIG_LEDGER_ID,
-                                              self._create_ledger('config', use_genesis=False),
+                                              self._create_ledger('config'),
                                               self._create_state('config'),
                                               taa_acceptance_required=False)
 
         self.db_manager.register_new_database(POOL_LEDGER_ID,
-                                              self._create_ledger('pool', use_genesis=True),
+                                              self._create_ledger('pool', self.pool_genesis),
                                               self._create_state('pool'),
                                               taa_acceptance_required=False)
 
@@ -104,7 +117,7 @@ class LedgersBootstrap:
                                               taa_acceptance_required=True)
 
         self.db_manager.register_new_database(AUDIT_LEDGER_ID,
-                                              self._create_ledger('audit', use_genesis=False),
+                                              self._create_ledger('audit'),
                                               taa_acceptance_required=False)
 
     def init_bls_bft(self):
@@ -174,26 +187,22 @@ class LedgersBootstrap:
         self._init_state_from_ledger(CONFIG_LEDGER_ID)
         self._init_state_from_ledger(DOMAIN_LEDGER_ID)
 
-    def _create_ledger(self, name: str, use_genesis: bool) -> Ledger:
-        hs_type = HS_MEMORY if self.data_location == IN_MEMORY_LOCATION else None
+    def _create_ledger(self, name: str, genesis: Optional[GenesisTxnInitiator] = None) -> Ledger:
+        hs_type = HS_MEMORY if self.data_location is None else None
         hash_store = initHashStore(self.data_location, name, self.config, hs_type=hs_type)
         txn_file_name = getattr(self.config, "{}TransactionsFile".format(name))
-
-        genesis_txn_initiator = None
-        if use_genesis:
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.genesis_dir, txn_file_name)
 
         return Ledger(CompactMerkleTree(hashStore=hash_store),
                       dataDir=self.data_location,
                       fileName=txn_file_name,
                       ensureDurability=self.config.EnsureLedgerDurability,
-                      genesis_txn_initiator=genesis_txn_initiator)
+                      genesis_txn_initiator=genesis)
 
     def _create_domain_ledger(self) -> Ledger:
         if self.config.primaryStorage is None:
             # TODO: add a place for initialization of all ledgers, so it's
             # clear what ledgers we have and how they are initialized
-            return self._create_ledger('domain', use_genesis=True)
+            return self._create_ledger('domain', self.domain_genesis)
         else:
             # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,

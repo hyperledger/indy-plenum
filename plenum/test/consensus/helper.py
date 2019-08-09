@@ -1,15 +1,19 @@
+from functools import partial
 from typing import Optional, List
 
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.config_util import getConfig
+from plenum.common.constants import NODE, NYM
 from plenum.common.event_bus import InternalBus
+from plenum.common.txn_util import get_type
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.ledgers_bootstrap import LedgersBootstrap, IN_MEMORY_LOCATION
+from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer
+from plenum.test.helper import MockTimer, create_pool_txn_data
 from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 from plenum.test.testing_utils import FakeSomething
@@ -27,21 +31,25 @@ class TestLedgersBootstrap(LedgersBootstrap):
         return txn
 
 
-def create_test_write_req_manager(name: str) -> WriteRequestManager:
+def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequestManager:
     db_manager = DatabaseManager()
     write_manager = WriteRequestManager(db_manager)
     read_manager = ReadRequestManager()
+
     bootstrap = TestLedgersBootstrap(
         write_req_manager=write_manager,
         read_req_manager=read_manager,
         action_req_manager=FakeSomething(),
         name=name,
         config=getConfig(),
-        data_location=IN_MEMORY_LOCATION,
-        genesis_dir=IN_MEMORY_LOCATION,
         ledger_ids=Node.ledger_ids
     )
+    bootstrap.set_genesis_transactions(
+        [txn for txn in genesis_txns if get_type(txn) == NODE],
+        [txn for txn in genesis_txns if get_type(txn) == NYM]
+    )
     bootstrap.init_ledgers()
+
     return write_manager
 
 
@@ -52,9 +60,15 @@ class SimPool:
         self._network = SimNetwork(self._timer, self._random)
         validators = genNodeNames(node_count)
         primary_name = validators[0]
+
+        genesis_txns = create_pool_txn_data(
+            node_names=validators,
+            crypto_factory=create_default_bls_crypto_factory(),
+            get_free_port=partial(random.integer, 9000, 9999))['txns']
+
         self._nodes = [ReplicaService(name, validators, primary_name,
                                       self._timer, InternalBus(), self.network.create_peer(name),
-                                      write_manager=create_test_write_req_manager(name))
+                                      write_manager=create_test_write_req_manager(name, genesis_txns))
                        for name in validators]
 
     @property
