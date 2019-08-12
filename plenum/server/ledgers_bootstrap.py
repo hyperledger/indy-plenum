@@ -28,6 +28,7 @@ from plenum.server.request_managers.write_request_manager import WriteRequestMan
 from state.pruning_state import PruningState
 
 from storage.helper import initHashStore, initKeyValueStorage
+from storage.kv_in_memory import KeyValueStorageInMemory
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -192,9 +193,14 @@ class LedgersBootstrap:
         hash_store = initHashStore(self.data_location, name, self.config, hs_type=hs_type)
         txn_file_name = getattr(self.config, "{}TransactionsFile".format(name))
 
+        txn_log_storage = None
+        if self.data_location is None:
+            txn_log_storage = KeyValueStorageInMemory()
+
         return Ledger(CompactMerkleTree(hashStore=hash_store),
                       dataDir=self.data_location,
                       fileName=txn_file_name,
+                      transactionLogStore=txn_log_storage,
                       ensureDurability=self.config.EnsureLedgerDurability,
                       genesis_txn_initiator=genesis)
 
@@ -213,12 +219,15 @@ class LedgersBootstrap:
     def _create_state(self, name: str) -> PruningState:
         storage_name = getattr(self.config, "{}StateStorage".format(name))
         db_name = getattr(self.config, "{}StateDbName".format(name))
-        return PruningState(
-            initKeyValueStorage(
-                storage_name,
-                self.data_location,
-                db_name,
-                db_config=self.config.db_state_config))
+        if self.data_location is not None:
+            return PruningState(
+                initKeyValueStorage(
+                    storage_name,
+                    self.data_location,
+                    db_name,
+                    db_config=self.config.db_state_config))
+        else:
+            return PruningState(KeyValueStorageInMemory())
 
     def _init_state_from_ledger(self, ledger_id: int):
         """

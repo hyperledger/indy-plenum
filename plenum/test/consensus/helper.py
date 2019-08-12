@@ -21,11 +21,12 @@ from plenum.test.testing_utils import FakeSomething
 
 class TestLedgersBootstrap(LedgersBootstrap):
     def create_bls_bft(self):
-        return FakeSomething()
+        return FakeSomething(
+            bls_crypto_verifier=FakeSomething(),
+            bls_store=FakeSomething()
+        )
         # self.bls_key_register = bls_key_register
         # self.bls_crypto_signer = bls_crypto_signer
-        # self.bls_crypto_verifier = bls_crypto_verifier
-        # self.bls_store = bls_store
 
     def update_txn_with_extra_data(self, txn):
         return txn
