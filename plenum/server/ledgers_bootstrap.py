@@ -33,20 +33,10 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 
-# TODO: This can be improved in several ways
-#  - if register_batch_handler gets some improvements it will be possible to group
-#    functions by ledger instead of by initialization stage
-#  - create request managers and expose as properties instead of passing as parameters,
-#    just like bls bft
-#  - if we introduce some entity (named Executor, Application, BusinessLogic or whatever)
-#    which contains request managers (write, read and action) and database manager then all
-#    "business" logic will be contained just in class which is agnostic of node and can be
-#    actually injected into node as a single unit. Also indy-node can define its own Executor
-#    which inherits from plenum Executor, without requiring inheritance from Node class.
-#    In other words - that way executor will be truly separate from consensus.
-
 
 class LedgersBootstrap:
+    # TODO: Create ReqManagers from inside and make them properties just like bls_bft?
+
     def __init__(self,
                  write_req_manager: WriteRequestManager,
                  read_req_manager: ReadRequestManager,
