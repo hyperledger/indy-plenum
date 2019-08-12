@@ -1418,7 +1418,8 @@ def get_handler_by_type_wm(write_manager, h_type):
 
 def create_pool_txn_data(node_names: List[str],
                          crypto_factory: BlsFactoryCrypto,
-                         get_free_port: Callable[[], int]):
+                         get_free_port: Callable[[], int],
+                         nodes_with_bls: Optional[int] = None):
     nodeCount = len(node_names)
     data = {'txns': [], 'seeds': {}, 'nodesWithBls': {}}
     for i, node_name in zip(range(1, nodeCount + 1), node_names):
@@ -1447,11 +1448,12 @@ def create_pool_txn_data(node_names: List[str],
                                     services=[VALIDATOR],
                                     seq_no=i)
 
-        _, bls_key, bls_key_proof = crypto_factory.generate_bls_keys(
-            seed=data['seeds'][node_name])
-        get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
-        get_payload_data(node_txn)[DATA][BLS_KEY_PROOF] = bls_key_proof
-        data['nodesWithBls'][node_name] = True
+        if nodes_with_bls is None or i <= nodes_with_bls:
+            _, bls_key, bls_key_proof = crypto_factory.generate_bls_keys(
+                seed=data['seeds'][node_name])
+            get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
+            get_payload_data(node_txn)[DATA][BLS_KEY_PROOF] = bls_key_proof
+            data['nodesWithBls'][node_name] = True
 
         data['txns'].append(node_txn)
 

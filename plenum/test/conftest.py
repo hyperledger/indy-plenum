@@ -585,10 +585,12 @@ def dirName():
 @pytest.fixture(scope="module")
 def poolTxnData(request):
     node_count = getValueFromModule(request, "nodeCount", 4)
+    nodes_with_bls = getValueFromModule(request, "nodes_wth_bls", node_count)
     node_names = genNodeNames(node_count)
-    return create_pool_txn_data(node_names,
-                                create_default_bls_crypto_factory(),
-                                lambda: genHa()[1])
+    return create_pool_txn_data(node_names=node_names,
+                                crypto_factory=create_default_bls_crypto_factory(),
+                                get_free_port=lambda: genHa()[1],
+                                nodes_with_bls=nodes_with_bls)
 
 
 @pytest.fixture(scope="module")
