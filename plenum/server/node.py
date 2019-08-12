@@ -3569,7 +3569,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.action_manager = ActionRequestManager()
 
     def _bootstrap_node(self, bootstrap_cls, storage):
-        bootstrap_cls(self).init_node(storage)
+        bootstrap_cls(self).init(domain_storage=storage)
 
     def get_validators(self):
         return self.poolManager.node_ids_ordered_by_rank(
