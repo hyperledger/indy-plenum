@@ -44,8 +44,8 @@ class NodeBootstrap(LedgersBootstrap):
         last_sent_pp_store = LastSentPpStoreHelper(self.node)
         self.node.db_manager.register_new_store(LAST_SENT_PP_STORE_LABEL, last_sent_pp_store)
 
-    def init_storages(self, domain_storage):
-        super().init_storages(domain_storage)
+    def _init_storages(self, domain_storage):
+        super()._init_storages(domain_storage)
 
         # StateTsDbStorage
         self.init_state_ts_db_storage()
@@ -59,11 +59,11 @@ class NodeBootstrap(LedgersBootstrap):
         # last_sent_pp_store
         self.init_last_sent_pp_store()
 
-    def init_bls_bft(self):
-        super().init_bls_bft()
+    def _init_bls_bft(self):
+        super()._init_bls_bft()
         self.node.bls_bft = self.bls_bft
 
-    def create_bls_bft(self):
+    def _create_bls_bft(self):
         bls_factory = create_default_bls_bft_factory(self.node)
         bls_bft = bls_factory.create_bls_bft()
         if bls_bft.can_sign_bls():
@@ -76,10 +76,10 @@ class NodeBootstrap(LedgersBootstrap):
                 ' and NODE txn was sent with BLS public keys.'.format(BLS_PREFIX))
         return bls_bft
 
-    def update_txn_with_extra_data(self, txn):
+    def _update_txn_with_extra_data(self, txn):
         return self.node.update_txn_with_extra_data(txn)
 
-    def init_common_managers(self):
+    def _init_common_managers(self):
         # Pool manager init
         self.node.poolManager = TxnPoolManager(self.node,
                                                self.node.poolLedger,
@@ -98,8 +98,8 @@ class NodeBootstrap(LedgersBootstrap):
                                                 ledger_sync_order=ledger_sync_order,
                                                 metrics=self.node.metrics)
 
-    def register_pool_batch_handlers(self):
-        super().register_pool_batch_handlers()
+    def _register_pool_batch_handlers(self):
+        super()._register_pool_batch_handlers()
         # TODO: This should be moved into LedgersBootstrap somehow
         future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self.node)
         self.write_manager.register_batch_handler(future_primaries_handler)
@@ -109,7 +109,7 @@ class NodeBootstrap(LedgersBootstrap):
         for lid in [DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID]:
             self.node.write_manager.register_batch_handler(ts_store_b_h, ledger_id=lid)
 
-    def register_common_handlers(self):
+    def _register_common_handlers(self):
         get_txn_handler = GetTxnHandler(self, self.node.db_manager)
         for lid in self.node.ledger_ids:
             self.node.read_manager.register_req_handler(get_txn_handler, ledger_id=lid)

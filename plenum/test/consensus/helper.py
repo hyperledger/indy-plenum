@@ -20,7 +20,7 @@ from plenum.test.testing_utils import FakeSomething
 
 
 class TestLedgersBootstrap(LedgersBootstrap):
-    def create_bls_bft(self):
+    def _create_bls_bft(self):
         return FakeSomething(
             bls_crypto_verifier=FakeSomething(),
             bls_store=FakeSomething()
@@ -28,7 +28,7 @@ class TestLedgersBootstrap(LedgersBootstrap):
         # self.bls_key_register = bls_key_register
         # self.bls_crypto_signer = bls_crypto_signer
 
-    def update_txn_with_extra_data(self, txn):
+    def _update_txn_with_extra_data(self, txn):
         return txn
 
 

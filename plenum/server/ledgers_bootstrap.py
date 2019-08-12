@@ -83,14 +83,14 @@ class LedgersBootstrap:
         self.domain_genesis = GenesisTxnInitiatorFromMem(domain_txns)
 
     def init(self, domain_storage=None):
-        self.init_storages(domain_storage=domain_storage)
-        self.init_bls_bft()
-        self.init_common_managers()
+        self._init_storages(domain_storage=domain_storage)
+        self._init_bls_bft()
+        self._init_common_managers()
         self._init_write_request_validator()
-        self.register_req_handlers()
-        self.register_batch_handlers()
-        self.register_common_handlers()
-        self.upload_states()
+        self._register_req_handlers()
+        self._register_batch_handlers()
+        self._register_common_handlers()
+        self._upload_states()
 
     @property
     def bls_bft(self) -> BlsBft:
@@ -98,13 +98,13 @@ class LedgersBootstrap:
             raise LogicError("Tryed to access BlsBft before initialization")
         return self._bls_bft
 
-    def create_bls_bft(self):
+    def _create_bls_bft(self):
         raise NotImplemented
 
-    def update_txn_with_extra_data(self, txn):
+    def _update_txn_with_extra_data(self, txn):
         raise NotImplemented
 
-    def init_storages(self, domain_storage):
+    def _init_storages(self, domain_storage):
         self.db_manager.register_new_database(CONFIG_LEDGER_ID,
                                               self._create_ledger('config'),
                                               self._create_state('config'),
@@ -124,32 +124,32 @@ class LedgersBootstrap:
                                               self._create_ledger('audit'),
                                               taa_acceptance_required=False)
 
-    def init_bls_bft(self):
-        self._bls_bft = self.create_bls_bft()
+    def _init_bls_bft(self):
+        self._bls_bft = self._create_bls_bft()
         self.db_manager.register_new_store(BLS_LABEL, self.bls_bft.bls_store)
 
-    def init_common_managers(self):
+    def _init_common_managers(self):
         pass
 
     def _init_write_request_validator(self):
         pass
 
-    def register_req_handlers(self):
-        self.register_pool_req_handlers()
-        self.register_domain_req_handlers()
-        self.register_config_req_handlers()
-        self.register_audit_req_handlers()
-        self.register_action_req_handlers()
+    def _register_req_handlers(self):
+        self._register_pool_req_handlers()
+        self._register_domain_req_handlers()
+        self._register_config_req_handlers()
+        self._register_audit_req_handlers()
+        self._register_action_req_handlers()
 
-    def register_pool_req_handlers(self):
+    def _register_pool_req_handlers(self):
         node_handler = NodeHandler(self.db_manager, self.bls_bft.bls_crypto_verifier)
         self.write_manager.register_req_handler(node_handler)
 
-    def register_domain_req_handlers(self):
+    def _register_domain_req_handlers(self):
         nym_handler = NymHandler(self.config, self.db_manager)
         self.write_manager.register_req_handler(nym_handler)
 
-    def register_config_req_handlers(self):
+    def _register_config_req_handlers(self):
         taa_aml_handler = TxnAuthorAgreementAmlHandler(database_manager=self.db_manager)
         taa_handler = TxnAuthorAgreementHandler(database_manager=self.db_manager)
         get_taa_aml_handler = GetTxnAuthorAgreementAmlHandler(database_manager=self.db_manager)
@@ -161,41 +161,41 @@ class LedgersBootstrap:
         self.read_manager.register_req_handler(get_taa_aml_handler)
         self.read_manager.register_req_handler(get_taa_handler)
 
-    def register_audit_req_handlers(self):
+    def _register_audit_req_handlers(self):
         audit_handler = AuditTxnHandler(database_manager=self.db_manager)
         self.write_manager.register_req_handler(audit_handler)
 
-    def register_action_req_handlers(self):
+    def _register_action_req_handlers(self):
         pass
 
-    def register_batch_handlers(self):
-        self.register_pool_batch_handlers()
-        self.register_domain_batch_handlers()
-        self.register_config_batch_handlers()
+    def _register_batch_handlers(self):
+        self._register_pool_batch_handlers()
+        self._register_domain_batch_handlers()
+        self._register_config_batch_handlers()
         # Audit batch handler should be initiated the last
-        self.register_audit_batch_handlers()
+        self._register_audit_batch_handlers()
 
-    def register_pool_batch_handlers(self):
+    def _register_pool_batch_handlers(self):
         pool_b_h = PoolBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(pool_b_h)
 
-    def register_domain_batch_handlers(self):
+    def _register_domain_batch_handlers(self):
         domain_b_h = DomainBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(domain_b_h)
 
-    def register_config_batch_handlers(self):
+    def _register_config_batch_handlers(self):
         config_b_h = ConfigBatchHandler(self.db_manager)
         self.write_manager.register_batch_handler(config_b_h)
 
-    def register_audit_batch_handlers(self):
+    def _register_audit_batch_handlers(self):
         audit_b_h = AuditBatchHandler(self.db_manager)
         for lid in self.ledger_ids:
             self.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
 
-    def register_common_handlers(self):
+    def _register_common_handlers(self):
         pass
 
-    def upload_states(self):
+    def _upload_states(self):
         self._init_state_from_ledger(POOL_LEDGER_ID)
         self._init_state_from_ledger(CONFIG_LEDGER_ID)
         self._init_state_from_ledger(DOMAIN_LEDGER_ID)
@@ -251,7 +251,7 @@ class LedgersBootstrap:
             logger.info('{} found state to be empty, recreating from ledger {}'.format(self, ledger_id))
             ledger = self.db_manager.get_ledger(ledger_id)
             for seq_no, txn in ledger.getAllTxn():
-                txn = self.update_txn_with_extra_data(txn)
+                txn = self._update_txn_with_extra_data(txn)
                 self.write_manager.update_state(txn, isCommitted=True)
                 state.commit(rootHash=state.headHash)
 
