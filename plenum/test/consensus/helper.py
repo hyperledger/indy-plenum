@@ -49,7 +49,7 @@ def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequest
         [txn for txn in genesis_txns if get_type(txn) == NODE],
         [txn for txn in genesis_txns if get_type(txn) == NYM]
     )
-    bootstrap.init_ledgers()
+    bootstrap.init()
 
     return write_manager
 

@@ -82,6 +82,16 @@ class LedgersBootstrap:
         self.pool_genesis = GenesisTxnInitiatorFromMem(pool_txns)
         self.domain_genesis = GenesisTxnInitiatorFromMem(domain_txns)
 
+    def init(self, domain_storage=None):
+        self.init_storages(domain_storage=domain_storage)
+        self.init_bls_bft()
+        self.init_common_managers()
+        self._init_write_request_validator()
+        self.register_req_handlers()
+        self.register_batch_handlers()
+        self.register_common_handlers()
+        self.upload_states()
+
     @property
     def bls_bft(self) -> BlsBft:
         if self._bls_bft is None:
@@ -94,14 +104,7 @@ class LedgersBootstrap:
     def update_txn_with_extra_data(self, txn):
         raise NotImplemented
 
-    def init_ledgers(self):
-        self.init_storages()
-        self.init_bls_bft()
-        self.register_req_handlers()
-        self.register_batch_handlers()
-        self.upload_states()
-
-    def init_storages(self, domain_storage=None):
+    def init_storages(self, domain_storage):
         self.db_manager.register_new_database(CONFIG_LEDGER_ID,
                                               self._create_ledger('config'),
                                               self._create_state('config'),
@@ -124,6 +127,12 @@ class LedgersBootstrap:
     def init_bls_bft(self):
         self._bls_bft = self.create_bls_bft()
         self.db_manager.register_new_store(BLS_LABEL, self.bls_bft.bls_store)
+
+    def init_common_managers(self):
+        pass
+
+    def _init_write_request_validator(self):
+        pass
 
     def register_req_handlers(self):
         self.register_pool_req_handlers()
@@ -182,6 +191,9 @@ class LedgersBootstrap:
         audit_b_h = AuditBatchHandler(self.db_manager)
         for lid in self.ledger_ids:
             self.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
+
+    def register_common_handlers(self):
+        pass
 
     def upload_states(self):
         self._init_state_from_ledger(POOL_LEDGER_ID)
