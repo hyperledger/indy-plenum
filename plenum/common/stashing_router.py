@@ -89,11 +89,12 @@ class SortedStash(StashingQueue):
 class StashingRouter:
     Handler = Callable[..., Optional[Tuple[int, str]]]
 
-    def __init__(self, limit: int):
+    def __init__(self, limit: int, replica_unstash=None):
         self._limit = limit
         self._logger = getlogger()
         self._handlers = {}  # type: Dict[Type, StashingRouter.Handler]
         self._queues = {}  # type: Dict[int, StashingQueue]
+        self._replica_unstash = replica_unstash
 
     def set_sorted_stasher(self, code: int, key: Callable):
         self._queues[code] = SortedStash(self._limit, key)
@@ -174,7 +175,13 @@ class StashingRouter:
 
     def _resolve_and_process(self, message: Any, *args) -> bool:
         handler = self._handlers[type(message)]
-        return self._process(handler, message, *args)
+        return self._unstash(handler, message, *args)
+
+    def _unstash(self, handler: Handler, message: Any, *args) -> bool:
+        if self._replica_unstash is None:
+            return self._process(handler, message, *args)
+        else:
+            self._replica_unstash((message, *args))
 
     def _stash(self, code: int, reason: str, message: Any, *args):
         self._logger.trace("Stashing message {} with metadata {} "

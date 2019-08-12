@@ -633,38 +633,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count
-    #
-    # def process_three_phase_msg(self, msg: ThreePhaseMsg, sender: str):
-    #     """
-    #     Process a 3-phase (pre-prepare, prepare and commit) request.
-    #     Dispatch the request only if primary has already been decided, otherwise
-    #     stash it.
-    #
-    #     :param msg: the Three Phase message, one of PRE-PREPARE, PREPARE,
-    #         COMMIT
-    #     :param sender: name of the node that sent this message
-    #     """
-    #     sender = self.generateName(sender, self.instId)
-    #
-    #     pp_key = ((msg.viewNo, msg.ppSeqNo) if isinstance(msg, PrePrepare) else None)
-    #
-    #     # the same PrePrepare might come here multiple times
-    #     if (pp_key and (msg, sender) not in self._ordering_service.pre_prepare_tss[pp_key]):
-    #         # TODO more clean solution would be to set timestamps
-    #         # earlier (e.g. in zstack)
-    #         self._ordering_service.pre_prepare_tss[pp_key][msg, sender] = self.get_time_for_3pc_batch()
-    #
-    #     result, reason = self._ordering_service._validate(msg)
-    #     if result == DISCARD:
-    #         self.discard(msg, "{} discard message {} from {} "
-    #                           "with the reason: {}".format(self, msg, sender, reason),
-    #                      self.logger.trace)
-    #     elif result == PROCESS:
-    #         self.threePhaseRouter.handleSync((msg, sender))
-    #     else:
-    #         self.logger.debug("{} stashing 3 phase message {} with "
-    #                           "the reason: {}".format(self, msg, reason))
-    #         self.stasher.stash((msg, sender), result)
 
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
@@ -880,7 +848,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                  metrics=self.metrics)
 
     def _init_replica_stasher(self):
-        return StashingRouter(self.config.REPLICA_STASH_LIMIT)
+        return StashingRouter(self.config.REPLICA_STASH_LIMIT,
+                              replica_unstash=self._add_to_inbox)
 
     def _cleanup_process(self, msg: CheckpointStabilized):
         if msg.inst_id != self.instId:
@@ -908,3 +877,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                stasher=self.stasher,
                                metrics=self.metrics)
+
+    def _add_to_inbox(self, message):
+        self.inBox.append(message)

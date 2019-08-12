@@ -86,7 +86,7 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
     make_clock_faulty(confused_npr.node)
 
     old_acceptable_rvs = getAllReturnVals(
-        confused_npr, confused_npr._ordering_service.l_is_pre_prepare_time_acceptable)
+        confused_npr._ordering_service, confused_npr._ordering_service.l_is_pre_prepare_time_acceptable)
     old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
@@ -97,7 +97,7 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
     assert get_timestamp_suspicion_count(confused_npr.node) > old_susp_count
 
     new_acceptable_rvs = getAllReturnVals(
-        confused_npr, confused_npr._ordering_service.l_is_pre_prepare_time_acceptable)
+        confused_npr._ordering_service, confused_npr._ordering_service.l_is_pre_prepare_time_acceptable)
 
     # `is_pre_prepare_time_acceptable` first returned False then returned True
     assert [True, False, *old_acceptable_rvs] == new_acceptable_rvs

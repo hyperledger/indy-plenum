@@ -203,8 +203,8 @@ class Replicas:
             prepre_sender = replica.primaryNames.get(viewNo, 'UNKNOWN')
 
             # get prepares info
-            prepares = replica.prepares[(viewNo, ppSeqNo)][0] \
-                if (viewNo, ppSeqNo) in replica.prepares else []
+            prepares = replica._ordering_service.prepares[(viewNo, ppSeqNo)][0] \
+                if (viewNo, ppSeqNo) in replica._ordering_service.prepares else []
             n_prepares = len(prepares)
             str_prepares = 'noone'
             if n_prepares:
