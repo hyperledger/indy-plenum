@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Optional, List
 
+from crypto.bls.bls_bft import BlsBft
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.config_util import getConfig
 from plenum.common.constants import NODE, NYM
@@ -20,13 +21,13 @@ from plenum.test.testing_utils import FakeSomething
 
 
 class TestLedgersBootstrap(LedgersBootstrap):
-    def _create_bls_bft(self):
-        return FakeSomething(
+    def _create_bls_bft(self) -> BlsBft:
+        # TODO: Create actual objects instead of fakes
+        return BlsBft(
+            bls_crypto_signer=FakeSomething(),
             bls_crypto_verifier=FakeSomething(),
-            bls_store=FakeSomething()
-        )
-        # self.bls_key_register = bls_key_register
-        # self.bls_crypto_signer = bls_crypto_signer
+            bls_key_register=FakeSomething(),
+            bls_store=FakeSomething())
 
     def _update_txn_with_extra_data(self, txn):
         return txn

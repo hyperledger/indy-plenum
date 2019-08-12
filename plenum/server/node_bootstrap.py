@@ -1,3 +1,4 @@
+from crypto.bls.bls_bft import BlsBft
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.ledger_manager import LedgerManager
 from plenum.server.batch_handlers.ts_store_batch_handler import TsStoreBatchHandler
@@ -63,7 +64,7 @@ class NodeBootstrap(LedgersBootstrap):
         super()._init_bls_bft()
         self.node.bls_bft = self.bls_bft
 
-    def _create_bls_bft(self):
+    def _create_bls_bft(self) -> BlsBft:
         bls_factory = create_default_bls_bft_factory(self.node)
         bls_bft = bls_factory.create_bls_bft()
         if bls_bft.can_sign_bls():

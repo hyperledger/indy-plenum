@@ -88,7 +88,7 @@ class LedgersBootstrap:
             raise LogicError("Tryed to access BlsBft before initialization")
         return self._bls_bft
 
-    def _create_bls_bft(self):
+    def _create_bls_bft(self) -> BlsBft:
         raise NotImplemented
 
     def _update_txn_with_extra_data(self, txn):
