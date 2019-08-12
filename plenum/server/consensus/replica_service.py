@@ -35,8 +35,7 @@ class ReplicaService:
                                         bls_bft_replica=bls_bft_replica,
                                         stasher=stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
-                                               write_manager.database_manager,
-                                               old_stasher=FakeSomething(unstash_watermarks=lambda: None))
+                                               write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network)
 
         # TODO: This is just for testing purposes only

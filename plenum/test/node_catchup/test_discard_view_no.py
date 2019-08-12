@@ -49,7 +49,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                          pp_seq_no=10,
                                          inst_id=inst_id)
     sender.send(three_pc, rid_x_node)
-    looper.run(eventually(checkDiscardMsg, [new_node.replicas[inst_id]._stasher, ], three_pc,
+    looper.run(eventually(checkDiscardMsg, [new_node.replicas[inst_id].stasher, ], three_pc,
                           ALREADY_ORDERED,
                           retryWait=1, timeout=messageTimeout))
 

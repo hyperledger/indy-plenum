@@ -391,6 +391,7 @@ class TestViewChanger(ViewChanger):
 
 replica_stasher_spyables = [
     StashingRouter._stash,
+    StashingRouter._process,
     StashingRouter.discard
 ]
 

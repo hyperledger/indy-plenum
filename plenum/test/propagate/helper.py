@@ -25,15 +25,15 @@ def forwardedRequest(node: TestNode):
                       TestNode.forward)
 
 def recvdPrePrepareForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId]._stasher, StashingRouter._process)
-    return [p for p in params if isinstance(p['msg'], PrePrepare)]
+    params = getAllArgs(node.replicas[instId].stasher, StashingRouter._process)
+    return [p for p in params if isinstance(p['message'], PrePrepare)]
 
 
 def recvdPrepareForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId]._stasher, StashingRouter._process)
-    return [p for p in params if isinstance(p['msg'], Prepare)]
+    params = getAllArgs(node.replicas[instId].stasher, StashingRouter._process)
+    return [p for p in params if isinstance(p['message'], Prepare)]
 
 
 def recvdCommitForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId]._stasher, StashingRouter._process)
-    return [p for p in params if isinstance(p['msg'], Commit)]
+    params = getAllArgs(node.replicas[instId].stasher, StashingRouter._process)
+    return [p for p in params if isinstance(p['message'], Commit)]

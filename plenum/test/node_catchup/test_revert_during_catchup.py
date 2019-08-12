@@ -94,8 +94,8 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     assert slow_master_replica.last_prepared_before_view_change == old_last_ordered
 
-    old_pc_count = slow_master_replica._oredring_service.spylog.count(
-        slow_master_replica._oredring_service._validate)
+    old_pc_count = slow_master_replica._ordering_service.spylog.count(
+        slow_master_replica._ordering_service._validate)
 
     assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == 0
 

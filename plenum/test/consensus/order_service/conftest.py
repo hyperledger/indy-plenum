@@ -20,7 +20,7 @@ def orderer(consensus_data, internal_bus, name, write_manager,
                               write_manager=write_manager,
                               bls_bft_replica=bls_bft_replica,)
     orderer._data.node_mode = Mode.participating
-    orderer.primary_name = "Alpha:0"
+    orderer._data.primary_name = "Alpha:0"
     orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
     orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
     orderer.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
