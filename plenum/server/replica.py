@@ -2035,7 +2035,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         else:
             self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
-        self._checkpointer._add_to_checkpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
+        self._checkpointer._add_to_checkpoint(pp.ppSeqNo,
+                                              pp.digest,
+                                              pp.ledgerId,
+                                              pp.viewNo,
+                                              pp.auditTxnRootHash)
 
         # BLS multi-sig:
         self._bls_bft_replica.process_order(key, self.quorums, pp)
