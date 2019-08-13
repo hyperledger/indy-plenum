@@ -209,6 +209,11 @@ class CheckpointService:
         # TODO CheckpointState/Checkpoint is not a namedtuple anymore
         # 1. check if updateNamedTuple works for the new message type
         # 2. choose another name
+
+        # TODO: This is hack of hacks, should be removed when refactoring is complete
+        if not self.is_master and audit_txn_root_hash is None:
+            audit_txn_root_hash = "7RJ5bkAKRy2CCvarRij2jiHC16SVPjHcrpVdNsboiQGv"
+
         state = updateNamedTuple(state,
                                  digest=audit_txn_root_hash,
                                  digests=[])
