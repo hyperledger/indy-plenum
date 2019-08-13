@@ -216,8 +216,7 @@ class Checkpoint(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        # TODO: Should this be root of audit ledger instead of pre-prepare digest?
-        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
+        (f.DIGEST.nm, MerkleRootField(nullable=True)),     # This is actually audit ledger merkle root
     )
 
 
