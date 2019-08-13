@@ -1,4 +1,5 @@
 import pytest
+from mock import Mock
 
 from plenum.common.messages.internal_messages import ViewChangeStarted, ViewChangeFinished, ApplyNewView
 from plenum.common.messages.node_messages import Checkpoint
@@ -93,3 +94,21 @@ def test_do_nothing_on_apply_new_view(internal_bus, checkpoint_service):
 
     new_data = copy_shared_data(checkpoint_service._data)
     assert old_data == new_data
+
+
+def test_view_change_finished_sends_apply_new_view(internal_bus, checkpoint_service):
+    handler = Mock()
+    internal_bus.subscribe(ApplyNewView, handler)
+
+    initial_view_no = 3
+    new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200)
+    internal_bus.send(ViewChangeFinished(view_no=initial_view_no + 1,
+                                         view_changes=new_view.viewChanges,
+                                         checkpoint=new_view.checkpoint,
+                                         batches=new_view.batches))
+    expected_apply_new_view = ApplyNewView(view_no=initial_view_no + 1,
+                                           view_changes=new_view.viewChanges,
+                                           checkpoint=new_view.checkpoint,
+                                           batches=new_view.batches)
+
+    handler.assert_called_once_with(expected_apply_new_view)

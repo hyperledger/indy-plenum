@@ -1,10 +1,13 @@
+from operator import itemgetter
 from typing import Dict, Type
 
-from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView
+from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
+from plenum.test.greek import genNodeNames
 
 VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries'
 ORDERING_SERVICE_FIELDS = 'last_ordered_3pc', 'preprepared', 'prepared'
@@ -33,32 +36,47 @@ def create_checkpoints(view_no):
     return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest='some')]
 
 
-def create_view_changes(initial_view_no):
-    return [ViewChange(viewNo=initial_view_no + 1,
-                       stableCheckpoint=200,
-                       prepared=[BatchID(initial_view_no, 10, "d1"), BatchID(initial_view_no, 11, "d1")],
-                       preprepared=[BatchID(initial_view_no, 10, "d1")],
-                       checkpoints=[
-                           Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=200, seqNoEnd=300, digest='some')],
-                       ),
-            ViewChange(viewNo=initial_view_no + 1,
-                       stableCheckpoint=200,
-                       prepared=[BatchID(initial_view_no, 10, "d1")],
-                       preprepared=[],
-                       checkpoints=[
-                           Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=200, digest='some')]
-                       )
-            ]
-
-
 def create_batches(view_no):
-    return [BatchID(view_no, 10, "d1"),
-            BatchID(view_no, 11, "d2"),
-            BatchID(view_no, 12, "d3")]
+    return [BatchID(view_no, 11, "d1"),
+            BatchID(view_no, 12, "d2"),
+            BatchID(view_no, 13, "d3")]
 
 
-def create_new_view(initial_view_no, stable_cp):
-    vcs = create_view_changes(initial_view_no)
-    batches = create_batches(initial_view_no)
+def create_view_change(initial_view_no, stable_cp=10, batches=None):
+    if batches is None:
+        batches = create_batches(initial_view_no)
     cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=stable_cp, digest='some')
-    return NewView(initial_view_no + 1, vcs, cp, batches)
+    return ViewChange(viewNo=initial_view_no + 1,
+                      stableCheckpoint=stable_cp,
+                      prepared=batches,
+                      preprepared=batches,
+                      checkpoints=[cp])
+
+
+def create_new_view_from_vc(vc, validators, checkpoint=None, batches=None):
+    vc_digest = view_change_digest(vc)
+    vcs = [(node_name, vc_digest) for node_name in validators]
+    checkpoint = checkpoint or vc.checkpoints[0]
+    batches = batches or vc.prepared
+    return NewView(vc.viewNo,
+                   sorted(vcs, key=itemgetter(0)),
+                   checkpoint,
+                   batches)
+
+
+def create_new_view(initial_view_no, stable_cp, validators=None):
+    validators = validators or genNodeNames(4)
+    batches = create_batches(initial_view_no)
+    vc = create_view_change(initial_view_no, stable_cp, batches)
+    return create_new_view_from_vc(vc, validators)
+
+
+def create_view_change_acks(vc, vc_frm, senders):
+    digest = view_change_digest(vc)
+    senders = [name for name in senders if name != vc_frm]
+    return [(ViewChangeAck(viewNo=vc.viewNo, name=vc_frm, digest=digest), ack_frm) for ack_frm in senders]
+
+def primary_in_view(validators, view_no):
+    f = (len(validators) - 1) // 3
+    return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
+                                                          validators=validators)[0]

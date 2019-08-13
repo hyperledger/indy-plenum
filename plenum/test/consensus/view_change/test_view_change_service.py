@@ -1,13 +1,14 @@
+import random
+
 import pytest
 from mock import Mock
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, ViewChangeFinished, ViewChangeStarted, ApplyNewView
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
-from plenum.server.consensus.consensus_shared_data import BatchID
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
-    create_new_view
+    create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
 
 from plenum.test.helper import MockNetwork
 
@@ -69,19 +70,6 @@ def test_updates_shared_data_on_need_view_change(internal_bus, view_change_servi
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
 
-def test_updates_shared_data_on_new_view(internal_bus, view_change_service, initial_view_no):
-    internal_bus.send(NeedViewChange())
-    view_change_service._new_view = NewView(initial_view_no + 1,
-                                            [], 300,
-                                            [BatchID(initial_view_no, 10, "d1"),
-                                             BatchID(initial_view_no, 11, "d2"),
-                                             BatchID(initial_view_no, 12, "d3")])
-    view_change_service._finish_view_change()
-
-    assert view_change_service._data.view_no == initial_view_no + 1
-    assert not view_change_service._data.waiting_for_new_view
-
-
 def test_do_nothing_on_view_change_started(internal_bus, view_change_service):
     view_change_service._data.waiting_for_new_view = False
     view_change_service._data.view_no = 1
@@ -140,23 +128,6 @@ def test_start_view_change_sends_view_change_started(internal_bus, view_change_s
     handler.assert_called_with(ViewChangeStarted(view_no=5))
 
 
-def test_finish_view_change_sends_view_change_finished(internal_bus, view_change_service, initial_view_no):
-    handler = Mock()
-    internal_bus.subscribe(ViewChangeFinished, handler)
-
-    new_view = create_new_view(initial_view_no, 200)
-
-    internal_bus.send(NeedViewChange())
-    view_change_service._new_view = new_view
-    expected_finish_vc = ViewChangeFinished(view_no=initial_view_no + 1,
-                                            view_changes=new_view.viewChanges,
-                                            checkpoint=new_view.checkpoint,
-                                            batches=new_view.batches)
-    view_change_service._finish_view_change()
-
-    handler.assert_called_once_with(expected_finish_vc)
-
-
 def test_start_view_change_broadcasts_view_change_message(internal_bus, view_change_service,
                                                           initial_view_no):
     internal_bus.send(NeedViewChange())
@@ -170,8 +141,7 @@ def test_start_view_change_broadcasts_view_change_message(internal_bus, view_cha
 
 
 def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new_primary(
-        internal_bus, some_item, other_item, validators, primary, view_change_service_builder, initial_view_no,
-        view_change_message):
+        internal_bus, some_item, other_item, validators, primary, view_change_service_builder, initial_view_no):
     next_view_no = initial_view_no + 1
     non_primary_name = some_item(validators, exclude=[primary(next_view_no)])
     service = view_change_service_builder(non_primary_name)
@@ -179,7 +149,7 @@ def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new
     internal_bus.send(NeedViewChange())
     service._network.sent_messages.clear()
 
-    vc = view_change_message(next_view_no)
+    vc = create_view_change(initial_view_no)
     frm = other_item(validators, exclude=[non_primary_name])
     service._network.process_incoming(vc, frm)
 
@@ -197,32 +167,230 @@ def test_primary_doesnt_respond_to_view_change_message(
     name = primary(initial_view_no + 1)
     service = view_change_service_builder(name)
 
-    vc = view_change_message(initial_view_no + 1)
+    vc = create_view_change(initial_view_no)
     frm = some_item(validators, exclude=[name])
     service._network.process_incoming(vc, frm)
 
     assert len(service._network.sent_messages) == 0
 
 
-def test_new_view_message_is_sent_once_when_view_change_certificate_is_reached(
-        internal_bus, validators, primary, view_change_service_builder, initial_view_no, view_change_message,
+def test_new_view_message_is_sent_by_primary_when_view_change_certificate_is_reached(
+        internal_bus, validators, primary, view_change_service_builder, initial_view_no,
         view_change_acks):
     primary_name = primary(initial_view_no + 1)
     service = view_change_service_builder(primary_name)
 
+    # start view change
     internal_bus.send(NeedViewChange())
     service._network.sent_messages.clear()
 
+    # receive quorum of ViewChanges and ViewChangeAcks
     non_primaries = [item for item in validators if item != primary_name]
+    vc = create_view_change(initial_view_no)
     for vc_frm in non_primaries:
-        vc = view_change_message(initial_view_no + 1)
         service._network.process_incoming(vc, vc_frm)
-
         for ack, ack_frm in view_change_acks(vc, vc_frm, primary_name, len(validators) - 2):
             service._network.process_incoming(ack, ack_frm)
 
+    # check that NewView has been sent
     assert len(service._network.sent_messages) == 1
     msg, dst = service._network.sent_messages[0]
     assert dst is None  # message was broadcast
     assert isinstance(msg, NewView)
     assert msg.viewNo == initial_view_no + 1
+
+
+def test_new_view_message_is_not_sent_by_non_primary_when_view_change_certificate_is_reached(
+        internal_bus, validators, primary, view_change_service_builder, initial_view_no, some_item):
+    next_view_no = initial_view_no + 1
+    primary_name = primary(next_view_no)
+    non_primary_name = some_item(validators, exclude=[primary_name])
+    service = view_change_service_builder(non_primary_name)
+
+    # start view change
+    internal_bus.send(NeedViewChange())
+    service._network.sent_messages.clear()
+
+    # receive quorum of ViewChanges and ViewChangeAcks
+    non_primaries = [item for item in validators if item != primary_name]
+    vc = create_view_change(initial_view_no)
+    for vc_frm in non_primaries:
+        service._network.process_incoming(vc, vc_frm)
+
+        for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
+            service._network.process_incoming(ack, ack_frm)
+
+    # check that NewView hasn't been sent
+    assert all(not isinstance(msg, NewView) for msg in service._network.sent_messages)
+
+
+def test_view_change_finished_is_sent_by_primary_once_view_change_certificate_is_reached(internal_bus, validators,
+                                                                                         primary,
+                                                                                         view_change_service_builder,
+                                                                                         initial_view_no):
+    handler = Mock()
+    internal_bus.subscribe(ViewChangeFinished, handler)
+
+    primary_name = primary(initial_view_no + 1)
+    service = view_change_service_builder(primary_name)
+
+    # start view change
+    internal_bus.send(NeedViewChange())
+    service._network.sent_messages.clear()
+    old_data = copy_shared_data(service._data)
+
+    # receive quorum of ViewChanges and ViewChangeAcks
+    non_primaries = [item for item in validators if item != primary_name]
+    non_primaries = random.sample(non_primaries, service._data.quorums.view_change.value)
+    vc = create_view_change(initial_view_no)
+    new_view = create_new_view_from_vc(vc, non_primaries)
+    for vc_frm in non_primaries:
+        service._network.process_incoming(vc, vc_frm)
+        for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
+            service._network.process_incoming(ack, ack_frm)
+
+    # check that ViewChangeFinished has been sent
+    expected_finish_vc = ViewChangeFinished(view_no=initial_view_no + 1,
+                                            view_changes=new_view.viewChanges,
+                                            checkpoint=new_view.checkpoint,
+                                            batches=new_view.batches)
+    handler.assert_called_with(expected_finish_vc)
+
+    # check that shared data is updated
+    new_data = copy_shared_data(service._data)
+    check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
+    assert service._data.view_no == initial_view_no + 1
+    assert not service._data.waiting_for_new_view
+
+
+def test_view_change_finished_is_sent_by_non_primary_once_view_change_certificate_is_reached_and_new_view_from_primary(
+        internal_bus, validators, primary, view_change_service_builder, initial_view_no, some_item):
+    handler = Mock()
+    internal_bus.subscribe(ViewChangeFinished, handler)
+
+    next_view_no = initial_view_no + 1
+    primary_name = primary(next_view_no)
+    non_primary_name = some_item(validators, exclude=[primary_name])
+    service = view_change_service_builder(non_primary_name)
+    vc = create_view_change(initial_view_no)
+    service._data.preprepared = vc.preprepared
+    service._data.prepared = vc.prepared
+    service._data.stable_checkpoint = vc.stableCheckpoint
+    service._data.checkpoints = vc.checkpoints
+    old_data = copy_shared_data(service._data)
+
+    # start view change
+    internal_bus.send(NeedViewChange())
+    service._network.sent_messages.clear()
+
+    # receive quorum of ViewChanges and ViewChangeAcks
+    non_primaries = [item for item in validators if item != primary_name]
+    non_primaries = random.sample(non_primaries, service._data.quorums.view_change.value)
+    new_view = create_new_view_from_vc(vc, non_primaries)
+    for vc_frm in non_primaries:
+        service._network.process_incoming(vc, vc_frm)
+        for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
+            service._network.process_incoming(ack, ack_frm)
+
+    # check that ViewChangeFinished hasn't been sent if NewView is from non-primary
+    service._network.process_incoming(new_view, non_primary_name)
+    handler.assert_not_called()
+    assert service._data.view_no == initial_view_no + 1
+    assert service._data.waiting_for_new_view
+
+    # check that ViewChangeFinished has been sent if NewView is from primary
+    service._network.process_incoming(new_view, primary_name)
+    expected_finish_vc = ViewChangeFinished(view_no=initial_view_no + 1,
+                                            view_changes=new_view.viewChanges,
+                                            checkpoint=new_view.checkpoint,
+                                            batches=new_view.batches)
+    handler.assert_called_with(expected_finish_vc)
+
+    # check that shared data is updated
+    new_data = copy_shared_data(service._data)
+    check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
+    assert service._data.view_no == initial_view_no + 1
+    assert not service._data.waiting_for_new_view
+
+
+def test_new_view_incorrect_checkpoint(internal_bus, validators, primary, view_change_service_builder, initial_view_no,
+                                       some_item):
+    next_view_no = initial_view_no + 1
+    primary_name = primary(next_view_no)
+    non_primary_name = some_item(validators, exclude=[primary_name])
+    service = view_change_service_builder(non_primary_name)
+
+    vc = create_view_change(initial_view_no)
+    service._data.preprepared = vc.preprepared
+    service._data.prepared = vc.prepared
+    service._data.stable_checkpoint = vc.stableCheckpoint
+    service._data.checkpoints = vc.checkpoints
+
+    # start view change
+    internal_bus.send(NeedViewChange())
+    service._network.sent_messages.clear()
+
+    handler = Mock()
+    internal_bus.subscribe(NeedViewChange, handler)
+
+    # receive quorum of ViewChanges and ViewChangeAcks
+    non_primaries = [item for item in validators if item != primary_name]
+    non_primaries = random.sample(non_primaries, service._data.quorums.view_change.value)
+    for vc_frm in non_primaries:
+        service._network.process_incoming(vc, vc_frm)
+        for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
+            service._network.process_incoming(ack, ack_frm)
+
+    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=1000, digest='some')
+    new_view = create_new_view_from_vc(vc, non_primaries, checkpoint=cp)
+
+    # send NewView by Primary
+    service._network.process_incoming(new_view, primary_name)
+
+    # make sure that NeedViewChange is called
+    handler.assert_called_with(NeedViewChange())
+
+    # make sure that we get to the next view
+    assert service._data.view_no == initial_view_no + 2
+    assert service._data.waiting_for_new_view
+
+
+def test_new_view_incorrect_batches(internal_bus, validators, primary, view_change_service_builder, initial_view_no,
+                                    some_item):
+    next_view_no = initial_view_no + 1
+    primary_name = primary(next_view_no)
+    non_primary_name = some_item(validators, exclude=[primary_name])
+    service = view_change_service_builder(non_primary_name)
+
+    vc = create_view_change(initial_view_no)
+    service._data.preprepared = vc.preprepared
+    service._data.prepared = vc.prepared
+    service._data.stable_checkpoint = vc.stableCheckpoint
+    service._data.checkpoints = vc.checkpoints
+
+    # start view change
+    internal_bus.send(NeedViewChange())
+    service._network.sent_messages.clear()
+
+    handler = Mock()
+    internal_bus.subscribe(NeedViewChange, handler)
+
+    # receive quorum of ViewChanges and ViewChangeAcks
+    non_primaries = [item for item in validators if item != primary_name]
+    non_primaries = random.sample(non_primaries, service._data.quorums.view_change.value)
+    for vc_frm in non_primaries:
+        service._network.process_incoming(vc, vc_frm)
+        for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
+            service._network.process_incoming(ack, ack_frm)
+
+    new_view = create_new_view_from_vc(vc, non_primaries, batches=create_batches(view_no=initial_view_no + 2))
+
+    # send NewView by Primary
+    service._network.process_incoming(new_view, primary_name)
+
+    # make sure that NeedViewChange is called
+    handler.assert_called_with(NeedViewChange())
+
+    # make sure that we get to the next view
+    assert service._data.view_no == initial_view_no + 2
+    assert service._data.waiting_for_new_view

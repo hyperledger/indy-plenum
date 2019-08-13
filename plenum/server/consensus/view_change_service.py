@@ -1,6 +1,7 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
+from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
@@ -148,14 +149,14 @@ class ViewChangeService:
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
         self._primaries_selector = RoundRobinPrimariesSelector()
 
-        self._bus.subscribe(NeedViewChange, self._start_view_change)
+        self._bus.subscribe(NeedViewChange, self.process_need_view_change)
 
     def __repr__(self):
         return self._data.name
 
-    def _start_view_change(self, start_vc_msg: NeedViewChange):
+    def process_need_view_change(self, msg: NeedViewChange):
         # 1. calculate new viewno
-        view_no = start_vc_msg.view_no
+        view_no = msg.view_no
         if view_no is None:
             view_no = self._data.view_no + 1
 
@@ -251,6 +252,16 @@ class ViewChangeService:
         if result != PROCESS:
             return result
 
+        if frm != self._data.primary_name:
+            self._logger.info(
+                "{} Received NewView {} for view {} from non-primary {}; expected primary {}".format(self._data.name,
+                                                                                                     msg,
+                                                                                                     self._data.view_no,
+                                                                                                     frm,
+                                                                                                     self._data.primary_name)
+            )
+            return
+
         self._new_view = msg
         self._finish_view_change_if_needed()
 
@@ -284,7 +295,7 @@ class ViewChangeService:
 
         nv = NewView(
             viewNo=self._data.view_no,
-            viewChanges=confirmed_votes,
+            viewChanges=sorted(confirmed_votes, key=itemgetter(0)),
             checkpoint=cp,
             batches=batches
         )
@@ -307,15 +318,25 @@ class ViewChangeService:
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None or cp != self._new_view.checkpoint:
             # New primary is malicious
+            self._logger.info(
+                "{} Received invalid NewView {} for view {}: expected checkpoint {}".format(self._data.name,
+                                                                                            self._new_view,
+                                                                                            self._data.view_no,
+                                                                                            cp)
+            )
             self._bus.send(NeedViewChange())
-            assert False  # TODO: Test debugging purpose
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches != self._new_view.batches:
             # New primary is malicious
+            self._logger.info(
+                "{} Received invalid NewView {} for view {}: expected batches {}".format(self._data.name,
+                                                                                         self._new_view,
+                                                                                         self._data.view_no,
+                                                                                         batches)
+            )
             self._bus.send(NeedViewChange())
-            assert False  # TODO: Test debugging purpose
             return
 
         self._finish_view_change()

@@ -6,6 +6,7 @@ from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.messages.node_messages import ViewChange, Checkpoint
 from plenum.server.consensus.consensus_shared_data import BatchID
 from plenum.server.consensus.view_change_service import view_change_digest
+from plenum.test.consensus.helper import create_view_change, create_batches
 
 
 @pytest.fixture
@@ -33,10 +34,7 @@ def test_view_change_data(view_change_service, data):
 
     view_change_service._bus.send(NeedViewChange())
 
-    assert data.prepared == []
-    assert data.preprepared == []
     assert data.view_no == 2
-
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
     assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
@@ -58,9 +56,6 @@ def test_view_change_data_multiple(view_change_service, data):
                         BatchID(0, 3, "digest3")]
 
     view_change_service._bus.send(NeedViewChange())
-
-    assert data.prepared == []
-    assert data.preprepared == []
     assert data.view_no == 1
 
     msg = get_view_change(view_change_service)
@@ -82,9 +77,6 @@ def test_view_change_data_multiple(view_change_service, data):
                         BatchID(1, 13, "digest13")]
 
     view_change_service._bus.send(NeedViewChange())
-
-    assert data.prepared == []
-    assert data.preprepared == []
     assert data.view_no == 2
 
     msg = get_view_change(view_change_service)
@@ -110,9 +102,6 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
                         BatchID(0, 3, "digest3")]
 
     view_change_service._bus.send(NeedViewChange())
-
-    assert data.prepared == []
-    assert data.preprepared == []
     assert data.view_no == 1
 
     msg = get_view_change(view_change_service)
@@ -134,9 +123,6 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
                         BatchID(1, 13, "digest13")]
 
     view_change_service._bus.send(NeedViewChange())
-
-    assert data.prepared == []
-    assert data.preprepared == []
     assert data.view_no == 2
 
     msg = get_view_change(view_change_service)
@@ -153,9 +139,6 @@ def test_view_change_empty_prepares(view_change_service, data):
 
     view_change_service._bus.send(NeedViewChange())
 
-    assert data.prepared == []
-    assert data.preprepared == []
-
     msg = get_view_change(view_change_service)
     assert msg.prepared == []
     assert msg.preprepared == []
@@ -168,9 +151,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
 
     # view no 0->1
     view_change_service._bus.send(NeedViewChange())
-
     assert data.view_no == 1
-    assert data.prepared == []
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
@@ -181,9 +162,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
     data.prepared = [BatchID(1, 1, "digest11"),
                      BatchID(1, 2, "digest22")]
     view_change_service._bus.send(NeedViewChange())
-
     assert data.view_no == 2
-    assert data.prepared == []
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
@@ -194,9 +173,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
     data.prepared = [BatchID(2, 2, "digest22"),
                      BatchID(2, 3, "digest3")]
     view_change_service._bus.send(NeedViewChange())
-
     assert data.view_no == 3
-    assert data.prepared == []
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 3
@@ -212,7 +189,6 @@ def test_view_change_keeps_preprepare(view_change_service, data):
     view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 1
-    assert data.preprepared == []
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
@@ -225,7 +201,6 @@ def test_view_change_keeps_preprepare(view_change_service, data):
     view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 2
-    assert data.preprepared == []
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
@@ -239,7 +214,6 @@ def test_view_change_keeps_preprepare(view_change_service, data):
     view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 3
-    assert data.preprepared == []
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 3
@@ -248,15 +222,22 @@ def test_view_change_keeps_preprepare(view_change_service, data):
                                (2, 2, "digest22"), (2, 3, "digest3")]
 
 
-def test_different_view_change_messages_have_different_digests(view_change_message, random):
-    vc = view_change_message(random.integer(0, 10000))
-    other_vc = view_change_message(random.integer(0, 10000))
-    assert view_change_digest(vc) != view_change_digest(other_vc)
+def test_different_view_change_messages_have_different_digests(random):
+    batches = create_batches(view_no=0)
+    assert view_change_digest(create_view_change(initial_view_no=0, stable_cp=100, batches=batches)) != \
+           view_change_digest(create_view_change(initial_view_no=1, stable_cp=100, batches=batches))
+    assert view_change_digest(create_view_change(initial_view_no=1, stable_cp=100, batches=batches)) != \
+           view_change_digest(create_view_change(initial_view_no=1, stable_cp=101, batches=batches))
+    assert view_change_digest(
+        create_view_change(initial_view_no=1, stable_cp=100, batches=create_batches(view_no=0))) != \
+           view_change_digest(create_view_change(initial_view_no=1, stable_cp=100, batches=create_batches(view_no=1)))
+    assert view_change_digest(create_view_change(initial_view_no=0, stable_cp=100, batches=batches)) == \
+           view_change_digest(create_view_change(initial_view_no=0, stable_cp=100, batches=batches))
 
 
-def test_view_change_digest_is_256_bit_hexdigest(view_change_message, random):
-    vc = view_change_message(random.integer(0, 10000))
-    digest = view_change_digest(vc)
+def test_view_change_digest_is_256_bit_hexdigest(random):
+    digest = view_change_digest(
+        create_view_change(initial_view_no=0, stable_cp=random.integer(0, 10000), batches=create_batches(view_no=0)))
     assert isinstance(digest, str)
     assert len(digest) == 64
     assert all(v in string.hexdigits for v in digest)

@@ -122,8 +122,8 @@ def test_do_nothing_on_view_change_finished(internal_bus, orderer):
 
 
 def test_update_shared_data_on_apply_new_view(internal_bus, orderer):
-    orderer._data.preprepared = create_batches(view_no=0)
-    orderer._data.prepared = create_batches(view_no=0)
+    orderer._data.preprepared = []
+    orderer._data.prepared = []
     old_data = copy_shared_data(orderer._data)
 
     initial_view_no = 3
@@ -137,6 +137,7 @@ def test_update_shared_data_on_apply_new_view(internal_bus, orderer):
     check_service_changed_only_owned_fields_in_shared_data(OrderingService, old_data, new_data)
 
     # preprepared are created for new view
+    assert orderer._data.preprepared
     assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_seq_no=batch_id.pp_seq_no,
                                                  pp_digest=batch_id.pp_digest)
                                          for batch_id in new_view.batches]

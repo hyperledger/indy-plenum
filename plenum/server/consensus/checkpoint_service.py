@@ -10,7 +10,7 @@ from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
-    ViewChangeFinished
+    ViewChangeFinished, ApplyNewView
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
@@ -29,7 +29,7 @@ class CheckpointService:
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
                  stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
-                 metrics: MetricsCollector = NullMetricsCollector(),):
+                 metrics: MetricsCollector = NullMetricsCollector(), ):
         self._data = data
         self._bus = bus
         self._network = network
@@ -414,8 +414,15 @@ class CheckpointService:
                            "with the reason: {}".format(self, msg, sender, reason))
 
     def process_view_change_finished(self, msg: ViewChangeFinished):
+        # 1. update shared data
         cp = msg.checkpoint
         if cp not in self._data.checkpoints:
             self._data.checkpoints.append(cp)
         self._set_stable_checkpoint(cp.seqNoEnd)
         self.set_watermarks(low_watermark=cp.seqNoEnd)
+
+        # 2. send ApplyNewView
+        self._bus.send(ApplyNewView(view_no=msg.view_no,
+                                    view_changes=msg.view_changes,
+                                    checkpoint=msg.checkpoint,
+                                    batches=msg.batches))

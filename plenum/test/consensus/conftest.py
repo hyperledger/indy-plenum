@@ -1,30 +1,30 @@
-from unittest.mock import Mock
+from functools import partial
 
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.startable import Mode
-from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
+from plenum.test.consensus.helper import primary_in_view
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, MockNetwork
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(params=[4, 6, 7, 8])
+@pytest.fixture(params=[4, 6, 7])
 def validators(request):
     return genNodeNames(request.param)
 
 
-@pytest.fixture(params=[0, 1, 2])
+@pytest.fixture(params=[0, 2])
 def initial_view_no(request):
     return request.param
 
@@ -36,12 +36,7 @@ def already_in_view_change(request):
 
 @pytest.fixture
 def primary(validators):
-    def _primary_in_view(view_no):
-        f = (len(validators) - 1) // 3
-        return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
-                                                              validators=validators)[0]
-
-    return _primary_in_view
+    return partial(primary_in_view, validators)
 
 
 @pytest.fixture
@@ -106,7 +101,7 @@ def view_change_message():
             stableCheckpoint=4,
             prepared=[],
             preprepared=[],
-            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest='some')]
+            checkpoints=[Checkpoint(instId=0, viewNo=view_no - 1, seqNoStart=0, seqNoEnd=4, digest='some')]
         )
         return vc
 
