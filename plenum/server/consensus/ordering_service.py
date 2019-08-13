@@ -281,13 +281,13 @@ class OrderingService:
 
         # PREPARE should not be sent from primary
         if self.l_isMsgFromPrimary(prepare, sender):
-            raise SuspiciousNode(sender, Suspicions.PR_FRM_PRIMARY, prepare)
+            self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_FRM_PRIMARY, prepare))
 
         # If non primary replica
         if primaryStatus is False:
             if self.prepares.hasPrepareFrom(prepare, sender):
-                raise SuspiciousNode(
-                    sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+                self.report_suspicious_node(SuspiciousNode(
+                    sender, Suspicions.DUPLICATE_PR_SENT, prepare))
             # If PRE-PREPARE not received for the PREPARE, might be slow
             # network
             if not ppReq:
@@ -297,13 +297,13 @@ class OrderingService:
         # If primary replica
         if primaryStatus is True:
             if self.prepares.hasPrepareFrom(prepare, sender):
-                raise SuspiciousNode(
-                    sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+                self.report_suspicious_node(SuspiciousNode(
+                    sender, Suspicions.DUPLICATE_PR_SENT, prepare))
             # If PRE-PREPARE was not sent for this PREPARE, certainly
             # malicious behavior
             elif not ppReq:
-                raise SuspiciousNode(
-                    sender, Suspicions.UNKNOWN_PR_SENT, prepare)
+                self.report_suspicious_node(SuspiciousNode(
+                    sender, Suspicions.UNKNOWN_PR_SENT, prepare))
 
         if primaryStatus is None and not ppReq:
             self.l_enqueue_prepare(prepare, sender)
@@ -311,16 +311,16 @@ class OrderingService:
             return False
 
         if prepare.digest != ppReq.digest:
-            raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
+            self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare))
         elif prepare.stateRootHash != ppReq.stateRootHash:
-            raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
-                                 prepare)
+            self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
+                                                       prepare))
         elif prepare.txnRootHash != ppReq.txnRootHash:
-            raise SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
-                                 prepare)
+            self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
+                                                       prepare))
         elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
-            raise SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                 prepare)
+            self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                                       prepare))
 
         # BLS multi-sig:
         self.l_bls_bft_replica.validate_prepare(prepare, sender)
@@ -474,7 +474,7 @@ class OrderingService:
             return False
 
         if self.commits.hasCommitFrom(commit, sender):
-            raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
+            self.report_suspicious_node(SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit))
 
         # BLS multi-sig:
         pre_prepare = self.l_getPrePrepare(commit.viewNo, commit.ppSeqNo)
@@ -483,9 +483,9 @@ class OrderingService:
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             self._logger.warning("{} discard Commit message from "
                                  "{}:{}".format(self, sender, commit))
-            raise SuspiciousNode(sender,
-                                 Suspicions.CM_BLS_SIG_WRONG,
-                                 commit)
+            self.report_suspicious_node(SuspiciousNode(sender,
+                                                       Suspicions.CM_BLS_SIG_WRONG,
+                                                       commit))
         elif why_not is not None:
             self._logger.warning("Unknown error code returned for bls commit "
                                  "validation {}".format(why_not))
@@ -1279,11 +1279,10 @@ class OrderingService:
         # tracked to revert this PRE-PREPARE
         self._logger.trace('{} tracking batch for {} with state root {}'.format(
             self, pp, prevStateRootHash))
-        # ToDo: for first stage we will exclude metrics
-        # if self.is_master:
-        #     self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
-        # else:
-        #     self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        if self.is_master:
+            self.metrics.add_event(MetricsName.THREE_PC_BATCH_SIZE, len(pp.reqIdr))
+        else:
+            self.metrics.add_event(MetricsName.BACKUP_THREE_PC_BATCH_SIZE, len(pp.reqIdr))
 
         self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
                                                  pp.ppTime, prevStateRootHash, len(pp.reqIdr)]

@@ -391,6 +391,7 @@ class TestViewChanger(ViewChanger):
 
 replica_stasher_spyables = [
     StashingRouter._stash,
+    StashingRouter._process,
     StashingRouter.discard
 ]
 
@@ -481,6 +482,7 @@ ordering_service_spyables = [
     OrderingService.l_doPrepare,
     OrderingService.l_doOrder,
     OrderingService.l_revert,
+    OrderingService._validate,
 ]
 
 

@@ -433,7 +433,7 @@ class ValidatorNodeInfoTool:
             replica_stat["Last_ordered_3PC"] = self._prepare_for_json(replica.last_ordered_3pc)
             stashed_txns = {}
             stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(len(replica._checkpointer._stashed_recvd_checkpoints))
-            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(len(replica.prePreparesPendingPrevPP))
+            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(len(replica._ordering_service.prePreparesPendingPrevPP))
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res

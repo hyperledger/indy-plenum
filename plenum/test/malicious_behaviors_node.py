@@ -116,7 +116,7 @@ def sendDuplicate3PhaseMsg(
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))
         self._ordering_service.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
-        sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
+        sendDup(self, ppReq, count)
 
     def evilSendPrepare(self, ppReq: PrePrepare):
         prepare = Prepare(self.instId,
@@ -129,8 +129,8 @@ def sendDuplicate3PhaseMsg(
                           ppReq.auditTxnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self.addToPrepares(prepare, self.name)
-        sendDup(self, prepare, TPCStat.PrepareSent, count)
+        self._ordering_service.l_addToPrepares(prepare, self.name)
+        sendDup(self, prepare, count)
 
     def evilSendCommit(self, request):
         commit = Commit(self.instId,
@@ -138,12 +138,12 @@ def sendDuplicate3PhaseMsg(
                         request.ppSeqNo)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
-        self.addToCommits(commit, self.name)
-        sendDup(self, commit, TPCStat.CommitSent, count)
+        self._ordering_service.l_addToCommits(commit, self.name)
+        sendDup(self, commit, count)
 
-    def sendDup(sender, msg, stat, count: int):
+    def sendDup(sender, msg, count: int):
         for i in range(count):
-            sender.send(msg, stat)
+            sender.send(msg)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,
@@ -189,7 +189,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                      format(ppReq))
         ppReq = updateNamedTuple(ppReq, digest=ppReq.digest + 'random')
         self._ordering_service.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
-        self.send(ppReq, TPCStat.PrePrepareSent)
+        self.send(ppReq)
 
     def evilSendPrepare(self, ppReq):
         digest = "random"
@@ -202,8 +202,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                           ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self.addToPrepares(prepare, self.name)
-        self.send(prepare, TPCStat.PrepareSent)
+        self._ordering_service.l_addToPrepares(prepare, self.name)
+        self.send(prepare)
 
     def evilSendCommit(self, request):
         commit = Commit(self.instId,
@@ -211,8 +211,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                         request.ppSeqNo)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
-        self.send(commit, TPCStat.CommitSent)
-        self.addToCommits(commit, self.name)
+        self.send(commit)
+        self._ordering_service.l_addToCommits(commit, self.name)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,

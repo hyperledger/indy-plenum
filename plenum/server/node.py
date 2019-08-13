@@ -2711,13 +2711,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_INBOX_MASTER, len(self.master_replica.inBox))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_MASTER, len(self.master_replica.inBoxStash))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_MASTER,
-                               len(self.master_replica.prePreparesPendingFinReqs))
+                               len(self.master_replica._ordering_service.prePreparesPendingFinReqs))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_MASTER,
-                               len(self.master_replica.prePreparesPendingPrevPP))
+                               len(self.master_replica._ordering_service.prePreparesPendingPrevPP))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_WAITING_FOR_PREPREPARE_MASTER,
-                               sum_for_values(self.master_replica.preparesWaitingForPrePrepare))
+                               sum_for_values(self.master_replica._ordering_service.preparesWaitingForPrePrepare))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_MASTER,
-                               sum_for_values(self.master_replica.commitsWaitingForPrepare))
+                               sum_for_values(self.master_replica._ordering_service.commitsWaitingForPrepare))
         self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica._ordering_service.sentPrePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica._ordering_service.prePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica._ordering_service.prepares))
@@ -2740,7 +2740,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                len(self.master_replica.requested_prepares))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_MASTER,
-                               len(self.master_replica.pre_prepares_stashed_for_incorrect_time))
+                               len(self.master_replica._ordering_service.pre_prepares_stashed_for_incorrect_time))
 
         self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_MASTER, len(self.master_replica.actionQueue))
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_MASTER, len(self.master_replica.aqStash))
@@ -2756,11 +2756,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         def sum_for_backups(field):
             return sum(len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
 
+        def sum_for_backups_ordering_service(field):
+            return sum(len(getattr(r._ordering_service, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
+
         def sum_for_backups_data(field):
             return sum(len(getattr(r._consensus_data, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         def sum_for_values_for_backups(field):
             return sum(sum_for_values(getattr(r, field))
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        def sum_for_values_for_backups_ordering_service(field):
+            return sum(sum_for_values(getattr(r._ordering_service, field))
                        for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         def sum_for_values_for_backups_checkpointer(field):
@@ -2771,20 +2778,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_INBOX_BACKUP, sum_for_backups('inBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_BACKUP, sum_for_backups('inBoxStash'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_BACKUP,
-                               sum_for_backups('prePreparesPendingFinReqs'))
+                               sum_for_backups_ordering_service('prePreparesPendingFinReqs'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_BACKUP,
-                               sum_for_backups('prePreparesPendingPrevPP'))
+                               sum_for_backups_ordering_service('prePreparesPendingPrevPP'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_WAITING_FOR_PREPREPARE_BACKUP,
-                               sum_for_values_for_backups('preparesWaitingForPrePrepare'))
+                               sum_for_values_for_backups_ordering_service('preparesWaitingForPrePrepare'))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_BACKUP,
-                               sum_for_values_for_backups('commitsWaitingForPrepare'))
-        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP, sum_for_backups('sentPrePrepares'))
-        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP, sum_for_backups('prePrepares'))
-        self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP, sum_for_backups('prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP, sum_for_backups('commits'))
-        self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
+                               sum_for_values_for_backups_ordering_service('commitsWaitingForPrepare'))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP,
+                               sum_for_backups_ordering_service('sentPrePrepares'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP,
+                               sum_for_backups_ordering_service('prePrepares'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP,
+                               sum_for_backups_ordering_service('prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP,
+                               sum_for_backups_ordering_service('commits'))
+        self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP,
+                               sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
-                               sum_for_values_for_backups('stashed_out_of_order_commits'))
+                               sum_for_values_for_backups_ordering_service('stashed_out_of_order_commits'))
         self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups_data('checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
                                sum_for_values_for_backups_checkpointer('_stashed_recvd_checkpoints'))
@@ -2792,29 +2804,31 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                sum(r.stasher.stash_size(STASH_WATERMARKS) for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
                                sum_for_values_for_backups('requestQueues'))
-        self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups('batches'))
+        self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups_ordering_service('batches'))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_BACKUP,
-                               sum_for_backups('requested_pre_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP, sum_for_backups('requested_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP, sum_for_backups('requested_commits'))
+                               sum_for_backups_ordering_service('requested_pre_prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP,
+                               sum_for_backups_ordering_service('requested_prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP,
+                               sum_for_backups_ordering_service('requested_commits'))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_BACKUP,
-                               sum_for_backups('pre_prepares_stashed_for_incorrect_time'))
+                               sum_for_backups_ordering_service('pre_prepares_stashed_for_incorrect_time'))
         self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_BACKUP, sum_for_backups('actionQueue'))
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_BACKUP, sum_for_backups('aqStash'))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
 
         # Stashed msgs
-        def sum_stashed_for_backups(field):
-            return sum(getattr(r.stasher, field)
+        def sum_stashed_for_backups(stash_type):
+            return sum(r.stasher.stash_size(stash_type)
                        for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_BACKUP,
-                               sum_stashed_for_backups('num_stashed_catchup'))
+                               sum_stashed_for_backups(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_BACKUP,
-                               sum_stashed_for_backups('num_stashed_future_view'))
+                               sum_stashed_for_backups(STASH_VIEW))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_BACKUP,
-                               sum_stashed_for_backups('num_stashed_watermarks'))
+                               sum_stashed_for_backups(STASH_WATERMARKS))
 
         def store_rocksdb_metrics(name, storage):
             if not hasattr(storage, '_db'):

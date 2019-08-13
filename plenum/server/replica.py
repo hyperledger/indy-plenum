@@ -629,7 +629,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         while deq and (not limit or count < limit):
             count += 1
             msg = deq.popleft()
-            external_msg, sender = msg
+            external_msg, sender = msg if len(msg) == 2 else (msg, None)
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count

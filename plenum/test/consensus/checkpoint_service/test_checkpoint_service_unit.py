@@ -85,14 +85,14 @@ def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, chec
                                 digest='digest')
 
     for sender in senders[:quorum]:
-        assert not checkpoint_service.process_checkpoint(checkpoint, sender)
+        assert not checkpoint_service._do_process_checkpoint(checkpoint, sender)
         assert checkpoint_service._stashed_recvd_checkpoints[checkpoint.viewNo][old_key][sender] == checkpoint
 
     for sender in senders[:quorum - 1]:
-        assert not checkpoint_service.process_checkpoint(new_checkpoint, sender)
+        assert not checkpoint_service._do_process_checkpoint(new_checkpoint, sender)
         assert checkpoint_service._stashed_recvd_checkpoints[checkpoint.viewNo][key][sender] == new_checkpoint
 
-    assert not checkpoint_service.process_checkpoint(new_checkpoint, senders[quorum - 1])
+    assert not checkpoint_service._do_process_checkpoint(new_checkpoint, senders[quorum - 1])
 
     if is_master:
         assert checkpoint_service._data.low_watermark == key[1]

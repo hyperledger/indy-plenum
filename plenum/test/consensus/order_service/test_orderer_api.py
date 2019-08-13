@@ -48,7 +48,7 @@ def test_is_msg_from_primary_doesnt_crash_on_msg_with_view_greater_than_current(
 
 
 def test_request_prepare_doesnt_crash_when_primary_is_not_connected(orderer):
-    orderer.primary_name = 'Omega:0'
+    orderer._data.primary_name = 'Omega:0'
     orderer._request_msg = lambda *args, **kwargs: None
     # This shouldn't crash
     orderer._request_prepare((0, 1))
