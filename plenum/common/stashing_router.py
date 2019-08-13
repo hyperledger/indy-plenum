@@ -5,8 +5,11 @@ from typing import Callable, Any, Dict, Type, Optional, Iterable, Tuple
 from sortedcontainers import SortedListWithKey
 
 from common.exceptions import LogicError
-from plenum.server.replica_validator_enums import DISCARD
 from stp_core.common.log import getlogger
+
+DISCARD = -1
+PROCESS = 0
+STASH = 1
 
 
 class StashingQueue(ABC):

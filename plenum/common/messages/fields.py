@@ -16,7 +16,7 @@ from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
-from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT, DIGEST_FIELD_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -715,6 +715,21 @@ class BatchIDField(FieldBase):
         for validator, value in ((NonNegativeNumberField().validate, view_no),
                                  (NonNegativeNumberField().validate, pp_seq_no),
                                  (NonEmptyStringField().validate, pp_digest)):
+            err = validator(value)
+            if err:
+                return err
+
+class ViewChangeField(FieldBase):
+    _base_types = (list, tuple)
+    _ledger_id_class = LedgerIdField
+
+    def _specific_validation(self, val):
+        if len(val) != 2:
+            return 'should have size of 2'
+
+        frm, digest = val
+        for validator, value in ((NonNegativeNumberField().validate, frm),
+                                 (LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT).validate, digest)):
             err = validator(value)
             if err:
                 return err

@@ -8,7 +8,6 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
     ("blsSig", LimitedLengthStringField),
-    ("originalViewNo", NonNegativeNumberField),
     ('plugin_fields', AnyMapField)
 ])
 

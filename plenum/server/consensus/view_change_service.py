@@ -9,12 +9,12 @@ from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, ViewChangeFinished, ViewChangeStarted
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
-from plenum.common.stashing_router import StashingRouter
+from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
-from plenum.server.replica_validator_enums import PROCESS, STASH_VIEW, DISCARD
+from plenum.server.replica_validator_enums import STASH_VIEW
 from stp_core.common.log import getlogger
 
 

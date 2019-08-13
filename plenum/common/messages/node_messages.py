@@ -14,7 +14,7 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField
+    IntegerField, BatchIDField, ViewChangeField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -159,8 +159,6 @@ class Prepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
                                                    nullable=True)),
-        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
-                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -173,8 +171,6 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
-        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
-                                                       nullable=True)),
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
@@ -254,7 +250,7 @@ class NewView(MessageBase):
     typename = NEW_VIEW
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.VIEW_CHANGES.nm, IterableField(AnyField())),  # list of tuples (node_name, view_change_digest)
+        (f.VIEW_CHANGES.nm, IterableField(ViewChangeField())),  # list of tuples (node_name, view_change_digest)
         (f.CHECKPOINT.nm, AnyField()),  # Checkpoint to be selected as stable (TODO: or tuple?)
         (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_seq_no, pp_digest)
         # that should get into new view
