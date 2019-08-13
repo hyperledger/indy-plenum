@@ -37,8 +37,8 @@ def test_checkpoints_removed_on_master_non_primary_replica_after_catchup(
 
     replica._checkpointer._checkpoint_state[(6, 10)] = CheckpointState(seqNo=10,
                                                    digests=[],
-                                                   digest='digest-6-10',
-                                                   receivedDigests={r.name: 'digest-6-10' for r in others},
+                                                   digest=cp_digest(6, 10),
+                                                   receivedDigests={r.name: cp_digest(6, 10) for r in others},
                                                    isStable=True)
 
     replica._checkpointer._checkpoint_state[(11, 15)] = CheckpointState(seqNo=12,
@@ -167,7 +167,7 @@ def test_checkpoints_removed_on_backup_primary_replica_after_catchup(
     replica._checkpointer._checkpoint_state[(11, 15)] = CheckpointState(seqNo=15,
                                                    digests=[],
                                                    digest=cp_digest(11, 15),
-                                                   receivedDigests={r.name: 'digest-11-15' for r in others},
+                                                   receivedDigests={r.name: cp_digest(11, 15) for r in others},
                                                    isStable=True)
 
     replica._checkpointer._checkpoint_state[(16, 20)] = CheckpointState(seqNo=19,

@@ -2,6 +2,7 @@ import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
 from plenum.common.messages.node_messages import Checkpoint, CheckpointState
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change_complete
@@ -50,8 +51,8 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
 
     replica._checkpointer._checkpoint_state[(6, 10)] = CheckpointState(seqNo=10,
                                                    digests=[],
-                                                   digest='digest-6-10',
-                                                   receivedDigests={r.name: 'digest-6-10' for r in others},
+                                                   digest=cp_digest(6, 10),
+                                                   receivedDigests={r.name: cp_digest(6, 10) for r in others},
                                                    isStable=True)
 
     replica._checkpointer._checkpoint_state[(11, 15)] = CheckpointState(seqNo=12,
@@ -69,7 +70,7 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=11,
                        seqNoEnd=15,
-                       digest='digest-11-15')
+                       digest=cp_digest(11, 15))
 
     replica._checkpointer._stashed_recvd_checkpoints[2][(16, 20)] = {}
     for r in others:
@@ -78,7 +79,7 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=16,
                        seqNoEnd=20,
-                       digest='digest-16-20')
+                       digest=cp_digest(16, 20))
 
     replica._checkpointer._stashed_recvd_checkpoints[2][(21, 25)] = {}
     replica._checkpointer._stashed_recvd_checkpoints[2][(21, 25)][others[0].name] = \
@@ -86,7 +87,7 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
                    viewNo=2,
                    seqNoStart=21,
                    seqNoEnd=25,
-                   digest='digest-21-25')
+                   digest=cp_digest(21, 25))
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
@@ -118,8 +119,8 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
 
     replica._checkpointer._checkpoint_state[(6, 10)] = CheckpointState(seqNo=10,
                                                    digests=[],
-                                                   digest='digest-6-10',
-                                                   receivedDigests={r.name: 'digest-6-10' for r in others},
+                                                   digest=cp_digest(6, 10),
+                                                   receivedDigests={r.name: cp_digest(6, 10) for r in others},
                                                    isStable=True)
 
     replica._checkpointer._checkpoint_state[(11, 15)] = CheckpointState(seqNo=13,
@@ -137,7 +138,7 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=11,
                        seqNoEnd=15,
-                       digest='digest-11-15')
+                       digest=cp_digest(11, 15))
 
     replica._checkpointer._stashed_recvd_checkpoints[2][(16, 20)] = {}
     for r in others:
@@ -146,7 +147,7 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
                        viewNo=2,
                        seqNoStart=16,
                        seqNoEnd=20,
-                       digest='digest-16-20')
+                       digest=cp_digest(16, 20))
 
     replica._checkpointer._stashed_recvd_checkpoints[2][(21, 25)] = {}
     replica._checkpointer._stashed_recvd_checkpoints[2][(21, 25)][next(iter(others)).name] = \
@@ -154,7 +155,7 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
                    viewNo=2,
                    seqNoStart=21,
                    seqNoEnd=25,
-                   digest='digest-21-25')
+                   digest=cp_digest(21, 25))
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
