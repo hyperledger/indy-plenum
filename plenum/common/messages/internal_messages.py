@@ -43,3 +43,21 @@ NeedBackupCatchup = NamedTuple('NeedBackupCatchup',
 CheckpointStabilized = NamedTuple('CheckpointStabilized',
                                   [('inst_id', int),
                                    ('last_stable_3pc', tuple)])
+
+# by default view_no for StartViewChange is None meaning that we move to the next view
+NeedViewChange = NamedTuple('StartViewChange',
+                            [('view_no', int)])
+NeedViewChange.__new__.__defaults__ = (None,) * len(NeedViewChange._fields)
+
+ViewChangeStarted = NamedTuple('ViewChangeStarted',
+                               [('view_no', int)])
+ViewChangeFinished = NamedTuple('ViewChangeFinished',
+                                [('view_no', int),
+                                 ('view_changes', list),
+                                 ('checkpoint', object),
+                                 ('batches', list)])
+ApplyNewView = NamedTuple('ApplyNewView',
+                          [('view_no', int),
+                           ('view_changes', list),
+                           ('checkpoint', object),
+                           ('batches', list)])

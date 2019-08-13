@@ -14,7 +14,7 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField
+    IntegerField, BatchIDField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -256,7 +256,7 @@ class NewView(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.VIEW_CHANGES.nm, IterableField(AnyField())),  # list of tuples (node_name, view_change_digest)
         (f.CHECKPOINT.nm, AnyField()),  # Checkpoint to be selected as stable (TODO: or tuple?)
-        (f.BATCHES.nm, IterableField(AnyField()))  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_seq_no, pp_digest)
         # that should get into new view
     )
 

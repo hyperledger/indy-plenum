@@ -18,7 +18,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, OutboxMessage, DoCheckpointMessage, \
-    RemoveStashedCheckpoints, RequestPropagates
+    RemoveStashedCheckpoints, RequestPropagates, ApplyNewView, ViewChangeStarted
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName
@@ -30,7 +30,7 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
 from plenum.server.propagator import Requests
@@ -212,6 +212,11 @@ class OrderingService:
         self._stasher.subscribe(Prepare, self.process_prepare)
         self._stasher.subscribe(Commit, self.process_commit)
         self._stasher.subscribe_to(network)
+
+        self._bus.subscribe(ViewChangeStarted, self.process_view_change_started)
+        self._bus.subscribe(ApplyNewView, self.process_apply_new_view)
+
+        self.old_view_preprepares = {}
 
     def process_prepare(self, prepare: Prepare, sender: str):
         """
@@ -2052,3 +2057,35 @@ class OrderingService:
                 # already has ':'. This should be fixed.
                 return node_name
         return "{}:{}".format(node_name, inst_id)
+
+    def process_view_change_started(self, msg: ViewChangeStarted):
+        # 1. update shared data
+        self._data.preprepared = []
+        self._data.prepared = []
+
+        # 2. save existing PrePrepares
+        new_old_view_preprepares = {(pp.ppSeqNo, pp.digest): pp
+                                    for pp in itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values())}
+        self.old_view_preprepares.update(new_old_view_preprepares)
+
+        # 3. Clear the 3PC log
+        self.prePrepares.clear()
+        self.prepares.clear()
+        self.commits.clear()
+
+        self.requested_pre_prepares.clear()
+        self.requested_prepares.clear()
+        self.requested_commits.clear()
+
+        self.pre_prepare_tss.clear()
+        self.prePreparesPendingFinReqs.clear()
+        self.prePreparesPendingPrevPP.clear()
+        self.sentPrePrepares.clear()
+        self.batches.clear()
+        self.l_batches.clear()
+
+    def process_apply_new_view(self, msg: ApplyNewView):
+        self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
+                                          pp_digest=batch_id.pp_digest)
+                                  for batch_id in msg.batches]
+        self._data.prepared = []

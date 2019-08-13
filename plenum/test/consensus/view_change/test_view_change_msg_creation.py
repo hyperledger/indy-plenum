@@ -2,6 +2,7 @@ import string
 
 import pytest
 
+from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.messages.node_messages import ViewChange, Checkpoint
 from plenum.server.consensus.consensus_shared_data import BatchID
 from plenum.server.consensus.view_change_service import view_change_digest
@@ -29,7 +30,8 @@ def test_view_change_data(view_change_service, data):
     data.preprepared = [BatchID(0, 1, "digest1"),
                         BatchID(0, 2, "digest2"),
                         BatchID(0, 3, "digest3")]
-    view_change_service.start_view_change()
+
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.prepared == []
     assert data.preprepared == []
@@ -54,7 +56,8 @@ def test_view_change_data_multiple(view_change_service, data):
     data.preprepared = [BatchID(0, 1, "digest1"),
                         BatchID(0, 2, "digest2"),
                         BatchID(0, 3, "digest3")]
-    view_change_service.start_view_change()
+
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.prepared == []
     assert data.preprepared == []
@@ -77,7 +80,8 @@ def test_view_change_data_multiple(view_change_service, data):
     data.preprepared = [BatchID(1, 11, "digest11"),
                         BatchID(1, 12, "digest12"),
                         BatchID(1, 13, "digest13")]
-    view_change_service.start_view_change()
+
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.prepared == []
     assert data.preprepared == []
@@ -104,7 +108,8 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
     data.preprepared = [BatchID(0, 1, "digest1"),
                         BatchID(0, 2, "digest2"),
                         BatchID(0, 3, "digest3")]
-    view_change_service.start_view_change()
+
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.prepared == []
     assert data.preprepared == []
@@ -127,7 +132,8 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
     data.preprepared = [BatchID(1, 11, "digest11"),
                         BatchID(1, 12, "digest12"),
                         BatchID(1, 13, "digest13")]
-    view_change_service.start_view_change()
+
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.prepared == []
     assert data.preprepared == []
@@ -145,7 +151,7 @@ def test_view_change_empty_prepares(view_change_service, data):
     data.prepared = []
     data.preprepared = []
 
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.prepared == []
     assert data.preprepared == []
@@ -161,7 +167,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
                      BatchID(0, 2, "digest2")]
 
     # view no 0->1
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 1
     assert data.prepared == []
@@ -174,7 +180,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
     # replace by different viewNo and digest
     data.prepared = [BatchID(1, 1, "digest11"),
                      BatchID(1, 2, "digest22")]
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 2
     assert data.prepared == []
@@ -187,7 +193,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
     # replace by different viewNo only
     data.prepared = [BatchID(2, 2, "digest22"),
                      BatchID(2, 3, "digest3")]
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 3
     assert data.prepared == []
@@ -203,7 +209,7 @@ def test_view_change_keeps_preprepare(view_change_service, data):
                         BatchID(0, 2, "digest2")]
 
     # view no 0->1
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 1
     assert data.preprepared == []
@@ -216,7 +222,7 @@ def test_view_change_keeps_preprepare(view_change_service, data):
     # do not replace since different viewNo and digest
     data.preprepared = [BatchID(1, 1, "digest11"),
                         BatchID(1, 2, "digest22")]
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 2
     assert data.preprepared == []
@@ -230,7 +236,7 @@ def test_view_change_keeps_preprepare(view_change_service, data):
     #  replace by different viewNo only
     data.preprepared = [BatchID(2, 2, "digest22"),
                         BatchID(2, 3, "digest3")]
-    view_change_service.start_view_change()
+    view_change_service._bus.send(NeedViewChange())
 
     assert data.view_no == 3
     assert data.preprepared == []

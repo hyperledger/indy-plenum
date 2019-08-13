@@ -9,7 +9,8 @@ from common.exceptions import LogicError
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized
+from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
+    ViewChangeFinished
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
@@ -54,6 +55,7 @@ class CheckpointService:
         # self._stasher.subscribe_to(network)
         #
         # self._bus.subscribe(Ordered, self.process_ordered)
+        self._bus.subscribe(ViewChangeFinished, self.process_view_change_finished)
 
     @property
     def view_no(self):
@@ -410,3 +412,10 @@ class CheckpointService:
     def discard(self, msg, reason, sender):
         self._logger.trace("{} discard message {} from {} "
                            "with the reason: {}".format(self, msg, sender, reason))
+
+    def process_view_change_finished(self, msg: ViewChangeFinished):
+        cp = msg.checkpoint
+        if cp not in self._data.checkpoints:
+            self._data.checkpoints.append(cp)
+        self._set_stable_checkpoint(cp.seqNoEnd)
+        self.set_watermarks(low_watermark=cp.seqNoEnd)

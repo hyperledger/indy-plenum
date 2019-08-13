@@ -6,6 +6,7 @@ from typing import List, Optional, Union, Dict, Any, Tuple
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.messages.internal_messages import NeedViewChange, ViewChangeFinished, ViewChangeStarted
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
@@ -147,16 +148,53 @@ class ViewChangeService:
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
         self._primaries_selector = RoundRobinPrimariesSelector()
 
+        self._bus.subscribe(NeedViewChange, self._start_view_change)
+
     def __repr__(self):
         return self._data.name
 
-    def start_view_change(self, view_no: Optional[int] = None):
+    def _start_view_change(self, start_vc_msg: NeedViewChange):
+        # 1. calculate new viewno
+        view_no = start_vc_msg.view_no
         if view_no is None:
             view_no = self._data.view_no + 1
 
+        # 2. Do cleanup before new view change starts
+        self._clean_on_view_change_start()
+
+        # 3. Update shared data
+        self._data.view_no = view_no
+        self._data.waiting_for_new_view = True
+        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
+                                                                         instance_count=self._data.quorums.f + 1,
+                                                                         validators=self._data.validators)
+        self._data.primary_name = self._data.primaries[self._data.inst_id]
+
+        # 4. Send ViewChangeStarted via internal bus to update other services
+        self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
+
+        # 5. Build ViewChange message
+        vc = self._build_view_change_msg()
+
+        # 6. Send ViewChange msg to other nodes (via external bus)
+        self._network.send(vc)
+        self._votes.add_view_change(vc, self._data.name)
+
+        # 6. Unstash messages for new view
+        self._router.process_all_stashed()
+
+    def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
+        self._votes.clear()
+        self._new_view = None
 
+    def _clear_old_batches(self, batches: Dict[int, Any]):
+        for pp_seq_no in list(batches.keys()):
+            if pp_seq_no <= self._data.stable_checkpoint:
+                del batches[pp_seq_no]
+
+    def _build_view_change_msg(self):
         for batch_id in self._data.prepared:
             self._old_prepared[batch_id.pp_seq_no] = batch_id
         prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
@@ -169,27 +207,13 @@ class ViewChangeService:
             self._old_preprepared[new_bid.pp_seq_no] = pretenders
         preprepared = sorted([tuple(bid) for bids in self._old_preprepared.values() for bid in bids])
 
-        self._data.view_no = view_no
-        self._data.waiting_for_new_view = True
-        self._data.primary_name = self._primaries_selector.select_primaries(view_no=self._data.view_no,
-                                                                            instance_count=self._data.quorums.f + 1,
-                                                                            validators=self._data.validators)[0]
-        self._data.preprepared.clear()
-        self._data.prepared.clear()
-        self._votes.clear()
-        self._new_view = None
-
-        vc = ViewChange(
+        return ViewChange(
             viewNo=self._data.view_no,
             stableCheckpoint=self._data.stable_checkpoint,
             prepared=prepared,
             preprepared=preprepared,
             checkpoints=list(self._data.checkpoints)
         )
-        self._network.send(vc)
-        self._votes.add_view_change(vc, self._data.name)
-
-        self._router.process_all_stashed()
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
@@ -228,7 +252,6 @@ class ViewChangeService:
             return result
 
         self._new_view = msg
-
         self._finish_view_change_if_needed()
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
@@ -267,7 +290,7 @@ class ViewChangeService:
         )
         self._network.send(nv)
         self._new_view = nv
-        self._finish_view_change(cp, batches)
+        self._finish_view_change()
 
     def _finish_view_change_if_needed(self):
         if self._new_view is None:
@@ -284,37 +307,28 @@ class ViewChangeService:
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None or cp != self._new_view.checkpoint:
             # New primary is malicious
-            self.start_view_change()
+            self._bus.send(NeedViewChange())
             assert False  # TODO: Test debugging purpose
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches != self._new_view.batches:
             # New primary is malicious
-            self.start_view_change()
+            self._bus.send(NeedViewChange())
             assert False  # TODO: Test debugging purpose
             return
 
-        self._finish_view_change(cp, batches)
+        self._finish_view_change()
 
-    def _finish_view_change(self, cp: Checkpoint, batches: List[BatchID]):
-        # Update checkpoint
-        # TODO: change to self._bus.send(FinishViewChange(cp)) in scope of the task INDY-2179
-        self._data.stable_checkpoint = cp.seqNoEnd
-        self._data.checkpoints = [old_cp for old_cp in self._data.checkpoints if old_cp.seqNoEnd > cp.seqNoEnd]
-        self._data.checkpoints.append(cp)
-
-        # Update batches
-        # TODO: Actually we'll need to retrieve preprepares by ID from somewhere
-        self._data.preprepared = batches
-
-        # We finished a view change!
+    def _finish_view_change(self):
+        # Update shared data
         self._data.waiting_for_new_view = False
 
-    def _clear_old_batches(self, batches: Dict[int, Any]):
-        for pp_seq_no in list(batches.keys()):
-            if pp_seq_no <= self._data.stable_checkpoint:
-                del batches[pp_seq_no]
+        # send message to other services
+        self._bus.send(ViewChangeFinished(view_no=self._new_view.viewNo,
+                                          view_changes=self._new_view.viewChanges,
+                                          checkpoint=self._new_view.checkpoint,
+                                          batches=self._new_view.batches))
 
 
 class NewViewBuilder:

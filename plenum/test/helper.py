@@ -1214,7 +1214,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None):
-    digest = Replica.batchDigest(reqs) if reqs is not None else "random digest"
+    digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
     params = [inst_id,
               view_no,

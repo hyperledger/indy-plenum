@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.server.consensus.view_change_service import BatchID
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
@@ -13,7 +14,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
     # Schedule view change at different time on all nodes
     for node in pool.nodes:
         pool.timer.schedule(random.integer(0, 10000),
-                            node._view_changer.start_view_change)
+                            node._view_changer._bus.send(NeedViewChange()))
 
     # Make sure all nodes complete view change
     pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view
@@ -70,7 +71,7 @@ def test_new_view_combinations(random):
     for node in pool.nodes:
         network = MockNetwork()
         node._view_changer._network = network
-        node._view_changer.start_view_change()
+        node._view_changer._bus.send(NeedViewChange())
         view_change_messages.append(network.sent_messages[0][0])
 
     # Check that all committed requests are present in final batches
