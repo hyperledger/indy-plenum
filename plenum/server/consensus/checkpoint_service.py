@@ -74,6 +74,8 @@ class CheckpointService:
         Process checkpoint messages
         :return: whether processed (True) or stashed (False)
         """
+        if msg.instId != self._data.inst_id:
+            return None, None
         self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         result, reason = self._validator.validate(msg)
         if result == PROCESS:

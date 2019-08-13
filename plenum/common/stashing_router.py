@@ -61,6 +61,9 @@ class UnsortedStash(StashingQueue):
         self._data = []
         return data
 
+    def __iter__(self):
+        return self._data.__iter__()
+
 
 class SortedStash(StashingQueue):
     def __init__(self, limit: int, key: Callable):

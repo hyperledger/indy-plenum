@@ -791,8 +791,8 @@ class OrderingService:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
     def report_suspicious_node(self, ex: SuspiciousNode):
-        self._bus.send(ThrowSuspiciousNode(inst_id=self._data.inst_id,
-                                           ex=ex))
+        if self.is_master:
+            self._bus.send(ex)
 
     def _validate(self, msg):
         return self._validator.validate(msg)
@@ -1209,7 +1209,7 @@ class OrderingService:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
 
-        digest = replica_batch_digest(reqs)
+        digest = self.replica_batch_digest(reqs)
         if digest != pre_prepare.digest:
             return PP_APPLY_WRONG_DIGEST
 
@@ -2108,7 +2108,7 @@ class OrderingService:
                                               reqs, invalid_indices))
             self.post_batch_creation(three_pc_batch)
 
-        digest = replica_batch_digest(reqs)
+        digest = self.replica_batch_digest(reqs)
         state_root_hash = self.l_stateRootHash(ledger_id)
         audit_txn_root_hash = self.l_txnRootHash(AUDIT_LEDGER_ID)
 
@@ -2316,3 +2316,6 @@ class OrderingService:
             if self.commits.hasCommitFrom(commit, self.name):
                 return commit
         return None
+
+    def replica_batch_digest(self, reqs):
+        return replica_batch_digest(reqs)

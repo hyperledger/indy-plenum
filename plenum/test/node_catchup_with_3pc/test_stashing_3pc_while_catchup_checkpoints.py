@@ -7,6 +7,7 @@ from plenum.common.messages.node_messages import Checkpoint, CatchupRep
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints, chk_chkpoints_for_instance
 from plenum.test.delayers import cr_delay
