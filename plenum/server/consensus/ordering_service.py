@@ -61,6 +61,7 @@ class OrderingService:
                  network: ExternalBus,
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
+                 freshness_checker: FreshnessChecker,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
                  stasher=None,
@@ -218,7 +219,7 @@ class OrderingService:
         # type: Dict[int,Dict[int,Commit]]
         self.stashed_out_of_order_commits = {}
 
-        self._freshness_checker = FreshnessChecker(freshness_timeout=self._config.STATE_FRESHNESS_UPDATE_INTERVAL)
+        self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
 
         self._consensus_data_helper = ConsensusDataHelper(self._data)

@@ -438,6 +438,7 @@ class TestReplica(replica.Replica):
                                    network=self._external_bus,
                                    write_manager=self.node.write_manager,
                                    bls_bft_replica=self._bls_bft_replica,
+                                   freshness_checker=self._freshness_checker,
                                    get_current_time=self.get_current_time,
                                    get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                    stasher=self.stasher,
