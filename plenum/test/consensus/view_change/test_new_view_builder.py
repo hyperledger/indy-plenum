@@ -3,6 +3,7 @@ import pytest
 from plenum.common.messages.node_messages import Checkpoint, ViewChange
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.view_change_service import NewViewBuilder, BatchID
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.view_change.helper import calc_committed
 from plenum.test.greek import genNodeNames
 from plenum.test.simulation.sim_random import DefaultSimRandom
@@ -25,7 +26,7 @@ def builder(consensus_data_provider):
 
 
 def test_calc_batches_empty(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vcs = [
         ViewChange(viewNo=0, stableCheckpoint=0, prepared=[], preprepared=[], checkpoints=[cp]),
         ViewChange(viewNo=0, stableCheckpoint=0, prepared=[], preprepared=[], checkpoints=[cp]),
@@ -36,7 +37,7 @@ def test_calc_batches_empty(builder):
 
 
 def test_calc_batches_quorum(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 1, "digest1"), (0, 2, "digest2")],
                     preprepared=[(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")],
@@ -53,7 +54,7 @@ def test_calc_batches_quorum(builder):
 
 
 def test_calc_batches_same_data(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 1, "digest1"), (0, 2, "digest2")],
                     preprepared=[(0, 1, "digest1"), (0, 2, "digest2")],
@@ -64,7 +65,7 @@ def test_calc_batches_same_data(builder):
 
 
 def test_calc_batches_must_be_in_pre_prepare(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 1, "digest1"), (0, 2, "digest2")],
                     preprepared=[(0, 1, "digest1")],
@@ -89,7 +90,7 @@ def test_calc_batches_must_be_in_pre_prepare(builder):
 
 
 def test_calc_batches_takes_prepared_only(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[],
                     preprepared=[(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3"), (0, 4, "digest4")],
@@ -98,7 +99,7 @@ def test_calc_batches_takes_prepared_only(builder):
     vcs = [vc, vc, vc, vc]
     assert builder.calc_batches(cp, vcs) == []
 
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 1, "digest1"), (0, 2, "digest2")],
                     preprepared=[(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3"), (0, 4, "digest4")],
@@ -109,7 +110,7 @@ def test_calc_batches_takes_prepared_only(builder):
 
 
 def test_calc_batches_takes_max_view(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 1, "digest1"), (0, 2, "digest2"), (1, 1, "digest1"), (1, 2, "digest2")],
                     preprepared=[(0, 1, "digest1"), (0, 2, "digest2"), (1, 1, "digest1"), (1, 2, "digest2")],
@@ -120,7 +121,7 @@ def test_calc_batches_takes_max_view(builder):
 
 
 def test_calc_batches_respects_checkpoint(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 1, "digest1"), (0, 2, "digest2")],
                     preprepared=[(0, 1, "digest1"), (0, 2, "digest2")],
@@ -129,7 +130,7 @@ def test_calc_batches_respects_checkpoint(builder):
     vcs = [vc, vc, vc, vc]
     assert builder.calc_batches(cp, vcs) == []
 
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(0, 10, "digest10"), (0, 11, "digest11"), (1, 12, "digest12")],
                     preprepared=[(0, 10, "digest10"), (0, 11, "digest11"), (1, 12, "digest12")],
@@ -140,7 +141,7 @@ def test_calc_batches_respects_checkpoint(builder):
 
 
 def test_calc_batches_takes_quorum_of_prepared(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(0, 1, "digest2")],
                      preprepared=[(0, 1, "digest2")],
@@ -174,7 +175,7 @@ def test_calc_batches_takes_quorum_of_prepared(builder):
 
 
 def test_calc_batches_takes_one_prepared_if_weak_quorum_of_preprepared(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(0, 1, "digest1"), (0, 2, "digest2")],
                      preprepared=[(0, 1, "digest1"), (0, 2, "digest2")],
@@ -197,7 +198,7 @@ def test_calc_batches_takes_one_prepared_if_weak_quorum_of_preprepared(builder):
 
 
 def test_calc_batches_takes_next_view_one_prepared_if_weak_quorum_of_preprepared(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(0, 1, "digest1"), (1, 2, "digest2")],
                      preprepared=[(0, 1, "digest1"), (1, 2, "digest2")],
@@ -220,7 +221,7 @@ def test_calc_batches_takes_next_view_one_prepared_if_weak_quorum_of_preprepared
 
 
 def test_calc_batches_takes_next_view_prepared_if_old_view_prepared(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(1, 1, "digest2")],
                      preprepared=[(0, 1, "digest1"), (1, 1, "digest2")],
@@ -243,7 +244,7 @@ def test_calc_batches_takes_next_view_prepared_if_old_view_prepared(builder):
 
 
 def test_calc_batches_takes_prepared_if_preprepared_in_next_view(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(1, 1, "digest2")],
                      preprepared=[(0, 1, "digest1"), (2, 1, "digest2")],
@@ -266,7 +267,7 @@ def test_calc_batches_takes_prepared_if_preprepared_in_next_view(builder):
 
 
 def test_calc_batches_takes_prepared_with_same_batchid_only(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(1, 1, "digest1")],
                      preprepared=[(1, 1, "digest1")],
@@ -298,7 +299,7 @@ def test_calc_checkpoints_empty(builder):
 
 
 def test_calc_checkpoints_equal_initial(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(1, 1, "digest1")],
                     preprepared=[(1, 1, "digest1")],
@@ -308,7 +309,7 @@ def test_calc_checkpoints_equal_initial(builder):
 
 
 def test_calc_checkpoints_equal_no_stable(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=0,
                     prepared=[(1, 1, "digest1")],
                     preprepared=[(1, 1, "digest1")],
@@ -318,7 +319,7 @@ def test_calc_checkpoints_equal_no_stable(builder):
 
 
 def test_calc_checkpoints_equal_stable(builder):
-    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='empty')
+    cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 0))
     vc = ViewChange(viewNo=0, stableCheckpoint=10,
                     prepared=[(1, 1, "digest1")],
                     preprepared=[(1, 1, "digest1")],
@@ -328,8 +329,8 @@ def test_calc_checkpoints_equal_stable(builder):
 
 
 def test_calc_checkpoints_quorum(builder):
-    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='d1')
-    cp2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='d2')
+    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
+    cp2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10))
 
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(1, 1, "digest1")],
@@ -382,9 +383,9 @@ def test_calc_checkpoints_quorum(builder):
 
 
 def test_calc_checkpoints_selects_max(builder):
-    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='d1')
-    cp2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='d2')
-    cp3 = Checkpoint(instId=0, viewNo=0, seqNoStart=10, seqNoEnd=20, digest='d3')
+    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
+    cp2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10))
+    cp3 = Checkpoint(instId=0, viewNo=0, seqNoStart=10, seqNoEnd=20, digest=cp_digest(10, 20))
 
     vc1 = ViewChange(viewNo=0, stableCheckpoint=0,
                      prepared=[(1, 1, "digest1")],
@@ -439,9 +440,9 @@ def test_calc_checkpoints_selects_max(builder):
 
 
 def test_calc_checkpoints_digest(builder):
-    cp1_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='d1')
-    cp2_d2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='d2')
-    cp2_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest='d1')
+    cp1_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
+    cp2_d2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10, 'a'))
+    cp2_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10, 'b'))
 
     vc1_d1 = ViewChange(viewNo=0, stableCheckpoint=0,
                         prepared=[(1, 1, "digest1")],
@@ -484,8 +485,8 @@ def test_calc_batches_combinations(builder, random):
     MAX_VIEW_NO = 3
     MAX_DIGEST_ID = 20
 
-    cp1 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=0, digest='d1')
-    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=CHEQ_FREQ, digest='d2')
+    cp1 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
+    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=CHEQ_FREQ, digest=cp_digest(0, CHEQ_FREQ))
 
     for i in range(100):
         for vc_count in range(N - F, N + 1):
