@@ -705,7 +705,6 @@ class ProtocolVersionField(FieldBase):
 
 class BatchIDField(FieldBase):
     _base_types = (list, tuple)
-    _ledger_id_class = LedgerIdField
 
     def _specific_validation(self, val):
         if len(val) != 3:
@@ -721,14 +720,13 @@ class BatchIDField(FieldBase):
 
 class ViewChangeField(FieldBase):
     _base_types = (list, tuple)
-    _ledger_id_class = LedgerIdField
 
     def _specific_validation(self, val):
         if len(val) != 2:
             return 'should have size of 2'
 
         frm, digest = val
-        for validator, value in ((NonNegativeNumberField().validate, frm),
+        for validator, value in ((NonEmptyStringField().validate, frm),
                                  (LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT).validate, digest)):
             err = validator(value)
             if err:
