@@ -49,6 +49,14 @@ class WriteRequestManager(RequestManager):
 
     def register_batch_handler(self, handler: BatchRequestHandler,
                                ledger_id=None, add_to_begin=False):
+        # TODO: Probably it would be a good idea to improve this a bit
+        #  - allow to register batch handler for ALL ledgers (including ones yet unknown)
+        #    with just one function call
+        #  - instead of add_to_begin flag allow handlers to order themselves by
+        #    adding method order to BatchRequestHandler which takes other batch handler
+        #    and returns one of BEFORE, AFTER, DONTCARE
+        #  With these improvements both NodeBootstrap and plugins registration will
+        #  become simpler and more robust
         if not isinstance(handler, BatchRequestHandler):
             raise LogicError
         ledger_id = ledger_id if ledger_id is not None else handler.ledger_id
