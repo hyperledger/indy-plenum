@@ -2242,6 +2242,7 @@ class OrderingService:
             else:
                 break
         self._logger.info('{} reverted {} batches before starting catch up'.format(self, i))
+        return i
 
     def l_last_prepared_certificate_in_view(self) -> Optional[Tuple[int, int]]:
         # Pick the latest sent COMMIT in the view.

@@ -30,7 +30,7 @@ def testThroughputThreshold(looper, txnPoolNodeSet, tconf, requests):
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)
         for r in node.replicas.values():
-            print("{} stats: {}".format(r, repr(r.stats)))
+            print("{} stats: {}".format(r, repr(r._ordering_service.stats)))
         assert masterThroughput / avgBackupThroughput >= node.monitor.Delta
 
 
@@ -38,5 +38,5 @@ def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
     for node in txnPoolNodeSet:
         for rq in requests:
             key = get_key_from_req(rq)
-            assert key in node.monitor.masterReqLatenciesTest
+            assert key in node.monitor.masterReqLatenciesTesttest_stashing_router
             assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda

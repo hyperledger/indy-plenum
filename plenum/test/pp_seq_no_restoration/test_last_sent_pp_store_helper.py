@@ -42,12 +42,12 @@ def setup(txnPoolNodeSet):
 @pytest.fixture(scope="function")
 def replica_with_unknown_primary_status(txnPoolNodeSet, setup):
     replica = txnPoolNodeSet[0].replicas[1]
-    old_primary_name = replica._primaryName
-    replica._primaryName = None
+    old_primary_name = replica.primaryName
+    replica.primaryName = None
 
     yield replica
 
-    replica._primaryName = old_primary_name
+    replica.primaryName = old_primary_name
 
 
 def test_store_last_sent_pp_seq_no_if_some_stored(
