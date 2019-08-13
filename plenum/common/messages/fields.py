@@ -718,6 +718,7 @@ class BatchIDField(FieldBase):
             if err:
                 return err
 
+
 class ViewChangeField(FieldBase):
     _base_types = (list, tuple)
 

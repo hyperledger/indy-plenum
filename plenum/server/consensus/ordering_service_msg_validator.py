@@ -4,7 +4,7 @@ from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW , STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW, STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP
 
 
 class OrderingServiceMsgValidator:

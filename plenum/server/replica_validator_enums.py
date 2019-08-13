@@ -6,7 +6,7 @@ DISCARD = stashing_router.DISCARD
 STASH_VIEW = 2
 STASH_WATERMARKS = 3
 STASH_CATCH_UP = 4
-STASH_WAITING_NEW_VIEW  = 5
+STASH_WAITING_NEW_VIEW = 5
 
 # ReplicaValidationReasons
 INCORRECT_INSTANCE = "Incorrect instance"
