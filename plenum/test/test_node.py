@@ -482,6 +482,7 @@ ordering_service_spyables = [
     OrderingService.l_doPrepare,
     OrderingService.l_doOrder,
     OrderingService.l_revert,
+    OrderingService._validate,
 ]
 
 
