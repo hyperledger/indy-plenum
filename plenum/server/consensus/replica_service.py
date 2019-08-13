@@ -1,5 +1,7 @@
 from typing import List
 
+from plenum.server.replica_freshness_checker import FreshnessChecker
+
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
@@ -22,7 +24,7 @@ class ReplicaService:
 
     def __init__(self, name: str, validators: List[str], primary_name: str,
                  timer: TimerService, bus: InternalBus, network: ExternalBus, write_manager: WriteRequestManager,
-                 bls_bft_replica: BlsBftReplica=None):
+                 bls_bft_replica: BlsBftReplica = None):
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = primary_name
         config = getConfig()
@@ -33,6 +35,8 @@ class ReplicaService:
                                         network=network,
                                         write_manager=write_manager,
                                         bls_bft_replica=bls_bft_replica,
+                                        freshness_checker=FreshnessChecker(
+                                            freshness_timeout=config.STATE_FRESHNESS_UPDATE_INTERVAL),
                                         stasher=stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
                                                write_manager.database_manager)
