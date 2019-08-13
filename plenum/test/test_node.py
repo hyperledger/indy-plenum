@@ -302,14 +302,14 @@ node_spyables = [Node.handleOneNodeMsg,
 
 class TestNodeBootstrap(NodeBootstrap):
 
-    def register_domain_req_handlers(self):
-        super().register_domain_req_handlers()
+    def _register_domain_req_handlers(self):
+        super()._register_domain_req_handlers()
         self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
         self.node.write_manager.register_req_handler(RandomBuyHandler(self.node.db_manager))
         self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
 
-    def init_common_managers(self):
-        super().init_common_managers()
+    def _init_common_managers(self):
+        super()._init_common_managers()
         self.node.ledgerManager = TestLedgerManager(self.node,
                                                     postAllLedgersCaughtUp=self.node.allLedgersCaughtUp,
                                                     preCatchupClbk=self.node.preLedgerCatchUp,

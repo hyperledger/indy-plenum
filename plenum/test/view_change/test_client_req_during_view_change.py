@@ -12,7 +12,7 @@ def test_node(test_node):
                                            view_no=1,
                                            instance_changes=None)
     bs = ConfigTestBootstrapClass(test_node)
-    bs.register_config_req_handlers()
+    bs._register_config_req_handlers()
     return test_node
 
 

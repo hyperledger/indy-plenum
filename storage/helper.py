@@ -69,12 +69,12 @@ def initKeyValueStorageIntKeys(keyValueType, dataLocation, keyValueStorageName,
     return initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName, open, read_only, db_config, txn_serializer)
 
 
-def initHashStore(data_dir, name, config=None, read_only=False) -> HashStore:
+def initHashStore(data_dir, name, config=None, read_only=False, hs_type=None) -> HashStore:
     """
     Create and return a hashStore implementation based on configuration
     """
     config = config or getConfig()
-    hsConfig = config.hashStore['type'].lower()
+    hsConfig = hs_type if hs_type is not None else config.hashStore['type'].lower()
     if hsConfig == HS_FILE:
         return FileHashStore(dataDir=data_dir,
                              fileNamePrefix=name)

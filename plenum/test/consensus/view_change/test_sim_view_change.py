@@ -55,7 +55,7 @@ def calc_committed(view_changes):
     return committed
 
 
-@pytest.mark.parametrize("seed", range(1000))
+@pytest.mark.parametrize("seed", range(200))
 def test_view_change_completes_under_normal_conditions(seed):
     random = DefaultSimRandom(seed)
     check_view_change_completes_under_normal_conditions(random)
