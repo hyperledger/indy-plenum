@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from mock import Mock
+from unittest.mock import Mock
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, ViewChangeFinished, ViewChangeStarted, ApplyNewView

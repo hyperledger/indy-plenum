@@ -1,5 +1,5 @@
 import pytest
-from mock import Mock
+from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import ViewChangeStarted, ViewChangeFinished, ApplyNewView
 from plenum.common.messages.node_messages import Checkpoint
