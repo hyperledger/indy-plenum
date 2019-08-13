@@ -1,3 +1,5 @@
+from functools import partial
+
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
@@ -14,7 +16,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
     # Schedule view change at different time on all nodes
     for node in pool.nodes:
         pool.timer.schedule(random.integer(0, 10000),
-                            node._view_changer._bus.send(NeedViewChange()))
+                            partial(node._view_changer.process_need_view_change, NeedViewChange()))
 
     # Make sure all nodes complete view change
     pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view

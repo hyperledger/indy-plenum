@@ -171,11 +171,11 @@ class ViewChangeService:
                                                                          validators=self._data.validators)
         self._data.primary_name = self._data.primaries[self._data.inst_id]
 
-        # 4. Send ViewChangeStarted via internal bus to update other services
-        self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
-
-        # 5. Build ViewChange message
+        # 4. Build ViewChange message
         vc = self._build_view_change_msg()
+
+        # 5. Send ViewChangeStarted via internal bus to update other services
+        self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
 
         # 6. Send ViewChange msg to other nodes (via external bus)
         self._network.send(vc)
