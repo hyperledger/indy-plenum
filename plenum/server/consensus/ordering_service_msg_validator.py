@@ -1,3 +1,4 @@
+from plenum.common.messages.internal_messages import ApplyNewView
 from plenum.common.messages.node_messages import PrePrepare, Commit, Prepare, NewView
 from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
@@ -31,13 +32,14 @@ class OrderingServiceMsgValidator:
         # prepares below low watermark have been discarded anyway
         return self._validate_3pc(msg)
 
-    def validate_new_view(self, msg: NewView):
+    def validate_new_view(self, msg: ApplyNewView):
         # View Change service has already validated NewView
         # so basic validation here is sufficient
-        return self._validate_base(msg)
+        return self._validate_base(msg, msg.view_no)
 
     def _validate_3pc(self, msg):
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
+        view_no = getattr(msg, f.VIEW_NO.nm, None)
 
         # DISCARD CHECKS first
 
@@ -46,7 +48,7 @@ class OrderingServiceMsgValidator:
             return DISCARD
 
         # Default checks next
-        res = self._validate_base(msg)
+        res = self._validate_base(msg, view_no)
         if res != PROCESS:
             return res
 
@@ -63,9 +65,7 @@ class OrderingServiceMsgValidator:
         # PROCESS
         return PROCESS
 
-    def _validate_base(self, msg):
-        view_no = getattr(msg, f.VIEW_NO.nm, None)
-
+    def _validate_base(self, msg, view_no):
         # DISCARD CHECKS
 
         # Check if from old view

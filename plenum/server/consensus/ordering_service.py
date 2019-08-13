@@ -212,9 +212,10 @@ class OrderingService:
         self._stasher.subscribe(Prepare, self.process_prepare)
         self._stasher.subscribe(Commit, self.process_commit)
         self._stasher.subscribe_to(network)
+        self._stasher.subscribe_to(self._bus)
 
         self._bus.subscribe(ViewChangeStarted, self.process_view_change_started)
-        self._bus.subscribe(ApplyNewView, self.process_apply_new_view)
+        self._stasher.subscribe(ApplyNewView, self.process_apply_new_view)
 
         self.old_view_preprepares = {}
 
