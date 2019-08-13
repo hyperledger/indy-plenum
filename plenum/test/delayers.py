@@ -211,9 +211,7 @@ def delayNonPrimaries(txnPoolNodeSet, instId, delay):
 
 def delay_messages(typ, nodes, inst_id, delay=None,
                    min_delay=None, max_delay=None):
-    if typ == 'election':
-        delay_meths = (nom_delay, prim_delay, rel_delay)
-    elif typ == '3pc':
+    if typ == '3pc':
         delay_meths = (ppDelay, pDelay, cDelay)
     else:
         RuntimeError('Unknown type')
