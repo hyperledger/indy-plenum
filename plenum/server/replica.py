@@ -158,9 +158,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._freshness_checker = FreshnessChecker(freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL)
 
-        for ledger_id in self.ledger_ids:
-            self.register_ledger(ledger_id)
-
         self._bls_bft_replica = bls_bft_replica
         self._state_root_serializer = state_roots_serializer
 
@@ -189,6 +186,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # )
 
         self._ordering_service = self._init_ordering_service()
+        for ledger_id in self.ledger_ids:
+            self.register_ledger(ledger_id)
         # self.threePhaseRouter = Replica3PRouter(
         #     self,
         #     (PrePrepare, self._ordering_service.process_preprepare),
@@ -239,7 +238,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._consensus_data.low_watermark = self.h
         self._consensus_data.high_watermark = self.H
         self._consensus_data.node_mode = self.node.mode
-        self._consensus_data.requestQueues = self.requestQueues
         self._consensus_data.primaries_batch_needed = self.node.primaries_batch_needed
         self._consensus_data.quorums = self.quorums
 
@@ -267,8 +265,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # the request key is removed, so fast lookup and removal of
         # request key is needed. Need the collection to be ordered since
         # the request key needs to be removed once its ordered
-        if ledger_id not in self.requestQueues:
-            self.requestQueues[ledger_id] = OrderedSet()
+        if ledger_id not in self._ordering_service.requestQueues:
+            self._ordering_service.requestQueues[ledger_id] = OrderedSet()
         if ledger_id != AUDIT_LEDGER_ID:
             self._freshness_checker.register_ledger(ledger_id=ledger_id,
                                                     initial_time=self.get_time_for_3pc_batch())
@@ -590,7 +588,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.logger.debug('{} reports request {} is ready for 3PC but it has been dropped '
                               'from requests queue, ignore this request'.format(self, key))
             return
-        queue = self.requestQueues[self.node.ledger_id_for_request(fin_req)]
+        queue = self._ordering_service.requestQueues[self.node.ledger_id_for_request(fin_req)]
         queue.add(key.digest)
         if not self.hasPrimary and len(queue) >= self.HAS_NO_PRIMARY_WARN_THRESCHOLD and not self.warned_no_primary:
             self.logger.warning('{} is getting requests but still does not have '

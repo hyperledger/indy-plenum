@@ -1,3 +1,6 @@
+import functools
+
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.quorums import Quorum
 from plenum.test.bls.helper import check_update_bls_key
 
@@ -52,7 +55,15 @@ def test_add_bls_three_nodes(looper,
     '''
     # make sure that we have commits from all nodes, and have 3 of 4 (n-f) BLS sigs there is enough
     # otherwise we may have 3 commits, but 1 of them may be without BLS, so we will Order this txn, but without multi-sig
+
+    def patched_set_validators(self, validators):
+        ConsensusSharedData.set_validators(self, validators)
+        self.quorums.commit = Quorum(nodeCount)
+
     for node in txnPoolNodeSet:
+        for r in node.replicas.values():
+            r._consensus_data.quorums.commit = Quorum(nodeCount)
+            r._consensus_data.set_validators = functools.partial(patched_set_validators, r._consensus_data)
         node.quorums.commit = Quorum(nodeCount)
     check_update_bls_key(node_num=2,
                          saved_multi_sigs_count=4,
