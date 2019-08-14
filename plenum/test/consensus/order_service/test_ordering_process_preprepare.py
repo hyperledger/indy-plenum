@@ -1,12 +1,14 @@
+from unittest.mock import Mock
+
 import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, POOL_LEDGER_ID, \
-    SEQ_NO_DB_LABEL
+    SEQ_NO_DB_LABEL, LAST_SENT_PP_STORE_LABEL
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.messages.internal_messages import RequestPropagates
+from plenum.common.messages.internal_messages import RequestPropagates, ThrowSuspiciousNode
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.replica_helper import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.consensus.order_service.helper import _register_pp_ts
+from plenum.test.consensus.order_service.helper import _register_pp_ts, check_suspicious
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
 from plenum.test.testing_utils import FakeSomething
 
@@ -30,16 +32,7 @@ def orderer_with_requests(orderer, fake_requests):
         orderer.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         orderer._requests.add(req)
         orderer._requests.set_finalised(req)
-
     return orderer
-
-
-def expect_suspicious(orderer, suspicious_code):
-    def reportSuspiciousNodeEx(ex):
-        assert suspicious_code == ex.code
-        raise ex
-
-    orderer.report_suspicious_node = reportSuspiciousNodeEx
 
 
 def test_process_pre_prepare_validation(orderer_with_requests,
@@ -49,8 +42,8 @@ def test_process_pre_prepare_validation(orderer_with_requests,
 
 def test_process_pre_prepare_with_incorrect_pool_state_root(orderer_with_requests,
                                                             state_roots, txn_roots, multi_sig, fake_requests):
-    expect_suspicious(orderer_with_requests, Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG.code)
-
+    handler = Mock()
+    orderer_with_requests._bus.subscribe(ThrowSuspiciousNode, handler)
     pre_prepare_params = create_pre_prepare_params(state_root=state_roots[DOMAIN_LEDGER_ID],
                                                    ledger_id=DOMAIN_LEDGER_ID,
                                                    txn_root=txn_roots[DOMAIN_LEDGER_ID],
@@ -65,14 +58,19 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(orderer_with_request
     pre_prepare = PrePrepare(*pre_prepare_params)
     _register_pp_ts(orderer_with_requests, pre_prepare, orderer_with_requests.primary_name)
 
-    with pytest.raises(SuspiciousNode):
-        orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
+    orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
+    check_suspicious(handler, ThrowSuspiciousNode(inst_id=orderer_with_requests._data.inst_id,
+                                                  ex=SuspiciousNode(orderer_with_requests.primary_name,
+                                                                    Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG,
+                                                                    pre_prepare)))
 
 
 def test_process_pre_prepare_with_incorrect_audit_txn_root(orderer_with_requests,
                                                            state_roots, txn_roots, multi_sig, fake_requests):
-    expect_suspicious(orderer_with_requests, Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG.code)
-
+    if not orderer_with_requests.is_master:
+        return
+    handler = Mock()
+    orderer_with_requests._bus.subscribe(ThrowSuspiciousNode, handler)
     pre_prepare_params = create_pre_prepare_params(state_root=state_roots[DOMAIN_LEDGER_ID],
                                                    ledger_id=DOMAIN_LEDGER_ID,
                                                    txn_root=txn_roots[DOMAIN_LEDGER_ID],
@@ -87,8 +85,11 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(orderer_with_requests
     pre_prepare = PrePrepare(*pre_prepare_params)
     _register_pp_ts(orderer_with_requests, pre_prepare, orderer_with_requests.primary_name)
 
-    with pytest.raises(SuspiciousNode):
-        orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
+    orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
+    check_suspicious(handler, ThrowSuspiciousNode(inst_id=orderer_with_requests._data.inst_id,
+                                                  ex=SuspiciousNode(orderer_with_requests.primary_name,
+                                                                    Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                                                    pre_prepare)))
 
 
 def test_process_pre_prepare_with_not_final_request(orderer, pre_prepare):
@@ -105,7 +106,8 @@ def test_process_pre_prepare_with_not_final_request(orderer, pre_prepare):
 
 
 def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
-    expect_suspicious(orderer, Suspicions.PPR_WITH_ORDERED_REQUEST.code)
+    handler = Mock()
+    orderer._bus.subscribe(ThrowSuspiciousNode, handler)
 
     orderer.db_manager.stores[SEQ_NO_DB_LABEL] = FakeSomething(get_by_full_digest=lambda req: 'sample',
                                                                get_by_payload_digest=lambda req: (1, 1))
@@ -116,8 +118,11 @@ def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
 
     orderer._bus.subscribe(RequestPropagates, request_propagates)
 
-    with pytest.raises(SuspiciousNode):
-        orderer.process_preprepare(pre_prepare, orderer.primary_name)
+    orderer.process_preprepare(pre_prepare, orderer.primary_name)
+    check_suspicious(handler, ThrowSuspiciousNode(inst_id=orderer._data.inst_id,
+                                                  ex=SuspiciousNode(orderer.primary_name,
+                                                                    Suspicions.PPR_WITH_ORDERED_REQUEST,
+                                                                    pre_prepare)))
 
 
 def test_suspicious_on_wrong_sub_seq_no(orderer_with_requests, pre_prepare):

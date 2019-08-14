@@ -193,13 +193,13 @@ class ViewChangeService:
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
-            return result
+            return result, None
 
         self._votes.add_view_change(msg, frm)
 
         if self._data.is_primary:
             self._send_new_view_if_needed()
-            return
+            return None, None
 
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
@@ -209,26 +209,29 @@ class ViewChangeService:
         self._network.send(vca, self._data.primary_name)
 
         self._finish_view_change_if_needed()
+        return None, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
-            return result
+            return result, None
 
         if not self._data.is_primary:
-            return
+            return None, None
 
         self._votes.add_view_change_ack(msg, frm)
         self._send_new_view_if_needed()
+        return None, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
-            return result
+            return result, None
 
         self._new_view = msg
 
         self._finish_view_change_if_needed()
+        return None, None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation

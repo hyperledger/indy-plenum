@@ -76,13 +76,6 @@ def pp(primary_replica, ts_now):
                                        view_no=primary_replica.viewNo,
                                        pp_seq_no=(primary_replica.last_ordered_3pc[1] + 1),
                                        timestamp=ts_now)
-    # return PrePrepare(
-    #     instId=primary_replica.instId,
-    #     viewNo=primary_replica.viewNo,
-    #     ppSeqNo=(primary_replica.last_ordered_3pc[1] + 1),
-    #     ppTime=ts_now,
-    #     reqIdr=tuple()
-    # )
     return PrePrepare(*params)
 
 
