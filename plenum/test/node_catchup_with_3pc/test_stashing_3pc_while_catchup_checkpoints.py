@@ -155,4 +155,4 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
 
 def get_stashed_checkpoints(node):
     return sum(
-        1 for (stashed, sender) in node.master_replica.stasher._stashed_catch_up if isinstance(stashed, Checkpoint))
+        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_CATCH_UP] if isinstance(stashed, Checkpoint))

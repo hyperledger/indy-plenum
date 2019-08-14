@@ -140,7 +140,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     node.add_replica(replica)
     ReplicaFakeNode.master_last_ordered_3PC = replica.last_ordered_3pc
 
-    replica.last_accepted_pre_prepare_time = replica.get_time_for_3pc_batch()
+    replica._ordering_service.last_accepted_pre_prepare_time = replica.get_time_for_3pc_batch()
     replica.primaryName = "Alpha:{}".format(replica.instId)
     replica.primaryNames[replica.viewNo] = replica.primaryName
 

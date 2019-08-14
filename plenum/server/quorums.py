@@ -14,6 +14,31 @@ class Quorum:
 
 class Quorums:
     def __init__(self, n):
+        self.n = None
+        self.f = None
+        self.weak = None
+        self.strong = None
+        self.propagate = None
+        self.prepare = None
+        self.commit = None
+        self.reply = None
+        self.view_change = None
+        self.election = None
+        self.view_change = None
+        self.view_change_ack = None
+        self.view_change_done = None
+        self.same_consistency_proof = None
+        self.consistency_proof = None
+        self.ledger_status = None
+        self.ledger_status_last_3PC = None
+        self.checkpoint = None
+        self.timestamp = None
+        self.bls_signatures = None
+        self.observer_data = None
+        self.backup_instance_faulty = None
+        self.update_quorums(n)
+
+    def update_quorums(self, n):
         f = getMaxFailures(n)
         self.n = n
         self.f = f

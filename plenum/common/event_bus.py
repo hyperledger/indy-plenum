@@ -1,7 +1,6 @@
 from collections import defaultdict
-from typing import Callable, Type, Dict, List, Any, Union, Iterable
-
-from stp_core.network.network_interface import NetworkInterface
+from functools import partial
+from typing import Callable, Type, Dict, List, Any, Union
 
 
 class InternalBus:
@@ -9,6 +8,12 @@ class InternalBus:
         self._handlers = defaultdict(list)  # type: Dict[Type, List[Callable]]
 
     def subscribe(self, message_type: Type, handler: Callable):
+        if handler in self._handlers[message_type]:
+            return
+        if isinstance(handler, partial):
+            for h in self._handlers[message_type]:
+                if isinstance(h, partial) and h.args == handler.args:
+                    return
         self._handlers[message_type].append(handler)
 
     def send(self, message: Any, *args):
