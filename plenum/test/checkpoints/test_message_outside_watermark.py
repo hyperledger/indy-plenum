@@ -21,7 +21,12 @@ def discardCounts(checkpoint_services, pat):
 
 
 def test_non_primary_recvs_3phase_message_outside_watermarks(
-        chkFreqPatched, reqs_for_logsize, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        chkFreqPatched,
+        reqs_for_logsize,
+        looper,
+        txnPoolNodeSet,
+        sdk_pool_handle,
+        sdk_wallet_client):
     """
     A node is slow in receiving PRE-PREPAREs and PREPAREs. A lot of requests
     are sent and the slow node has started receiving COMMITs outside of its
@@ -60,8 +65,8 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(
     newStashCount = slowReplica.stasher.stash_size(STASH_WATERMARKS)
     assert newStashCount > oldStashCount
 
-    oldDiscardCounts = discardCounts([n.replicas[backupInstId]._checkpointer for n in txnPoolNodeSet if n != slowNode],
-                                     'achieved stable checkpoint')
+    oldDiscardCounts = discardCounts([n.replicas[backupInstId].stasher for n in txnPoolNodeSet if n != slowNode],
+                                     'marked stable checkpoint')
 
     # 2. Deliver the sent PREPREPAREs and PREPAREs to the slow node
     slowNode.nodeIbStasher.reset_delays_and_process_delayeds(PREPREPARE, PREPARE)
@@ -76,8 +81,8 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(
     # Also verify that the other nodes discard the COMMITs from the slow node
     # since they have already achieved stable checkpoints for these COMMITs.
     counts = discardCounts(
-        [n.replicas[backupInstId]._checkpointer for n in txnPoolNodeSet if n != slowNode],
-        'achieved stable checkpoint')
+        [n.replicas[backupInstId].stasher for n in txnPoolNodeSet if n != slowNode],
+        'marked stable checkpoint')
     for nm, count in counts.items():
         assert count > oldDiscardCounts[nm]
 

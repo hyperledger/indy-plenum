@@ -12,6 +12,7 @@ databases = {}
 
 class KeyValueStorageInMemory(KeyValueStorage):
     def __init__(self):
+        # TODO: Most probably this will need to be replaced by SortedDict
         self._dict = {}
 
     def get(self, key):

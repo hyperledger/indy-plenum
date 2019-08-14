@@ -48,8 +48,8 @@ class ReadConfHandler(ReadRequestHandler):
 
 class ConfigTestBootstrapClass(TestNodeBootstrap):
 
-    def register_config_req_handlers(self):
-        super().register_config_req_handlers()
+    def _register_config_req_handlers(self):
+        super()._register_config_req_handlers()
         write_rh = WriteConfHandler(self.node.db_manager)
         read_rh = ReadConfHandler(self.node.db_manager)
         self.node.write_manager.register_req_handler(write_rh)
