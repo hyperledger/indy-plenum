@@ -1,7 +1,8 @@
 import pytest
 from orderedset._orderedset import OrderedSet
 
-from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, POOL_LEDGER_ID, \
+    LAST_SENT_PP_STORE_LABEL
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
@@ -30,7 +31,8 @@ def orderer(consensus_data, internal_bus, name, write_manager,
     orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
     orderer.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
     orderer.l_revert = lambda *args, **kwargs: None
-    orderer.db_manager.get_store = lambda a: FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
+    orderer.db_manager.stores[LAST_SENT_PP_STORE_LABEL] = \
+        FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
     return orderer
 
 

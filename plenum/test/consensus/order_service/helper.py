@@ -17,7 +17,9 @@ def _register_pp_ts(orderer, pp, sender):
 
 def check_suspicious(handler, ex_message):
     suspicious = handler.call_args_list
-    assert list(suspicious)
+    if len(suspicious) > 1:
+        print(suspicious)
+    assert len(suspicious) == 1
     assert suspicious[0][0][0].inst_id == ex_message.inst_id
     ex = suspicious[0][0][0].ex
     assert ex.code == ex_message.ex.code
