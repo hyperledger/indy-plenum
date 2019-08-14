@@ -350,7 +350,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
-        self.internal_bus.subscribe(SuspiciousNode, self.reportSuspiciousNodeEx)
         self.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_handler)
 
     def _primaries_batch_needed_handler(self, msg: PrimariesBatchNeeded):

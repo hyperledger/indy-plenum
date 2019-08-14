@@ -6,25 +6,31 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
 from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
+from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params, MockNetwork
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
+from plenum.test.testing_utils import FakeSomething
+
 
 @pytest.fixture()
 def orderer(consensus_data, internal_bus, name, write_manager,
-            txn_roots, state_roots, bls_bft_replica):
+            txn_roots, state_roots, bls_bft_replica, tconf):
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,
                               network=MockNetwork(),
                               write_manager=write_manager,
-                              bls_bft_replica=bls_bft_replica,)
+                              bls_bft_replica=bls_bft_replica,
+                              freshness_checker=FreshnessChecker(
+                                  freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL))
     orderer._data.node_mode = Mode.participating
     orderer._data.primary_name = "Alpha:0"
     orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
     orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
     orderer.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
     orderer.l_revert = lambda *args, **kwargs: None
+    orderer.db_manager.get_store = lambda a: FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
     return orderer
 
 

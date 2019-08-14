@@ -283,12 +283,14 @@ class OrderingService:
         # PREPARE should not be sent from primary
         if self.l_isMsgFromPrimary(prepare, sender):
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_FRM_PRIMARY, prepare))
+            return False
 
         # If non primary replica
         if primaryStatus is False:
             if self.prepares.hasPrepareFrom(prepare, sender):
                 self.report_suspicious_node(SuspiciousNode(
                     sender, Suspicions.DUPLICATE_PR_SENT, prepare))
+                return False
             # If PRE-PREPARE not received for the PREPARE, might be slow
             # network
             if not ppReq:
@@ -300,11 +302,13 @@ class OrderingService:
             if self.prepares.hasPrepareFrom(prepare, sender):
                 self.report_suspicious_node(SuspiciousNode(
                     sender, Suspicions.DUPLICATE_PR_SENT, prepare))
+                return False
             # If PRE-PREPARE was not sent for this PREPARE, certainly
             # malicious behavior
             elif not ppReq:
                 self.report_suspicious_node(SuspiciousNode(
                     sender, Suspicions.UNKNOWN_PR_SENT, prepare))
+                return False
 
         if primaryStatus is None and not ppReq:
             self.l_enqueue_prepare(prepare, sender)
@@ -313,15 +317,19 @@ class OrderingService:
 
         if prepare.digest != ppReq.digest:
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare))
+            return False
         elif prepare.stateRootHash != ppReq.stateRootHash:
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                                        prepare))
+            return False
         elif prepare.txnRootHash != ppReq.txnRootHash:
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_TXN_WRONG,
                                                        prepare))
+            return False
         elif prepare.auditTxnRootHash != ppReq.auditTxnRootHash:
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                                        prepare))
+            return False
 
         # BLS multi-sig:
         self.l_bls_bft_replica.validate_prepare(prepare, sender)
@@ -791,8 +799,8 @@ class OrderingService:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
     def report_suspicious_node(self, ex: SuspiciousNode):
-        if self.is_master:
-            self._bus.send(ex)
+        self._bus.send(ThrowSuspiciousNode(inst_id=self._data.inst_id,
+                                           ex=ex))
 
     def _validate(self, msg):
         return self._validator.validate(msg)

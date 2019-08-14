@@ -38,5 +38,5 @@ def testReqLatencyThreshold(looper, txnPoolNodeSet, requests):
     for node in txnPoolNodeSet:
         for rq in requests:
             key = get_key_from_req(rq)
-            assert key in node.monitor.masterReqLatenciesTesttest_stashing_router
+            assert key in node.monitor.masterReqLatenciesTest
             assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda
