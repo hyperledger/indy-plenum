@@ -495,6 +495,7 @@ class OrderingService:
             self.report_suspicious_node(SuspiciousNode(sender,
                                                        Suspicions.CM_BLS_SIG_WRONG,
                                                        commit))
+            return False
         elif why_not is not None:
             self._logger.warning("Unknown error code returned for bls commit "
                                  "validation {}".format(why_not))

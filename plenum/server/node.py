@@ -173,7 +173,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager = None
         self.bls_bft = None
         self.write_req_validator = None
-        self.quorums = None
 
         self.config_and_dirs_init(name, config, config_helper, ledger_dir, keys_dir,
                                   genesis_dir, plugins_dir, node_info_dir, pluginPaths)
@@ -833,10 +832,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
-        if self.quorums is None:
-            self.quorums = Quorums(self.totalNodes)
-        else:
-            self.quorums.update_quorums(self.totalNodes)
+        self.quorums = Quorums(self.totalNodes)
         logger.info(
             "{} updated its pool parameters: f {}, totalNodes {}, "
             "allNodeNames {}, requiredNumberOfInstances {}, minimumNodes {}, "

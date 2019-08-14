@@ -81,7 +81,7 @@ def test_commit_signature_validation_integration(looper,
 
         def check_nodes_receive_pp(view_no, seq_no):
             for node in txnPoolNodeSet:
-                assert node.master_replica.ordering_servce.l_getPrePrepare(view_no, seq_no)
+                assert node.master_replica._ordering_service.l_getPrePrepare(view_no, seq_no)
 
         looper.run(eventually(check_nodes_receive_pp, first_ordered[0], first_ordered[1] + 1))
 
