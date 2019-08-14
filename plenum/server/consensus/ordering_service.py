@@ -484,6 +484,7 @@ class OrderingService:
 
         if self.commits.hasCommitFrom(commit, sender):
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit))
+            return False
 
         # BLS multi-sig:
         pre_prepare = self.l_getPrePrepare(commit.viewNo, commit.ppSeqNo)
