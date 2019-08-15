@@ -54,26 +54,7 @@ class Replicas:
         if inst_id not in self._replicas:
             return
         replica = self._replicas.pop(inst_id)
-
-        # Aggregate all the currently forwarded requests
-        req_keys = set()
-        for msg in replica.inBox:
-            if isinstance(msg, ReqKey):
-                req_keys.add(msg.digest)
-        for req_queue in replica._ordering_service.requestQueues.values():
-            for req_key in req_queue:
-                req_keys.add(req_key)
-        for pp in replica._ordering_service.sentPrePrepares.values():
-            for req_key in pp.reqIdr:
-                req_keys.add(req_key)
-        for pp in replica._ordering_service.prePrepares.values():
-            for req_key in pp.reqIdr:
-                req_keys.add(req_key)
-
-        for req_key in req_keys:
-            if req_key in replica.requests:
-                replica.requests.ordered_by_replica(req_key)
-                replica.requests.free(req_key)
+        replica.cleanup()
 
         self._messages_to_replicas.pop(inst_id, None)
         self._monitor.removeInstance(inst_id)

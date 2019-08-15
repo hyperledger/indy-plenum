@@ -26,6 +26,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Re
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
 from plenum.common.request import Request
+from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
@@ -78,7 +79,9 @@ class OrderingService:
 
         self._config = getConfig()
         self._logger = getlogger()
+        # TODO: Change just to self._stasher = stasher
         self._stasher = stasher if stasher else StashingRouter(self._config.REPLICA_STASH_LIMIT)
+        self._subscription = Subscription()
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,
@@ -224,10 +227,13 @@ class OrderingService:
 
         self._consensus_data_helper = ConsensusDataHelper(self._data)
 
-        self._stasher.subscribe(PrePrepare, self.process_preprepare)
-        self._stasher.subscribe(Prepare, self.process_prepare)
-        self._stasher.subscribe(Commit, self.process_commit)
+        self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
+        self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
+        self._subscription.subscribe(self._stasher, Commit, self.process_commit)
         self._stasher.subscribe_to(network)
+
+    def cleanup(self):
+        self._subscription.unsubscribe_all()
 
     def __repr__(self):
         return self.name
