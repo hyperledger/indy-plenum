@@ -18,7 +18,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, OutboxMessage, DoCheckpointMessage, \
-    RemoveStashedCheckpoints, RequestPropagates, ApplyNewView, ViewChangeStarted
+    RemoveStashedCheckpoints, RequestPropagates, NewViewCheckpointsApplied, ViewChangeStarted
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName
@@ -211,7 +211,7 @@ class OrderingService:
         self._stasher.subscribe(PrePrepare, self.process_preprepare)
         self._stasher.subscribe(Prepare, self.process_prepare)
         self._stasher.subscribe(Commit, self.process_commit)
-        self._stasher.subscribe(ApplyNewView, self.process_apply_new_view)
+        self._stasher.subscribe(NewViewCheckpointsApplied, self.process_apply_new_view)
         self._stasher.subscribe_to(network)
         self._stasher.subscribe_to(self._bus)
 
@@ -2092,7 +2092,7 @@ class OrderingService:
         self.l_batches.clear()
         self.ordered.clear_below_view(msg.view_no)
 
-    def process_apply_new_view(self, msg: ApplyNewView):
+    def process_apply_new_view(self, msg: NewViewCheckpointsApplied):
         self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
                                           pp_digest=batch_id.pp_digest)
                                   for batch_id in msg.batches]

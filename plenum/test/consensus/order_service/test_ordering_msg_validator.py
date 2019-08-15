@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.messages.internal_messages import ApplyNewView
+from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import NewView
 from plenum.common.startable import Mode
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
@@ -59,7 +59,7 @@ def commit(view_no, pp_seq_no):
 
 
 def new_view(view_no):
-    return ApplyNewView(view_no, [], [], [])
+    return NewViewCheckpointsApplied(view_no, [], [], [])
 
 
 def test_process_correct_pre_prepare(validator, view_no):

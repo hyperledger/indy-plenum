@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 
 from common.exceptions import LogicError
-from plenum.common.messages.internal_messages import ApplyNewView
+from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Commit, Prepare
 from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
@@ -25,7 +25,7 @@ class OrderingServiceMsgValidator:
             return self.validate_prepare(msg)
         if isinstance(msg, Commit):
             return self.validate_commit(msg)
-        if isinstance(msg, ApplyNewView):
+        if isinstance(msg, NewViewCheckpointsApplied):
             return self.validate_new_view(msg)
         raise LogicError("Unknown message type")
 
@@ -51,7 +51,7 @@ class OrderingServiceMsgValidator:
         # prepares below low watermark have been discarded anyway
         return self._validate_3pc(msg)
 
-    def validate_new_view(self, msg: ApplyNewView) -> Tuple[int, Optional[str]]:
+    def validate_new_view(self, msg: NewViewCheckpointsApplied) -> Tuple[int, Optional[str]]:
         # View Change service has already validated NewView
         # so basic validation here is sufficient
         return self._validate_base(msg, msg.view_no)

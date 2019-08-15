@@ -3,19 +3,14 @@ import random
 import pytest
 from unittest.mock import Mock
 
-from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import NeedViewChange, ViewChangeFinished, ViewChangeStarted, ApplyNewView
+from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
+    NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
     create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
 
 from plenum.test.helper import MockNetwork
-
-
-@pytest.fixture
-def internal_bus():
-    return InternalBus()
 
 
 @pytest.fixture
@@ -91,10 +86,10 @@ def test_do_nothing_on_view_change_finished(internal_bus, view_change_service):
     old_data = copy_shared_data(view_change_service._data)
 
     new_view = create_new_view(initial_view_no=3, stable_cp=200)
-    internal_bus.send(ViewChangeFinished(view_no=4,
-                                         view_changes=new_view.viewChanges,
-                                         checkpoint=new_view.checkpoint,
-                                         batches=new_view.batches))
+    internal_bus.send(NewViewAccepted(view_no=4,
+                                      view_changes=new_view.viewChanges,
+                                      checkpoint=new_view.checkpoint,
+                                      batches=new_view.batches))
 
     new_data = copy_shared_data(view_change_service._data)
     assert old_data == new_data
@@ -108,10 +103,10 @@ def test_do_nothing_on_apply_new_view(internal_bus, view_change_service):
     old_data = copy_shared_data(view_change_service._data)
 
     new_view = create_new_view(initial_view_no=3, stable_cp=200)
-    internal_bus.send(ApplyNewView(view_no=4,
-                                   view_changes=new_view.viewChanges,
-                                   checkpoint=new_view.checkpoint,
-                                   batches=new_view.batches))
+    internal_bus.send(NewViewCheckpointsApplied(view_no=4,
+                                                view_changes=new_view.viewChanges,
+                                                checkpoint=new_view.checkpoint,
+                                                batches=new_view.batches))
 
     new_data = copy_shared_data(view_change_service._data)
     assert old_data == new_data
@@ -229,7 +224,7 @@ def test_view_change_finished_is_sent_by_primary_once_view_change_certificate_is
                                                                                          view_change_service_builder,
                                                                                          initial_view_no):
     handler = Mock()
-    internal_bus.subscribe(ViewChangeFinished, handler)
+    internal_bus.subscribe(NewViewAccepted, handler)
 
     primary_name = primary(initial_view_no + 1)
     service = view_change_service_builder(primary_name)
@@ -249,11 +244,11 @@ def test_view_change_finished_is_sent_by_primary_once_view_change_certificate_is
         for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
             service._network.process_incoming(ack, ack_frm)
 
-    # check that ViewChangeFinished has been sent
-    expected_finish_vc = ViewChangeFinished(view_no=initial_view_no + 1,
-                                            view_changes=new_view.viewChanges,
-                                            checkpoint=new_view.checkpoint,
-                                            batches=new_view.batches)
+    # check that NewViewAccepted has been sent
+    expected_finish_vc = NewViewAccepted(view_no=initial_view_no + 1,
+                                         view_changes=new_view.viewChanges,
+                                         checkpoint=new_view.checkpoint,
+                                         batches=new_view.batches)
     handler.assert_called_with(expected_finish_vc)
 
     # check that shared data is updated
@@ -266,7 +261,7 @@ def test_view_change_finished_is_sent_by_primary_once_view_change_certificate_is
 def test_view_change_finished_is_sent_by_non_primary_once_view_change_certificate_is_reached_and_new_view_from_primary(
         internal_bus, validators, primary, view_change_service_builder, initial_view_no, some_item):
     handler = Mock()
-    internal_bus.subscribe(ViewChangeFinished, handler)
+    internal_bus.subscribe(NewViewAccepted, handler)
 
     next_view_no = initial_view_no + 1
     primary_name = primary(next_view_no)
@@ -292,18 +287,18 @@ def test_view_change_finished_is_sent_by_non_primary_once_view_change_certificat
         for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
             service._network.process_incoming(ack, ack_frm)
 
-    # check that ViewChangeFinished hasn't been sent if NewView is from non-primary
+    # check that NewViewAccepted hasn't been sent if NewView is from non-primary
     service._network.process_incoming(new_view, non_primary_name)
     handler.assert_not_called()
     assert service._data.view_no == initial_view_no + 1
     assert service._data.waiting_for_new_view
 
-    # check that ViewChangeFinished has been sent if NewView is from primary
+    # check that NewViewAccepted has been sent if NewView is from primary
     service._network.process_incoming(new_view, primary_name)
-    expected_finish_vc = ViewChangeFinished(view_no=initial_view_no + 1,
-                                            view_changes=new_view.viewChanges,
-                                            checkpoint=new_view.checkpoint,
-                                            batches=new_view.batches)
+    expected_finish_vc = NewViewAccepted(view_no=initial_view_no + 1,
+                                         view_changes=new_view.viewChanges,
+                                         checkpoint=new_view.checkpoint,
+                                         batches=new_view.batches)
     handler.assert_called_with(expected_finish_vc)
 
     # check that shared data is updated

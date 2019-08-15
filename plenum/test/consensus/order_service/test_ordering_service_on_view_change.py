@@ -1,4 +1,4 @@
-from plenum.common.messages.internal_messages import ViewChangeStarted, ViewChangeFinished, ApplyNewView
+from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.server.consensus.consensus_shared_data import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.test.consensus.helper import copy_shared_data, create_batches, \
@@ -114,10 +114,10 @@ def test_do_nothing_on_view_change_finished(internal_bus, orderer):
 
     initial_view_no = 3
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200)
-    internal_bus.send(ViewChangeFinished(view_no=initial_view_no + 1,
-                                         view_changes=new_view.viewChanges,
-                                         checkpoint=new_view.checkpoint,
-                                         batches=new_view.batches))
+    internal_bus.send(NewViewAccepted(view_no=initial_view_no + 1,
+                                      view_changes=new_view.viewChanges,
+                                      checkpoint=new_view.checkpoint,
+                                      batches=new_view.batches))
 
     new_data = copy_shared_data(orderer._data)
     assert old_data == new_data
@@ -130,10 +130,10 @@ def test_update_shared_data_on_apply_new_view(internal_bus, orderer):
 
     initial_view_no = 3
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200)
-    internal_bus.send(ApplyNewView(view_no=initial_view_no + 1,
-                                   view_changes=new_view.viewChanges,
-                                   checkpoint=new_view.checkpoint,
-                                   batches=new_view.batches))
+    internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
+                                                view_changes=new_view.viewChanges,
+                                                checkpoint=new_view.checkpoint,
+                                                batches=new_view.batches))
 
     new_data = copy_shared_data(orderer._data)
     check_service_changed_only_owned_fields_in_shared_data(OrderingService, old_data, new_data)

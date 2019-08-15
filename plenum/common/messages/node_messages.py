@@ -231,8 +231,8 @@ class ViewChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
-        (f.PREPARED.nm, IterableField(AnyField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
-        (f.PREPREPARED.nm, IterableField(AnyField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.PREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
         (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
 

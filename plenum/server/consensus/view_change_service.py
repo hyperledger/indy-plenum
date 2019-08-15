@@ -7,7 +7,7 @@ from typing import List, Optional, Union, Dict, Any, Tuple
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedViewChange, ViewChangeFinished, ViewChangeStarted
+from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService
@@ -346,10 +346,10 @@ class ViewChangeService:
         self._data.waiting_for_new_view = False
 
         # send message to other services
-        self._bus.send(ViewChangeFinished(view_no=self._new_view.viewNo,
-                                          view_changes=self._new_view.viewChanges,
-                                          checkpoint=self._new_view.checkpoint,
-                                          batches=self._new_view.batches))
+        self._bus.send(NewViewAccepted(view_no=self._new_view.viewNo,
+                                       view_changes=self._new_view.viewChanges,
+                                       checkpoint=self._new_view.checkpoint,
+                                       batches=self._new_view.batches))
 
 
 class NewViewBuilder:

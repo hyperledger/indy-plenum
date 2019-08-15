@@ -10,7 +10,7 @@ from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
-    ViewChangeFinished, ApplyNewView
+    NewViewAccepted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.stashing_router import StashingRouter
@@ -55,7 +55,7 @@ class CheckpointService:
         # self._stasher.subscribe_to(network)
         #
         # self._bus.subscribe(Ordered, self.process_ordered)
-        self._bus.subscribe(ViewChangeFinished, self.process_view_change_finished)
+        self._bus.subscribe(NewViewAccepted, self.process_view_change_finished)
 
     @property
     def view_no(self):
@@ -413,7 +413,7 @@ class CheckpointService:
         self._logger.trace("{} discard message {} from {} "
                            "with the reason: {}".format(self, msg, sender, reason))
 
-    def process_view_change_finished(self, msg: ViewChangeFinished):
+    def process_view_change_finished(self, msg: NewViewAccepted):
         # 1. update shared data
         cp = msg.checkpoint
         if cp not in self._data.checkpoints:
@@ -421,8 +421,8 @@ class CheckpointService:
         self._set_stable_checkpoint(cp.seqNoEnd)
         self.set_watermarks(low_watermark=cp.seqNoEnd)
 
-        # 2. send ApplyNewView
-        self._bus.send(ApplyNewView(view_no=msg.view_no,
-                                    view_changes=msg.view_changes,
-                                    checkpoint=msg.checkpoint,
-                                    batches=msg.batches))
+        # 2. send NewViewCheckpointsApplied
+        self._bus.send(NewViewCheckpointsApplied(view_no=msg.view_no,
+                                                 view_changes=msg.view_changes,
+                                                 checkpoint=msg.checkpoint,
+                                                 batches=msg.batches))
