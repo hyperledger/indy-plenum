@@ -5,6 +5,7 @@ from typing import Callable, Any, Dict, Type, Optional, Iterable, Tuple
 from sortedcontainers import SortedListWithKey
 
 from common.exceptions import LogicError
+from plenum.common.router import Router, Subscription
 from stp_core.common.log import getlogger
 
 DISCARD = -1
@@ -86,28 +87,35 @@ class SortedStash(StashingQueue):
         return data
 
 
-class StashingRouter:
+class StashingRouter(Router):
     Handler = Callable[..., Optional[int]]
 
     def __init__(self, limit: int):
+        super().__init__()
         self._limit = limit
         self._logger = getlogger()
-        self._handlers = {}  # type: Dict[Type, StashingRouter.Handler]
         self._queues = {}  # type: Dict[int, StashingQueue]
+        self._subscriptions = Subscription()
 
     def set_sorted_stasher(self, code: int, key: Callable):
         self._queues[code] = SortedStash(self._limit, key)
 
-    def subscribe(self, message_type: Type, handler: Handler):
-        if message_type in self._handlers:
+    def subscribe(self, message_type: Type, handler: Handler) -> Router.SubscriptionID:
+        if message_type in self.message_types:
             raise LogicError("Trying to assign handler {} for message type {}, "
                              "but another handler is already assigned {}".
-                             format(handler, message_type, self._handlers[message_type]))
-        self._handlers[message_type] = handler
+                             format(handler, message_type, self.handlers(message_type)))
+        return super().subscribe(message_type, handler)
 
-    def subscribe_to(self, bus: Any):
-        for message_type, handler in self._handlers.items():
-            bus.subscribe(message_type, partial(self._process, handler))
+    def subscribe_to(self, router: Router):
+        for message_type in self.message_types:
+            for handler in self.handlers(message_type):
+                self._subscriptions.subscribe(router,
+                                              message_type,
+                                              partial(self._process, handler))
+
+    def unsubscribe_from_all(self):
+        self._subscriptions.unsubscribe_all()
 
     def process_all_stashed(self, code: Optional[int] = None):
         """
@@ -173,8 +181,10 @@ class StashingRouter:
         return False
 
     def _resolve_and_process(self, message: Any, *args) -> bool:
-        handler = self._handlers[type(message)]
-        return self._process(handler, message, *args)
+        handlers = self.handlers(type(message))
+        if len(handlers) == 0:
+            raise LogicError("Message not found")
+        return self._process(handlers[0], message, *args)
 
     def _stash(self, code: int, message: Any, *args):
         self._logger.trace("Stashing message {} with metadata {}".format(message, args))
