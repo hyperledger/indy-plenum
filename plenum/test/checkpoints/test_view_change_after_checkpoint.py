@@ -52,7 +52,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
             assert not [view_no for view_no in r._checkpointer._stashed_recvd_checkpoints if view_no < r.viewNo]
             assert r.h == 0
             # from audit txn
-            assert r._lastPrePrepareSeqNo == 1
+            assert r._ordering_service._lastPrePrepareSeqNo == 1
             assert r.h == 0
             assert r.H == r.h + chkFreqPatched.LOG_SIZE
 

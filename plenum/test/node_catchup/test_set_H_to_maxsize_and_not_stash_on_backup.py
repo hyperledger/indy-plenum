@@ -1,6 +1,7 @@
 import pytest
 import sys
 
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
@@ -63,7 +64,7 @@ def test_set_H_greater_then_last_ppseqno(looper,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
     # check, that there is no any stashed "outside watermark" messages.
     for r in new_node.replicas.values():
-        assert r.stasher.num_stashed_watermarks == 0
+        assert r.stasher.stash_size(STASH_WATERMARKS) == 0
 
     """Force view change and check, that all backup replicas setup H as a default<
     (not propagate primary logic)"""

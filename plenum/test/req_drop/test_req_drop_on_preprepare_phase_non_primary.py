@@ -104,8 +104,7 @@ def test_req_drop_on_preprepare_phase_on_non_primary_and_then_ordered(
         # since the first replica who sees non-finalized requests sends MessageReq for Propagates,
         # and it can receive Propagates before a PrePrepare for the next replica is received,
         # so that the for the second replica all requests will be already finalized.
-        tmp = getAllArgs(lagged_node, TestNode.request_propagates)
-        assert len(tmp) >= 1
+        assert len(getAllArgs(lagged_node, TestNode.request_propagates)) == 2
 
     timeout = howlong
     looper.run(eventually(check_propagates_requested, retryWait=.5, timeout=timeout))

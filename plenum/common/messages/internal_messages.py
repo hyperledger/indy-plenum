@@ -1,13 +1,13 @@
 from typing import NamedTuple, List, Any
 
-from plenum.common.messages.node_messages import CheckpointState
+from plenum.common.exceptions import SuspiciousNode
+from plenum.common.messages.node_messages import CheckpointState, PrePrepare
 
+# TODO: should be removed
 ValidatorsChanged = NamedTuple('ValidatorsChange',
                                [('names', List[str])])
 
-LegacyViewChangeStatusUpdate = NamedTuple('StartViewChange',
-                                          [('in_progress', bool)])
-
+# TODO: should be removed
 ParticipatingStatus = NamedTuple('LedgerParticipatingStatus',
                                  [('is_participating', bool)])
 
@@ -18,21 +18,17 @@ HookMessage = NamedTuple('HookMessage',
 OutboxMessage = NamedTuple('OutboxMessage',
                            [('msg', Any)])
 
-DoCheckpointMessage = NamedTuple('DoCheckpoinitMessage',
-                                 [('state', CheckpointState),
-                                  ('start_no', int),
-                                  ('end_no', int),
-                                  ('ledger_id', int),
-                                  ('view_no', int)])
-
-RemoveStashedCheckpoints = NamedTuple('RemoveStashedCheckpoints',
-                                      [('start_no', int),
-                                       ('end_no', int),
-                                       ('view_no', int),
-                                       ('all', bool)])
-
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
+
+PrimariesBatchNeeded = NamedTuple('PrimariesBatchNeeded',
+                                  [('pbn', bool)])
+
+CurrentPrimaries = NamedTuple('CurrentPrimaries',
+                              [('primaries', list)])
+
+BackupSetupLastOrdered = NamedTuple('BackupSetupLastOrdered',
+                                    [('inst_id', int)])
 
 NeedMasterCatchup = NamedTuple('NeedMasterCatchup', [])
 
@@ -43,6 +39,10 @@ NeedBackupCatchup = NamedTuple('NeedBackupCatchup',
 CheckpointStabilized = NamedTuple('CheckpointStabilized',
                                   [('inst_id', int),
                                    ('last_stable_3pc', tuple)])
+
+RaisedSuspicion = NamedTuple('RaisedSuspicion',
+                             [('inst_id', int),
+                              ('ex', SuspiciousNode)])
 
 # by default view_no for StartViewChange is None meaning that we move to the next view
 NeedViewChange = NamedTuple('StartViewChange',

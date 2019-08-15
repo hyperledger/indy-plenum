@@ -53,7 +53,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
                            for n in txnPoolNodeSet}
 
     def slow_node_processed_some():
-        assert slow_node.master_replica.batches
+        assert slow_node.master_replica._ordering_service.batches
 
     # The slow node has received some PRE-PREPAREs
     looper.run(
