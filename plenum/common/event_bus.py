@@ -4,6 +4,7 @@ from typing import Callable, Type, Dict, List, Any, Union
 
 from plenum.common.router import Router
 
+
 class InternalBus(Router):
     def send(self, message: Any, *args):
         self._route(message, *args)
