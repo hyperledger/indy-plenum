@@ -63,9 +63,9 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
+                 stasher=None,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
-                 stasher=None,
                  metrics: MetricsCollector = NullMetricsCollector()):
         self.metrics = metrics
         self._data = data
@@ -80,7 +80,7 @@ class OrderingService:
         self._config = getConfig()
         self._logger = getlogger()
         # TODO: Change just to self._stasher = stasher
-        self._stasher = stasher if stasher else StashingRouter(self._config.REPLICA_STASH_LIMIT)
+        self._stasher = stasher
         self._subscription = Subscription()
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
@@ -230,9 +230,7 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
         self._subscription.subscribe(self._stasher, Commit, self.process_commit)
-        self._subscription.subscribe(self._stasher, NewViewCheckpointsApplied, self.process_apply_new_view)
-        self._stasher.subscribe_to(network)
-        self._stasher.subscribe_to(self._bus)
+        self._subscription.subscribe(self._stasher, NewViewCheckpointsApplied, self.process_new_view_checkpoints_applied)
 
         self._bus.subscribe(ViewChangeStarted, self.process_view_change_started)
 
@@ -2353,7 +2351,7 @@ class OrderingService:
         self.old_view_preprepares.update(new_old_view_preprepares)
 
         # 3. revert unordered transactions
-        # self.revert_unordered_batches()
+        self.revert_unordered_batches()
 
         # 4. Clear the 3PC log
         self.prePrepares.clear()
@@ -2369,11 +2367,15 @@ class OrderingService:
         self.prePreparesPendingPrevPP.clear()
         self.sentPrePrepares.clear()
         self.batches.clear()
-        self.l_batches.clear()
         self.ordered.clear_below_view(msg.view_no)
+        return PROCESS, None
 
-    def process_apply_new_view(self, msg: NewViewCheckpointsApplied):
+    def process_new_view_checkpoints_applied(self, msg: NewViewCheckpointsApplied):
+        result, reason = self._validate(msg)
+        if result != PROCESS:
+            return result, reason
         self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
                                           pp_digest=batch_id.pp_digest)
                                   for batch_id in msg.batches]
         self._data.prepared = []
+        return PROCESS, None

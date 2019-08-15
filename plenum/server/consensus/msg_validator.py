@@ -1,3 +1,4 @@
+from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import Commit, Checkpoint
 from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.types import f
@@ -18,6 +19,8 @@ class ThreePCMsgValidator:
                                 self._data.last_ordered_3pc) >= 0
 
     def validate(self, msg):
+        if isinstance(msg, NewViewCheckpointsApplied):
+            return PROCESS, None
         view_no = getattr(msg, f.VIEW_NO.nm, None)
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
 

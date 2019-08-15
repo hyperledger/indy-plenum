@@ -52,11 +52,10 @@ class CheckpointService:
         self._logger = getlogger()
 
         self._subscription.subscribe(stasher, Checkpoint, self.process_checkpoint)
-        self._stasher.subscribe_to(network)
 
         self._subscription.subscribe(bus, Ordered, self.process_ordered)
         self._subscription.subscribe(bus, BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
-        self._subscription.subscribe(bus, NewViewAccepted, self.process_view_change_finished)
+        self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
@@ -419,7 +418,7 @@ class CheckpointService:
         self._logger.trace("{} discard message {} from {} "
                            "with the reason: {}".format(self, msg, sender, reason))
 
-    def process_view_change_finished(self, msg: NewViewAccepted):
+    def process_new_view_accepted(self, msg: NewViewAccepted):
         # 1. update shared data
         cp = msg.checkpoint
         if cp not in self._data.checkpoints:
@@ -432,3 +431,4 @@ class CheckpointService:
                                                  view_changes=msg.view_changes,
                                                  checkpoint=msg.checkpoint,
                                                  batches=msg.batches))
+        return PROCESS, None

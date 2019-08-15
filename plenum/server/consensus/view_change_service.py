@@ -127,7 +127,8 @@ class ViewChangeVotesForView:
 
 
 class ViewChangeService:
-    def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus):
+    def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus,
+                 stasher: StashingRouter):
         self._config = getConfig()
         self._logger = getlogger()
 
@@ -136,14 +137,13 @@ class ViewChangeService:
         self._timer = timer
         self._bus = bus
         self._network = network
-        self._router = StashingRouter(self._config.VIEW_CHANGE_SERVICE_STASH_LIMIT)
+        self._router = stasher
         self._votes = ViewChangeVotesForView(self._data.quorums)
         self._new_view = None  # type: Optional[NewView]
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
         self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
         self._router.subscribe(NewView, self.process_new_view_message)
-        self._router.subscribe_to(network)
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
@@ -225,7 +225,7 @@ class ViewChangeService:
 
         if self._data.is_primary:
             self._send_new_view_if_needed()
-            return None, None
+            return PROCESS, None
 
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
@@ -235,7 +235,7 @@ class ViewChangeService:
         self._network.send(vca, self._data.primary_name)
 
         self._finish_view_change_if_needed()
-        return None, None
+        return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         result = self._validate(msg, frm)
@@ -243,11 +243,11 @@ class ViewChangeService:
             return result, None
 
         if not self._data.is_primary:
-            return None, None
+            return PROCESS, None
 
         self._votes.add_view_change_ack(msg, frm)
         self._send_new_view_if_needed()
-        return None, None
+        return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
         result = self._validate(msg, frm)
@@ -262,11 +262,11 @@ class ViewChangeService:
                                                                                                      frm,
                                                                                                      self._data.primary_name)
             )
-            return
+            return DISCARD, "New View from non-Primary"
 
         self._new_view = msg
         self._finish_view_change_if_needed()
-        return None, None
+        return PROCESS, None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation

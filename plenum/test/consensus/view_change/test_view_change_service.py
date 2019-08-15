@@ -14,10 +14,10 @@ from plenum.test.helper import MockNetwork
 
 
 @pytest.fixture
-def view_change_service_builder(consensus_data, mock_timer, internal_bus):
+def view_change_service_builder(consensus_data, mock_timer, internal_bus, external_bus, stasher):
     def _service(name):
         data = consensus_data(name)
-        service = ViewChangeService(data, mock_timer, internal_bus, MockNetwork())
+        service = ViewChangeService(data, mock_timer, internal_bus, external_bus, stasher)
         return service
 
     return _service

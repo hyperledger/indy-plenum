@@ -417,7 +417,8 @@ class TestReplica(replica.Replica):
 
     def _init_replica_stasher(self):
         return TestStashingRouter(self.config.REPLICA_STASH_LIMIT,
-                                  replica_unstash=self._add_to_inbox)
+                                  buses=[self.node.internal_bus, self._external_bus],
+                                  unstash_handler=self._add_to_inbox)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,
