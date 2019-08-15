@@ -4,7 +4,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check, assert_eq
 from stp_core.loop.eventually import eventually
 
 nodeCount = 4
@@ -39,8 +39,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
-                   slow_replica,
+        eventually(lambda: assert_eq(slow_replica.last_ordered_3pc, (view_no, 2)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 

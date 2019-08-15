@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.messages.internal_messages import ThrowSuspiciousNode
+from plenum.common.messages.internal_messages import RaisedSuspicion
 from plenum.common.util import updateNamedTuple
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts, check_suspicious
@@ -43,22 +43,22 @@ def test_process_valid_prepare(o, pre_prepare, prepare):
 
 def test_validate_prepare_from_primary(o, prepare):
     handler = Mock()
-    o._bus.subscribe(ThrowSuspiciousNode, handler)
+    o._bus.subscribe(RaisedSuspicion, handler)
     o.l_validatePrepare(prepare, PRIMARY_NAME)
-    check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                  ex=SuspiciousNode(PRIMARY_NAME,
+    check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                              ex=SuspiciousNode(PRIMARY_NAME,
                                                                     Suspicions.PR_FRM_PRIMARY,
                                                                     prepare)))
 
 
 def test_validate_duplicate_prepare(o, pre_prepare, prepare):
     handler = Mock()
-    o._bus.subscribe(ThrowSuspiciousNode, handler)
+    o._bus.subscribe(RaisedSuspicion, handler)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     o.process_prepare(prepare, NON_PRIMARY_NAME)
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
-    check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                  ex=SuspiciousNode(NON_PRIMARY_NAME,
+    check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                              ex=SuspiciousNode(NON_PRIMARY_NAME,
                                                                     Suspicions.DUPLICATE_PR_SENT,
                                                                     prepare)))
 
@@ -67,10 +67,10 @@ def test_validate_prepare_no_preprepare(o, prepare):
     # must sent PrePrepare before processing the Prepare
     if o.name == PRIMARY_NAME:
         handler = Mock()
-        o._bus.subscribe(ThrowSuspiciousNode, handler)
+        o._bus.subscribe(RaisedSuspicion, handler)
         o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
-        check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                      ex=SuspiciousNode(NON_PRIMARY_NAME,
+        check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                                  ex=SuspiciousNode(NON_PRIMARY_NAME,
                                                                         Suspicions.UNKNOWN_PR_SENT,
                                                                         prepare)))
     # PrePrepare can be delayed, so just enqueue
@@ -81,47 +81,47 @@ def test_validate_prepare_no_preprepare(o, prepare):
 
 def test_validate_prepare_wrong_digest(o, pre_prepare, prepare):
     handler = Mock()
-    o._bus.subscribe(ThrowSuspiciousNode, handler)
+    o._bus.subscribe(RaisedSuspicion, handler)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, digest='fake_digest')
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
-    check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                  ex=SuspiciousNode(NON_PRIMARY_NAME,
+    check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                              ex=SuspiciousNode(NON_PRIMARY_NAME,
                                                                     Suspicions.PR_DIGEST_WRONG,
                                                                     prepare)))
 
 
 def test_validate_prepare_wrong_txn_root(o, pre_prepare, prepare):
     handler = Mock()
-    o._bus.subscribe(ThrowSuspiciousNode, handler)
+    o._bus.subscribe(RaisedSuspicion, handler)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, txnRootHash=generate_state_root())
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
-    check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                  ex=SuspiciousNode(NON_PRIMARY_NAME,
+    check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                              ex=SuspiciousNode(NON_PRIMARY_NAME,
                                                                     Suspicions.PR_TXN_WRONG,
                                                                     prepare)))
 
 
 def test_validate_prepare_wrong_state_root(o, pre_prepare, prepare):
     handler = Mock()
-    o._bus.subscribe(ThrowSuspiciousNode, handler)
+    o._bus.subscribe(RaisedSuspicion, handler)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, stateRootHash=generate_state_root())
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
-    check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                  ex=SuspiciousNode(NON_PRIMARY_NAME,
+    check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                              ex=SuspiciousNode(NON_PRIMARY_NAME,
                                                                     Suspicions.PR_STATE_WRONG,
                                                                     prepare)))
 
 
 def test_validate_prepare_wrong_audit_root(o, pre_prepare, prepare):
     handler = Mock()
-    o._bus.subscribe(ThrowSuspiciousNode, handler)
+    o._bus.subscribe(RaisedSuspicion, handler)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     prepare = updateNamedTuple(prepare, auditTxnRootHash=generate_state_root())
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
-    check_suspicious(handler, ThrowSuspiciousNode(inst_id=o._data.inst_id,
-                                                  ex=SuspiciousNode(NON_PRIMARY_NAME,
+    check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
+                                              ex=SuspiciousNode(NON_PRIMARY_NAME,
                                                                     Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
                                                                     prepare)))

@@ -92,11 +92,14 @@ class SortedStash(StashingQueue):
 class StashingRouter:
     Handler = Callable[..., Optional[Tuple[int, str]]]
 
-    def __init__(self, limit: int, replica_unstash=None):
+    def __init__(self, limit: int, replica_unstash: Callable=None):
         self._limit = limit
         self._logger = getlogger()
         self._handlers = {}  # type: Dict[Type, StashingRouter.Handler]
         self._queues = {}  # type: Dict[int, StashingQueue]
+        # TODO: This call has been added to saving the old message order in the list.
+        # This is a replica's method that moves the message to the inBox, rather than
+        # calling the handler immediately, as the default router does.
         self._replica_unstash = replica_unstash
 
     def set_sorted_stasher(self, code: int, key: Callable):

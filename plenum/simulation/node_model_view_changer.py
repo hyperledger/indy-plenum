@@ -99,4 +99,4 @@ class ViewChangerNodeModelDataProvider(ViewChangerDataProvider):
 
 
 def create_view_changer(node):
-    return ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer, internal_bus=node.internal_bus)
+    return ViewChanger(ViewChangerNodeModelDataProvider(node), node._timer)

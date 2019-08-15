@@ -202,7 +202,7 @@ def test_stashing_router_can_stash_and_sort_messages():
 
     def handler(message: SomeMessage):
         calls.append(message)
-        return STASH, "reson"
+        return STASH, "reason"
 
     def sort_key(message: SomeMessage):
         return message.int_field

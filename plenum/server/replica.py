@@ -30,7 +30,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import PrimariesBatchNeeded, \
     CurrentPrimaries, \
-    NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized, ThrowSuspiciousNode
+    NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -174,30 +174,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._subscribe_to_external_msgs()
         self._subscribe_to_internal_msgs()
         self._checkpointer = self._init_checkpoint_service()
-        # self.inBoxRouter = Router(
-        #     (ReqKey, self.readyFor3PC),
-        #     (PrePrepare, self.process_three_phase_msg),
-        #     (Prepare, self.process_three_phase_msg),
-        #     (Commit, self.process_three_phase_msg),
-        #     (Checkpoint, self._checkpointer.process_checkpoint),
-        # )
-
         self._ordering_service = self._init_ordering_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
-        # self.threePhaseRouter = Replica3PRouter(
-        #     self,
-        #     (PrePrepare, self._ordering_service.process_preprepare),
-        #     (Prepare, self._ordering_service.process_prepare),
-        #     (Commit, self._ordering_service.process_commit)
-        # )
-        # self.inBoxRouter = Router(
-        #     (ReqKey, self.readyFor3PC),
-        #     (PrePrepare, self._ordering_service.process_preprepare),
-        #     (Prepare, self._ordering_service.process_prepare),
-        #     (Commit, self._ordering_service.process_commit),
-        #     (Checkpoint, self.process_checkpoint),
-        # )
 
     @property
     def first_batch_after_catchup(self):
@@ -255,7 +234,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.node.internal_bus.subscribe(NeedBackupCatchup, self._caught_up_backup)
         self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)
         self.node.internal_bus.subscribe(ReqKey, self.readyFor3PC)
-        self.node.internal_bus.subscribe(ThrowSuspiciousNode, self._process_suspicious_node)
+        self.node.internal_bus.subscribe(RaisedSuspicion, self._process_suspicious_node)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -851,7 +830,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             return
         self._ordering_service.l_gc(msg.last_stable_3pc)
 
-    def _process_suspicious_node(self, msg: ThrowSuspiciousNode):
+    def _process_suspicious_node(self, msg: RaisedSuspicion):
         if msg.inst_id != self.instId:
             return
         self.report_suspicious_node(msg.ex)
@@ -862,7 +841,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.send(msg)
 
     def _init_ordering_service(self) -> OrderingService:
-        return OrderingService(self._consensus_data,
+        return OrderingService(data=self._consensus_data,
                                timer=self.node.timer,
                                bus=self.node.internal_bus,
                                network=self._external_bus,

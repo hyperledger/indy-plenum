@@ -144,11 +144,10 @@ class ViewChangerDataProvider(ABC):
 
 class ViewChanger():
 
-    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService, internal_bus: InternalBus):
+    def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
         self.provider = provider
         self._timer = timer
         self.pre_vc_strategy = None
-        self._internal_bus = internal_bus
 
         self._view_no = 0  # type: int
 

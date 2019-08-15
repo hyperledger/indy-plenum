@@ -27,8 +27,6 @@ PrimariesBatchNeeded = NamedTuple('PrimariesBatchNeeded',
 CurrentPrimaries = NamedTuple('CurrentPrimaries',
                               [('primaries', list)])
 
-RevertUnorderedBatches = NamedTuple('RevertUnorderedBatches', [('inst_id', int)])
-
 BackupSetupLastOrdered = NamedTuple('BackupSetupLastOrdered',
                                     [('inst_id', int)])
 
@@ -42,6 +40,6 @@ CheckpointStabilized = NamedTuple('CheckpointStabilized',
                                   [('inst_id', int),
                                    ('last_stable_3pc', tuple)])
 
-ThrowSuspiciousNode = NamedTuple('ThrowSuspiciousNode',
-                                 [('inst_id', int),
-                                  ('ex', SuspiciousNode)])
+RaisedSuspicion = NamedTuple('RaisedSuspicion',
+                             [('inst_id', int),
+                              ('ex', SuspiciousNode)])

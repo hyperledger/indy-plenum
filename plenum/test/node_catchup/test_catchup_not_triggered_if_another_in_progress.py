@@ -91,7 +91,7 @@ def test_catchup_not_triggered_if_another_in_progress(
         looper.run(
             eventually(lambda: assertExp(
                 repaired_node.master_replica._checkpointer.spylog.count(CheckpointService.process_checkpoint) -
-                process_checkpoint_times_before >=
+                process_checkpoint_times_before ==
                 (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                 (len(txnPoolNodeSet) - 1)),
                        timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet))))

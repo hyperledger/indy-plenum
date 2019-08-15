@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
@@ -78,7 +78,11 @@ class ConsensusSharedData:
         return self._validators
 
     @property
-    def is_primary(self) -> bool:
+    def is_primary(self) -> Optional[bool]:
+        """
+        Returns is replica primary for this instance.
+        If primary name is not defined yet, returns None
+        """
         return None if self.primary_name is None else self.primary_name == self.name
 
     @property

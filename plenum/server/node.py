@@ -3049,7 +3049,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # # revert uncommitted txns and state for unordered requests
         self.master_replica.revert_unordered_batches()
-        # self.internal_bus.send(RevertUnorderedBatches(self.master_replica.instId))
 
         self.mode = Mode.starting
         self.ledgerManager.start_catchup(is_initial=just_started)

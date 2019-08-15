@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
-    RequestPropagates, RevertUnorderedBatches, PrimariesBatchNeeded, BackupSetupLastOrdered, ThrowSuspiciousNode
+    RequestPropagates, PrimariesBatchNeeded, BackupSetupLastOrdered, RaisedSuspicion
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -801,8 +801,8 @@ class OrderingService:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
     def report_suspicious_node(self, ex: SuspiciousNode):
-        self._bus.send(ThrowSuspiciousNode(inst_id=self._data.inst_id,
-                                           ex=ex))
+        self._bus.send(RaisedSuspicion(inst_id=self._data.inst_id,
+                                       ex=ex))
 
     def _validate(self, msg):
         return self._validator.validate(msg)
@@ -918,7 +918,7 @@ class OrderingService:
         # 6. TRACK APPLIED
         if rejects:
             for reject in rejects:
-                self.send_outbox(reject)
+                self._network.send(reject)
         self.l_addToPrePrepares(pre_prepare)
 
         if self.is_master:
@@ -1810,9 +1810,6 @@ class OrderingService:
         else:
             self._logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-    def send_outbox(self, msg, dst=None):
-        self._network.send(msg, dst)
-
     def post_batch_rejection(self, ledger_id):
         """
         A batch of requests has been rejected, if stateRoot is None, reject
@@ -2154,7 +2151,7 @@ class OrderingService:
         self.last_accepted_pre_prepare_time = tm
         if self.is_master and rejects:
             for reject in rejects:
-                self.send_outbox(reject)
+                self._network.send(reject)
         return pre_prepare
 
     def l_get_last_timestamp_from_state(self, ledger_id):
@@ -2234,7 +2231,7 @@ class OrderingService:
         # self._logger.trace("{} sending {}".format(self, msg))
         if stat:
             self.stats.inc(stat)
-        self.send_outbox(msg, dst=dst)
+        self._network.send(msg, dst=dst)
 
     def revert_unordered_batches(self):
         """

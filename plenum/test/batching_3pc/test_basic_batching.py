@@ -64,7 +64,6 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     REJECT is sent to the client
     :return:
     """
-    origMethods = []
     names = {node.master_replica.name: 0 for node in txnPoolNodeSet}
 
     def rejectingMethod(self, req, pp_time):
@@ -76,7 +75,6 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
                                             'Simulated rejection')
 
     for node in txnPoolNodeSet:
-        origMethods.append(node.doDynamicValidation)
         for replica in node.replicas._replicas.values():
             replica._ordering_service.l_do_dynamic_validation = types.MethodType(rejectingMethod, replica._ordering_service)
 
@@ -88,6 +86,3 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
         sdk_get_and_check_replies(looper, reqs[-1:])
 
     assert 'Simulated rejection' in e._excinfo[1].args[0]
-
-    # for i, node in enumerate(txnPoolNodeSet):
-    #     node.doDynamicValidation = origMethods[i]
