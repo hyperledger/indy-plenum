@@ -81,7 +81,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     if slow_replica.isPrimary:
         assert slow_replica._ordering_service.sentPrePrepares
     else:
-        assert slow_replica.requestQueues[DOMAIN_LEDGER_ID]
+        assert slow_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]
         assert slow_replica._ordering_service.prePrepares
     assert slow_replica._ordering_service.prepares
     assert slow_replica._ordering_service.commits

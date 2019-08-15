@@ -29,7 +29,7 @@ def fake_requests():
 def orderer_with_requests(orderer, fake_requests):
     orderer.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
-        orderer.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
+        orderer._ordering_service.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         orderer._requests.add(req)
         orderer._requests.set_finalised(req)
     return orderer

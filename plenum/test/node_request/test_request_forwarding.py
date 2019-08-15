@@ -31,12 +31,12 @@ def test_all_replicas_hold_request_keys(
         for node in txnPoolNodeSet:
             for r in node.replicas.values():
                 if r.isPrimary is False:
-                    assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == count
+                    assert len(r._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == count
                     for i in range(count):
-                        k = r.requestQueues[DOMAIN_LEDGER_ID][i]
+                        k = r._ordering_service.requestQueues[DOMAIN_LEDGER_ID][i]
                         assert r.requests[k].finalised
                 elif r.isPrimary is True:
-                    assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == 0
+                    assert len(r._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == 0
 
     reqs = sdk_signed_random_requests(looper,
                                       sdk_wallet_client,

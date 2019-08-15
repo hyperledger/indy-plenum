@@ -45,7 +45,7 @@ def replica_with_valid_requests(primary_replica):
                 for ledger_id in LEDGER_IDS}
 
     def patched_consume_req_queue_for_pre_prepare(ledger_id, tm, view_no, pp_seq_no):
-        reqs = [requests[ledger_id]] if len(primary_replica.requestQueues[ledger_id]) > 0 else []
+        reqs = [requests[ledger_id]] if len(primary_replica._ordering_service.requestQueues[ledger_id]) > 0 else []
         return [reqs, [], []]
 
     primary_replica._ordering_service.l_consume_req_queue_for_pre_prepare = patched_consume_req_queue_for_pre_prepare
@@ -71,7 +71,7 @@ def check_and_pop_ordered(replica, ledger_ids):
         assert msg.ledgerId == ledger_id
 
     for ledger_id in ledger_ids:
-        replica.requestQueues[ledger_id].clear()
+        replica._ordering_service.requestQueues[ledger_id].clear()
 
 
 def check_and_pop_freshness_pre_prepare(replica, ledger_id):
@@ -167,7 +167,7 @@ def test_freshness_pre_prepare_only_when_no_requests_for_ledger(tconf,
                                                                 ordered, refreshed):
     replica, requests = replica_with_valid_requests
     for ordered_ledger_id in ordered:
-        replica.requestQueues[ordered_ledger_id] = OrderedSet([requests[ordered_ledger_id].key])
+        replica._ordering_service.requestQueues[ordered_ledger_id] = OrderedSet([requests[ordered_ledger_id].key])
 
     # send 3PC batch for requests
     assert len(replica.outBox) == 0

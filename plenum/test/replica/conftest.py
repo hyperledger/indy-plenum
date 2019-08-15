@@ -149,7 +149,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     replica._ordering_service.l_revert = lambda ledgerId, stateRootHash, reqCount: None
     replica._ordering_service.post_batch_creation = lambda three_pc_batch: None
 
-    replica.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
+    replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
 
     replica._ordering_service._get_primaries_for_ordered = lambda pp: [replica.primaryName]
 
@@ -171,7 +171,7 @@ def primary_replica(replica):
 def replica_with_requests(replica, fake_requests):
     replica._ordering_service.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
-        replica.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
+        replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         replica.requests.add(req)
         replica.requests.set_finalised(req)
 

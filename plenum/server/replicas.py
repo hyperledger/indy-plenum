@@ -60,7 +60,7 @@ class Replicas:
         for msg in replica.inBox:
             if isinstance(msg, ReqKey):
                 req_keys.add(msg.digest)
-        for req_queue in replica.requestQueues.values():
+        for req_queue in replica._ordering_service.requestQueues.values():
             for req_key in req_queue:
                 req_keys.add(req_key)
         for pp in replica._ordering_service.sentPrePrepares.values():

@@ -153,9 +153,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # `processStashedMsgsForNewWaterMarks`. See that method for details.
         self.consumedAllStashedMsgs = True
 
-        # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = {}  # type: Dict[int, OrderedSet]
-
         self._freshness_checker = FreshnessChecker(freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL)
 
         self._bls_bft_replica = bls_bft_replica
@@ -454,7 +451,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for key, ledger_id, seq_no in reqs_for_remove:
             self.requests.ordered_by_replica(key)
             self.requests.free(key)
-            self.requestQueues[int(ledger_id)].discard(key)
+            self._ordering_service.requestQueues[int(ledger_id)].discard(key)
         master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
         if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0 \
                 and self.isPrimary is False:

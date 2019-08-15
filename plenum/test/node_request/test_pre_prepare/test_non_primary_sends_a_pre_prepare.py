@@ -41,7 +41,7 @@ def testNonPrimarySendsAPrePrepare(looper, txnPoolNodeSet, setup, propagated1):
     remainingNpr = nonPrimaryReplicas[1:]
 
     def sendPrePrepareFromNonPrimary():
-        firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
+        firstNpr._ordering_service.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
         ppReq = firstNpr._ordering_service.l_create_3pc_batch(DOMAIN_LEDGER_ID)
         firstNpr._ordering_service.l_sendPrePrepare(ppReq)
         return ppReq

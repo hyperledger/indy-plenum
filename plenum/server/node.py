@@ -2731,7 +2731,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
                                self.master_replica.stasher.stash_size(STASH_WATERMARKS))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
-                               sum_for_values(self.master_replica.requestQueues))
+                               sum_for_values(self.master_replica._ordering_service.requestQueues))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica._ordering_service.batches))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_MASTER,
                                len(self.master_replica.requested_pre_prepares))
@@ -2802,7 +2802,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
                                sum(r.stasher.stash_size(STASH_WATERMARKS) for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
-                               sum_for_values_for_backups('requestQueues'))
+                               sum_for_values_for_backups_ordering_service('requestQueues'))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups_ordering_service('batches'))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_BACKUP,
                                sum_for_backups_ordering_service('requested_pre_prepares'))
