@@ -2,7 +2,6 @@ import pytest
 
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.util import updateNamedTuple
-from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.models import ThreePhaseVotes
 from plenum.server.suspicion_codes import Suspicions

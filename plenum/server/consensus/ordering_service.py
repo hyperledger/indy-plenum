@@ -2072,7 +2072,10 @@ class OrderingService:
                                     for pp in itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values())}
         self.old_view_preprepares.update(new_old_view_preprepares)
 
-        # 3. Clear the 3PC log
+        # 3. revert unordered transactions
+        # self.revert_unordered_batches()
+
+        # 4. Clear the 3PC log
         self.prePrepares.clear()
         self.prepares.clear()
         self.commits.clear()

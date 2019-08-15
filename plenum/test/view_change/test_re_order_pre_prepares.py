@@ -1,6 +1,8 @@
 import pytest
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import ViewChangeStarted
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.test.delayers import cDelay, pDelay
 from plenum.test.helper import sdk_send_random_and_check, assert_eq
 from plenum.test.stasher import delay_rules_without_processing
@@ -10,6 +12,11 @@ from stp_core.loop.eventually import eventually
 @pytest.mark.skip()
 def test_re_order_pre_prepares(looper, txnPoolNodeSet,
                                sdk_wallet_client, sdk_pool_handle):
+    # 0. use new 3PC validator
+    for n in txnPoolNodeSet:
+        ordering_service = n.master_replica._ordering_service
+        ordering_service._validator = OrderingServiceMsgValidator(ordering_service._data)
+
     # 1. drop Prepares and Commits on 4thNode
     # Order a couple of requests on Nodes 1-3
     lagging_node = txnPoolNodeSet[-1]
@@ -21,12 +28,18 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
 
     # 2. simulate view change start so that
     # all PrePrepares/Prepares/Commits are cleared
+    # and uncommitted txns are reverted
     for n in txnPoolNodeSet:
         n.internal_bus.send(ViewChangeStarted(view_no=1))
         assert not n.master_replica.prePrepares
         assert not n.master_replica.prepares
         assert not n.master_replica.commits
         assert n.master_replica.old_view_preprepares
+        ledger = n.db_manager.ledgers[DOMAIN_LEDGER_ID]
+        state = n.db_manager.states[DOMAIN_LEDGER_ID]
+        assert len(ledger.uncommittedTxns) == 0
+        assert ledger.uncommitted_root_hash == ledger.tree.root_hash
+        assert state.committedHead == state.head
 
     # 3. Re-order the same PrePrepare
     new_master = txnPoolNodeSet[1]
