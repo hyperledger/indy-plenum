@@ -217,6 +217,8 @@ class OrderingService:
 
         self._bus.subscribe(ViewChangeStarted, self.process_view_change_started)
 
+        # Dict to keep PrePrepares from old view to be re-ordered in the new view
+        # key is (viewNo, ppSeqNo) tuple, and value is a PrePrepare
         self.old_view_preprepares = {}
 
     def process_prepare(self, prepare: Prepare, sender: str):
@@ -779,7 +781,8 @@ class OrderingService:
             self.requested_pre_prepares,
             self.requested_prepares,
             self.requested_commits,
-            self.pre_prepares_stashed_for_incorrect_time
+            self.pre_prepares_stashed_for_incorrect_time,
+            self.old_view_preprepares
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -2084,6 +2087,7 @@ class OrderingService:
         self.sentPrePrepares.clear()
         self.batches.clear()
         self.l_batches.clear()
+        self.ordered.clear_below_view(msg.view_no)
 
     def process_apply_new_view(self, msg: ApplyNewView):
         self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,

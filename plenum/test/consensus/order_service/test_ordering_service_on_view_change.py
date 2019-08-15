@@ -41,6 +41,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
                             pp.ppTime, generate_state_root(), len(pp.reqIdr)]
     orderer.l_batches[key] = [pp.ledgerId, pp.discarded,
                               pp.ppTime, generate_state_root(), len(pp.reqIdr)]
+    orderer.ordered.add(*key)
 
     internal_bus.send(ViewChangeStarted(view_no=4))
 
@@ -58,6 +59,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     assert not orderer.sentPrePrepares
     assert not orderer.batches
     assert not orderer.l_batches
+    assert not orderer.ordered
 
 
 def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):

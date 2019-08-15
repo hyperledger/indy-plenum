@@ -132,6 +132,7 @@ def bls_bft_replica():
                          process_prepare=lambda *args, **kwargs: None,
                          process_pre_prepare=lambda *args, **kwargs: None,
                          validate_prepare=lambda *args, **kwargs: None,
+                         validate_commit=lambda *args, **kwargs: None,
                          update_commit=lambda params, pre_prepare: params,
                          process_commit=lambda *args, **kwargs: None)
 

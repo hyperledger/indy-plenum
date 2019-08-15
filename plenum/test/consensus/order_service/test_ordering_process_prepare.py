@@ -2,6 +2,9 @@ import pytest
 
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.util import updateNamedTuple
+from plenum.server.consensus.msg_validator import ThreePCMsgValidator
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
+from plenum.server.models import ThreePhaseVotes
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import generate_state_root, create_prepare_from_pre_prepare
@@ -18,7 +21,7 @@ def prepare(_pre_prepare):
 
 @pytest.fixture(scope='function', params=['Primary', 'Non-Primary'])
 def o(orderer_with_requests, request):
-    assert orderer_with_requests.primary_name == PRIMARY_NAME
+    orderer_with_requests._data.primary_name == PRIMARY_NAME
     if request == 'Primary':
         orderer_with_requests.name = PRIMARY_NAME
     else:
@@ -87,3 +90,15 @@ def test_validate_prepare_wrong_audit_root(o, pre_prepare, prepare):
     prepare = updateNamedTuple(prepare, auditTxnRootHash=generate_state_root())
     with pytest.raises(SuspiciousNode, match=str(Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG.code)):
         o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
+
+
+def test_process_ordered_prepare(o, pre_prepare, prepare):
+    o._validator = OrderingServiceMsgValidator(o._data)
+    o.process_preprepare(pre_prepare, PRIMARY_NAME)
+    o.last_ordered_3pc = (prepare.viewNo, prepare.ppSeqNo + 1)
+
+    assert o.prepares[(prepare.viewNo, prepare.ppSeqNo)] == ThreePhaseVotes(voters={o.name},
+                                                                            msg=prepare)
+    o.process_prepare(prepare, NON_PRIMARY_NAME)
+    assert o.prepares[(prepare.viewNo, prepare.ppSeqNo)] == ThreePhaseVotes(voters={o.name, NON_PRIMARY_NAME},
+                                                                            msg=prepare)
