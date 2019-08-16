@@ -13,6 +13,7 @@ from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBack
     BackupSetupLastOrdered
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
+from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
@@ -35,6 +36,7 @@ class CheckpointService:
         self._network = network
         self._checkpoint_state = SortedDict(lambda k: k[1])
         self._stasher = stasher
+        self._subscription = Subscription()
         self._validator = CheckpointMsgValidator(self._data)
         self._db_manager = db_manager
         self.metrics = metrics
@@ -49,11 +51,14 @@ class CheckpointService:
         self._config = getConfig()
         self._logger = getlogger()
 
-        self._stasher.subscribe(Checkpoint, self.process_checkpoint)
+        self._subscription.subscribe(stasher, Checkpoint, self.process_checkpoint)
         self._stasher.subscribe_to(network)
 
-        self._bus.subscribe(Ordered, self.process_ordered)
-        self._bus.subscribe(BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
+        self._subscription.subscribe(bus, Ordered, self.process_ordered)
+        self._subscription.subscribe(bus, BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
+
+    def cleanup(self):
+        self._subscription.unsubscribe_all()
 
     @property
     def view_no(self):

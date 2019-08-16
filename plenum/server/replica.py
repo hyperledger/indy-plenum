@@ -36,6 +36,7 @@ from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
+from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
@@ -170,6 +171,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
         self._external_bus = ExternalBus(send_handler=self.send)
+        self._subscription = Subscription()
         self._bootstrap_consensus_data()
         self._subscribe_to_external_msgs()
         self._subscribe_to_internal_msgs()
@@ -177,6 +179,32 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._ordering_service = self._init_ordering_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
+
+    def cleanup(self):
+        # Aggregate all the currently forwarded requests
+        req_keys = set()
+        for msg in self.inBox:
+            if isinstance(msg, ReqKey):
+                req_keys.add(msg.digest)
+        for req_queue in self._ordering_service.requestQueues.values():
+            for req_key in req_queue:
+                req_keys.add(req_key)
+        for pp in self._ordering_service.sentPrePrepares.values():
+            for req_key in pp.reqIdr:
+                req_keys.add(req_key)
+        for pp in self._ordering_service.prePrepares.values():
+            for req_key in pp.reqIdr:
+                req_keys.add(req_key)
+
+        for req_key in req_keys:
+            if req_key in self.requests:
+                self.requests.ordered_by_replica(req_key)
+                self.requests.free(req_key)
+
+        self._ordering_service.cleanup()
+        self._checkpointer.cleanup()
+        self._subscription.unsubscribe_all()
+        self.stasher.unsubscribe_from_all()
 
     @property
     def first_batch_after_catchup(self):
@@ -224,17 +252,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._consensus_data.primaries_batch_needed = msg.pbn
 
     def _subscribe_to_external_msgs(self):
-        # self._external_bus.subscribe(ReqKey, self.readyFor3PC)
+        # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
 
     def _subscribe_to_internal_msgs(self):
-        self.node.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_msg)
-        self.node.internal_bus.subscribe(CurrentPrimaries, self._primaries_list_msg)
-        self.node.internal_bus.subscribe(Ordered, self._send_ordered)
-        self.node.internal_bus.subscribe(NeedBackupCatchup, self._caught_up_backup)
-        self.node.internal_bus.subscribe(CheckpointStabilized, self._cleanup_process)
-        self.node.internal_bus.subscribe(ReqKey, self.readyFor3PC)
-        self.node.internal_bus.subscribe(RaisedSuspicion, self._process_suspicious_node)
+        self._subscription.subscribe(self.node.internal_bus, PrimariesBatchNeeded, self._primaries_batch_needed_msg)
+        self._subscription.subscribe(self.node.internal_bus, CurrentPrimaries, self._primaries_list_msg)
+        self._subscription.subscribe(self.node.internal_bus, Ordered, self._send_ordered)
+        self._subscription.subscribe(self.node.internal_bus, NeedBackupCatchup, self._caught_up_backup)
+        self._subscription.subscribe(self.node.internal_bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self.node.internal_bus, ReqKey, self.readyFor3PC)
+        self._subscription.subscribe(self.node.internal_bus, RaisedSuspicion, self._process_suspicious_node)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
