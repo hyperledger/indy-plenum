@@ -1862,7 +1862,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.doStaticValidation(cMsg)
 
         self.internal_bus.send(PreSigVerification(cMsg))
-        # self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
         self.verifySignature(cMsg)
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
