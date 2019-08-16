@@ -1,3 +1,5 @@
+import base58
+
 from plenum.test.helper import assertEquality
 
 
@@ -32,3 +34,10 @@ def check_stashed_chekpoints(node, count):
             for ckps_for_view in node.master_replica._checkpointer._stashed_recvd_checkpoints.values()
             for ckps in ckps_for_view.values())
     assert count == c, "{} != {}".format(count, c)
+
+
+def cp_digest(min: int, max: int, key: str = '0') -> str:
+    assert len(key) == 1
+    digest = "digest-{}-{}-".format(min, max)
+    digest = digest + key * (32 - len(digest))
+    return base58.b58encode(digest).decode()

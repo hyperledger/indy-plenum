@@ -125,7 +125,11 @@ class CheckpointService:
             return
         for batch_id in reversed(self._data.preprepared):
             if batch_id.pp_seq_no == ordered.ppSeqNo:
-                self._add_to_checkpoint(batch_id.pp_seq_no, batch_id.pp_digest, ordered.ledgerId, batch_id.view_no)
+                self._add_to_checkpoint(batch_id.pp_seq_no,
+                                        batch_id.pp_digest,
+                                        ordered.ledgerId,
+                                        batch_id.view_no,
+                                        ordered.auditTxnRootHash)
                 return
         raise LogicError("CheckpointService | Can't process Ordered msg because "
                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo))
@@ -187,7 +191,7 @@ class CheckpointService:
         self.set_watermarks(low_watermark=0,
                             high_watermark=sys.maxsize)
 
-    def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no):
+    def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no, audit_txn_root_hash):
         for (s, e) in self._checkpoint_state.keys():
             if s <= ppSeqNo <= e:
                 state = self._checkpoint_state[s, e]  # type: CheckpointState
@@ -203,20 +207,22 @@ class CheckpointService:
 
         if state.seqNo == e:
             if len(state.digests) == self._config.CHK_FREQ:
-                self._do_checkpoint(state, s, e, ledger_id, view_no)
+                self._do_checkpoint(state, s, e, ledger_id, view_no, audit_txn_root_hash)
             self._process_stashed_checkpoints((s, e), view_no)
 
     @measure_consensus_time(MetricsName.SEND_CHECKPOINT_TIME,
                             MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
-    def _do_checkpoint(self, state, s, e, ledger_id, view_no):
+    def _do_checkpoint(self, state, s, e, ledger_id, view_no, audit_txn_root_hash):
         # TODO CheckpointState/Checkpoint is not a namedtuple anymore
         # 1. check if updateNamedTuple works for the new message type
         # 2. choose another name
+
+        # TODO: This is hack of hacks, should be removed when refactoring is complete
+        if not self.is_master and audit_txn_root_hash is None:
+            audit_txn_root_hash = "7RJ5bkAKRy2CCvarRij2jiHC16SVPjHcrpVdNsboiQGv"
+
         state = updateNamedTuple(state,
-                                 digest=sha256(
-                                     serialize_msg_for_signing(
-                                         state.digests)
-                                 ).hexdigest(),
+                                 digest=audit_txn_root_hash,
                                  digests=[])
         self._checkpoint_state[s, e] = state
         self._logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
