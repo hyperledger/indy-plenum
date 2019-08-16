@@ -100,7 +100,7 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
     assert orderer.old_view_preprepares[(pp6.ppSeqNo, pp6.digest)] == pp6
 
 
-def test_do_nothing_on_view_change_finished(internal_bus, orderer):
+def test_do_nothing_on_new_view_accepted(internal_bus, orderer):
     orderer._data.preprepared = create_batches(view_no=0)
     orderer._data.prepared = create_batches(view_no=0)
     old_data = copy_shared_data(orderer._data)
@@ -116,7 +116,7 @@ def test_do_nothing_on_view_change_finished(internal_bus, orderer):
     assert old_data == new_data
 
 
-def test_update_shared_data_on_apply_new_view(internal_bus, orderer):
+def test_update_shared_data_on_mew_view_checkpoint_applied(internal_bus, orderer):
     orderer._data.preprepared = []
     orderer._data.prepared = []
     old_data = copy_shared_data(orderer._data)
@@ -132,8 +132,12 @@ def test_update_shared_data_on_apply_new_view(internal_bus, orderer):
     check_service_changed_only_owned_fields_in_shared_data(OrderingService, old_data, new_data)
 
     # preprepared are created for new view
-    assert orderer._data.preprepared
-    assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_seq_no=batch_id.pp_seq_no,
-                                                 pp_digest=batch_id.pp_digest)
-                                         for batch_id in new_view.batches]
-    assert orderer._data.prepared == []
+    if orderer.is_master:
+        assert orderer._data.preprepared
+        assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_seq_no=batch_id.pp_seq_no,
+                                                     pp_digest=batch_id.pp_digest)
+                                             for batch_id in new_view.batches]
+        assert orderer._data.prepared == []
+    else:
+        assert orderer._data.preprepared == []
+        assert orderer._data.prepared == []

@@ -27,7 +27,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Re
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import StashingRouter, PROCESS
+from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
 from plenum.common.types import f
@@ -235,7 +235,7 @@ class OrderingService:
         self._bus.subscribe(ViewChangeStarted, self.process_view_change_started)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
-        # key is (viewNo, ppSeqNo) tuple, and value is a PrePrepare
+        # key is (viewNo, ppDigest) tuple, and value is a PrePrepare
         self.old_view_preprepares = {}
 
     def cleanup(self):
@@ -2351,7 +2351,8 @@ class OrderingService:
         self.old_view_preprepares.update(new_old_view_preprepares)
 
         # 3. revert unordered transactions
-        self.revert_unordered_batches()
+        if self.is_master:
+            self.revert_unordered_batches()
 
         # 4. Clear the 3PC log
         self.prePrepares.clear()
@@ -2374,8 +2375,27 @@ class OrderingService:
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
+
+        if not self.is_master:
+            return DISCARD, "not master"
+
+        for batch_id in msg.batches:
+            # TODO: take into account original view no
+            pp = self.old_view_preprepares.get((batch_id.pp_seq_no, batch_id.pp_digest))
+            if pp is None:
+                self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
+                continue
+            if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
+                self.l_addToPrePrepares(pp)
+            else:
+                sender = self.generateName(self._data.primary_name, self._data.inst_id)
+                # TODO: route it through the bus?
+                self.process_preprepare(pp, sender)
+
+        # TODO: this needs to be removed
         self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
                                           pp_digest=batch_id.pp_digest)
                                   for batch_id in msg.batches]
         self._data.prepared = []
+
         return PROCESS, None

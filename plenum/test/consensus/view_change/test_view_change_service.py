@@ -78,7 +78,7 @@ def test_do_nothing_on_view_change_started(internal_bus, view_change_service):
     assert old_data == new_data
 
 
-def test_do_nothing_on_view_change_finished(internal_bus, view_change_service):
+def test_do_nothing_on_new_view_accepted(internal_bus, view_change_service):
     view_change_service._data.waiting_for_new_view = False
     view_change_service._data.view_no = 1
     view_change_service._data.primary_name = "Alpha"
@@ -95,7 +95,7 @@ def test_do_nothing_on_view_change_finished(internal_bus, view_change_service):
     assert old_data == new_data
 
 
-def test_do_nothing_on_apply_new_view(internal_bus, view_change_service):
+def test_do_nothing_on_new_view_checkpoint_applied(internal_bus, view_change_service):
     view_change_service._data.waiting_for_new_view = False
     view_change_service._data.view_no = 1
     view_change_service._data.primary_name = "Alpha"

@@ -53,9 +53,9 @@ def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
       Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest='some')]),
 
 ])
-def test_update_shared_data_on_view_change_finished(internal_bus, checkpoint_service,
-                                                    checkpoints, stable_checkpoint,
-                                                    checkpoints_result):
+def test_update_shared_data_on_new_view_accepted(internal_bus, checkpoint_service,
+                                                 checkpoints, stable_checkpoint,
+                                                 checkpoints_result):
     old_data = copy_shared_data(checkpoint_service._data)
     checkpoint_service._data.checkpoints.update(checkpoints)
     checkpoint_service._data.stable_checkpoint = stable_checkpoint
@@ -78,7 +78,7 @@ def test_update_shared_data_on_view_change_finished(internal_bus, checkpoint_ser
     assert checkpoint_service._data.high_watermark == checkpoint_service._data.low_watermark + 300
 
 
-def test_do_nothing_on_apply_new_view(internal_bus, checkpoint_service):
+def test_do_nothing_on_new_view_checkpoint_applied(internal_bus, checkpoint_service):
     checkpoint_service._data.checkpoints.update(create_checkpoints(view_no=0))
     checkpoint_service._data.stable_checkpoint = 100
     checkpoint_service._data.low_watermark = 100
@@ -96,7 +96,7 @@ def test_do_nothing_on_apply_new_view(internal_bus, checkpoint_service):
     assert old_data == new_data
 
 
-def test_view_change_finished_sends_apply_new_view(internal_bus, checkpoint_service):
+def test_view_change_finished_sends_new_view_checkpoint_applied(internal_bus, checkpoint_service):
     handler = Mock()
     internal_bus.subscribe(NewViewCheckpointsApplied, handler)
 

@@ -49,8 +49,8 @@ def test_validate_prepare_from_primary(o, prepare):
     o.l_validatePrepare(prepare, PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(PRIMARY_NAME,
-                                                                    Suspicions.PR_FRM_PRIMARY,
-                                                                    prepare)))
+                                                                Suspicions.PR_FRM_PRIMARY,
+                                                                prepare)))
 
 
 def test_validate_duplicate_prepare(o, pre_prepare, prepare):
@@ -61,8 +61,8 @@ def test_validate_duplicate_prepare(o, pre_prepare, prepare):
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.DUPLICATE_PR_SENT,
-                                                                    prepare)))
+                                                                Suspicions.DUPLICATE_PR_SENT,
+                                                                prepare)))
 
 
 def test_validate_prepare_no_preprepare(o, prepare):
@@ -73,8 +73,8 @@ def test_validate_prepare_no_preprepare(o, prepare):
         o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
         check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                                   ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                        Suspicions.UNKNOWN_PR_SENT,
-                                                                        prepare)))
+                                                                    Suspicions.UNKNOWN_PR_SENT,
+                                                                    prepare)))
     # PrePrepare can be delayed, so just enqueue
     else:
         o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
@@ -89,8 +89,8 @@ def test_validate_prepare_wrong_digest(o, pre_prepare, prepare):
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_DIGEST_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_DIGEST_WRONG,
+                                                                prepare)))
 
 
 def test_validate_prepare_wrong_txn_root(o, pre_prepare, prepare):
@@ -101,8 +101,8 @@ def test_validate_prepare_wrong_txn_root(o, pre_prepare, prepare):
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_TXN_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_TXN_WRONG,
+                                                                prepare)))
 
 
 def test_validate_prepare_wrong_state_root(o, pre_prepare, prepare):
@@ -113,8 +113,8 @@ def test_validate_prepare_wrong_state_root(o, pre_prepare, prepare):
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_STATE_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_STATE_WRONG,
+                                                                prepare)))
 
 
 def test_validate_prepare_wrong_audit_root(o, pre_prepare, prepare):
@@ -125,16 +125,5 @@ def test_validate_prepare_wrong_audit_root(o, pre_prepare, prepare):
     o.l_validatePrepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                                                    prepare)))
-
-def test_process_ordered_prepare(o, pre_prepare, prepare):
-    o._validator = OrderingServiceMsgValidator(o._data)
-    o.process_preprepare(pre_prepare, PRIMARY_NAME)
-    o.last_ordered_3pc = (prepare.viewNo, prepare.ppSeqNo + 1)
-
-    assert o.prepares[(prepare.viewNo, prepare.ppSeqNo)] == ThreePhaseVotes(voters={o.name},
-                                                                            msg=prepare)
-    o.process_prepare(prepare, NON_PRIMARY_NAME)
-    assert o.prepares[(prepare.viewNo, prepare.ppSeqNo)] == ThreePhaseVotes(voters={o.name, NON_PRIMARY_NAME},
-                                                                           msg=prepare)
+                                                                Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                                                prepare)))

@@ -1,7 +1,6 @@
-import pytest
-
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.internal_messages import ViewChangeStarted
+from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewCheckpointsApplied
+from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.test.delayers import cDelay, pDelay
 from plenum.test.helper import sdk_send_random_and_check, assert_eq
@@ -9,7 +8,6 @@ from plenum.test.stasher import delay_rules_without_processing
 from stp_core.loop.eventually import eventually
 
 
-@pytest.mark.skip()
 def test_re_order_pre_prepares(looper, txnPoolNodeSet,
                                sdk_wallet_client, sdk_pool_handle):
     # 0. use new 3PC validator
@@ -23,32 +21,36 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
     other_nodes = txnPoolNodeSet[:-1]
     with delay_rules_without_processing(lagging_node.nodeIbStasher, cDelay(), pDelay()):
         sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 2)
-        assert all(n.master_last_ordered_3PC == (0, 2) for n in other_nodes)
+                                  sdk_pool_handle, sdk_wallet_client, 1)
+        assert all(n.master_last_ordered_3PC == (0, 1) for n in other_nodes)
 
     # 2. simulate view change start so that
     # all PrePrepares/Prepares/Commits are cleared
     # and uncommitted txns are reverted
     for n in txnPoolNodeSet:
         n.internal_bus.send(ViewChangeStarted(view_no=1))
-        assert not n.master_replica.prePrepares
-        assert not n.master_replica.prepares
-        assert not n.master_replica.commits
-        assert n.master_replica.old_view_preprepares
+        master_ordering_service = n.master_replica._ordering_service
+        assert not master_ordering_service.prePrepares
+        assert not master_ordering_service.prepares
+        assert not master_ordering_service.commits
+        assert master_ordering_service.old_view_preprepares
         ledger = n.db_manager.ledgers[DOMAIN_LEDGER_ID]
         state = n.db_manager.states[DOMAIN_LEDGER_ID]
         assert len(ledger.uncommittedTxns) == 0
         assert ledger.uncommitted_root_hash == ledger.tree.root_hash
         assert state.committedHead == state.head
 
-    # 3. Re-order the same PrePrepare
-    new_master = txnPoolNodeSet[1]
-    new_other_nodes = [txnPoolNodeSet[0]] + txnPoolNodeSet[2:]
+    # 3. Simulate View Change finish to re-order the same PrePrepare
     assert lagging_node.master_last_ordered_3PC == (0, 0)
-    for pp in new_master.master_replica._ordering_service.old_view_preprepares:
-        for n in new_other_nodes:
-            n.master_replica._ordering_service.process_preprepare(pp)
+    new_master = txnPoolNodeSet[1]
+    batches = [preprepare_to_batch_id(pp) for _, pp in new_master.master_replica._ordering_service.old_view_preprepares.items()]
+    new_view_msg = NewViewCheckpointsApplied(view_no=0,
+                                             view_changes=[],
+                                             checkpoint=None,
+                                             batches=batches)
+    for n in txnPoolNodeSet:
+        n.master_replica._ordering_service._bus.send(new_view_msg)
 
     # 4. Make sure that the nodes 1-3 (that already ordered the requests) sent Prepares and Commits so that
     # the request was eventually ordered on Node4 as well
-    looper.run(eventually(lambda: assert_eq(lagging_node.master_last_ordered_3PC, (0, 2))))
+    looper.run(eventually(lambda: assert_eq(lagging_node.master_last_ordered_3PC, (0, 1))))
