@@ -9,6 +9,7 @@ from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.helper import create_pre_prepare_params
 
 
@@ -47,7 +48,7 @@ def checkpoint(ordered, tconf):
                       viewNo=ordered.viewNo,
                       seqNoStart=start,
                       seqNoEnd=start + tconf.CHK_FREQ - 1,
-                      digest='digest')
+                      digest=cp_digest(start, start + tconf.CHK_FREQ - 1))
 
 
 def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint, tconf, is_master):
@@ -82,7 +83,7 @@ def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, chec
                                 viewNo=ordered.viewNo,
                                 seqNoStart=key[0],
                                 seqNoEnd=key[1],
-                                digest='digest')
+                                digest=cp_digest(1, 1))
 
     for sender in senders[:quorum]:
         assert not checkpoint_service._do_process_checkpoint(checkpoint, sender)
@@ -109,9 +110,9 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
     new_key = (key[1] + 1, key[1] + tconf.CHK_FREQ)
     checkpoint_service._data.stable_checkpoint = 1
 
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, new_key[0], new_key[1], "1"),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, new_key[0], new_key[1], cp_digest(1, 1)),
                                          "frm")
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, key[0], key[1], "1"),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, key[0], key[1], cp_digest(1, 1)),
                                          "frm")
     checkpoint_service._checkpoint_state[key] = CheckpointState(key[1] - 1,
                                                                 ["digest"] * (tconf.CHK_FREQ - 1),
@@ -141,8 +142,8 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     key = (1, tconf.CHK_FREQ)
     old_key = (-1, 0)
 
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 1, 1, "1"), "frm")
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo + 1, 1, 1, "1"), "frm")
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 1, 1, cp_digest(1, 1)), "frm")
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo + 1, 1, 1, cp_digest(1, 1)), "frm")
 
     checkpoint_service._checkpoint_state[old_key] = CheckpointState(1,
                                                                     ["digest"] * (tconf.CHK_FREQ - 1),
