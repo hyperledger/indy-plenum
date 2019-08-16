@@ -20,6 +20,7 @@ from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, create_pool_txn_data
 from plenum.test.simulation.sim_network import SimNetwork
@@ -117,7 +118,7 @@ def check_service_changed_only_owned_fields_in_shared_data(service: Type,
 
 
 def create_checkpoints(view_no):
-    return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest='some')]
+    return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]
 
 
 def create_batches(view_no):
@@ -129,7 +130,8 @@ def create_batches(view_no):
 def create_view_change(initial_view_no, stable_cp=10, batches=None):
     if batches is None:
         batches = create_batches(initial_view_no)
-    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=stable_cp, digest='some')
+    digest = cp_digest(0, stable_cp)
+    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=stable_cp, digest=digest)
     return ViewChange(viewNo=initial_view_no + 1,
                       stableCheckpoint=stable_cp,
                       prepared=batches,

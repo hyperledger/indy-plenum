@@ -7,6 +7,7 @@ from plenum.common.messages.internal_messages import NeedViewChange, NewViewAcce
     NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
     create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
 
@@ -336,7 +337,7 @@ def test_new_view_incorrect_checkpoint(internal_bus, validators, primary, view_c
         for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
             service._network.process_incoming(ack, ack_frm)
 
-    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=1000, digest='some')
+    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=1000, digest=cp_digest(0, 1000))
     new_view = create_new_view_from_vc(vc, non_primaries, checkpoint=cp)
 
     # send NewView by Primary
