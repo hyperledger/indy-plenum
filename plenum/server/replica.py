@@ -694,7 +694,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def process_requested_commit(self, commit: Commit, sender: str):
         return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
 
-    def send(self, msg, to_nodes=None) -> None:
+    def send(self, msg) -> None:
         """
         Send a message to the node on which this replica resides.
 
@@ -705,9 +705,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.logger.trace("{} sending {}".format(self, msg.__class__.__name__),
                           extra={"cli": True, "tags": ['sending']})
         self.logger.trace("{} sending {}".format(self, msg))
-        if to_nodes:
-            self.node.sendToNodes(msg, names=to_nodes)
-            return
         self.outBox.append(msg)
 
     def revert_unordered_batches(self):

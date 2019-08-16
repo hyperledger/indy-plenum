@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.stashing_router import DISCARD
 from plenum.common.util import SortedDict
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.helper import create_prepare_params, create_pre_prepare_no_bls, generate_state_root
@@ -60,7 +61,7 @@ def mock_timestamp():
 def primary_replica(_primary_replica, ts_now):
     _primary_replica._ordering_service.last_accepted_pre_prepare_time = None
     _primary_replica.get_time_for_3pc_batch.value = ts_now
-    _primary_replica._ordering_service._validate = lambda x: (None, None)
+    _primary_replica._ordering_service._validate = lambda x: (DISCARD, None)
     return _primary_replica
 
 
