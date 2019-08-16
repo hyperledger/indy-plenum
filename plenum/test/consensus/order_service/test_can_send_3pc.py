@@ -5,7 +5,7 @@ from plenum.common.startable import Mode
 
 def test_can_send_3pc_batch_by_primary_only(primary_orderer):
     assert primary_orderer.can_send_3pc_batch()
-    primary_orderer.primary_name = "SomeNode:0"
+    primary_orderer._data.primary_name = "SomeNode:0"
     assert not primary_orderer.can_send_3pc_batch()
 
 

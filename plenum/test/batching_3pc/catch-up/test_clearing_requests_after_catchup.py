@@ -54,7 +54,7 @@ def test_clearing_forwarded_preprepared_request(
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
 
     assert len(behind_node.requests) == 0
-    assert all([len(q) == 0 for r in behind_node.replicas.values() for q in r.requestQueues.values()])
+    assert all([len(q) == 0 for r in behind_node.replicas.values() for q in r._ordering_service.requestQueues.values()])
     assert len(behind_node.clientAuthNr._verified_reqs) == 0
     assert len(behind_node.requestSender) == 0
 
@@ -81,6 +81,6 @@ def test_deletion_non_forwarded_request(
 
     # We clear caughtup requests
     looper.run(eventually(lambda: assertExp(len(behind_node.requests) == 0)))
-    assert all([len(q) == 0 for r in behind_node.replicas.values() for q in r.requestQueues.values()])
+    assert all([len(q) == 0 for r in behind_node.replicas.values() for q in r._ordering_service.requestQueues.values()])
     assert len(behind_node.clientAuthNr._verified_reqs) == 0
     assert len(behind_node.requestSender) == 0

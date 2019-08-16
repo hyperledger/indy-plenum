@@ -27,8 +27,8 @@ def testRequestsSize(looper, txnPoolNodeSet, sdk_pool_handle,
                      format(node, len(node.requests), get_size(node.requests)))
         for replica in node.replicas.values():
             logger.debug("{} has prepares {} with size {}".
-                         format(replica, len(replica.prepares),
-                                get_size(replica.prepares)))
+                         format(replica, len(replica._ordering_service.prepares),
+                                get_size(replica._ordering_service.prepares)))
             logger.debug("{} has commits {} with size {}".
-                         format(replica, len(replica.commits),
-                                get_size(replica.commits)))
+                         format(replica, len(replica._ordering_service.commits),
+                                get_size(replica._ordering_service.commits)))

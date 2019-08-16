@@ -1,7 +1,7 @@
 from random import randint
 
 import pytest
-from plenum.server.replica import IntervalList, OrderedTracker
+from plenum.server.replica_helper import IntervalList, OrderedTracker
 
 
 @pytest.fixture

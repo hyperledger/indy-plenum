@@ -48,4 +48,5 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
         for replica in node.replicas.values():
             assert replica.last_ordered_3pc == (0, 4)
             if not replica.isMaster:
-                assert get_count(replica, replica._request_three_phase_msg) == 0
+                assert get_count(replica._ordering_service,
+                                 replica._ordering_service._request_three_phase_msg) == 0

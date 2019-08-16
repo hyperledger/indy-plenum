@@ -24,9 +24,9 @@ def checkRequestCounts(nodes, req_count, batches_count):
     for node in nodes:
         assertEquality(len(node.requests), req_count)
         for r in node.replicas.values():
-            assertEquality(len(r.commits), batches_count)
-            assertEquality(len(r.prepares), batches_count)
-            assertEquality(len(r.batches), batches_count)
+            assertEquality(len(r._ordering_service.commits), batches_count)
+            assertEquality(len(r._ordering_service.prepares), batches_count)
+            assertEquality(len(r._ordering_service.batches), batches_count)
 
 
 def check_stashed_chekpoints(node, count):

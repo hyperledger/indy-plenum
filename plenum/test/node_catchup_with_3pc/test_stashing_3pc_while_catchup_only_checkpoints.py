@@ -6,6 +6,7 @@ from plenum.common.messages.node_messages import Checkpoint, LedgerStatus
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cs_delay, lsDelay, \
@@ -148,4 +149,4 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
 def get_stashed_checkpoints(node):
     return sum(
-        1 for (stashed, sender) in node.master_replica.stasher._stashed_catch_up if isinstance(stashed, Checkpoint))
+        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_CATCH_UP] if isinstance(stashed, Checkpoint))

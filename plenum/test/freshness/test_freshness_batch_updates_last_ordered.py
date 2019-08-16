@@ -40,8 +40,8 @@ def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_h
     # no view change happened
     assert txnPoolNodeSet[0].master_replica.isPrimary
 
-    assert txnPoolNodeSet[0].master_replica.txnRootHash(DOMAIN_LEDGER_ID) == \
-           txnPoolNodeSet[1].master_replica.txnRootHash(DOMAIN_LEDGER_ID)
+    assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \
+           txnPoolNodeSet[1].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID)
     # node caught up till actual last_ordered_3pc
     assert txnPoolNodeSet[0].master_replica.last_ordered_3pc == \
            txnPoolNodeSet[1].master_replica.last_ordered_3pc
@@ -52,8 +52,8 @@ def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_h
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
     # domain ledger equeal
-    assert txnPoolNodeSet[0].master_replica.txnRootHash(DOMAIN_LEDGER_ID) == \
-           txnPoolNodeSet[1].master_replica.txnRootHash(DOMAIN_LEDGER_ID)
+    assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \
+           txnPoolNodeSet[1].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID)
 
     # no discard happened
     assert len(getSpecificDiscardedMsg(txnPoolNodeSet[1], PrePrepare)) == old_discard
@@ -73,8 +73,8 @@ def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet
 
     restart_node(looper, txnPoolNodeSet, txnPoolNodeSet[1], tconf, tdir, allPluginsPath)
 
-    assert txnPoolNodeSet[0].master_replica.txnRootHash(DOMAIN_LEDGER_ID) == \
-           txnPoolNodeSet[1].master_replica.txnRootHash(DOMAIN_LEDGER_ID)
+    assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \
+           txnPoolNodeSet[1].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID)
     # node caught up till actual last_ordered_3pc
     assert txnPoolNodeSet[0].master_replica.last_ordered_3pc == \
            txnPoolNodeSet[1].master_replica.last_ordered_3pc
@@ -83,5 +83,5 @@ def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
     # domain ledger equeal
-    assert txnPoolNodeSet[0].master_replica.txnRootHash(DOMAIN_LEDGER_ID) == \
-           txnPoolNodeSet[1].master_replica.txnRootHash(DOMAIN_LEDGER_ID)
+    assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \
+           txnPoolNodeSet[1].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID)

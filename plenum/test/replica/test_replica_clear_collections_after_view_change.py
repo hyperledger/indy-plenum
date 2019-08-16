@@ -58,6 +58,6 @@ def test_replica_clear_collections_after_view_change(looper,
     def check_request_queues():
         assert len(txnPoolNodeSet[0].requests) == 1
         for n in txnPoolNodeSet:
-            assert len(n.replicas[1].requestQueues[DOMAIN_LEDGER_ID]) == 0
+            assert len(n.replicas[1]._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == 0
 
     looper.run(eventually(check_request_queues))

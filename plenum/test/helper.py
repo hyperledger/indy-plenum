@@ -313,7 +313,8 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    prePreparesSent = getAllArgs(replica._ordering_service,
+                                 replica._ordering_service.l_sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
     assert (req.digest,) in \
@@ -323,15 +324,15 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
-        params = getAllArgs(replica, replica._can_process_pre_prepare)
+        params = getAllArgs(replica._ordering_service, replica._ordering_service.l_can_process_pre_prepare)
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
-    paramsList = getAllArgs(replica, replica.canPrepare)
-    rv = getAllReturnVals(replica,
-                          replica.canPrepare)
+    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service.l_canPrepare)
+    rv = getAllReturnVals(replica._ordering_service,
+                          replica._ordering_service.l_canPrepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
     assert (key,) in args
     idx = args.index((key,))
@@ -341,16 +342,16 @@ def checkPrepareReqSent(replica: TestReplica, key: str,
 def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,
                                    ppSeqNo: int):
     key = (viewNo, ppSeqNo)
-    assert key in replica.prepares
-    assert len(replica.prepares[key][1]) >= replica.quorums.prepare.value
+    assert key in replica._ordering_service.prepares
+    assert len(replica._ordering_service.prepares[key][1]) >= replica.quorums.prepare.value
 
 
 def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
                                   ppSeqNo: int):
     for replica in replicas:
         key = (viewNo, ppSeqNo)
-        assert key in replica.commits
-        received = len(replica.commits[key][1])
+        assert key in replica._ordering_service.commits
+        received = len(replica._ordering_service.commits[key][1])
         minimum = replica.quorums.commit.value
         assert received > minimum
 
@@ -1323,7 +1324,7 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
 
 
 def check_missing_pre_prepares(nodes, count):
-    assert all(count <= len(replica.prePreparesPendingPrevPP)
+    assert all(count <= len(replica._ordering_service.prePreparesPendingPrevPP)
                for replica in getNonPrimaryReplicas(nodes, instId=0))
 
 

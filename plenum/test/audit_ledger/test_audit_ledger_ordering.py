@@ -22,7 +22,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 1,
-                        seq_no=initial_seq_no + 1, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 1,
+                        txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={
                             POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash,
                             DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash
@@ -46,7 +47,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 2,
-                        seq_no=initial_seq_no + 2, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 2,
+                        txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={
                             DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash
                         },
@@ -71,7 +73,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 3,
-                        seq_no=initial_seq_no + 3, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 3,
+                        txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={
                             POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash
                         },
@@ -96,7 +99,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 4,
-                        seq_no=initial_seq_no + 4, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 4,
+                        txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={
                             POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash
                         },
@@ -118,7 +122,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         check_audit_txn(txn=node.auditLedger.get_last_txn(),
                         view_no=view_no, pp_seq_no=pp_seq_no + 5,
-                        seq_no=initial_seq_no + 5, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 5,
+                        txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={
                             DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash
                         },

@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
@@ -34,6 +34,9 @@ class ConsensusSharedData:
         self.legacy_vc_in_progress = False
         self.requests = Requests()
         self.last_ordered_3pc = (0, 0)
+        # Indicates name of the primary replica of this protocol instance.
+        # None in case the replica does not know who the primary of the
+        # instance is
         self.primary_name = None
         # seqNoEnd of the last stabilized checkpoint
         self.stable_checkpoint = 0
@@ -44,7 +47,7 @@ class ConsensusSharedData:
         # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is reached
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
-        self._quorums = None
+        self.quorums = None
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
@@ -53,7 +56,11 @@ class ConsensusSharedData:
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
         # ToDo: it should be set in view_change_service before view_change starting
+        # 3 phase key for the last prepared certificate before view change
+        # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
+        self.primaries_batch_needed = False
+        self.requestQueues = {}
 
     @property
     def name(self) -> str:
@@ -61,7 +68,7 @@ class ConsensusSharedData:
 
     def set_validators(self, validators: List[str]):
         self._validators = validators
-        self._quorums = Quorums(len(validators))
+        self.quorums = Quorums(len(validators))
 
     @property
     def validators(self) -> List[str]:
@@ -71,15 +78,12 @@ class ConsensusSharedData:
         return self._validators
 
     @property
-    def quorums(self) -> Quorums:
+    def is_primary(self) -> Optional[bool]:
         """
-        List of quorums
+        Returns is replica primary for this instance.
+        If primary name is not defined yet, returns None
         """
-        return self._quorums
-
-    @property
-    def is_primary(self) -> bool:
-        return self.primary_name == self.name
+        return None if self.primary_name is None else self.primary_name == self.name
 
     @property
     def is_participating(self):

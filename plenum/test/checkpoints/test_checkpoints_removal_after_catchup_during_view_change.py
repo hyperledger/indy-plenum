@@ -35,8 +35,7 @@ def view_change_in_progress(view_setup, txnPoolNodeSet):
 def clear_checkpoints(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         for inst_id, replica in node.replicas.items():
-            replica._checkpointer._checkpoint_state.clear()
-            replica._checkpointer._stashed_recvd_checkpoints.clear()
+            replica._checkpointer._reset_checkpoints()
 
 
 def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
