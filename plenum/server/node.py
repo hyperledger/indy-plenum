@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries, NeedMasterCatchup, \
-    RequestPropagates
+    RequestPropagates, PreSigVerification
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -1845,7 +1845,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
+        self.internal_bus.send(PreSigVerification(cMsg))
         self.verifySignature(cMsg)
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))

@@ -1,5 +1,7 @@
 from typing import Optional, List
 
+import base58
+
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
 from plenum.test.consensus.helper import SimPool
@@ -8,8 +10,8 @@ from plenum.test.simulation.sim_random import SimRandom
 
 def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoint:
     return Checkpoint(
-        instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no, digest=random.string(40)
-    )
+        instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no,
+        digest=base58.b58encode(random.string(32)).decode())
 
 
 def some_pool(random: SimRandom) -> (SimPool, List):

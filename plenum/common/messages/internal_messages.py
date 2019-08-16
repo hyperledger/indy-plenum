@@ -1,7 +1,6 @@
 from typing import NamedTuple, List, Any
 
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.messages.node_messages import CheckpointState, PrePrepare
 
 # TODO: should be removed
 ValidatorsChanged = NamedTuple('ValidatorsChange',
@@ -43,3 +42,6 @@ CheckpointStabilized = NamedTuple('CheckpointStabilized',
 RaisedSuspicion = NamedTuple('RaisedSuspicion',
                              [('inst_id', int),
                               ('ex', SuspiciousNode)])
+
+PreSigVerification = NamedTuple('PreSigVerification',
+                                [('cmsg', Any)])
