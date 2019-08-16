@@ -14,6 +14,7 @@ from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, MockNetwork
 from plenum.test.testing_utils import FakeSomething
@@ -46,7 +47,7 @@ def primary(validators):
 
 @pytest.fixture
 def initial_checkpoints(initial_view_no):
-    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest='empty')]
+    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))]
 
 
 @pytest.fixture
@@ -106,7 +107,7 @@ def view_change_message():
             stableCheckpoint=4,
             prepared=[],
             preprepared=[],
-            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest='some')]
+            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest=cp_digest(0, 4))]
         )
         return vc
 

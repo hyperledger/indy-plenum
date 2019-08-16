@@ -1,3 +1,5 @@
+import base58
+
 from plenum.test.helper import assertEquality
 
 
@@ -22,9 +24,9 @@ def checkRequestCounts(nodes, req_count, batches_count):
     for node in nodes:
         assertEquality(len(node.requests), req_count)
         for r in node.replicas.values():
-            assertEquality(len(r.commits), batches_count)
-            assertEquality(len(r.prepares), batches_count)
-            assertEquality(len(r.batches), batches_count)
+            assertEquality(len(r._ordering_service.commits), batches_count)
+            assertEquality(len(r._ordering_service.prepares), batches_count)
+            assertEquality(len(r._ordering_service.batches), batches_count)
 
 
 def check_stashed_chekpoints(node, count):
@@ -32,3 +34,10 @@ def check_stashed_chekpoints(node, count):
             for ckps_for_view in node.master_replica._checkpointer._stashed_recvd_checkpoints.values()
             for ckps in ckps_for_view.values())
     assert count == c, "{} != {}".format(count, c)
+
+
+def cp_digest(min: int, max: int, key: str = '0') -> str:
+    assert len(key) == 1
+    digest = "digest-{}-{}-".format(min, max)
+    digest = digest + key * (32 - len(digest))
+    return base58.b58encode(digest).decode()

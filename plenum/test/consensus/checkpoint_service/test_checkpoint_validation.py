@@ -2,11 +2,13 @@ import pytest
 
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.util import SortedDict
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, CATCHING_UP, ALREADY_STABLE, \
+from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, CATCHING_UP, ALREADY_STABLE, \
     STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW
+from plenum.test.checkpoints.helper import cp_digest
 
 
 @pytest.fixture(scope='function', params=[0, 1])
@@ -31,7 +33,7 @@ def checkpoint(view_no, inst_id, seq_no_start, seq_no_end):
                       viewNo=view_no,
                       seqNoStart=seq_no_start,
                       seqNoEnd=seq_no_end,
-                      digest='digest-{}-{}'.format(str(seq_no_start), str(seq_no_end)))
+                      digest=cp_digest(seq_no_start, seq_no_end))
 
 
 def test_check_all_correct(validator):

@@ -1,3 +1,4 @@
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.replica import Replica
 from plenum.test.node_request.message_request.helper import \
     check_pp_out_of_sync
@@ -57,8 +58,8 @@ def test_node_requests_missing_preprepares_and_prepares(
         assert node.domainLedger.size == init_ledger_size
 
     for node in disconnected_nodes:
-        assert node.master_replica.spylog.count(Replica._request_pre_prepare) == 0
-        assert node.master_replica.spylog.count(Replica._request_prepare) == 0
+        assert node.master_replica._ordering_service.spylog.count(OrderingService._request_pre_prepare) == 0
+        assert node.master_replica._ordering_service.spylog.count(OrderingService._request_prepare) == 0
         assert node.master_replica.spylog.count(Replica.process_requested_pre_prepare) == 0
         assert node.master_replica.spylog.count(Replica.process_requested_prepare) == 0
 
@@ -70,8 +71,8 @@ def test_node_requests_missing_preprepares_and_prepares(
     waitNodeDataEquality(looper, disconnected_nodes[0], *txnPoolNodeSet[:-1])
 
     for node in disconnected_nodes:
-        assert node.master_replica.spylog.count(Replica._request_pre_prepare) > 0
-        assert node.master_replica.spylog.count(Replica._request_prepare) > 0
+        assert node.master_replica._ordering_service.spylog.count(OrderingService._request_pre_prepare) > 0
+        assert node.master_replica._ordering_service.spylog.count(OrderingService._request_prepare) > 0
         assert node.master_replica.spylog.count(Replica.process_requested_pre_prepare) > 0
         assert node.master_replica.spylog.count(Replica.process_requested_prepare) > 0
 

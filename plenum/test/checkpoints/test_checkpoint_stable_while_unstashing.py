@@ -40,14 +40,14 @@ def test_stabilize_checkpoint_while_unstashing_when_missing_pre_prepare(looper,
             # bad node has all commits and prepares for the last request stashed
             looper.run(eventually(
                 lambda: assertExp(
-                    (0, CHK_FREQ) in lagging_master_replcia.preparesWaitingForPrePrepare and
-                    len(lagging_master_replcia.preparesWaitingForPrePrepare[(0, CHK_FREQ)]) == len(rest_nodes) - 1
+                    (0, CHK_FREQ) in lagging_master_replcia._ordering_service.preparesWaitingForPrePrepare and
+                    len(lagging_master_replcia._ordering_service.preparesWaitingForPrePrepare[(0, CHK_FREQ)]) == len(rest_nodes) - 1
                 )
             ))
             looper.run(eventually(
                 lambda: assertExp(
-                    (0, CHK_FREQ) in lagging_master_replcia.commitsWaitingForPrepare and
-                    len(lagging_master_replcia.commitsWaitingForPrepare[(0, CHK_FREQ)]) == len(rest_nodes)
+                    (0, CHK_FREQ) in lagging_master_replcia._ordering_service.commitsWaitingForPrepare and
+                    len(lagging_master_replcia._ordering_service.commitsWaitingForPrepare[(0, CHK_FREQ)]) == len(rest_nodes)
                 )
             ))
 

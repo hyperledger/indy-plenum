@@ -54,26 +54,7 @@ class Replicas:
         if inst_id not in self._replicas:
             return
         replica = self._replicas.pop(inst_id)
-
-        # Aggregate all the currently forwarded requests
-        req_keys = set()
-        for msg in replica.inBox:
-            if isinstance(msg, ReqKey):
-                req_keys.add(msg.digest)
-        for req_queue in replica.requestQueues.values():
-            for req_key in req_queue:
-                req_keys.add(req_key)
-        for pp in replica.sentPrePrepares.values():
-            for req_key in pp.reqIdr:
-                req_keys.add(req_key)
-        for pp in replica.prePrepares.values():
-            for req_key in pp.reqIdr:
-                req_keys.add(req_key)
-
-        for req_key in req_keys:
-            if req_key in replica.requests:
-                replica.requests.ordered_by_replica(req_key)
-                replica.requests.free(req_key)
+        replica.cleanup()
 
         self._messages_to_replicas.pop(inst_id, None)
         self._monitor.removeInstance(inst_id)
@@ -184,7 +165,7 @@ class Replicas:
             reqId, duration = unordered
 
             # get ppSeqNo and viewNo
-            preprepares = replica.sentPrePrepares if replica.isPrimary else replica.prePrepares
+            preprepares = replica._ordering_service.sentPrePrepares if replica.isPrimary else replica._ordering_service.prePrepares
             ppSeqNo = None
             viewNo = None
             for key in preprepares:
@@ -195,24 +176,24 @@ class Replicas:
             if ppSeqNo is None or viewNo is None:
                 logger.warning('Unordered request with reqId: {} was not found in prePrepares. '
                                'Prepares count: {}, Commits count: {}'.format(reqId,
-                                                                              len(replica.prepares),
-                                                                              len(replica.commits)))
+                                                                              len(replica._ordering_service.prepares),
+                                                                              len(replica._ordering_service.commits)))
                 continue
 
             # get pre-prepare sender
             prepre_sender = replica.primaryNames.get(viewNo, 'UNKNOWN')
 
             # get prepares info
-            prepares = replica.prepares[(viewNo, ppSeqNo)][0] \
-                if (viewNo, ppSeqNo) in replica.prepares else []
+            prepares = replica._ordering_service.prepares[(viewNo, ppSeqNo)][0] \
+                if (viewNo, ppSeqNo) in replica._ordering_service.prepares else []
             n_prepares = len(prepares)
             str_prepares = 'noone'
             if n_prepares:
                 str_prepares = ', '.join(prepares)
 
             # get commits info
-            commits = replica.commits[(viewNo, ppSeqNo)][0] \
-                if (viewNo, ppSeqNo) in replica.commits else []
+            commits = replica._ordering_service.commits[(viewNo, ppSeqNo)][0] \
+                if (viewNo, ppSeqNo) in replica._ordering_service.commits else []
             n_commits = len(commits)
             str_commits = 'noone'
             if n_commits:

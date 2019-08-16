@@ -1,5 +1,7 @@
 from typing import List
 
+from plenum.server.replica_freshness_checker import FreshnessChecker
+
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
@@ -34,12 +36,14 @@ class ReplicaService:
                                         network=network,
                                         write_manager=write_manager,
                                         bls_bft_replica=bls_bft_replica,
+                                        freshness_checker=FreshnessChecker(
+                                            freshness_timeout=config.STATE_FRESHNESS_UPDATE_INTERVAL),
                                         stasher=stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
-                                               write_manager.database_manager,
-                                               old_stasher=FakeSomething(unstash_watermarks=lambda: None))
+                                               write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network)
 
         # TODO: This is just for testing purposes only
         self._data.checkpoints.append(
-            Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest='empty'))
+            Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0,
+                       digest='4F7BsTMVPKFshM1MwLf6y23cid6fL3xMpazVoF9krzUw'))

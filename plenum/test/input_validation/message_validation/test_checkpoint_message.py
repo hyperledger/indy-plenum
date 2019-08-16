@@ -1,15 +1,14 @@
-import pytest
 from plenum.common.messages.node_messages import Checkpoint
 from collections import OrderedDict
 from plenum.common.messages.fields import \
-    NonNegativeNumberField, LimitedLengthStringField
+    NonNegativeNumberField, MerkleRootField
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("seqNoStart", NonNegativeNumberField),
     ("seqNoEnd", NonNegativeNumberField),
-    ("digest", LimitedLengthStringField),
+    ("digest", MerkleRootField),
 ])
 
 

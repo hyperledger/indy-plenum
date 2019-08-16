@@ -19,7 +19,6 @@ def checkpoint_service(consensus_data, internal_bus,
                                            bus=internal_bus,
                                            network=MockNetwork(),
                                            stasher=stasher,
-                                           db_manager=db_manager,
-                                           old_stasher=FakeSomething(unstash_watermarks=lambda: None))
+                                           db_manager=db_manager)
     checkpoint_service._data.node_mode = Mode.participating
     return checkpoint_service

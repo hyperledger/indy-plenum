@@ -19,8 +19,8 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
                                                          sdk_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
-    replica.preparesWaitingForPrePrepare.clear()
-    replica.prePreparesPendingPrevPP.clear()
+    replica._ordering_service.preparesWaitingForPrePrepare.clear()
+    replica._ordering_service.prePreparesPendingPrevPP.clear()
     replica.last_ordered_3pc = (0, 0)
     timestamp = time.time()
     ppSeqNo = 5
@@ -30,15 +30,15 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
                                        ppSeqNo,
                                        timestamp,
                                        sdk_wallet_client)
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
-    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+        replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
-    replica.first_batch_after_catchup = True
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.first_batch_after_catchup = True
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (replica.viewNo, ppSeqNo - 1)
 
 
@@ -46,8 +46,8 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
                                                               sdk_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
-    replica.preparesWaitingForPrePrepare.clear()
-    replica.prePreparesPendingPrevPP.clear()
+    replica._ordering_service.preparesWaitingForPrePrepare.clear()
+    replica._ordering_service.prePreparesPendingPrevPP.clear()
     replica.last_ordered_3pc = (0, 0)
     timestamp = time.time()
     ppSeqNo = 5
@@ -57,11 +57,11 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
                                        ppSeqNo,
                                        timestamp,
                                        sdk_wallet_client)
-    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+        replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
 
@@ -70,8 +70,8 @@ def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
         sdk_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
-    replica.preparesWaitingForPrePrepare.clear()
-    replica.prePreparesPendingPrevPP.clear()
+    replica._ordering_service.preparesWaitingForPrePrepare.clear()
+    replica._ordering_service.prePreparesPendingPrevPP.clear()
     replica.last_ordered_3pc = (0, 0)
     timestamp = time.time()
     ppSeqNo = 5
@@ -81,13 +81,13 @@ def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
                                        ppSeqNo,
                                        timestamp,
                                        sdk_wallet_client)
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
-    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
-    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+    replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
         .append((prepare, txnPoolNodeSet[-1].name))
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
 
@@ -95,8 +95,8 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
                                                       sdk_wallet_client):
     inst_id = 0
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
-    replica.preparesWaitingForPrePrepare.clear()
-    replica.prePreparesPendingPrevPP.clear()
+    replica._ordering_service.preparesWaitingForPrePrepare.clear()
+    replica._ordering_service.prePreparesPendingPrevPP.clear()
     replica.last_ordered_3pc = (0, 0)
     timestamp = time.time()
     ppSeqNo = 5
@@ -106,14 +106,14 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
                                        ppSeqNo,
                                        timestamp,
                                        sdk_wallet_client)
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
-    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+        replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == (0, 0)
 
 
@@ -125,23 +125,23 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
     ppSeqNo = 16
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica.last_ordered_3pc = last_ordered_3pc
-    replica.preparesWaitingForPrePrepare.clear()
-    replica.prePreparesPendingPrevPP.clear()
+    replica._ordering_service.preparesWaitingForPrePrepare.clear()
+    replica._ordering_service.prePreparesPendingPrevPP.clear()
     preprepare, prepare = \
         _create_prepare_and_preprepare(inst_id,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
                                        sdk_wallet_client)
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
-    replica.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
-    replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
+    replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
-        replica.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
+        replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
             .append((prepare, node.name))
 
-    replica._setup_last_ordered_for_non_master()
+    replica._ordering_service.l_setup_last_ordered_for_non_master()
     assert replica.last_ordered_3pc == last_ordered_3pc
 
 

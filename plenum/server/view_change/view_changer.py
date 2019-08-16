@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from common.exceptions import LogicError
+from plenum.common.event_bus import InternalBus
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums

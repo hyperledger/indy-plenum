@@ -1,8 +1,9 @@
 import pytest
 
 from plenum.common.startable import Mode
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.server.consensus.ordering_service import ThreePCMsgValidator
-from plenum.server.replica_validator_enums import PROCESS, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
+from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
     STASH_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, GREATER_PREP_CERT
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig

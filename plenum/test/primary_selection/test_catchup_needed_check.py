@@ -41,7 +41,6 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
     bad_node = nprs[-1].node
     other_nodes = [n for n in txnPoolNodeSet if n != bad_node]
-    orig_method = bad_node.master_replica.process_three_phase_msg
 
     # Bad node does not process any 3 Commit messages, equivalent to messages
     with delay_rules(bad_node.nodeIbStasher, cDelay()):
