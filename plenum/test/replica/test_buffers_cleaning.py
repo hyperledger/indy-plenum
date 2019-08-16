@@ -21,7 +21,6 @@ def test_ordered_cleaning(tconf):
         db_manager=DatabaseManager(),
         requests=[],
         mode=Mode.participating,
-        primaries_batch_needed=False,
         timer=QueueTimer(),
         quorums=Quorums(4),
         write_manager=None
@@ -43,7 +42,7 @@ def test_ordered_cleaning(tconf):
 
     # gc is called after stable checkpoint, since no request executed
     # in this test starting it manually
-    replica._ordering_service.l_gc(100)
+    replica._ordering_service.gc(100)
     # Requests with view lower then previous view
     # should not be in ordered
     assert len(replica._ordering_service.ordered) == len(total[num_requests_per_view:])
@@ -60,7 +59,6 @@ def test_primary_names_cleaning(tconf):
         db_manager=DatabaseManager(),
         requests=[],
         mode=Mode.participating,
-        primaries_batch_needed=False,
         timer=QueueTimer(),
         quorums=Quorums(4),
         write_manager=None

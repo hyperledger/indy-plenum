@@ -60,7 +60,6 @@ class FakeNode:
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
         self.nodeStatusDB = None
-        self.primaries_batch_needed = False
         self.internal_bus = InternalBus()
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))

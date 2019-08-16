@@ -87,12 +87,12 @@ def checkPrePrepared(looper,
                 init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
-                primary._ordering_service.l_stateRootHash(DOMAIN_LEDGER_ID),
-                primary._ordering_service.l_txnRootHash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
                 0,
                 True,
-                primary._ordering_service.l_stateRootHash(POOL_LEDGER_ID),
-                primary._ordering_service.l_txnRootHash(AUDIT_LEDGER_ID)
+                primary._ordering_service.get_state_root_hash(POOL_LEDGER_ID),
+                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID)
             )
 
             passes = 0

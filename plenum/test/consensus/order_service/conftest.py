@@ -27,10 +27,10 @@ def orderer(consensus_data, internal_bus, name, write_manager,
                                   freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL))
     orderer._data.node_mode = Mode.participating
     orderer._data.primary_name = "Alpha:0"
-    orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
-    orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    orderer.get_txn_root_hash = lambda ledger, to_str=False: txn_roots[ledger]
+    orderer.get_state_root_hash = lambda ledger, to_str=False: state_roots[ledger]
     orderer.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
-    orderer.l_revert = lambda *args, **kwargs: None
+    orderer._revert = lambda *args, **kwargs: None
     orderer.db_manager.stores[LAST_SENT_PP_STORE_LABEL] = \
         FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
     return orderer
@@ -90,7 +90,7 @@ def fake_requests():
 
 @pytest.fixture(scope='function')
 def orderer_with_requests(orderer, fake_requests):
-    orderer.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
+    orderer._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         orderer.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         orderer._requests.add(req)

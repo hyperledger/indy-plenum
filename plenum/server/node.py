@@ -214,9 +214,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # and restoration current primaries from audit ledger
         self._primaries = []
 
-        # Flag which node set, when it have set new primaries and need to send batch
-        self._primaries_batch_needed = False
-
         self.network_stacks_init(seed)
 
         HasActionQueue.__init__(self)
@@ -349,10 +346,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
-        self.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_handler)
-
-    def _primaries_batch_needed_handler(self, msg: PrimariesBatchNeeded):
-        self._primaries_batch_needed = msg.pbn
 
     @property
     def mode(self):
@@ -568,15 +561,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.view_changer is None:
             return False
         return self.view_changer.view_change_in_progress
-
-    @property
-    def primaries_batch_needed(self):
-        return self._primaries_batch_needed
-
-    @primaries_batch_needed.setter
-    def primaries_batch_needed(self, fl):
-        self._primaries_batch_needed = fl
-        self.internal_bus.send(PrimariesBatchNeeded(fl))
 
     @property
     def primaries(self):
@@ -3041,7 +3025,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Notify replica, that we need to send batch with new primaries
         if self.viewNo != 0:
-            self.primaries_batch_needed = True
+            for r in self.replicas.values():
+                r.set_primaries_batch_needed(True)
 
     def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica

@@ -207,13 +207,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stasher.unsubscribe_from_all()
 
     @property
-    def first_batch_after_catchup(self):
-        # Defines if there was a batch after last catchup
-        return self._ordering_service.first_batch_after_catchup
-
-    @property
     def external_bus(self):
-        # Defines if there was a batch after last catchup
         return self._external_bus
 
     @property
@@ -239,24 +233,17 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _bootstrap_consensus_data(self):
         self._consensus_data.requests = self.requests
-        self._consensus_data.low_watermark = self.h
-        self._consensus_data.high_watermark = self.H
         self._consensus_data.node_mode = self.node.mode
-        self._consensus_data.primaries_batch_needed = self.node.primaries_batch_needed
         self._consensus_data.quorums = self.quorums
 
     def _primaries_list_msg(self, msg: CurrentPrimaries):
         self._consensus_data.primaries = msg.primaries
-
-    def _primaries_batch_needed_msg(self, msg: PrimariesBatchNeeded):
-        self._consensus_data.primaries_batch_needed = msg.pbn
 
     def _subscribe_to_external_msgs(self):
         # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
 
     def _subscribe_to_internal_msgs(self):
-        self._subscription.subscribe(self.node.internal_bus, PrimariesBatchNeeded, self._primaries_batch_needed_msg)
         self._subscription.subscribe(self.node.internal_bus, CurrentPrimaries, self._primaries_list_msg)
         self._subscription.subscribe(self.node.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.node.internal_bus, NeedBackupCatchup, self._caught_up_backup)
@@ -641,7 +628,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Clear any checkpoints, since they are valid only in a view
         # ToDo: Need to send a cmd like ViewChangeStart into internal bus
         # self._gc(self.last_ordered_3pc)
-        self._ordering_service.l_gc(self.last_ordered_3pc)
+        self._ordering_service.gc(self.last_ordered_3pc)
         self._checkpointer.gc_before_new_view()
         # ToDo: get rid of directly calling
         self._ordering_service._clear_prev_view_pre_prepares()
@@ -722,7 +709,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def process_requested_commit(self, commit: Commit, sender: str):
         return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
 
-    def send(self, msg) -> None:
+    def send(self, msg, dst=None) -> None:
         """
         Send a message to the node on which this replica resides.
 
@@ -835,16 +822,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def set_mode(self, mode):
         self._consensus_data.node_mode = mode
 
+    def set_primaries_batch_needed(self, value):
+        self._ordering_service.primaries_batch_needed = value
+
     def update_connecteds(self, connecteds: dict):
         self._external_bus.update_connecteds(connecteds)
-
-    def _init_checkpoint_service(self) -> CheckpointService:
-        return CheckpointService(data=self._consensus_data,
-                                 bus=self.node.internal_bus,
-                                 network=self._external_bus,
-                                 stasher=self.stasher,
-                                 db_manager=self.node.db_manager,
-                                 metrics=self.metrics)
 
     def _init_replica_stasher(self):
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
@@ -853,7 +835,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _cleanup_process(self, msg: CheckpointStabilized):
         if msg.inst_id != self.instId:
             return
-        self._ordering_service.l_gc(msg.last_stable_3pc)
+        self._ordering_service.gc(msg.last_stable_3pc)
 
     def _process_suspicious_node(self, msg: RaisedSuspicion):
         if msg.inst_id != self.instId:
@@ -864,6 +846,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if msg.instId != self.instId:
             return
         self.send(msg)
+
+    def _init_checkpoint_service(self) -> CheckpointService:
+        return CheckpointService(data=self._consensus_data,
+                                 bus=self.node.internal_bus,
+                                 network=self._external_bus,
+                                 stasher=self.stasher,
+                                 db_manager=self.node.db_manager,
+                                 metrics=self.metrics)
 
     def _init_ordering_service(self) -> OrderingService:
         return OrderingService(data=self._consensus_data,

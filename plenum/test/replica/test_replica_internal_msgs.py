@@ -38,12 +38,6 @@ def primaries(request):
 def send_msg(bus: InternalBus, msg: Any):
     bus.send(msg)
 
-
-def test_pass_primaries_batch_needed(consensus_data, ib, pb_needed):
-    send_msg(ib, PrimariesBatchNeeded(pb_needed))
-    assert consensus_data.primaries_batch_needed == pb_needed
-
-
 def test_pass_current_primaries(consensus_data, ib, primaries):
     send_msg(ib, CurrentPrimaries(primaries))
     assert consensus_data.primaries == primaries

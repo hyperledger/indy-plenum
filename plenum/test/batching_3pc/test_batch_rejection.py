@@ -19,7 +19,7 @@ def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, tconf.Max3PCBatchSize)
-    stateRoot = pr._ordering_service.l_stateRootHash(DOMAIN_LEDGER_ID, to_str=False)
+    stateRoot = pr._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID, to_str=False)
 
     origMethod = pr._ordering_service.l_create_3pc_batch
     malignedOnce = None
@@ -44,7 +44,7 @@ def reverted(setup, looper):
 
     def chkStateRoot(root):
         for r in [pr] + otherR:
-            r._ordering_service.l_stateRootHash(DOMAIN_LEDGER_ID, to_str=False) == root
+            r._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID, to_str=False) == root
 
     looper.run(eventually(chkStateRoot, oldStateRoot))
 

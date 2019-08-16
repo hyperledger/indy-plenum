@@ -203,7 +203,7 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
     txnPoolNodeSet.remove(replica.node)
     old_reverts = {}
     for i, node in enumerate(txnPoolNodeSet):
-        old_reverts[i] = node.master_replica._ordering_service.spylog.count(OrderingService.l_revert)
+        old_reverts[i] = node.master_replica._ordering_service.spylog.count(OrderingService._revert)
         node.seqNoDB._keyValueStorage.remove(req.digest)
         node.seqNoDB._keyValueStorage.remove(req.payload_digest)
 
@@ -213,6 +213,6 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
 
     def reverts():
         for i, node in enumerate(txnPoolNodeSet):
-            assert old_reverts[i] + 1 == node.master_replica._ordering_service.spylog.count(OrderingService.l_revert)
+            assert old_reverts[i] + 1 == node.master_replica._ordering_service.spylog.count(OrderingService._revert)
 
     looper.run(eventually(reverts))

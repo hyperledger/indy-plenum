@@ -63,6 +63,7 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
+                 request_queues: dict,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
                  stasher=None,
@@ -76,6 +77,8 @@ class OrderingService:
         self._write_manager = write_manager
         self._name = self._data.name
         self.get_time_for_3pc_batch = get_time_for_3pc_batch or get_utc_epoch
+        # Flag which node set, when it have set new primaries and need to send batch
+        self.primaries_batch_needed = False
 
         self._config = getConfig()
         self._logger = getlogger()
@@ -201,8 +204,7 @@ class OrderingService:
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
-        # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = self._data.requestQueues  # type: Dict[int, OrderedSet]
+        self.requestQueues = {}  # type: Dict[int, OrderedSet]
 
         self.stats = Stats(TPCStat)
 
@@ -287,7 +289,7 @@ class OrderingService:
         # PRE-PREPARE request, then proceed
 
         # PREPARE should not be sent from primary
-        if self.l_isMsgFromPrimary(prepare, sender):
+        if self._is_msg_from_primary(prepare, sender):
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.PR_FRM_PRIMARY, prepare))
             return False
 
@@ -439,7 +441,7 @@ class OrderingService:
         Return None otherwise.
         :param msg: message
         """
-        return self._data.is_primary if self.l_isMsgForCurrentView(msg) \
+        return self._data.is_primary if self._is_msg_for_current_view(msg) \
             else self.l_is_primary_in_view(msg.viewNo)
 
     """Method from legacy code"""
@@ -550,10 +552,10 @@ class OrderingService:
             ex = SuspiciousNode(sender, reason, pre_prepare)
             self.report_suspicious_node(ex)
 
-        why_not = self.l_can_process_pre_prepare(pre_prepare, sender)
+        why_not = self._can_process_pre_prepare(pre_prepare, sender)
         if why_not is None:
             why_not_applied = \
-                self.l_process_valid_preprepare(pre_prepare, sender)
+                self._process_valid_preprepare(pre_prepare, sender)
             if why_not_applied is not None:
                 if why_not_applied == PP_APPLY_REJECT_WRONG:
                     report_suspicious(Suspicions.PPR_REJECT_WRONG)
@@ -626,13 +628,13 @@ class OrderingService:
                     return None, None
 
             bad_reqs = absents | non_fin
-            self.l_enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
+            self._enqueue_pre_prepare(pre_prepare, sender, bad_reqs)
             # TODO: An optimisation might be to not request PROPAGATEs
             # if some PROPAGATEs are present or a client request is
             # present and sufficient PREPAREs and PRE-PREPARE are present,
             # then the digest can be compared but this is expensive as the
             # PREPARE and PRE-PREPARE contain a combined digest
-            self._schedule(partial(self.l_request_propagates_if_needed, bad_reqs, pre_prepare),
+            self._schedule(partial(self._request_propagates_if_needed, bad_reqs, pre_prepare),
                            self._config.PROPAGATE_REQUEST_DELAY)
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
@@ -646,9 +648,9 @@ class OrderingService:
                     self._logger.warning(
                         "{} missing PRE-PREPAREs from {} to {}, "
                         "going to request".format(self, seq_frm, seq_to))
-                    self.l_request_missing_three_phase_messages(
+                    self._request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
-            self.l_enqueue_pre_prepare(pre_prepare, sender)
+            self._enqueue_pre_prepare(pre_prepare, sender)
             self.l_setup_last_ordered_for_non_master()
         elif why_not == PP_CHECK_WRONG_TIME:
             key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
@@ -731,8 +733,7 @@ class OrderingService:
     def f(self):
         return getMaxFailures(self._data.total_nodes)
 
-    """Method from legacy code"""
-    def l_gc(self, till3PCKey):
+    def gc(self, till3PCKey):
         self._logger.info("{} cleaning up till {}".format(self, till3PCKey))
         tpcKeys = set()
         reqKeys = set()
@@ -824,8 +825,7 @@ class OrderingService:
         for view_no in views_to_remove:
             self.primary_names.pop(view_no)
 
-    """Method from legacy code"""
-    def l_can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
+    def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
 
@@ -835,29 +835,29 @@ class OrderingService:
         # TODO: Check whether it is rejecting PRE-PREPARE from previous view
 
         # PRE-PREPARE should not be sent from non primary
-        if not self.l_isMsgFromPrimary(pre_prepare, sender):
+        if not self._is_msg_from_primary(pre_prepare, sender):
             return PP_CHECK_NOT_FROM_PRIMARY
 
         # Already has a PRE-PREPARE with same 3 phase key
         if (pre_prepare.viewNo, pre_prepare.ppSeqNo) in self.prePrepares:
             return PP_CHECK_DUPLICATE
 
-        if not self.l_is_pre_prepare_time_acceptable(pre_prepare, sender):
+        if not self._is_pre_prepare_time_acceptable(pre_prepare, sender):
             return PP_CHECK_WRONG_TIME
 
         if compare_3PC_keys((pre_prepare.viewNo, pre_prepare.ppSeqNo),
                             self.__last_pp_3pc) > 0:
             return PP_CHECK_OLD  # ignore old pre-prepare
 
-        if self.l_nonFinalisedReqs(pre_prepare.reqIdr):
+        if self._non_finalised_reqs(pre_prepare.reqIdr):
             return PP_CHECK_REQUEST_NOT_FINALIZED
 
-        if not self.l__is_next_pre_prepare(pre_prepare.viewNo,
+        if not self._is_next_pre_prepare(pre_prepare.viewNo,
                                            pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
         if f.POOL_STATE_ROOT_HASH.nm in pre_prepare and \
-                pre_prepare.poolStateRootHash != self.l_stateRootHash(POOL_LEDGER_ID):
+                pre_prepare.poolStateRootHash != self.get_state_root_hash(POOL_LEDGER_ID):
             return PP_CHECK_INCORRECT_POOL_STATE_ROOT
 
         # BLS multi-sig:
@@ -870,11 +870,10 @@ class OrderingService:
     def _schedule(self, func, delay):
         self._timer.schedule(delay, func)
 
-    """Method from legacy code"""
-    def l_process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
+    def _process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
         self.first_batch_after_catchup = False
-        old_state_root = self.l_stateRootHash(pre_prepare.ledgerId, to_str=False)
-        old_txn_root = self.l_txnRootHash(pre_prepare.ledgerId)
+        old_state_root = self.get_state_root_hash(pre_prepare.ledgerId, to_str=False)
+        old_txn_root = self.get_txn_root_hash(pre_prepare.ledgerId)
         if self.is_master:
             self._logger.debug('{} state root before processing {} is {}, {}'.format(
                 self,
@@ -883,7 +882,7 @@ class OrderingService:
                 old_txn_root))
 
         # 1. APPLY
-        reqs, invalid_indices, rejects, suspicious = self.l_apply_pre_prepare(pre_prepare)
+        reqs, invalid_indices, rejects, suspicious = self._apply_pre_prepare(pre_prepare)
 
         # 2. CHECK IF MORE CHUNKS NEED TO BE APPLIED FURTHER BEFORE VALIDATION
         if pre_prepare.sub_seq_no != 0:
@@ -897,15 +896,15 @@ class OrderingService:
         if suspicious:
             why_not_applied = PP_REQUEST_ALREADY_ORDERED
         else:
-            why_not_applied = self.l_validate_applied_pre_prepare(pre_prepare,
+            why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
                                                                   reqs, invalid_indices, invalid_from_pp)
 
         # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
             if self.is_master:
-                self.l_revert(pre_prepare.ledgerId,
-                              old_state_root,
-                              len(pre_prepare.reqIdr) - len(invalid_indices))
+                self._revert(pre_prepare.ledgerId,
+                             old_state_root,
+                             len(pre_prepare.reqIdr) - len(invalid_indices))
             return why_not_applied
 
         # 5. EXECUTE HOOK
@@ -916,9 +915,9 @@ class OrderingService:
                 self._logger.warning('{} encountered exception in replica '
                                      'hook {} : {}'.
                                      format(self, ReplicaHooks.APPLY_PPR, ex))
-                self.l_revert(pre_prepare.ledgerId,
-                              old_state_root,
-                              len(pre_prepare.reqIdr) - len(invalid_from_pp))
+                self._revert(pre_prepare.ledgerId,
+                             old_state_root,
+                             len(pre_prepare.reqIdr) - len(invalid_from_pp))
                 return PP_APPLY_HOOK_ERROR
 
         # 6. TRACK APPLIED
@@ -942,9 +941,8 @@ class OrderingService:
                            extra={"tags": ["processing"]})
         return None
 
-    """Method from legacy code"""
-    def l_enqueue_pre_prepare(self, pre_prepare: PrePrepare, sender: str,
-                              nonFinReqs: Set = None):
+    def _enqueue_pre_prepare(self, pre_prepare: PrePrepare, sender: str,
+                             nonFinReqs: Set = None):
         if nonFinReqs:
             self._logger.info("{} - Queueing pre-prepares due to unavailability of finalised "
                               "requests. PrePrepare {} from {}".format(self, pre_prepare, sender))
@@ -956,13 +954,11 @@ class OrderingService:
                               format(pre_prepare, sender))
             self.prePreparesPendingPrevPP[pre_prepare.viewNo, pre_prepare.ppSeqNo] = (pre_prepare, sender)
 
-    """Method from legacy code"""
-    def l_request_propagates_if_needed(self, bad_reqs: list, pre_prepare: PrePrepare):
+    def _request_propagates_if_needed(self, bad_reqs: list, pre_prepare: PrePrepare):
         if any(pre_prepare is pended[0] for pended in self.prePreparesPendingFinReqs):
             self._bus.send(RequestPropagates(bad_reqs))
 
-    """Method from legacy code"""
-    def l_request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
+    def _request_missing_three_phase_messages(self, view_no: int, seq_frm: int, seq_to: int) -> None:
         for pp_seq_no in range(seq_frm, seq_to + 1):
             key = (view_no, pp_seq_no)
             self._request_pre_prepare(key)
@@ -1057,33 +1053,31 @@ class OrderingService:
                 self._bus.send(BackupSetupLastOrdered(inst_id=self._data.inst_id))
                 self.first_batch_after_catchup = False
 
-    """Method from legacy code"""
-    def l_stateRootHash(self, ledger_id, to_str=True, committed=False):
-        if not self.is_master:
-            return None
-        state = self.db_manager.get_state(ledger_id)
-        root = state.committedHeadHash if committed else state.headHash
-        if to_str:
-            root = self._state_root_serializer.serialize(bytes(root))
-        return root
+    def get_state_root_hash(self, ledger_id: str, to_str=True, committed=False):
+        return self.db_manager.get_state_root_hash(ledger_id, to_str, committed) \
+            if self.is_master \
+            else None
 
-    """Method from legacy code"""
-    def l_isMsgFromPrimary(self, msg, sender: str) -> bool:
+    def get_txn_root_hash(self, ledger_id: str, to_str=True):
+        return self.db_manager.get_txn_root_hash(ledger_id, to_str) \
+            if self.is_master \
+            else None
+
+    def _is_msg_from_primary(self, msg, sender: str) -> bool:
         """
         Return whether this message was from primary replica
         :param msg:
         :param sender:
         :return:
         """
-        if self.l_isMsgForCurrentView(msg):
+        if self._is_msg_for_current_view(msg):
             return self.primary_name == sender
         try:
             return self.primary_names[msg.viewNo] == sender
         except KeyError:
             return False
 
-    """Method from legacy code"""
-    def l_isMsgForCurrentView(self, msg):
+    def _is_msg_for_current_view(self, msg):
         """
         Return whether this request's view number is equal to the current view
         number of this replica.
@@ -1091,8 +1085,7 @@ class OrderingService:
         viewNo = getattr(msg, "viewNo", None)
         return viewNo == self.view_no
 
-    """Method from legacy code"""
-    def l_is_pre_prepare_time_correct(self, pp: PrePrepare, sender: str) -> bool:
+    def _is_pre_prepare_time_correct(self, pp: PrePrepare, sender: str) -> bool:
         """
         Check if this PRE-PREPARE is not older than (not checking for greater
         than since batches maybe sent in less than 1 second) last PRE-PREPARE
@@ -1114,8 +1107,7 @@ class OrderingService:
                 self._config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
             )
 
-    """Method from legacy code"""
-    def l_is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
+    def _is_pre_prepare_time_acceptable(self, pp: PrePrepare, sender: str) -> bool:
         """
         Returns True or False depending on the whether the time in PRE-PREPARE
         is acceptable. Can return True if time is not acceptable but sufficient
@@ -1127,7 +1119,7 @@ class OrderingService:
         if key in self.requested_pre_prepares:
             # Special case for requested PrePrepares
             return True
-        correct = self.l_is_pre_prepare_time_correct(pp, sender)
+        correct = self._is_pre_prepare_time_correct(pp, sender)
         if not correct:
             if key in self.pre_prepares_stashed_for_incorrect_time and \
                     self.pre_prepares_stashed_for_incorrect_time[key][-1]:
@@ -1137,16 +1129,14 @@ class OrderingService:
                 self._logger.warning('{} found {} to have incorrect time.'.format(self, pp))
         return correct
 
-    """Method from legacy code"""
-    def l_nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
+    def _non_finalised_reqs(self, reqKeys: List[Tuple[str, int]]):
         """
         Check if there are any requests which are not finalised, i.e for
         which there are not enough PROPAGATEs
         """
         return {key for key in reqKeys if not self._requests.is_finalised(key)}
 
-    """Method from legacy code"""
-    def l__is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
+    def _is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
         if view_no == self.view_no and pp_seq_no == 1:
             # First PRE-PREPARE in a new view
             return True
@@ -1161,23 +1151,11 @@ class OrderingService:
             return False
         return True
 
-    """Method from legacy code"""
-    def l_txnRootHash(self, ledger_str, to_str=True):
-        if not self.is_master:
-            return None
-        ledger = self.db_manager.get_ledger(ledger_str)
-        root = ledger.uncommitted_root_hash
-        if to_str:
-            root = ledger.hashToStr(root)
-        return root
-
-    """Method from legacy code"""
-    def l_apply_pre_prepare(self, pre_prepare: PrePrepare):
+    def _apply_pre_prepare(self, pre_prepare: PrePrepare):
         """
         Applies (but not commits) requests of the PrePrepare
         to the ledger and state
         """
-
         reqs = []
         idx = 0
         rejects = []
@@ -1204,23 +1182,21 @@ class OrderingService:
         # 2. call callback for the applied batch
         if self.is_master:
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
-                                                           state_root=self.l_stateRootHash(pre_prepare.ledgerId,
+                                                           state_root=self.get_state_root_hash(pre_prepare.ledgerId,
                                                                                            to_str=False),
-                                                           txn_root=self.l_txnRootHash(pre_prepare.ledgerId,
+                                                           txn_root=self.get_txn_root_hash(pre_prepare.ledgerId,
                                                                                        to_str=False),
                                                            primaries=[],
-                                                           valid_digests=self.l_get_valid_req_ids_from_all_requests(
+                                                           valid_digests=self._get_valid_req_ids_from_all_requests(
                                                                reqs, invalid_indices))
             self.post_batch_creation(three_pc_batch)
 
         return reqs, invalid_indices, rejects, suspicious
 
-    """Method from legacy code"""
-    def l_get_valid_req_ids_from_all_requests(self, reqs, invalid_indices):
+    def _get_valid_req_ids_from_all_requests(self, reqs, invalid_indices):
         return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
 
-    """Method from legacy code"""
-    def l_validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
+    def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
                                        reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
@@ -1230,14 +1206,14 @@ class OrderingService:
             return PP_APPLY_WRONG_DIGEST
 
         if self.is_master:
-            if pre_prepare.stateRootHash != self.l_stateRootHash(pre_prepare.ledgerId):
+            if pre_prepare.stateRootHash != self.get_state_root_hash(pre_prepare.ledgerId):
                 return PP_APPLY_WRONG_STATE
 
-            if pre_prepare.txnRootHash != self.l_txnRootHash(pre_prepare.ledgerId):
+            if pre_prepare.txnRootHash != self.get_txn_root_hash(pre_prepare.ledgerId):
                 return PP_APPLY_ROOT_HASH_MISMATCH
 
             # TODO: move this kind of validation to batch handlers
-            if f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash != self.l_txnRootHash(AUDIT_LEDGER_ID):
+            if f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash != self.get_txn_root_hash(AUDIT_LEDGER_ID):
                 return PP_APPLY_AUDIT_HASH_MISMATCH
 
         return None
@@ -1270,8 +1246,7 @@ class OrderingService:
                 return n
         return None
 
-    """Method from legacy code"""
-    def l_revert(self, ledgerId, stateRootHash, reqCount):
+    def _revert(self, ledgerId, stateRootHash, reqCount):
         # A batch should only be reverted if all batches that came after it
         # have been reverted
         ledger = self.db_manager.get_ledger(ledgerId)
@@ -1432,14 +1407,6 @@ class OrderingService:
             prepare = rv if rv is not None else prepare
         self.l_send(prepare, stat=TPCStat.PrepareSent)
         self.l_addToPrepares(prepare, self.name)
-
-    """Method from legacy code"""
-    def l_update_watermark_from_3pc(self):
-        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
-            self._logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            self._data.low_watermark = self.last_ordered_3pc[1]
-        else:
-            self._logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
     """Method from legacy code"""
     def l_has_prepared(self, key):
@@ -1964,7 +1931,7 @@ class OrderingService:
             self.prePreparesPendingPrevPP[pp.viewNo, pp.ppSeqNo] = (pp, sender)
 
         r = 0
-        while self.prePreparesPendingPrevPP and self.l__is_next_pre_prepare(
+        while self.prePreparesPendingPrevPP and self._is_next_pre_prepare(
                 *self.prePreparesPendingPrevPP.iloc[0]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self.l_can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
@@ -2034,10 +2001,9 @@ class OrderingService:
     def l_send_3pc_primaries_batch(self, sent_batches):
         # As we've selected new primaries, we need to send 3pc batch,
         # so this primaries can be saved in audit ledger
-        if not sent_batches and self._data.primaries_batch_needed:
+        if not sent_batches and self.primaries_batch_needed:
             self._logger.debug("Sending a 3PC batch to propagate newly selected primaries")
-            self._bus.send(PrimariesBatchNeeded(False))
-            # self._data.primaries_batch_needed = False
+            self.primaries_batch_needed = False
             sent_batches.add(self.l_do_send_3pc_batch(ledger_id=DOMAIN_LEDGER_ID))
 
     def l_send_3pc_freshness_batch(self, sent_batches):
@@ -2076,7 +2042,7 @@ class OrderingService:
                 self.l_do_send_3pc_batch(ledger_id=ledger_id))
 
     def l_do_send_3pc_batch(self, ledger_id):
-        oldStateRootHash = self.l_stateRootHash(ledger_id, to_str=False)
+        oldStateRootHash = self.get_state_root_hash(ledger_id, to_str=False)
         pre_prepare = self.l_create_3pc_batch(ledger_id)
         self.l_sendPrePrepare(pre_prepare)
         if not self.is_master:
@@ -2091,10 +2057,10 @@ class OrderingService:
                             MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
     def l_create_3pc_batch(self, ledger_id):
         pp_seq_no = self.lastPrePrepareSeqNo + 1
-        pool_state_root_hash = self.l_stateRootHash(POOL_LEDGER_ID)
+        pool_state_root_hash = self.get_state_root_hash(POOL_LEDGER_ID)
         self._logger.debug("{} creating batch {} for ledger {} with state root {}".format(
             self, pp_seq_no, ledger_id,
-            self.l_stateRootHash(ledger_id, to_str=False)))
+            self.get_state_root_hash(ledger_id, to_str=False)))
 
         if self.last_accepted_pre_prepare_time is None:
             last_ordered_ts = self.l_get_last_timestamp_from_state(ledger_id)
@@ -2114,16 +2080,16 @@ class OrderingService:
                                           view_no=self.view_no,
                                           pp_seq_no=pp_seq_no,
                                           pp_time=tm,
-                                          state_root=self.l_stateRootHash(ledger_id, to_str=False),
-                                          txn_root=self.l_txnRootHash(ledger_id, to_str=False),
+                                          state_root=self.get_state_root_hash(ledger_id, to_str=False),
+                                          txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
                                           primaries=[],
-                                          valid_digests=self.l_get_valid_req_ids_from_all_requests(
+                                          valid_digests=self._get_valid_req_ids_from_all_requests(
                                               reqs, invalid_indices))
             self.post_batch_creation(three_pc_batch)
 
         digest = self.replica_batch_digest(reqs)
-        state_root_hash = self.l_stateRootHash(ledger_id)
-        audit_txn_root_hash = self.l_txnRootHash(AUDIT_LEDGER_ID)
+        state_root_hash = self.get_state_root_hash(ledger_id)
+        audit_txn_root_hash = self.get_txn_root_hash(AUDIT_LEDGER_ID)
 
         """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
         params = [
@@ -2136,7 +2102,7 @@ class OrderingService:
             digest,
             ledger_id,
             state_root_hash,
-            self.l_txnRootHash(ledger_id),
+            self.get_txn_root_hash(ledger_id),
             0,
             True,
             pool_state_root_hash,
@@ -2250,7 +2216,7 @@ class OrderingService:
                 ledger_id, discarded, _, prevStateRoot, len_reqIdr = self.batches.pop(key)
                 discarded = invalid_index_serializer.deserialize(discarded)
                 self._logger.debug('{} reverting 3PC key {}'.format(self, key))
-                self.l_revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
+                self._revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
                 i += 1
             else:
                 break

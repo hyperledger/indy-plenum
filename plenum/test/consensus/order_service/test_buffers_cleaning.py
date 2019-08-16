@@ -26,7 +26,7 @@ def test_ordered_cleaning(orderer):
 
     # gc is called after stable checkpoint, since no request executed
     # in this test starting it manually
-    orderer.l_gc(100)
+    orderer.gc(100)
     # Requests with view lower then previous view
     # should not be in ordered
     assert len(orderer.ordered) == len(total[num_requests_per_view:])

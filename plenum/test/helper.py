@@ -324,7 +324,7 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
-        params = getAllArgs(replica._ordering_service, replica._ordering_service.l_can_process_pre_prepare)
+        params = getAllArgs(replica._ordering_service, replica._ordering_service._can_process_pre_prepare)
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 

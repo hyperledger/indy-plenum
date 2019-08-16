@@ -461,10 +461,10 @@ class TestCheckpointService(CheckpointService):
 ordering_service_spyables = [
     OrderingService.l_order_3pc_key,
     OrderingService.l_canPrepare,
-    OrderingService.l_is_pre_prepare_time_correct,
-    OrderingService.l_is_pre_prepare_time_acceptable,
+    OrderingService._is_pre_prepare_time_correct,
+    OrderingService._is_pre_prepare_time_acceptable,
     OrderingService.l_process_stashed_pre_prepare_for_time_if_possible,
-    OrderingService.l_request_propagates_if_needed,
+    OrderingService._request_propagates_if_needed,
     OrderingService.revert_unordered_batches,
     OrderingService.l_request_pre_prepare_for_prepare,
     OrderingService.l_order_3pc_key,
@@ -473,7 +473,7 @@ ordering_service_spyables = [
     OrderingService._request_prepare,
     OrderingService._request_commit,
     OrderingService.l_sendPrePrepare,
-    OrderingService.l_can_process_pre_prepare,
+    OrderingService._can_process_pre_prepare,
     OrderingService.l_canPrepare,
     OrderingService.l_validatePrepare,
     OrderingService.l_addToPrePrepares,
@@ -482,7 +482,7 @@ ordering_service_spyables = [
     OrderingService.process_commit,
     OrderingService.l_doPrepare,
     OrderingService.l_doOrder,
-    OrderingService.l_revert,
+    OrderingService._revert,
     OrderingService._validate,
 ]
 
