@@ -57,13 +57,9 @@ def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
                                            reqs_for_checkpoint - 3 * max_batch_size)
 
     # The master replica of the new node stops to receive 3PC-messages
-    new_node.master_replica.threePhaseRouter.extend(
-        (
-            (PrePrepare, lambda *x, **y: None),
-            (Prepare, lambda *x, **y: None),
-            (Commit, lambda *x, **y: None),
-        )
-    )
+    new_node.master_replica.external_bus._handlers[PrePrepare] = [lambda *x, **y: (None, None)]
+    new_node.master_replica.external_bus._handlers[Prepare] = [lambda *x, **y: (None, None)]
+    new_node.master_replica.external_bus._handlers[Commit] = [lambda *x, **y: (None, None)]
 
     completed_catchups_before_reqs = get_number_of_completed_catchups(new_node)
 

@@ -4,6 +4,7 @@ import pytest as pytest
 
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE, LEDGER_STATUS
 from plenum.common.startable import Mode
+from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_VIEW
 from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay
 from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp, sdk_send_random_request, \
     sdk_get_and_check_replies
@@ -40,7 +41,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
     view_no = txnPoolNodeSet[0].viewNo
-    old_stashed = slow_node.master_replica.stasher.num_stashed_future_view
+    old_stashed = slow_node.master_replica.stasher.stash_size(STASH_VIEW)
     last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
 
     with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet],
@@ -60,8 +61,8 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
         def check_commits(commit_key):
             for n in fast_nodes:
                 for r in n.replicas.values():
-                    assert commit_key in r.commits
-                    assert len(r.commits[commit_key].voters) == 1
+                    assert commit_key in r._ordering_service.commits
+                    assert len(r._ordering_service.commits[commit_key].voters) == 1
 
         looper.run(eventually(check_commits,
                               (view_no, last_ordered[1] + 2)))
@@ -114,4 +115,4 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
 
 def _check_nodes_stashed(nodes, old_stashed, new_stashed):
     for n in nodes:
-        assert n.master_replica.stasher.num_stashed_catchup == old_stashed + new_stashed
+        assert n.master_replica.stasher.stash_size(STASH_CATCH_UP) == old_stashed + new_stashed

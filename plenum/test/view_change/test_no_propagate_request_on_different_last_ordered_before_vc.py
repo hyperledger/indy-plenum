@@ -173,8 +173,8 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
 def is_prepared(nodes: [Node], ppSeqNo, instId):
     for node in nodes:
         replica = node.replicas[instId]
-        assert (node.viewNo, ppSeqNo) in replica.prepares or \
-               (node.viewNo, ppSeqNo) in replica.sentPrePrepares
+        assert (node.viewNo, ppSeqNo) in replica._ordering_service.prepares or \
+               (node.viewNo, ppSeqNo) in replica._ordering_service.sentPrePrepares
 
 
 def check_last_ordered(nodes: [Node],

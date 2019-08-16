@@ -9,17 +9,19 @@ from common.exceptions import LogicError
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized
+from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
+    BackupSetupLastOrdered
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
-from plenum.common.stashing_router import StashingRouter
+from plenum.common.router import Subscription
+from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_stasher import ReplicaStasher
-from plenum.server.replica_validator_enums import DISCARD, PROCESS, ALREADY_STABLE
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from stp_core.common.log import getlogger
 
 
@@ -27,13 +29,14 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
+                 stasher: StashingRouter, db_manager: DatabaseManager,
                  metrics: MetricsCollector = NullMetricsCollector(),):
         self._data = data
         self._bus = bus
         self._network = network
         self._checkpoint_state = SortedDict(lambda k: k[1])
         self._stasher = stasher
+        self._subscription = Subscription()
         self._validator = CheckpointMsgValidator(self._data)
         self._db_manager = db_manager
         self.metrics = metrics
@@ -48,12 +51,14 @@ class CheckpointService:
         self._config = getConfig()
         self._logger = getlogger()
 
-        self._old_stasher = old_stasher
+        self._subscription.subscribe(stasher, Checkpoint, self.process_checkpoint)
+        self._stasher.subscribe_to(network)
 
-        # self._stasher.subscribe(Checkpoint, self.process_checkpoint)
-        # self._stasher.subscribe_to(network)
-        #
-        # self._bus.subscribe(Ordered, self.process_ordered)
+        self._subscription.subscribe(bus, Ordered, self.process_ordered)
+        self._subscription.subscribe(bus, BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
+
+    def cleanup(self):
+        self._subscription.unsubscribe_all()
 
     @property
     def view_no(self):
@@ -69,23 +74,18 @@ class CheckpointService:
 
     @measure_consensus_time(MetricsName.PROCESS_CHECKPOINT_TIME,
                             MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
-    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
+    def process_checkpoint(self, msg: Checkpoint, sender: str) -> (bool, str):
         """
         Process checkpoint messages
         :return: whether processed (True) or stashed (False)
         """
+        if msg.instId != self._data.inst_id:
+            return None, None
         self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         result, reason = self._validator.validate(msg)
-        if result == DISCARD:
-            self.discard(msg, reason, sender)
-            return False
-        elif result == PROCESS:
-            return self._do_process_checkpoint(msg, sender)
-        else:
-            self._logger.debug("{} stashing checkpoint message {} with "
-                               "the reason: {}".format(self, msg, reason))
-            self._old_stasher.stash((msg, sender), result)
-            return False
+        if result == PROCESS:
+            self._do_process_checkpoint(msg, sender)
+        return result, reason
 
     def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
@@ -115,7 +115,14 @@ class CheckpointService:
         self._check_if_checkpoint_stable(key)
         return True
 
+    def process_backup_setup_last_ordered(self, msg: BackupSetupLastOrdered):
+        if msg.inst_id != self._data.inst_id:
+            return
+        self.update_watermark_from_3pc()
+
     def process_ordered(self, ordered: Ordered):
+        if ordered.instId != self._data.inst_id:
+            return
         for batch_id in reversed(self._data.preprepared):
             if batch_id.pp_seq_no == ordered.ppSeqNo:
                 self._add_to_checkpoint(batch_id.pp_seq_no, batch_id.pp_digest, ordered.ledgerId, batch_id.view_no)
@@ -345,7 +352,7 @@ class CheckpointService:
         self._logger.info('{} set watermarks as {} {}'.format(self,
                                                               self._data.low_watermark,
                                                               self._data.high_watermark))
-        self._old_stasher.unstash_watermarks()
+        self._stasher.process_all_stashed(STASH_WATERMARKS)
 
     def update_watermark_from_3pc(self):
         last_ordered_3pc = self.last_ordered_3pc
@@ -400,7 +407,7 @@ class CheckpointService:
                               key=lambda checkpoint: checkpoint.seqNoEnd)
 
     def __str__(self) -> str:
-        return "{}:{} - checkpoint_service".format(self._data.name, self._data.inst_id)
+        return "{} - checkpoint_service".format(self._data.name)
 
     # TODO: move to OrderingService as a handler for Cleanup messages
     # def _clear_batch_till_seq_no(self, seq_no):

@@ -1,3 +1,4 @@
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
@@ -22,7 +23,7 @@ def test_replica_received_preprepare_with_ordered_request(looper,
                               sdk_pool_handle, sdk_wallet_steward, 1)
 
     replica = txnPoolNodeSet[1].master_replica
-    params = replica.spylog.getLastParams(Replica.processPrePrepare)
+    params = replica._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
     pp = params["pre_prepare"]
     sender = params["sender"]
     start_request_propagate_count = replica.node.spylog.count(Node.request_propagates)
@@ -34,10 +35,10 @@ def test_replica_received_preprepare_with_ordered_request(looper,
     replica.node.discard = discard
 
     register_pp_ts(replica, pp, sender)
-    replica.processPrePrepare(pp, sender)
+    replica._ordering_service.process_preprepare(pp, sender)
 
     assert 0 == replica.node.spylog.count(Node.request_propagates) - start_request_propagate_count
-    assert (pp, sender, set(pp.reqIdr)) not in replica.prePreparesPendingFinReqs
+    assert (pp, sender, set(pp.reqIdr)) not in replica._ordering_service.prePreparesPendingFinReqs
 
 
 def test_replica_received_preprepare_with_unknown_request(looper,
@@ -54,9 +55,9 @@ def test_replica_received_preprepare_with_unknown_request(looper,
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 1)
 
-    params = replica.spylog.getLastParams(Replica.processPrePrepare)
+    params = replica._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
     pp = params["pre_prepare"]
     sender = params["sender"]
     looper.runFor(tconf.PROPAGATE_REQUEST_DELAY)
-    assert (pp, sender, set(pp.reqIdr)) not in replica.prePreparesPendingFinReqs
+    assert (pp, sender, set(pp.reqIdr)) not in replica._ordering_service.prePreparesPendingFinReqs
     assert 1 == sum_of_request_propagates(txnPoolNodeSet[1]) - start_request_propagate_count

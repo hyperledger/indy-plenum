@@ -122,7 +122,7 @@ def test_ts_is_set_for_discarded_pp(primary_orderer, ts_now, sender, pp, sender_
 
 
 def test_ts_is_set_for_stahed_pp(primary_orderer, ts_now, sender, pp, sender_orderer):
-    pp.viewNo +=1
+    pp.viewNo += 1
     primary_orderer.process_preprepare(pp, sender_orderer)
     assert primary_orderer.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp, sender_orderer] == ts_now
 

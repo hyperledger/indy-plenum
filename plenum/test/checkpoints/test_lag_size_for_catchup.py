@@ -31,13 +31,9 @@ def test_lag_size_for_catchup(
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
 
     # The master replica of the slow node stops to receive 3PC-messages
-    slow_node.master_replica.threePhaseRouter.extend(
-        (
-            (PrePrepare, lambda *x, **y: None),
-            (Prepare, lambda *x, **y: None),
-            (Commit, lambda *x, **y: None),
-        )
-    )
+    slow_node.master_replica.external_bus._handlers[PrePrepare] = [lambda *x, **y: (None, None)]
+    slow_node.master_replica.external_bus._handlers[Prepare] = [lambda *x, **y: (None, None)]
+    slow_node.master_replica.external_bus._handlers[Commit] = [lambda *x, **y: (None, None)]
 
     completed_catchups_before_reqs = get_number_of_completed_catchups(slow_node)
 

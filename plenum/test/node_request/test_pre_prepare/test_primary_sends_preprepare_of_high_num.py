@@ -23,7 +23,7 @@ def testPrePrepareWithHighSeqNo(looper, txnPoolNodeSet, propagated1):
             assert nodeSuspicions == 1
 
     def checkPreprepare(replica, viewNo, ppSeqNo, req, numOfPrePrepares):
-        assert (replica.prePrepares[viewNo, ppSeqNo][0]) == \
+        assert (replica._ordering_service.prePrepares[viewNo, ppSeqNo][0]) == \
                (req.identifier, req.reqId, req.digest)
 
     primary = getPrimaryReplica(txnPoolNodeSet, instId)

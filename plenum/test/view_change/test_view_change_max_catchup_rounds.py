@@ -35,7 +35,7 @@ def test_view_change_after_max_catchup_rounds(txnPoolNodeSet, looper, sdk_pool_h
     ensure_view_change(looper, nodes=txnPoolNodeSet)
 
     def last_prepared(nodes):
-        lst = [n.master_replica.last_prepared_certificate_in_view()
+        lst = [n.master_replica._ordering_service.l_last_prepared_certificate_in_view()
                for n in nodes]
         # All nodes have same last prepared
         assert check_if_all_equal_in_list(lst)

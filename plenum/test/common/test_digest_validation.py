@@ -3,6 +3,8 @@ import types
 
 import pytest
 from indy.did import create_and_store_my_did
+
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.replica import Replica
 
 from plenum.common.messages.node_messages import InstanceChange
@@ -118,7 +120,7 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
     assert len(txnPoolNodeSet[0].requests) == old_reqs + 2
 
-    pps = txnPoolNodeSet[0].master_replica.sentPrePrepares
+    pps = txnPoolNodeSet[0].master_replica._ordering_service.sentPrePrepares
     pp = pps[pps.keys()[-1]]
     idrs = pp.reqIdr
     assert len(idrs) == 1
@@ -173,7 +175,9 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
 def test_suspicious_primary_send_same_request_with_different_signatures(
         looper, txnPoolNodeSet, sdk_pool_handle, two_requests):
     assert txnPoolNodeSet[0].master_replica.isPrimary
-    txnPoolNodeSet[0].doDynamicValidation = types.MethodType(malicious_dynamic_validation, txnPoolNodeSet[0])
+    txnPoolNodeSet[0].master_replica._ordering_service.l_do_dynamic_validation = \
+        types.MethodType(malicious_dynamic_validation,
+                         txnPoolNodeSet[0])
 
     req1, req2 = two_requests
 
@@ -184,7 +188,9 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=old_view + 1)
     all(cll.params['msg'][1] == Suspicions.PPR_WITH_ORDERED_REQUEST.code for cll in
         txnPoolNodeSet[0].spylog.getAll('sendToViewChanger') if isinstance(cll.params['msg'], InstanceChange))
-    txnPoolNodeSet[0].doDynamicValidation = types.MethodType(Node.doDynamicValidation, txnPoolNodeSet[0])
+    txnPoolNodeSet[0].master_replica._ordering_service.l_do_dynamic_validation = \
+        types.MethodType(OrderingService.l_do_dynamic_validation,
+                         txnPoolNodeSet[0].master_replica._ordering_service)
 
 
 def test_suspicious_primary_send_same_request_with_same_signatures(
@@ -192,21 +198,21 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
     couple = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)[0]
     req = Request(**couple[0])
     replica = getPrimaryReplica(txnPoolNodeSet)
-    replica.node.doDynamicValidation = types.MethodType(malicious_dynamic_validation, replica.node)
+    replica._ordering_service.l_do_dynamic_validation = types.MethodType(malicious_dynamic_validation, replica.node)
 
     txnPoolNodeSet.remove(replica.node)
     old_reverts = {}
     for i, node in enumerate(txnPoolNodeSet):
-        old_reverts[i] = node.master_replica.spylog.count(Replica.revert)
+        old_reverts[i] = node.master_replica._ordering_service.spylog.count(OrderingService.l_revert)
         node.seqNoDB._keyValueStorage.remove(req.digest)
         node.seqNoDB._keyValueStorage.remove(req.payload_digest)
 
-    ppReq = replica.create_3pc_batch(DOMAIN_LEDGER_ID)
+    ppReq = replica._ordering_service.l_create_3pc_batch(DOMAIN_LEDGER_ID)
     ppReq._fields['reqIdr'] = [req.digest, req.digest]
-    replica.sendPrePrepare(ppReq)
+    replica._ordering_service.l_sendPrePrepare(ppReq)
 
     def reverts():
         for i, node in enumerate(txnPoolNodeSet):
-            assert old_reverts[i] + 1 == node.master_replica.spylog.count(Replica.revert)
+            assert old_reverts[i] + 1 == node.master_replica._ordering_service.spylog.count(OrderingService.l_revert)
 
     looper.run(eventually(reverts))

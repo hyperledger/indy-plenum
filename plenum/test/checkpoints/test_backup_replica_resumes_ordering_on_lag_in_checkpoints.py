@@ -4,7 +4,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check, assert_eq
 from stp_core.loop.eventually import eventually
 
 nodeCount = 4
@@ -39,8 +39,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     looper.run(
-        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
-                   slow_replica,
+        eventually(lambda: assert_eq(slow_replica.last_ordered_3pc, (view_no, 2)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
 
@@ -79,15 +78,14 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # (Note that a primary replica removes requests from requestQueues
     # when creating a batch with them.)
     if slow_replica.isPrimary:
-        assert slow_replica.sentPrePrepares
+        assert slow_replica._ordering_service.sentPrePrepares
     else:
-        assert slow_replica.requestQueues[DOMAIN_LEDGER_ID]
-        assert slow_replica.prePrepares
-    assert slow_replica.prepares
-    assert slow_replica.commits
-    assert slow_replica.batches
+        assert slow_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]
+        assert slow_replica._ordering_service.prePrepares
+    assert slow_replica._ordering_service.prepares
+    assert slow_replica._ordering_service.commits
+    assert slow_replica._ordering_service.batches
     assert slow_replica._checkpointer._checkpoint_state
-    print(slow_replica._checkpointer._stashed_recvd_checkpoints)
 
     # Ensure that there are some quorumed stashed checkpoints
     assert slow_replica._checkpointer._stashed_checkpoints_with_quorum()
@@ -98,11 +96,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Ensure that the replica has adjusted last_ordered_3pc to the end
     # of the last checkpoint
-    def chk(r):
-        print(r)
-        assert r.last_ordered_3pc == (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ)
     looper.run(
-        eventually(chk,
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == \
+                        (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ)),
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
@@ -114,12 +110,12 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Ensure that the collections related to requests, batches and
     # own checkpoints have been cleared
-    assert not slow_replica.requestQueues[DOMAIN_LEDGER_ID]
-    assert not slow_replica.sentPrePrepares
-    assert not slow_replica.prePrepares
-    assert not slow_replica.prepares
-    assert not slow_replica.commits
-    assert not slow_replica.batches
+    assert not slow_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]
+    assert not slow_replica._ordering_service.sentPrePrepares
+    assert not slow_replica._ordering_service.prePrepares
+    assert not slow_replica._ordering_service.prepares
+    assert not slow_replica._ordering_service.commits
+    assert not slow_replica._ordering_service.batches
     assert not slow_replica._checkpointer._checkpoint_state
 
     # Ensure that now there are no quorumed stashed checkpoints

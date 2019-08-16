@@ -53,7 +53,7 @@ def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, loop
 
             assert initial_view_no == lagging_node.viewNo
             assert initial_last_ordered == lagging_node.master_last_ordered_3PC
-            assert len(lagging_node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) > 0
+            assert len(lagging_node.master_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) > 0
 
         # make sure that the first View Change happened on lagging node
         waitForViewChange(looper, [lagging_node], expectedViewNo=initial_view_no + 1,

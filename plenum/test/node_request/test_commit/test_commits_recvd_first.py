@@ -20,17 +20,17 @@ def test_commits_recvd_first(looper, txnPoolNodeSet,
                                          num_reqs=20,
                                          num_batches=4)
 
-    assert not slow_node.master_replica.prePrepares
-    assert not slow_node.master_replica.prepares
-    assert not slow_node.master_replica.commits
-    assert len(slow_node.master_replica.commitsWaitingForPrepare) > 0
+    assert not slow_node.master_replica._ordering_service.prePrepares
+    assert not slow_node.master_replica._ordering_service.prepares
+    assert not slow_node.master_replica._ordering_service.commits
+    assert len(slow_node.master_replica._ordering_service.commitsWaitingForPrepare) > 0
 
     slow_node.reset_delays_and_process_delayeds()
     waitNodeDataEquality(looper, slow_node, *other_nodes)
-    assert check_if_all_equal_in_list([n.master_replica.ordered
+    assert check_if_all_equal_in_list([n.master_replica._ordering_service.ordered
                                        for n in txnPoolNodeSet])
 
-    assert slow_node.master_replica.prePrepares
-    assert slow_node.master_replica.prepares
-    assert slow_node.master_replica.commits
-    assert not slow_node.master_replica.commitsWaitingForPrepare
+    assert slow_node.master_replica._ordering_service.prePrepares
+    assert slow_node.master_replica._ordering_service.prepares
+    assert slow_node.master_replica._ordering_service.commits
+    assert not slow_node.master_replica._ordering_service.commitsWaitingForPrepare
