@@ -441,8 +441,8 @@ def test_calc_checkpoints_selects_max(builder):
 
 def test_calc_checkpoints_digest(builder):
     cp1_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))
-    cp2_d2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10, 'a'))
-    cp2_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10, 'b'))
+    cp2_d2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10))
+    cp2_d1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 0))
 
     vc1_d1 = ViewChange(viewNo=0, stableCheckpoint=0,
                         prepared=[(1, 1, "digest1")],
