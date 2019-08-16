@@ -79,7 +79,6 @@ class ReadRequestHandler(RequestHandler):
 
     @staticmethod
     def make_result(request, data, last_seq_no=None, update_time=None, proof=None):
-
         result = {**request.operation, **{
             DATA: data,
             f.IDENTIFIER.nm: request.identifier,
