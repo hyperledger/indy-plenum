@@ -9,6 +9,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
+from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
@@ -149,7 +150,8 @@ class ViewChangeService:
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
         self._primaries_selector = RoundRobinPrimariesSelector()
 
-        self._bus.subscribe(NeedViewChange, self.process_need_view_change)
+        self._subscription = Subscription()
+        self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
 
     def __repr__(self):
         return self._data.name

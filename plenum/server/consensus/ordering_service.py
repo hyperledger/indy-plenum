@@ -231,8 +231,7 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
         self._subscription.subscribe(self._stasher, Commit, self.process_commit)
         self._subscription.subscribe(self._stasher, NewViewCheckpointsApplied, self.process_new_view_checkpoints_applied)
-
-        self._bus.subscribe(ViewChangeStarted, self.process_view_change_started)
+        self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppDigest) tuple, and value is a PrePrepare
@@ -2383,7 +2382,8 @@ class OrderingService:
             # TODO: take into account original view no
             pp = self.old_view_preprepares.get((batch_id.pp_seq_no, batch_id.pp_digest))
             if pp is None:
-                self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
+                # TODO: implement correct re-sending logic
+                # self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
                 continue
             if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
                 self.l_addToPrePrepares(pp)
