@@ -88,7 +88,7 @@ def test_set_req_handlers_on_first_prepare_view_change_call(pre_vc_strategy):
     assert req_handler.func.__name__ == VCStartMsgStrategy.on_view_change_started.__name__
 
     """Check, that req handler is set for ViewChangeContinuedMessage on replica's inBoxRouter"""
-    req_handler = pre_vc_strategy.replica._external_bus._recv_handlers._handlers.get(ViewChangeContinueMessage, None)[0]
+    req_handler = pre_vc_strategy.replica._external_bus.handlers(ViewChangeContinueMessage)[0]
     assert req_handler
     assert VCStartMsgStrategy.on_view_change_continued.__name__ in str(req_handler)
 
