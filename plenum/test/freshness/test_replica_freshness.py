@@ -180,7 +180,7 @@ def test_freshness_pre_prepare_only_when_no_requests_for_ledger(tconf,
 
     # order requests
     for i in range(len(ordered)):
-        replica._ordering_service.l_order_3pc_key((0, i + 1))
+        replica._ordering_service._order_3pc_key((0, i + 1))
     assert len(replica.outBox) == 2 * len(ordered)
     check_and_pop_ordered(replica, ordered)
 

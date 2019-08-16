@@ -330,9 +330,9 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
 
 def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
-    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service.l_canPrepare)
+    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service._can_prepare)
     rv = getAllReturnVals(replica._ordering_service,
-                          replica._ordering_service.l_canPrepare)
+                          replica._ordering_service._can_prepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
     assert (key,) in args
     idx = args.index((key,))

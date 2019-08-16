@@ -151,7 +151,7 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
                           getAllArgs(npr._ordering_service,
-                                     npr._ordering_service.l_addToPrePrepares)
+                                     npr._ordering_service._add_to_pre_prepares)
                           if param['pp'].reqIdr[0] == propagated1.digest
                           and param['pp'].digest ==
                           primary.batchDigest([propagated1, ])])

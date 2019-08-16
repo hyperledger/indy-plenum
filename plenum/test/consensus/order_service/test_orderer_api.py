@@ -21,7 +21,7 @@ def test_is_next_pre_prepare(orderer):
 
 def test_order_3pc_key(orderer):
     with pytest.raises(ValueError) as excinfo:
-        orderer.l_order_3pc_key((1, 1))
+        orderer._order_3pc_key((1, 1))
     assert ("no PrePrepare with a 'key' {} found"
             .format((1, 1))) in str(excinfo.value)
 

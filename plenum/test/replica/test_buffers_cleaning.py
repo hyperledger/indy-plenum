@@ -37,7 +37,7 @@ def test_ordered_cleaning(tconf):
     for viewNo in range(global_view_no + 1):
         for seqNo in range(num_requests_per_view):
             reqId = viewNo, seqNo
-            replica._ordering_service.l_addToOrdered(*reqId)
+            replica._ordering_service._add_to_ordered(*reqId)
             total.append(reqId)
 
     # gc is called after stable checkpoint, since no request executed

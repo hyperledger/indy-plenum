@@ -565,7 +565,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self._ordering_service.stashed_out_of_order_commits
 
     def send_3pc_batch(self):
-        return self._ordering_service.l_send_3pc_batch()
+        return self._ordering_service.send_3pc_batch()
 
     @staticmethod
     def batchDigest(reqs):
@@ -639,7 +639,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 self.last_ordered_3pc) >= 0
 
     def dequeue_pre_prepares(self):
-        return self._ordering_service.l_dequeue_pre_prepares()
+        return self._ordering_service.dequeue_pre_prepares()
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
@@ -701,7 +701,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
         return self._process_requested_three_phase_msg(pp, sender, self.requested_pre_prepares,
-                                                       self._ordering_service.l_getPrePrepare)
+                                                       self._ordering_service.get_preprepare)
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
         return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
@@ -741,7 +741,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stasher.process_all_stashed(STASH_CATCH_UP)
 
     def discard_req_key(self, ledger_id, req_key):
-        return self._ordering_service.l_discard_req_key(ledger_id, req_key)
+        return self._ordering_service.discard_req_key(ledger_id, req_key)
 
     def _caught_up_backup(self, msg: NeedBackupCatchup):
         if self.instId != msg.inst_id:

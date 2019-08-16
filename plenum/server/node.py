@@ -2584,7 +2584,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
-        if self.master_replica._ordering_service.can_order():
+        if self.master_replica._ordering_service.can_order_commits():
             self.processOrdered(msg)
         else:
             logger.warning("{} can not process Ordered message {} since mode is {}".format(self, msg, self.mode))

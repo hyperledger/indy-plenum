@@ -129,7 +129,7 @@ def sendDuplicate3PhaseMsg(
                           ppReq.auditTxnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self._ordering_service.l_addToPrepares(prepare, self.name)
+        self._ordering_service._add_to_prepares(prepare, self.name)
         sendDup(self, prepare, count)
 
     def evilSendCommit(self, request):
@@ -138,7 +138,7 @@ def sendDuplicate3PhaseMsg(
                         request.ppSeqNo)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
-        self._ordering_service.l_addToCommits(commit, self.name)
+        self._ordering_service._add_to_commits(commit, self.name)
         sendDup(self, commit, count)
 
     def sendDup(sender, msg, count: int):
@@ -165,9 +165,9 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     if msgType == PrePrepare:
         replica._ordering_service.l_sendPrePrepare = evilMethod
     elif msgType == Prepare:
-        replica._ordering_service.l_doPrepare = evilMethod
+        replica._ordering_service._do_prepare = evilMethod
     elif msgType == Commit:
-        replica._ordering_service.l_doCommit = evilMethod
+        replica._ordering_service._do_commit = evilMethod
     else:
         common.error.error("Not a 3 phase message")
 
@@ -202,7 +202,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                           ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self._ordering_service.l_addToPrepares(prepare, self.name)
+        self._ordering_service._add_to_prepares(prepare, self.name)
         self.send(prepare)
 
     def evilSendCommit(self, request):
@@ -212,7 +212,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
         self.send(commit)
-        self._ordering_service.l_addToCommits(commit, self.name)
+        self._ordering_service._add_to_commits(commit, self.name)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,

@@ -89,7 +89,7 @@ class OrderingService:
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,
                                                      self._config.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL,
-                                                     self.l_process_stashed_out_of_order_commits,
+                                                     self._process_stashed_out_of_order_commits,
                                                      active=False)
 
         """
@@ -260,7 +260,7 @@ class OrderingService:
         # TODO move this try/except up higher
         try:
             if self.l_validatePrepare(prepare, sender):
-                self.l_addToPrepares(prepare, sender)
+                self._add_to_prepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
                 self._logger.debug("{} processed incoming PREPARE {}".format(
                     self, (prepare.viewNo, prepare.ppSeqNo)))
@@ -283,7 +283,7 @@ class OrderingService:
         key = (prepare.viewNo, prepare.ppSeqNo)
         primaryStatus = self.l_isPrimaryForMsg(prepare)
 
-        ppReq = self.l_getPrePrepare(*key)
+        ppReq = self.get_preprepare(*key)
 
         # If a non primary replica and receiving a PREPARE request before a
         # PRE-PREPARE request, then proceed
@@ -472,7 +472,7 @@ class OrderingService:
 
         if self.l_validateCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
-            self.l_addToCommits(commit, sender)
+            self._add_to_commits(commit, sender)
             self._logger.debug("{} processed incoming COMMIT{}".format(
                 self, (commit.viewNo, commit.ppSeqNo)))
         return result, reason
@@ -486,7 +486,7 @@ class OrderingService:
         :return: True if `request` is valid, False otherwise
         """
         key = (commit.viewNo, commit.ppSeqNo)
-        if not self.l_has_prepared(key):
+        if not self._has_prepared(key):
             self.l_enqueue_commit(commit, sender)
             return False
 
@@ -495,7 +495,7 @@ class OrderingService:
             return False
 
         # BLS multi-sig:
-        pre_prepare = self.l_getPrePrepare(commit.viewNo, commit.ppSeqNo)
+        pre_prepare = self.get_preprepare(commit.viewNo, commit.ppSeqNo)
         why_not = self.l_bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
@@ -781,7 +781,7 @@ class OrderingService:
             self._requests.free(request_key)
             for ledger_id, keys in self.requestQueues.items():
                 if request_key in keys:
-                    self.l_discard_req_key(ledger_id, request_key)
+                    self.discard_req_key(ledger_id, request_key)
             self._logger.trace('{} freed request {} from previous checkpoints'
                                .format(self, request_key))
 
@@ -791,8 +791,7 @@ class OrderingService:
         # BLS multi-sig:
         self.l_bls_bft_replica.gc(till3PCKey)
 
-    """Method from legacy code"""
-    def l_discard_req_key(self, ledger_id, req_key):
+    def discard_req_key(self, ledger_id, req_key):
         self.requestQueues[ledger_id].discard(req_key)
 
     def _clear_prev_view_pre_prepares(self):
@@ -924,7 +923,7 @@ class OrderingService:
         if rejects:
             for reject in rejects:
                 self._network.send(reject)
-        self.l_addToPrePrepares(pre_prepare)
+        self._add_to_pre_prepares(pre_prepare)
 
         if self.is_master:
             # BLS multi-sig:
@@ -935,7 +934,7 @@ class OrderingService:
         if not self.is_master:
             self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
                 self._data.inst_id, pre_prepare.ppSeqNo)
-        self.l_trackBatches(pre_prepare, old_state_root)
+        self._track_batches(pre_prepare, old_state_root)
         key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         self._logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                            extra={"tags": ["processing"]})
@@ -1166,7 +1165,7 @@ class OrderingService:
         for req_key in pre_prepare.reqIdr:
             req = self._requests[req_key].finalised
             try:
-                self.l_processReqDuringBatch(req,
+                self._process_req_during_batch(req,
                                              pre_prepare.ppTime)
             except (InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare) as ex:
                 self._logger.warning('{} encountered exception {} while processing {}, '
@@ -1264,8 +1263,7 @@ class OrderingService:
         self._bus.send(HookMessage(hook=hook_id,
                                    args=args))
 
-    """Method from legacy code"""
-    def l_trackBatches(self, pp: PrePrepare, prevStateRootHash):
+    def _track_batches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
         #  starts hence the count of accepted requests, prevStateRoot is
         # tracked to revert this PRE-PREPARE
@@ -1298,8 +1296,7 @@ class OrderingService:
                 'already {}'.format(
                     self, n, self._lastPrePrepareSeqNo))
 
-    """Method from legacy code"""
-    def l_addToPrePrepares(self, pp: PrePrepare) -> None:
+    def _add_to_pre_prepares(self, pp: PrePrepare) -> None:
         """
         Add the specified PRE-PREPARE to this replica's list of received
         PRE-PREPAREs and try sending PREPARE
@@ -1312,13 +1309,12 @@ class OrderingService:
         self._consensus_data_helper.preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
-        self.l_dequeue_prepares(*key)
-        self.l_dequeue_commits(*key)
+        self._dequeue_prepares(*key)
+        self._dequeue_commits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
-        self.l_tryPrepare(pp)
+        self.try_prepare(pp)
 
-    """Method from legacy code"""
-    def l_dequeue_prepares(self, viewNo: int, ppSeqNo: int):
+    def _dequeue_prepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.preparesWaitingForPrePrepare:
             i = 0
@@ -1333,11 +1329,10 @@ class OrderingService:
             self._logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
                                " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
-    """Method from legacy code"""
-    def l_dequeue_commits(self, viewNo: int, ppSeqNo: int):
+    def _dequeue_commits(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
-            if not self.l_has_prepared(key):
+            if not self._has_prepared(key):
                 self._logger.debug('{} has not pre-prepared {}, will dequeue the '
                                    'COMMITs later'.format(self, key))
                 return
@@ -1354,38 +1349,31 @@ class OrderingService:
             self._logger.debug("{} processed {} COMMITs waiting for PREPARE for"
                                " view no {} and seq no {}".format(self, i, viewNo, ppSeqNo))
 
-    """Method from legacy code"""
-    def l_tryPrepare(self, pp: PrePrepare):
+    def try_prepare(self, pp: PrePrepare):
         """
         Try to send the Prepare message if the PrePrepare message is ready to
         be passed into the Prepare phase.
         """
-        rv, msg = self.l_canPrepare(pp)
+        rv, msg = self._can_prepare(pp)
         if rv:
-            self.l_doPrepare(pp)
+            self._do_prepare(pp)
         else:
             self._logger.debug("{} cannot send PREPARE since {}".format(self, msg))
 
-    """Method from legacy code"""
-    def l_canPrepare(self, ppReq) -> (bool, str):
+    def _can_prepare(self, ppReq) -> (bool, str):
         """
         Return whether the batch of requests in the PRE-PREPARE can
         proceed to the PREPARE step.
 
         :param ppReq: any object with identifier and requestId attributes
         """
-        if self.l_has_sent_prepare(ppReq):
+        if self.prepares.hasPrepareFrom(ppReq, self.name):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
 
-    """Method from legacy code"""
-    def l_has_sent_prepare(self, request) -> bool:
-        return self.prepares.hasPrepareFrom(request, self.name)
-
-    """Method from legacy code"""
     @measure_consensus_time(MetricsName.SEND_PREPARE_TIME,
                             MetricsName.BACKUP_SEND_PREPARE_TIME)
-    def l_doPrepare(self, pp: PrePrepare):
+    def _do_prepare(self, pp: PrePrepare):
         self._logger.debug("{} Sending PREPARE{} at {}".format(
             self, (pp.viewNo, pp.ppSeqNo), self.get_current_time()))
         params = [self._data.inst_id,
@@ -1406,19 +1394,17 @@ class OrderingService:
             rv = self.l_execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
             prepare = rv if rv is not None else prepare
         self.l_send(prepare, stat=TPCStat.PrepareSent)
-        self.l_addToPrepares(prepare, self.name)
+        self._add_to_prepares(prepare, self.name)
 
-    """Method from legacy code"""
-    def l_has_prepared(self, key):
-        if not self.l_getPrePrepare(*key):
+    def _has_prepared(self, key):
+        if not self.get_preprepare(*key):
             return False
         if ((key not in self.prepares and key not in self.sentPrePrepares) and
                 (key not in self.preparesWaitingForPrePrepare)):
             return False
         return True
 
-    """Method from legacy code"""
-    def l_getPrePrepare(self, viewNo, ppSeqNo):
+    def get_preprepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
         if key in self.sentPrePrepares:
             return self.sentPrePrepares[key]
@@ -1426,8 +1412,7 @@ class OrderingService:
             return self.prePrepares[key]
         return None
 
-    """Method from legacy code"""
-    def l_addToPrepares(self, prepare: Prepare, sender: str):
+    def _add_to_prepares(self, prepare: Prepare, sender: str):
         """
         Add the specified PREPARE to this replica's list of received
         PREPAREs and try sending COMMIT
@@ -1438,26 +1423,25 @@ class OrderingService:
         self.l_bls_bft_replica.process_prepare(prepare, sender)
 
         self.prepares.addVote(prepare, sender)
-        self.l_dequeue_commits(prepare.viewNo, prepare.ppSeqNo)
-        self.l_tryCommit(prepare)
+        self._dequeue_commits(prepare.viewNo, prepare.ppSeqNo)
+        self._try_commit(prepare)
 
-    """Method from legacy code"""
-    def l_tryCommit(self, prepare: Prepare):
+    def _try_commit(self, prepare: Prepare):
         """
         Try to commit if the Prepare message is ready to be passed into the
         commit phase.
         """
-        rv, reason = self.l_canCommit(prepare)
+        rv, reason = self._can_commit(prepare)
         if rv:
-            pp = self.l_getPrePrepare(prepare.viewNo, prepare.ppSeqNo)
+            pp = self.get_preprepare(prepare.viewNo, prepare.ppSeqNo)
             self._consensus_data_helper.prepare_batch(pp)
-            self.l_doCommit(prepare)
+            self._do_commit(prepare)
         else:
             self._logger.debug("{} cannot send COMMIT since {}".format(self, reason))
 
     @measure_consensus_time(MetricsName.SEND_COMMIT_TIME,
                             MetricsName.BACKUP_SEND_COMMIT_TIME)
-    def l_doCommit(self, p: Prepare):
+    def _do_commit(self, p: Prepare):
         """
         Create a commit message from the given Prepare message and trigger the
         commit phase
@@ -1470,20 +1454,19 @@ class OrderingService:
             self._data.inst_id, p.viewNo, p.ppSeqNo
         ]
 
-        pre_prepare = self.l_getPrePrepare(*key_3pc)
+        pre_prepare = self.get_preprepare(*key_3pc)
 
         # BLS multi-sig:
         if p.stateRootHash is not None:
-            pre_prepare = self.l_getPrePrepare(*key_3pc)
+            pre_prepare = self.get_preprepare(*key_3pc)
             params = self.l_bls_bft_replica.update_commit(params, pre_prepare)
 
         commit = Commit(*params)
 
         self.l_send(commit, stat=TPCStat.CommitSent)
-        self.l_addToCommits(commit, self.name)
+        self._add_to_commits(commit, self.name)
 
-    """Method from legacy code"""
-    def l_addToCommits(self, commit: Commit, sender: str):
+    def _add_to_commits(self, commit: Commit, sender: str):
         """
         Add the specified COMMIT to this replica's list of received
         commit requests.
@@ -1495,32 +1478,29 @@ class OrderingService:
         self.l_bls_bft_replica.process_commit(commit, sender)
 
         self.commits.addVote(commit, sender)
-        self.l_tryOrder(commit)
+        self._try_order(commit)
 
-    """Method from legacy code"""
-    def l_tryOrder(self, commit: Commit):
+    def _try_order(self, commit: Commit):
         """
         Try to order if the Commit message is ready to be ordered.
         """
-        canOrder, reason = self.l_canOrder(commit)
+        canOrder, reason = self._can_order(commit)
         if canOrder:
             self._logger.trace("{} returning request to node".format(self))
-            self.l_doOrder(commit)
+            self._do_order(commit)
         else:
             self._logger.debug("{} cannot return request to node: {}".format(self, reason))
         return canOrder
 
-    """Method from legacy code"""
-    def l_doOrder(self, commit: Commit):
+    def _do_order(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
         self._logger.debug("{} ordering COMMIT {}".format(self, key))
-        return self.l_order_3pc_key(key)
+        return self._order_3pc_key(key)
 
-    """Method from legacy code"""
     @measure_consensus_time(MetricsName.ORDER_3PC_BATCH_TIME,
                             MetricsName.BACKUP_ORDER_3PC_BATCH_TIME)
-    def l_order_3pc_key(self, key):
-        pp = self.l_getPrePrepare(*key)
+    def _order_3pc_key(self, key):
+        pp = self.get_preprepare(*key)
         if pp is None:
             raise ValueError(
                 "{} no PrePrepare with a 'key' {} found".format(self, key)
@@ -1529,7 +1509,7 @@ class OrderingService:
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
                                                  ts=pp.ppTime)
 
-        self.l_addToOrdered(*key)
+        self._add_to_ordered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
         invalid_reqIdr = []
         valid_reqIdr = []
@@ -1555,7 +1535,7 @@ class OrderingService:
             rv = self.l_execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
             ordered = rv if rv is not None else ordered
 
-        self.l_discard_ordered_req_keys(pp)
+        self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
 
@@ -1579,8 +1559,7 @@ class OrderingService:
 
         return True
 
-    """Method from legacy code"""
-    def l_addToOrdered(self, view_no: int, pp_seq_no: int):
+    def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
@@ -1605,18 +1584,16 @@ class OrderingService:
         else:
             return self._data.primaries
 
-    """Method from legacy code"""
-    def l_discard_ordered_req_keys(self, pp: PrePrepare):
+    def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
             # Using discard since the key may not be present as in case of
             # primary, the key was popped out while creating PRE-PREPARE.
             # Or in case of node catching up, it will not validate
             # PRE-PREPAREs or PREPAREs but will only validate number of COMMITs
             #  and their consistency with PRE-PREPARE of PREPAREs
-            self.l_discard_req_key(pp.ledgerId, k)
+            self.discard_req_key(pp.ledgerId, k)
 
-    """Method from legacy code"""
-    def l_canOrder(self, commit: Commit) -> Tuple[bool, Optional[str]]:
+    def _can_order(self, commit: Commit) -> Tuple[bool, Optional[str]]:
         """
         Return whether the specified commitRequest can be returned to the node.
 
@@ -1639,7 +1616,7 @@ class OrderingService:
         if self._validator.has_already_ordered(*key):
             return False, "already ordered"
 
-        if commit.ppSeqNo > 1 and not self.l_all_prev_ordered(commit):
+        if commit.ppSeqNo > 1 and not self._all_prev_ordered(commit):
             viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
             if viewNo not in self.stashed_out_of_order_commits:
                 self.stashed_out_of_order_commits[viewNo] = {}
@@ -1650,13 +1627,12 @@ class OrderingService:
 
         return True, None
 
-    """Method from legacy code"""
-    def l_process_stashed_out_of_order_commits(self):
+    def _process_stashed_out_of_order_commits(self):
         # This method is called periodically to check for any commits that
         # were stashed due to lack of commits before them and orders them if it
         # can
 
-        if not self.can_order():
+        if not self.can_order_commits():
             return
 
         self._logger.debug('{} trying to order from out of order commits. '
@@ -1681,9 +1657,9 @@ class OrderingService:
                         pToRemove.add(p)
                         continue
                     if (v == lastOrdered[0] and lastOrdered == (v, p - 1)) or \
-                            (v > lastOrdered[0] and self.l_isLowestCommitInView(commit)):
+                            (v > lastOrdered[0] and self._is_lowest_commit_in_view(commit)):
                         self._logger.debug("{} ordering stashed commit {}".format(self, commit))
-                        if self.l_tryOrder(commit):
+                        if self._try_order(commit):
                             lastOrdered = (v, p)
                             pToRemove.add(p)
 
@@ -1702,15 +1678,14 @@ class OrderingService:
                                'Len(stashed_out_of_order_commits) == {}'
                                .format(self, len(self.stashed_out_of_order_commits)))
 
-    def l_isLowestCommitInView(self, commit):
+    def _is_lowest_commit_in_view(self, commit):
         view_no = commit.viewNo
         if view_no > self.view_no:
             self._logger.debug('{} encountered {} which belongs to a later view'.format(self, commit))
             return False
         return commit.ppSeqNo == 1
 
-    """Method from legacy code"""
-    def l_all_prev_ordered(self, commit: Commit):
+    def _all_prev_ordered(self, commit: Commit):
         """
         Return True if all previous COMMITs have been ordered
         """
@@ -1740,8 +1715,7 @@ class OrderingService:
 
         return True
 
-    """Method from legacy code"""
-    def l_canCommit(self, prepare: Prepare) -> (bool, str):
+    def _can_commit(self, prepare: Prepare) -> (bool, str):
         """
         Return whether the specified PREPARE can proceed to the Commit
         step.
@@ -1758,12 +1732,11 @@ class OrderingService:
         quorum = self._data.quorums.prepare.value
         if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
-        if self.l_hasCommitted(prepare):
+        if self._has_committed(prepare):
             return False, 'has already sent COMMIT for {}'.format(prepare)
         return True, ''
 
-    """Method from legacy code"""
-    def l_hasCommitted(self, request) -> bool:
+    def _has_committed(self, request) -> bool:
         return self.commits.hasCommitFrom(ThreePhaseKey(
             request.viewNo, request.ppSeqNo), self.name)
 
@@ -1796,8 +1769,7 @@ class OrderingService:
         else:
             self._logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
 
-    """Method from legacy code"""
-    def l_ledger_id_for_request(self, request: Request):
+    def _ledger_id_for_request(self, request: Request):
         if request.operation.get(TXN_TYPE) is None:
             raise ValueError(
                 "{} TXN_TYPE is not defined for request {}".format(self, request)
@@ -1806,8 +1778,7 @@ class OrderingService:
         typ = request.operation[TXN_TYPE]
         return self._write_manager.type_to_ledger_id[typ]
 
-    """Method from legacy code"""
-    def l_do_dynamic_validation(self, request: Request, req_pp_time: int):
+    def _do_dynamic_validation(self, request: Request, req_pp_time: int):
         """
                 State based validation
                 """
@@ -1818,7 +1789,7 @@ class OrderingService:
         if ledger_id is not None and seq_no is not None:
             raise SuspiciousPrePrepare('Trying to order already ordered request')
 
-        ledger = self.db_manager.get_ledger(self.l_ledger_id_for_request(request))
+        ledger = self.db_manager.get_ledger(self._ledger_id_for_request(request))
         for txn in ledger.uncommittedTxns:
             if get_payload_digest(txn) == request.payload_digest:
                 raise SuspiciousPrePrepare('Trying to order already ordered request')
@@ -1829,10 +1800,9 @@ class OrderingService:
         self._write_manager.do_taa_validation(request, req_pp_time, self._config)
         self._write_manager.dynamic_validation(request)
 
-    """Method from legacy code"""
     @measure_consensus_time(MetricsName.REQUEST_PROCESSING_TIME,
                             MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
-    def l_processReqDuringBatch(self,
+    def _process_req_during_batch(self,
                                 req: Request,
                                 cons_time: int):
         """
@@ -1840,7 +1810,7 @@ class OrderingService:
                 If there is any errors during validation it would be raised
                 """
         if self.is_master:
-            self.l_do_dynamic_validation(req, cons_time)
+            self._do_dynamic_validation(req, cons_time)
             self._write_manager.apply_request(req, cons_time)
 
     def can_send_3pc_batch(self):
@@ -1862,7 +1832,7 @@ class OrderingService:
             if self._config.Max3PCBatchesInFlight is not None:
                 batches_in_flight = self._lastPrePrepareSeqNo - self.last_ordered_3pc[1]
                 if batches_in_flight >= self._config.Max3PCBatchesInFlight:
-                    if self.l_can_log_skip_send_3pc():
+                    if self._can_log_skip_send_3pc():
                         self._logger.info("{} not creating new batch because there already {} in flight out of {} allowed".
                                           format(self.name, batches_in_flight, self._config.Max3PCBatchesInFlight))
                     return False
@@ -1870,7 +1840,7 @@ class OrderingService:
         self._skip_send_3pc_ts = None
         return True
 
-    def l_can_log_skip_send_3pc(self):
+    def _can_log_skip_send_3pc(self):
         current_time = time.perf_counter()
         if self._skip_send_3pc_ts is None:
             self._skip_send_3pc_ts = current_time
@@ -1882,7 +1852,7 @@ class OrderingService:
 
         return False
 
-    def can_order(self):
+    def can_order_commits(self):
         if self._data.is_participating:
             return True
         if self._data.is_synced and self._data.legacy_vc_in_progress:
@@ -1905,7 +1875,7 @@ class OrderingService:
                 return node_name
         return "{}:{}".format(node_name, inst_id)
 
-    def l_dequeue_pre_prepares(self):
+    def dequeue_pre_prepares(self):
         """
         Dequeue any received PRE-PREPAREs that did not have finalized requests
         or the replica was missing any PRE-PREPAREs before it
@@ -1976,14 +1946,14 @@ class OrderingService:
                                            compare_3PC_keys((view_no, pp_seq_no),
                                                             self._data.legacy_last_prepared_before_view_change) >= 0)
 
-    def l_send_3pc_batch(self):
+    def send_3pc_batch(self):
         if not self.can_send_3pc_batch():
             return 0
 
         sent_batches = set()
 
         # 1. send 3PC batches with requests for every ledger
-        self.l_send_3pc_batches_for_ledgers(sent_batches)
+        self._send_3pc_batches_for_ledgers(sent_batches)
 
         # 2. for every ledger we haven't just sent a 3PC batch check if it's not fresh enough,
         # and send an empty 3PC batch to update the state if needed
@@ -2027,7 +1997,7 @@ class OrderingService:
             sent_batches.add(
                 self.l_do_send_3pc_batch(ledger_id=ledger_id))
 
-    def l_send_3pc_batches_for_ledgers(self, sent_batches):
+    def _send_3pc_batches_for_ledgers(self, sent_batches):
         # TODO: Consider sending every next update in Max3PCBatchWait only
         for ledger_id, q in self.requestQueues.items():
             if len(q) == 0:
@@ -2050,7 +2020,7 @@ class OrderingService:
                 self._data.inst_id, pre_prepare.ppSeqNo)
 
         self._consensus_data_helper.preprepare_batch(pre_prepare)
-        self.l_trackBatches(pre_prepare, oldStateRootHash)
+        self._track_batches(pre_prepare, oldStateRootHash)
         return ledger_id
 
     @measure_consensus_time(MetricsName.CREATE_3PC_BATCH_TIME,
@@ -2160,7 +2130,7 @@ class OrderingService:
                 fin_req = self._requests[key].finalised
                 malicious_req = False
                 try:
-                    self.l_processReqDuringBatch(fin_req,
+                    self._process_req_during_batch(fin_req,
                                                  tm)
 
                 except (
@@ -2273,7 +2243,7 @@ class OrderingService:
             self.prePrepares.pop(key, None)
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
-            self.l_discard_ordered_req_keys(pp)
+            self._discard_ordered_req_keys(pp)
             self._consensus_data_helper.clear_batch(pp)
 
     def get_sent_preprepare(self, viewNo, ppSeqNo):

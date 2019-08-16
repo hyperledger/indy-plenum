@@ -42,7 +42,7 @@ def test_reqidr_ordered_regardless_validation_result(replica_with_requests, fake
                                                 req.reqId,
                                                 "not valid req")
 
-    replica_with_requests._ordering_service.l_do_dynamic_validation = \
+    replica_with_requests._ordering_service._do_dynamic_validation = \
         functools.partial(randomDynamicValidation,
                           replica_with_requests._ordering_service)
     pre_prepare_msg = replica_with_requests._ordering_service.l_create_3pc_batch(DOMAIN_LEDGER_ID)

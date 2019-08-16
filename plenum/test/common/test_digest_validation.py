@@ -175,7 +175,7 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
 def test_suspicious_primary_send_same_request_with_different_signatures(
         looper, txnPoolNodeSet, sdk_pool_handle, two_requests):
     assert txnPoolNodeSet[0].master_replica.isPrimary
-    txnPoolNodeSet[0].master_replica._ordering_service.l_do_dynamic_validation = \
+    txnPoolNodeSet[0].master_replica._ordering_service._do_dynamic_validation = \
         types.MethodType(malicious_dynamic_validation,
                          txnPoolNodeSet[0])
 
@@ -188,8 +188,8 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=old_view + 1)
     all(cll.params['msg'][1] == Suspicions.PPR_WITH_ORDERED_REQUEST.code for cll in
         txnPoolNodeSet[0].spylog.getAll('sendToViewChanger') if isinstance(cll.params['msg'], InstanceChange))
-    txnPoolNodeSet[0].master_replica._ordering_service.l_do_dynamic_validation = \
-        types.MethodType(OrderingService.l_do_dynamic_validation,
+    txnPoolNodeSet[0].master_replica._ordering_service._do_dynamic_validation = \
+        types.MethodType(OrderingService._do_dynamic_validation,
                          txnPoolNodeSet[0].master_replica._ordering_service)
 
 
@@ -198,7 +198,7 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
     couple = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)[0]
     req = Request(**couple[0])
     replica = getPrimaryReplica(txnPoolNodeSet)
-    replica._ordering_service.l_do_dynamic_validation = types.MethodType(malicious_dynamic_validation, replica.node)
+    replica._ordering_service._do_dynamic_validation = types.MethodType(malicious_dynamic_validation, replica.node)
 
     txnPoolNodeSet.remove(replica.node)
     old_reverts = {}
