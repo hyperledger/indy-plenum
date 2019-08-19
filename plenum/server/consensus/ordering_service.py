@@ -1147,18 +1147,20 @@ class OrderingService:
 
     """Method from legacy code"""
     def l__is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
-        if view_no == self.view_no and pp_seq_no == 1:
-            # First PRE-PREPARE in a new view
-            return True
+        # if view_no == self.view_no and pp_seq_no == 1:
+        #     # First PRE-PREPARE in a new view
+        #     return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-        if last_pp_view_no > view_no:
+        if pp_seq_no < last_pp_seq_no:
             return False
-        if last_pp_view_no < view_no:
-            if view_no != self.view_no:
-                return False
-            last_pp_seq_no = 0
-        if pp_seq_no - last_pp_seq_no > 1:
-            return False
+        # if last_pp_view_no > view_no:
+        #     return False
+        # if last_pp_view_no < view_no:
+        #     if view_no != self.view_no:
+        #         return False
+        #     last_pp_seq_no = 0
+        # if pp_seq_no - last_pp_seq_no > 1:
+        #     return False
         return True
 
     """Method from legacy code"""

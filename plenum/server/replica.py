@@ -409,7 +409,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._gc_before_new_view()
             if self._checkpointer.should_reset_watermarks_before_new_view():
                 self._checkpointer.reset_watermarks_before_new_view()
-                self._ordering_service._lastPrePrepareSeqNo = 0
+                # self._ordering_service._lastPrePrepareSeqNo = 0
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
