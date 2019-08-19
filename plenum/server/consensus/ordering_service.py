@@ -599,8 +599,8 @@ class OrderingService:
                                       ', '.join(self._requests[key].propagates.keys())) for key in non_fin)
             self._logger.warning(
                 "{} found requests in the incoming pp, of {} ledger, that are not finalized. "
-                "{} of them don't have propagates: {}."
-                "{} of them don't have enough propagates: {}.".format(self, pre_prepare.ledgerId,
+                "{} of them don't have propagates: [{}]. "
+                "{} of them don't have enough propagates: [{}].".format(self, pre_prepare.ledgerId,
                                                                       len(absents), absent_str,
                                                                       len(non_fin), non_fin_str))
 
@@ -1900,9 +1900,10 @@ class OrderingService:
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self._can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
                 self._discard(pp, "Pre-Prepare from a previous view",
-                               self._logger.debug)
+                              self._logger.debug)
                 continue
-            self._logger.info("{} popping stashed PREPREPARE{} from sender {}".format(self, pp, sender))
+            self._logger.info("{} popping stashed PREPREPARE{} "
+                              "from sender {}".format(self, (pp.viewNo, pp.ppSeqNo), sender))
             self._network.process_incoming(pp, sender)
             r += 1
         return r
@@ -2034,7 +2035,7 @@ class OrderingService:
         # DO NOT REMOVE `view_no` argument, used while replay
         # tm = self.utc_epoch
         tm = self._get_utc_epoch_for_preprepare(self._data.inst_id, self.view_no,
-                                                 pp_seq_no)
+                                                pp_seq_no)
 
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
