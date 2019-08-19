@@ -1151,7 +1151,7 @@ class OrderingService:
         #     # First PRE-PREPARE in a new view
         #     return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-        if pp_seq_no < last_pp_seq_no:
+        if pp_seq_no - last_pp_seq_no > 1:
             return False
         # if last_pp_view_no > view_no:
         #     return False
