@@ -51,7 +51,7 @@ def testLoggingTxnStateForInvalidRequest(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, logsearch):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
-    logsReject, _ = logsearch(files=['ordering_service.py'], funcs=['l_consume_req_queue_for_pre_prepare'],
+    logsReject, _ = logsearch(files=['ordering_service.py'], funcs=['_consume_req_queue_for_pre_prepare'],
                               msgs=['encountered exception.*while processing.*will reject'])
 
     seed = randomString(32)

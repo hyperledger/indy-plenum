@@ -31,7 +31,7 @@ def test_can_pp_seq_no_be_in_view(orderer):
     view_no = orderer.view_no + 1
     assert orderer.view_no < view_no
     with pytest.raises(PlenumValueError) as excinfo:
-        orderer.l_can_pp_seq_no_be_in_view(view_no, 1)
+        orderer._can_pp_seq_no_be_in_view(view_no, 1)
     assert ("expected: <= current view_no {}"
             .format(orderer.view_no)) in str(excinfo.value)
 

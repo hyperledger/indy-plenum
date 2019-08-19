@@ -163,7 +163,7 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     evilMethod = types.MethodType(evilMethod, replica)
 
     if msgType == PrePrepare:
-        replica._ordering_service.l_sendPrePrepare = evilMethod
+        replica._ordering_service.send_pre_prepare = evilMethod
     elif msgType == Prepare:
         replica._ordering_service._do_prepare = evilMethod
     elif msgType == Commit:

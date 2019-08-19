@@ -207,9 +207,9 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
         node.seqNoDB._keyValueStorage.remove(req.digest)
         node.seqNoDB._keyValueStorage.remove(req.payload_digest)
 
-    ppReq = replica._ordering_service.l_create_3pc_batch(DOMAIN_LEDGER_ID)
+    ppReq = replica._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
     ppReq._fields['reqIdr'] = [req.digest, req.digest]
-    replica._ordering_service.l_sendPrePrepare(ppReq)
+    replica._ordering_service.send_pre_prepare(ppReq)
 
     def reverts():
         for i, node in enumerate(txnPoolNodeSet):

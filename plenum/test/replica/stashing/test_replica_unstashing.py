@@ -15,7 +15,6 @@ def msg(replica):
 
 def test_unstash_catchup(replica, msg):
     pre_prepare, _ = msg
-    replica.set_view_no(pre_prepare.viewNo + 1)
     replica.stasher._stash(STASH_CATCH_UP, "reason", *msg)
     assert replica.stasher.stash_size(STASH_CATCH_UP) > 0
     replica.on_catch_up_finished()
@@ -24,7 +23,6 @@ def test_unstash_catchup(replica, msg):
 
 def test_unstash_future_view(replica, msg):
     pre_prepare, _ = msg
-    replica.set_view_no(pre_prepare.viewNo + 1)
     replica.stasher._stash(STASH_VIEW, "reason", *msg)
     assert replica.stasher.stash_size(STASH_VIEW) > 0
     replica.on_view_change_done()

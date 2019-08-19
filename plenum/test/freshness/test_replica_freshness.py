@@ -48,7 +48,7 @@ def replica_with_valid_requests(primary_replica):
         reqs = [requests[ledger_id]] if len(primary_replica._ordering_service.requestQueues[ledger_id]) > 0 else []
         return [reqs, [], []]
 
-    primary_replica._ordering_service.l_consume_req_queue_for_pre_prepare = patched_consume_req_queue_for_pre_prepare
+    primary_replica._ordering_service._consume_req_queue_for_pre_prepare = patched_consume_req_queue_for_pre_prepare
 
     return primary_replica, requests
 
@@ -196,7 +196,7 @@ def test_order_empty_pre_prepare(looper, tconf, txnPoolNodeSet):
     assert all(node.spylog.count(node.processOrdered) == 0 for node in txnPoolNodeSet)
 
     replica = getPrimaryReplica([txnPoolNodeSet[0]], instId=0)
-    replica._ordering_service.l_do_send_3pc_batch(ledger_id=POOL_LEDGER_ID)
+    replica._ordering_service._do_send_3pc_batch(ledger_id=POOL_LEDGER_ID)
 
     looper.run(eventually(
         lambda: assertExp(

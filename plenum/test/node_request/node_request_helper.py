@@ -126,7 +126,7 @@ def checkPrePrepared(looper,
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary._ordering_service,
-                                         primary._ordering_service.l_sendPrePrepare)
+                                         primary._ordering_service.send_pre_prepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
                               primary.batchDigest([propagated1, ])])
