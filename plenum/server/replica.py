@@ -28,9 +28,7 @@ from plenum.common.exceptions import SuspiciousNode, \
 from plenum.common.hook_manager import HookManager
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import PrimariesBatchNeeded, \
-    CurrentPrimaries, \
-    NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized, RaisedSuspicion
+from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
     PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
@@ -236,15 +234,14 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._consensus_data.node_mode = self.node.mode
         self._consensus_data.quorums = self.quorums
 
-    def _primaries_list_msg(self, msg: CurrentPrimaries):
-        self._consensus_data.primaries = msg.primaries
+    def set_primaries(self, primaries):
+        self._consensus_data.primaries = primaries
 
     def _subscribe_to_external_msgs(self):
         # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
 
     def _subscribe_to_internal_msgs(self):
-        self._subscription.subscribe(self.node.internal_bus, CurrentPrimaries, self._primaries_list_msg)
         self._subscription.subscribe(self.node.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.node.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.node.internal_bus, CheckpointStabilized, self._cleanup_process)

@@ -11,7 +11,7 @@ import gc
 import psutil
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries, NeedMasterCatchup, \
+from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
@@ -569,7 +569,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @primaries.setter
     def primaries(self, ps):
         self._primaries = ps
-        self.internal_bus.send(CurrentPrimaries(ps))
+        for r in self.replicas.values():
+            r.set_primaries(ps)
 
     @property
     def pre_view_change_in_progress(self):

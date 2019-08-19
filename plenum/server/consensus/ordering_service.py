@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
-    RequestPropagates, PrimariesBatchNeeded, BackupSetupLastOrdered, RaisedSuspicion
+    RequestPropagates, BackupSetupLastOrdered, RaisedSuspicion
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -63,7 +63,6 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
-                 request_queues: dict,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
                  stasher=None,
