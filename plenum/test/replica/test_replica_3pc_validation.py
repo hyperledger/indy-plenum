@@ -363,15 +363,15 @@ def test_can_send_multiple_3pc_batches_in_next_view(primary_validator, initial_s
 
 
 def test_can_order(validator):
-    assert validator.can_order_commits()
+    assert validator.can_order()
 
 
 def test_cant_order_not_participating(validator, mode_not_participating):
     validator.replica.node.mode = mode_not_participating
-    assert not validator.can_order_commits()
+    assert not validator.can_order()
 
 
 def test_can_order_synced_and_view_change(validator):
     validator.replica.node.mode = Mode.synced
     validator.replica.node.view_change_in_progress = True
-    assert validator.can_order_commits()
+    assert validator.can_order()
