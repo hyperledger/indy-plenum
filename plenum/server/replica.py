@@ -121,7 +121,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.name = self.generateName(node.name, self.instId)
         self.logger = getlogger(self.name)
         self.validator = ReplicaValidator(self)
-        self.stasher = self._init_replica_stasher()
 
         self.outBox = deque()
         """
@@ -169,6 +168,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
         self._external_bus = ExternalBus(send_handler=self.send)
+        self.stasher = self._init_replica_stasher()
         self._subscription = Subscription()
         self._bootstrap_consensus_data()
         self._subscribe_to_external_msgs()
@@ -830,7 +830,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _init_replica_stasher(self):
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
-                              replica_unstash=self._add_to_inbox)
+                              buses=[self.node.internal_bus, self._external_bus],
+                              unstash_handler=self._add_to_inbox)
 
     def _cleanup_process(self, msg: CheckpointStabilized):
         if msg.inst_id != self.instId:

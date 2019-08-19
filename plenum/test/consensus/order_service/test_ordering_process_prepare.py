@@ -5,6 +5,8 @@ import pytest
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.internal_messages import RaisedSuspicion
 from plenum.common.util import updateNamedTuple
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
+from plenum.server.models import ThreePhaseVotes
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts, check_suspicious
 from plenum.test.helper import generate_state_root, create_prepare_from_pre_prepare
@@ -21,7 +23,7 @@ def prepare(_pre_prepare):
 
 @pytest.fixture(scope='function', params=['Primary', 'Non-Primary'])
 def o(orderer_with_requests, request):
-    assert orderer_with_requests.primary_name == PRIMARY_NAME
+    orderer_with_requests._data.primary_name == PRIMARY_NAME
     if request == 'Primary':
         orderer_with_requests.name = PRIMARY_NAME
     else:
@@ -47,8 +49,8 @@ def test_validate_prepare_from_primary(o, prepare):
     o._validate_prepare(prepare, PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(PRIMARY_NAME,
-                                                                    Suspicions.PR_FRM_PRIMARY,
-                                                                    prepare)))
+                                                                Suspicions.PR_FRM_PRIMARY,
+                                                                prepare)))
 
 
 def test_validate_duplicate_prepare(o, pre_prepare, prepare):
@@ -59,8 +61,8 @@ def test_validate_duplicate_prepare(o, pre_prepare, prepare):
     o._validate_prepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.DUPLICATE_PR_SENT,
-                                                                    prepare)))
+                                                                Suspicions.DUPLICATE_PR_SENT,
+                                                                prepare)))
 
 
 def test_validate_prepare_no_preprepare(o, prepare):
@@ -71,8 +73,8 @@ def test_validate_prepare_no_preprepare(o, prepare):
         o._validate_prepare(prepare, NON_PRIMARY_NAME)
         check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                                   ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                        Suspicions.UNKNOWN_PR_SENT,
-                                                                        prepare)))
+                                                                    Suspicions.UNKNOWN_PR_SENT,
+                                                                    prepare)))
     # PrePrepare can be delayed, so just enqueue
     else:
         o._validate_prepare(prepare, NON_PRIMARY_NAME)
@@ -87,8 +89,8 @@ def test_validate_prepare_wrong_digest(o, pre_prepare, prepare):
     o._validate_prepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_DIGEST_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_DIGEST_WRONG,
+                                                                prepare)))
 
 
 def test_validate_prepare_wrong_txn_root(o, pre_prepare, prepare):
@@ -99,8 +101,8 @@ def test_validate_prepare_wrong_txn_root(o, pre_prepare, prepare):
     o._validate_prepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_TXN_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_TXN_WRONG,
+                                                                prepare)))
 
 
 def test_validate_prepare_wrong_state_root(o, pre_prepare, prepare):
@@ -111,8 +113,8 @@ def test_validate_prepare_wrong_state_root(o, pre_prepare, prepare):
     o._validate_prepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_STATE_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_STATE_WRONG,
+                                                                prepare)))
 
 
 def test_validate_prepare_wrong_audit_root(o, pre_prepare, prepare):
@@ -123,5 +125,5 @@ def test_validate_prepare_wrong_audit_root(o, pre_prepare, prepare):
     o._validate_prepare(prepare, NON_PRIMARY_NAME)
     check_suspicious(handler, RaisedSuspicion(inst_id=o._data.inst_id,
                                               ex=SuspiciousNode(NON_PRIMARY_NAME,
-                                                                    Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                                                    prepare)))
+                                                                Suspicions.PR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                                                prepare)))

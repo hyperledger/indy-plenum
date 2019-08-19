@@ -143,10 +143,6 @@ class TestNodeCore(StackedTester):
         view_changer.node = self
         return view_changer
 
-    def delaySelfNomination(self, delay: Seconds):
-        raise RuntimeError('Unknown primary decider encountered {}'.
-                           format(self.primaryDecider))
-
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
         delayerCheckPerf = partial(delayers.delayerMethod,
@@ -421,7 +417,8 @@ class TestReplica(replica.Replica):
 
     def _init_replica_stasher(self):
         return TestStashingRouter(self.config.REPLICA_STASH_LIMIT,
-                                  replica_unstash=self._add_to_inbox)
+                                  buses=[self.node.internal_bus, self._external_bus],
+                                  unstash_handler=self._add_to_inbox)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,

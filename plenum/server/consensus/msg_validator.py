@@ -1,9 +1,8 @@
-from abc import ABCMeta, abstractmethod
-
+from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import Commit, Checkpoint
 from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.types import f
-from plenum.common.util import compare_3PC_keys, SortedDict
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, STASH_VIEW, \
     FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, STASH_WATERMARKS, \
@@ -20,6 +19,8 @@ class ThreePCMsgValidator:
                                 self._data.last_ordered_3pc) >= 0
 
     def validate(self, msg):
+        if isinstance(msg, NewViewCheckpointsApplied):
+            return PROCESS, None
         view_no = getattr(msg, f.VIEW_NO.nm, None)
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
 
