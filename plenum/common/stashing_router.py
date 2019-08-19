@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Callable, Any, Dict, Type, Optional, Iterable, Tuple
+from typing import Callable, Any, Dict, Type, Optional, Iterable, Tuple, List
 
 from sortedcontainers import SortedListWithKey
 
@@ -93,7 +93,7 @@ class SortedStash(StashingQueue):
 class StashingRouter(Router):
     Handler = Callable[..., Optional[Tuple[int, str]]]
 
-    def __init__(self, limit: int, replica_unstash: Callable=None):
+    def __init__(self, limit: int, buses: List[Router], unstash_handler: Callable = None):
         super().__init__()
         self._limit = limit
         self._logger = getlogger()
@@ -101,26 +101,20 @@ class StashingRouter(Router):
         # TODO: This call has been added to saving the old message order in the list.
         # This is a replica's method that moves the message to the inBox, rather than
         # calling the handler immediately, as the default router does.
-        self._replica_unstash = replica_unstash
+        self._unstash_handler = unstash_handler
         self._subscriptions = Subscription()
+        self._buses = buses
 
     def set_sorted_stasher(self, code: int, key: Callable):
         self._queues[code] = SortedStash(self._limit, key)
 
-    def subscribe(self, message_type: Type, handler: Handler, allow_override=False) -> Router.SubscriptionID:
-        if not allow_override and message_type in self.message_types:
-            raise LogicError("Trying to assign handler {} for message type {}, "
-                             "but another handler is already assigned {}".
-                             format(handler, message_type, self.handlers(message_type)))
+    def subscribe(self, message_type: Type, handler: Handler) -> Router.SubscriptionID:
+        # TODO: subscribe to one bus only
+        for bus in self._buses:
+            self._subscriptions.subscribe(bus,
+                                          message_type,
+                                          partial(self._process, handler))
         return super().subscribe(message_type, handler)
-
-    def subscribe_to(self, router: Router):
-        self.unsubscribe_from_all()
-        for message_type in self.message_types:
-            for handler in self.handlers(message_type):
-                self._subscriptions.subscribe(router,
-                                              message_type,
-                                              partial(self._process, handler))
 
     def unsubscribe_from_all(self):
         self._subscriptions.unsubscribe_all()
@@ -195,10 +189,10 @@ class StashingRouter(Router):
         return self._unstash(handlers[0], message, *args)
 
     def _unstash(self, handler: Handler, message: Any, *args) -> bool:
-        if self._replica_unstash is None:
+        if self._unstash_handler is None:
             return self._process(handler, message, *args)
         else:
-            self._replica_unstash((message, *args))
+            self._unstash_handler((message, *args))
 
     def _stash(self, code: int, reason: str, message: Any, *args):
         self._logger.trace("Stashing message {} with metadata {} "

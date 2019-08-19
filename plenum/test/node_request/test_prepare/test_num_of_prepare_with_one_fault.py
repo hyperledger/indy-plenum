@@ -15,8 +15,6 @@ whitelist = ['cannot process incoming PREPARE']
 def setup(txnPoolNodeSet):
     # Making nodes faulty such that no primary is chosen
     G = txnPoolNodeSet[-1]
-    # Delaying nomination to avoid becoming primary
-    # G.delaySelfNomination(10)
     makeNodeFaulty(G,
                    partial(delaysPrePrepareProcessing, delay=60))
     return adict(faulty=G)

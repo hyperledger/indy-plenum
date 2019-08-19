@@ -21,20 +21,20 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, \
-    RequestPropagates, PrimariesBatchNeeded, BackupSetupLastOrdered, RaisedSuspicion
+    RequestPropagates, PrimariesBatchNeeded, BackupSetupLastOrdered, RaisedSuspicion, NewViewCheckpointsApplied, ViewChangeStarted
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import StashingRouter, PROCESS
+from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
@@ -63,9 +63,9 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
+                 stasher=None,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
-                 stasher=None,
                  metrics: MetricsCollector = NullMetricsCollector()):
         self.metrics = metrics
         self._data = data
@@ -80,7 +80,7 @@ class OrderingService:
         self._config = getConfig()
         self._logger = getlogger()
         # TODO: Change just to self._stasher = stasher
-        self._stasher = stasher if stasher else StashingRouter(self._config.REPLICA_STASH_LIMIT)
+        self._stasher = stasher
         self._subscription = Subscription()
         self._validator = ThreePCMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
@@ -230,7 +230,12 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
         self._subscription.subscribe(self._stasher, Commit, self.process_commit)
-        self._stasher.subscribe_to(network)
+        self._subscription.subscribe(self._stasher, NewViewCheckpointsApplied, self.process_new_view_checkpoints_applied)
+        self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
+
+        # Dict to keep PrePrepares from old view to be re-ordered in the new view
+        # key is (viewNo, ppDigest) tuple, and value is a PrePrepare
+        self.old_view_preprepares = {}
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
@@ -770,7 +775,8 @@ class OrderingService:
             self.requested_pre_prepares,
             self.requested_prepares,
             self.requested_commits,
-            self.pre_prepares_stashed_for_incorrect_time
+            self.pre_prepares_stashed_for_incorrect_time,
+            self.old_view_preprepares
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -2332,3 +2338,64 @@ class OrderingService:
 
     def replica_batch_digest(self, reqs):
         return replica_batch_digest(reqs)
+
+    def process_view_change_started(self, msg: ViewChangeStarted):
+        # 1. update shared data
+        self._data.preprepared = []
+        self._data.prepared = []
+
+        # 2. save existing PrePrepares
+        new_old_view_preprepares = {(pp.ppSeqNo, pp.digest): pp
+                                    for pp in itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values())}
+        self.old_view_preprepares.update(new_old_view_preprepares)
+
+        # 3. revert unordered transactions
+        if self.is_master:
+            self.revert_unordered_batches()
+
+        # 4. Clear the 3PC log
+        self.prePrepares.clear()
+        self.prepares.clear()
+        self.commits.clear()
+
+        self.requested_pre_prepares.clear()
+        self.requested_prepares.clear()
+        self.requested_commits.clear()
+
+        self.pre_prepare_tss.clear()
+        self.prePreparesPendingFinReqs.clear()
+        self.prePreparesPendingPrevPP.clear()
+        self.sentPrePrepares.clear()
+        self.batches.clear()
+        self.ordered.clear_below_view(msg.view_no)
+        return PROCESS, None
+
+    def process_new_view_checkpoints_applied(self, msg: NewViewCheckpointsApplied):
+        result, reason = self._validate(msg)
+        if result != PROCESS:
+            return result, reason
+
+        if not self.is_master:
+            return DISCARD, "not master"
+
+        for batch_id in msg.batches:
+            # TODO: take into account original view no
+            pp = self.old_view_preprepares.get((batch_id.pp_seq_no, batch_id.pp_digest))
+            if pp is None:
+                # TODO: implement correct re-sending logic
+                # self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
+                continue
+            if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
+                self.l_addToPrePrepares(pp)
+            else:
+                sender = self.generateName(self._data.primary_name, self._data.inst_id)
+                # TODO: route it through the bus?
+                self.process_preprepare(pp, sender)
+
+        # TODO: this needs to be removed
+        self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
+                                          pp_digest=batch_id.pp_digest)
+                                  for batch_id in msg.batches]
+        self._data.prepared = []
+
+        return PROCESS, None

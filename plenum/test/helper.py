@@ -1219,7 +1219,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None):
-    digest = Replica.batchDigest(reqs) if reqs is not None else "random digest"
+    digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
     params = [inst_id,
               view_no,
@@ -1295,6 +1295,11 @@ def create_prepare_from_pre_prepare(pre_prepare):
               pre_prepare.auditTxnRootHash]
     return Prepare(*params)
 
+def create_commit_from_pre_prepare(pre_prepare):
+    params = [pre_prepare.instId,
+              pre_prepare.viewNo,
+              pre_prepare.ppSeqNo]
+    return Commit(*params)
 
 def create_prepare(req_key, state_root, inst_id=0):
     view_no, pp_seq_no = req_key
