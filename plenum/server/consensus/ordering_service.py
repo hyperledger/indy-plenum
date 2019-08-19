@@ -851,7 +851,7 @@ class OrderingService:
             return PP_CHECK_REQUEST_NOT_FINALIZED
 
         if not self._is_next_pre_prepare(pre_prepare.viewNo,
-                                           pre_prepare.ppSeqNo):
+                                         pre_prepare.ppSeqNo):
             return PP_CHECK_NOT_NEXT
 
         if f.POOL_STATE_ROOT_HASH.nm in pre_prepare and \
@@ -895,7 +895,7 @@ class OrderingService:
             why_not_applied = PP_REQUEST_ALREADY_ORDERED
         else:
             why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
-                                                                  reqs, invalid_indices, invalid_from_pp)
+                                                                 reqs, invalid_indices, invalid_from_pp)
 
         # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
@@ -1165,7 +1165,7 @@ class OrderingService:
             req = self._requests[req_key].finalised
             try:
                 self._process_req_during_batch(req,
-                                             pre_prepare.ppTime)
+                                               pre_prepare.ppTime)
             except (InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare) as ex:
                 self._logger.warning('{} encountered exception {} while processing {}, '
                                      'will reject'.format(self, ex, req))
@@ -1181,9 +1181,9 @@ class OrderingService:
         if self.is_master:
             three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
                                                            state_root=self.get_state_root_hash(pre_prepare.ledgerId,
-                                                                                           to_str=False),
+                                                                                               to_str=False),
                                                            txn_root=self.get_txn_root_hash(pre_prepare.ledgerId,
-                                                                                       to_str=False),
+                                                                                           to_str=False),
                                                            primaries=[],
                                                            valid_digests=self._get_valid_req_ids_from_all_requests(
                                                                reqs, invalid_indices))
@@ -1195,7 +1195,7 @@ class OrderingService:
         return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
 
     def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
-                                       reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
+                                      reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
 
@@ -1802,8 +1802,8 @@ class OrderingService:
     @measure_consensus_time(MetricsName.REQUEST_PROCESSING_TIME,
                             MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
     def _process_req_during_batch(self,
-                                req: Request,
-                                cons_time: int):
+                                  req: Request,
+                                  cons_time: int):
         """
                 This method will do dynamic validation and apply requests.
                 If there is any errors during validation it would be raised
@@ -2130,7 +2130,7 @@ class OrderingService:
                 malicious_req = False
                 try:
                     self._process_req_during_batch(fin_req,
-                                                 tm)
+                                                   tm)
 
                 except (
                         InvalidClientMessageException,
