@@ -2726,8 +2726,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
         self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
                                len(self.master_replica._consensus_data.checkpoints))
-        self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
-                               sum_for_values(self.master_replica._checkpointer._stashed_recvd_checkpoints))
+        self.metrics.add_event(MetricsName.REPLICA_RECVD_CHECKPOINTS_MASTER,
+                               sum_for_values(self.master_replica._checkpointer._received_checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
                                self.master_replica.stasher.stash_size(STASH_WATERMARKS))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
@@ -2797,8 +2797,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
                                sum_for_values_for_backups_ordering_service('stashed_out_of_order_commits'))
         self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups_data('checkpoints'))
-        self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
-                               sum_for_values_for_backups_checkpointer('_stashed_recvd_checkpoints'))
+        self.metrics.add_event(MetricsName.REPLICA_RECVD_CHECKPOINTS_BACKUP,
+                               sum_for_values_for_backups_checkpointer('_received_checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
                                sum(r.stasher.stash_size(STASH_WATERMARKS) for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,

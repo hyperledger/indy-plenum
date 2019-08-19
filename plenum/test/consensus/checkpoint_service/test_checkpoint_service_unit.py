@@ -5,7 +5,7 @@ import pytest
 from common.exceptions import LogicError
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import CheckpointStabilized, NeedBackupCatchup, NeedMasterCatchup
-from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare, CheckpointState
+from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id

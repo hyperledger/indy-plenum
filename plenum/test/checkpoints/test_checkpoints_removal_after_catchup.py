@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
-from plenum.common.messages.node_messages import Checkpoint, CheckpointState
+from plenum.common.messages.node_messages import Checkpoint
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica

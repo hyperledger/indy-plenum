@@ -213,22 +213,10 @@ class Checkpoint(MessageBase):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),          # This will no longer be used soon
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),     # This is no longer used and must always be 0
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, MerkleRootField(nullable=True)),     # This is actually audit ledger merkle root
-    )
-
-
-# TODO implement actual rules
-class CheckpointState(MessageBase):
-    typename = CHECKPOINT_STATE
-    schema = (
-        (f.SEQ_NO.nm, AnyValueField()),
-        (f.DIGESTS.nm, AnyValueField()),
-        (f.DIGEST.nm, AnyValueField()),
-        (f.RECEIVED_DIGESTS.nm, AnyValueField()),
-        (f.IS_STABLE.nm, AnyValueField())
     )
 
 
