@@ -601,8 +601,8 @@ class OrderingService:
                 "{} found requests in the incoming pp, of {} ledger, that are not finalized. "
                 "{} of them don't have propagates: [{}]. "
                 "{} of them don't have enough propagates: [{}].".format(self, pre_prepare.ledgerId,
-                                                                      len(absents), absent_str,
-                                                                      len(non_fin), non_fin_str))
+                                                                        len(absents), absent_str,
+                                                                        len(non_fin), non_fin_str))
 
             def signal_suspicious(req):
                 self._logger.info("Request digest {} already ordered. Discard {} "
