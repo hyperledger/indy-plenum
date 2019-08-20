@@ -29,6 +29,11 @@ RaisedSuspicion = NamedTuple('RaisedSuspicion',
 PreSigVerification = NamedTuple('PreSigVerification',
                                 [('cmsg', Any)])
 
+Missing3pcMessage = NamedTuple('Missing3pcMessage',
+                               [('msg_type', str),
+                                ('params', dict),
+                                ('dst', List[str])])
+
 # by default view_no for StartViewChange is None meaning that we move to the next view
 NeedViewChange = NamedTuple('StartViewChange',
                             [('view_no', int)])

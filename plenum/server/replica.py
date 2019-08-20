@@ -39,6 +39,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -175,6 +176,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._subscribe_to_internal_msgs()
         self._checkpointer = self._init_checkpoint_service()
         self._ordering_service = self._init_ordering_service()
+        self._message_req_service = self._init_message_req_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -187,7 +189,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for req_queue in self._ordering_service.requestQueues.values():
             for req_key in req_queue:
                 req_keys.add(req_key)
-        for pp in self._ordering_service.sentPrePrepares.values():
+        for pp in self._ordering_service.sent_preprepares.values():
             for req_key in pp.reqIdr:
                 req_keys.add(req_key)
         for pp in self._ordering_service.prePrepares.values():
@@ -651,8 +653,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def getReqKeyFrom3PhaseKey(self, key: ThreePhaseKey):
         reqKey = None
-        if key in self.sentPrePrepares:
-            reqKey = self.sentPrePrepares[key][0]
+        if key in self.sent_preprepares:
+            reqKey = self.sent_preprepares[key][0]
         elif key in self.prePrepares:
             reqKey = self.prePrepares[key][0]
         elif key in self.prepares:
@@ -868,6 +870,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                stasher=self.stasher,
                                metrics=self.metrics)
+
+    def _init_message_req_service(self) -> MessageReq3pcService:
+        return MessageReq3pcService(data=self._consensus_data,
+                                    bus=self.node.internal_bus,
+                                    network=self._external_bus)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

@@ -260,7 +260,7 @@ def check_replica_queue_empty(node):
     assert len(replica._ordering_service.prePrepares) == 0
     assert len(replica._ordering_service.prePreparesPendingFinReqs) == 0
     assert len(replica._ordering_service.prepares) == 0
-    assert len(replica._ordering_service.sentPrePrepares) == 0
+    assert len(replica._ordering_service.sent_preprepares) == 0
     assert len(replica._ordering_service.batches) == 0
     assert len(replica._ordering_service.commits) == 0
     assert len(replica._ordering_service.commitsWaitingForPrepare) == 0

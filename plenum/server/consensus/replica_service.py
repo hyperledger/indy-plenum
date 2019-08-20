@@ -1,5 +1,6 @@
 from typing import List
 
+from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
 from plenum.server.replica_freshness_checker import FreshnessChecker
 
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -42,6 +43,7 @@ class ReplicaService:
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
                                                write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network, stasher)
+        self._message_requestor = MessageReq3pcService(self._data, bus, network)
 
         # TODO: This is just for testing purposes only
         self._data.checkpoints.append(

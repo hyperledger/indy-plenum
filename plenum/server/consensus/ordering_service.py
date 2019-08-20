@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import HookMessage, RequestPropagates, BackupSetupLastOrdered, \
-    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied
+    RaisedSuspicion, NewViewCheckpointsApplied, ViewChangeStarted, Missing3pcMessage
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -166,29 +166,11 @@ class OrderingService:
         self.commitsWaitingForPrepare = {}
         # type: Dict[Tuple[int, int], deque]
 
-        # Dictionary of sent PRE-PREPARE that are stored by primary replica
-        # which it has broadcasted to all other non primary replicas
-        # Key of dictionary is a 2 element tuple with elements viewNo,
-        # pre-prepare seqNo and value is the received PRE-PREPARE
-        self.sentPrePrepares = SortedDict(lambda k: (k[0], k[1]))
-        # type: Dict[Tuple[int, int], PrePrepare]
-
         # Dictionary of received PRE-PREPAREs. Key of dictionary is a 2
         # element tuple with elements viewNo, pre-prepare seqNo and value
         # is the received PRE-PREPARE
         self.prePrepares = SortedDict(lambda k: (k[0], k[1]))
         # type: Dict[Tuple[int, int], PrePrepare]
-
-        # Dictionary of received Prepare requests. Key of dictionary is a 2
-        # element tuple with elements viewNo, seqNo and value is a 2 element
-        # tuple containing request digest and set of sender node names(sender
-        # replica names in case of multiple protocol instances)
-        # (viewNo, seqNo) -> ((identifier, reqId), {senders})
-        self.prepares = Prepares()
-        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
-
-        self.commits = Commits()
-        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -662,11 +644,22 @@ class OrderingService:
             self._logger.warning("Unknown PRE-PREPARE check status: {}".format(why_not))
         return None, None
 
-    """Properties from legacy code"""
 
     @property
     def view_no(self):
         return self._data.view_no
+
+    @property
+    def sent_preprepares(self):
+        return self._data.sent_preprepares
+
+    @property
+    def prepares(self):
+        return self._data.prepares
+
+    @property
+    def commits(self):
+        return self._data.commits
 
     @property
     def last_ordered_3pc(self):
@@ -681,8 +674,8 @@ class OrderingService:
     def last_preprepare(self):
         last_3pc = (0, 0)
         lastPp = None
-        if self.sentPrePrepares:
-            (v, s), pp = self.sentPrePrepares.peekitem(-1)
+        if self.sent_preprepares:
+            (v, s), pp = self.sent_preprepares.peekitem(-1)
             last_3pc = (v, s)
             lastPp = pp
         if self.prePrepares:
@@ -738,7 +731,7 @@ class OrderingService:
         reqKeys = set()
 
         for key3PC, pp in itertools.chain(
-            self.sentPrePrepares.items(),
+            self.sent_preprepares.items(),
             self.prePrepares.items()
         ):
             if compare_3PC_keys(till3PCKey, key3PC) <= 0:
@@ -762,7 +755,7 @@ class OrderingService:
 
         to_clean_up = (
             self.pre_prepare_tss,
-            self.sentPrePrepares,
+            self.sent_preprepares,
             self.prePrepares,
             self.prepares,
             self.commits,
@@ -1022,12 +1015,8 @@ class OrderingService:
             recipients = self._network.connecteds.copy()
         return self._request_three_phase_msg(three_pc_key, self.requested_commits, COMMIT, recipients)
 
-    @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def _request_msg(self, typ, params: Dict, frm: List[str] = None):
-        self._send(MessageReq(**{
-            f.MSG_TYPE.nm: typ,
-            f.PARAMS.nm: params
-        }), dst=frm)
+        self._bus.send(Missing3pcMessage(typ, params, frm))
 
     """Method from legacy code"""
     def l_setup_last_ordered_for_non_master(self):
@@ -1399,15 +1388,15 @@ class OrderingService:
     def _has_prepared(self, key):
         if not self.get_preprepare(*key):
             return False
-        if ((key not in self.prepares and key not in self.sentPrePrepares) and
+        if ((key not in self.prepares and key not in self.sent_preprepares) and
                 (key not in self.preparesWaitingForPrePrepare)):
             return False
         return True
 
     def get_preprepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
-        if key in self.sentPrePrepares:
-            return self.sentPrePrepares[key]
+        if key in self.sent_preprepares:
+            return self.sent_preprepares[key]
         if key in self.prePrepares:
             return self.prePrepares[key]
         return None
@@ -1700,7 +1689,7 @@ class OrderingService:
 
         # if some PREPAREs/COMMITs were completely missed in the same view
         toCheck = set()
-        toCheck.update(set(self.sentPrePrepares.keys()))
+        toCheck.update(set(self.sent_preprepares.keys()))
         toCheck.update(set(self.prePrepares.keys()))
         toCheck.update(set(self.prepares.keys()))
         toCheck.update(set(self.commits.keys()))
@@ -2158,7 +2147,7 @@ class OrderingService:
     @measure_consensus_time(MetricsName.SEND_PREPREPARE_TIME,
                             MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def send_pre_prepare(self, ppReq: PrePrepare):
-        self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+        self.sent_preprepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self._send(ppReq, stat=TPCStat.PrePrepareSent)
 
     def _send(self, msg, dst=None, stat=None) -> None:
@@ -2211,7 +2200,7 @@ class OrderingService:
         if not self._data.is_primary:
             self.last_ordered_3pc = (self._data.view_no, 0)
             self.batches.clear()
-            self.sentPrePrepares.clear()
+            self.sent_preprepares.clear()
             self.prePrepares.clear()
             self.prepares.clear()
             self.commits.clear()
@@ -2228,7 +2217,7 @@ class OrderingService:
         for key, pp in self.prePrepares.items():
             if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
                 outdated_pre_prepares[key] = pp
-        for key, pp in self.sentPrePrepares.items():
+        for key, pp in self.sent_preprepares.items():
             if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
                 outdated_pre_prepares[key] = pp
 
@@ -2237,7 +2226,7 @@ class OrderingService:
 
         for key, pp in outdated_pre_prepares.items():
             self.batches.pop(key, None)
-            self.sentPrePrepares.pop(key, None)
+            self.sent_preprepares.pop(key, None)
             self.prePrepares.pop(key, None)
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
@@ -2246,7 +2235,7 @@ class OrderingService:
 
     def get_sent_preprepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
-        return self.sentPrePrepares.get(key)
+        return self.sent_preprepares.get(key)
 
     def get_sent_prepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
@@ -2274,7 +2263,7 @@ class OrderingService:
 
         # 2. save existing PrePrepares
         new_old_view_preprepares = {(pp.ppSeqNo, pp.digest): pp
-                                    for pp in itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values())}
+                                    for pp in itertools.chain(self.prePrepares.values(), self.sent_preprepares.values())}
         self.old_view_preprepares.update(new_old_view_preprepares)
 
         # 3. revert unordered transactions
@@ -2293,7 +2282,7 @@ class OrderingService:
         self.pre_prepare_tss.clear()
         self.prePreparesPendingFinReqs.clear()
         self.prePreparesPendingPrevPP.clear()
-        self.sentPrePrepares.clear()
+        self.sent_preprepares.clear()
         self.batches.clear()
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None

@@ -2,25 +2,38 @@ from typing import Dict, List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
     PROPAGATE, PREPARE, COMMIT
+from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.messages.internal_messages import Missing3pcMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep
 from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
 from plenum.common.types import f
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from stp_core.common.log import getlogger
 from plenum.server.message_handlers import LedgerStatusHandler, \
     ConsistencyProofHandler, PreprepareHandler, PrepareHandler, PropagateHandler, \
     CommitHandler
 
-logger = getlogger()
 
+class MessageReq3pcService:
+    def __init__(self,
+                 data: ConsensusSharedData,
+                 bus: InternalBus,
+                 network: ExternalBus,
+                 metrics=NullMetricsCollector):
+        self._logger = getlogger()
+        self._data = data
+        self._bus = bus
+        self._bus.subscribe(Missing3pcMessage, self.process_missing_message)
 
-class MessageReqProcessor:
-    # This is a mixin, it's mixed with node.
-    def __init__(self, metrics=NullMetricsCollector):
+        self._network = network
+        self._network.subscribe(MessageReq, self.process_message_req)
+        self._network.subscribe(MessageRep, self.process_message_rep)
+
         self.metrics = metrics
         self.handlers = {
-            LEDGER_STATUS: LedgerStatusHandler(self),
-            CONSISTENCY_PROOF: ConsistencyProofHandler(self),
-            PROPAGATE: PropagateHandler(self)
+            PREPREPARE: PreprepareHandler(self._data),
+            PREPARE: PrepareHandler(self._data),
+            COMMIT: CommitHandler(self._data),
         }
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REQ_TIME)
@@ -36,25 +49,32 @@ class MessageReqProcessor:
             return
 
         with self.metrics.measure_time(MetricsName.SEND_MESSAGE_REP_TIME):
-            self.sendToNodes(MessageRep(**{
+            self._network.send(MessageRep(**{
                 f.MSG_TYPE.nm: msg_type,
                 f.PARAMS.nm: msg.params,
                 f.MSG.nm: resp
-            }), names=[frm, ])
+            }), dst=[frm, ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):
         msg_type = msg.msg_type
         if msg.msg is None:
-            logger.debug('{} got null response for requested {} from {}'.
+            self._logger.debug('{} got null response for requested {} from {}'.
                          format(self, msg_type, frm))
             return
         handler = self.handlers[msg_type]
-        handler.process(msg, frm)
+        validated_msg, _ = handler.process(msg, frm)
+        self._network.process_incoming(validated_msg, frm)
 
     @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
-    def request_msg(self, typ, params: Dict, frm: List[str] = None):
-        self.sendToNodes(MessageReq(**{
-            f.MSG_TYPE.nm: typ,
+    def process_missing_message(self, msg: Missing3pcMessage):
+
+        # TODO: Using a timer to retry would be a better thing to do
+        self._logger.trace('{} requesting {} for {} from {}'.format(
+            self, msg.msg_type, msg.three_pc_key, msg.dst))
+        handler = self.handlers[msg.msg_type]
+        params = handler.prepare_msg_to_request(msg.three_pc_key)
+        self._network.send(MessageReq(**{
+            f.MSG_TYPE.nm: msg.typ,
             f.PARAMS.nm: params
-        }), names=frm)
+        }), dst=msg.dst)

@@ -36,7 +36,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     orderer.pre_prepare_tss[key][pp, "Node1"] = 1234
     orderer.prePreparesPendingFinReqs.append(pp)
     orderer.prePreparesPendingPrevPP[key] = pp
-    orderer.sentPrePrepares[key] = pp
+    orderer.sent_preprepares[key] = pp
     orderer.batches[key] = [pp.ledgerId, pp.discarded,
                             pp.ppTime, generate_state_root(), len(pp.reqIdr)]
     orderer.ordered.add(*key)
@@ -54,7 +54,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     assert not orderer.pre_prepare_tss
     assert not orderer.prePreparesPendingFinReqs
     assert not orderer.prePreparesPendingPrevPP
-    assert not orderer.sentPrePrepares
+    assert not orderer.sent_preprepares
     assert not orderer.batches
     assert not orderer.ordered
 
@@ -75,8 +75,8 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
 
     orderer.prePrepares[(pp1.viewNo, pp1.ppSeqNo)] = pp1
     orderer.prePrepares[(pp3.viewNo, pp3.ppSeqNo)] = pp3
-    orderer.sentPrePrepares[(pp2.viewNo, pp2.ppSeqNo)] = pp2
-    orderer.sentPrePrepares[(pp4.viewNo, pp4.ppSeqNo)] = pp4
+    orderer.sent_preprepares[(pp2.viewNo, pp2.ppSeqNo)] = pp2
+    orderer.sent_preprepares[(pp4.viewNo, pp4.ppSeqNo)] = pp4
     assert not orderer.old_view_preprepares
 
     internal_bus.send(ViewChangeStarted(view_no=4))
@@ -88,7 +88,7 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
 
     # next calls append to existing data
     orderer.prePrepares[(pp5.viewNo, pp5.ppSeqNo)] = pp5
-    orderer.sentPrePrepares[(pp6.viewNo, pp6.ppSeqNo)] = pp6
+    orderer.sent_preprepares[(pp6.viewNo, pp6.ppSeqNo)] = pp6
 
     internal_bus.send(ViewChangeStarted(view_no=4))
 
