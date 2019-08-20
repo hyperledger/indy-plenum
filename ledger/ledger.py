@@ -197,11 +197,12 @@ class Ledger(ImmutableStore):
         seqNo = int(seqNo)
         if seqNo <= 0:
             raise PlenumValueError('seqNo', seqNo, '> 0')
-        rootHash = self.tree.merkle_tree_hash(0, seqNo)
-        auditPath = self.tree.inclusion_proof(seqNo - 1, seqNo)
+        rootHash = self.tree.merkle_tree_hash(0, self.size)
+        auditPath = self.tree.inclusion_proof(seqNo - 1, self.size)
         return {
             F.rootHash.name: self.hashToStr(rootHash),
-            F.auditPath.name: [self.hashToStr(h) for h in auditPath]
+            F.auditPath.name: [self.hashToStr(h) for h in auditPath],
+            "ledgerSize": self.size
         }
 
     def start(self, loop=None, ensureDurability=True):

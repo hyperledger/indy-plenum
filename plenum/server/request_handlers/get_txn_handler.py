@@ -1,4 +1,5 @@
-from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN
+from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN, MULTI_SIGNATURE, AUDIT_LEDGER_ID, \
+    AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD
 from plenum.common.messages.node_messages import RequestNack, Reply
 from plenum.common.request import Request
 from plenum.common.txn_util import get_seq_no
@@ -27,6 +28,12 @@ class GetTxnHandler(ReadRequestHandler):
 
         try:
             txn = self.node.getReplyFromLedger(db.ledger, seq_no)
+            audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
+            audit_seq_no = audit_ledger.size
+            audit_txn = audit_ledger.getBySeqNo(audit_seq_no)
+            state_root = audit_txn[TXN_PAYLOAD][DATA][AUDIT_TXN_STATE_ROOT][ledger_id]
+            multi_sig = self.database_manager.bls_store.get(state_root)
+            txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
         except KeyError:
             txn = None
 
@@ -46,4 +53,4 @@ class GetTxnHandler(ReadRequestHandler):
             result[DATA] = txn.result
             result[f.SEQ_NO.nm] = get_seq_no(txn.result)
 
-        return Reply(result)
+        return result
