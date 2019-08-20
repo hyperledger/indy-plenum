@@ -637,15 +637,16 @@ class OrderingService:
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
-            last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
-            if pp_view_no >= last_pp_view_no and (
-                    self.is_master or self.last_ordered_3pc[1] != 0):
-                seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
+            _, last_pp_seq_no = self.__last_pp_3pc
+            # if pp_view_no >= last_pp_view_no and (
+            #         self.is_master or self.last_ordered_3pc[1] != 0):
+            if self.is_master or self.last_ordered_3pc[1] != 0:
+                seq_frm = last_pp_seq_no + 1
                 seq_to = pp_seq_no - 1
                 if seq_to >= seq_frm >= pp_seq_no - self._config.CHK_FREQ + 1:
                     self._logger.warning(
-                        "{} missing PRE-PREPAREs from {} to {}, "
-                        "going to request".format(self, seq_frm, seq_to))
+                        "{} missing PRE-PREPAREs for ppSeqNo {}, "
+                        "going to request".format(self, seq_frm))
                     self.l_request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
             self.l_enqueue_pre_prepare(pre_prepare, sender)
@@ -1147,9 +1148,9 @@ class OrderingService:
 
     """Method from legacy code"""
     def l__is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
-        # if view_no == self.view_no and pp_seq_no == 1:
-        #     # First PRE-PREPARE in a new view
-        #     return True
+        if pp_seq_no == 1:
+            # First PRE-PREPARE
+            return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
         if pp_seq_no - last_pp_seq_no > 1:
             return False
@@ -2334,3 +2335,9 @@ class OrderingService:
 
     def replica_batch_digest(self, reqs):
         return replica_batch_digest(reqs)
+
+    def _clear_all_3pc_msgs_after_vc(self):
+        self.sentPrePrepares.clear()
+        self.prepares.clear()
+        self.prePrepares.clear()
+        self.commits.clear()

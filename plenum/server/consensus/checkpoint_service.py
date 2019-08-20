@@ -340,7 +340,8 @@ class CheckpointService:
         # Reset any previous view watermarks since for view change to
         # successfully complete, the node must have reached the same state
         # as other nodes
-        self.set_watermarks(low_watermark=0)
+        pass
+        # self.set_watermarks(low_watermark=0)
 
     def should_reset_watermarks_before_new_view(self):
         if self.view_no <= 0:

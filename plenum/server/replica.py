@@ -447,7 +447,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self.last_prepared_before_view_change = None
         self.stasher.process_all_stashed(STASH_VIEW)
 
+    def _clear_all_3pc_msgs_after_vc(self):
+        self._ordering_service._clear_all_3pc_msgs_after_vc()
+
     def clear_requests_and_fix_last_ordered(self):
+        self._clear_all_3pc_msgs_after_vc()
         if self.isMaster:
             return
         reqs_for_remove = []
@@ -472,9 +476,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._checkpointer.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
-        elif not self.isPrimary:
-            self._checkpointer.set_watermarks(low_watermark=0,
-                                              high_watermark=sys.maxsize)
+        # elif not self.isPrimary:
+        #     self._checkpointer.set_watermarks(low_watermark=0,
+        #                                       high_watermark=sys.maxsize)
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
