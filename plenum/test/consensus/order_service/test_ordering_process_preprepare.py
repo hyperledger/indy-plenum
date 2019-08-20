@@ -61,8 +61,8 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(orderer_with_request
     orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
     check_suspicious(handler, RaisedSuspicion(inst_id=orderer_with_requests._data.inst_id,
                                               ex=SuspiciousNode(orderer_with_requests.primary_name,
-                                                                    Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG,
-                                                                    pre_prepare)))
+                                                                Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG,
+                                                                pre_prepare)))
 
 
 def test_process_pre_prepare_with_incorrect_audit_txn_root(orderer_with_requests,
@@ -88,8 +88,8 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(orderer_with_requests
     orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
     check_suspicious(handler, RaisedSuspicion(inst_id=orderer_with_requests._data.inst_id,
                                               ex=SuspiciousNode(orderer_with_requests.primary_name,
-                                                                    Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                                                    pre_prepare)))
+                                                                Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                                                pre_prepare)))
 
 
 def test_process_pre_prepare_with_not_final_request(orderer, pre_prepare):
@@ -121,8 +121,8 @@ def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
     orderer.process_preprepare(pre_prepare, orderer.primary_name)
     check_suspicious(handler, RaisedSuspicion(inst_id=orderer._data.inst_id,
                                               ex=SuspiciousNode(orderer.primary_name,
-                                                                    Suspicions.PPR_WITH_ORDERED_REQUEST,
-                                                                    pre_prepare)))
+                                                                Suspicions.PPR_WITH_ORDERED_REQUEST,
+                                                                pre_prepare)))
 
 
 def test_suspicious_on_wrong_sub_seq_no(orderer_with_requests, pre_prepare):
