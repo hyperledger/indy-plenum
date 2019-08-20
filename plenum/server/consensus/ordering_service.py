@@ -20,7 +20,8 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
 from plenum.common.ledger import Ledger
-from plenum.common.messages.internal_messages import HookMessage, RequestPropagates, BackupSetupLastOrdered, RaisedSuspicion
+from plenum.common.messages.internal_messages import HookMessage, RequestPropagates, BackupSetupLastOrdered, \
+    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -2313,7 +2314,7 @@ class OrderingService:
                 # self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
                 continue
             if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
-                self.l_addToPrePrepares(pp)
+                self._add_to_pre_prepares(pp)
             else:
                 sender = self.generateName(self._data.primary_name, self._data.inst_id)
                 # TODO: route it through the bus?
