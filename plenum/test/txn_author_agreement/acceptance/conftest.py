@@ -112,8 +112,8 @@ def max_last_accepted_pre_prepare_time(looper, txnPoolNodeSet):
     pp_times = []
     for node in txnPoolNodeSet:
         for replica in node.replicas.values():
-            if replica.last_accepted_pre_prepare_time:
-                pp_times.append(replica.last_accepted_pre_prepare_time)
+            if replica._ordering_service.last_accepted_pre_prepare_time:
+                pp_times.append(replica._ordering_service.last_accepted_pre_prepare_time)
     return max(pp_times)
 
 

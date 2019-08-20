@@ -1,4 +1,9 @@
+from plenum.common.event_bus import InternalBus
+from plenum.common.startable import Mode
+from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.database_manager import DatabaseManager
+from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test.testing_utils import FakeSomething
 
@@ -12,6 +17,13 @@ def test_ordered_cleaning(tconf):
         viewNo=global_view_no,
         utc_epoch=get_utc_epoch,
         get_validators=lambda: [],
+        internal_bus=InternalBus(),
+        db_manager=DatabaseManager(),
+        requests=[],
+        mode=Mode.participating,
+        timer=QueueTimer(),
+        quorums=Quorums(4),
+        write_manager=None
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -25,15 +37,15 @@ def test_ordered_cleaning(tconf):
     for viewNo in range(global_view_no + 1):
         for seqNo in range(num_requests_per_view):
             reqId = viewNo, seqNo
-            replica.addToOrdered(*reqId)
+            replica._ordering_service._add_to_ordered(*reqId)
             total.append(reqId)
 
     # gc is called after stable checkpoint, since no request executed
     # in this test starting it manually
-    replica._gc(100)
+    replica._ordering_service.gc(100)
     # Requests with view lower then previous view
     # should not be in ordered
-    assert len(replica.ordered) == len(total[num_requests_per_view:])
+    assert len(replica._ordering_service.ordered) == len(total[num_requests_per_view:])
 
 
 def test_primary_names_cleaning(tconf):
@@ -43,6 +55,13 @@ def test_primary_names_cleaning(tconf):
         viewNo=0,
         utc_epoch=get_utc_epoch,
         get_validators=lambda: [],
+        internal_bus=InternalBus(),
+        db_manager=DatabaseManager(),
+        requests=[],
+        mode=Mode.participating,
+        timer=QueueTimer(),
+        quorums=Quorums(4),
+        write_manager=None
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,

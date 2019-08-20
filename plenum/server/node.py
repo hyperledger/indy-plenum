@@ -9,6 +9,11 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 
 import gc
 import psutil
+
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import NeedMasterCatchup, \
+    RequestPropagates, PreSigVerification
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -25,6 +30,7 @@ from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP
 from plenum.server.request_handlers.utils import VALUE
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
@@ -53,7 +59,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -65,8 +71,8 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
-from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, RequestAck, RequestNack, Reject, Ordered, \
+from plenum.common.messages.node_messages import Batch, \
+    RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
@@ -109,8 +115,6 @@ from plenum.server.observer.observer_node import NodeObserver
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import TxnPoolManager
-from plenum.server.primary_decider import PrimaryDecider
-from plenum.server.primary_selector import PrimarySelector
 from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
 from plenum.server.replicas import Replicas
@@ -153,7 +157,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  plugins_dir: str = None,
                  node_info_dir: str = None,
                  view_changer: ViewChanger = None,
-                 primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
                  config=None,
@@ -161,16 +164,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  bootstrap_cls=NodeBootstrap):
         """
         Create a new node.
-
-        :param clientAuthNr: client authenticator implementation to be used
-        :param primaryDecider: the mechanism to be used to decide the primary
-        of a protocol instance
         """
         self.ha = ha
         self.cliname = cliname
         self.cliha = cliha
         self.timer = QueueTimer()
-        self.poolManager = None
+        self.poolManager = None  # type: TxnPoolManager
         self.ledgerManager = None
         self.bls_bft = None
         self.write_req_validator = None
@@ -209,7 +208,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.addGenesisNyms()
 
-        self.mode = None  # type: Optional[Mode]
+        self._mode = None  # type: Optional[Mode]
+
+        # List of current replica's primaries, used for persisting in audit ledger
+        # and restoration current primaries from audit ledger
+        self._primaries = []
 
         self.network_stacks_init(seed)
 
@@ -220,7 +223,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         MessageReqProcessor.__init__(self, metrics=self.metrics)
 
         self.view_changer = view_changer
-        self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
         self.clientInBox = deque()
@@ -243,11 +245,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self._elector = None  # type: PrimaryDecider
+        self.primaries_selector = RoundRobinPrimariesSelector()  # type: PrimariesSelector
 
         self.instances = Instances()
 
         self.monitor_init(pluginPaths)
+
+        self.internal_bus = self._init_internal_bus()
 
         self.replicas = self.create_replicas()
 
@@ -343,12 +347,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._observable = Observable()
         self._observer = NodeObserver(self)
 
-        # List of current replica's primaries, used for persisting in audit ledger
-        # and restoration current primaries from audit ledger
-        self.primaries = []
+    @property
+    def mode(self):
+        return self._mode
 
-        # Flag which node set, when it have set new primaries and need to send batch
-        self.primaries_batch_needed = False
+    @mode.setter
+    def mode(self, value):
+        self._mode = value
+        for r in self.replicas.values():
+            r.set_mode(value)
 
     def config_and_dirs_init(self, name, config, config_helper, ledger_dir, keys_dir,
                              genesis_dir, plugins_dir, node_info_dir, pluginPaths):
@@ -418,9 +425,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # ClientRequest and Propagation, which both require client
         # signature verification
         self.authnWhitelist = (
-            Nomination,
-            Primary,
-            Reelection,
             Batch,
             ViewChangeDone,
             PrePrepare,
@@ -556,6 +560,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.view_changer.view_change_in_progress
 
     @property
+    def primaries(self):
+        return self._primaries
+
+    @primaries.setter
+    def primaries(self, ps):
+        self._primaries = ps
+        for r in self.replicas.values():
+            r.set_primaries(ps)
+
+    @property
     def pre_view_change_in_progress(self):
         if self.view_changer is None:
             return False
@@ -620,14 +634,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @view_changer.setter
     def view_changer(self, value):
         self._view_changer = value
-
-    @property
-    def elector(self) -> PrimaryDecider:
-        return self._elector
-
-    @elector.setter
-    def elector(self, value):
-        self._elector = value
 
     # EXTERNAL EVENTS
 
@@ -970,8 +976,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.clientstack.start()
 
             self.view_changer = self.newViewChanger()
-            self.elector = self.newPrimaryDecider()
-
             self.schedule_initial_propose_view_change()
 
             self.schedule_node_status_dump()
@@ -1021,12 +1025,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.view_changer
         else:
             return create_view_changer(self)
-
-    def newPrimaryDecider(self):
-        if self.primaryDecider:
-            return self.primaryDecider
-        else:
-            return PrimarySelector(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -1087,7 +1085,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # self.clientstack.conns.clear()
         self.aqStash.clear()
         self.actionQueue.clear()
-        self.elector = None
         self.view_changer = None
 
     @async_measure_time(MetricsName.NODE_PROD_TIME)
@@ -1255,7 +1252,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.status = Status.started_hungry
             else:
                 self.status = Status.starting
-        self.elector.nodeCount = self.connectedNodeCount
 
         if self.master_primary_name in joined:
             self.primaries_disconnection_times[self.master_replica.instId] = None
@@ -1273,6 +1269,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         for inst_id, replica in self.replicas.items():
             if not replica.isMaster and replica.primaryName is not None:
+                replica.update_connecteds(self.nodestack.connecteds)
                 primary_node_name = replica.primaryName.split(':')[0]
                 if primary_node_name in joined:
                     self.primaries_disconnection_times[inst_id] = None
@@ -1470,7 +1467,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         num_processed = 0
         for message in self.replicas.get_output(limit):
             num_processed += 1
-            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint)):
+            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq)):
                 self.send(message)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
@@ -1846,7 +1843,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        self.execute_hook(NodeHooks.PRE_SIG_VERIFICATION, cMsg)
+        self.internal_bus.send(PreSigVerification(cMsg))
         self.verifySignature(cMsg)
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
@@ -2030,7 +2027,60 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.view_change_in_progress:
                 self.view_changer.on_catchup_complete()
             else:
-                self.elector.on_catchup_complete()
+                self.select_primaries_on_catchup_complete()
+
+    def select_primaries_on_catchup_complete(self):
+        # Select primaries after usual catchup (not view change)
+        ledger = self.getLedger(AUDIT_LEDGER_ID)
+        self.backup_instance_faulty_processor.restore_replicas()
+        self.drop_primaries()
+        if len(ledger) == 0:
+            self.select_primaries()
+        else:
+            # Emulate view change start
+            self.view_changer.previous_view_no = self.viewNo
+            self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.view_changer.previous_master_primary = self.master_primary_name
+            self.view_changer.set_defaults()
+
+            self.primaries = self._get_last_audited_primaries()
+            if len(self.replicas) != len(self.primaries):
+                logger.error('Audit ledger has inconsistent number of nodes. '
+                             'Node primaries = {}'.format(self.primaries))
+            if any(p not in self.nodeReg for p in self.primaries):
+                logger.error('Audit ledger has inconsistent names of primaries. '
+                             'Node primaries = {}'.format(self.primaries))
+            # Similar functionality to select_primaries
+            for instance_id, replica in self.replicas.items():
+                if instance_id == 0:
+                    self.start_participating()
+                replica.primaryChanged(
+                    Replica.generateName(self.primaries[instance_id], instance_id))
+                self.primary_selected(instance_id)
+
+        # Primary propagation
+        last_sent_pp_seq_no_restored = False
+        for replica in self.replicas.values():
+            replica.on_propagate_primary_done()
+        if self.view_changer.previous_view_no == 0:
+            last_sent_pp_seq_no_restored = \
+                self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
+        if not last_sent_pp_seq_no_restored:
+            self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
+
+        # Emulate view_change ending
+        self.on_view_propagated()
+
+    def _get_last_audited_primaries(self):
+        audit = self.getLedger(AUDIT_LEDGER_ID)
+        last_txn = audit.get_last_committed_txn()
+        last_txn_prim_value = get_payload_data(last_txn)[AUDIT_TXN_PRIMARIES]
+
+        if isinstance(last_txn_prim_value, int):
+            seq_no = get_seq_no(last_txn) - last_txn_prim_value
+            last_txn_prim_value = get_payload_data(audit.getBySeqNo(seq_no))[AUDIT_TXN_PRIMARIES]
+
+        return last_txn_prim_value
 
     def is_catchup_needed(self) -> bool:
         # More than one catchup may be needed during the current ViewChange protocol
@@ -2532,7 +2582,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
-        if self.master_replica.validator.can_order():
+        if self.master_replica._ordering_service.can_order_commits():
             self.processOrdered(msg)
         else:
             logger.warning("{} can not process Ordered message {} since mode is {}".format(self, msg, self.mode))
@@ -2627,15 +2677,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                len(self.view_changer._next_view_indications))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_VIEW_CHANGE_DONE, len(self.view_changer._view_change_done))
 
-        if self.primaryDecider:
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_ACTION_QUEUE, len(self.primaryDecider.actionQueue))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_AQ_STASH, len(self.primaryDecider.aqStash))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_REPEATING_ACTIONS,
-                                   len(self.primaryDecider.repeatingActions))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_SCHEDULED, len(self.primaryDecider.scheduled))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_INBOX, len(self.primaryDecider.inBox))
-            self.metrics.add_event(MetricsName.PRIMARY_DECIDER_OUTBOX, len(self.primaryDecider.outBox))
-
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
@@ -2651,102 +2692,124 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_INBOX_MASTER, len(self.master_replica.inBox))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_MASTER, len(self.master_replica.inBoxStash))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_MASTER,
-                               len(self.master_replica.prePreparesPendingFinReqs))
+                               len(self.master_replica._ordering_service.prePreparesPendingFinReqs))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_MASTER,
-                               len(self.master_replica.prePreparesPendingPrevPP))
+                               len(self.master_replica._ordering_service.prePreparesPendingPrevPP))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_WAITING_FOR_PREPREPARE_MASTER,
-                               sum_for_values(self.master_replica.preparesWaitingForPrePrepare))
+                               sum_for_values(self.master_replica._ordering_service.preparesWaitingForPrePrepare))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_MASTER,
-                               sum_for_values(self.master_replica.commitsWaitingForPrepare))
-        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica.sentPrePrepares))
-        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica.prePrepares))
-        self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica.prepares))
-        self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica.commits))
+                               sum_for_values(self.master_replica._ordering_service.commitsWaitingForPrepare))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica._ordering_service.sentPrePrepares))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica._ordering_service.prePrepares))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica._ordering_service.prepares))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica._ordering_service.commits))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
                                sum_for_values(self.master_replica.stashed_out_of_order_commits))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER, len(self.master_replica.checkpoints))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
+                               len(self.master_replica._consensus_data.checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_MASTER,
-                               sum_for_values(self.master_replica.stashedRecvdCheckpoints))
+                               sum_for_values(self.master_replica._checkpointer._stashed_recvd_checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_MASTER,
-                               self.master_replica.stasher.num_stashed_watermarks)
+                               self.master_replica.stasher.stash_size(STASH_WATERMARKS))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_MASTER,
-                               sum_for_values(self.master_replica.requestQueues))
-        self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica.batches))
+                               sum_for_values(self.master_replica._ordering_service.requestQueues))
+        self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica._ordering_service.batches))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_MASTER,
                                len(self.master_replica.requested_pre_prepares))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_MASTER,
                                len(self.master_replica.requested_prepares))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_MASTER,
-                               len(self.master_replica.pre_prepares_stashed_for_incorrect_time))
+                               len(self.master_replica._ordering_service.pre_prepares_stashed_for_incorrect_time))
 
         self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_MASTER, len(self.master_replica.actionQueue))
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_MASTER, len(self.master_replica.aqStash))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_MASTER, len(self.master_replica.repeatingActions))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_MASTER, len(self.master_replica.scheduled))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_MASTER,
-                               self.master_replica.stasher.num_stashed_catchup)
+                               self.master_replica.stasher.stash_size(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_MASTER,
-                               self.master_replica.stasher.num_stashed_future_view)
+                               self.master_replica.stasher.stash_size(STASH_VIEW))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_MASTER,
-                               self.master_replica.stasher.num_stashed_watermarks)
+                               self.master_replica.stasher.stash_size(STASH_WATERMARKS))
 
         def sum_for_backups(field):
             return sum(len(getattr(r, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
 
+        def sum_for_backups_ordering_service(field):
+            return sum(len(getattr(r._ordering_service, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        def sum_for_backups_data(field):
+            return sum(len(getattr(r._consensus_data, field)) for r in self.replicas._replicas.values() if r is not self.master_replica)
+
         def sum_for_values_for_backups(field):
             return sum(sum_for_values(getattr(r, field))
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        def sum_for_values_for_backups_ordering_service(field):
+            return sum(sum_for_values(getattr(r._ordering_service, field))
+                       for r in self.replicas._replicas.values() if r is not self.master_replica)
+
+        def sum_for_values_for_backups_checkpointer(field):
+            return sum(sum_for_values(getattr(r._checkpointer, field))
                        for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         self.metrics.add_event(MetricsName.REPLICA_OUTBOX_BACKUP, sum_for_backups('outBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_BACKUP, sum_for_backups('inBox'))
         self.metrics.add_event(MetricsName.REPLICA_INBOX_STASH_BACKUP, sum_for_backups('inBoxStash'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_FIN_REQS_BACKUP,
-                               sum_for_backups('prePreparesPendingFinReqs'))
+                               sum_for_backups_ordering_service('prePreparesPendingFinReqs'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_PENDING_PREVPP_BACKUP,
-                               sum_for_backups('prePreparesPendingPrevPP'))
+                               sum_for_backups_ordering_service('prePreparesPendingPrevPP'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_WAITING_FOR_PREPREPARE_BACKUP,
-                               sum_for_values_for_backups('preparesWaitingForPrePrepare'))
+                               sum_for_values_for_backups_ordering_service('preparesWaitingForPrePrepare'))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_BACKUP,
-                               sum_for_values_for_backups('commitsWaitingForPrepare'))
-        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP, sum_for_backups('sentPrePrepares'))
-        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP, sum_for_backups('prePrepares'))
-        self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP, sum_for_backups('prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP, sum_for_backups('commits'))
-        self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP, sum_for_backups('primaryNames'))
+                               sum_for_values_for_backups_ordering_service('commitsWaitingForPrepare'))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP,
+                               sum_for_backups_ordering_service('sentPrePrepares'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP,
+                               sum_for_backups_ordering_service('prePrepares'))
+        self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP,
+                               sum_for_backups_ordering_service('prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_COMMITS_BACKUP,
+                               sum_for_backups_ordering_service('commits'))
+        self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_BACKUP,
+                               sum_for_backups('primaryNames'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_BACKUP,
-                               sum_for_values_for_backups('stashed_out_of_order_commits'))
-        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups('checkpoints'))
+                               sum_for_values_for_backups_ordering_service('stashed_out_of_order_commits'))
+        self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_BACKUP, sum_for_backups_data('checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_RECVD_CHECKPOINTS_BACKUP,
-                               sum_for_values_for_backups('stashedRecvdCheckpoints'))
+                               sum_for_values_for_backups_checkpointer('_stashed_recvd_checkpoints'))
         self.metrics.add_event(MetricsName.REPLICA_STASHING_WHILE_OUTSIDE_WATERMARKS_BACKUP,
-                               sum(r.stasher.num_stashed_watermarks for r in self.replicas.values()))
+                               sum(r.stasher.stash_size(STASH_WATERMARKS) for r in self.replicas.values()))
         self.metrics.add_event(MetricsName.REPLICA_REQUEST_QUEUES_BACKUP,
-                               sum_for_values_for_backups('requestQueues'))
-        self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups('batches'))
+                               sum_for_values_for_backups_ordering_service('requestQueues'))
+        self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups_ordering_service('batches'))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_BACKUP,
-                               sum_for_backups('requested_pre_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP, sum_for_backups('requested_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP, sum_for_backups('requested_commits'))
+                               sum_for_backups_ordering_service('requested_pre_prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP,
+                               sum_for_backups_ordering_service('requested_prepares'))
+        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP,
+                               sum_for_backups_ordering_service('requested_commits'))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_BACKUP,
-                               sum_for_backups('pre_prepares_stashed_for_incorrect_time'))
+                               sum_for_backups_ordering_service('pre_prepares_stashed_for_incorrect_time'))
         self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_BACKUP, sum_for_backups('actionQueue'))
         self.metrics.add_event(MetricsName.REPLICA_AQ_STASH_BACKUP, sum_for_backups('aqStash'))
         self.metrics.add_event(MetricsName.REPLICA_REPEATING_ACTIONS_BACKUP, sum_for_backups('repeatingActions'))
         self.metrics.add_event(MetricsName.REPLICA_SCHEDULED_BACKUP, sum_for_backups('scheduled'))
 
         # Stashed msgs
-        def sum_stashed_for_backups(field):
-            return sum(getattr(r.stasher, field)
+        def sum_stashed_for_backups(stash_type):
+            return sum(r.stasher.stash_size(stash_type)
                        for r in self.replicas._replicas.values() if r is not self.master_replica)
 
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_BACKUP,
-                               sum_stashed_for_backups('num_stashed_catchup'))
+                               sum_stashed_for_backups(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_BACKUP,
-                               sum_stashed_for_backups('num_stashed_future_view'))
+                               sum_stashed_for_backups(STASH_VIEW))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_BACKUP,
-                               sum_stashed_for_backups('num_stashed_watermarks'))
+                               sum_stashed_for_backups(STASH_WATERMARKS))
 
         def store_rocksdb_metrics(name, storage):
             if not hasattr(storage, '_db'):
@@ -2913,6 +2976,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule_view_change()
 
+    def get_primaries_for_current_view(self):
+        return self.primaries_selector.select_primaries(view_no=self.viewNo,
+                                                        instance_count=self.requiredNumberOfInstances,
+                                                        validators=self.poolManager.node_names_ordered_by_rank())
+
     def select_primaries(self):
         # If you want to refactor primaries selection,
         # please take a look at https://jira.hyperledger.org/browse/INDY-1946
@@ -2920,10 +2988,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.backup_instance_faulty_processor.restore_replicas()
         self.ensure_primaries_dropped()
 
-        self.primaries = self.elector.process_selection(
-            self.requiredNumberOfInstances,
-            self.nodeReg, self.poolManager._ordered_node_ids)
-
+        self.primaries = self.get_primaries_for_current_view()
         pc = len(self.primaries)
         rc = len(self.replicas)
         if pc != rc:
@@ -2958,15 +3023,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Notify replica, that we need to send batch with new primaries
         if self.viewNo != 0:
-            self.primaries_batch_needed = True
+            for r in self.replicas.values():
+                r.set_primaries_batch_needed(True)
 
     def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica
         self.force_process_ordered()
 
         # # revert uncommitted txns and state for unordered requests
-        r = self.master_replica.revert_unordered_batches()
-        logger.info('{} reverted {} batches before starting catch up'.format(self, r))
+        self.master_replica.revert_unordered_batches()
 
         self.mode = Mode.starting
         self.ledgerManager.start_catchup(is_initial=just_started)
@@ -3525,7 +3590,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.action_manager = ActionRequestManager()
 
     def _bootstrap_node(self, bootstrap_cls, storage):
-        bootstrap_cls(self).init_node(storage)
+        bootstrap_cls(self).init(domain_storage=storage)
 
     def get_validators(self):
         return self.poolManager.node_ids_ordered_by_rank(
@@ -3534,3 +3599,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def set_view_for_replicas(self, view_no):
         for r in self.replicas.values():
             r.set_view_no(view_no)
+
+    def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
+        self.start_catchup()
+
+    def _init_internal_bus(self):
+        internal_bus = InternalBus()
+        internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
+        internal_bus.subscribe(RequestPropagates, self.request_propagates)
+        return internal_bus
+
+    def set_view_change_status(self, value: bool):
+        """
+        Remove this method after a PBFT ViewChange integration
+        """
+        for r in self.replicas.values():
+            r.set_view_change_status(value)

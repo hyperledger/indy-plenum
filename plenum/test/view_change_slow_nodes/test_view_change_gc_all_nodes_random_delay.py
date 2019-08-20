@@ -78,7 +78,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
         for node in txnPoolNodeSet:
             for replica in node.replicas.values():
                 if replica.isPrimary:
-                    assert len(replica.sentPrePrepares)
+                    assert len(replica._ordering_service.sentPrePrepares)
 
     looper.run(eventually(checkPrePrepareSentAtLeastByPrimary,
                           retryWait=0.1,

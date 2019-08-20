@@ -42,7 +42,7 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
     for node in txnPoolNodeSet:
         check_audit_txn(txn=node.auditLedger.getBySeqNo(node.auditLedger.size - 2),
                         view_no=view_no, pp_seq_no=pp_seq_no + 1,
-                        seq_no=initial_seq_no + 1, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 1, txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={POOL_LEDGER_ID: node.getLedger(POOL_LEDGER_ID).tree.root_hash},
                         state_roots={POOL_LEDGER_ID: node.getState(POOL_LEDGER_ID).committedHeadHash},
                         pool_size=initial_pool_size, domain_size=initial_domain_size,
@@ -54,7 +54,7 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
 
         check_audit_txn(txn=node.auditLedger.getBySeqNo(node.auditLedger.size - 1),
                         view_no=view_no, pp_seq_no=pp_seq_no + 2,
-                        seq_no=initial_seq_no + 2, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 2, txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={DOMAIN_LEDGER_ID: node.getLedger(DOMAIN_LEDGER_ID).tree.root_hash},
                         state_roots={DOMAIN_LEDGER_ID: node.getState(DOMAIN_LEDGER_ID).committedHeadHash},
                         pool_size=initial_pool_size, domain_size=initial_domain_size,
@@ -66,7 +66,8 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
 
         check_audit_txn(txn=node.auditLedger.getBySeqNo(node.auditLedger.size),
                         view_no=view_no, pp_seq_no=pp_seq_no + 3,
-                        seq_no=initial_seq_no + 3, txn_time=node.master_replica.last_accepted_pre_prepare_time,
+                        seq_no=initial_seq_no + 3,
+                        txn_time=node.master_replica._ordering_service.last_accepted_pre_prepare_time,
                         txn_roots={CONFIG_LEDGER_ID: node.getLedger(CONFIG_LEDGER_ID).tree.root_hash},
                         state_roots={CONFIG_LEDGER_ID: node.getState(CONFIG_LEDGER_ID).committedHeadHash},
                         pool_size=initial_pool_size, domain_size=initial_domain_size,

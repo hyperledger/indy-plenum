@@ -1,9 +1,10 @@
 import time
 
 from plenum.common.messages.node_messages import Commit
+from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
-from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
+from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE, STASH_WATERMARKS, \
     STASH_CATCH_UP, STASH_VIEW
 from stp_core.common.log import getlogger

@@ -1,43 +1,48 @@
 from typing import NamedTuple, List, Any
 
-from plenum.common.messages.node_messages import CheckpointState
-
-ValidatorsChanged = NamedTuple('ValidatorsChange',
-                               [('names', List[str])])
-
-LegacyViewChangeStatusUpdate = NamedTuple('StartViewChange',
-                                          [('in_progress', bool)])
-
-ParticipatingStatus = NamedTuple('LedgerParticipatingStatus',
-                                 [('is_participating', bool)])
+from plenum.common.exceptions import SuspiciousNode
 
 HookMessage = NamedTuple('HookMessage',
                          [('hook', int),
                           ('args', tuple)])
 
-OutboxMessage = NamedTuple('OutboxMessage',
-                           [('msg', Any)])
-
-DoCheckpointMessage = NamedTuple('DoCheckpoinitMessage',
-                                 [('state', CheckpointState),
-                                  ('start_no', int),
-                                  ('end_no', int),
-                                  ('ledger_id', int),
-                                  ('view_no', int)])
-
-RemoveStashedCheckpoints = NamedTuple('RemoveStashedCheckpoints',
-                                      [('start_no', int),
-                                       ('end_no', int),
-                                       ('view_no', int),
-                                       ('all', bool)])
-
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
 
-StartMasterCatchup = NamedTuple('StartMasterCatchup', [])
+BackupSetupLastOrdered = NamedTuple('BackupSetupLastOrdered',
+                                    [('inst_id', int)])
 
-StartBackupCatchup = NamedTuple('StartBackupCatchup',
-                                [('caught_up_till_3pc', tuple)])
+NeedMasterCatchup = NamedTuple('NeedMasterCatchup', [])
 
-Cleanup = NamedTuple('Cleanup',
-                     [('cleanup_till_3pc', tuple)])
+NeedBackupCatchup = NamedTuple('NeedBackupCatchup',
+                               [('inst_id', int),
+                                ('caught_up_till_3pc', tuple)])
+
+CheckpointStabilized = NamedTuple('CheckpointStabilized',
+                                  [('inst_id', int),
+                                   ('last_stable_3pc', tuple)])
+
+RaisedSuspicion = NamedTuple('RaisedSuspicion',
+                             [('inst_id', int),
+                              ('ex', SuspiciousNode)])
+
+PreSigVerification = NamedTuple('PreSigVerification',
+                                [('cmsg', Any)])
+
+# by default view_no for StartViewChange is None meaning that we move to the next view
+NeedViewChange = NamedTuple('StartViewChange',
+                            [('view_no', int)])
+NeedViewChange.__new__.__defaults__ = (None,) * len(NeedViewChange._fields)
+
+ViewChangeStarted = NamedTuple('ViewChangeStarted',
+                               [('view_no', int)])
+NewViewAccepted = NamedTuple('NewViewAccepted',
+                             [('view_no', int),
+                              ('view_changes', list),
+                              ('checkpoint', object),
+                              ('batches', list)])
+NewViewCheckpointsApplied = NamedTuple('NewViewCheckpointsApplied',
+                                       [('view_no', int),
+                                        ('view_changes', list),
+                                        ('checkpoint', object),
+                                        ('batches', list)])

@@ -27,7 +27,7 @@ def test_clean_verified_reqs(looper,
     therefore need to forcing checkpoint sending"""
     def checkpoint_check(nodes):
         for node in nodes:
-            assert get_count(node.master_replica, node.master_replica.markCheckPointStable) > 0
+            assert get_count(node.master_replica._checkpointer, node.master_replica._checkpointer._mark_checkpoint_stable) > 0
 
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,

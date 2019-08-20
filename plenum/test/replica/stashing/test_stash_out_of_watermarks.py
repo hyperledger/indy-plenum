@@ -1,4 +1,5 @@
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test.delayers import chk_delay, msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check, incoming_3pc_msgs_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -29,12 +30,12 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
 
     for n in txnPoolNodeSet:
         for r in n.replicas.values():
-            r.update_watermark_from_3pc()
+            r._checkpointer.update_watermark_from_3pc()
 
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
 
-    old_stashed = {inst_id: r.stasher.num_stashed_watermarks
+    old_stashed = {inst_id: r.stasher.stash_size(STASH_WATERMARKS)
                    for inst_id, r in slow_node.replicas.items()}
     last_ordered = {inst_id: r.last_ordered_3pc
                     for inst_id, r in slow_node.replicas.items()}
@@ -58,7 +59,7 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
                                       1)
 
             stashed_messages = incoming_3pc_msgs_count(len(txnPoolNodeSet))
-            assert all(r.stasher.num_stashed_watermarks == old_stashed[inst_id] + stashed_messages
+            assert all(r.stasher.stash_size(STASH_WATERMARKS) == old_stashed[inst_id] + stashed_messages
                        for inst_id, r in slow_node.replicas.items())
 
             _check_batches_ordered(slow_node, last_ordered, CHK_FREQ)
@@ -70,13 +71,13 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
                               1, CHK_FREQ))
         looper.run(eventually(_check_batches_ordered,
                               slow_node, last_ordered, CHK_FREQ + 1))
-        assert all(r.stasher.num_stashed_watermarks == old_stashed[inst_id]
+        assert all(r.stasher.stash_size(STASH_WATERMARKS) == old_stashed[inst_id]
                    for inst_id, r in slow_node.replicas.items())
 
 
 def _check_checkpoint_finalize(nodes, start_pp_seq_no, end_pp_seq_no):
     for n in nodes:
-        checkpoint = n.master_replica.checkpoints[(start_pp_seq_no, end_pp_seq_no)]
+        checkpoint = n.master_replica._checkpointer._checkpoint_state[(start_pp_seq_no, end_pp_seq_no)]
         assert checkpoint.isStable
 
 

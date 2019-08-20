@@ -38,8 +38,7 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         return self._node.mode
 
     def next_primary_name(self) -> str:
-        return self._node.elector._next_primary_node_name_for_master(
-            self._node.nodeReg, self._node.nodeIds)
+        return self._node.get_primaries_for_current_view()[0]
 
     def current_primary_name(self) -> str:
         return self._node.master_primary_name
@@ -91,6 +90,9 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
+
+    def set_view_change_status(self, value: bool):
+        self._node.set_view_change_status(value)
 
     @property
     def node_status_db(self) -> KeyValueStorage:

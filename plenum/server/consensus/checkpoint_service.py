@@ -9,15 +9,19 @@ from common.exceptions import LogicError
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import StartMasterCatchup, StartBackupCatchup, Cleanup
+from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
+    BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import Checkpoint, Ordered, CheckpointState
-from plenum.common.metrics_collector import MetricsName
-from plenum.common.stashing_router import DISCARD, PROCESS, StashingRouter
+from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
+from plenum.common.router import Subscription
+from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.util import updateNamedTuple, SortedDict, firstKey
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_stasher import ReplicaStasher
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from stp_core.common.log import getlogger
 
 
@@ -25,16 +29,17 @@ class CheckpointService:
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter, db_manager: DatabaseManager, old_stasher: ReplicaStasher,
-                 is_master=True):
+                 stasher: StashingRouter, db_manager: DatabaseManager,
+                 metrics: MetricsCollector = NullMetricsCollector(),):
         self._data = data
         self._bus = bus
         self._network = network
         self._checkpoint_state = SortedDict(lambda k: k[1])
         self._stasher = stasher
-        self._is_master = is_master
+        self._subscription = Subscription()
         self._validator = CheckpointMsgValidator(self._data)
         self._db_manager = db_manager
+        self.metrics = metrics
 
         # Stashed checkpoints for each view. The key of the outermost
         # dictionary is the view_no, value being a dictionary with key as the
@@ -46,25 +51,43 @@ class CheckpointService:
         self._config = getConfig()
         self._logger = getlogger()
 
-        self._old_stasher = old_stasher
+        self._subscription.subscribe(stasher, Checkpoint, self.process_checkpoint)
 
-        # self._stasher.subscribe(Checkpoint, self.process_checkpoint)
-        # self._stasher.subscribe_to(network)
-        #
-        # self._bus.subscribe(Ordered, self.process_ordered)
-        # self._bus.subscribe(StartBackupCatchup, self.caught_up_till_3pc)
+        self._subscription.subscribe(bus, Ordered, self.process_ordered)
+        self._subscription.subscribe(bus, BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
+        self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
+
+    def cleanup(self):
+        self._subscription.unsubscribe_all()
 
     @property
     def view_no(self):
         return self._data.view_no
 
     @property
+    def is_master(self):
+        return self._data.is_master
+
+    @property
     def last_ordered_3pc(self):
         return self._data.last_ordered_3pc
 
-    # @measure_replica_time(MetricsName.PROCESS_CHECKPOINT_TIME,
-    #                       MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
-    def process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
+    @measure_consensus_time(MetricsName.PROCESS_CHECKPOINT_TIME,
+                            MetricsName.BACKUP_PROCESS_CHECKPOINT_TIME)
+    def process_checkpoint(self, msg: Checkpoint, sender: str) -> (bool, str):
+        """
+        Process checkpoint messages
+        :return: whether processed (True) or stashed (False)
+        """
+        if msg.instId != self._data.inst_id:
+            return None, None
+        self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
+        result, reason = self._validator.validate(msg)
+        if result == PROCESS:
+            self._do_process_checkpoint(msg, sender)
+        return result, reason
+
+    def _do_process_checkpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
         Process checkpoint messages
 
@@ -83,7 +106,7 @@ class CheckpointService:
         checkpoint_state = self._checkpoint_state[key]
         # Raise the error only if master since only master's last
         # ordered 3PC is communicated during view change
-        if self._is_master and checkpoint_state.digest != msg.digest:
+        if self.is_master and checkpoint_state.digest != msg.digest:
             self._logger.warning("{} received an incorrect digest {} for "
                                  "checkpoint {} from {}".format(self, msg.digest, key, sender))
             return True
@@ -92,10 +115,21 @@ class CheckpointService:
         self._check_if_checkpoint_stable(key)
         return True
 
+    def process_backup_setup_last_ordered(self, msg: BackupSetupLastOrdered):
+        if msg.inst_id != self._data.inst_id:
+            return
+        self.update_watermark_from_3pc()
+
     def process_ordered(self, ordered: Ordered):
-        for pp in reversed(self._data.preprepared):
-            if pp.ppSeqNo == ordered.ppSeqNo:
-                self._add_to_checkpoint(pp.ppSeqNo, pp.digest, pp.ledgerId, pp.viewNo)
+        if ordered.instId != self._data.inst_id:
+            return
+        for batch_id in reversed(self._data.preprepared):
+            if batch_id.pp_seq_no == ordered.ppSeqNo:
+                self._add_to_checkpoint(batch_id.pp_seq_no,
+                                        batch_id.pp_digest,
+                                        ordered.ledgerId,
+                                        batch_id.view_no,
+                                        ordered.auditTxnRootHash)
                 return
         raise LogicError("CheckpointService | Can't process Ordered msg because "
                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo))
@@ -119,7 +153,7 @@ class CheckpointService:
         if not is_stashed_enough:
             return
 
-        if self._is_master:
+        if self.is_master:
             self._logger.display(
                 '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
                     self, lag_in_checkpoints, stashed_checkpoint_ends[-1]))
@@ -128,7 +162,7 @@ class CheckpointService:
                 self._logger.display(
                     '{} has lagged for {} checkpoints so the catchup procedure starts'.format(
                         self, lag_in_checkpoints))
-                self._bus.send(StartMasterCatchup())
+                self._bus.send(NeedMasterCatchup())
         else:
             self._logger.info(
                 '{} has lagged for {} checkpoints so adjust last_ordered_3pc to {}, '
@@ -137,8 +171,10 @@ class CheckpointService:
             # Adjust last_ordered_3pc, shift watermarks, clean operational
             # collections and process stashed messages which now fit between
             # watermarks
-            self._bus.send(StartBackupCatchup((self.view_no, stashed_checkpoint_ends[-1])))
-            self.caught_up_till_3pc((self.view_no, stashed_checkpoint_ends[-1]))
+            key_3pc = (self.view_no, stashed_checkpoint_ends[-1])
+            self._bus.send(NeedBackupCatchup(inst_id=self._data.inst_id,
+                                             caught_up_till_3pc=key_3pc))
+            self.caught_up_till_3pc(key_3pc)
 
     def gc_before_new_view(self):
         self._reset_checkpoints()
@@ -147,7 +183,7 @@ class CheckpointService:
     def caught_up_till_3pc(self, caught_up_till_3pc):
         self._reset_checkpoints()
         self._remove_stashed_checkpoints(till_3pc_key=caught_up_till_3pc)
-        self.update_watermark_from_3pc(caught_up_till_3pc)
+        self.update_watermark_from_3pc()
 
     def catchup_clear_for_backup(self):
         self._reset_checkpoints()
@@ -155,7 +191,7 @@ class CheckpointService:
         self.set_watermarks(low_watermark=0,
                             high_watermark=sys.maxsize)
 
-    def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no):
+    def _add_to_checkpoint(self, ppSeqNo, digest, ledger_id, view_no, audit_txn_root_hash):
         for (s, e) in self._checkpoint_state.keys():
             if s <= ppSeqNo <= e:
                 state = self._checkpoint_state[s, e]  # type: CheckpointState
@@ -171,20 +207,22 @@ class CheckpointService:
 
         if state.seqNo == e:
             if len(state.digests) == self._config.CHK_FREQ:
-                self._do_checkpoint(state, s, e, ledger_id, view_no)
+                self._do_checkpoint(state, s, e, ledger_id, view_no, audit_txn_root_hash)
             self._process_stashed_checkpoints((s, e), view_no)
 
-    # @measure_replica_time(MetricsName.SEND_CHECKPOINT_TIME,
-    #                       MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
-    def _do_checkpoint(self, state, s, e, ledger_id, view_no):
+    @measure_consensus_time(MetricsName.SEND_CHECKPOINT_TIME,
+                            MetricsName.BACKUP_SEND_CHECKPOINT_TIME)
+    def _do_checkpoint(self, state, s, e, ledger_id, view_no, audit_txn_root_hash):
         # TODO CheckpointState/Checkpoint is not a namedtuple anymore
         # 1. check if updateNamedTuple works for the new message type
         # 2. choose another name
+
+        # TODO: This is hack of hacks, should be removed when refactoring is complete
+        if not self.is_master and audit_txn_root_hash is None:
+            audit_txn_root_hash = "7RJ5bkAKRy2CCvarRij2jiHC16SVPjHcrpVdNsboiQGv"
+
         state = updateNamedTuple(state,
-                                 digest=sha256(
-                                     serialize_msg_for_signing(
-                                         state.digests)
-                                 ).hexdigest(),
+                                 digest=audit_txn_root_hash,
                                  digests=[])
         self._checkpoint_state[s, e] = state
         self._logger.info("{} sending Checkpoint {} view {} checkpointState digest {}. Ledger {} "
@@ -220,7 +258,7 @@ class CheckpointService:
             self._logger.trace("{} removing previous checkpoint {}".format(self, k))
             self._checkpoint_state.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, seqNo))
-        self._bus.send(Cleanup((self.view_no, seqNo)))  # call OrderingService.l_gc()
+        self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, seqNo)))
         self._logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def _check_if_checkpoint_stable(self, key: Tuple[int, int]):
@@ -313,22 +351,20 @@ class CheckpointService:
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark
-        if high_watermark is None:
-            self._data.high_watermark = self._data.low_watermark + self._config.LOG_SIZE \
-                if high_watermark is None else \
-                high_watermark
+        self._data.high_watermark = self._data.low_watermark + self._config.LOG_SIZE \
+            if high_watermark is None else \
+            high_watermark
 
         self._logger.info('{} set watermarks as {} {}'.format(self,
                                                               self._data.low_watermark,
                                                               self._data.high_watermark))
-        self._old_stasher.unstash_watermarks()
+        self._stasher.process_all_stashed(STASH_WATERMARKS)
 
-    def update_watermark_from_3pc(self, last_ordered_3pc=None):
-        if (self.last_ordered_3pc is not None) and (self.last_ordered_3pc[0] == self.view_no):
-            self._logger.info("update_watermark_from_3pc to {}".format(self.last_ordered_3pc))
-            low_watermark = self.last_ordered_3pc[1] if last_ordered_3pc is None \
-                else last_ordered_3pc[1]
-            self.set_watermarks(low_watermark)
+    def update_watermark_from_3pc(self):
+        last_ordered_3pc = self.last_ordered_3pc
+        if (last_ordered_3pc is not None) and (last_ordered_3pc[0] == self.view_no):
+            self._logger.info("update_watermark_from_3pc to {}".format(last_ordered_3pc))
+            self.set_watermarks(last_ordered_3pc[1])
         else:
             self._logger.info("try to update_watermark_from_3pc but last_ordered_3pc is None")
 
@@ -376,7 +412,29 @@ class CheckpointService:
             SortedListWithKey([c for c in self._data.checkpoints if c.seqNoEnd >= end_seq_no],
                               key=lambda checkpoint: checkpoint.seqNoEnd)
 
+    def __str__(self) -> str:
+        return "{} - checkpoint_service".format(self._data.name)
+
     # TODO: move to OrderingService as a handler for Cleanup messages
     # def _clear_batch_till_seq_no(self, seq_no):
     #     self._data.preprepared = [pp for pp in self._data.preprepared if pp.ppSeqNo >= seq_no]
     #     self._data.prepared = [p for p in self._data.prepared if p.ppSeqNo >= seq_no]
+
+    def discard(self, msg, reason, sender):
+        self._logger.trace("{} discard message {} from {} "
+                           "with the reason: {}".format(self, msg, sender, reason))
+
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        # 1. update shared data
+        cp = msg.checkpoint
+        if cp not in self._data.checkpoints:
+            self._data.checkpoints.append(cp)
+        self._set_stable_checkpoint(cp.seqNoEnd)
+        self.set_watermarks(low_watermark=cp.seqNoEnd)
+
+        # 2. send NewViewCheckpointsApplied
+        self._bus.send(NewViewCheckpointsApplied(view_no=msg.view_no,
+                                                 view_changes=msg.view_changes,
+                                                 checkpoint=msg.checkpoint,
+                                                 batches=msg.batches))
+        return PROCESS, None

@@ -1,8 +1,9 @@
 import pytest
 
 from plenum.common.startable import Mode
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import DISCARD, INCORRECT_INSTANCE, PROCESS, ALREADY_ORDERED, FUTURE_VIEW, \
+from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, STASH_VIEW, STASH_WATERMARKS, \
     STASH_CATCH_UP
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, create_commit_no_bls_sig, create_prepare
@@ -259,7 +260,7 @@ def test_check_watermarks_default(validator, pp_seq_no, result):
     (100000, (STASH_WATERMARKS, OUTSIDE_WATERMARKS)),
 ])
 def test_check_watermarks_changed(validator, pp_seq_no, result):
-    validator.replica.h = 100
+    validator.replica._checkpointer.set_watermarks(low_watermark=100)
     for msg in create_3pc_msgs(view_no=validator.view_no,
                                pp_seq_no=pp_seq_no,
                                inst_id=validator.inst_id):

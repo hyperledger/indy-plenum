@@ -1,11 +1,15 @@
+from unittest.mock import Mock
+
 import pytest
 
 from common.exceptions import LogicError
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.internal_messages import Cleanup, StartBackupCatchup, StartMasterCatchup
+from plenum.common.messages.internal_messages import CheckpointStabilized, NeedBackupCatchup, NeedMasterCatchup
 from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare, CheckpointState
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.helper import create_pre_prepare_params
 
 
@@ -44,15 +48,7 @@ def checkpoint(ordered, tconf):
                       viewNo=ordered.viewNo,
                       seqNoStart=start,
                       seqNoEnd=start + tconf.CHK_FREQ - 1,
-                      digest='digest')
-
-
-caught_msg = None
-
-
-def catch_msg(msg):
-    global caught_msg
-    caught_msg = msg
+                      digest=cp_digest(start, start + tconf.CHK_FREQ - 1))
 
 
 def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint, tconf, is_master):
@@ -69,10 +65,10 @@ def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint
 
 def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, checkpoint, pre_prepare,
                                                         tconf, ordered, validators, is_master):
-    global caught_msg
-    caught_msg = None
-    checkpoint_service._bus.subscribe(StartMasterCatchup, catch_msg)
-    checkpoint_service._bus.subscribe(StartBackupCatchup, catch_msg)
+    master_catchup_handler = Mock()
+    backup_catchup_handler = Mock()
+    checkpoint_service._bus.subscribe(NeedMasterCatchup, master_catchup_handler)
+    checkpoint_service._bus.subscribe(NeedBackupCatchup, backup_catchup_handler)
 
     quorum = checkpoint_service._data.quorums.checkpoint.value
     print(quorum)
@@ -87,24 +83,25 @@ def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, chec
                                 viewNo=ordered.viewNo,
                                 seqNoStart=key[0],
                                 seqNoEnd=key[1],
-                                digest='digest')
+                                digest=cp_digest(1, 1))
 
     for sender in senders[:quorum]:
-        assert not checkpoint_service.process_checkpoint(checkpoint, sender)
+        assert not checkpoint_service._do_process_checkpoint(checkpoint, sender)
         assert checkpoint_service._stashed_recvd_checkpoints[checkpoint.viewNo][old_key][sender] == checkpoint
 
     for sender in senders[:quorum - 1]:
-        assert not checkpoint_service.process_checkpoint(new_checkpoint, sender)
+        assert not checkpoint_service._do_process_checkpoint(new_checkpoint, sender)
         assert checkpoint_service._stashed_recvd_checkpoints[checkpoint.viewNo][key][sender] == new_checkpoint
 
-    assert not checkpoint_service.process_checkpoint(new_checkpoint, senders[quorum - 1])
+    assert not checkpoint_service._do_process_checkpoint(new_checkpoint, senders[quorum - 1])
 
     if is_master:
         assert checkpoint_service._data.low_watermark == key[1]
-        assert isinstance(caught_msg, StartMasterCatchup)
+        master_catchup_handler.assert_called_once_with(NeedMasterCatchup())
     else:
-        assert isinstance(caught_msg, StartBackupCatchup)
-        assert caught_msg.caught_up_till_3pc == (checkpoint_service.view_no, key[1])
+        backup_catchup_handler.assert_called_once_with(NeedBackupCatchup(inst_id=checkpoint_service._data.inst_id,
+                                                                         caught_up_till_3pc=(checkpoint_service.view_no,
+                                                                                             key[1])))
 
 
 def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
@@ -113,9 +110,9 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
     new_key = (key[1] + 1, key[1] + tconf.CHK_FREQ)
     checkpoint_service._data.stable_checkpoint = 1
 
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, new_key[0], new_key[1], "1"),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, new_key[0], new_key[1], cp_digest(1, 1)),
                                          "frm")
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, key[0], key[1], "1"),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, key[0], key[1], cp_digest(1, 1)),
                                          "frm")
     checkpoint_service._checkpoint_state[key] = CheckpointState(key[1] - 1,
                                                                 ["digest"] * (tconf.CHK_FREQ - 1),
@@ -124,7 +121,8 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
                                                                 False)
     checkpoint_service._data.checkpoints.append(checkpoint)
 
-    checkpoint_service.caught_up_till_3pc((checkpoint_service.view_no, key[1]))
+    checkpoint_service._data.last_ordered_3pc = (checkpoint_service.view_no, key[1])
+    checkpoint_service.caught_up_till_3pc(checkpoint_service._data.last_ordered_3pc)
 
     assert checkpoint_service._data.low_watermark == key[1]
     assert not checkpoint_service._checkpoint_state
@@ -135,9 +133,8 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
 
 
 def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, ordered, validators, is_master):
-    global caught_msg
-    caught_msg = None
-    checkpoint_service._bus.subscribe(Cleanup, catch_msg)
+    checkpoint_stabilized_handler = Mock()
+    checkpoint_service._bus.subscribe(CheckpointStabilized, checkpoint_stabilized_handler)
     quorum = checkpoint_service._data.quorums.checkpoint.value
     n = len(validators)
     assert quorum == n - getMaxFailures(n) - 1
@@ -145,8 +142,8 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     key = (1, tconf.CHK_FREQ)
     old_key = (-1, 0)
 
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 1, 1, "1"), "frm")
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo + 1, 1, 1, "1"), "frm")
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 1, 1, cp_digest(1, 1)), "frm")
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo + 1, 1, 1, cp_digest(1, 1)), "frm")
 
     checkpoint_service._checkpoint_state[old_key] = CheckpointState(1,
                                                                     ["digest"] * (tconf.CHK_FREQ - 1),
@@ -160,7 +157,7 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
                                                                 False)
     pre_prepare.ppSeqNo = key[1]
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, key[0], key[1], pre_prepare, check_shared_data=True)
     state = updateNamedTuple(checkpoint_service._checkpoint_state[key],
@@ -184,8 +181,9 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     assert checkpoint_service._data.low_watermark == checkpoint.seqNoEnd
 
     # check that a Cleanup msg has been sent
-    assert isinstance(caught_msg, Cleanup)
-    assert caught_msg.cleanup_till_3pc == (checkpoint.viewNo, checkpoint.seqNoEnd)
+    checkpoint_stabilized_handler.assert_called_once_with(
+        CheckpointStabilized(inst_id=checkpoint_service._data.inst_id,
+                             last_stable_3pc=(checkpoint.viewNo, checkpoint.seqNoEnd)))
 
     # check that old checkpoint_states has been removed
     assert old_key not in checkpoint_service._checkpoint_state
@@ -195,13 +193,13 @@ def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
     with pytest.raises(LogicError, match="CheckpointService | Can't process Ordered msg because "
                                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo)):
         checkpoint_service.process_ordered(ordered)
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, 1, tconf.CHK_FREQ, pre_prepare)
 
     pre_prepare.ppSeqNo = tconf.CHK_FREQ
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     state = updateNamedTuple(checkpoint_service._checkpoint_state[1, tconf.CHK_FREQ],
                              digests=["digest"] * (tconf.CHK_FREQ - 1))
     checkpoint_service._checkpoint_state[1, tconf.CHK_FREQ] = state
@@ -210,7 +208,7 @@ def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
 
     pre_prepare.ppSeqNo += 1
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(pre_prepare)
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, tconf.CHK_FREQ + 1, tconf.CHK_FREQ * 2, pre_prepare)
 
