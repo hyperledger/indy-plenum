@@ -258,7 +258,7 @@ class CheckpointService:
             self._logger.trace("{} removing previous checkpoint {}".format(self, k))
             self._checkpoint_state.pop(k)
         self._remove_stashed_checkpoints(till_3pc_key=(self.view_no, seqNo))
-        self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, seqNo)))  # call OrderingService.l_gc()
+        self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, seqNo)))
         self._logger.info("{} marked stable checkpoint {}".format(self, (s, e)))
 
     def _check_if_checkpoint_stable(self, key: Tuple[int, int]):

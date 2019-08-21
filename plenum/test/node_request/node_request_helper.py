@@ -87,12 +87,12 @@ def checkPrePrepared(looper,
                 init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
-                primary._ordering_service.l_stateRootHash(DOMAIN_LEDGER_ID),
-                primary._ordering_service.l_txnRootHash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
                 0,
                 True,
-                primary._ordering_service.l_stateRootHash(POOL_LEDGER_ID),
-                primary._ordering_service.l_txnRootHash(AUDIT_LEDGER_ID)
+                primary._ordering_service.get_state_root_hash(POOL_LEDGER_ID),
+                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID)
             )
 
             passes = 0
@@ -126,7 +126,7 @@ def checkPrePrepared(looper,
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary._ordering_service,
-                                         primary._ordering_service.l_sendPrePrepare)
+                                         primary._ordering_service.send_pre_prepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
                               primary.batchDigest([propagated1, ])])
@@ -151,7 +151,7 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
                           getAllArgs(npr._ordering_service,
-                                     npr._ordering_service.l_addToPrePrepares)
+                                     npr._ordering_service._add_to_pre_prepares)
                           if param['pp'].reqIdr[0] == propagated1.digest
                           and param['pp'].digest ==
                           primary.batchDigest([propagated1, ])])

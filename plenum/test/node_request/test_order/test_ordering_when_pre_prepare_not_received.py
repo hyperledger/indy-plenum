@@ -54,7 +54,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
 
     def chk2():
         assert len(slow_rep._ordering_service.commitsWaitingForPrepare) == 0
-        assert slow_rep._ordering_service.spylog.count(slow_rep._ordering_service.l_doOrder.__name__) == 1
+        assert slow_rep._ordering_service.spylog.count(slow_rep._ordering_service._do_order.__name__) == 1
 
     timeout = waits.expectedOrderingTime(len(non_prim_reps) + 1) + 2 * delay
     looper.run(eventually(chk2, retryWait=1, timeout=timeout))

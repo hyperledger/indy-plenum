@@ -59,8 +59,6 @@ class ConsensusSharedData:
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
-        self.primaries_batch_needed = False
-        self.requestQueues = {}
 
     @property
     def last_ordered_3pc(self):
