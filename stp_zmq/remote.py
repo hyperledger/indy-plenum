@@ -87,18 +87,19 @@ class Remote:
                      format(sock.FD, self, addr))
         sock.connect(addr)
         self.socket = sock
+        self.monitor_socket = sock.get_monitor_socket()
 
     def disconnect(self):
         logger.debug('disconnecting remote {}'.format(self))
         if self.socket:
             logger.trace('disconnecting socket {}'.format(self.socket.FD))
 
-            if self.socket._monitor_socket:
+            if self.monitor_socket:
                 logger.trace('{} closing monitor socket'.format(self))
-                self.socket._monitor_socket.linger = 0
-                self.socket.monitor(None, 0)
-                self.socket._monitor_socket = None
-                # self.socket.disable_monitor()
+                self.socket.disable_monitor()
+                self.monitor_socket.close(linger=0)
+                self.monitor_socket = None
+
             self.socket.close(linger=0)
             self.socket = None
         else:
@@ -143,22 +144,16 @@ class Remote:
         return False
 
     def _lastSocketEvents(self, nonBlock=True):
-        return self._get_monitor_events(self.socket, nonBlock)
+        return self._get_monitor_events(nonBlock)
 
-    @staticmethod
-    def _get_monitor_events(socket, non_block=True):
-        # It looks strange to call get_monitor_socket() each time we
-        # want to get it instead of get it once and save reference.
-        # May side effects here, will create a ticket to check and clean
-        # up the implementation.
-        monitor = socket.get_monitor_socket()
+    def _get_monitor_events(self, non_block=True):
         events = []
         # noinspection PyUnresolvedReferences
         flags = zmq.NOBLOCK if non_block else 0
         while True:
             try:
                 # noinspection PyUnresolvedReferences
-                message = recv_monitor_message(monitor, flags)
+                message = recv_monitor_message(self.monitor_socket, flags)
                 events.append(message['event'])
             except zmq.Again:
                 break
