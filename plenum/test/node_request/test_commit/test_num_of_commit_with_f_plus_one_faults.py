@@ -27,8 +27,6 @@ def setup(txnPoolNodeSet):
         makeNodeFaulty(
             node, changesRequest, partial(
                 delaysPrePrepareProcessing, delay=90))
-        # Delaying nomination to avoid becoming primary
-        # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 
 

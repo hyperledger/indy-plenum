@@ -314,7 +314,7 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica._ordering_service,
-                                 replica._ordering_service.l_sendPrePrepare)
+                                 replica._ordering_service.send_pre_prepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
     assert (req.digest,) in \
@@ -324,15 +324,15 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
-        params = getAllArgs(replica._ordering_service, replica._ordering_service.l_can_process_pre_prepare)
+        params = getAllArgs(replica._ordering_service, replica._ordering_service._can_process_pre_prepare)
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
-    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service.l_canPrepare)
+    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service._can_prepare)
     rv = getAllReturnVals(replica._ordering_service,
-                          replica._ordering_service.l_canPrepare)
+                          replica._ordering_service._can_prepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
     assert (key,) in args
     idx = args.index((key,))
@@ -1219,7 +1219,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None):
-    digest = Replica.batchDigest(reqs) if reqs is not None else "random digest"
+    digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
     params = [inst_id,
               view_no,
@@ -1295,6 +1295,11 @@ def create_prepare_from_pre_prepare(pre_prepare):
               pre_prepare.auditTxnRootHash]
     return Prepare(*params)
 
+def create_commit_from_pre_prepare(pre_prepare):
+    params = [pre_prepare.instId,
+              pre_prepare.viewNo,
+              pre_prepare.ppSeqNo]
+    return Commit(*params)
 
 def create_prepare(req_key, state_root, inst_id=0):
     view_no, pp_seq_no = req_key

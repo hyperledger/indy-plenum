@@ -16,7 +16,7 @@ def processedPrePrepare(replica: TestReplica):
 
 def sentPrepare(replica: TestReplica, viewNo: int = None, ppSeqNo: int = None):
     params = getAllArgs(replica._ordering_service,
-                        OrderingService.l_doPrepare)
+                        OrderingService._do_prepare)
     return [param["pp"] for param in params
             if (viewNo is None or param["pp"].viewNo == viewNo) and
             (viewNo is None or param["pp"].viewNo == viewNo)]

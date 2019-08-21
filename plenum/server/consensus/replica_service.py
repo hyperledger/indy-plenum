@@ -29,7 +29,7 @@ class ReplicaService:
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = primary_name
         config = getConfig()
-        stasher = StashingRouter(config.REPLICA_STASH_LIMIT)
+        stasher = StashingRouter(config.REPLICA_STASH_LIMIT, buses=[bus, network])
         self._orderer = OrderingService(data=self._data,
                                         timer=timer,
                                         bus=bus,
@@ -41,7 +41,7 @@ class ReplicaService:
                                         stasher=stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
                                                write_manager.database_manager)
-        self._view_changer = ViewChangeService(self._data, timer, bus, network)
+        self._view_changer = ViewChangeService(self._data, timer, bus, network, stasher)
 
         # TODO: This is just for testing purposes only
         self._data.checkpoints.append(

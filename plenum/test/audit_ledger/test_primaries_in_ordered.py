@@ -18,7 +18,7 @@ def test_primaries_in_ordered_from_audit(test_node):
                                                    valid_digests=pre_prepare.reqIdr)
     test_node.write_manager.audit_b_handler.post_batch_applied(three_pc_batch)
 
-    replica._ordering_service.l_order_3pc_key(key)
+    replica._ordering_service._order_3pc_key(key)
 
     ordered = replica.outBox.pop()
     assert ordered.primaries != test_node.primaries
@@ -45,7 +45,7 @@ def test_primaries_in_ordered_from_audit_for_tree_txns(test_node):
         primaries[key] = three_pc_batch.primaries
 
     for key in reversed(list(primaries.keys())):
-        replica._ordering_service.l_order_3pc_key(key)
+        replica._ordering_service._order_3pc_key(key)
 
     for ordered in replica.outBox:
         if not isinstance(ordered, Ordered):
@@ -63,7 +63,7 @@ def test_primaries_in_ordered_from_node(test_node):
     replica._ordering_service.prePrepares[key] = pre_prepare
     replica._consensus_data.preprepared.append(preprepare_to_batch_id(pre_prepare))
 
-    replica._ordering_service.l_order_3pc_key(key)
+    replica._ordering_service._order_3pc_key(key)
 
     ordered = replica.outBox.pop()
     assert ordered.primaries == test_node.primaries

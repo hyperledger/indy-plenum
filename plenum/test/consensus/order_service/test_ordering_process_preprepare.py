@@ -27,7 +27,7 @@ def fake_requests():
 
 @pytest.fixture(scope='function')
 def orderer_with_requests(orderer, fake_requests):
-    orderer.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
+    orderer._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         orderer.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         orderer._requests.add(req)
@@ -61,8 +61,8 @@ def test_process_pre_prepare_with_incorrect_pool_state_root(orderer_with_request
     orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
     check_suspicious(handler, RaisedSuspicion(inst_id=orderer_with_requests._data.inst_id,
                                               ex=SuspiciousNode(orderer_with_requests.primary_name,
-                                                                    Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG,
-                                                                    pre_prepare)))
+                                                                Suspicions.PPR_POOL_STATE_ROOT_HASH_WRONG,
+                                                                pre_prepare)))
 
 
 def test_process_pre_prepare_with_incorrect_audit_txn_root(orderer_with_requests,
@@ -88,14 +88,14 @@ def test_process_pre_prepare_with_incorrect_audit_txn_root(orderer_with_requests
     orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
     check_suspicious(handler, RaisedSuspicion(inst_id=orderer_with_requests._data.inst_id,
                                               ex=SuspiciousNode(orderer_with_requests.primary_name,
-                                                                    Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
-                                                                    pre_prepare)))
+                                                                Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG,
+                                                                pre_prepare)))
 
 
 def test_process_pre_prepare_with_not_final_request(orderer, pre_prepare):
     orderer.db_manager.stores[SEQ_NO_DB_LABEL] = FakeSomething(get_by_full_digest=lambda req: None,
                                                                get_by_payload_digest=lambda req: (None, None))
-    orderer.l_nonFinalisedReqs = lambda a: set(pre_prepare.reqIdr)
+    orderer._non_finalised_reqs = lambda a: set(pre_prepare.reqIdr)
 
     def request_propagates(reqs):
         assert reqs == set(pre_prepare.reqIdr)
@@ -111,7 +111,7 @@ def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
 
     orderer.db_manager.stores[SEQ_NO_DB_LABEL] = FakeSomething(get_by_full_digest=lambda req: 'sample',
                                                                get_by_payload_digest=lambda req: (1, 1))
-    orderer.l_nonFinalisedReqs = lambda a: pre_prepare.reqIdr
+    orderer._non_finalised_reqs = lambda a: pre_prepare.reqIdr
 
     def request_propagates(reqs):
         assert False, "Requested propagates for: {}".format(reqs)
@@ -121,17 +121,17 @@ def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
     orderer.process_preprepare(pre_prepare, orderer.primary_name)
     check_suspicious(handler, RaisedSuspicion(inst_id=orderer._data.inst_id,
                                               ex=SuspiciousNode(orderer.primary_name,
-                                                                    Suspicions.PPR_WITH_ORDERED_REQUEST,
-                                                                    pre_prepare)))
+                                                                Suspicions.PPR_WITH_ORDERED_REQUEST,
+                                                                pre_prepare)))
 
 
 def test_suspicious_on_wrong_sub_seq_no(orderer_with_requests, pre_prepare):
     pre_prepare.sub_seq_no = 1
-    assert PP_SUB_SEQ_NO_WRONG == orderer_with_requests.l_process_valid_preprepare(pre_prepare,
+    assert PP_SUB_SEQ_NO_WRONG == orderer_with_requests._process_valid_preprepare(pre_prepare,
                                                                                    orderer_with_requests.primary_name)
 
 
 def test_suspicious_on_not_final(orderer_with_requests, pre_prepare):
     pre_prepare.final = False
-    assert PP_NOT_FINAL == orderer_with_requests.l_process_valid_preprepare(pre_prepare,
+    assert PP_NOT_FINAL == orderer_with_requests._process_valid_preprepare(pre_prepare,
                                                                             orderer_with_requests.primary_name)

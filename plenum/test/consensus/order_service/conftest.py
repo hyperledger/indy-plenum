@@ -9,28 +9,29 @@ from plenum.common.timer import QueueTimer
 from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
-from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params, MockNetwork
+from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 from plenum.test.testing_utils import FakeSomething
 
 
 @pytest.fixture()
-def orderer(consensus_data, internal_bus, name, write_manager,
-            txn_roots, state_roots, bls_bft_replica, tconf):
+def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
+            txn_roots, state_roots, bls_bft_replica, tconf, stasher):
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,
-                              network=MockNetwork(),
+                              network=external_bus,
                               write_manager=write_manager,
                               bls_bft_replica=bls_bft_replica,
                               freshness_checker=FreshnessChecker(
-                                  freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL))
+                                  freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL),
+                              stasher=stasher)
     orderer._data.node_mode = Mode.participating
     orderer._data.primary_name = "Alpha:0"
-    orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
-    orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    orderer.get_txn_root_hash = lambda ledger, to_str=False: txn_roots[ledger]
+    orderer.get_state_root_hash = lambda ledger, to_str=False: state_roots[ledger]
     orderer.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
-    orderer.l_revert = lambda *args, **kwargs: None
+    orderer._revert = lambda *args, **kwargs: None
     orderer.db_manager.stores[LAST_SENT_PP_STORE_LABEL] = \
         FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
     return orderer
@@ -90,7 +91,7 @@ def fake_requests():
 
 @pytest.fixture(scope='function')
 def orderer_with_requests(orderer, fake_requests):
-    orderer.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
+    orderer._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         orderer.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         orderer._requests.add(req)
@@ -108,6 +109,7 @@ def validator(consensus_data):
 def primary_orderer(orderer):
     orderer.name = orderer.primary_name
     return orderer
+
 
 @pytest.fixture()
 def name():
