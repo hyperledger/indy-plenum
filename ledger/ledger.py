@@ -197,6 +197,17 @@ class Ledger(ImmutableStore):
         seqNo = int(seqNo)
         if seqNo <= 0:
             raise PlenumValueError('seqNo', seqNo, '> 0')
+        rootHash = self.tree.merkle_tree_hash(0, seqNo)
+        auditPath = self.tree.inclusion_proof(seqNo - 1, seqNo)
+        return {
+            F.rootHash.name: self.hashToStr(rootHash),
+            F.auditPath.name: [self.hashToStr(h) for h in auditPath]
+        }
+
+    def auditProof(self, seqNo):
+        seqNo = int(seqNo)
+        if seqNo <= 0:
+            raise PlenumValueError('seqNo', seqNo, '> 0')
         rootHash = self.tree.merkle_tree_hash(0, self.size)
         auditPath = self.tree.inclusion_proof(seqNo - 1, self.size)
         return {

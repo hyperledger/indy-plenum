@@ -3395,7 +3395,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # results in iterating over ledger (or its subset)
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
-            txn.update(ledger.merkleInfo(seq_no))
+            txn.update(ledger.auditProof(seq_no))
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:
