@@ -2,14 +2,14 @@ import json
 
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_METADATA, TXN_METADATA_SEQ_NO
+from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_METADATA, TXN_METADATA_SEQ_NO, OP_FIELD_NAME
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
 from indy.did import create_and_store_my_did
 from indy.ledger import build_nym_request, build_get_txn_request, sign_and_submit_request, submit_request
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def nym_on_ledger(looper, sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward):
     did_future = create_and_store_my_did(sdk_wallet_client[0], '{"seed": "00000000000000000000000011111111"}')
     did, vk = looper.loop.run_until_complete(did_future)
@@ -44,3 +44,5 @@ def sdk_get_txn(looper, sdk_pool_handle, seq_no, ledger_id):
 
 def test_get_txn_audit_proof(nodeSetAlwaysResponding, looper, sdk_pool_handle, nym_on_ledger):
     response = sdk_get_txn(looper, sdk_pool_handle, nym_on_ledger, "DOMAIN")
+    resp_json = json.loads(response)
+    assert resp_json[OP_FIELD_NAME] == "REPLY"
