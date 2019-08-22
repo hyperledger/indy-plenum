@@ -213,7 +213,7 @@ class Ledger(ImmutableStore):
         return {
             F.rootHash.name: self.hashToStr(rootHash),
             F.auditPath.name: [self.hashToStr(h) for h in auditPath],
-            "ledgerSize": self.size
+            F.ledgerSize.name: self.size
         }
 
     def start(self, loop=None, ensureDurability=True):
