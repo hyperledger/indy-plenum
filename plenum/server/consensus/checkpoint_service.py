@@ -192,7 +192,7 @@ class CheckpointService:
 
         for cp in self._data.checkpoints.copy():
             # TODO: Change to < to make checkpoints compatible with PBFT view change
-            if cp.endSeqNo <= pp_seq_no:
+            if cp.seqNoEnd <= pp_seq_no:
                 self._logger.trace("{} removing previous checkpoint {}".format(self, cp))
                 self._data.checkpoints.remove(cp)
 

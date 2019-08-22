@@ -50,18 +50,8 @@ def checkpoint(ordered, tconf):
                       seqNoEnd=start + tconf.CHK_FREQ - 1,
                       digest=cp_digest(start, start + tconf.CHK_FREQ - 1))
 
-
-def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint, tconf, is_master):
-    key = (checkpoint.seqNoStart, checkpoint.seqNoEnd)
-    sender = "sender"
-    checkpoint_service._checkpoint_state[key] = CheckpointState(1, [],
-                                                                "other_digest", {}, False)
-    assert checkpoint_service.process_checkpoint(checkpoint, sender)
-    if is_master:
-        assert sender not in checkpoint_service._checkpoint_state[key].receivedDigests
-    else:
-        assert sender in checkpoint_service._checkpoint_state[key].receivedDigests
-
+# TODO: Add test checking that our checkpoint is stabilized only if we receive
+#  quorum of checkpoints with expected digest
 
 def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, checkpoint, pre_prepare,
                                                         tconf, ordered, validators, is_master):
@@ -189,10 +179,11 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     assert old_key not in checkpoint_service._checkpoint_state
 
 
-def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
+def test_process_ordered(checkpoint_service, ordered, pre_prepare, tconf):
     with pytest.raises(LogicError, match="CheckpointService | Can't process Ordered msg because "
                                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo)):
         checkpoint_service.process_ordered(ordered)
+
     checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, 1, tconf.CHK_FREQ, pre_prepare)

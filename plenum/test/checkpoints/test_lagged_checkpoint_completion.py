@@ -1,4 +1,6 @@
 from plenum.test import waits
+from plenum.test.checkpoints.helper import check_num_unstabilized_checkpoints, check_num_received_checkpoints, \
+    check_received_checkpoint_votes
 from plenum.test.delayers import cDelay
 from plenum.test.helper import sdk_send_random_and_check
 from stp_core.loop.eventually import eventually
@@ -34,18 +36,12 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     # has not completed the checkpoint.
     def check():
         for replica in slow_node.replicas.values():
-            assert len(replica._checkpointer._checkpoint_state) == 1
-            assert (1, 5) in replica._checkpointer._checkpoint_state
-            assert replica._checkpointer._checkpoint_state[(1, 5)].seqNo == 4
-            assert replica._checkpointer._checkpoint_state[(1, 5)].digest is None
-            assert replica._checkpointer._checkpoint_state[(1, 5)].isStable is False
-
-            assert len(replica._checkpointer._stashed_recvd_checkpoints) == 1
-            assert 0 in replica._checkpointer._stashed_recvd_checkpoints
-            assert len(replica._checkpointer._stashed_recvd_checkpoints[0]) == 1
-            assert (1, 5) in replica._checkpointer._stashed_recvd_checkpoints[0]
-            assert len(replica._checkpointer._stashed_recvd_checkpoints[0][(1, 5)]) == \
-                len(txnPoolNodeSet) - 1
+            assert replica._consensus_data.stable_checkpoint == 0
+            check_num_unstabilized_checkpoints(replica, 0)
+            check_num_received_checkpoints(replica, 1)
+            check_received_checkpoint_votes(replica,
+                                            pp_seq_no=5,
+                                            num_votes=len(txnPoolNodeSet) - 1)
 
     stabilization_timeout = \
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
@@ -59,10 +55,6 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     looper.runFor(waits.expectedOrderingTime(len(txnPoolNodeSet)))
 
     for replica in slow_node.replicas.values():
-        assert len(replica._checkpointer._checkpoint_state) == 1
-        assert (1, 5) in replica._checkpointer._checkpoint_state
-        assert replica._checkpointer._checkpoint_state[(1, 5)].seqNo == 5
-        assert replica._checkpointer._checkpoint_state[(1, 5)].digest is not None
-        assert replica._checkpointer._checkpoint_state[(1, 5)].isStable is True
-
-        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
+        assert replica._consensus_data.stable_checkpoint == 5
+        check_num_unstabilized_checkpoints(replica, 0)
+        check_num_received_checkpoints(replica, 0)
