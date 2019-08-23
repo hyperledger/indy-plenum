@@ -8,6 +8,8 @@ from stp_core.loop.eventually import eventually
 nodeCount = 4
 
 backup_inst_id = 1
+num_batches_before = 3
+num_batches_after = 1
 
 
 def test_node_erases_last_sent_pp_key_on_view_change(
@@ -19,7 +21,7 @@ def test_node_erases_last_sent_pp_key_on_view_change(
     # Send some 3PC-batches and wait until the replica orders the 3PC-batches
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
-                               num_reqs=3, num_batches=3,
+                               num_reqs=3, num_batches=num_batches_before,
                                timeout=tconf.Max3PCBatchWait)
 
     looper.run(
@@ -36,15 +38,16 @@ def test_node_erases_last_sent_pp_key_on_view_change(
 
     # Verify that the node has erased the stored last sent PrePrepare key
     for value in node.last_sent_pp_store_helper._load_last_sent_pp_key().values():
-        assert value == [node.viewNo, 1]
+        # + 1 it's after catchup
+        assert value == [node.viewNo, num_batches_before + 1]
 
     # Send a 3PC-batch and ensure that the replica orders it
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
-                               num_reqs=1, num_batches=1,
+                               num_reqs=1, num_batches=num_batches_after,
                                timeout=tconf.Max3PCBatchWait)
 
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, 2)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, num_batches_before + num_batches_after + 1)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

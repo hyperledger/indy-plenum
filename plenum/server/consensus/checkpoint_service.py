@@ -402,7 +402,8 @@ class CheckpointService:
         self._checkpoint_state.clear()
         self._data.checkpoints.clear()
         # TODO: change to = 1 in ViewChangeService integration.
-        self._data.stable_checkpoint = 0
+        # need for stop resetting ppSeqNo
+        # self._data.stable_checkpoint = 0
 
     def _set_stable_checkpoint(self, end_seq_no):
         if not list(self._data.checkpoints.irange_key(end_seq_no, end_seq_no)):

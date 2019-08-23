@@ -33,7 +33,7 @@ class ConsensusSharedData:
 
         self.legacy_vc_in_progress = False
         self.requests = Requests()
-        self._last_ordered_3pc = (0, 0)
+        self.last_ordered_3pc = (0, 0)
         # Indicates name of the primary replica of this protocol instance.
         # None in case the replica does not know who the primary of the
         # instance is
@@ -59,14 +59,6 @@ class ConsensusSharedData:
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
-
-    @property
-    def last_ordered_3pc(self):
-        return self._last_ordered_3pc
-
-    @last_ordered_3pc.setter
-    def last_ordered_3pc(self, key):
-        self._last_ordered_3pc = key
 
     @property
     def name(self) -> str:

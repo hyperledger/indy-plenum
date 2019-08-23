@@ -43,6 +43,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
     view_no = txnPoolNodeSet[0].viewNo
     old_stashed = slow_node.master_replica.stasher.stash_size(STASH_VIEW)
     last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
+    batches_count = 0
 
     with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet],
                      msg_rep_delay(types_to_delay=[PREPREPARE, PREPARE, COMMIT])):
@@ -51,6 +52,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
         slow_node.nodeIbStasher.delay(cDelay(sys.maxsize))
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_steward, 1)
+        batches_count += 1
 
         # Delay Commit messages for fast_nodes.
         for n in fast_nodes:
@@ -64,8 +66,10 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                     assert commit_key in r._ordering_service.commits
                     assert len(r._ordering_service.commits[commit_key].voters) == 1
 
+        batches_count += 1
+
         looper.run(eventually(check_commits,
-                              (view_no, last_ordered[1] + 2)))
+                              (view_no, last_ordered[1] + batches_count)))
 
         # Delay CatchupRep messages for the slow_node.
         with delay_rules([slow_node.nodeIbStasher], cr_delay()):
@@ -105,7 +109,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                             nodes=txnPoolNodeSet)
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
         assert all(n.master_replica.last_ordered_3pc == (view_no + 1,
-                                                         1)
+                                                         batches_count + 1)
                    for n in txnPoolNodeSet)
         assert slow_node.catchup_rounds_without_txns == 1
 

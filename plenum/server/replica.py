@@ -460,9 +460,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
             self._checkpointer.update_watermark_from_3pc()
             if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
                 self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
-        # elif not self.isPrimary:
-        #     self._checkpointer.set_watermarks(low_watermark=0,
-        #                                       high_watermark=sys.maxsize)
+        elif not self.isPrimary:
+            self._checkpointer.set_watermarks(low_watermark=0,
+                                              high_watermark=sys.maxsize)
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:

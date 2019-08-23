@@ -483,6 +483,8 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
+    if db1._keyValueStorage._db is None or db2._keyValueStorage._db is None:
+        return False
     assert db1.size == db2.size, \
         "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
@@ -1496,3 +1498,8 @@ def create_pool_txn_data(node_names: List[str],
     data['txns'].extend(more_data_users)
     data['seeds'].update(more_data_seeds)
     return data
+
+def get_pp_seq_no(nodes: list) -> int:
+    los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
+    assert len(los) == 1
+    return los.pop()

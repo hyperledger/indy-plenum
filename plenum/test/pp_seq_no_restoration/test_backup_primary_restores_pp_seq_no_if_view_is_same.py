@@ -17,6 +17,8 @@ nodeCount = 4
 
 backup_inst_id = 1
 
+num_batches = 7
+
 
 def test_backup_primary_restores_pp_seq_no_if_view_is_same(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
@@ -28,10 +30,10 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
     # Send some 3PC-batches and wait until the replica orders the 3PC-batches
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
-                               num_reqs=7, num_batches=7,
+                               num_reqs=7, num_batches=num_batches,
                                timeout=tconf.Max3PCBatchWait)
 
-    seq_no = 7 if view_no == 0 else 8
+    seq_no = num_batches if view_no == 0 else 2 * num_batches + 1 + tconf.Max3PCBatchWait
 
     looper.run(
         eventually(lambda r: assertExp(r.last_ordered_3pc == (view_no, seq_no)),
@@ -86,7 +88,9 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
                                num_reqs=1, num_batches=1,
                                timeout=tconf.Max3PCBatchWait)
 
-    seq_no = 8 if view_no == 0 else 9
+    # + 1 because of catchup
+    # + 2 because of 2 catchup rounds
+    seq_no = num_batches + 1 if view_no == 0 else 2 * num_batches + tconf.Max3PCBatchWait + 2
     looper.run(
         eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, seq_no)),
                    retryWait=1,

@@ -56,22 +56,27 @@ def test_catchup_clear_for_backup(replica):
     assert replica.h == 0
     assert replica.H == sys.maxsize
 
-def test_reset_watermarks_before_new_view_on_master(replica, tconf):
+
+def test_do_not_reset_watermarks_before_new_view_on_master(replica, tconf):
     replica.isMaster = True
-    replica._checkpointer.set_watermarks(low_watermark=100)
+    h_before = 100
+    last_pp_before = replica._ordering_service._lastPrePrepareSeqNo
+    replica._checkpointer.set_watermarks(low_watermark=h_before)
     replica._checkpointer.reset_watermarks_before_new_view()
-    assert replica.h == 0
-    assert replica.H == tconf.LOG_SIZE
-    assert replica._ordering_service._lastPrePrepareSeqNo == replica.h
+    assert replica.h == h_before
+    assert replica.H == h_before + tconf.LOG_SIZE
+    assert replica._ordering_service._lastPrePrepareSeqNo == last_pp_before
 
 
 def test_reset_watermarks_before_new_view_non_master(replica, tconf):
     replica.isMaster = False
-    replica._checkpointer.set_watermarks(low_watermark=100)
+    h_before = 100
+    last_pp_before = replica._ordering_service._lastPrePrepareSeqNo
+    replica._checkpointer.set_watermarks(low_watermark=h_before)
     replica._checkpointer.reset_watermarks_before_new_view()
-    assert replica.h == 0
-    assert replica.H == tconf.LOG_SIZE
-    assert replica._ordering_service._lastPrePrepareSeqNo == replica.h
+    assert replica.h == h_before
+    assert replica.H == h_before + tconf.LOG_SIZE
+    assert replica._ordering_service._lastPrePrepareSeqNo == last_pp_before
 
 
 def test_catchup_without_vc_and_no_primary_on_master(replica, tconf):
@@ -96,12 +101,8 @@ def test_catchup_without_vc_and_no_primary_on_backup(replica, tconf):
     emulate_catchup(replica, ppSeqNo)
     # select_primaries after allLedgersCaughtUp
     emulate_select_primaries(replica)
-    if replica.viewNo > 0:
-        assert replica.h == 0
-        assert replica.H == tconf.LOG_SIZE
-    else:
-        assert replica.h == 0
-        assert replica.H == sys.maxsize
+    assert replica.h == 0
+    assert replica.H == sys.maxsize
 
 
 def test_catchup_without_during_vc_with_primary_on_master(replica, tconf):
@@ -147,12 +148,8 @@ def test_view_change_no_propagate_primary_on_backup(replica, tconf):
     # next calls emulate simple view_change procedure (replica's watermark related steps)
     emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
-    if replica.viewNo > 0:
-        assert replica.h == 0
-        assert replica.H == tconf.LOG_SIZE
-    else:
-        assert replica.h == 0
-        assert replica.H == sys.maxsize
+    assert replica.h == 0
+    assert replica.H == sys.maxsize
 
 
 def test_view_change_propagate_primary_on_master(replica, tconf):
