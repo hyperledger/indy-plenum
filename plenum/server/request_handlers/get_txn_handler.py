@@ -44,8 +44,9 @@ class GetTxnHandler(ReadRequestHandler):
                 state_root = audit_txn[TXN_PAYLOAD][DATA][AUDIT_TXN_STATE_ROOT].get(ledger_id, None)
                 if state_root:
                     break
-            multi_sig = self.database_manager.bls_store.get(state_root)
-            txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
+            if state_root is not None:
+                multi_sig = self.database_manager.bls_store.get(state_root)
+                txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
         except KeyError:
             txn = None
 
