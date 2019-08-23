@@ -8,7 +8,6 @@ from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
-from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cs_delay, lsDelay, \
     ppDelay, pDelay, cDelay, msg_rep_delay, cr_delay
 from plenum.test.pool_transactions.helper import \

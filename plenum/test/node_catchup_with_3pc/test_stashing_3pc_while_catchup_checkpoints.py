@@ -9,7 +9,6 @@ from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
-from plenum.test.checkpoints.helper import chkChkpoints, chk_chkpoints_for_instance
 from plenum.test.delayers import cr_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected

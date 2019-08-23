@@ -3,7 +3,7 @@ import pytest
 from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test import waits
-from plenum.test.checkpoints.helper import check_quorum_on_received_checkpoints
+from plenum.test.checkpoints.helper import check_num_quorumed_received_checkpoints
 from plenum.test.delayers import cDelay, chk_delay
 from plenum.test.helper import sdk_send_random_requests, assertExp, incoming_3pc_msgs_count
 from stp_core.loop.eventually import eventually
@@ -99,7 +99,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.H == LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
-    check_quorum_on_received_checkpoints(slow_replica, have_quorum=True)
+    check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Ensure that now there are 3PC-messages stashed
     # as laying outside of the watermarks
@@ -122,7 +122,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
-    check_quorum_on_received_checkpoints(slow_replica, have_quorum=False)
+    check_num_quorumed_received_checkpoints(slow_replica, 0)
 
     # Ensure that now there are no 3PC-messages stashed
     # as laying outside of the watermarks

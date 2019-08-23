@@ -1,6 +1,6 @@
 from plenum.test import waits
-from plenum.test.checkpoints.helper import check_num_unstabilized_checkpoints, check_num_received_checkpoints, \
-    check_received_checkpoint_votes
+from plenum.test.checkpoints.helper import check_num_received_checkpoints, \
+    check_received_checkpoint_votes, check_stable_checkpoint, check_num_unstable_checkpoints
 from plenum.test.delayers import cDelay
 from plenum.test.helper import sdk_send_random_and_check
 from stp_core.loop.eventually import eventually
@@ -36,8 +36,8 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     # has not completed the checkpoint.
     def check():
         for replica in slow_node.replicas.values():
-            assert replica._consensus_data.stable_checkpoint == 0
-            check_num_unstabilized_checkpoints(replica, 0)
+            check_stable_checkpoint(replica, 0)
+            check_num_unstable_checkpoints(replica, 0)
             check_num_received_checkpoints(replica, 1)
             check_received_checkpoint_votes(replica,
                                             pp_seq_no=5,
@@ -55,6 +55,6 @@ def test_lagged_checkpoint_completion(chkFreqPatched, looper, txnPoolNodeSet,
     looper.runFor(waits.expectedOrderingTime(len(txnPoolNodeSet)))
 
     for replica in slow_node.replicas.values():
-        assert replica._consensus_data.stable_checkpoint == 5
-        check_num_unstabilized_checkpoints(replica, 0)
+        check_stable_checkpoint(replica, 5)
+        check_num_unstable_checkpoints(replica, 0)
         check_num_received_checkpoints(replica, 0)

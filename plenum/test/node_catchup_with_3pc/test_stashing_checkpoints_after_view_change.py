@@ -8,7 +8,6 @@ from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_VIEW
 from plenum.test import waits
-from plenum.test.checkpoints.helper import chkChkpoints, chk_chkpoints_for_instance
 from plenum.test.delayers import lsDelay, vcd_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
     check_last_ordered_3pc_on_all_replicas, check_last_ordered_3pc_on_master, check_last_ordered_3pc_on_backup

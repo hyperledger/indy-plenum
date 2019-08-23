@@ -3,7 +3,6 @@ import sys
 import pytest
 
 from plenum.test import waits
-from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected

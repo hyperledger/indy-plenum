@@ -1,4 +1,4 @@
-from plenum.test.checkpoints.helper import chkChkpoints, check_stashed_chekpoints
+from plenum.test.checkpoints.helper import check_stashed_chekpoints
 from plenum.test.delayers import ppDelay, msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
