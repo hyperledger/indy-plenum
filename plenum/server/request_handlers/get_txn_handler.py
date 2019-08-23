@@ -23,6 +23,10 @@ class GetTxnHandler(ReadRequestHandler):
         if ledger_id not in self.node.ledger_ids:
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        'Invalid ledger id {}'.format(ledger_id))
+        seq_no = request.operation.get(DATA)
+        if seq_no < 1:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Invalid sequence number: {} is smaller than 1".format(seq_no))
         super().static_validation(request)
 
     def get_result(self, request: Request):

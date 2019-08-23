@@ -20,6 +20,7 @@ fValue = getMaxFailures(4)
 
 INVALID_LEDGER_ID = 5908
 INVALID_SEQ_NO = -23
+whitelist = ["GET_TXN has no seq_no, skip AuditProof logic"]
 
 
 def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
