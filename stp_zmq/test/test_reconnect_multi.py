@@ -7,7 +7,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, CounterMsgsHandler, prepStacks, MessageSender, connectStack, \
-    checkStacksConnected
+    checkStacksConnected, checkStackDisonnected
 from stp_zmq.kit_zstack import KITZStack
 from stp_zmq.test.helper import genKeys, check_pong_received
 from stp_zmq.zstack import ZStack
@@ -46,6 +46,34 @@ def stacks(registry, tdir, looper, tconf):
     prepStacks(looper, *stacks, connect=False, useKeys=True)
 
     return stacks
+
+def patch_ping_pong(stack):
+    origMethod = stack.handlePingPong
+
+    stack.drop_ping = False
+    stack.drop_pong = False
+    stack.has_ping = set()
+
+    def patchedHandlePingPong(self, msg, frm, ident):
+        if self.drop_ping and msg == self.pingMessage:
+            return
+        if self.drop_pong and msg == self.pongMessage:
+            return
+
+        if msg == self.pingMessage:
+            self.has_ping.add(frm)
+
+        return origMethod(msg, frm, ident)
+
+    stack.handlePingPong = types.MethodType(patchedHandlePingPong, stack)
+
+
+def drop_pongs(stack):
+    stack.drop_pong = True
+
+
+def drop_pings(stack):
+    stack.drop_ping = True
 
 
 CONNECT_TIMEOUT = 3
@@ -150,3 +178,31 @@ def test_reconnect_one_multi(looper, stacks):
 
     # alpha.maintainConnections(force=True)
     # beta.maintainConnections(force=True)
+
+def test_reconnect_for_long_time(looper, stacks):
+    # 0. create stacks and path Beta to be able to drop pongs emulating failed attempts to connect
+    alpha = stacks[0]
+    beta = stacks[1]
+    patch_ping_pong(beta)
+
+    # 1. connect both
+    connectStack(alpha, beta)
+    connectStack(beta, alpha)
+    looper.run(eventually(
+        checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
+
+    for i in range(10):
+        # 2. disconnect Beta
+        beta.disconnectByName(alpha.name)
+        looper.run(eventually(
+            checkStackDisonnected, beta, [alpha], retryWait=1, timeout=CONNECT_TIMEOUT))
+
+        # 3. wait for some time so that Alpha re-creates the socket multiple time trying to reconnect to Beta
+        looper.runFor(15)
+
+        # 4. connect Beta
+        connectStack(beta, alpha)
+        looper.run(eventually(
+            checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
+
+
