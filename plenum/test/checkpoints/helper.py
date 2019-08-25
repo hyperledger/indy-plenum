@@ -1,5 +1,6 @@
 import base58
 
+from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.test.helper import assertEquality
 
 
@@ -19,9 +20,9 @@ def check_stashed_chekpoints(node, count):
     assert count == c, "{} != {}".format(count, c)
 
 
-def cp_digest(min: int, max: int, key: str = '0') -> str:
+def cp_digest(max: int, key: str = '0') -> str:
     assert len(key) == 1
-    digest = "digest-{}-{}-".format(min, max)
+    digest = "digest-{}-".format(max)
     digest = digest + key * (32 - len(digest))
     return base58.b58encode(digest).decode()
 
@@ -44,8 +45,11 @@ def check_last_checkpoint(replica, pp_seq_no, view_no=0):
 
 
 def check_num_received_checkpoints(replica, num):
-    assert sum(1 for votes in replica._checkpointer._received_checkpoints.values()
-               if len(votes) > 0) == num
+    num_received = sum(1
+                       for votes in replica._checkpointer._received_checkpoints.values()
+                       if len(votes) > 0)
+    assert num_received == num, \
+        "expected {} received checkpoints, got {}".format(num, num_received)
 
 
 def check_num_quorumed_received_checkpoints(replica, num):
@@ -81,18 +85,5 @@ def check_for_nodes(nodes, checker, *args, **kwargs):
         check_for_instance(nodes, i, checker, *args, **kwargs)
 
 
-# def chkChkpoints(nodes, total: int, stableIndex: int = None):
-#     for i in nodes[0].replicas.keys():
-#         chk_chkpoints_for_instance(nodes, i, total, stableIndex)
-#
-#
-# def chk_chkpoints_for_instance(nodes, inst_id, total: int, stableIndex: int = None):
-#     for node in nodes:
-#         r = node.replicas.values()[inst_id]
-#         assert len(r._consensus_data.checkpoints) == total, '{} checkpoints {}, whereas total {}'. \
-#             format(r, len(r._consensus_data.checkpoints), total)
-#         if stableIndex is not None:
-#             assert r._checkpointer._checkpoint_state.values()[stableIndex].isStable, r.name
-#         else:
-#             for state in r._checkpointer._checkpoint_state.values():
-#                 assert not state.isStable
+def cp_key(pp_seq_no: int) -> CheckpointService.CheckpointKey:
+    return CheckpointService.CheckpointKey(view_no=2, pp_seq_no=pp_seq_no, digest=cp_digest(pp_seq_no))

@@ -9,6 +9,7 @@ from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
+from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint, check_for_instance
 from plenum.test.delayers import cr_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -107,7 +108,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
         )
 
         # all good nodes stabilized checkpoint
-        looper.run(eventually(chkChkpoints, rest_nodes, 2, 0))
+        looper.run(eventually(check_for_nodes, rest_nodes, check_stable_checkpoint, 10))
 
         # lagging node is catching up and stashing all checkpoints
         assert lagging_node.mode == Mode.syncing
@@ -125,7 +126,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     )
 
     # check that checkpoint is stabilized for master
-    looper.run(eventually(chk_chkpoints_for_instance, [lagging_node], 0, 2, 0))
+    looper.run(eventually(check_for_instance, [lagging_node], 0, check_stable_checkpoint, 10))
 
     # check that the catch-up is finished
     looper.run(
