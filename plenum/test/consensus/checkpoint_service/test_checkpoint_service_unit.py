@@ -46,9 +46,9 @@ def checkpoint(ordered, tconf):
     start = ordered.ppSeqNo % tconf.CHK_FREQ
     return Checkpoint(instId=ordered.instId,
                       viewNo=ordered.viewNo,
-                      seqNoStart=start,
+                      seqNoStart=0,
                       seqNoEnd=start + tconf.CHK_FREQ - 1,
-                      digest=cp_digest(start, start + tconf.CHK_FREQ - 1))
+                      digest=cp_digest(start + tconf.CHK_FREQ - 1))
 
 # TODO: Add test checking that our checkpoint is stabilized only if we receive
 #  quorum of checkpoints with expected digest
@@ -71,9 +71,9 @@ def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, chec
 
     new_checkpoint = Checkpoint(instId=ordered.instId,
                                 viewNo=ordered.viewNo,
-                                seqNoStart=key[0],
+                                seqNoStart=0,
                                 seqNoEnd=key[1],
-                                digest=cp_digest(1, 1))
+                                digest=cp_digest(key[1]))
 
     for sender in senders[:quorum]:
         assert not checkpoint_service._do_process_checkpoint(checkpoint, sender)
@@ -100,9 +100,9 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
     new_key = (key[1] + 1, key[1] + tconf.CHK_FREQ)
     checkpoint_service._data.stable_checkpoint = 1
 
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, new_key[0], new_key[1], cp_digest(1, 1)),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 0, new_key[1], cp_digest(new_key[1])),
                                          "frm")
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, key[0], key[1], cp_digest(1, 1)),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 0, key[1], cp_digest(key[1])),
                                          "frm")
     checkpoint_service._checkpoint_state[key] = CheckpointState(key[1] - 1,
                                                                 ["digest"] * (tconf.CHK_FREQ - 1),
