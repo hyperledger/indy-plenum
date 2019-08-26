@@ -81,3 +81,6 @@ class RepeatingTimer:
             return
         self._active = False
         self._timer.cancel(self._callback)
+
+    def update_interval(self, interval):
+        self._interval = interval
