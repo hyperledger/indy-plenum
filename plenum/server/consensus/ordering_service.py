@@ -958,44 +958,29 @@ class OrderingService:
             self._request_commit(key)
 
     def _request_three_phase_msg(self, three_pc_key: Tuple[int, int],
-                                 stash: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]],
                                  msg_type: str,
                                  recipients: Optional[List[str]] = None,
-                                 stash_data: Optional[Tuple[str, str, str]] = None) -> bool:
-        if three_pc_key in stash:
-            self._logger.debug('{} not requesting {} since already '
-                               'requested for {}'.format(self, msg_type, three_pc_key))
-            return False
-
-        # TODO: Using a timer to retry would be a better thing to do
-        self._logger.trace('{} requesting {} for {} from {}'.format(
-            self, msg_type, three_pc_key, recipients))
-        # An optimisation can be to request PRE-PREPARE from f+1 or
-        # f+x (f+x<2f) nodes only rather than 2f since only 1 correct
-        # PRE-PREPARE is needed.
-        self._request_msg(msg_type, {f.INST_ID.nm: self._data.inst_id,
-                                     f.VIEW_NO.nm: three_pc_key[0],
-                                     f.PP_SEQ_NO.nm: three_pc_key[1]},
-                          frm=recipients)
-
-        stash[three_pc_key] = stash_data
-        return True
+                                 stash_data: Optional[Tuple[str, str, str]] = None):
+        self._bus.send(Missing3pcMessage(msg_type,
+                                         three_pc_key,
+                                         self._data.inst_id,
+                                         recipients,
+                                         stash_data))
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
-                             stash_data: Optional[Tuple[str, str, str]] = None) -> bool:
+                             stash_data: Optional[Tuple[str, str, str]] = None):
         """
         Request preprepare
         """
         recipients = self.primary_name
-        return self._request_three_phase_msg(three_pc_key,
-                                             self.requested_pre_prepares,
+        self._request_three_phase_msg(three_pc_key,
                                              PREPREPARE,
                                              recipients,
                                              stash_data)
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
                          recipients: List[str] = None,
-                         stash_data: Optional[Tuple[str, str, str]] = None) -> bool:
+                         stash_data: Optional[Tuple[str, str, str]] = None):
         """
         Request preprepare
         """
@@ -1004,19 +989,16 @@ class OrderingService:
             primary_name = self.primary_name[:self.primary_name.rfind(":")]
             if primary_name in recipients:
                 recipients.remove(primary_name)
-        return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
+        self._request_three_phase_msg(three_pc_key, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
-                        recipients: List[str] = None) -> bool:
+                        recipients: List[str] = None):
         """
         Request commit
         """
         if recipients is None:
             recipients = self._network.connecteds.copy()
-        return self._request_three_phase_msg(three_pc_key, self.requested_commits, COMMIT, recipients)
-
-    def _request_msg(self, typ, params: Dict, frm: List[str] = None):
-        self._bus.send(Missing3pcMessage(typ, params, frm))
+        self._request_three_phase_msg(three_pc_key, COMMIT, recipients)
 
     """Method from legacy code"""
     def l_setup_last_ordered_for_non_master(self):

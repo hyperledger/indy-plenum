@@ -60,21 +60,24 @@ class MessageReq3pcService:
         msg_type = msg.msg_type
         if msg.msg is None:
             self._logger.debug('{} got null response for requested {} from {}'.
-                         format(self, msg_type, frm))
+                               format(self, msg_type, frm))
             return
         handler = self.handlers[msg_type]
-        validated_msg, _ = handler.process(msg, frm)
+        validated_msg = handler.process(msg, frm)
         self._network.process_incoming(validated_msg, frm)
 
-    @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
+    # @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def process_missing_message(self, msg: Missing3pcMessage):
-
+        if msg.inst_id != self._data.inst_id:
+            return
         # TODO: Using a timer to retry would be a better thing to do
         self._logger.trace('{} requesting {} for {} from {}'.format(
             self, msg.msg_type, msg.three_pc_key, msg.dst))
         handler = self.handlers[msg.msg_type]
-        params = handler.prepare_msg_to_request(msg.three_pc_key)
-        self._network.send(MessageReq(**{
-            f.MSG_TYPE.nm: msg.typ,
-            f.PARAMS.nm: params
-        }), dst=msg.dst)
+
+        params = handler.prepare_msg_to_request(msg.three_pc_key, msg.stash_data)
+        if params:
+            self._network.send(MessageReq(**{
+                f.MSG_TYPE.nm: msg.msg_type,
+                f.PARAMS.nm: params
+            }), dst=msg.dst)

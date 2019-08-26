@@ -28,7 +28,7 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
                              slow_node.master_replica._ordering_service.process_preprepare)
     old_count_mrq = {n.name: get_count(n, n.master_replica._message_req_service.process_message_req)
                      for n in other_nodes}
-    old_count_mrp = get_count(slow_node, slow_node.master_replica._message_req.service.process_message_rep)
+    old_count_mrp = get_count(slow_node, slow_node.master_replica._message_req_service.process_message_rep)
 
     sdk_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,

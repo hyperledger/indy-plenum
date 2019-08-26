@@ -400,10 +400,10 @@ class TestStashingRouter(StashingRouter):
 
 replica_spyables = [
     replica.Replica.revert_unordered_batches,
-    replica.Replica.process_requested_pre_prepare,
-    replica.Replica.process_requested_prepare,
+    # replica.Replica.process_requested_pre_prepare,
+    # replica.Replica.process_requested_prepare,
     replica.Replica._send_ordered,
-    replica.Replica.process_requested_commit,
+    # replica.Replica.process_requested_commit,
 ]
 
 

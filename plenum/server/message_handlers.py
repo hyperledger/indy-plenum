@@ -1,7 +1,8 @@
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Callable
 from abc import ABCMeta, abstractmethod
 
+from plenum.common.constants import THREE_PC_PREFIX
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import MismatchedMessageReplyException
 from plenum.common.messages.message_base import MessageBase
@@ -9,6 +10,7 @@ from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
 from plenum.common.txn_util import TxnUtilConfig
 from plenum.common.types import f
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from stp_core.common.log import getlogger
 
@@ -62,9 +64,6 @@ class BaseHandler(metaclass=ABCMeta):
 
         try:
             valid_msg = self.create(msg.msg, **params)
-            # TODO: change it too the more understandable code
-            # For ThreePhaseMessagesHandlers processor return a message
-            # For other handlers processor return None and send answer in processor
             return self.processor(valid_msg, params, frm)
         except TypeError:
             self.discard(msg, 'replied message has invalid structure',
@@ -194,6 +193,7 @@ class ThreePhaseMessagesHandler(BaseHandler, metaclass=ABCMeta):
         super().__init__()
         self._data = data
         self.requested_messages = {}  # Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
+        self._logger = logging.getLogger()
 
     def validate(self, **kwargs) -> bool:
         return kwargs['inst_id'] == self._data.inst_id and \
@@ -213,18 +213,70 @@ class ThreePhaseMessagesHandler(BaseHandler, metaclass=ABCMeta):
                   validated_msg: MessageBase,
                   params: Dict[str, Any],
                   frm: str) -> Optional[Tuple[MessageBase, str]]:
-        return validated_msg, frm
+        # TODO: remove this method after BaseHandler refactoring
+        pass
+
+    def process(self, msg: MessageRep, frm: str):
+        params = {}
+
+        for field_name, type_name in self.fields.items():
+            params[field_name] = msg.params.get(type_name)
+        self._logger.debug('{} received requested msg ({}) from {}'.format(self, msg, frm))
+        result, error_msg = self._validate_reply_msg(**params)
+        if not result:
+            self.discard(msg, '{} cannot process message reply "{}" because {}'.format(self._data.name, msg, error_msg),
+                              logMethod=logger.debug)
+            return
+
+        try:
+            return self.create(msg.msg, **params)
+        except TypeError:
+            self.discard(msg, 'replied message has invalid structure',
+                              logMethod=logger.warning)
+        except MismatchedMessageReplyException:
+            self.discard(msg, 'replied message does not satisfy query criteria',
+                              logMethod=logger.warning)
 
     def prepare_msg_to_request(self, three_pc_key: Tuple[int, int],
                                  stash_data: Optional[Tuple[str, str, str]] = None) -> Optional[Dict]:
         if three_pc_key in self.requested_messages:
             self._logger.debug('{} not requesting {} since already '
-                               'requested for {}'.format(self, msg_type, three_pc_key))
+                               'requested for {}'.format(self._data.name, self.msg_cls, three_pc_key))
             return
         self.requested_messages[three_pc_key] = stash_data
         return {f.INST_ID.nm: self._data.inst_id,
                 f.VIEW_NO.nm: three_pc_key[0],
                 f.PP_SEQ_NO.nm: three_pc_key[1]}
+
+    def gc(self):
+        self.requested_messages.clear()
+
+    def _validate_reply_msg(self, msg: object):
+        if msg is None:
+            return False, "received null"
+        key = (msg.viewNo, msg.ppSeqNo)
+        if key not in self.requested_messages:
+            return False, 'Had either not requested this msg or already ' \
+                          'received the msg for {}'.format(key)
+        if self._has_already_ordered(*key):
+            return False, 'already ordered msg ({})'.format(self, key)
+        # There still might be stashed msg but not checking that
+        # it is expensive, also reception of msgs is idempotent
+        stashed_data = self.requested_messages[key]
+        curr_data = (msg.digest, msg.stateRootHash, msg.txnRootHash) \
+            if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
+            else None
+        if stashed_data is None or curr_data == stashed_data:
+            return True, None
+
+        self.discard(msg, reason='{} does not have expected state {}'.
+                     format(THREE_PC_PREFIX, stashed_data),
+                     logMethod=self._logger.warning)
+        return False, '{} does not have expected state {}'.format(THREE_PC_PREFIX, stashed_data)
+
+    def _has_already_ordered(self, view_no, pp_seq_no):
+        return compare_3PC_keys((view_no, pp_seq_no),
+                                self._data.last_ordered_3pc) >= 0
 
 
 class PreprepareHandler(ThreePhaseMessagesHandler):
@@ -233,6 +285,15 @@ class PreprepareHandler(ThreePhaseMessagesHandler):
     def requestor(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
         key = (params['view_no'], params['pp_seq_no'])
         return self._data.sent_preprepares.get(key)
+
+    def _validate_reply_msg(self, msg: object):
+        result, error_msg = super()._validate_reply_msg(msg)
+        key = (msg.viewNo, msg.ppSeqNo)
+        if result:
+            for pp in self._data.preprepared:
+                if (pp.view_no, pp.pp_seq_no) == key:
+                    return False, 'already received msg ({})'.format(self, key)
+        return result, error_msg
 
 
 class PrepareHandler(ThreePhaseMessagesHandler):

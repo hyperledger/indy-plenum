@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.replica import Replica
 from plenum.test import waits
@@ -82,9 +83,8 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
     assert ordering_service.spylog.count(OrderingService._request_pre_prepare) == 0
     assert ordering_service.spylog.count(OrderingService._request_prepare) == 0
     assert ordering_service.spylog.count(OrderingService._request_commit) == 0
-    assert disconnected_node.master_replica.spylog.count(Replica.process_requested_pre_prepare) == 0
-    assert disconnected_node.master_replica.spylog.count(Replica.process_requested_prepare) == 0
-    assert disconnected_node.master_replica.spylog.count(Replica.process_requested_commit) == 0
+    assert disconnected_node.master_replica._message_req_service.spylog.count(
+        MessageReq3pcService.process_message_rep) == 0
     doOrderTimesBefore = ordering_service.spylog.count(OrderingService._do_order)
 
     sdk_send_random_and_check(looper,
@@ -97,9 +97,8 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
     assert ordering_service.spylog.count(OrderingService._request_pre_prepare) > 0
     assert ordering_service.spylog.count(OrderingService._request_prepare) > 0
     assert ordering_service.spylog.count(OrderingService._request_commit) > 0
-    assert disconnected_node.master_replica.spylog.count(Replica.process_requested_pre_prepare) > 0
-    assert disconnected_node.master_replica.spylog.count(Replica.process_requested_prepare) > 0
-    assert disconnected_node.master_replica.spylog.count(Replica.process_requested_commit) > 0
+    assert disconnected_node.master_replica._message_req_service.spylog.count(
+        MessageReq3pcService.process_message_rep) > 0
     doOrderTimesAfter = ordering_service.spylog.count(OrderingService._do_order)
     # Ensure that the reconnected node has ordered both the missed 3PC-batch and the new 3PC-batch
     assert doOrderTimesAfter - doOrderTimesBefore == 2
