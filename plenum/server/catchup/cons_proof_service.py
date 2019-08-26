@@ -66,7 +66,7 @@ class ConsProofService:
 
         if request_ledger_statuses:
             self._request_ledger_status_from_nodes()
-            self._schedule_reask_ledger_status()
+        self._schedule_reask_ledger_status()
 
     def process_ledger_status(self, ledger_status: LedgerStatus, frm: str):
         if not self._can_process_ledger_status(ledger_status):
