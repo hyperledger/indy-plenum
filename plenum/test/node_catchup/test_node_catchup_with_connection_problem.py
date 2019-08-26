@@ -1,6 +1,8 @@
 import pytest
 from plenum.common.config_helper import PNodeConfigHelper
+from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof
 from plenum.common.util import getCallableName
+from plenum.server.router import Route
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
@@ -12,7 +14,7 @@ from stp_core.types import HA
 call_count = 0
 
 
-@pytest.fixture(scope='function', params=range(1, 4))
+@pytest.fixture(scope='function', params=range(1, 5))
 def lost_count(request):
     return request.param
 
@@ -30,14 +32,6 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
     in catchup; test makes sure that the node eventually finishes catchup'''
 
     node_to_disconnect = txnPoolNodeSet[-1]
-
-    def unpatch_after_call(status, frm):
-        global call_count
-        call_count += 1
-        if call_count >= lost_count:
-            # unpatch processLedgerStatus after lost_count calls
-            monkeypatch.undo()
-            call_count = 0
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
@@ -60,9 +54,17 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
                                   config=tconf,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
+
+    def unpatch_after_call(status, frm):
+        global call_count
+        call_count += 1
+        if call_count >= lost_count:
+            # unpatch processLedgerStatus after lost_count calls
+            node_to_disconnect.nodeMsgRouter.add((LedgerStatus, node_to_disconnect.ledgerManager.processLedgerStatus))
+            call_count = 0
+
     # patch processLedgerStatus
-    monkeypatch.setattr(node_to_disconnect.ledgerManager, 'processLedgerStatus',
-                        unpatch_after_call)
+    node_to_disconnect.nodeMsgRouter.add((LedgerStatus, unpatch_after_call))
 
     # add node_to_disconnect to pool
     looper.add(node_to_disconnect)
@@ -88,14 +90,6 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     Test makes sure that the node eventually finishes catchup'''
     node_to_disconnect = txnPoolNodeSet[-1]
 
-    def unpatch_after_call(proof, frm):
-        global call_count
-        call_count += 1
-        if call_count >= lost_count:
-            # unpatch processConsistencyProof after lost_count calls
-            monkeypatch.undo()
-            call_count = 0
-
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
 
@@ -117,10 +111,18 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                   config=tconf,
                                   ha=nodeHa, cliha=nodeCHa,
                                   pluginPaths=allPluginsPath)
+
+    def unpatch_after_call(proof, frm):
+        global call_count
+        call_count += 1
+        if call_count >= lost_count:
+            # unpatch processConsistencyProof after lost_count calls
+            node_to_disconnect.nodeMsgRouter.add((ConsistencyProof,
+                                                  node_to_disconnect.ledgerManager.processConsistencyProof))
+            call_count = 0
+
     # patch processConsistencyProof
-    monkeypatch.setattr(node_to_disconnect.ledgerManager,
-                        'processConsistencyProof',
-                        unpatch_after_call)
+    node_to_disconnect.nodeMsgRouter.add((ConsistencyProof, unpatch_after_call))
     # add node_to_disconnect to pool
     looper.add(node_to_disconnect)
     txnPoolNodeSet[-1] = node_to_disconnect

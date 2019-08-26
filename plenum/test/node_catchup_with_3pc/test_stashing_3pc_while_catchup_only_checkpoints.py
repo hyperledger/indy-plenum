@@ -1,6 +1,7 @@
 from logging import getLogger
 
 import pytest
+from plenum.common.constants import LEDGER_STATUS
 
 from plenum.common.messages.node_messages import Checkpoint, LedgerStatus
 from plenum.common.startable import Mode
@@ -87,7 +88,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
     lagging_node.nodeIbStasher.delay(pDelay())
     lagging_node.nodeIbStasher.delay(cDelay())
 
-    with delay_rules(lagging_node.nodeIbStasher, lsDelay(), cr_delay()):
+    with delay_rules(lagging_node.nodeIbStasher, lsDelay(), cr_delay(), msg_rep_delay(types_to_delay=[LEDGER_STATUS])):
         looper.add(lagging_node)
         txnPoolNodeSet[-1] = lagging_node
         looper.run(checkNodesConnected(txnPoolNodeSet))
