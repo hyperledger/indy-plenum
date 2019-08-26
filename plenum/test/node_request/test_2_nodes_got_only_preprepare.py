@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.checkpoints.helper import check_stashed_chekpoints
+from plenum.test.checkpoints.helper import check_num_received_checkpoints, check_received_checkpoint_votes
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.helper import nodes_last_ordered_equal
 
@@ -69,6 +69,8 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # 2d behind got 1 stashed checkpoint from all nodes except 1st behind
+    check_num_received_checkpoints(behind_nodes[1].master_replica, 1)
+    check_received_checkpoint_votes(behind_nodes[1].master_replica, )
     check_stashed_chekpoints(behind_nodes[1], 2)
 
     # 1st behind got another stashed checkpoint, so should catch-up now

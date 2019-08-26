@@ -13,13 +13,6 @@ def checkRequestCounts(nodes, req_count, batches_count):
             assertEquality(len(r._ordering_service.batches), batches_count)
 
 
-def check_stashed_chekpoints(node, count):
-    c = sum(len(ckps)
-            for ckps_for_view in node.master_replica._checkpointer._stashed_recvd_checkpoints.values()
-            for ckps in ckps_for_view.values())
-    assert count == c, "{} != {}".format(count, c)
-
-
 def cp_digest(max: int, key: str = '0') -> str:
     assert len(key) == 1
     digest = "digest-{}-".format(max)
@@ -71,7 +64,7 @@ def check_received_checkpoint_votes(replica, pp_seq_no, num_votes, view_no = 0):
     received_checkpoints = [votes for cp, votes in replica._checkpointer._received_checkpoints.items()
                             if len(votes) > 0 and cp.pp_seq_no == pp_seq_no and cp.view_no == view_no]
     assert len(received_checkpoints) == 1
-    assert len(received_checkpoints[0].votes) == num_votes
+    assert len(received_checkpoints[0]) == num_votes
 
 
 def check_for_instance(nodes, inst_id, checker, *args, **kwargs):

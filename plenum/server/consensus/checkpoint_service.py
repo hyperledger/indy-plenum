@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import sys
-from typing import Tuple, NamedTuple, List
+from typing import Tuple, NamedTuple, List, Set
 
 from common.exceptions import LogicError
 from plenum.common.config_util import getConfig
@@ -40,7 +40,7 @@ class CheckpointService:
         self.metrics = metrics
 
         # Received checkpoints, mapping CheckpointKey -> List(node_alias)
-        self._received_checkpoints = defaultdict(list)  # type: Dict[CheckpointService.CheckpointKey, List[str]]
+        self._received_checkpoints = defaultdict(set)  # type: Dict[CheckpointService.CheckpointKey, Set[str]]
 
         self._config = getConfig()
         self._logger = getlogger()
@@ -84,7 +84,7 @@ class CheckpointService:
                                  pp_seq_no=msg.seqNoEnd,
                                  digest=msg.digest)
 
-        self._received_checkpoints[key].append(sender)
+        self._received_checkpoints[key].add(sender)
         self._try_to_stabilize_checkpoint(key)
         self._start_catchup_if_needed(key)
 

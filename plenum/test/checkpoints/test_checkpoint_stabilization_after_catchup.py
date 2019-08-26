@@ -1,4 +1,6 @@
 from plenum.test import waits
+from plenum.test.checkpoints.helper import check_stable_checkpoint, check_num_received_checkpoints, \
+    check_num_unstable_checkpoints, check_last_checkpoint
 from plenum.test.helper import sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
@@ -26,9 +28,8 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
 
     master_replica = new_node.replicas._master_replica
 
-    assert len(master_replica._checkpointer._checkpoint_state) == 0
-
-    assert len(master_replica._checkpointer._stashed_recvd_checkpoints) == 0
+    check_stable_checkpoint(master_replica, 0)
+    check_num_received_checkpoints(master_replica, 0)
 
     assert master_replica.h == 2
     assert master_replica.H == 17
@@ -37,11 +38,6 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     for replica in new_node.replicas.values():
-        looper.run(eventually(
-            lambda r: assertExp(len(r._checkpointer._checkpoint_state) == 1), replica))
-
-        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
-
         assert replica.h == 2
         assert replica.H == 17
 
@@ -52,39 +48,25 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     looper.runFor(stabilization_timeout)
 
     for replica in new_node.replicas.values():
-        assert len(replica._checkpointer._checkpoint_state) == 2
-        keys_iter = iter(replica._checkpointer._checkpoint_state)
-
-        assert next(keys_iter) == (3, 5)
-        assert replica._checkpointer._checkpoint_state[3, 5].seqNo == 5
-        assert replica._checkpointer._checkpoint_state[3, 5].digest is None
-        assert replica._checkpointer._checkpoint_state[3, 5].isStable is False
-
-        assert next(keys_iter) == (6, 10)
-        assert replica._checkpointer._checkpoint_state[6, 10].seqNo == 9
-        assert replica._checkpointer._checkpoint_state[6, 10].digest is None
-        assert replica._checkpointer._checkpoint_state[6, 10].isStable is False
+        check_stable_checkpoint(replica, 5)
+        check_num_unstable_checkpoints(replica, 0)
 
         # nothing is stashed since it's ordered during catch-up
-        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
+        check_num_received_checkpoints(replica, 0)
 
-        assert replica.h == 2
-        assert replica.H == 17
+        assert replica.h == 5
+        assert replica.H == 20
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     looper.runFor(stabilization_timeout)
 
     for replica in new_node.replicas.values():
-        assert len(replica._checkpointer._checkpoint_state) == 1
-        keys_iter = iter(replica._checkpointer._checkpoint_state)
+        check_stable_checkpoint(replica, 10)
+        check_num_unstable_checkpoints(replica, 0)
 
-        assert next(keys_iter) == (6, 10)
-        assert replica._checkpointer._checkpoint_state[6, 10].seqNo == 10
-        assert replica._checkpointer._checkpoint_state[6, 10].digest is not None
-        assert replica._checkpointer._checkpoint_state[6, 10].isStable is True
-
-        assert len(replica._checkpointer._stashed_recvd_checkpoints) == 0
+        # nothing is stashed since it's ordered during catch-up
+        check_num_received_checkpoints(replica, 0)
 
         assert replica.h == 10
         assert replica.H == 25
