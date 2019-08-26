@@ -3,6 +3,7 @@ import sys
 import pytest
 
 from plenum.test import waits
+from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint
 from plenum.test.delayers import cDelay
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
@@ -111,12 +112,12 @@ def test_ordered_request_freed_on_replica_removal(looper,
     assert len(node.requests) == 1
     forwardedToAfter = next(iter(node.requests.values())).forwardedTo
     assert forwardedToAfter == forwardedToBefore - 1
-    chkChkpoints(txnPoolNodeSet, 1)
+    check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, 0)
 
     # Send one more request to stabilize checkpoint
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0))
+    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, 3))
     assert len(node.requests) == 0
 
 
@@ -147,15 +148,15 @@ def test_unordered_request_freed_on_replica_removal(looper,
         assert len(node.requests) == 1
         forwardedToAfter = next(iter(node.requests.values())).forwardedTo
         assert forwardedToAfter == forwardedToBefore - 1
-        chkChkpoints(txnPoolNodeSet, 1)
+        check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, 0)
 
     sdk_get_replies(looper, req)
-    chkChkpoints(txnPoolNodeSet, 1)
+    check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, 0)
 
     # Send one more request to stabilize checkpoint
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0))
+    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, 3))
     assert len(node.requests) == 0
 
 

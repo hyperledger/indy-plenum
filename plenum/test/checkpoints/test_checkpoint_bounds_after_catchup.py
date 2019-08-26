@@ -33,6 +33,10 @@ def test_upper_bound_of_checkpoint_after_catchup_is_divisible_by_chk_freq(
         check_stable_checkpoint(replica, 5)
 
     # TODO: This is failing now because checkpoints are not created after catchup.
-    #  Do we need to create checkpoints after catchup, or this is expected behavior?
+    #  PBFT paper describes catch-up with per-checkpoint granularity, but otherwise
+    #  quite similar to plenum implementation. Authors of PBFT state that after
+    #  catching up nodes set low watermark to last caught up checkpoint, which is
+    #  actually equivalent to declaring that checkpoint stable. This means that
+    #  most probably we need this functionality in plenum.
     # for replica in new_node.replicas.values():
     #    check_stable_checkpoint(replica, 5)
