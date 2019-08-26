@@ -39,7 +39,7 @@ class GetTxnHandler(ReadRequestHandler):
         seq_no = request.operation.get(DATA)
 
         try:
-            txn = self.node.getReplyFromLedger(db.ledger, seq_no)
+            txn = self.node.getReplyFromLedger(db.ledger, seq_no, write=False)
             audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
             audit_seq_no = audit_ledger.size
             state_root = None

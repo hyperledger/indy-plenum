@@ -3390,12 +3390,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return None
 
-    def getReplyFromLedger(self, ledger, seq_no):
+    def getReplyFromLedger(self, ledger, seq_no, write=True):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
-            txn.update(ledger.auditProof(seq_no))
+            txn.update(ledger.merkleInfo(seq_no) if write else ledger.auditProof(seq_no))
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:
