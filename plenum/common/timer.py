@@ -7,6 +7,8 @@ import time
 
 from sortedcontainers import SortedListWithKey
 
+logger = getLogger()
+
 
 class TimerService(ABC):
     @abstractmethod
@@ -69,7 +71,6 @@ class RepeatingTimer:
         self.update_interval(interval)
         self._callback = wrapped_callback
         self._active = False
-        self._logger = getLogger()
         if active:
             self.start()
 
@@ -87,6 +88,6 @@ class RepeatingTimer:
 
     def update_interval(self, interval):
         if interval <= 0:
-            self._logger.debug("RepeatingTimer - incorrect interval {}".format(interval))
+            logger.debug("RepeatingTimer - incorrect interval {}".format(interval))
             return
         self._interval = interval
