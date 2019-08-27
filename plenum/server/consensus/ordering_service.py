@@ -644,7 +644,6 @@ class OrderingService:
             self._logger.warning("Unknown PRE-PREPARE check status: {}".format(why_not))
         return None, None
 
-
     @property
     def view_no(self):
         return self._data.view_no
@@ -974,9 +973,9 @@ class OrderingService:
         """
         recipients = self.primary_name
         self._request_three_phase_msg(three_pc_key,
-                                             PREPREPARE,
-                                             recipients,
-                                             stash_data)
+                                      PREPREPARE,
+                                      recipients,
+                                      stash_data)
 
     def _request_prepare(self, three_pc_key: Tuple[int, int],
                          recipients: List[str] = None,

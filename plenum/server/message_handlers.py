@@ -87,7 +87,6 @@ class BaseHandler(metaclass=ABCMeta):
                   extra={"cli": cliOutput})
 
 
-
 class LedgerStatusHandler(BaseHandler):
     fields = {
         'ledger_id': f.LEDGER_ID.nm
@@ -212,7 +211,7 @@ class ThreePhaseMessagesHandler(BaseHandler, metaclass=ABCMeta):
     def processor(self,
                   validated_msg: MessageBase,
                   params: Dict[str, Any],
-                  frm: str) -> Optional[Tuple[MessageBase, str]]:
+                  frm: str) -> Optional:
         # TODO: remove this method after BaseHandler refactoring
         pass
 
@@ -238,7 +237,7 @@ class ThreePhaseMessagesHandler(BaseHandler, metaclass=ABCMeta):
                               logMethod=logger.warning)
 
     def prepare_msg_to_request(self, three_pc_key: Tuple[int, int],
-                                 stash_data: Optional[Tuple[str, str, str]] = None) -> Optional[Dict]:
+                               stash_data: Optional[Tuple[str, str, str]] = None) -> Optional[Dict]:
         if three_pc_key in self.requested_messages:
             self._logger.debug('{} not requesting {} since already '
                                'requested for {}'.format(self._data.name, self.msg_cls, three_pc_key))

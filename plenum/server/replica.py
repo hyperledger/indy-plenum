@@ -806,7 +806,8 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _init_message_req_service(self) -> MessageReq3pcService:
         return MessageReq3pcService(data=self._consensus_data,
                                     bus=self.node.internal_bus,
-                                    network=self._external_bus)
+                                    network=self._external_bus,
+                                    metrics=self.metrics)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

@@ -19,7 +19,7 @@ class MessageReq3pcService:
                  data: ConsensusSharedData,
                  bus: InternalBus,
                  network: ExternalBus,
-                 metrics=NullMetricsCollector):
+                 metrics=NullMetricsCollector()):
         self._logger = getlogger()
         self._data = data
         self._bus = bus
@@ -66,7 +66,7 @@ class MessageReq3pcService:
         validated_msg = handler.process(msg, frm)
         self._network.process_incoming(validated_msg, frm)
 
-    # @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
+    @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def process_missing_message(self, msg: Missing3pcMessage):
         if msg.inst_id != self._data.inst_id:
             return
