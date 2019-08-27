@@ -18,7 +18,6 @@ def setup(txnPoolNodeSet):
     for node in A, B:
         makeNodeFaulty(node,
                        partial(delaysPrePrepareProcessing, delay=60))
-        # node.delaySelfNomination(10)
     return adict(faulties=(A, B))
 
 

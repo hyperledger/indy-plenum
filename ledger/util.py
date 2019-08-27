@@ -58,6 +58,7 @@ class F(Enum):
     leafHash = 9
     nodeHash = 10
     height = 11
+    ledgerSize = 12
 
 
 STH = namedtuple("STH", ["tree_size", "sha256_root_hash"])

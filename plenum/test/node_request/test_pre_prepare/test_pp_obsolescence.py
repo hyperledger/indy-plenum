@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.util import SortedDict
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.helper import create_prepare_params, create_pre_prepare_no_bls, generate_state_root
@@ -60,7 +61,7 @@ def mock_timestamp():
 def primary_replica(_primary_replica, ts_now):
     _primary_replica._ordering_service.last_accepted_pre_prepare_time = None
     _primary_replica.get_time_for_3pc_batch.value = ts_now
-    _primary_replica._ordering_service._validate = lambda x: (None, None)
+    _primary_replica._ordering_service._validate = lambda x: (DISCARD, None)
     return _primary_replica
 
 
@@ -86,12 +87,12 @@ def test_pp_obsolete_if_older_than_last_accepted(primary_replica, ts_now, sender
     primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp, sender_replica] = \
         primary_replica._ordering_service.last_accepted_pre_prepare_time
 
-    assert not primary_replica._ordering_service.l_is_pre_prepare_time_correct(pp, sender)
+    assert not primary_replica._ordering_service._is_pre_prepare_time_correct(pp, sender)
 
 
 def test_pp_obsolete_if_unknown(primary_replica, pp):
     pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS)
-    assert not primary_replica._ordering_service.l_is_pre_prepare_time_correct(pp, '')
+    assert not primary_replica._ordering_service._is_pre_prepare_time_correct(pp, '')
 
 
 def test_pp_obsolete_if_older_than_threshold(primary_replica, ts_now, pp, sender_replica):
@@ -99,7 +100,7 @@ def test_pp_obsolete_if_older_than_threshold(primary_replica, ts_now, pp, sender
 
     primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp, sender_replica] = ts_now
 
-    assert not primary_replica._ordering_service.l_is_pre_prepare_time_correct(pp, sender_replica)
+    assert not primary_replica._ordering_service._is_pre_prepare_time_correct(pp, sender_replica)
 
 
 def test_ts_is_set_for_obsolete_pp(primary_replica, ts_now, pp, sender_replica):
@@ -127,7 +128,7 @@ def test_ts_is_set_for_stahed_pp(primary_replica, ts_now, pp, sender_replica):
 
 def test_ts_is_not_set_for_non_pp(primary_replica, ts_now, pp, sender_replica):
     pp = FakeSomethingHashable(**pp.__dict__)
-    primary_replica.stasher.subscribe(FakeSomethingHashable, lambda *x, **y: None)
+    primary_replica.stasher.subscribe(FakeSomethingHashable, lambda *x, **y: (PROCESS, None))
     primary_replica._external_bus.process_incoming(pp, sender_replica)
     assert len(primary_replica._ordering_service.pre_prepare_tss) == 0
 
@@ -136,9 +137,9 @@ def test_pre_prepare_tss_is_cleaned_in_gc(primary_replica, pp, sender):
     primary_replica._external_bus.process_incoming(pp, sender)
 
     # threshold is lower
-    primary_replica._ordering_service.l_gc((pp.viewNo, pp.ppSeqNo - 1))
+    primary_replica._ordering_service.gc((pp.viewNo, pp.ppSeqNo - 1))
     assert (pp.viewNo, pp.ppSeqNo) in primary_replica._ordering_service.pre_prepare_tss
 
     # threshold is not lower
-    primary_replica._ordering_service.l_gc((pp.viewNo, pp.ppSeqNo))
+    primary_replica._ordering_service.gc((pp.viewNo, pp.ppSeqNo))
     assert (pp.viewNo, pp.ppSeqNo) not in primary_replica._ordering_service.pre_prepare_tss

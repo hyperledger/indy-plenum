@@ -41,7 +41,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     for i, node in enumerate(pool.nodes):
         node._data.preprepared = batches[:pp_count[i]]
         node._data.prepared = batches[:p_count[i]]
-        node._data.checkpoints = checkpoints[:cp_count[i]]
+        node._data.checkpoints.update(checkpoints[:cp_count[i]])
         node._data.stable_checkpoint = stable_cp[i]
 
     committed = []
@@ -49,7 +49,8 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
         has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
-            committed.append(batches[i - 1])
+            batch_id = batches[i - 1]
+            committed.append(BatchID(1, batch_id.pp_seq_no, batch_id.pp_digest))
 
     return pool, committed
 

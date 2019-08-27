@@ -7,6 +7,7 @@ from plenum.common.util import randomString
 
 SomeMessage = NamedTuple('SomeMessage', [('int_field', int), ('str_field', str)])
 OtherMessage = NamedTuple('OtherMessage', [('float_field', float)])
+NoParamsMessage = NamedTuple('NoParamsMessage', [])
 
 
 def create_some_message() -> SomeMessage:
@@ -23,6 +24,17 @@ def test_event_bus_routes_registered_message():
 
     bus = InternalBus()
     bus.subscribe(SomeMessage, handler)
+    bus.send(message)
+
+    handler.assert_called_once_with(message)
+
+
+def test_event_bus_routes_no_params_message():
+    message = NoParamsMessage()
+    handler = Mock()
+
+    bus = InternalBus()
+    bus.subscribe(NoParamsMessage, handler)
     bus.send(message)
 
     handler.assert_called_once_with(message)
@@ -103,7 +115,7 @@ def test_external_bus_forwards_addressed_messages_to_send_handler():
 
 def test_external_bus_queues_sent_messages_sequentially():
     messages = [(create_some_message(), choice(['some_node', 'other_node', None]))
-                 for _ in range(100)]
+                for _ in range(100)]
     send_handler = Mock()
 
     bus = ExternalBus(send_handler)

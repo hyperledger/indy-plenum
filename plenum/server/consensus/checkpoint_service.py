@@ -7,7 +7,7 @@ from common.exceptions import LogicError
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
-    BackupSetupLastOrdered
+    BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
@@ -47,10 +47,10 @@ class CheckpointService:
         self._logger = getlogger()
 
         self._subscription.subscribe(stasher, Checkpoint, self.process_checkpoint)
-        self._stasher.subscribe_to(network)
 
         self._subscription.subscribe(bus, Ordered, self.process_ordered)
         self._subscription.subscribe(bus, BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
+        self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
@@ -286,3 +286,18 @@ class CheckpointService:
     @staticmethod
     def _is_below_3pc_key(cp: CheckpointKey, key: Tuple[int, int]) -> bool:
         return compare_3PC_keys((cp.view_no, cp.pp_seq_no), key) >= 0
+
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        # 1. update shared data
+        cp = msg.checkpoint
+        if cp not in self._data.checkpoints:
+            self._data.checkpoints.append(cp)
+        self._set_stable_checkpoint(cp.seqNoEnd)
+        self.set_watermarks(low_watermark=cp.seqNoEnd)
+
+        # 2. send NewViewCheckpointsApplied
+        self._bus.send(NewViewCheckpointsApplied(view_no=msg.view_no,
+                                                 view_changes=msg.view_changes,
+                                                 checkpoint=msg.checkpoint,
+                                                 batches=msg.batches))
+        return PROCESS, None

@@ -14,6 +14,7 @@ from plenum.test.pool_transactions.helper import new_client_request
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
+whitelist = ["Given signature is not for current root hash, aborting"]
 
 @pytest.fixture(scope='module')
 def pre_reqs():

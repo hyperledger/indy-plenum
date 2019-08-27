@@ -76,7 +76,7 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
 
     for node in txnPoolNodeSet:
         for replica in node.replicas._replicas.values():
-            replica._ordering_service.l_do_dynamic_validation = types.MethodType(rejectingMethod, replica._ordering_service)
+            replica._ordering_service._do_dynamic_validation = types.MethodType(rejectingMethod, replica._ordering_service)
 
     reqs = sdk_send_random_requests(looper, sdk_pool_handle,
                                     sdk_wallet_client,

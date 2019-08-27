@@ -1,31 +1,32 @@
-from unittest.mock import Mock
+from functools import partial
 
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.startable import Mode
-from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
+from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
+from plenum.test.consensus.helper import primary_in_view
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, MockNetwork
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(params=[4, 6, 7, 8])
+@pytest.fixture(params=[4, 6, 7])
 def validators(request):
     return genNodeNames(request.param)
 
 
-@pytest.fixture(params=[0, 1, 2])
+@pytest.fixture(params=[0, 2])
 def initial_view_no(request):
     return request.param
 
@@ -37,12 +38,7 @@ def already_in_view_change(request):
 
 @pytest.fixture
 def primary(validators):
-    def _primary_in_view(view_no):
-        f = (len(validators) - 1) // 3
-        return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
-                                                              validators=validators)[0]
-
-    return _primary_in_view
+    return partial(primary_in_view, validators)
 
 
 @pytest.fixture
@@ -62,9 +58,9 @@ def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is
 
 
 @pytest.fixture
-def view_change_service():
+def view_change_service(internal_bus, external_bus, stasher):
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
-    return ViewChangeService(data, MockTimer(0), InternalBus(), MockNetwork())
+    return ViewChangeService(data, MockTimer(0), internal_bus, external_bus, stasher)
 
 
 @pytest.fixture
@@ -131,6 +127,11 @@ def internal_bus():
 
 
 @pytest.fixture()
+def external_bus():
+    return MockNetwork()
+
+
+@pytest.fixture()
 def bls_bft_replica():
     return FakeSomething(gc=lambda *args, **kwargs: True,
                          validate_pre_prepare=lambda *args, **kwargs: None,
@@ -138,6 +139,7 @@ def bls_bft_replica():
                          process_prepare=lambda *args, **kwargs: None,
                          process_pre_prepare=lambda *args, **kwargs: None,
                          validate_prepare=lambda *args, **kwargs: None,
+                         validate_commit=lambda *args, **kwargs: None,
                          update_commit=lambda params, pre_prepare: params,
                          process_commit=lambda *args, **kwargs: None)
 
@@ -151,3 +153,8 @@ def db_manager():
 @pytest.fixture()
 def write_manager(db_manager):
     return WriteRequestManager(database_manager=db_manager)
+
+
+@pytest.fixture()
+def stasher(internal_bus, external_bus):
+    return StashingRouter(limit=100000, buses=[internal_bus, external_bus])

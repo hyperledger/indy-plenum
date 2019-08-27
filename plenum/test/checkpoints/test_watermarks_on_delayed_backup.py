@@ -3,6 +3,7 @@ from logging import getLogger
 import sys
 
 from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.stashing_router import DISCARD
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -77,7 +78,7 @@ def break_backup_replica(txnPoolNodeSet):
     def fakeProcessPrePrepare(pre_prepare):
         logger.warning(
             "{} is broken. 'processPrePrepare' does nothing".format(broken_replica.name))
-        return None, None
+        return DISCARD, None
 
     broken_replica._ordering_service._validate = fakeProcessPrePrepare
     return broken_replica, non_broken_replica

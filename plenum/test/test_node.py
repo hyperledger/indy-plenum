@@ -143,10 +143,6 @@ class TestNodeCore(StackedTester):
         view_changer.node = self
         return view_changer
 
-    def delaySelfNomination(self, delay: Seconds):
-        raise RuntimeError('Unknown primary decider encountered {}'.
-                           format(self.primaryDecider))
-
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
         delayerCheckPerf = partial(delayers.delayerMethod,
@@ -421,7 +417,8 @@ class TestReplica(replica.Replica):
 
     def _init_replica_stasher(self):
         return TestStashingRouter(self.config.REPLICA_STASH_LIMIT,
-                                  replica_unstash=self._add_to_inbox)
+                                  buses=[self.node.internal_bus, self._external_bus],
+                                  unstash_handler=self._add_to_inbox)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,
@@ -459,30 +456,29 @@ class TestCheckpointService(CheckpointService):
 
 
 ordering_service_spyables = [
-    OrderingService.l_order_3pc_key,
-    OrderingService.l_canPrepare,
-    OrderingService.l_is_pre_prepare_time_correct,
-    OrderingService.l_is_pre_prepare_time_acceptable,
-    OrderingService.l_process_stashed_pre_prepare_for_time_if_possible,
-    OrderingService.l_request_propagates_if_needed,
+    OrderingService._order_3pc_key,
+    OrderingService._can_prepare,
+    OrderingService._is_pre_prepare_time_correct,
+    OrderingService._is_pre_prepare_time_acceptable,
+    OrderingService._process_stashed_pre_prepare_for_time_if_possible,
+    OrderingService._request_propagates_if_needed,
     OrderingService.revert_unordered_batches,
-    OrderingService.l_request_pre_prepare_for_prepare,
-    OrderingService.l_order_3pc_key,
+    OrderingService._request_pre_prepare_for_prepare,
+    OrderingService._order_3pc_key,
     OrderingService._request_pre_prepare,
-    OrderingService.l_request_pre_prepare_for_prepare,
     OrderingService._request_prepare,
     OrderingService._request_commit,
-    OrderingService.l_sendPrePrepare,
-    OrderingService.l_can_process_pre_prepare,
-    OrderingService.l_canPrepare,
-    OrderingService.l_validatePrepare,
-    OrderingService.l_addToPrePrepares,
+    OrderingService.send_pre_prepare,
+    OrderingService._can_process_pre_prepare,
+    OrderingService._can_prepare,
+    OrderingService._validate_prepare,
+    OrderingService._add_to_pre_prepares,
     OrderingService.process_preprepare,
     OrderingService.process_prepare,
     OrderingService.process_commit,
-    OrderingService.l_doPrepare,
-    OrderingService.l_doOrder,
-    OrderingService.l_revert,
+    OrderingService._do_prepare,
+    OrderingService._do_order,
+    OrderingService._revert,
     OrderingService._validate,
     OrderingService.post_batch_rejection,
     OrderingService.post_batch_creation

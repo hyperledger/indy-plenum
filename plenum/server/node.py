@@ -11,7 +11,7 @@ import gc
 import psutil
 
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.internal_messages import PrimariesBatchNeeded, CurrentPrimaries, NeedMasterCatchup, \
+from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
@@ -59,7 +59,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, MULTI_SIGNATURE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -71,8 +71,8 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
-from plenum.common.messages.node_messages import Nomination, Batch, Reelection, \
-    Primary, RequestAck, RequestNack, Reject, Ordered, \
+from plenum.common.messages.node_messages import Batch, \
+    RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
@@ -214,9 +214,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # and restoration current primaries from audit ledger
         self._primaries = []
 
-        # Flag which node set, when it have set new primaries and need to send batch
-        self._primaries_batch_needed = False
-
         self.network_stacks_init(seed)
 
         HasActionQueue.__init__(self)
@@ -349,10 +346,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
-        self.internal_bus.subscribe(PrimariesBatchNeeded, self._primaries_batch_needed_handler)
-
-    def _primaries_batch_needed_handler(self, msg: PrimariesBatchNeeded):
-        self._primaries_batch_needed = msg.pbn
 
     @property
     def mode(self):
@@ -432,9 +425,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # ClientRequest and Propagation, which both require client
         # signature verification
         self.authnWhitelist = (
-            Nomination,
-            Primary,
-            Reelection,
             Batch,
             ViewChangeDone,
             PrePrepare,
@@ -570,22 +560,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.view_changer.view_change_in_progress
 
     @property
-    def primaries_batch_needed(self):
-        return self._primaries_batch_needed
-
-    @primaries_batch_needed.setter
-    def primaries_batch_needed(self, fl):
-        self._primaries_batch_needed = fl
-        self.internal_bus.send(PrimariesBatchNeeded(fl))
-
-    @property
     def primaries(self):
         return self._primaries
 
     @primaries.setter
     def primaries(self, ps):
         self._primaries = ps
-        self.internal_bus.send(CurrentPrimaries(ps))
+        for r in self.replicas.values():
+            r.set_primaries(ps)
 
     @property
     def pre_view_change_in_progress(self):
@@ -2336,10 +2318,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.is_action(txn_type):
             self.process_action(request, frm)
 
-        elif txn_type == GET_TXN:
-            self.handle_get_txn_req(request, frm)
-            self.total_read_request_number += 1
-
         elif self.is_query(txn_type):
             self.process_query(request, frm)
             self.total_read_request_number += 1
@@ -2473,44 +2451,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_nack_to_client(self, req_key, reason, to_client):
         self.transmitToClient(RequestNack(*req_key, reason), to_client)
 
-    def handle_get_txn_req(self, request: Request, frm: str):
-        """
-        Handle GET_TXN request
-        """
-        ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
-        if ledger_id not in self.ledger_ids:
-            self.send_nack_to_client((request.identifier, request.reqId),
-                                     'Invalid ledger id {}'.format(ledger_id),
-                                     frm)
-            return
-
-        seq_no = request.operation.get(DATA)
-        self.send_ack_to_client((request.identifier, request.reqId), frm)
-        ledger = self.getLedger(ledger_id)
-
-        try:
-            txn = self.getReplyFromLedger(ledger, seq_no)
-        except KeyError:
-            txn = None
-
-        if txn is None:
-            logger.debug(
-                "{} can not handle GET_TXN request: ledger doesn't "
-                "have txn with seqNo={}".format(self, str(seq_no)))
-
-        result = {
-            f.IDENTIFIER.nm: request.identifier,
-            f.REQ_ID.nm: request.reqId,
-            TXN_TYPE: request.operation[TXN_TYPE],
-            DATA: None
-        }
-
-        if txn:
-            result[DATA] = txn.result
-            result[f.SEQ_NO.nm] = get_seq_no(txn.result)
-
-        self.transmitToClient(Reply(result), frm)
-
     @measure_time(MetricsName.PROCESS_ORDERED_TIME)
     def processOrdered(self, ordered: Ordered):
         """
@@ -2600,7 +2540,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         .format(self, num_processed, instance_id))
 
     def try_processing_ordered(self, msg):
-        if self.master_replica._ordering_service.can_order():
+        if self.master_replica._ordering_service.can_order_commits():
             self.processOrdered(msg)
         else:
             logger.warning("{} can not process Ordered message {} since mode is {}".format(self, msg, self.mode))
@@ -3041,7 +2981,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Notify replica, that we need to send batch with new primaries
         if self.viewNo != 0:
-            self.primaries_batch_needed = True
+            for r in self.replicas.values():
+                r.set_primaries_batch_needed(True)
 
     def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica
@@ -3449,12 +3390,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return None
 
-    def getReplyFromLedger(self, ledger, seq_no):
+    def getReplyFromLedger(self, ledger, seq_no, write=True):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
-            txn.update(ledger.merkleInfo(seq_no))
+            txn.update(ledger.merkleInfo(seq_no) if write else ledger.auditProof(seq_no))
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:
