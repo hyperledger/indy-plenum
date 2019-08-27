@@ -23,35 +23,35 @@ def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
 
 
 @pytest.mark.parametrize('checkpoints, stable_checkpoint, checkpoints_result', [
-    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))],
+    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
 
-    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))],
+    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))],
      0,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
 
-    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(0, 100))],
+    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100))],
      0,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
 
-    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(0, 100))],
+    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
 
-    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(0, 100)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))],
+    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100)),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
 
-    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(0, 100)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=300, digest=cp_digest(0, 300)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest=cp_digest(0, 400))],
+    ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100)),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200)),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=300, digest=cp_digest(300)),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest=cp_digest(400))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=300, digest=cp_digest(0, 300)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest=cp_digest(0, 400))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200)),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=300, digest=cp_digest(300)),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest=cp_digest(400))]),
 
 ])
 def test_update_shared_data_on_new_view_accepted(internal_bus, checkpoint_service,
