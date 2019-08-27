@@ -127,7 +127,7 @@ def test_zstack_non_utf8(tdir, looper, tconf):
     looper.run(eventually(chkPrinted, betaP, {"k3": "v3"}))
 
 
-def test_ident_not_utf_8_decoded(tconf, looper, stacks, alpha_handler, clientstack):
+def test_ident_not_utf_8_decoded(clientstack):
     """
     ZStack gets a non utf-8 identifier and does not hand it over to the
     processing method
@@ -137,7 +137,9 @@ def test_ident_not_utf_8_decoded(tconf, looper, stacks, alpha_handler, clientsta
     wrong_identifier = b'\xd1 \xf8\x16\x9a]~~\x14\x94CF\xc1\x89n\xd5\tL\x1b\xe8J+\xa5\xbe\x17\xf6\xe6J@\xa1\xd0#'
 
     msg = b'{"msg": "msg"}'
+    assert not client.rxMsgs
     assert not client._verifyAndAppend(msg, wrong_identifier)
+    assert not client.rxMsgs
 
 
 def test_zstack_creates_keys_with_secure_permissions(tdir):
