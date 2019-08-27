@@ -279,9 +279,9 @@ class CheckpointService:
 
     def _unknown_stabilized_checkpoints(self) -> List[CheckpointKey]:
         return [key for key in self._received_checkpoints
-                if self._have_quorum_on_received_checkpoint(key)
-                and not self._have_own_checkpoint(key)
-                and not self._is_below_3pc_key(key, self.last_ordered_3pc)]
+                if self._have_quorum_on_received_checkpoint(key) and
+                not self._have_own_checkpoint(key) and
+                not self._is_below_3pc_key(key, self.last_ordered_3pc)]
 
     @staticmethod
     def _is_below_3pc_key(cp: CheckpointKey, key: Tuple[int, int]) -> bool:
