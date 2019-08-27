@@ -1,5 +1,3 @@
-from logging import getLogger
-
 import pytest
 
 from plenum.common.messages.node_messages import Checkpoint, LedgerStatus
@@ -22,8 +20,6 @@ from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 
 from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
-
-logger = getLogger()
 
 CHK_FREQ = 5
 
@@ -139,7 +135,6 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         )
     )
 
-    # TODO: Is this really needed? If yes find out why catchup was started 3 times instead of 1
     # check that catch-up was started twice, since we were able to catch-up till audit ledger only
     # for the first time, and after this the node sees a quorum of stashed checkpoints
     assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1

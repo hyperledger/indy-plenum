@@ -12,6 +12,7 @@ from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
@@ -147,6 +148,10 @@ class CheckpointService:
         self._remove_received_checkpoints(till_3pc_key=(self.view_no, 0))
 
     def caught_up_till_3pc(self, caught_up_till_3pc):
+        # TODO: Implement it like this
+        # cp_seq_no = caught_up_till_3pc[1] // self._config.CHK_FREQ * self._config.CHK_FREQ
+        # self._mark_checkpoint_stable(cp_seq_no)
+
         self._reset_checkpoints()
         self._remove_received_checkpoints(till_3pc_key=caught_up_till_3pc)
         self.update_watermark_from_3pc()
@@ -244,15 +249,8 @@ class CheckpointService:
             self._logger.info('{} removing all received checkpoints'.format(self))
             return
 
-        def is_below_3pc_key(cp: CheckpointService.CheckpointKey, key: Tuple[int, int]):
-            if cp.view_no < key[0]:
-                return True
-            if cp.view_no > key[0]:
-                return False
-            return cp.pp_seq_no <= till_3pc_key[1]
-
         for cp in list(self._received_checkpoints.keys()):
-            if is_below_3pc_key(cp, till_3pc_key):
+            if self._is_below_3pc_key(cp, till_3pc_key):
                 self._logger.info('{} removing received checkpoints: {}'.format(self, cp))
                 del self._received_checkpoints[cp]
 
@@ -281,4 +279,10 @@ class CheckpointService:
 
     def _unknown_stabilized_checkpoints(self) -> List[CheckpointKey]:
         return [key for key in self._received_checkpoints
-                if self._have_quorum_on_received_checkpoint(key) and not self._have_own_checkpoint(key)]
+                if self._have_quorum_on_received_checkpoint(key)
+                and not self._have_own_checkpoint(key)
+                and not self._is_below_3pc_key(key, self.last_ordered_3pc)]
+
+    @staticmethod
+    def _is_below_3pc_key(cp: CheckpointKey, key: Tuple[int, int]) -> bool:
+        return compare_3PC_keys((cp.view_no, cp.pp_seq_no), key) >= 0
