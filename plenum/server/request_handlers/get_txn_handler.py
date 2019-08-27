@@ -50,7 +50,8 @@ class GetTxnHandler(ReadRequestHandler):
                     break
             if state_root is not None:
                 multi_sig = self.database_manager.bls_store.get(state_root)
-                txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
+                if multi_sig:
+                    txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
         except KeyError:
             txn = None
 
