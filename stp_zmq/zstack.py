@@ -478,6 +478,12 @@ class ZStack(NetworkInterface):
 
     def _verifyAndAppend(self, msg, ident):
         try:
+            ident.decode()
+        except ValueError:
+            logger.error("Identifier {} is not decoded into UTF-8 string. "
+                         "Request will not be processed".format(ident))
+            return False
+        try:
             self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
             decoded = msg.decode()
