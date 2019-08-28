@@ -52,3 +52,18 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(orderer):
     orderer._request_msg = lambda *args, **kwargs: None
     # This shouldn't crash
     orderer._request_prepare((0, 1))
+
+
+def test_pp_storages_ordering(pre_prepare, orderer):
+    orderer._preprepare_batch(pre_prepare)
+    assert orderer._data.preprepared
+    assert not orderer._data.prepared
+
+    orderer._prepare_batch(pre_prepare)
+    assert orderer._data.preprepared
+    assert orderer._data.prepared
+
+    orderer._clear_batch(pre_prepare)
+    assert not orderer._data.preprepared
+    assert not orderer._data.prepared
+

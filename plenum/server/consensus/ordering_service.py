@@ -34,7 +34,7 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
@@ -42,12 +42,9 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, ConsensusDataHelper, OrderedTracker, TPCStat
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, \
-    STASH_VIEW, FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, \
-    STASH_WATERMARKS
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -225,8 +222,6 @@ class OrderingService:
 
         self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
-
-        self._consensus_data_helper = ConsensusDataHelper(self._data)
 
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
@@ -1306,7 +1301,7 @@ class OrderingService:
         key = (pp.viewNo, pp.ppSeqNo)
         # ToDo:
         self.prePrepares[key] = pp
-        self._consensus_data_helper.preprepare_batch(pp)
+        self._preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self._dequeue_prepares(*key)
@@ -1434,7 +1429,7 @@ class OrderingService:
         rv, reason = self._can_commit(prepare)
         if rv:
             pp = self.get_preprepare(prepare.viewNo, prepare.ppSeqNo)
-            self._consensus_data_helper.prepare_batch(pp)
+            self._prepare_batch(pp)
             self._do_commit(prepare)
         else:
             self._logger.debug("{} cannot send COMMIT since {}".format(self, reason))
@@ -2020,7 +2015,7 @@ class OrderingService:
             self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
                 self._data.inst_id, pre_prepare.ppSeqNo)
 
-        self._consensus_data_helper.preprepare_batch(pre_prepare)
+        self._preprepare_batch(pre_prepare)
         self._track_batches(pre_prepare, oldStateRootHash)
         return ledger_id
 
@@ -2242,7 +2237,7 @@ class OrderingService:
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
             self._discard_ordered_req_keys(pp)
-            self._consensus_data_helper.clear_batch(pp)
+            self._clear_batch(pp)
 
     def get_sent_preprepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
@@ -2327,3 +2322,29 @@ class OrderingService:
         self._data.prepared = []
 
         return PROCESS, None
+
+    def _preprepare_batch(self, pp: PrePrepare):
+        """
+        After pp had validated, it placed into _preprepared list
+        """
+        if preprepare_to_batch_id(pp) in self._data.preprepared:
+            raise LogicError('New pp cannot be stored in preprepared')
+        if self._data.checkpoints and pp.ppSeqNo < self._data.last_checkpoint.seqNoEnd:
+            raise LogicError('ppSeqNo cannot be lower than last checkpoint')
+        self._data.preprepared.append(preprepare_to_batch_id(pp))
+
+    def _prepare_batch(self, pp: PrePrepare):
+        """
+        After prepared certificate for pp had collected,
+        it removed from _preprepared and placed into _prepared list
+        """
+        self._data.prepared.append(preprepare_to_batch_id(pp))
+
+    def _clear_batch(self, pp: PrePrepare):
+        """
+        When 3pc batch processed, it removed from _prepared list
+        """
+        if preprepare_to_batch_id(pp) in self._data.preprepared:
+            self._data.preprepared.remove(preprepare_to_batch_id(pp))
+        if preprepare_to_batch_id(pp) in self._data.prepared:
+            self._data.prepared.remove(preprepare_to_batch_id(pp))
