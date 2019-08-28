@@ -1,72 +1,11 @@
-import json
-
-import pytest
 import zmq
 
-from plenum.test.helper import assertExp, MockTimer, MockTimestamp
-from stp_core.crypto.util import randomSeed
+from plenum.test.helper import assertExp
 from stp_core.loop.eventually import eventually
-from stp_core.network.port_dispenser import genHa
-from stp_core.test.helper import SMotor
-from stp_zmq.test.helper import genKeys
-from stp_zmq.simple_zstack import SimpleZStack
-
-
-@pytest.fixture()
-def alpha_handler(tdir, looper):
-    return Handler()
-
-
-@pytest.fixture()
-def stacks(tdir, looper, alpha_handler):
-    names = ['Alpha', 'Beta']
-    genKeys(tdir, names)
-    aseed = randomSeed()
-    bseed = randomSeed()
-
-    def bHandler(m):
-        msg, a = m
-        beta.send(msg, a)
-
-    stackParams = {
-        "name": names[0],
-        "ha": genHa(),
-        "auto": 2,
-        "basedirpath": tdir
-    }
-    timer = MockTimer(0)
-    alpha = SimpleZStack(stackParams, alpha_handler.handle, aseed, False,
-                         timer=timer)
-
-    stackParams = {
-        "name": names[1],
-        "ha": genHa(),
-        "auto": 2,
-        "basedirpath": tdir
-    }
-    timer = MockTimer(0)
-    beta = SimpleZStack(stackParams, bHandler, bseed, True,
-                        timer=timer)
-
-    amotor = SMotor(alpha)
-    looper.add(amotor)
-
-    bmotor = SMotor(beta)
-    looper.add(bmotor)
-    return alpha, beta
 
 
 def create_msg(i):
     return {'msg': 'msg{}'.format(i)}
-
-
-class Handler:
-    def __init__(self) -> None:
-        self.received_messages = []
-
-    def handle(self, m):
-        d, msg = m
-        self.received_messages.append(d)
 
 
 def test_stash_msg_to_unknown(tdir, looper, stacks, alpha_handler):
