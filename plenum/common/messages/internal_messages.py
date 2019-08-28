@@ -2,10 +2,6 @@ from typing import NamedTuple, List, Any
 
 from plenum.common.exceptions import SuspiciousNode
 
-HookMessage = NamedTuple('HookMessage',
-                         [('hook', int),
-                          ('args', tuple)])
-
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
 

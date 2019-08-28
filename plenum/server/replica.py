@@ -23,10 +23,7 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
     DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
-from plenum.common.hook_manager import HookManager
-from plenum.common.ledger import Ledger
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
@@ -91,7 +88,7 @@ def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     return decorator
 
 
-class Replica(HasActionQueue, MessageProcessor, HookManager):
+class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -157,8 +154,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
-
-        HookManager.__init__(self, ReplicaHooks.get_all_vals())
 
         self._consensus_data = ConsensusSharedData(self.name,
                                                    self.node.get_validators(),

@@ -13,14 +13,14 @@ from common.exceptions import PlenumValueError, LogicError
 from common.serializers.serialization import state_roots_serializer, invalid_index_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
-from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, ReplicaHooks, AUDIT_LEDGER_ID, TXN_TYPE, \
+from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
     LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, PREPREPARE, PREPARE, COMMIT, \
     DOMAIN_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
 from plenum.common.ledger import Ledger
-from plenum.common.messages.internal_messages import HookMessage, RequestPropagates, BackupSetupLastOrdered, \
+from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     CheckpointState, MessageReq
@@ -901,20 +901,7 @@ class OrderingService:
                              len(pre_prepare.reqIdr) - len(invalid_indices))
             return why_not_applied
 
-        # 5. EXECUTE HOOK
-        if self.is_master:
-            try:
-                self.l_execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
-            except Exception as ex:
-                self._logger.warning('{} encountered exception in replica '
-                                     'hook {} : {}'.
-                                     format(self, ReplicaHooks.APPLY_PPR, ex))
-                self._revert(pre_prepare.ledgerId,
-                             old_state_root,
-                             len(pre_prepare.reqIdr) - len(invalid_from_pp))
-                return PP_APPLY_HOOK_ERROR
-
-        # 6. TRACK APPLIED
+        # 5. TRACK APPLIED
         if rejects:
             for reject in rejects:
                 self._network.send(reject)
@@ -1252,12 +1239,6 @@ class OrderingService:
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
 
-    """Method from legacy code"""
-    def l_execute_hook(self, hook_id, *args):
-        # ToDo: need to receive results from hooks
-        self._bus.send(HookMessage(hook=hook_id,
-                                   args=args))
-
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
         #  starts hence the count of accepted requests, prevStateRoot is
@@ -1385,9 +1366,6 @@ class OrderingService:
         params = self.l_bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
-        if self.is_master:
-            rv = self.l_execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
-            prepare = rv if rv is not None else prepare
         self._send(prepare, stat=TPCStat.PrepareSent)
         self._add_to_prepares(prepare, self.name)
 
@@ -1526,10 +1504,6 @@ class OrderingService:
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
                           self._get_primaries_for_ordered(pp))
-        if self.is_master:
-            rv = self.l_execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
-            ordered = rv if rv is not None else ordered
-
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
@@ -2079,9 +2053,6 @@ class OrderingService:
         params = self.l_bls_bft_replica.update_pre_prepare(params, ledger_id)
 
         pre_prepare = PrePrepare(*params)
-        if self.is_master:
-            rv = self.l_execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
-            pre_prepare = rv if rv is not None else pre_prepare
 
         self._logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(reqs), ledger_id))
