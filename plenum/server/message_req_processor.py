@@ -20,9 +20,6 @@ class MessageReqProcessor:
         self.handlers = {
             LEDGER_STATUS: LedgerStatusHandler(self),
             CONSISTENCY_PROOF: ConsistencyProofHandler(self),
-            PREPREPARE: PreprepareHandler(self),
-            PREPARE: PrepareHandler(self),
-            COMMIT: CommitHandler(self),
             PROPAGATE: PropagateHandler(self)
         }
 

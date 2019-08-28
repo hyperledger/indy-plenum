@@ -13,6 +13,7 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
+from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -399,10 +400,10 @@ class TestStashingRouter(StashingRouter):
 
 replica_spyables = [
     replica.Replica.revert_unordered_batches,
-    replica.Replica.process_requested_pre_prepare,
-    replica.Replica.process_requested_prepare,
+    # replica.Replica.process_requested_pre_prepare,
+    # replica.Replica.process_requested_prepare,
     replica.Replica._send_ordered,
-    replica.Replica.process_requested_commit,
+    # replica.Replica.process_requested_commit,
 ]
 
 
@@ -440,6 +441,24 @@ class TestReplica(replica.Replica):
                                    get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                    stasher=self.stasher,
                                    metrics=self.metrics)
+
+    def _init_message_req_service(self) -> MessageReq3pcService:
+        return TestMessageReq3pcService(data=self._consensus_data,
+                                        bus=self.node.internal_bus,
+                                        network=self._external_bus,
+                                        metrics=self.metrics)
+
+
+message_req_spyables = [
+    MessageReq3pcService.process_message_req,
+    MessageReq3pcService.process_message_rep,
+    MessageReq3pcService.process_missing_message,
+]
+
+
+@spyable(methods=message_req_spyables)
+class TestMessageReq3pcService(MessageReq3pcService):
+    pass
 
 
 checkpointer_spyables = [

@@ -26,6 +26,6 @@ def test_primary_receives_delayed_prepares(looper, txnPoolNodeSet,
         assert node.master_replica._ordering_service.prepares
         assert node.master_replica._ordering_service.commits
 
-    assert primary_node.master_replica._ordering_service.sentPrePrepares
+    assert primary_node.master_replica._ordering_service.sent_preprepares
     assert not primary_node.master_replica._ordering_service.prepares
     assert primary_node.master_replica._ordering_service.commits

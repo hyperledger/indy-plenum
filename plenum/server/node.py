@@ -447,8 +447,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (Propagate, self.processPropagate),
             (InstanceChange, self.sendToViewChanger),
             (ViewChangeDone, self.sendToViewChanger),
-            (MessageReq, self.process_message_req),
-            (MessageRep, self.process_message_rep),
+            (MessageReq, self.route_message_req),
+            (MessageRep, self.route_message_rep),
             (PrePrepare, self.sendToReplica),
             (Prepare, self.sendToReplica),
             (Commit, self.sendToReplica),
@@ -2657,7 +2657,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                sum_for_values(self.master_replica._ordering_service.preparesWaitingForPrePrepare))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_MASTER,
                                sum_for_values(self.master_replica._ordering_service.commitsWaitingForPrepare))
-        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica._ordering_service.sentPrePrepares))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica._ordering_service.sent_preprepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica._ordering_service.prePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica._ordering_service.prepares))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica._ordering_service.commits))
@@ -2725,7 +2725,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_BACKUP,
                                sum_for_values_for_backups_ordering_service('commitsWaitingForPrepare'))
         self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP,
-                               sum_for_backups_ordering_service('sentPrePrepares'))
+                               sum_for_backups_ordering_service('sent_preprepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP,
                                sum_for_backups_ordering_service('prePrepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP,
@@ -3573,3 +3573,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         for r in self.replicas.values():
             r.set_view_change_status(value)
+
+    def route_message_req(self, msg: MessageReq, frm):
+        if msg.msg_type in self.handlers.keys():
+            self.process_message_req(msg, frm)
+        else:
+            self.sendToReplica(msg, frm)
+
+    def route_message_rep(self, msg: MessageRep, frm):
+        if msg.msg_type in self.handlers.keys():
+            self.process_message_rep(msg, frm)
+        else:
+            self.sendToReplica(msg, frm)

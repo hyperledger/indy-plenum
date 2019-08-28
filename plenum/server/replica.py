@@ -39,6 +39,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import updateNamedTuple, compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -176,6 +177,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._subscribe_to_internal_msgs()
         self._checkpointer = self._init_checkpoint_service()
         self._ordering_service = self._init_ordering_service()
+        self._message_req_service = self._init_message_req_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -192,7 +194,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         for req_queue in self._ordering_service.requestQueues.values():
             for req_key in req_queue:
                 req_keys.add(req_key)
-        for pp in self._ordering_service.sentPrePrepares.values():
+        for pp in self._ordering_service.sent_preprepares.values():
             for req_key in pp.reqIdr:
                 req_keys.add(req_key)
         for pp in self._ordering_service.prePrepares.values():
@@ -643,74 +645,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def dequeue_pre_prepares(self):
         return self._ordering_service.dequeue_pre_prepares()
 
-    def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
-        reqKey = self.getReqKeyFrom3PhaseKey(key)
-        digest = self.requests.digest(reqKey)
-        if not digest:
-            self.logger.debug("{} could not find digest in sent or received "
-                              "PRE-PREPAREs or PREPAREs for 3 phase key {} and req "
-                              "key {}".format(self, key, reqKey))
-            return None
-        else:
-            return digest
-
-    def getReqKeyFrom3PhaseKey(self, key: ThreePhaseKey):
-        reqKey = None
-        if key in self.sentPrePrepares:
-            reqKey = self.sentPrePrepares[key][0]
-        elif key in self.prePrepares:
-            reqKey = self.prePrepares[key][0]
-        elif key in self.prepares:
-            reqKey = self.prepares[key][0]
-        else:
-            self.logger.debug("Could not find request key for 3 phase key {}".format(key))
-        return reqKey
-
-    def _process_requested_three_phase_msg(self, msg: object,
-                                           sender: List[str],
-                                           stash: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]],
-                                           get_saved: Optional[Callable[[int, int], Optional[MessageBase]]] = None):
-        if msg is None:
-            self.logger.debug('{} received null from {}'.format(self, sender))
-            return
-        key = (msg.viewNo, msg.ppSeqNo)
-        self.logger.debug('{} received requested msg ({}) from {}'.format(self, key, sender))
-
-        if key not in stash:
-            self.logger.debug('{} had either not requested this msg or already '
-                              'received the msg for {}'.format(self, key))
-            return
-        if self.has_already_ordered(*key):
-            self.logger.debug(
-                '{} has already ordered msg ({})'.format(self, key))
-            return
-        if get_saved and get_saved(*key):
-            self.logger.debug(
-                '{} has already received msg ({})'.format(self, key))
-            return
-        # There still might be stashed msg but not checking that
-        # it is expensive, also reception of msgs is idempotent
-        stashed_data = stash[key]
-        curr_data = (msg.digest, msg.stateRootHash, msg.txnRootHash) \
-            if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
-            else None
-        if stashed_data is None or curr_data == stashed_data:
-            return self._external_bus.process_incoming(msg, sender)
-
-        self.discard(msg, reason='{} does not have expected state {}'.
-                     format(THREE_PC_PREFIX, stashed_data),
-                     logMethod=self.logger.warning)
-
-    def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
-        return self._process_requested_three_phase_msg(pp, sender, self.requested_pre_prepares,
-                                                       self._ordering_service.get_preprepare)
-
-    def process_requested_prepare(self, prepare: Prepare, sender: str):
-        return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
-
-    def process_requested_commit(self, commit: Commit, sender: str):
-        return self._process_requested_three_phase_msg(commit, sender, self.requested_commits)
-
     def send(self, msg, to_nodes=None) -> None:
         """
         Send a message to the node on which this replica resides.
@@ -873,6 +807,12 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                stasher=self.stasher,
                                metrics=self.metrics)
+
+    def _init_message_req_service(self) -> MessageReq3pcService:
+        return MessageReq3pcService(data=self._consensus_data,
+                                    bus=self.node.internal_bus,
+                                    network=self._external_bus,
+                                    metrics=self.metrics)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

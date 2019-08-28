@@ -174,7 +174,7 @@ def is_prepared(nodes: [Node], ppSeqNo, instId):
     for node in nodes:
         replica = node.replicas[instId]
         assert (node.viewNo, ppSeqNo) in replica._ordering_service.prepares or \
-               (node.viewNo, ppSeqNo) in replica._ordering_service.sentPrePrepares
+               (node.viewNo, ppSeqNo) in replica._ordering_service.sent_preprepares
 
 
 def check_last_ordered(nodes: [Node],

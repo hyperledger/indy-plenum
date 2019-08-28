@@ -186,7 +186,8 @@ def test_node_rejects_msg_reqs_with_invalid_type(looper, nodes):
     bad_msg = patched_MessageReq()('invalid_type', {'p1': 'v1', 'p2': 'v2'})
     bad_node.send(bad_msg)
 
-    looper.run(eventually(chk, other_nodes,
+    looper.run(eventually(chk,
+                          [n.master_replica._message_req_service for n in other_nodes],
                           invalid_type_discard_log, retryWait=1))
 
 
@@ -200,7 +201,8 @@ def test_node_rejects_msg_reps_with_invalid_type(looper, nodes):
     bad_msg = patched_MessageRep()('invalid_type', {'p1': 'v1', 'p2': 'v2'},
                                    {'some_message': 'message'})
     bad_node.send(bad_msg)
-    looper.run(eventually(chk, other_nodes,
+    looper.run(eventually(chk,
+                          [n.master_replica._message_req_service for n in other_nodes],
                           invalid_type_discard_log, retryWait=1))
 
 
@@ -213,7 +215,9 @@ def test_node_rejects_msg_reqs_with_invalid_params(looper, nodes):
     for msg_req_with_invalid_params in msg_reqs_with_invalid_params:
         fill_counters(other_nodes, invalid_req_discard_log)
         bad_node.send(patched_MessageReq()(*msg_req_with_invalid_params))
-        looper.run(eventually(chk, other_nodes, invalid_req_discard_log,
+        looper.run(eventually(chk,
+                              [n.master_replica._message_req_service for n in other_nodes],
+                              invalid_req_discard_log,
                               retryWait=1))
 
 
@@ -226,7 +230,9 @@ def test_node_rejects_msg_reps_with_invalid_params(looper, nodes):
     for msg_rep_with_invalid_params in msg_reps_with_invalid_params:
         fill_counters(other_nodes, invalid_rep_discard_log)
         bad_node.send(patched_MessageRep()(*msg_rep_with_invalid_params))
-        looper.run(eventually(chk, other_nodes, invalid_rep_discard_log,
+        looper.run(eventually(chk,
+                              [n.master_replica._message_req_service for n in other_nodes],
+                              invalid_rep_discard_log,
                               retryWait=1))
 
 
@@ -244,7 +250,8 @@ def test_node_rejects_msg_reps_with_invalid_msg_structure(looper, nodes):
         {f.LEDGER_ID.nm: 1},
         patched_LedgerStatus()(1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq'))
     bad_node.send(bad_msg)
-    looper.run(eventually(chk, other_nodes,
+    looper.run(eventually(chk,
+                          [n.master_replica._message_req_service for n in other_nodes],
                           invalid_replied_msg_structure, retryWait=1))
 
 
@@ -258,5 +265,7 @@ def test_node_rejects_msg_reps_with_mismatched_params(looper, nodes):
     for msg_rep_with_mismatched_params in msg_reps_with_mismatched_params:
         fill_counters(other_nodes, mismatched_params_log)
         bad_node.send(patched_MessageRep()(*msg_rep_with_mismatched_params))
-        looper.run(eventually(chk, other_nodes, mismatched_params_log,
+        looper.run(eventually(chk,
+                              [n.master_replica._message_req_service for n in other_nodes],
+                              mismatched_params_log,
                               retryWait=1))
