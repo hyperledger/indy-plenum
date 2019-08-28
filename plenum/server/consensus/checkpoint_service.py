@@ -79,8 +79,6 @@ class CheckpointService:
         Process checkpoint messages
         :return: whether processed (True) or stashed (False)
         """
-        if msg.instId != self._data.inst_id:
-            return None, None
         self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         result, reason = self._validator.validate(msg)
         if result == PROCESS:
@@ -121,8 +119,6 @@ class CheckpointService:
         self.update_watermark_from_3pc()
 
     def process_ordered(self, ordered: Ordered):
-        if ordered.instId != self._data.inst_id:
-            return
         for batch_id in reversed(self._data.preprepared):
             if batch_id.pp_seq_no == ordered.ppSeqNo:
                 self._add_to_checkpoint(batch_id.pp_seq_no,

@@ -749,8 +749,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self._ordering_service.discard_req_key(ledger_id, req_key)
 
     def _caught_up_backup(self, msg: NeedBackupCatchup):
-        if self.instId != msg.inst_id:
-            return
         self._caught_up_till_3pc(msg.caught_up_till_3pc)
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
@@ -849,8 +847,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.report_suspicious_node(msg.ex)
 
     def _send_ordered(self, msg: Ordered):
-        if msg.instId != self.instId:
-            return
         self.send(msg)
 
     def _init_checkpoint_service(self) -> CheckpointService:
