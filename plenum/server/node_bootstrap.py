@@ -182,7 +182,7 @@ class NodeBootstrap:
             self.node.write_manager.register_batch_handler(ts_store_b_h, ledger_id=lid)
 
     def register_common_handlers(self):
-        get_txn_handler = GetTxnHandler(self, self.node.db_manager)
+        get_txn_handler = GetTxnHandler(self.node, self.node.db_manager)
         for lid in self.node.ledger_ids:
             self.node.read_manager.register_req_handler(get_txn_handler, ledger_id=lid)
         self.register_ts_store_batch_handlers()

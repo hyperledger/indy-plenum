@@ -204,6 +204,18 @@ class Ledger(ImmutableStore):
             F.auditPath.name: [self.hashToStr(h) for h in auditPath]
         }
 
+    def auditProof(self, seqNo):
+        seqNo = int(seqNo)
+        if seqNo <= 0:
+            raise PlenumValueError('seqNo', seqNo, '> 0')
+        rootHash = self.tree.merkle_tree_hash(0, self.size)
+        auditPath = self.tree.inclusion_proof(seqNo - 1, self.size)
+        return {
+            F.rootHash.name: self.hashToStr(rootHash),
+            F.auditPath.name: [self.hashToStr(h) for h in auditPath],
+            F.ledgerSize.name: self.size
+        }
+
     def start(self, loop=None, ensureDurability=True):
         if self._transactionLog and not self._transactionLog.closed:
             logging.debug("Ledger already started.")
