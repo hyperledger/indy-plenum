@@ -5,7 +5,7 @@ import pytest
 from common.exceptions import LogicError
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import CheckpointStabilized, NeedBackupCatchup, NeedMasterCatchup
-from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare, CheckpointState
+from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare
 from plenum.common.util import updateNamedTuple, getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
@@ -46,22 +46,12 @@ def checkpoint(ordered, tconf):
     start = ordered.ppSeqNo % tconf.CHK_FREQ
     return Checkpoint(instId=ordered.instId,
                       viewNo=ordered.viewNo,
-                      seqNoStart=start,
+                      seqNoStart=0,
                       seqNoEnd=start + tconf.CHK_FREQ - 1,
-                      digest=cp_digest(start, start + tconf.CHK_FREQ - 1))
+                      digest=cp_digest(start + tconf.CHK_FREQ - 1))
 
-
-def test_process_checkpoint_with_incorrect_digest(checkpoint_service, checkpoint, tconf, is_master):
-    key = (checkpoint.seqNoStart, checkpoint.seqNoEnd)
-    sender = "sender"
-    checkpoint_service._checkpoint_state[key] = CheckpointState(1, [],
-                                                                "other_digest", {}, False)
-    assert checkpoint_service.process_checkpoint(checkpoint, sender)
-    if is_master:
-        assert sender not in checkpoint_service._checkpoint_state[key].receivedDigests
-    else:
-        assert sender in checkpoint_service._checkpoint_state[key].receivedDigests
-
+# TODO: Add test checking that our checkpoint is stabilized only if we receive
+#  quorum of checkpoints with expected digest
 
 def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, checkpoint, pre_prepare,
                                                         tconf, ordered, validators, is_master):
@@ -81,9 +71,9 @@ def test_start_catchup_on_quorum_of_stashed_checkpoints(checkpoint_service, chec
 
     new_checkpoint = Checkpoint(instId=ordered.instId,
                                 viewNo=ordered.viewNo,
-                                seqNoStart=key[0],
+                                seqNoStart=0,
                                 seqNoEnd=key[1],
-                                digest=cp_digest(1, 1))
+                                digest=cp_digest(key[1]))
 
     for sender in senders[:quorum]:
         assert not checkpoint_service._do_process_checkpoint(checkpoint, sender)
@@ -110,9 +100,9 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
     new_key = (key[1] + 1, key[1] + tconf.CHK_FREQ)
     checkpoint_service._data.stable_checkpoint = 1
 
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, new_key[0], new_key[1], cp_digest(1, 1)),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 0, new_key[1], cp_digest(new_key[1])),
                                          "frm")
-    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, key[0], key[1], cp_digest(1, 1)),
+    checkpoint_service._stash_checkpoint(Checkpoint(1, checkpoint.viewNo, 0, key[1], cp_digest(key[1])),
                                          "frm")
     checkpoint_service._checkpoint_state[key] = CheckpointState(key[1] - 1,
                                                                 ["digest"] * (tconf.CHK_FREQ - 1),
@@ -189,10 +179,11 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     assert old_key not in checkpoint_service._checkpoint_state
 
 
-def test_process_oredered(checkpoint_service, ordered, pre_prepare, tconf):
+def test_process_ordered(checkpoint_service, ordered, pre_prepare, tconf):
     with pytest.raises(LogicError, match="CheckpointService | Can't process Ordered msg because "
                                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo)):
         checkpoint_service.process_ordered(ordered)
+
     checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, 1, tconf.CHK_FREQ, pre_prepare)

@@ -43,7 +43,7 @@ def primary(validators):
 
 @pytest.fixture
 def initial_checkpoints(initial_view_no):
-    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0, 0))]
+    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))]
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def view_change_message():
             stableCheckpoint=4,
             prepared=[],
             preprepared=[],
-            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest=cp_digest(0, 4))]
+            checkpoints=[Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=4, digest=cp_digest(4))]
         )
         return vc
 

@@ -1,4 +1,6 @@
-from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN
+from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN, MULTI_SIGNATURE, AUDIT_LEDGER_ID, \
+    AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD
+from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.messages.node_messages import RequestNack, Reply
 from plenum.common.request import Request
 from plenum.common.txn_util import get_seq_no
@@ -16,6 +18,17 @@ class GetTxnHandler(ReadRequestHandler):
         super().__init__(database_manager, GET_TXN, None)
         self.node = node
 
+    def static_validation(self, request: Request):
+        ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
+        if ledger_id not in self.node.ledger_ids:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       'Invalid ledger id {}'.format(ledger_id))
+        seq_no = request.operation.get(DATA)
+        if seq_no < 1:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Invalid sequence number: {} is smaller than 1".format(seq_no))
+        super().static_validation(request)
+
     def get_result(self, request: Request):
         ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
         db = self.database_manager.get_database(ledger_id)
@@ -26,7 +39,19 @@ class GetTxnHandler(ReadRequestHandler):
         seq_no = request.operation.get(DATA)
 
         try:
-            txn = self.node.getReplyFromLedger(db.ledger, seq_no)
+            txn = self.node.getReplyFromLedger(db.ledger, seq_no, write=False)
+            audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
+            audit_seq_no = audit_ledger.size
+            state_root = None
+            for seq_no in reversed(range(1, audit_seq_no + 1)):
+                audit_txn = audit_ledger.getBySeqNo(seq_no)
+                state_root = audit_txn[TXN_PAYLOAD][DATA][AUDIT_TXN_STATE_ROOT].get(ledger_id, None)
+                if state_root:
+                    break
+            if state_root is not None:
+                multi_sig = self.database_manager.bls_store.get(state_root)
+                if multi_sig:
+                    txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
         except KeyError:
             txn = None
 
@@ -46,4 +71,4 @@ class GetTxnHandler(ReadRequestHandler):
             result[DATA] = txn.result
             result[f.SEQ_NO.nm] = get_seq_no(txn.result)
 
-        return Reply(result)
+        return result

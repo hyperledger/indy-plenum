@@ -5,6 +5,7 @@ import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.replica import Replica
 from plenum.test import waits
+from plenum.test.checkpoints.helper import check_num_quorumed_received_checkpoints, check_num_unstable_checkpoints
 from plenum.test.delayers import cDelay, chk_delay
 from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check, assert_eq, get_pp_seq_no
 from stp_core.loop.eventually import eventually
@@ -97,10 +98,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     assert slow_replica._ordering_service.prepares
     assert slow_replica._ordering_service.commits
     assert slow_replica._ordering_service.batches
-    assert slow_replica._checkpointer._checkpoint_state
 
-    # Ensure that there are some quorumed stashed checkpoints
-    assert slow_replica._checkpointer._stashed_checkpoints_with_quorum()
+    check_num_unstable_checkpoints(slow_replica, 0)
+    check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Send more requests to reach catch-up number of checkpoints
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -128,10 +128,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     assert not slow_replica._ordering_service.prepares
     assert not slow_replica._ordering_service.commits
     assert not slow_replica._ordering_service.batches
-    assert not slow_replica._checkpointer._checkpoint_state
 
-    # Ensure that now there are no quorumed stashed checkpoints
-    assert not slow_replica._checkpointer._stashed_checkpoints_with_quorum()
+    check_num_unstable_checkpoints(slow_replica, 0)
+    check_num_quorumed_received_checkpoints(slow_replica, 0)
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
@@ -217,7 +216,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     # assert slow_replica.H == LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
-    assert slow_replica._checkpointer._stashed_checkpoints_with_quorum()
+    check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Receive belated Checkpoints
     slow_replica.node.nodeIbStasher.reset_delays_and_process_delayeds()
@@ -235,7 +234,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
-    assert not slow_replica._checkpointer._stashed_checkpoints_with_quorum()
+    check_num_quorumed_received_checkpoints(slow_replica, 0)
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
