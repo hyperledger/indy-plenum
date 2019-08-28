@@ -53,7 +53,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, MULTI_SIGNATURE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -2268,10 +2268,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.is_action(txn_type):
             self.process_action(request, frm)
 
-        elif txn_type == GET_TXN:
-            self.handle_get_txn_req(request, frm)
-            self.total_read_request_number += 1
-
         elif self.is_query(txn_type):
             self.process_query(request, frm)
             self.total_read_request_number += 1
@@ -2404,44 +2400,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def send_nack_to_client(self, req_key, reason, to_client):
         self.transmitToClient(RequestNack(*req_key, reason), to_client)
-
-    def handle_get_txn_req(self, request: Request, frm: str):
-        """
-        Handle GET_TXN request
-        """
-        ledger_id = request.operation.get(f.LEDGER_ID.nm, DOMAIN_LEDGER_ID)
-        if ledger_id not in self.ledger_ids:
-            self.send_nack_to_client((request.identifier, request.reqId),
-                                     'Invalid ledger id {}'.format(ledger_id),
-                                     frm)
-            return
-
-        seq_no = request.operation.get(DATA)
-        self.send_ack_to_client((request.identifier, request.reqId), frm)
-        ledger = self.getLedger(ledger_id)
-
-        try:
-            txn = self.getReplyFromLedger(ledger, seq_no)
-        except KeyError:
-            txn = None
-
-        if txn is None:
-            logger.debug(
-                "{} can not handle GET_TXN request: ledger doesn't "
-                "have txn with seqNo={}".format(self, str(seq_no)))
-
-        result = {
-            f.IDENTIFIER.nm: request.identifier,
-            f.REQ_ID.nm: request.reqId,
-            TXN_TYPE: request.operation[TXN_TYPE],
-            DATA: None
-        }
-
-        if txn:
-            result[DATA] = txn.result
-            result[f.SEQ_NO.nm] = get_seq_no(txn.result)
-
-        self.transmitToClient(Reply(result), frm)
 
     @measure_time(MetricsName.PROCESS_ORDERED_TIME)
     def processOrdered(self, ordered: Ordered):
@@ -3367,12 +3325,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return None
 
-    def getReplyFromLedger(self, ledger, seq_no):
+    def getReplyFromLedger(self, ledger, seq_no, write=True):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
         txn = ledger.getBySeqNo(int(seq_no))
         if txn:
-            txn.update(ledger.merkleInfo(seq_no))
+            txn.update(ledger.merkleInfo(seq_no) if write else ledger.auditProof(seq_no))
             txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
         else:

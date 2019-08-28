@@ -20,6 +20,7 @@ fValue = getMaxFailures(4)
 
 INVALID_LEDGER_ID = 5908
 INVALID_SEQ_NO = -23
+whitelist = ["GET_TXN has no seq_no, skip AuditProof logic", "Given signature is not for current root hash, aborting"]
 
 
 def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
@@ -133,4 +134,10 @@ def test_get_txn_response_as_expected(looper, txnPoolNodeSet,
                                            request)
     result2 = sdk_get_and_check_replies(looper,
                                         [request_couple])[0][1]['result']
-    assert result1 == result2['data']
+
+    assert result1['reqSignature'] == result2['data']['reqSignature']
+    assert result1['txn'] == result2['data']['txn']
+    assert result1['txnMetadata'] == result2['data']['txnMetadata']
+    assert result1['rootHash'] == result2['data']['rootHash']
+    assert result1['ver'] == result2['data']['ver']
+    assert result1['auditPath'] == result2['data']['auditPath']
