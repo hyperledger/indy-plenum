@@ -28,7 +28,7 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
     # all PrePrepares/Prepares/Commits are cleared
     # and uncommitted txns are reverted
     for n in txnPoolNodeSet:
-        n.internal_bus.send(ViewChangeStarted(view_no=1))
+        n.replicas.send_to_internal_bus(ViewChangeStarted(view_no=1))
         master_ordering_service = n.master_replica._ordering_service
         assert not master_ordering_service.prePrepares
         assert not master_ordering_service.prepares
