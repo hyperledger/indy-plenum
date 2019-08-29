@@ -11,12 +11,12 @@ from stp_zmq.kit_zstack import KITZStack
 from stp_zmq.test.helper import genKeys
 
 
-# @pytest.fixture()
-# def tconf(tconf):
-#     old_timeout = tconf.RETRY_TIMEOUT_RESTRICTED
-#     tconf.RETRY_TIMEOUT_RESTRICTED = 1
-#     yield tconf
-#     tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout
+@pytest.fixture()
+def tconf(tconf):
+    old_timeout = tconf.RETRY_TIMEOUT_RESTRICTED
+    tconf.RETRY_TIMEOUT_RESTRICTED = 1
+    yield tconf
+    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout
 
 
 REGISTRY = {
@@ -102,7 +102,7 @@ def test_reconnect_one_multi(looper, tdir, tconf, generated_keys):
     looper.run(eventually(
         checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
 
-    for i in range(50):
+    for i in range(20):
         # reconnect Alpha
         alpha.reconnectRemoteWithName(beta.name)
         # check connected
