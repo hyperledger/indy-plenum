@@ -249,9 +249,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.instances = Instances()
 
         self.monitor_init(pluginPaths)
-
-        self.internal_bus = self._init_internal_bus()
-
         self.replicas = self.create_replicas()
 
         # Need to keep track of the time when lost connection with primary,
@@ -343,6 +340,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self._observable = Observable()
         self._observer = NodeObserver(self)
+
+        self._subscribe_to_internal_msgs()
 
     @property
     def mode(self):
@@ -1840,7 +1839,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        self.internal_bus.send(PreSigVerification(cMsg))
+        self.replicas.send_to_internal_bus(PreSigVerification(cMsg),
+                                           self.master_replica.instId)
         self.verifySignature(cMsg)
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
@@ -3532,11 +3532,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
-    def _init_internal_bus(self):
-        internal_bus = InternalBus()
-        internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
-        internal_bus.subscribe(RequestPropagates, self.request_propagates)
-        return internal_bus
+    def _subscribe_to_internal_msgs(self):
+        self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)
+        self.replicas.subscribe_to_internal_bus(NeedMasterCatchup,
+                                                self._process_start_master_catchup_msg,
+                                                self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):
         """
