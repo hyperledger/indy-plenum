@@ -118,7 +118,7 @@ def check_service_changed_only_owned_fields_in_shared_data(service: Type,
 
 
 def create_checkpoints(view_no):
-    return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest=cp_digest(0, 200))]
+    return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]
 
 
 def create_batches(view_no):
@@ -130,7 +130,7 @@ def create_batches(view_no):
 def create_view_change(initial_view_no, stable_cp=10, batches=None):
     if batches is None:
         batches = create_batches(initial_view_no)
-    digest = cp_digest(0, stable_cp)
+    digest = cp_digest(stable_cp)
     cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=stable_cp, digest=digest)
     return ViewChange(viewNo=initial_view_no + 1,
                       stableCheckpoint=stable_cp,

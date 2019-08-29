@@ -13,15 +13,6 @@ def test_last_prepared_certificate_in_view(replica):
     assert "is not a master" in str(excinfo.value)
 
 
-def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater_than_last_stashed_checkpoint(replica):
-    till_3pc_key = (1, 1)
-    replica._checkpointer._stashed_recvd_checkpoints[1] = {till_3pc_key: {}}
-    setattr(replica.node, 'viewNo', 2)
-
-    # This shouldn't crash
-    replica._checkpointer._remove_stashed_checkpoints(till_3pc_key)
-
-
 def test_last_prepared_none_if_no_prepares(replica):
     """
     There is no any prepares for this replica. In that case we expect,

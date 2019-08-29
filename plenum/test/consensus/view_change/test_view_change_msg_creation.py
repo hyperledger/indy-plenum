@@ -24,7 +24,7 @@ def get_view_change(view_change_service):
 
 def test_view_change_data(view_change_service, data):
     data.view_no = 1
-    cp = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10))
+    cp = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=10, digest=cp_digest(10))
     data.checkpoints.add(cp)
     data.stable_checkpoint = 10
     data.prepared = [BatchID(0, 1, "digest1"),
@@ -47,7 +47,7 @@ def test_view_change_data(view_change_service, data):
 def test_view_change_data_multiple(view_change_service, data):
     # view 0 -> 1
     data.view_no = 0
-    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10))
+    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(10))
     data.checkpoints.add(cp1)
     data.stable_checkpoint = 0
     data.prepared = [BatchID(0, 1, "digest1"),
@@ -68,7 +68,7 @@ def test_view_change_data_multiple(view_change_service, data):
 
     # view 1 -> 2
     data.view_no = 1
-    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=10, seqNoEnd=20, digest=cp_digest(10, 20))
+    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=20, digest=cp_digest(20))
     data.checkpoints.add(cp2)
     data.stable_checkpoint = 0
     data.prepared = [BatchID(1, 11, "digest11"),
@@ -93,7 +93,7 @@ def test_view_change_data_multiple(view_change_service, data):
 def test_view_change_data_multiple_respects_checkpoint(view_change_service, data):
     # view 0 -> 1
     data.view_no = 0
-    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(0, 10))
+    cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(10))
     data.checkpoints.add(cp1)
     data.stable_checkpoint = 0
     data.prepared = [BatchID(0, 1, "digest1"),
@@ -114,7 +114,7 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
 
     # view 1 -> 2
     data.view_no = 1
-    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=10, seqNoEnd=20, digest=cp_digest(10, 20))
+    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=20, digest=cp_digest(20))
     data.checkpoints.add(cp2)
     data.stable_checkpoint = 10
     data.prepared = [BatchID(1, 11, "digest11"),
