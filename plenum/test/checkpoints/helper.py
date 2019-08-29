@@ -78,5 +78,5 @@ def check_for_nodes(nodes, checker, *args, **kwargs):
         check_for_instance(nodes, i, checker, *args, **kwargs)
 
 
-def cp_key(pp_seq_no: int) -> CheckpointService.CheckpointKey:
-    return CheckpointService.CheckpointKey(view_no=2, pp_seq_no=pp_seq_no, digest=cp_digest(pp_seq_no))
+def cp_key(view_no: int, pp_seq_no: int) -> CheckpointService.CheckpointKey:
+    return CheckpointService.CheckpointKey(view_no=view_no, pp_seq_no=pp_seq_no, digest=cp_digest(pp_seq_no))
