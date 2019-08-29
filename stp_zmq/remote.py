@@ -115,7 +115,7 @@ class Remote:
             logger.debug('Remote {} already disconnected'.format(self))
             return False
 
-        events = self._lastSocketEvents()
+        events = self._get_monitor_events()
 
         if events:
             logger.trace('Remote {} has monitor events: {}'.
@@ -142,9 +142,6 @@ class Remote:
                 return True
 
         return False
-
-    def _lastSocketEvents(self, nonBlock=True):
-        return self._get_monitor_events(nonBlock)
 
     def _get_monitor_events(self, non_block=True):
         events = []
