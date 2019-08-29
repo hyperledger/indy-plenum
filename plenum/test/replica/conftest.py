@@ -43,7 +43,6 @@ class ReplicaFakeNode(FakeSomething):
             primaries=[],
             get_validators=lambda: [],
             db_manager=None,
-            internal_bus=InternalBus(),
             write_manager=FakeSomething(database_manager=DatabaseManager(),
                                         apply_request=lambda req, cons_time: None),
             timer=QueueTimer()

@@ -30,6 +30,7 @@ def fake_node(tconf):
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
                                                       _external_bus=MockNetwork(),
+                                                      internal_bus=InternalBus(),
                                                       logger=FakeSomething(
                                                           info=lambda *args, **kwargs: True
                                                       )),
@@ -47,7 +48,6 @@ def fake_node(tconf):
                          nodestack=FakeSomething(
                              service=lambda *args, **kwargs: eventually(lambda: True)),
                          set_view_for_replicas= lambda view_no: None,
-                         internal_bus=InternalBus(),
                          set_view_change_status=lambda view_no: None
                          )
     node.metrics = functools.partial(Node._createMetricsCollector, node)()

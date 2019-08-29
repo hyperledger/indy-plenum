@@ -50,9 +50,9 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
     node.master_replica.last_ordered_3pc = (2, 12)
 
     replica._consensus_data.stable_checkpoint = 10
-    replica._checkpointer._received_checkpoints[cp_key(15)] = [r.name for r in others]
-    replica._checkpointer._received_checkpoints[cp_key(20)] = [r.name for r in others]
-    replica._checkpointer._received_checkpoints[cp_key(25)] = [others[0].name]
+    replica._checkpointer._received_checkpoints[cp_key(2, 15)] = [r.name for r in others]
+    replica._checkpointer._received_checkpoints[cp_key(2, 20)] = [r.name for r in others]
+    replica._checkpointer._received_checkpoints[cp_key(2, 25)] = [others[0].name]
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)
@@ -81,9 +81,9 @@ def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(
     node.master_replica.last_ordered_3pc = (2, 12)
 
     replica._consensus_data.stable_checkpoint = 10
-    replica._checkpointer._received_checkpoints[cp_key(15)] = [r.name for r in others]
-    replica._checkpointer._received_checkpoints[cp_key(20)] = [r.name for r in others]
-    replica._checkpointer._received_checkpoints[cp_key(25)] = [others[0].name]
+    replica._checkpointer._received_checkpoints[cp_key(2, 15)] = [r.name for r in others]
+    replica._checkpointer._received_checkpoints[cp_key(2, 20)] = [r.name for r in others]
+    replica._checkpointer._received_checkpoints[cp_key(2, 25)] = [others[0].name]
 
     # Simulate catch-up completion
     node.ledgerManager.last_caught_up_3PC = (2, 20)

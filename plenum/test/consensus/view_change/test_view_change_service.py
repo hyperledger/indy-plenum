@@ -337,7 +337,7 @@ def test_new_view_incorrect_checkpoint(internal_bus, validators, primary, view_c
         for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
             service._network.process_incoming(ack, ack_frm)
 
-    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=1000, digest=cp_digest(0, 1000))
+    cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=1000, digest=cp_digest(1000))
     new_view = create_new_view_from_vc(vc, non_primaries, checkpoint=cp)
 
     # send NewView by Primary

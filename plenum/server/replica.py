@@ -20,13 +20,10 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
-from plenum.common.hook_manager import HookManager
-from plenum.common.ledger import Ledger
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
@@ -48,7 +45,6 @@ from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
-from plenum.server.replica_helper import ConsensusDataHelper
 from sortedcontainers import SortedList, SortedListWithKey
 from stp_core.common.log import getlogger
 
@@ -92,7 +88,7 @@ def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     return decorator
 
 
-class Replica(HasActionQueue, MessageProcessor, HookManager):
+class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -159,14 +155,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
-        HookManager.__init__(self, ReplicaHooks.get_all_vals())
-
         self._consensus_data = ConsensusSharedData(self.name,
                                                    self.node.get_validators(),
                                                    self.instId,
                                                    self.isMaster)
-
-        self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
+        self._internal_bus = InternalBus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()
         self._subscription = Subscription()
@@ -177,6 +170,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._ordering_service = self._init_ordering_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
+
+    @property
+    def internal_bus(self):
+        return self._internal_bus
 
     def cleanup(self):
         # Aggregate all the currently forwarded requests
@@ -242,11 +239,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         pass
 
     def _subscribe_to_internal_msgs(self):
-        self._subscription.subscribe(self.node.internal_bus, Ordered, self._send_ordered)
-        self._subscription.subscribe(self.node.internal_bus, NeedBackupCatchup, self._caught_up_backup)
-        self._subscription.subscribe(self.node.internal_bus, CheckpointStabilized, self._cleanup_process)
-        self._subscription.subscribe(self.node.internal_bus, ReqKey, self.readyFor3PC)
-        self._subscription.subscribe(self.node.internal_bus, RaisedSuspicion, self._process_suspicious_node)
+        self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
+        self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
+        self._subscription.subscribe(self.internal_bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
+        self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -748,8 +745,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self._ordering_service.discard_req_key(ledger_id, req_key)
 
     def _caught_up_backup(self, msg: NeedBackupCatchup):
-        if self.instId != msg.inst_id:
-            return
         self._caught_up_till_3pc(msg.caught_up_till_3pc)
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
@@ -834,7 +829,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _init_replica_stasher(self):
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
-                              buses=[self.node.internal_bus, self._external_bus],
+                              buses=[self.internal_bus, self._external_bus],
                               unstash_handler=self._add_to_inbox)
 
     def _cleanup_process(self, msg: CheckpointStabilized):
@@ -848,13 +843,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.report_suspicious_node(msg.ex)
 
     def _send_ordered(self, msg: Ordered):
-        if msg.instId != self.instId:
-            return
         self.send(msg)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return CheckpointService(data=self._consensus_data,
-                                 bus=self.node.internal_bus,
+                                 bus=self.internal_bus,
                                  network=self._external_bus,
                                  stasher=self.stasher,
                                  db_manager=self.node.db_manager,
@@ -863,7 +856,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def _init_ordering_service(self) -> OrderingService:
         return OrderingService(data=self._consensus_data,
                                timer=self.node.timer,
-                               bus=self.node.internal_bus,
+                               bus=self.internal_bus,
                                network=self._external_bus,
                                write_manager=self.node.write_manager,
                                bls_bft_replica=self._bls_bft_replica,

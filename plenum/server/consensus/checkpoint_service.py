@@ -74,17 +74,12 @@ class CheckpointService:
         Process checkpoint messages
         :return: whether processed (True) or stashed (False)
         """
-        if msg.instId != self._data.inst_id:
-            return None, None
         self._logger.info('{} processing checkpoint {} from {}'.format(self, msg, sender))
         result, reason = self._validator.validate(msg)
         if result != PROCESS:
             return result, reason
 
-        key = self.CheckpointKey(view_no=msg.viewNo,
-                                 pp_seq_no=msg.seqNoEnd,
-                                 digest=msg.digest)
-
+        key = self._checkpoint_key(msg)
         self._received_checkpoints[key].add(sender)
         self._try_to_stabilize_checkpoint(key)
         self._start_catchup_if_needed(key)
@@ -95,8 +90,6 @@ class CheckpointService:
         self.update_watermark_from_3pc()
 
     def process_ordered(self, ordered: Ordered):
-        if ordered.instId != self._data.inst_id:
-            return
         for batch_id in reversed(self._data.preprepared):
             if batch_id.pp_seq_no == ordered.ppSeqNo:
                 self._add_to_checkpoint(batch_id.pp_seq_no,
@@ -289,12 +282,20 @@ class CheckpointService:
     def _is_below_3pc_key(cp: CheckpointKey, key: Tuple[int, int]) -> bool:
         return compare_3PC_keys((cp.view_no, cp.pp_seq_no), key) >= 0
 
+    @staticmethod
+    def _checkpoint_key(checkpoint: Checkpoint) -> CheckpointKey:
+        return CheckpointService.CheckpointKey(
+            view_no=checkpoint.viewNo,
+            pp_seq_no=checkpoint.seqNoEnd,
+            digest=checkpoint.digest
+        )
+
     def process_new_view_accepted(self, msg: NewViewAccepted):
         # 1. update shared data
         cp = msg.checkpoint
         if cp not in self._data.checkpoints:
             self._data.checkpoints.append(cp)
-        self._set_stable_checkpoint(cp.seqNoEnd)
+        self._mark_checkpoint_stable(cp.seqNoEnd)
         self.set_watermarks(low_watermark=cp.seqNoEnd)
 
         # 2. send NewViewCheckpointsApplied

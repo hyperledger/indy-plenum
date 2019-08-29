@@ -56,7 +56,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
-    NODE_IP, BLS_PREFIX, NodeHooks, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
+    NODE_IP, BLS_PREFIX, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
     LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, MULTI_SIGNATURE
@@ -66,7 +66,6 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
     TaaAmlNotSetError, InvalidClientTaaAcceptanceError, UnauthorizedClientRequest
 from plenum.common.has_file_storage import HasFileStorage
-from plenum.common.hook_manager import HookManager
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
@@ -129,7 +128,7 @@ logger = getlogger()
 
 
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
-           PluginLoaderHelper, MessageReqProcessor, HookManager):
+           PluginLoaderHelper, MessageReqProcessor):
     """
     A node in a plenum system.
     """
@@ -250,9 +249,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.instances = Instances()
 
         self.monitor_init(pluginPaths)
-
-        self.internal_bus = self._init_internal_bus()
-
         self.replicas = self.create_replicas()
 
         # Need to keep track of the time when lost connection with primary,
@@ -342,10 +338,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.init_ledger_manager()
 
-        HookManager.__init__(self, NodeHooks.get_all_vals())
-
         self._observable = Observable()
         self._observer = NodeObserver(self)
+
+        self._subscribe_to_internal_msgs()
 
     @property
     def mode(self):
@@ -1843,7 +1839,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if needStaticValidation:
             self.doStaticValidation(cMsg)
 
-        self.internal_bus.send(PreSigVerification(cMsg))
+        self.replicas.send_to_internal_bus(PreSigVerification(cMsg),
+                                           self.master_replica.instId)
         self.verifySignature(cMsg)
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
@@ -2217,32 +2214,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                            format(TXN_TYPE, operation[TXN_TYPE]))
             else:
                 req_manager.static_validation(request)
-
-    # TODO hooks might need pp_time as well
-    def doDynamicValidation(self, request: Request, req_pp_time: int):
-        """
-        State based validation
-        """
-        # Digest validation
-        # TODO implicit caller's context: request is processed by (master) replica
-        # as part of PrePrepare 3PC batch
-        ledger_id, seq_no = self.seqNoDB.get_by_payload_digest(request.payload_digest)
-        if ledger_id is not None and seq_no is not None:
-            raise SuspiciousPrePrepare('Trying to order already ordered request')
-
-        ledger = self.getLedger(self.ledger_id_for_request(request))
-        for txn in ledger.uncommittedTxns:
-            if get_payload_digest(txn) == request.payload_digest:
-                raise SuspiciousPrePrepare('Trying to order already ordered request')
-
-        # specific validation for the request txn type
-        operation = request.operation
-        req_manager = self._get_manager_for_txn_type(txn_type=operation[TXN_TYPE])
-        # TAA validation
-        # For now, we need to call taa_validation not from dynamic_validation because
-        # req_pp_time is required
-        req_manager.do_taa_validation(request, req_pp_time, self.config)
-        req_manager.dynamic_validation(request)
 
     def applyReq(self, request: Request, cons_time: int):
         """
@@ -3561,11 +3532,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
-    def _init_internal_bus(self):
-        internal_bus = InternalBus()
-        internal_bus.subscribe(NeedMasterCatchup, self._process_start_master_catchup_msg)
-        internal_bus.subscribe(RequestPropagates, self.request_propagates)
-        return internal_bus
+    def _subscribe_to_internal_msgs(self):
+        self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)
+        self.replicas.subscribe_to_internal_bus(NeedMasterCatchup,
+                                                self._process_start_master_catchup_msg,
+                                                self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):
         """

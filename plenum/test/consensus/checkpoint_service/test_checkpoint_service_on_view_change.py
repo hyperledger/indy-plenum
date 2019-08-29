@@ -22,6 +22,7 @@ def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
     assert old_data == new_data
 
 
+@pytest.mark.skip(reason='Stable checkpoint is not kept yet')
 @pytest.mark.parametrize('checkpoints, stable_checkpoint, checkpoints_result', [
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
      100,
