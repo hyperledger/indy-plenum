@@ -61,7 +61,7 @@ def patch_ping_pong(stack):
     stack.handlePingPong = types.MethodType(patchedHandlePingPong, stack)
 
 
-CONNECT_TIMEOUT = 22 # this is the value we have in plenum.waits (expectedPoolInterconnectionTime) for 4 nodes
+CONNECT_TIMEOUT = 17  # this is the value we have in plenum.waits (expectedPoolInterconnectionTime) for 4 nodes
 
 
 @pytest.fixture(params=range(50))
