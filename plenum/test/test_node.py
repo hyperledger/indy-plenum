@@ -417,12 +417,12 @@ class TestReplica(replica.Replica):
 
     def _init_replica_stasher(self):
         return TestStashingRouter(self.config.REPLICA_STASH_LIMIT,
-                                  buses=[self.node.internal_bus, self._external_bus],
+                                  buses=[self.internal_bus, self._external_bus],
                                   unstash_handler=self._add_to_inbox)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,
-                                     bus=self.node.internal_bus,
+                                     bus=self.internal_bus,
                                      network=self._external_bus,
                                      stasher=self.stasher,
                                      db_manager=self.node.db_manager,
@@ -431,7 +431,7 @@ class TestReplica(replica.Replica):
     def _init_ordering_service(self) -> OrderingService:
         return TestOrderingService(self._consensus_data,
                                    timer=self.node.timer,
-                                   bus=self.node.internal_bus,
+                                   bus=self.internal_bus,
                                    network=self._external_bus,
                                    write_manager=self.node.write_manager,
                                    bls_bft_replica=self._bls_bft_replica,
