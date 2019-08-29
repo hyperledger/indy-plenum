@@ -11,13 +11,12 @@ from stp_zmq.kit_zstack import KITZStack
 from stp_zmq.test.helper import genKeys
 
 
-@pytest.fixture()
-def tconf(tconf):
-    old_timeout = tconf.RETRY_TIMEOUT_RESTRICTED
-    tconf.RETRY_TIMEOUT_RESTRICTED = 1
-    tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 4
-    yield tconf
-    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout
+# @pytest.fixture()
+# def tconf(tconf):
+#     old_timeout = tconf.RETRY_TIMEOUT_RESTRICTED
+#     tconf.RETRY_TIMEOUT_RESTRICTED = 1
+#     yield tconf
+#     tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout
 
 
 REGISTRY = {
@@ -62,7 +61,7 @@ def patch_ping_pong(stack):
     stack.handlePingPong = types.MethodType(patchedHandlePingPong, stack)
 
 
-CONNECT_TIMEOUT = 15
+CONNECT_TIMEOUT = 22 # this is the value we have in plenum.waits (expectedPoolInterconnectionTime) for 4 nodes
 
 
 @pytest.fixture(params=range(50))
@@ -129,7 +128,7 @@ def test_reconnect_multiple_times(looper, tdir, tconf, generated_keys):
     looper.run(eventually(
         checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
 
-    for i in range(50):
+    for i in range(10):
         print(i)
         # reconnect Alpha
         alpha.reconnectRemoteWithName(beta.name)
