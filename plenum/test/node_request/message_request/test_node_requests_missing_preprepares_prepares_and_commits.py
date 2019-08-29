@@ -1,8 +1,7 @@
 import pytest
 
-from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.node_request.message_request.helper import \
     check_pp_out_of_sync
@@ -11,7 +10,7 @@ from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
-from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from stp_core.loop.eventually import eventually
 
 logger = getlogger()

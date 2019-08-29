@@ -1,56 +1,41 @@
 import time
-from collections import deque, OrderedDict, defaultdict
-from enum import unique, IntEnum
-from functools import partial
-from hashlib import sha256
-from typing import List, Dict, Optional, Any, Set, Tuple, Callable, Iterable
-import itertools
-
-import math
+from collections import deque, OrderedDict
+from typing import Dict, Optional, Any
 
 import sys
 
 import functools
 
-from common.exceptions import LogicError, PlenumValueError
-from common.serializers.serialization import serialize_msg_for_signing, state_roots_serializer, \
-    invalid_index_serializer
+from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
-    AUDIT_TXN_PRIMARIES, TS_LABEL
+from plenum.common.constants import ReplicaHooks, DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.hook_manager import HookManager
-from plenum.common.ledger import Ledger
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
-from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.messages.node_messages import Ordered, \
+    Commit
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
-from plenum.common.request import Request, ReqKey
+from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter
-from plenum.common.util import updateNamedTuple, compare_3PC_keys
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
-from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
-from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.server.replica_helper import replica_batch_digest, TPCStat
-from plenum.server.replica_stasher import ReplicaStasher
+from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
 from plenum.server.router import Router
 from plenum.server.replica_helper import ConsensusDataHelper
-from sortedcontainers import SortedList, SortedListWithKey
+from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -216,14 +201,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self._external_bus
 
     @property
-    def requested_pre_prepares(self):
-        return self._ordering_service.requested_pre_prepares
-
-    @property
-    def requested_prepares(self):
-        return self._ordering_service.requested_prepares
-
-    @property
     def isMaster(self):
         return self._is_master
 
@@ -231,10 +208,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def isMaster(self, value):
         self._is_master = value
         self._consensus_data.is_master = value
-
-    @property
-    def requested_commits(self):
-        return self._ordering_service.requested_commits
 
     def _bootstrap_consensus_data(self):
         self._consensus_data.requests = self.requests
@@ -265,15 +238,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         if ledger_id != AUDIT_LEDGER_ID:
             self._freshness_checker.register_ledger(ledger_id=ledger_id,
                                                     initial_time=self.get_time_for_3pc_batch())
-
-    def get_sent_preprepare(self, viewNo, ppSeqNo):
-        return self._ordering_service.get_sent_preprepare(viewNo, ppSeqNo)
-
-    def get_sent_prepare(self, viewNo, ppSeqNo):
-        return self._ordering_service.get_sent_prepare(viewNo, ppSeqNo)
-
-    def get_sent_commit(self, viewNo, ppSeqNo):
-        return self._ordering_service.get_sent_commit(viewNo, ppSeqNo)
 
     @property
     def last_prepared_before_view_change(self):

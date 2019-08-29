@@ -1,17 +1,17 @@
+import logging
 from typing import Dict, List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
     PROPAGATE, PREPARE, COMMIT
 from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.exceptions import IncorrectMessageForHandlingException
 from plenum.common.messages.internal_messages import Missing3pcMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep
 from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
 from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler
 from stp_core.common.log import getlogger
-from plenum.server.message_handlers import LedgerStatusHandler, \
-    ConsistencyProofHandler, PreprepareHandler, PrepareHandler, PropagateHandler, \
-    CommitHandler
 
 
 class MessageReq3pcService:
@@ -43,7 +43,11 @@ class MessageReq3pcService:
         # maintain a unique internal message id to correlate responses.
         msg_type = msg.msg_type
         handler = self.handlers[msg_type]
-        resp = handler.serve(msg)
+        try:
+            resp = handler.process_message_req(msg)
+        except IncorrectMessageForHandlingException as e:
+            self.discard(e.msg, e.reason, e.log_method)
+            return
 
         if not resp:
             return
@@ -63,8 +67,11 @@ class MessageReq3pcService:
                                format(self, msg_type, frm))
             return
         handler = self.handlers[msg_type]
-        validated_msg = handler.process(msg, frm)
-        self._network.process_incoming(validated_msg, frm)
+        try:
+            validated_msg = handler.get_3pc_message(msg, frm)
+            self._network.process_incoming(validated_msg, frm)
+        except IncorrectMessageForHandlingException as e:
+            self.discard(e.msg, e.reason, e.log_method)
 
     @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
     def process_missing_message(self, msg: Missing3pcMessage):
@@ -75,9 +82,31 @@ class MessageReq3pcService:
             self, msg.msg_type, msg.three_pc_key, msg.dst))
         handler = self.handlers[msg.msg_type]
 
-        params = handler.prepare_msg_to_request(msg.three_pc_key, msg.stash_data)
+        try:
+            params = handler.prepare_msg_to_request(msg.three_pc_key, msg.stash_data)
+        except IncorrectMessageForHandlingException as e:
+            self.discard(e.msg, e.reason, e.log_method)
+            return
         if params:
             self._network.send(MessageReq(**{
                 f.MSG_TYPE.nm: msg.msg_type,
                 f.PARAMS.nm: params
             }), dst=msg.dst)
+
+    def gc(self):
+        for handler in self.handlers.values():
+            handler.gc()
+
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
+        """
+        Discard a message and log a reason using the specified `logMethod`.
+
+        :param msg: the message to discard
+        :param reason: the reason why this message is being discarded
+        :param logMethod: the logging function to be used
+        :param cliOutput: if truthy, informs a CLI that the logged msg should
+        be printed
+        """
+        reason = "" if not reason else " because {}".format(reason)
+        logMethod("{} discarding message {}{}".format(self, msg, reason),
+                  extra={"cli": cliOutput})

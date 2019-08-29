@@ -9,16 +9,15 @@ from typing import Iterable, Iterator, Tuple, Sequence, Dict, TypeVar, \
     List, Optional
 
 from crypto.bls.bls_bft import BlsBft
-from plenum.common.event_bus import InternalBus
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
-from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.test.buy_handler import BuyHandler
-from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
+from plenum.test.constants import GET_BUY
 from plenum.test.get_buy_handler import GetBuyHandler
 from plenum.test.random_buy_handler import RandomBuyHandler
 from stp_core.crypto.util import randomSeed
@@ -34,7 +33,7 @@ from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
-    DOMAIN_LEDGER_ID, TS_LABEL, STATE_PROOF
+    DOMAIN_LEDGER_ID, STATE_PROOF
 from plenum.common.util import Seconds, getMaxFailures
 from stp_core.common.util import adict
 from plenum.server import replica
@@ -56,7 +55,7 @@ from plenum.test import waits
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.server.replicas import Replicas
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.common.messages.node_messages import Reply, Checkpoint
+from plenum.common.messages.node_messages import Reply
 
 logger = getlogger()
 

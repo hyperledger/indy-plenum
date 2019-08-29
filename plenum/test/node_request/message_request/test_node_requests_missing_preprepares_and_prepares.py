@@ -1,6 +1,5 @@
-from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.replica import Replica
 from plenum.test.node_request.message_request.helper import \
     check_pp_out_of_sync
 from plenum.test.waits import expectedPoolGetReadyTimeout

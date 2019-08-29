@@ -5,15 +5,15 @@ import pytest
 
 from plenum.common.messages.internal_messages import Missing3pcMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep
-from plenum.server.consensus.message_req_3pc_service import MessageReq3pcService
-from plenum.server.message_handlers import BaseHandler, ThreePhaseMessagesHandler
+from plenum.common.types import f
+from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.message_handlers import ThreePhaseMessagesHandler
 
 
 class TestHandler(ThreePhaseMessagesHandler):
     MSG_TYPE = "TEST_TYPE"
     RESPONSE = "response"
     PREPARE_PARAMS = {"test": 1}
-    fields = {}
     msg_cls = NamedTuple('Mock3pcMessage', [])
 
     def validate(self, **kwargs) -> bool:
@@ -77,8 +77,12 @@ def test_process_missing_message(message_req_3pc_service: MessageReq3pcService, 
                                              [frm])
 
 
-def test_process_message_rep(message_req_3pc_service: MessageReq3pcService, external_bus, handler):
-    message_rep = MessageRep(TestHandler.MSG_TYPE, {"msg": ""}, "")
+def test_process_message_rep(message_req_3pc_service: MessageReq3pcService, external_bus, handler, data):
+    params = {f.INST_ID.nm: data.inst_id,
+              f.VIEW_NO.nm: data.view_no,
+              f.PP_SEQ_NO.nm: 1,
+              "msg": "msg"}
+    message_rep = MessageRep(TestHandler.MSG_TYPE, params, {"msg": 1})
     frm = "frm"
     network_handler = Mock()
     external_bus.subscribe(handler.msg_cls, network_handler)
