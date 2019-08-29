@@ -2,6 +2,13 @@ from typing import NamedTuple, List, Any
 
 from plenum.common.exceptions import SuspiciousNode
 
+# General recommendation for (naming) internal messages is follows:
+# - internal messages are basically events, not commands
+# - so in most cases from name it should be clear that "something happened"
+# - in some cases message names may indicate that "something needs to happen"
+# - avoid names that tell "do something", messages are not commands
+# - avoid names that are just nouns, messages are not "things"
+
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
 
