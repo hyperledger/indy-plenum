@@ -13,6 +13,9 @@ from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 nodeCount = 7
 
 
+whitelist = ["Node is not a validator"]
+
+
 def test_promotion_leads_to_primary_inconsistency(looper,
                                                   txnPoolNodeSet,
                                                   tdir,

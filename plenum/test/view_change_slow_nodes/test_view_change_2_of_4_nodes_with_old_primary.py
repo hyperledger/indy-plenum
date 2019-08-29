@@ -31,4 +31,4 @@ def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary_long_delay(
     view_change_in_between_3pc(looper, txnPoolNodeSet,
                                slow_nodes(txnPoolNodeSet),
                                sdk_pool_handle, sdk_wallet_client,
-                               slow_delay=20)
+                               slow_delay=15)
