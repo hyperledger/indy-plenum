@@ -117,41 +117,6 @@ class IntervalList:
         self._intervals.append([item, item])
 
 
-class ConsensusDataHelper:
-    def __init__(self, consensus_data: ConsensusSharedData):
-        self.consensus_data = consensus_data
-
-    def preprepare_batch(self, pp: PrePrepare):
-        """
-        After pp had validated, it placed into _preprepared list
-        """
-        if preprepare_to_batch_id(pp) in self.consensus_data.preprepared:
-            raise LogicError('New pp cannot be stored in preprepared')
-        if self.consensus_data.checkpoints and pp.ppSeqNo < self.consensus_data.last_checkpoint.seqNoEnd:
-            raise LogicError('ppSeqNo cannot be lower than last checkpoint')
-        self.consensus_data.preprepared.append(preprepare_to_batch_id(pp))
-
-    def prepare_batch(self, pp: PrePrepare):
-        """
-        After prepared certificate for pp had collected,
-        it removed from _preprepared and placed into _prepared list
-        """
-        self.consensus_data.prepared.append(preprepare_to_batch_id(pp))
-
-    def clear_batch(self, pp: PrePrepare):
-        """
-        When 3pc batch processed, it removed from _prepared list
-        """
-        if preprepare_to_batch_id(pp) in self.consensus_data.preprepared:
-            self.consensus_data.preprepared.remove(preprepare_to_batch_id(pp))
-        if preprepare_to_batch_id(pp) in self.consensus_data.prepared:
-            self.consensus_data.prepared.remove(preprepare_to_batch_id(pp))
-
-    def clear_batch_till_seq_no(self, seq_no):
-        self.consensus_data.preprepared = [bid for bid in self.consensus_data.preprepared if bid.pp_seq_no >= seq_no]
-        self.consensus_data.prepared = [bid for bid in self.consensus_data.prepared if bid.pp_seq_no >= seq_no]
-
-
 class OrderedTracker:
     def __init__(self):
         self._batches = defaultdict(IntervalList)

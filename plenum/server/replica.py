@@ -20,13 +20,10 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
-from plenum.common.hook_manager import HookManager
-from plenum.common.ledger import Ledger
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
@@ -48,7 +45,6 @@ from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
-from plenum.server.replica_helper import ConsensusDataHelper
 from sortedcontainers import SortedList, SortedListWithKey
 from stp_core.common.log import getlogger
 
@@ -92,7 +88,7 @@ def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     return decorator
 
 
-class Replica(HasActionQueue, MessageProcessor, HookManager):
+class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -159,14 +155,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
-        HookManager.__init__(self, ReplicaHooks.get_all_vals())
-
         self._consensus_data = ConsensusSharedData(self.name,
                                                    self.node.get_validators(),
                                                    self.instId,
                                                    self.isMaster)
-
-        self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
         self._internal_bus = InternalBus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()

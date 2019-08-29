@@ -13,14 +13,14 @@ from common.exceptions import PlenumValueError, LogicError
 from common.serializers.serialization import state_roots_serializer, invalid_index_serializer
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
-from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, ReplicaHooks, AUDIT_LEDGER_ID, TXN_TYPE, \
+from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
     LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, PREPREPARE, PREPARE, COMMIT, \
     DOMAIN_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
 from plenum.common.ledger import Ledger
-from plenum.common.messages.internal_messages import HookMessage, RequestPropagates, BackupSetupLastOrdered, \
+from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     MessageReq
@@ -34,7 +34,7 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
@@ -42,12 +42,9 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, ConsensusDataHelper, OrderedTracker, TPCStat
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, \
-    STASH_VIEW, FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, \
-    STASH_WATERMARKS
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -225,8 +222,6 @@ class OrderingService:
 
         self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
-
-        self._consensus_data_helper = ConsensusDataHelper(self._data)
 
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
@@ -906,20 +901,7 @@ class OrderingService:
                              len(pre_prepare.reqIdr) - len(invalid_indices))
             return why_not_applied
 
-        # 5. EXECUTE HOOK
-        if self.is_master:
-            try:
-                self.l_execute_hook(ReplicaHooks.APPLY_PPR, pre_prepare)
-            except Exception as ex:
-                self._logger.warning('{} encountered exception in replica '
-                                     'hook {} : {}'.
-                                     format(self, ReplicaHooks.APPLY_PPR, ex))
-                self._revert(pre_prepare.ledgerId,
-                             old_state_root,
-                             len(pre_prepare.reqIdr) - len(invalid_from_pp))
-                return PP_APPLY_HOOK_ERROR
-
-        # 6. TRACK APPLIED
+        # 5. TRACK APPLIED
         if rejects:
             for reject in rejects:
                 self._network.send(reject)
@@ -1257,12 +1239,6 @@ class OrderingService:
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
 
-    """Method from legacy code"""
-    def l_execute_hook(self, hook_id, *args):
-        # ToDo: need to receive results from hooks
-        self._bus.send(HookMessage(hook=hook_id,
-                                   args=args))
-
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
         #  starts hence the count of accepted requests, prevStateRoot is
@@ -1306,7 +1282,7 @@ class OrderingService:
         key = (pp.viewNo, pp.ppSeqNo)
         # ToDo:
         self.prePrepares[key] = pp
-        self._consensus_data_helper.preprepare_batch(pp)
+        self._preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
         self._dequeue_prepares(*key)
@@ -1390,9 +1366,6 @@ class OrderingService:
         params = self.l_bls_bft_replica.update_prepare(params, pp.ledgerId)
 
         prepare = Prepare(*params)
-        if self.is_master:
-            rv = self.l_execute_hook(ReplicaHooks.CREATE_PR, prepare, pp)
-            prepare = rv if rv is not None else prepare
         self._send(prepare, stat=TPCStat.PrepareSent)
         self._add_to_prepares(prepare, self.name)
 
@@ -1434,7 +1407,7 @@ class OrderingService:
         rv, reason = self._can_commit(prepare)
         if rv:
             pp = self.get_preprepare(prepare.viewNo, prepare.ppSeqNo)
-            self._consensus_data_helper.prepare_batch(pp)
+            self._prepare_batch(pp)
             self._do_commit(prepare)
         else:
             self._logger.debug("{} cannot send COMMIT since {}".format(self, reason))
@@ -1531,10 +1504,6 @@ class OrderingService:
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
                           self._get_primaries_for_ordered(pp))
-        if self.is_master:
-            rv = self.l_execute_hook(ReplicaHooks.CREATE_ORD, ordered, pp)
-            ordered = rv if rv is not None else ordered
-
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
@@ -2020,7 +1989,7 @@ class OrderingService:
             self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
                 self._data.inst_id, pre_prepare.ppSeqNo)
 
-        self._consensus_data_helper.preprepare_batch(pre_prepare)
+        self._preprepare_batch(pre_prepare)
         self._track_batches(pre_prepare, oldStateRootHash)
         return ledger_id
 
@@ -2084,9 +2053,6 @@ class OrderingService:
         params = self.l_bls_bft_replica.update_pre_prepare(params, ledger_id)
 
         pre_prepare = PrePrepare(*params)
-        if self.is_master:
-            rv = self.l_execute_hook(ReplicaHooks.CREATE_PPR, pre_prepare)
-            pre_prepare = rv if rv is not None else pre_prepare
 
         self._logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(reqs), ledger_id))
@@ -2242,7 +2208,7 @@ class OrderingService:
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
             self._discard_ordered_req_keys(pp)
-            self._consensus_data_helper.clear_batch(pp)
+            self._clear_batch(pp)
 
     def get_sent_preprepare(self, viewNo, ppSeqNo):
         key = (viewNo, ppSeqNo)
@@ -2327,3 +2293,29 @@ class OrderingService:
         self._data.prepared = []
 
         return PROCESS, None
+
+    def _preprepare_batch(self, pp: PrePrepare):
+        """
+        After pp had validated, it placed into _preprepared list
+        """
+        if preprepare_to_batch_id(pp) in self._data.preprepared:
+            raise LogicError('New pp cannot be stored in preprepared')
+        if self._data.checkpoints and pp.ppSeqNo < self._data.last_checkpoint.seqNoEnd:
+            raise LogicError('ppSeqNo cannot be lower than last checkpoint')
+        self._data.preprepared.append(preprepare_to_batch_id(pp))
+
+    def _prepare_batch(self, pp: PrePrepare):
+        """
+        After prepared certificate for pp had collected,
+        it removed from _preprepared and placed into _prepared list
+        """
+        self._data.prepared.append(preprepare_to_batch_id(pp))
+
+    def _clear_batch(self, pp: PrePrepare):
+        """
+        When 3pc batch processed, it removed from _prepared list
+        """
+        if preprepare_to_batch_id(pp) in self._data.preprepared:
+            self._data.preprepared.remove(preprepare_to_batch_id(pp))
+        if preprepare_to_batch_id(pp) in self._data.prepared:
+            self._data.prepared.remove(preprepare_to_batch_id(pp))

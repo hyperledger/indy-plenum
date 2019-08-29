@@ -9,11 +9,6 @@ from plenum.common.exceptions import SuspiciousNode
 # - avoid names that tell "do something", messages are not commands
 # - avoid names that are just nouns, messages are not "things"
 
-
-HookMessage = NamedTuple('HookMessage',
-                         [('hook', int),
-                          ('args', tuple)])
-
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
 
