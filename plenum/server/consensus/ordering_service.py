@@ -1239,6 +1239,7 @@ class OrderingService:
         self._logger.info('{} reverting {} txns and state root from {} to {} for ledger {}'
                           .format(self, reqCount, Ledger.hashToStr(state.headHash),
                                   Ledger.hashToStr(stateRootHash), ledgerId))
+        self._lastPrePrepareSeqNo -= 1
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
