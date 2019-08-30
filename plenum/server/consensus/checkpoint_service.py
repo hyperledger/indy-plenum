@@ -263,11 +263,7 @@ class CheckpointService:
         self._data.checkpoints.clear()
         # TODO: change to = 1 in ViewChangeService integration.
         self._data.stable_checkpoint = 0
-        self._data.checkpoints.append(Checkpoint(instId=self._data.inst_id,
-                                                 viewNo=0,
-                                                 seqNoStart=0,
-                                                 seqNoEnd=0,
-                                                 digest=None))
+        self._data.checkpoints.append(self._data.initial_checkpoint)
 
     def __str__(self) -> str:
         return "{} - checkpoint_service".format(self._data.name)

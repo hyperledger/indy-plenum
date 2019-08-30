@@ -24,6 +24,7 @@ def get_view_change(view_change_service):
 
 def test_view_change_data(view_change_service, data):
     data.view_no = 1
+    data.checkpoints.clear()
     cp = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=10, digest=cp_digest(10))
     data.checkpoints.add(cp)
     data.stable_checkpoint = 10
@@ -64,7 +65,7 @@ def test_view_change_data_multiple(view_change_service, data):
     assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
     assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
     assert msg.stableCheckpoint == 0
-    assert msg.checkpoints == [cp1]
+    assert msg.checkpoints == [data.initial_checkpoint, cp1]
 
     # view 1 -> 2
     data.view_no = 1
@@ -87,7 +88,7 @@ def test_view_change_data_multiple(view_change_service, data):
     assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3"),
                                (1, 11, "digest11"), (1, 12, "digest12"), (1, 13, "digest13")]
     assert msg.stableCheckpoint == 0
-    assert msg.checkpoints == [cp1, cp2]
+    assert msg.checkpoints == [data.initial_checkpoint, cp1, cp2]
 
 
 def test_view_change_data_multiple_respects_checkpoint(view_change_service, data):
@@ -110,13 +111,16 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
     assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
     assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
     assert msg.stableCheckpoint == 0
-    assert msg.checkpoints == [cp1]
+    assert msg.checkpoints == [data.initial_checkpoint, cp1]
 
     # view 1 -> 2
     data.view_no = 1
     cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=20, digest=cp_digest(20))
     data.checkpoints.add(cp2)
     data.stable_checkpoint = 10
+    # Here we simulate checkpoint stabilization logic of CheckpointService, which
+    # clears all checkpoints below stabilized one
+    data.checkpoints.remove(data.initial_checkpoint)
     data.prepared = [BatchID(1, 11, "digest11"),
                      BatchID(1, 12, "digest12")]
     data.preprepared = [BatchID(1, 11, "digest11"),

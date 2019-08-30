@@ -1,4 +1,3 @@
-from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 
 
@@ -27,4 +26,4 @@ def test_initial_consensus_state(some_item, other_item, validators):
 
     # Checkpoints
     assert data.stable_checkpoint == 0
-    assert list(data.checkpoints) == [Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=None)]
+    assert list(data.checkpoints) == [data.initial_checkpoint]

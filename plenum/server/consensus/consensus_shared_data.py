@@ -44,7 +44,7 @@ class ConsensusSharedData:
         # Checkpoint messages which the current node sent.
         # TODO: Replace sorted list with dict
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
-        self.checkpoints.append(Checkpoint(instId=inst_id, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=None))
+        self.checkpoints.append(self.initial_checkpoint)
         # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is not reached yet
         self.preprepared = []  # type:  List[BatchID]
         # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is reached
@@ -100,8 +100,9 @@ class ConsensusSharedData:
         return len(self.validators)
 
     @property
+    def initial_checkpoint(self):
+        return Checkpoint(instId=self.inst_id, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=None)
+
+    @property
     def last_checkpoint(self) -> Checkpoint:
-        if not self.checkpoints:
-            return None
-        else:
-            return self.checkpoints[-1]
+        return self.checkpoints[-1]
