@@ -51,7 +51,7 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
             ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
             looper.run(eventually(_check_checkpoint_finalize,
                                   fast_nodes,
-                                  1, CHK_FREQ))
+                                  CHK_FREQ))
             sdk_send_random_and_check(looper,
                                       txnPoolNodeSet,
                                       sdk_pool_handle,
@@ -68,17 +68,16 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
 
         looper.run(eventually(_check_checkpoint_finalize,
                               [slow_node, ],
-                              1, CHK_FREQ))
+                              CHK_FREQ))
         looper.run(eventually(_check_batches_ordered,
                               slow_node, last_ordered, CHK_FREQ + 1))
         assert all(r.stasher.stash_size(STASH_WATERMARKS) == old_stashed[inst_id]
                    for inst_id, r in slow_node.replicas.items())
 
 
-def _check_checkpoint_finalize(nodes, start_pp_seq_no, end_pp_seq_no):
+def _check_checkpoint_finalize(nodes, end_pp_seq_no):
     for n in nodes:
-        checkpoint = n.master_replica._checkpointer._checkpoint_state[(start_pp_seq_no, end_pp_seq_no)]
-        assert checkpoint.isStable
+        assert n.master_replica._consensus_data.stable_checkpoint == end_pp_seq_no
 
 
 def _check_batches_ordered(node, last_ordered, num_batches_ordered):

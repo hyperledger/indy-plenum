@@ -2,29 +2,15 @@ from typing import NamedTuple, List, Any
 
 from plenum.common.exceptions import SuspiciousNode
 
-# TODO: should be removed
-ValidatorsChanged = NamedTuple('ValidatorsChange',
-                               [('names', List[str])])
-
-# TODO: should be removed
-ParticipatingStatus = NamedTuple('LedgerParticipatingStatus',
-                                 [('is_participating', bool)])
-
-HookMessage = NamedTuple('HookMessage',
-                         [('hook', int),
-                          ('args', tuple)])
-
-OutboxMessage = NamedTuple('OutboxMessage',
-                           [('msg', Any)])
+# General recommendation for (naming) internal messages is follows:
+# - internal messages are basically events, not commands
+# - so in most cases from name it should be clear that "something happened"
+# - in some cases message names may indicate that "something needs to happen"
+# - avoid names that tell "do something", messages are not commands
+# - avoid names that are just nouns, messages are not "things"
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
-
-PrimariesBatchNeeded = NamedTuple('PrimariesBatchNeeded',
-                                  [('pbn', bool)])
-
-CurrentPrimaries = NamedTuple('CurrentPrimaries',
-                              [('primaries', list)])
 
 BackupSetupLastOrdered = NamedTuple('BackupSetupLastOrdered',
                                     [('inst_id', int)])

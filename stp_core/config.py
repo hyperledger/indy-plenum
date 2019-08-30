@@ -35,12 +35,12 @@ CLIENT_TO_NODE_STACK_SIZE = 1024 * 1024
 DEFAULT_LISTENER_SIZE = 20 * 1024
 DEFAULT_LISTENER_QUOTA = 100
 DEFAULT_SENDER_QUOTA = 100
-KEEPALIVE_INTVL = 1     # seconds
-KEEPALIVE_IDLE = 20     # seconds
+KEEPALIVE_INTVL = 1  # seconds
+KEEPALIVE_IDLE = 20  # seconds
 KEEPALIVE_CNT = 10
 MAX_SOCKETS = 16384 if sys.platform != 'win32' else None
 ENABLE_HEARTBEATS = False
-HEARTBEAT_FREQ = 5      # seconds
+HEARTBEAT_FREQ = 5  # seconds
 ZMQ_CLIENT_QUEUE_SIZE = 100  # messages (0 - no limit)
 ZMQ_NODE_QUEUE_SIZE = 20000  # messages (0 - no limit)
 ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE = 10000
@@ -51,3 +51,5 @@ REMOVE_CLIENT_MSG_TIMEOUT = 60 * 5
 
 # All messages exceeding the limit will be rejected without processing
 MSG_LEN_LIMIT = 128 * 1024
+
+MAX_WAIT_FOR_BIND_SUCCESS = 120  # seconds

@@ -20,20 +20,15 @@ from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    ReplicaHooks, DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
     AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.exceptions import SuspiciousNode, \
-    InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare
-from plenum.common.hook_manager import HookManager
-from plenum.common.ledger import Ledger
+from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import PrimariesBatchNeeded, \
-    CurrentPrimaries, \
-    NeedBackupCatchup, NeedMasterCatchup, CheckpointStabilized, RaisedSuspicion
+from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, CheckpointState, ThreePhaseMsg, ThreePhaseKey
+    PrePrepare, Prepare, Commit, Checkpoint, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
 from plenum.common.router import Subscription
@@ -50,7 +45,6 @@ from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
 from plenum.server.router import Router
-from plenum.server.replica_helper import ConsensusDataHelper
 from sortedcontainers import SortedList, SortedListWithKey
 from stp_core.common.log import getlogger
 
@@ -94,7 +88,7 @@ def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     return decorator
 
 
-class Replica(HasActionQueue, MessageProcessor, HookManager):
+class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -161,14 +155,11 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
-        HookManager.__init__(self, ReplicaHooks.get_all_vals())
-
         self._consensus_data = ConsensusSharedData(self.name,
                                                    self.node.get_validators(),
                                                    self.instId,
                                                    self.isMaster)
-
-        self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
+        self._internal_bus = InternalBus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()
         self._subscription = Subscription()
@@ -179,6 +170,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self._ordering_service = self._init_ordering_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
+
+    @property
+    def internal_bus(self):
+        return self._internal_bus
 
     def cleanup(self):
         # Aggregate all the currently forwarded requests
@@ -207,13 +202,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stasher.unsubscribe_from_all()
 
     @property
-    def first_batch_after_catchup(self):
-        # Defines if there was a batch after last catchup
-        return self._ordering_service.first_batch_after_catchup
-
-    @property
     def external_bus(self):
-        # Defines if there was a batch after last catchup
         return self._external_bus
 
     @property
@@ -239,30 +228,22 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def _bootstrap_consensus_data(self):
         self._consensus_data.requests = self.requests
-        self._consensus_data.low_watermark = self.h
-        self._consensus_data.high_watermark = self.H
         self._consensus_data.node_mode = self.node.mode
-        self._consensus_data.primaries_batch_needed = self.node.primaries_batch_needed
         self._consensus_data.quorums = self.quorums
 
-    def _primaries_list_msg(self, msg: CurrentPrimaries):
-        self._consensus_data.primaries = msg.primaries
-
-    def _primaries_batch_needed_msg(self, msg: PrimariesBatchNeeded):
-        self._consensus_data.primaries_batch_needed = msg.pbn
+    def set_primaries(self, primaries):
+        self._consensus_data.primaries = primaries
 
     def _subscribe_to_external_msgs(self):
         # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
 
     def _subscribe_to_internal_msgs(self):
-        self._subscription.subscribe(self.node.internal_bus, PrimariesBatchNeeded, self._primaries_batch_needed_msg)
-        self._subscription.subscribe(self.node.internal_bus, CurrentPrimaries, self._primaries_list_msg)
-        self._subscription.subscribe(self.node.internal_bus, Ordered, self._send_ordered)
-        self._subscription.subscribe(self.node.internal_bus, NeedBackupCatchup, self._caught_up_backup)
-        self._subscription.subscribe(self.node.internal_bus, CheckpointStabilized, self._cleanup_process)
-        self._subscription.subscribe(self.node.internal_bus, ReqKey, self.readyFor3PC)
-        self._subscription.subscribe(self.node.internal_bus, RaisedSuspicion, self._process_suspicious_node)
+        self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
+        self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
+        self._subscription.subscribe(self.internal_bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
+        self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -578,7 +559,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self._ordering_service.stashed_out_of_order_commits
 
     def send_3pc_batch(self):
-        return self._ordering_service.l_send_3pc_batch()
+        return self._ordering_service.send_3pc_batch()
 
     @staticmethod
     def batchDigest(reqs):
@@ -641,7 +622,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Clear any checkpoints, since they are valid only in a view
         # ToDo: Need to send a cmd like ViewChangeStart into internal bus
         # self._gc(self.last_ordered_3pc)
-        self._ordering_service.l_gc(self.last_ordered_3pc)
+        self._ordering_service.gc(self.last_ordered_3pc)
         self._checkpointer.gc_before_new_view()
         # ToDo: get rid of directly calling
         self._ordering_service._clear_prev_view_pre_prepares()
@@ -652,7 +633,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
                                 self.last_ordered_3pc) >= 0
 
     def dequeue_pre_prepares(self):
-        return self._ordering_service.l_dequeue_pre_prepares()
+        return self._ordering_service.dequeue_pre_prepares()
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
@@ -714,7 +695,7 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
 
     def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
         return self._process_requested_three_phase_msg(pp, sender, self.requested_pre_prepares,
-                                                       self._ordering_service.l_getPrePrepare)
+                                                       self._ordering_service.get_preprepare)
 
     def process_requested_prepare(self, prepare: Prepare, sender: str):
         return self._process_requested_three_phase_msg(prepare, sender, self.requested_prepares)
@@ -757,11 +738,9 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.stasher.process_all_stashed(STASH_CATCH_UP)
 
     def discard_req_key(self, ledger_id, req_key):
-        return self._ordering_service.l_discard_req_key(ledger_id, req_key)
+        return self._ordering_service.discard_req_key(ledger_id, req_key)
 
     def _caught_up_backup(self, msg: NeedBackupCatchup):
-        if self.instId != msg.inst_id:
-            return
         self._caught_up_till_3pc(msg.caught_up_till_3pc)
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
@@ -838,26 +817,21 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
     def set_mode(self, mode):
         self._consensus_data.node_mode = mode
 
+    def set_primaries_batch_needed(self, value):
+        self._ordering_service.primaries_batch_needed = value
+
     def update_connecteds(self, connecteds: dict):
         self._external_bus.update_connecteds(connecteds)
 
-    def _init_checkpoint_service(self) -> CheckpointService:
-        return CheckpointService(data=self._consensus_data,
-                                 bus=self.node.internal_bus,
-                                 network=self._external_bus,
-                                 stasher=self.stasher,
-                                 db_manager=self.node.db_manager,
-                                 metrics=self.metrics)
-
     def _init_replica_stasher(self):
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
-                              buses=[self.node.internal_bus, self._external_bus],
+                              buses=[self.internal_bus, self._external_bus],
                               unstash_handler=self._add_to_inbox)
 
     def _cleanup_process(self, msg: CheckpointStabilized):
         if msg.inst_id != self.instId:
             return
-        self._ordering_service.l_gc(msg.last_stable_3pc)
+        self._ordering_service.gc(msg.last_stable_3pc)
 
     def _process_suspicious_node(self, msg: RaisedSuspicion):
         if msg.inst_id != self.instId:
@@ -865,14 +839,20 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.report_suspicious_node(msg.ex)
 
     def _send_ordered(self, msg: Ordered):
-        if msg.instId != self.instId:
-            return
         self.send(msg)
+
+    def _init_checkpoint_service(self) -> CheckpointService:
+        return CheckpointService(data=self._consensus_data,
+                                 bus=self.internal_bus,
+                                 network=self._external_bus,
+                                 stasher=self.stasher,
+                                 db_manager=self.node.db_manager,
+                                 metrics=self.metrics)
 
     def _init_ordering_service(self) -> OrderingService:
         return OrderingService(data=self._consensus_data,
                                timer=self.node.timer,
-                               bus=self.node.internal_bus,
+                               bus=self.internal_bus,
                                network=self._external_bus,
                                write_manager=self.node.write_manager,
                                bls_bft_replica=self._bls_bft_replica,

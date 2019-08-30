@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Generator
+from typing import Generator, Type, Callable
 
 from common.exceptions import PlenumTypeError
 from crypto.bls.bls_bft import BlsBft
@@ -61,6 +61,28 @@ class Replicas:
         logger.display("{} removed replica {} from instance {}".
                        format(self._node.name, replica, replica.instId),
                        extra={"tags": ["node-replica"]})
+
+    def send_to_internal_bus(self, msg, inst_id: int=None):
+        if inst_id is None:
+            for replica in self._replicas.values():
+                replica.internal_bus.send(msg)
+        else:
+            if inst_id in self._replicas:
+                self._replicas[inst_id].internal_bus.send(msg)
+            else:
+                logger.info("Cannot send msg ({}) to the replica {} "
+                            "because it does not exist.".format(msg, inst_id))
+
+    def subscribe_to_internal_bus(self, message_type: Type, handler: Callable, inst_id: int=None):
+        if inst_id is None:
+            for replica in self._replicas.values():
+                replica.internal_bus.subscribe(message_type, handler)
+        else:
+            if inst_id in self._replicas:
+                self._replicas[inst_id].internal_bus.subscribe(message_type, handler)
+            else:
+                logger.info("Cannot subscribe for {} for the replica {} "
+                            "because it does not exist.".format(message_type, inst_id))
 
     # TODO unit test
     @property

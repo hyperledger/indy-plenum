@@ -40,11 +40,9 @@ class ReplicaFakeNode(FakeSomething):
             requests=Requests(),
             onBatchCreated=lambda self, *args, **kwargs: True,
             applyReq=lambda self, *args, **kwargs: True,
-            primaries_batch_needed=False,
             primaries=[],
             get_validators=lambda: [],
             db_manager=None,
-            internal_bus=InternalBus(),
             write_manager=FakeSomething(database_manager=DatabaseManager(),
                                         apply_request=lambda req, cons_time: None),
             timer=QueueTimer()
@@ -144,9 +142,9 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     replica.primaryName = "Alpha:{}".format(replica.instId)
     replica.primaryNames[replica.viewNo] = replica.primaryName
 
-    replica._ordering_service.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
-    replica._ordering_service.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
-    replica._ordering_service.l_revert = lambda ledgerId, stateRootHash, reqCount: None
+    replica._ordering_service.get_txn_root_hash = lambda ledger, to_str=False: txn_roots[ledger]
+    replica._ordering_service.get_state_root_hash = lambda ledger, to_str=False: state_roots[ledger]
+    replica._ordering_service._revert = lambda ledgerId, stateRootHash, reqCount: None
     replica._ordering_service.post_batch_creation = lambda three_pc_batch: None
 
     replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
@@ -169,7 +167,7 @@ def primary_replica(replica):
 
 @pytest.fixture(scope='function')
 def replica_with_requests(replica, fake_requests):
-    replica._ordering_service.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
+    replica._ordering_service._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         replica.requests.add(req)

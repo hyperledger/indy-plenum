@@ -44,7 +44,6 @@ class FakeNode:
     def __init__(self, tmpdir, config=None):
         self.basedirpath = tmpdir
         self.name = 'Node1'
-        self.internal_bus = InternalBus()
         self.db_manager = DatabaseManager()
         self.timer = QueueTimer()
         self.f = 1
@@ -60,8 +59,6 @@ class FakeNode:
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
         self.nodeStatusDB = None
-        self.primaries_batch_needed = False
-        self.internal_bus = InternalBus()
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
         self.write_manager = FakeSomething()

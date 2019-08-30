@@ -17,11 +17,9 @@ def test_ordered_cleaning(tconf):
         viewNo=global_view_no,
         utc_epoch=get_utc_epoch,
         get_validators=lambda: [],
-        internal_bus=InternalBus(),
         db_manager=DatabaseManager(),
         requests=[],
         mode=Mode.participating,
-        primaries_batch_needed=False,
         timer=QueueTimer(),
         quorums=Quorums(4),
         write_manager=None
@@ -38,12 +36,12 @@ def test_ordered_cleaning(tconf):
     for viewNo in range(global_view_no + 1):
         for seqNo in range(num_requests_per_view):
             reqId = viewNo, seqNo
-            replica._ordering_service.l_addToOrdered(*reqId)
+            replica._ordering_service._add_to_ordered(*reqId)
             total.append(reqId)
 
     # gc is called after stable checkpoint, since no request executed
     # in this test starting it manually
-    replica._ordering_service.l_gc(100)
+    replica._ordering_service.gc(100)
     # Requests with view lower then previous view
     # should not be in ordered
     assert len(replica._ordering_service.ordered) == len(total[num_requests_per_view:])
@@ -56,11 +54,9 @@ def test_primary_names_cleaning(tconf):
         viewNo=0,
         utc_epoch=get_utc_epoch,
         get_validators=lambda: [],
-        internal_bus=InternalBus(),
         db_manager=DatabaseManager(),
         requests=[],
         mode=Mode.participating,
-        primaries_batch_needed=False,
         timer=QueueTimer(),
         quorums=Quorums(4),
         write_manager=None

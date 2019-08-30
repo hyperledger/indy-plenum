@@ -23,7 +23,7 @@ def split_nodes(nodes):
 
 def check_pp_out_of_sync(alive_nodes, disconnected_nodes, last_ordered_key):
     def get_last_pp_key(node):
-        last_pp = node.master_replica._ordering_service.l_lastPrePrepare
+        last_pp = node.master_replica._ordering_service.last_preprepare
         if last_pp is None:
             return (0, 0)
         return last_pp.viewNo, last_pp.ppSeqNo

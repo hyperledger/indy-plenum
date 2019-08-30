@@ -28,6 +28,8 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
+        # TODO: Do we need primaries for all instances here?
+        #  Also this basically duplicates primary_name, so one of them needs to be removed.
         self.primaries = []
         self.is_master = is_master
 
@@ -59,8 +61,6 @@ class ConsensusSharedData:
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
-        self.primaries_batch_needed = False
-        self.requestQueues = {}
 
     @property
     def name(self) -> str:
