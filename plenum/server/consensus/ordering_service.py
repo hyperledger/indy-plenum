@@ -1243,7 +1243,6 @@ class OrderingService:
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
-        self._lastPrePrepareSeqNo -= 1
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
