@@ -68,7 +68,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         orig_retry_meth, partitioned_node.nodestack)
 
     # Send some requests and make sure the request execute
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 25)
 
     # Partitioned node should have the same ledger and state as others
     # eventually
