@@ -1239,7 +1239,6 @@ class OrderingService:
         self._logger.info('{} reverting {} txns and state root from {} to {} for ledger {}'
                           .format(self, reqCount, Ledger.hashToStr(state.headHash),
                                   Ledger.hashToStr(stateRootHash), ledgerId))
-        self._lastPrePrepareSeqNo -= 1
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
@@ -2156,6 +2155,7 @@ class OrderingService:
                 discarded = invalid_index_serializer.deserialize(discarded)
                 self._logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self._revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
+                self._lastPrePrepareSeqNo -= 1
                 i += 1
             else:
                 break
