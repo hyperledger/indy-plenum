@@ -196,7 +196,7 @@ class CheckpointService:
                                     seqNoStart=0,
                                     seqNoEnd=pp_seq_no,
                                     digest=self._audit_txn_root_hash(view_no, pp_seq_no))
-
+            self._data.checkpoints.add(checkpoint)
 
         for cp in self._data.checkpoints.copy():
             if cp.seqNoEnd < pp_seq_no:
