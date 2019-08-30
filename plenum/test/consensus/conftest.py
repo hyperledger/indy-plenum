@@ -2,7 +2,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.startable import Mode
 from plenum.common.event_bus import InternalBus
@@ -146,7 +146,9 @@ def bls_bft_replica():
 
 @pytest.fixture()
 def db_manager():
+    audit_ledger = FakeSomething(size=0)
     dbm = DatabaseManager()
+    dbm.register_new_database(AUDIT_LEDGER_ID, audit_ledger)
     return dbm
 
 
