@@ -1242,6 +1242,7 @@ class OrderingService:
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
+        self._lastPrePrepareSeqNo -= 1
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
@@ -2175,6 +2176,7 @@ class OrderingService:
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
+        self.lastPrePrepareSeqNo = last_caught_up_3PC[1]
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
     def catchup_clear_for_backup(self):
