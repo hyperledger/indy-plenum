@@ -28,8 +28,6 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
-        # TODO: Do we need primaries for all instances here?
-        #  Also this basically duplicates primary_name, so one of them needs to be removed.
         self.primaries = []
         self.is_master = is_master
 
@@ -39,11 +37,14 @@ class ConsensusSharedData:
         # Indicates name of the primary replica of this protocol instance.
         # None in case the replica does not know who the primary of the
         # instance is
+        # TODO: Replace this by read-only property which uses primaries and inst_id
         self.primary_name = None
         # seqNoEnd of the last stabilized checkpoint
         self.stable_checkpoint = 0
         # Checkpoint messages which the current node sent.
+        # TODO: Replace sorted list with dict
         self.checkpoints = SortedListWithKey(key=lambda checkpoint: checkpoint.seqNoEnd)
+        self.checkpoints.append(Checkpoint(instId=inst_id, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=None))
         # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is not reached yet
         self.preprepared = []  # type:  List[BatchID]
         # List of BatchIDs of PrePrepare messages for which quorum of Prepare messages is reached
@@ -80,6 +81,7 @@ class ConsensusSharedData:
     @property
     def is_primary(self) -> Optional[bool]:
         """
+        TODO: It would be much more clear and easy to use if this returned just bool.
         Returns is replica primary for this instance.
         If primary name is not defined yet, returns None
         """

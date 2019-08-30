@@ -22,8 +22,12 @@ def view_setup(looper, txnPoolNodeSet):
 def clear_checkpoints(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         for inst_id, replica in node.replicas.items():
-            # TODO: Don't clear own stable checkpoint
+            stable_cp_seq_no = replica._consensus_data.stable_checkpoint
+            own_stable_checkpoints = list(replica._consensus_data.checkpoints.irange_key(min=stable_cp_seq_no,
+                                                                                        max=stable_cp_seq_no))
             replica._consensus_data.checkpoints.clear()
+            if len(own_stable_checkpoints) > 0:
+                replica._consensus_data.checkpoints.append(own_stable_checkpoints[0])
             replica._checkpointer._received_checkpoints.clear()
 
 
