@@ -59,6 +59,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
             n.nodeIbStasher.delay(cDelay(sys.maxsize))
 
         request2 = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_steward)
+        batches_count += 1
 
         def check_commits(commit_key):
             for n in fast_nodes:
@@ -68,7 +69,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
 
 
         looper.run(eventually(check_commits,
-                              (view_no, last_ordered[1] + batches_count + 1)))
+                              (view_no, last_ordered[1] + batches_count)))
 
         # Delay CatchupRep messages for the slow_node.
         with delay_rules([slow_node.nodeIbStasher], cr_delay()):

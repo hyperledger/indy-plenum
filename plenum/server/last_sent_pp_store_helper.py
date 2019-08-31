@@ -44,10 +44,10 @@ class LastSentPpStoreHelper:
 
     def _can_restore_last_sent_pp_seq_no(self, inst_id, pair_3pc) -> bool:
         stored = (inst_id, pair_3pc)
-        if pair_3pc[0] != self.node.viewNo:
-            logger.info("{} ignoring stored {} because current view no is {}"
-                        .format(self.node, stored, self.node.viewNo))
-            return False
+        # if pair_3pc[0] != self.node.viewNo:
+        #     logger.info("{} ignoring stored {} because current view no is {}"
+        #                 .format(self.node, stored, self.node.viewNo))
+        #     return False
 
         if inst_id not in self.node.replicas.keys():
             logger.info("{} ignoring stored {} because it does not have replica for instance {}"

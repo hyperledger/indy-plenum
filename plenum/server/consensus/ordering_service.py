@@ -671,6 +671,7 @@ class OrderingService:
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, lo_tuple):
         self._data.last_ordered_3pc = lo_tuple
+        self.lastPrePrepareSeqNo = lo_tuple[1]
         self._logger.info('{} set last ordered as {}'.format(self, lo_tuple))
 
     @property
