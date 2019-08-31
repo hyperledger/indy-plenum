@@ -156,6 +156,7 @@ def test_try_restore_last_sent_pp_seq_no_if_invalid_stored(
     assert replica.H == 0 + tconf.LOG_SIZE
 
 
+@pytest.mark.skip(reason="INDY-1336: pp_seq_no not depend on view_no anymore")
 def test_cannot_restore_last_sent_pp_seq_no_if_another_view(
         txnPoolNodeSet, view_no_set, setup):
     replica = getPrimaryReplica(txnPoolNodeSet, instId=1)

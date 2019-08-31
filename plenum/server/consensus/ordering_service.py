@@ -2167,7 +2167,6 @@ class OrderingService:
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
-        self.lastPrePrepareSeqNo = last_caught_up_3PC[1]
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
     def catchup_clear_for_backup(self):
