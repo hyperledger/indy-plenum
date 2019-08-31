@@ -1124,17 +1124,7 @@ class OrderingService:
             # First PRE-PREPARE
             return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-        if pp_seq_no - last_pp_seq_no > 1:
-            return False
-        # if last_pp_view_no > view_no:
-        #     return False
-        # if last_pp_view_no < view_no:
-        #     if view_no != self.view_no:
-        #         return False
-        #     last_pp_seq_no = 0
-        # if pp_seq_no - last_pp_seq_no > 1:
-        #     return False
-        return True
+        return pp_seq_no - last_pp_seq_no == 1
 
     def _apply_pre_prepare(self, pre_prepare: PrePrepare):
         """
@@ -2181,7 +2171,6 @@ class OrderingService:
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
-            self.last_ordered_3pc = (self._data.view_no, 0)
             self.batches.clear()
             self.sentPrePrepares.clear()
             self.prePrepares.clear()

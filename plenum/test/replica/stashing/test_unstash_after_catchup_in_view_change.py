@@ -7,7 +7,7 @@ from plenum.common.startable import Mode
 from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_VIEW
 from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay
 from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp, sdk_send_random_request, \
-    sdk_get_and_check_replies
+    sdk_get_and_check_replies, get_pp_seq_no
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
@@ -43,7 +43,7 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
     view_no = txnPoolNodeSet[0].viewNo
     old_stashed = slow_node.master_replica.stasher.stash_size(STASH_VIEW)
     last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
-    batches_count = 0
+    batches_count = last_ordered[1]
 
     with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet],
                      msg_rep_delay(types_to_delay=[PREPREPARE, PREPARE, COMMIT])):
@@ -66,10 +66,9 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                     assert commit_key in r._ordering_service.commits
                     assert len(r._ordering_service.commits[commit_key].voters) == 1
 
-        batches_count += 1
 
         looper.run(eventually(check_commits,
-                              (view_no, last_ordered[1] + batches_count)))
+                              (view_no, last_ordered[1] + batches_count + 1)))
 
         # Delay CatchupRep messages for the slow_node.
         with delay_rules([slow_node.nodeIbStasher], cr_delay()):
@@ -103,14 +102,13 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                                 instances_list=range(fast_nodes[0].requiredNumberOfInstances),
                                 customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
         sdk_get_and_check_replies(looper, [request2])
+        batches_count += 1
         waitForViewChange(looper, [slow_node], expectedViewNo=view_no + 1,
                           customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
         ensureElectionsDone(looper=looper,
                             nodes=txnPoolNodeSet)
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
-        assert all(n.master_replica.last_ordered_3pc == (view_no + 1,
-                                                         batches_count + 1)
-                   for n in txnPoolNodeSet)
+        assert get_pp_seq_no(txnPoolNodeSet) == batches_count
         assert slow_node.catchup_rounds_without_txns == 1
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

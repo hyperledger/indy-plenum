@@ -12,7 +12,7 @@ from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange, \
-    freshness
+    freshness, get_pp_seq_no
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, \
     get_master_primary_node, get_last_master_non_primary_node
 
@@ -104,6 +104,8 @@ def test_ordered_request_freed_on_replica_removal(looper,
     node = txnPoolNodeSet[0]
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
+    batches_count = get_pp_seq_no(txnPoolNodeSet)
+
     assert len(node.requests) == 1
 
     forwardedToBefore = next(iter(node.requests.values())).forwardedTo
@@ -112,12 +114,13 @@ def test_ordered_request_freed_on_replica_removal(looper,
     assert len(node.requests) == 1
     forwardedToAfter = next(iter(node.requests.values())).forwardedTo
     assert forwardedToAfter == forwardedToBefore - 1
-    check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, 0)
+    check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, batches_count)
 
     # Send one more request to stabilize checkpoint
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    batches_count += 1
 
-    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, 3))
+    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, batches_count))
     assert len(node.requests) == 0
 
 
