@@ -138,6 +138,7 @@ class CheckpointService:
 
     def gc_before_new_view(self):
         self._reset_checkpoints()
+        # ToDo: till_3pc_key should be None?
         self._remove_received_checkpoints(till_3pc_key=(self.view_no, 0))
 
     def caught_up_till_3pc(self, caught_up_till_3pc):

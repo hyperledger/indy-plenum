@@ -671,6 +671,7 @@ class OrderingService:
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, lo_tuple):
         self._data.last_ordered_3pc = lo_tuple
+        self.lastPrePrepareSeqNo = lo_tuple[1]
         self._logger.info('{} set last ordered as {}'.format(self, lo_tuple))
 
     @property
@@ -1124,17 +1125,7 @@ class OrderingService:
             # First PRE-PREPARE
             return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-        if pp_seq_no - last_pp_seq_no > 1:
-            return False
-        # if last_pp_view_no > view_no:
-        #     return False
-        # if last_pp_view_no < view_no:
-        #     if view_no != self.view_no:
-        #         return False
-        #     last_pp_seq_no = 0
-        # if pp_seq_no - last_pp_seq_no > 1:
-        #     return False
-        return True
+        return pp_seq_no - last_pp_seq_no == 1
 
     def _apply_pre_prepare(self, pre_prepare: PrePrepare):
         """
@@ -1239,7 +1230,6 @@ class OrderingService:
         self._logger.info('{} reverting {} txns and state root from {} to {} for ledger {}'
                           .format(self, reqCount, Ledger.hashToStr(state.headHash),
                                   Ledger.hashToStr(stateRootHash), ledgerId))
-        self._lastPrePrepareSeqNo -= 1
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
@@ -2156,6 +2146,7 @@ class OrderingService:
                 discarded = invalid_index_serializer.deserialize(discarded)
                 self._logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self._revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
+                self._lastPrePrepareSeqNo -= 1
                 i += 1
             else:
                 break
@@ -2176,12 +2167,10 @@ class OrderingService:
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
-        self.lastPrePrepareSeqNo = last_caught_up_3PC[1]
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
-            self.last_ordered_3pc = (self._data.view_no, 0)
             self.batches.clear()
             self.sentPrePrepares.clear()
             self.prePrepares.clear()

@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 
 def test_propagate_primary_is_Master_update_watermarks(checkpoint_service):
     # expected behaviour is that h must be set as last ordered ppSeqNo
@@ -19,6 +21,7 @@ def test_propagate_primary_is_Master_watermarks_not_changed_if_last_ordered_not_
     assert checkpoint_service._data.low_watermark == 0
 
 
+@pytest.mark.skip(reason="INDY-1336. For not watermarks are not dropped before new view")
 def test_reset_watermarks_before_new_view(checkpoint_service, tconf, is_master):
     checkpoint_service._is_master = is_master
     checkpoint_service._data.low_watermark = 100

@@ -524,8 +524,8 @@ def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
     for n in nodes:
         for r in n.replicas.values():
             assert r.last_ordered_3pc == last_ordered_3pc, \
-                "{} != {}".format(r.last_ordered_3pc,
-                                  last_ordered_3pc)
+                "{} != {}, Replica: {}".format(r.last_ordered_3pc,
+                                               last_ordered_3pc, r)
 
 
 def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
