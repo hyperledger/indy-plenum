@@ -26,6 +26,7 @@ low_watermark = 0
 batches_count = 0
 
 
+@pytest.mark_skip(reason="INDY-1336. For now, preprepares, prepares and commits queues are cleaned after view change")
 def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNodeSet,
                                  sdk_pool_handle, sdk_wallet_client):
     """
@@ -84,8 +85,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
                                          batch_size * sent_batches, sent_batches)
     batches_count += sent_batches
 
-    # looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * (expected_batch_count - additional_after_vc),
-    #                       expected_batch_count, retryWait=1))
+    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, batch_size * (expected_batch_count - additional_after_vc),
+                          expected_batch_count, retryWait=1))
 
     # Send more batches so one more checkpoint happens. This is done so that
     # when this test finishes, all requests are garbage collected and the
@@ -94,4 +95,4 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                          batch_size * more, more)
     batches_count += more
-    # looper.run(eventually(checkRequestCounts, txnPoolNodeSet, 0, 0, retryWait=1))
+    looper.run(eventually(checkRequestCounts, txnPoolNodeSet, 0, 0, retryWait=1))

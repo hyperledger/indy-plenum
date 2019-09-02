@@ -1,19 +1,23 @@
+import sys
 import pytest
 
+from plenum.common.constants import COMMIT
 from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_num_quorumed_received_checkpoints
-from plenum.test.delayers import cDelay, chk_delay
+from plenum.test.delayers import cDelay, chk_delay, msg_rep_delay
 from plenum.test.helper import sdk_send_random_requests, assertExp, incoming_3pc_msgs_count, get_pp_seq_no
 from stp_core.loop.eventually import eventually
 
 nodeCount = 4
 
-CHK_FREQ = 5
+CHK_FREQ = 6
 
 # LOG_SIZE in checkpoints corresponds to the catch-up lag in checkpoints
 LOG_SIZE = 2 * CHK_FREQ
+
+first_run = True
 
 
 @pytest.fixture(scope="module")
@@ -24,9 +28,6 @@ def tconf(tconf):
     tconf.Max3PCBatchesInFlight = None
     yield tconf
     tconf.Max3PCBatchesInFlight = old
-
-
-batches_count = 0
 
 
 def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
@@ -42,11 +43,12 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     Please note that to verify this case the config is set up so that
     LOG_SIZE == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
     """
-    global batches_count
+    global first_run
     batches_count = get_pp_seq_no(txnPoolNodeSet)
 
     slow_replica, other_replicas = one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
+    low_watermark = slow_replica.h
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
@@ -63,6 +65,9 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
         cDelay(instId=1, sender_filter=other_replicas[0].node.name))
     slow_replica.node.nodeIbStasher.delay(
         cDelay(instId=1, sender_filter=other_replicas[1].node.name))
+    slow_replica.node.nodeIbStasher.delay(
+        msg_rep_delay(types_to_delay=[COMMIT])
+    )
 
     # Send a request for which the replica will not be able to order the batch
     # due to an insufficient count of Commits
@@ -75,9 +80,10 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
+    reqs_until_checkpoints = reqs_for_checkpoint - get_pp_seq_no([r.node for r in other_replicas]) % reqs_for_checkpoint
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
-                             reqs_for_checkpoint - 3)
+                             reqs_until_checkpoints)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Don't receive Checkpoints
@@ -101,15 +107,16 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.last_ordered_3pc == (view_no, batches_count)
 
     # Ensure that the watermarks have not been shifted since the view start
-    assert slow_replica.h == 0
-    # assert slow_replica.H == LOG_SIZE
+    assert slow_replica.h == low_watermark
+    assert slow_replica.H == (sys.maxsize if first_run else low_watermark + LOG_SIZE)
 
     # Ensure that there are some quorumed stashed checkpoints
     check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Ensure that now there are 3PC-messages stashed
     # as laying outside of the watermarks
-    # assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == incoming_3pc_msgs_count(len(txnPoolNodeSet))
+    if not first_run:
+        assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == incoming_3pc_msgs_count(len(txnPoolNodeSet))
 
     # Receive belated Checkpoints
     slow_replica.node.nodeIbStasher.reset_delays_and_process_delayeds()
@@ -125,8 +132,8 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that the watermarks have been shifted so that the lower watermark
     # now equals to the end of the last stable checkpoint in the instance
-    assert slow_replica.h == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
-    assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
+    assert slow_replica.h == low_watermark + (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
+    assert slow_replica.H == low_watermark + (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
     check_num_quorumed_received_checkpoints(slow_replica, 0)
@@ -145,3 +152,4 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
+    first_run = False
