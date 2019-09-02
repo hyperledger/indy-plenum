@@ -141,7 +141,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     looper.run(
         eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc ==
-                                     (view_no, batches_count)),
+                                           (view_no, batches_count)),
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

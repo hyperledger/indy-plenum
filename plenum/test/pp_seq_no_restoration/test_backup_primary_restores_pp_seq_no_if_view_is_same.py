@@ -33,7 +33,9 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
                                num_reqs=7, num_batches=num_batches,
                                timeout=tconf.Max3PCBatchWait)
 
-    seq_no = num_batches if view_no == 0 else 2 * num_batches + 1 + tconf.Max3PCBatchWait
+    # 1 after view_change and 1 batch will be sent
+
+    seq_no = num_batches if view_no == 0 else (num_batches + 1 + 2 + num_batches)
 
     looper.run(
         eventually(lambda r: assertExp(r.last_ordered_3pc == (view_no, seq_no)),
@@ -90,7 +92,7 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
 
     # + 1 because of catchup
     # + 2 because of 2 catchup rounds
-    seq_no = num_batches + 1 if view_no == 0 else 2 * num_batches + tconf.Max3PCBatchWait + 2
+    seq_no = num_batches + 1 if view_no == 0 else (num_batches + 1 + 2 + num_batches + 1)
     looper.run(
         eventually(lambda: assertExp(replica.last_ordered_3pc == (view_no, seq_no)),
                    retryWait=1,

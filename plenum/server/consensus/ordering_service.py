@@ -671,7 +671,6 @@ class OrderingService:
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, lo_tuple):
         self._data.last_ordered_3pc = lo_tuple
-        self.lastPrePrepareSeqNo = lo_tuple[1]
         self._logger.info('{} set last ordered as {}'.format(self, lo_tuple))
 
     @property
@@ -1526,7 +1525,7 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-
+        self.lastPrePrepareSeqNo = pp_seq_no
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
         self.requested_prepares.pop((view_no, pp_seq_no), None)
         self.requested_commits.pop((view_no, pp_seq_no), None)
