@@ -371,7 +371,7 @@ def friendlyEx(ex: Exception) -> str:
         if len(friendly):
             friendly += " [caused by "
             end += "]"
-        friendly += "{}".format(curEx)
+        friendly += "{}".format(getattr(curEx, 'reason', curEx))
         curEx = curEx.__cause__
     friendly += end
     return friendly
