@@ -49,9 +49,10 @@ class SigningException(BaseExc):
 
 class CouldNotAuthenticate(SigningException, ReqInfo):
     code = 110
-    reason = 'could not authenticate'
+    reason = 'could not authenticate, verkey for {} cannot be found'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, identifier, *args, **kwargs):
+        self.reason = self.reason.format(identifier)
         ReqInfo.__init__(self, *args, **kwargs)
 
 
