@@ -1878,8 +1878,8 @@ class OrderingService:
         return r
 
     def _can_dequeue_pre_prepare(self, view_no: int, pp_seq_no: int):
-        return self._is_next_pre_prepare(view_no, pp_seq_no) \
-               or compare_3PC_keys((view_no, pp_seq_no), self.last_ordered_3pc) >= 0
+        return self._is_next_pre_prepare(view_no, pp_seq_no) or compare_3PC_keys(
+            (view_no, pp_seq_no), self.last_ordered_3pc) >= 0
 
     # TODO: Convert this into a free function?
     def _discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
