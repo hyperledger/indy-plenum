@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
-    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, Missing3pcMessage
+    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, Missing3pcMessage, CheckpointStabilized
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     MessageReq
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -106,20 +106,6 @@ class OrderingService:
         # the next primary would have seen all accepted PRE-PREPAREs or another
         # view change will happen
         self.last_accepted_pre_prepare_time = None
-        # Tracks for which keys PRE-PREPAREs have been requested.
-        # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
-        self.requested_pre_prepares = {}
-
-        # Tracks for which keys PREPAREs have been requested.
-        # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
-        self.requested_prepares = {}
-
-        # Tracks for which keys COMMITs have been requested.
-        # Cleared in `gc`
-        # type: Dict[Tuple[int, int], Optional[Tuple[str, str, str]]]
-        self.requested_commits = {}
 
         # PRE-PREPAREs timestamps stored by non primary replica to check
         # obsolescence of incoming PrePrepares. Pre-prepares with the same
@@ -210,6 +196,7 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, Commit, self.process_commit)
         self._subscription.subscribe(self._stasher, NewViewCheckpointsApplied, self.process_new_view_checkpoints_applied)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
+        self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppDigest) tuple, and value is a PrePrepare
@@ -754,9 +741,6 @@ class OrderingService:
             self.prepares,
             self.commits,
             self.batches,
-            self.requested_pre_prepares,
-            self.requested_prepares,
-            self.requested_commits,
             self.pre_prepares_stashed_for_incorrect_time,
             self.old_view_preprepares
         )
@@ -1067,7 +1051,7 @@ class OrderingService:
         :return:
         """
         key = (pp.viewNo, pp.ppSeqNo)
-        if key in self.requested_pre_prepares:
+        if key in self._data.requested_pre_prepares:
             # Special case for requested PrePrepares
             return True
         correct = self._is_pre_prepare_time_correct(pp, sender)
@@ -1501,10 +1485,6 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-
-        self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
-        self.requested_prepares.pop((view_no, pp_seq_no), None)
-        self.requested_commits.pop((view_no, pp_seq_no), None)
 
     def _get_primaries_for_ordered(self, pp):
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
@@ -2222,10 +2202,6 @@ class OrderingService:
         self.prepares.clear()
         self.commits.clear()
 
-        self.requested_pre_prepares.clear()
-        self.requested_prepares.clear()
-        self.requested_commits.clear()
-
         self.pre_prepare_tss.clear()
         self.prePreparesPendingFinReqs.clear()
         self.prePreparesPendingPrevPP.clear()
@@ -2263,6 +2239,9 @@ class OrderingService:
         self._data.prepared = []
 
         return PROCESS, None
+
+    def _cleanup_process(self, msg: CheckpointStabilized):
+        self.gc(msg.last_stable_3pc)
 
     def _preprepare_batch(self, pp: PrePrepare):
         """

@@ -221,7 +221,6 @@ class Replica(HasActionQueue, MessageProcessor):
     def _subscribe_to_internal_msgs(self):
         self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
-        self._subscription.subscribe(self.internal_bus, CheckpointStabilized, self._cleanup_process)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
 
@@ -730,11 +729,6 @@ class Replica(HasActionQueue, MessageProcessor):
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
                               buses=[self.internal_bus, self._external_bus],
                               unstash_handler=self._add_to_inbox)
-
-    def _cleanup_process(self, msg: CheckpointStabilized):
-        if msg.inst_id != self.instId:
-            return
-        self._ordering_service.gc(msg.last_stable_3pc)
 
     def _process_suspicious_node(self, msg: RaisedSuspicion):
         if msg.inst_id != self.instId:

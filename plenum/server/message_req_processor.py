@@ -7,8 +7,7 @@ from plenum.common.metrics_collector import measure_time, MetricsName, NullMetri
 from plenum.common.types import f
 from stp_core.common.log import getlogger
 from plenum.server.message_handlers import LedgerStatusHandler, \
-    ConsistencyProofHandler, PreprepareHandler, PrepareHandler, PropagateHandler, \
-    CommitHandler
+    ConsistencyProofHandler, PropagateHandler
 
 logger = getlogger()
 

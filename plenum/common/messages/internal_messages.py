@@ -22,8 +22,7 @@ NeedBackupCatchup = NamedTuple('NeedBackupCatchup',
                                 ('caught_up_till_3pc', tuple)])
 
 CheckpointStabilized = NamedTuple('CheckpointStabilized',
-                                  [('inst_id', int),
-                                   ('last_stable_3pc', tuple)])
+                                  [('last_stable_3pc', tuple)])
 
 RaisedSuspicion = NamedTuple('RaisedSuspicion',
                              [('inst_id', int),

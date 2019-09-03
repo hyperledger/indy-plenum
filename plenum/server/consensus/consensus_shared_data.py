@@ -82,6 +82,10 @@ class ConsensusSharedData:
         self.commits = Commits()
         # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
+        # Tracks for which keys PRE-PREPAREs have been requested.
+        # Cleared in `gc`
+        self.requested_pre_prepares = {}
+
     @property
     def name(self) -> str:
         return self._name

@@ -5,10 +5,12 @@ from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF
     PROPAGATE, PREPARE, COMMIT
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import IncorrectMessageForHandlingException
-from plenum.common.messages.internal_messages import Missing3pcMessage
-from plenum.common.messages.node_messages import MessageReq, MessageRep
+from plenum.common.messages.internal_messages import Missing3pcMessage, CheckpointStabilized, ViewChangeStarted
+from plenum.common.messages.node_messages import MessageReq, MessageRep, Ordered
 from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
+from plenum.common.router import Subscription
 from plenum.common.types import f
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler
 from stp_core.common.log import getlogger
@@ -23,11 +25,14 @@ class MessageReq3pcService:
         self._logger = getlogger()
         self._data = data
         self._bus = bus
-        self._bus.subscribe(Missing3pcMessage, self.process_missing_message)
+        self._subscription = Subscription()
+        self._subscription.subscribe(bus, Missing3pcMessage, self.process_missing_message)
+        self._subscription.subscribe(bus, Ordered, self.process_ordered)
+        self._subscription.subscribe(bus, ViewChangeStarted, self.process_view_change_started)
 
         self._network = network
-        self._network.subscribe(MessageReq, self.process_message_req)
-        self._network.subscribe(MessageRep, self.process_message_rep)
+        self._subscription.subscribe(network, MessageReq, self.process_message_req)
+        self._subscription.subscribe(network, MessageRep, self.process_message_rep)
 
         self.metrics = metrics
         self.handlers = {
@@ -93,9 +98,19 @@ class MessageReq3pcService:
                 f.PARAMS.nm: params
             }), dst=msg.dst)
 
-    def gc(self):
-        for handler in self.handlers.values():
-            handler.gc()
+    def process_ordered(self, msg: Ordered):
+        for handler in self.handlers:
+            handler.requested_messages.pop((msg.viewNo, msg.ppSeqNo))
+
+    def process_view_change_started(self, msg: ViewChangeStarted):
+        for handler in self.handlers:
+            handler.requested_messages.clear()
+
+    def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
+        for handler in self.handlers:
+            for key in list(handler.requested_messages.keys()):
+                if compare_3PC_keys(key, msg.last_stable_3pc) >= 0:
+                    handler.requested_messages.pop(key)
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         """

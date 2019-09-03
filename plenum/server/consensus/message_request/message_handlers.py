@@ -38,9 +38,9 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
 
     def _validate(self, **kwargs) -> bool:
         return kwargs['inst_id'] == self._data.inst_id and \
-               kwargs['view_no'] == self._data.view_no and \
-               isinstance(kwargs['pp_seq_no'], int) and \
-               kwargs['pp_seq_no'] > 0
+            kwargs['view_no'] == self._data.view_no and \
+            isinstance(kwargs['pp_seq_no'], int) and \
+            kwargs['pp_seq_no'] > 0
 
     def _create(self, msg: Dict, **kwargs):
         message = self.msg_cls(**msg)
@@ -89,9 +89,6 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
 
         return self._get_reply(params)
 
-    def gc(self):
-        self.requested_messages.clear()
-
     def _validate_message_rep(self, msg: object):
         if msg is None:
             return False, "received null"
@@ -121,6 +118,10 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
 
 class PreprepareHandler(ThreePhaseMessagesHandler):
     msg_cls = PrePrepare
+
+    def __init__(self, data: ConsensusSharedData):
+        super().__init__(data)
+        self._data.requested_pre_prepares = self.requested_messages
 
     def _get_reply(self, params: Dict[str, Any]) -> Optional[PrePrepare]:
         key = (params['view_no'], params['pp_seq_no'])
