@@ -116,12 +116,13 @@ def test_do_nothing_on_new_view_accepted(internal_bus, orderer):
     assert old_data == new_data
 
 
-def test_update_shared_data_on_mew_view_checkpoint_applied(internal_bus, orderer):
+def test_update_shared_data_on_new_view_checkpoint_applied(internal_bus, orderer):
+    initial_view_no = 3
     orderer._data.preprepared = []
     orderer._data.prepared = []
+    orderer._data.view_no = initial_view_no + 1
     old_data = copy_shared_data(orderer._data)
 
-    initial_view_no = 3
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200)
     internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
                                                 view_changes=new_view.viewChanges,
@@ -134,8 +135,8 @@ def test_update_shared_data_on_mew_view_checkpoint_applied(internal_bus, orderer
     # preprepared are created for new view
     if orderer.is_master:
         assert orderer._data.preprepared
-        assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_seq_no=batch_id.pp_seq_no,
-                                                     pp_digest=batch_id.pp_digest)
+        assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_view_no=initial_view_no,
+                                                     pp_seq_no=batch_id.pp_seq_no, pp_digest=batch_id.pp_digest)
                                              for batch_id in new_view.batches]
         assert orderer._data.prepared == []
     else:

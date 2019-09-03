@@ -3,12 +3,6 @@ from collections import OrderedDict, defaultdict
 from enum import IntEnum, unique
 from typing import List
 
-from sortedcontainers import SortedListWithKey
-
-from common.exceptions import LogicError
-from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
-
 PP_CHECK_NOT_FROM_PRIMARY = 0
 PP_CHECK_TO_PRIMARY = 1
 PP_CHECK_DUPLICATE = 2

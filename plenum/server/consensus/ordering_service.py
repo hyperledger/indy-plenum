@@ -2287,8 +2287,8 @@ class OrderingService:
                 self.process_preprepare(pp, sender)
 
         # TODO: this needs to be removed
-        self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
-                                          pp_digest=batch_id.pp_digest)
+        self._data.preprepared = [BatchID(view_no=self.view_no, pp_view_no=batch_id.pp_view_no,
+                                          pp_seq_no=batch_id.pp_seq_no, pp_digest=batch_id.pp_digest)
                                   for batch_id in msg.batches]
         self._data.prepared = []
 
@@ -2298,24 +2298,26 @@ class OrderingService:
         """
         After pp had validated, it placed into _preprepared list
         """
-        if preprepare_to_batch_id(pp) in self._data.preprepared:
+        batch_id = preprepare_to_batch_id(self.view_no, pp)
+        if batch_id in self._data.preprepared:
             raise LogicError('New pp cannot be stored in preprepared')
         if self._data.checkpoints and pp.ppSeqNo < self._data.last_checkpoint.seqNoEnd:
             raise LogicError('ppSeqNo cannot be lower than last checkpoint')
-        self._data.preprepared.append(preprepare_to_batch_id(pp))
+        self._data.preprepared.append(batch_id)
 
     def _prepare_batch(self, pp: PrePrepare):
         """
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        self._data.prepared.append(preprepare_to_batch_id(pp))
+        self._data.prepared.append(preprepare_to_batch_id(self.view_no, pp))
 
     def _clear_batch(self, pp: PrePrepare):
         """
         When 3pc batch processed, it removed from _prepared list
         """
-        if preprepare_to_batch_id(pp) in self._data.preprepared:
-            self._data.preprepared.remove(preprepare_to_batch_id(pp))
-        if preprepare_to_batch_id(pp) in self._data.prepared:
-            self._data.prepared.remove(preprepare_to_batch_id(pp))
+        batch_id = preprepare_to_batch_id(self.view_no, pp)
+        if batch_id in self._data.preprepared:
+            self._data.preprepared.remove(batch_id)
+        if batch_id in self._data.prepared:
+            self._data.prepared.remove(batch_id)

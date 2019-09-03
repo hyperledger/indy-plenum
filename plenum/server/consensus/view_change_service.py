@@ -437,6 +437,9 @@ class NewViewBuilder:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
                     continue
+
+                if some_bid.pp_view_no != bid.pp_view_no:
+                    return False
                 # not ( (v' < v) OR (v'==v and d'==d) )
                 if some_bid.view_no > bid.view_no:
                     return False
@@ -452,6 +455,8 @@ class NewViewBuilder:
             for _some_bid in vc.preprepared:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
+                    continue
+                if some_bid.pp_view_no != bid.pp_view_no:
                     continue
                 if some_bid.pp_digest != bid.pp_digest:
                     continue

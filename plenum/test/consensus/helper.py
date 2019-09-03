@@ -122,9 +122,9 @@ def create_checkpoints(view_no):
 
 
 def create_batches(view_no):
-    return [BatchID(view_no, 11, "d1"),
-            BatchID(view_no, 12, "d2"),
-            BatchID(view_no, 13, "d3")]
+    return [BatchID(view_no, view_no, 11, "d1"),
+            BatchID(view_no, view_no, 12, "d2"),
+            BatchID(view_no, view_no, 13, "d3")]
 
 
 def create_view_change(initial_view_no, stable_cp=10, batches=None):

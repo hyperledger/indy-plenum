@@ -9,7 +9,7 @@ def test_primaries_in_ordered_from_audit(test_node):
     replica = test_node.master_replica
     key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
     replica._ordering_service.prePrepares[key] = pre_prepare
-    replica._consensus_data.preprepared.append(preprepare_to_batch_id(pre_prepare))
+    replica._consensus_data.preprepared.append(preprepare_to_batch_id(pre_prepare.viewNo, pre_prepare))
     test_node.primaries = ["Alpha", "Beta"]
     three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pre_prepare,
                                                    state_root=pre_prepare.stateRootHash,
@@ -34,7 +34,7 @@ def test_primaries_in_ordered_from_audit_for_tree_txns(test_node):
                                        pp_seq_no=i)
         key = (pp.viewNo, pp.ppSeqNo)
         replica._ordering_service.prePrepares[key] = pp
-        replica._consensus_data.preprepared.append(preprepare_to_batch_id(pp))
+        replica._consensus_data.preprepared.append(preprepare_to_batch_id(pp.viewNo, pp))
         three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare=pp,
                                                        state_root=pp.stateRootHash,
                                                        txn_root=pp.txnRootHash,
@@ -61,7 +61,7 @@ def test_primaries_in_ordered_from_node(test_node):
     test_node.primaries = ["Alpha", "Beta"]
     replica = test_node.master_replica
     replica._ordering_service.prePrepares[key] = pre_prepare
-    replica._consensus_data.preprepared.append(preprepare_to_batch_id(pre_prepare))
+    replica._consensus_data.preprepared.append(preprepare_to_batch_id(pre_prepare.viewNo, pre_prepare))
 
     replica._ordering_service._order_3pc_key(key)
 
