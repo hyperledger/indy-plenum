@@ -1864,7 +1864,7 @@ class OrderingService:
             self.prePreparesPendingPrevPP[pp.viewNo, pp.ppSeqNo] = (pp, sender)
 
         r = 0
-        while self.prePreparesPendingPrevPP and self._is_next_pre_prepare(
+        while self.prePreparesPendingPrevPP and self._can_dequeue_pre_prepare(
                 *self.prePreparesPendingPrevPP.iloc[0]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self._can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
@@ -1876,6 +1876,10 @@ class OrderingService:
             self._network.process_incoming(pp, sender)
             r += 1
         return r
+
+    def _can_dequeue_pre_prepare(self, view_no: int, pp_seq_no: int):
+        return self._is_next_pre_prepare(view_no, pp_seq_no) \
+               or compare_3PC_keys((view_no, pp_seq_no), self.last_ordered_3pc) >= 0
 
     # TODO: Convert this into a free function?
     def _discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
