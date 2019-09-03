@@ -19,7 +19,7 @@ from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sd
     sdk_get_and_check_replies, sdk_random_request_objects, waitForViewChange, max_3pc_batch_limits, \
     sdk_send_random_and_check
 
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID, NodeHooks, TXN_TYPE
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID, TXN_TYPE
 
 from plenum.common.util import randomString
 from plenum.test.testing_utils import FakeSomething

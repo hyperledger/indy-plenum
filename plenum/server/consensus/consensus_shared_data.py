@@ -30,6 +30,8 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
+        # TODO: Do we need primaries for all instances here?
+        #  Also this basically duplicates primary_name, so one of them needs to be removed.
         self.primaries = []
         self.is_master = is_master
 

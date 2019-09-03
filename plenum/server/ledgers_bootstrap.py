@@ -85,7 +85,7 @@ class LedgersBootstrap:
     @property
     def bls_bft(self) -> BlsBft:
         if self._bls_bft is None:
-            raise LogicError("Tryed to access BlsBft before initialization")
+            raise LogicError("Tried to access BlsBft before initialization")
         return self._bls_bft
 
     def _create_bls_bft(self) -> BlsBft:

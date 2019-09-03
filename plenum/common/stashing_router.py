@@ -168,7 +168,8 @@ class StashingRouter(Router):
         Tries to process message using given handler. Returns True if message
         was stashed for reprocessing in future, False otherwise.
         """
-        code, reason = handler(message, *args)
+        result = handler(message, *args)
+        code, reason = result if result else (None, None)
 
         # If handler returned either None or PROCESS we assume it successfully processed message
         # and no further action is needed

@@ -11,14 +11,16 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
-from plenum.common.constants import ReplicaHooks, DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID, TS_LABEL
+from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
+    DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
+    AUDIT_TXN_PRIMARIES, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.hook_manager import HookManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
-from plenum.common.messages.node_messages import Ordered, \
-    Commit
+from plenum.common.messages.message_base import MessageBase
+from plenum.common.messages.node_messages import Reject, Ordered, \
+    PrePrepare, Prepare, Commit, Checkpoint, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
@@ -34,8 +36,7 @@ from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
 from plenum.server.router import Router
-from plenum.server.replica_helper import ConsensusDataHelper
-from sortedcontainers import SortedList
+from sortedcontainers import SortedList, SortedListWithKey
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -78,7 +79,7 @@ def measure_replica_time(master_name: MetricsName, backup_name: MetricsName):
     return decorator
 
 
-class Replica(HasActionQueue, MessageProcessor, HookManager):
+class Replica(HasActionQueue, MessageProcessor):
     STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
     HAS_NO_PRIMARY_WARN_THRESCHOLD = 10
 
@@ -145,14 +146,10 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
-        HookManager.__init__(self, ReplicaHooks.get_all_vals())
-
         self._consensus_data = ConsensusSharedData(self.name,
                                                    self.node.get_validators(),
                                                    self.instId,
                                                    self.isMaster)
-
-        self._consensus_data_helper = ConsensusDataHelper(self._consensus_data)
         self._internal_bus = InternalBus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()
@@ -647,8 +644,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         return self._ordering_service.discard_req_key(ledger_id, req_key)
 
     def _caught_up_backup(self, msg: NeedBackupCatchup):
-        if self.instId != msg.inst_id:
-            return
         self._caught_up_till_3pc(msg.caught_up_till_3pc)
 
     def _caught_up_till_3pc(self, last_caught_up_3PC):
@@ -747,8 +742,6 @@ class Replica(HasActionQueue, MessageProcessor, HookManager):
         self.report_suspicious_node(msg.ex)
 
     def _send_ordered(self, msg: Ordered):
-        if msg.instId != self.instId:
-            return
         self.send(msg)
 
     def _init_checkpoint_service(self) -> CheckpointService:
