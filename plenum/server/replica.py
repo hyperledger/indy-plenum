@@ -287,12 +287,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self._consensus_data.last_ordered_3pc = key3PC
-        self.logger.info('{} set last ordered as {}'.format(self, key3PC))
+        self._ordering_service.last_ordered_3pc = key3PC
 
     @property
     def lastPrePrepareSeqNo(self):
-        return self._ordering_service._lastPrePrepareSeqNo
+        return self._ordering_service.lastPrePrepareSeqNo
 
     @lastPrePrepareSeqNo.setter
     def lastPrePrepareSeqNo(self, n):
@@ -301,14 +300,7 @@ class Replica(HasActionQueue, MessageProcessor):
         values else it will not. To forcefully override as in case of `revert`,
         directly set `self._lastPrePrepareSeqNo`
         """
-        if n > self._ordering_service._lastPrePrepareSeqNo:
-            # ToDo: need to pass it into ordering service through ConsensusDataProvider
-            self._ordering_service._lastPrePrepareSeqNo = n
-        else:
-            self.logger.debug(
-                '{} cannot set lastPrePrepareSeqNo to {} as its '
-                'already {}'.format(
-                    self, n, self.lastPrePrepareSeqNo))
+        self._ordering_service.lastPrePrepareSeqNo = n
 
     @property
     def requests(self):
@@ -390,7 +382,6 @@ class Replica(HasActionQueue, MessageProcessor):
             self._gc_before_new_view()
             if self._checkpointer.should_reset_watermarks_before_new_view():
                 self._checkpointer.reset_watermarks_before_new_view()
-                # self._ordering_service._lastPrePrepareSeqNo = 0
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -455,7 +446,6 @@ class Replica(HasActionQueue, MessageProcessor):
             # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
             self._checkpointer.update_watermark_from_3pc()
-            self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
             self._checkpointer.set_watermarks(low_watermark=0,
                                               high_watermark=sys.maxsize)
