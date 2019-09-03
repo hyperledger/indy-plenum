@@ -96,5 +96,5 @@ def test_request_with_incorrect_multisig_signatures(looper, sdk_pool_handle, sdk
     expected_error_message = 'Reason: client request invalid: {}'.\
         format(InsufficientCorrectSignatures.reason.format(2, 1, 1, invalid_signatures))
 
-    with pytest.raises(RequestNackedException, match=expected_error_message) as e:
+    with pytest.raises(RequestNackedException, match=expected_error_message):
         sdk_get_and_check_replies(looper, rep1)
