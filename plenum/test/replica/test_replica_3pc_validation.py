@@ -319,7 +319,7 @@ def test_can_send_3pc_batch_old_view(primary_validator, mode):
 
 def test_can_send_3pc_batch_old_pp_seq_no_for_view(primary_validator, mode):
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, 100)
-    primary_validator.replica.lastPrePrepareSeqNo = 0
+    primary_validator.replica._ordering_service._lastPrePrepareSeqNo = 0
     primary_validator.replica.node.mode = mode
     assert not primary_validator.can_send_3pc_batch()
 
