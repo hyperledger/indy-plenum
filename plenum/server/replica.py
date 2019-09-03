@@ -455,8 +455,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
             self._checkpointer.update_watermark_from_3pc()
-            if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
-                self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+            self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
             self._checkpointer.set_watermarks(low_watermark=0,
                                               high_watermark=sys.maxsize)
