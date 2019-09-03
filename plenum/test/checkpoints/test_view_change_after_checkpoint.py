@@ -26,7 +26,7 @@ low_watermark = 0
 batches_count = 0
 
 
-@pytest.mark_skip(reason="INDY-1336. For now, preprepares, prepares and commits queues are cleaned after view change")
+@pytest.mark.skip(reason="INDY-1336. For now, preprepares, prepares and commits queues are cleaned after view change")
 def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNodeSet,
                                  sdk_pool_handle, sdk_wallet_client):
     """
