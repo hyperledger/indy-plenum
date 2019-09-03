@@ -15,6 +15,7 @@ def test_last_ordered_3pc_not_reset_if_more_than_new_view(txnPoolNodeSet, looper
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     for node in txnPoolNodeSet:
         node.master_replica.last_ordered_3pc = (old_view_no + 2, batches_count)
+        node.master_replica.lastPrePrepareSeqNo = batches_count
 
     ensure_view_change_complete(looper, txnPoolNodeSet, customTimeout=60)
 
@@ -33,8 +34,10 @@ def test_last_ordered_3pc_not_reset_if_equal_to_new_view(txnPoolNodeSet, looper,
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     for node in txnPoolNodeSet:
         node.master_replica.last_ordered_3pc = (old_view_no + 1, batches_count)
+        node.master_replica.lastPrePrepareSeqNo = batches_count
 
     ensure_view_change_complete(looper, txnPoolNodeSet, customTimeout=60)
+    batches_count += 1
 
     for node in txnPoolNodeSet:
         assert (old_view_no + 1, batches_count) == node.master_replica.last_ordered_3pc
@@ -49,6 +52,7 @@ def test_last_ordered_3pc_not_reset_if_less_than_new_view(txnPoolNodeSet, looper
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     for node in txnPoolNodeSet:
         node.master_replica.last_ordered_3pc = (old_view_no, batches_count)
+        node.master_replica.lastPrePrepareSeqNo = batches_count
 
     ensure_view_change_complete(looper, txnPoolNodeSet, customTimeout=60)
     batches_count += 1

@@ -641,8 +641,8 @@ class OrderingService:
                 seq_to = pp_seq_no - 1
                 if seq_to >= seq_frm >= pp_seq_no - self._config.CHK_FREQ + 1:
                     self._logger.warning(
-                        "{} missing PRE-PREPAREs for ppSeqNo {}, "
-                        "going to request".format(self, seq_frm))
+                        "{} missing PRE-PREPAREs from {} to {}, "
+                        "going to request".format(self, seq_frm, seq_to))
                     self._request_missing_three_phase_messages(
                         pp_view_no, seq_frm, seq_to)
             self._enqueue_pre_prepare(pre_prepare, sender)
