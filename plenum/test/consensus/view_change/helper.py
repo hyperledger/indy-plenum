@@ -50,24 +50,20 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
             batch_id = batches[i - 1]
-            committed.append(BatchID(1, 1, batch_id.pp_seq_no, batch_id.pp_digest))
+            committed.append(BatchID(1, 0, batch_id.pp_seq_no, batch_id.pp_digest))
 
     return pool, committed
 
 
 def calc_committed(view_changes, max_pp_seq_no, n, f) -> List[BatchID]:
-    def check_in_batch(batch_id, some_batch_id, check_view_no=False):
-        if check_view_no and (batch_id[0] != some_batch_id[0]):
-            return False
-        return batch_id[1] == some_batch_id[1] and batch_id[2] == some_batch_id[2] and batch_id[3] == some_batch_id[3]
 
     def check_prepared_in_vc(vc, batch_id):
-        # check that (pp_seq_no, digest) is present in VC's prepared and preprepared
+        # check that batch_id is present in VC's prepared and preprepared
         for p_batch_id in vc.prepared:
-            if not check_in_batch(batch_id, p_batch_id, check_view_no=True):
+            if batch_id != p_batch_id:
                 continue
             for pp_batch_id in vc.preprepared:
-                if check_in_batch(batch_id, pp_batch_id, check_view_no=True):
+                if batch_id == pp_batch_id:
                     return True
 
         return False

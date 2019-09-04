@@ -567,21 +567,13 @@ def test_calc_checkpoints_digest(builder):
     assert builder.calc_checkpoint(vcs) == cp2_d2
 
 
-# @pytest.fixture(params=range(2))
-# def random(request):
-#     return DefaultSimRandom(request.param)
-
-
 def test_calc_batches_combinations(builder, random):
-    MAX_PP_SEQ_NO = 6
-    CHEQ_FREQ = 3
+    MAX_PP_SEQ_NO = 4
     MAX_VIEW_NO = 2
-    MAX_DIGEST_ID = 6
+    MAX_DIGEST_ID = 4
+    cp = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))
 
-    cp1 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))
-    cp2 = Checkpoint(instId=0, viewNo=1, seqNoStart=0, seqNoEnd=CHEQ_FREQ, digest=cp_digest(CHEQ_FREQ))
-
-    for i in range(100):
+    for i in range(200):
         for vc_count in range(N - F, N + 1):
             view_changes = []
 
@@ -591,8 +583,8 @@ def test_calc_batches_combinations(builder, random):
                 num_preprepares = random.integer(0, MAX_PP_SEQ_NO)
                 pre_prepares = []
                 for i in range(1, num_preprepares + 1):
-                    view_no = random.integer(0, MAX_VIEW_NO + 1)
-                    batch_id = (view_no, random.integer(0, view_no + 1),
+                    view_no = random.integer(0, MAX_VIEW_NO)
+                    batch_id = (view_no, random.integer(0, view_no),
                                 i, "digest{}".format(random.integer(1, MAX_DIGEST_ID)))
                     pre_prepares.append(batch_id)
 
@@ -609,31 +601,26 @@ def test_calc_batches_combinations(builder, random):
                     num_prepares = random.integer(0, MAX_PP_SEQ_NO)
                     prepares = []
                     for i in range(1, num_prepares + 1):
-                        view_no = random.integer(0, MAX_VIEW_NO + 1)
-                        batch_id = (view_no, random.integer(0, view_no + 1),
+                        view_no = random.integer(0, MAX_VIEW_NO)
+                        batch_id = (view_no, random.integer(0, view_no),
                                     i, "digest{}".format(random.integer(1, MAX_DIGEST_ID)))
                         prepares.append(batch_id)
                 else:
                     assert False, str(prepares_mode)
 
                 # CHECKPOINTS
-                checkpoints = random.sample([cp1, cp2], 1)
-                stable_checkpoint = random.sample([0, CHEQ_FREQ], 1)[0]
                 view_changes.append(ViewChange(
                     viewNo=MAX_VIEW_NO,
-                    stableCheckpoint=stable_checkpoint,
+                    stableCheckpoint=0,
                     prepared=prepares,
                     preprepared=pre_prepares,
-                    checkpoints=checkpoints
+                    checkpoints=[cp]
                 ))
 
             # 2. EXECUTE
-            batches1 = builder.calc_batches(cp1, list(view_changes))
-            batches2 = builder.calc_batches(cp2, list(view_changes))
+            batches = builder.calc_batches(cp, view_changes)
 
             # 3. VALIDATE
             committed = calc_committed(view_changes, MAX_PP_SEQ_NO, N, F)
-            if committed and batches1:
-                assert committed == batches1[:len(committed)]
-                committed = [c for c in committed if c.pp_seq_no > cp2.seqNoEnd]
-                assert committed == batches2[:len(committed)]
+            if committed and batches is not None:
+                assert set(committed) <= set(batches)

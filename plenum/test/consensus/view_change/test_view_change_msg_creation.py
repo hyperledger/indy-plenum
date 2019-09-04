@@ -38,8 +38,8 @@ def test_view_change_data(view_change_service, data):
     assert data.view_no == 2
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
-    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
-    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
+    assert msg.prepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"), (0, 0, 3, "digest3")]
     assert msg.stableCheckpoint == 10
     assert msg.checkpoints == [cp]
 
@@ -61,8 +61,8 @@ def test_view_change_data_multiple(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
-    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
-    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
+    assert msg.prepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"), (0, 0, 3, "digest3")]
     assert msg.stableCheckpoint == 0
     assert msg.checkpoints == [cp1]
 
@@ -82,10 +82,10 @@ def test_view_change_data_multiple(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
-    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2"),
-                            (1, 11, "digest11"), (1, 12, "digest12")]
-    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3"),
-                               (1, 11, "digest11"), (1, 12, "digest12"), (1, 13, "digest13")]
+    assert msg.prepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"),
+                            (1, 1, 11, "digest11"), (1, 1, 12, "digest12")]
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"), (0, 0, 3, "digest3"),
+                               (1, 1, 11, "digest11"), (1, 1, 12, "digest12"), (1, 1, 13, "digest13")]
     assert msg.stableCheckpoint == 0
     assert msg.checkpoints == [cp1, cp2]
 
@@ -107,8 +107,8 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
-    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
-    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2"), (0, 3, "digest3")]
+    assert msg.prepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"), (0, 0, 3, "digest3")]
     assert msg.stableCheckpoint == 0
     assert msg.checkpoints == [cp1]
 
@@ -128,8 +128,8 @@ def test_view_change_data_multiple_respects_checkpoint(view_change_service, data
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
-    assert msg.prepared == [(1, 11, "digest11"), (1, 12, "digest12")]
-    assert msg.preprepared == [(1, 11, "digest11"), (1, 12, "digest12"), (1, 13, "digest13")]
+    assert msg.prepared == [(1, 1, 11, "digest11"), (1, 1, 12, "digest12")]
+    assert msg.preprepared == [(1, 1, 11, "digest11"), (1, 1, 12, "digest12"), (1, 1, 13, "digest13")]
     assert msg.stableCheckpoint == 10
     assert msg.checkpoints == [cp1, cp2]
 
@@ -156,7 +156,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
-    assert msg.prepared == [(0, 1, "digest1"), (0, 2, "digest2")]
+    assert msg.prepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
 
     # view no 1->2
     # replace by different viewNo and digest
@@ -167,7 +167,7 @@ def test_view_change_replaces_prepare(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 2
-    assert msg.prepared == [(1, 1, "digest11"), (1, 2, "digest22")]
+    assert msg.prepared == [(1, 1, 1, "digest11"), (1, 1, 2, "digest22")]
 
     # view no 2->3
     # replace by different viewNo only
@@ -178,7 +178,44 @@ def test_view_change_replaces_prepare(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 3
-    assert msg.prepared == [(1, 1, "digest11"), (2, 2, "digest22"), (2, 3, "digest3")]
+    assert msg.prepared == [(1, 1, 1, "digest11"), (2, 2, 2, "digest22"), (2, 2, 3, "digest3")]
+
+
+def test_view_change_replaces_prepare_diff_pp_view_no(view_change_service, data):
+    data.view_no = 0
+    data.prepared = [BatchID(0, 0, 1, "digest1"),
+                     BatchID(0, 0, 2, "digest2")]
+
+    # view no 0->1
+    view_change_service._bus.send(NeedViewChange())
+    assert data.view_no == 1
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 1
+    assert msg.prepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
+
+    # view no 1->2
+    # replace by different viewNo and digest
+    data.prepared = [BatchID(1, 0, 1, "digest11"),
+                     BatchID(1, 0, 2, "digest22")]
+    view_change_service._bus.send(NeedViewChange())
+    assert data.view_no == 2
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 2
+    assert msg.prepared == [(1, 0, 1, "digest11"), (1, 0, 2, "digest22")]
+
+    # view no 2->3
+    # replace by different viewNo only
+    data.prepared = [BatchID(2, 2, 2, "digest22"),
+                     BatchID(1, 1, 1, "digest11"),
+                     BatchID(2, 2, 3, "digest3")]
+    view_change_service._bus.send(NeedViewChange())
+    assert data.view_no == 3
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 3
+    assert msg.prepared == [(1, 1, 1, "digest11"), (2, 2, 2, "digest22"), (2, 2, 3, "digest3")]
 
 
 def test_view_change_keeps_preprepare(view_change_service, data):
@@ -193,7 +230,7 @@ def test_view_change_keeps_preprepare(view_change_service, data):
 
     msg = get_view_change(view_change_service)
     assert msg.viewNo == 1
-    assert msg.preprepared == [(0, 1, "digest1"), (0, 2, "digest2")]
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
 
     # view no 1->2
     # do not replace since different viewNo and digest
@@ -221,6 +258,49 @@ def test_view_change_keeps_preprepare(view_change_service, data):
     assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"),
                                (1, 1, 1, "digest11"),
                                (2, 2, 2, "digest22"), (2, 2, 3, "digest3")]
+
+
+def test_view_change_keeps_preprepare_diff_pp_view_no(view_change_service, data):
+    data.view_no = 0
+    data.preprepared = [BatchID(0, 0, 1, "digest1"),
+                        BatchID(0, 0, 2, "digest2")]
+
+    # view no 0->1
+    view_change_service._bus.send(NeedViewChange())
+
+    assert data.view_no == 1
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 1
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2")]
+
+    # view no 1->2
+    # do not replace since different viewNo and digest
+    data.preprepared = [BatchID(1, 0, 1, "digest11"),
+                        BatchID(1, 0, 2, "digest22")]
+    view_change_service._bus.send(NeedViewChange())
+
+    assert data.view_no == 2
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 2
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"),
+                               (1, 0, 1, "digest11"), (1, 0, 2, "digest22")]
+
+    # view no 2->3
+    #  replace by different viewNo only
+    data.preprepared = [BatchID(1, 1, 1, "digest11"),
+                        BatchID(2, 0, 2, "digest22"),
+                        BatchID(2, 2, 3, "digest3")]
+    view_change_service._bus.send(NeedViewChange())
+
+    assert data.view_no == 3
+
+    msg = get_view_change(view_change_service)
+    assert msg.viewNo == 3
+    assert msg.preprepared == [(0, 0, 1, "digest1"), (0, 0, 2, "digest2"),
+                               (1, 1, 1, "digest11"),
+                               (2, 0, 2, "digest22"), (2, 2, 3, "digest3")]
 
 
 def test_different_view_change_messages_have_different_digests(random):
