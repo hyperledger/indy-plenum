@@ -1,6 +1,7 @@
 import pytest
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 from functools import partial
 from plenum.test.delayers import icDelay
@@ -46,5 +47,7 @@ def test_resend_instance_change_messages(looper,
     looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
     looper.run(eventually(partial(checkViewNoForNodes, txnPoolNodeSet, expectedViewNo=old_view_no + 1),
                           timeout=tconf.VIEW_CHANGE_TIMEOUT))
+    ensureElectionsDone(looper, txnPoolNodeSet)
+
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 5)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
