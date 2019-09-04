@@ -2,7 +2,7 @@ from logging import getLogger
 
 import pytest as pytest
 
-from plenum.test.delayers import cqDelay, cs_delay
+from plenum.test.delayers import cqDelay, cpDelay
 from plenum.test.logging.conftest import logsearch
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -33,17 +33,15 @@ def test_catchup_with_one_slow_node(tdir, tconf,
                                     logsearch):
     '''
     1. Stop the node Delta
-    2. Order 9 txns. In sending CatchupReq in a first round every
-    node [Alpha, Beta, Gamma] will receive request for 3 txns.
-    3. Delay CatchupReq messages on Alpha
+    2. Delay ConsProof messages on Alpha, so CatchupReqs will be sent to Beta and Gamma only
+    3. Order 9 txns. In sending CatchupReq in a first round only
+    nodes [Beta, Gamma] will receive requests for 9 txns in total.
+    4. Delay CatchupReq on Beta
     4. Start Delta
     5. Check that all nodes have equality data.
     6. Check that Delta re-ask CatchupRep only once.
     In the second CatchupRep (first re-ask) Delta shouldn't request
-    CatchupRep from Alpha because it didn't answer early.
-    If the behavior is wrong and Delta re-ask txns form all nodes,
-    every node will receive request for 1 txns, Alpha will not answer
-    and Delta will need a new re-ask round.
+    CatchupRep from Beta because it didn't answer early.
     '''
     # Prepare nodes
     lagging_node = txnPoolNodeSet[-1]
@@ -73,9 +71,10 @@ def test_catchup_with_one_slow_node(tdir, tconf,
     log_re_ask, _ = logsearch(msgs=['requesting .* missing transactions after timeout'])
     old_re_ask_count = len(log_re_ask)
 
-    # Delay CatchupRep messages on Alpha
-    with delay_rules(rest_nodes[0].nodeIbStasher, cqDelay()):
-        with delay_rules(lagging_node.nodeIbStasher, cs_delay()):
+    # Delay ConsProof messages on Alpha
+    with delay_rules(rest_nodes[0].nodeIbStasher, cpDelay()):
+        # Delay Ctahcupreq messages on Beta
+        with delay_rules(rest_nodes[1].nodeIbStasher, cqDelay()):
             looper.add(lagging_node)
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
