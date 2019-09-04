@@ -32,7 +32,7 @@ def test_friendly_exception_formatting_exc_with_str_overload():
 
     formatted_exception = friendlyEx(ex)
 
-    assert formatted_exception == '{}'.format(ex)
+    assert formatted_exception == '{}'.format(ex.reason)
 
 
 def test_friendly_exception_formatting_multiple_exceptions():
@@ -45,7 +45,7 @@ def test_friendly_exception_formatting_multiple_exceptions():
     ex3 = SigningException()
     ex3.__cause__ = ex2
 
-    expected = '{} [caused by {} [caused by {}]]'.format(ex3, ex2, ex1)
+    expected = '{} [caused by {} [caused by {}]]'.format(ex3, ex2.reason, ex1.reason)
     formatted_exception = friendlyEx(ex3)
 
     assert formatted_exception == expected
