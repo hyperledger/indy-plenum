@@ -57,7 +57,7 @@ def testSendRequestWithoutSignatureFails(looper, txnPoolNodeSet,
         (msg, frm) = params["msg"]
         assert msg == json_req
         assert msg.get(f.IDENTIFIER.nm) == obj_req.identifier
-        assert "missing signature" in reason
+        assert "MissingSignature" in reason
 
 
 # noinspection PyIncorrectDocstring

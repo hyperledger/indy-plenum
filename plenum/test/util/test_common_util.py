@@ -13,7 +13,7 @@ def test_random_string():
     assert False
 
 
-def test_friendly_exception_formatting_exception_without_reason_field():
+def test_friendly_exception_formatting_exc_without_str_overload():
     """
         Check if the `friendyEx` is formatting exceptions without a reason field correctly
     """
@@ -24,7 +24,7 @@ def test_friendly_exception_formatting_exception_without_reason_field():
     assert formatted_exception == '{}'.format(ex)
 
 
-def test_friendly_exception_formatting_exception_with_reason_field():
+def test_friendly_exception_formatting_exc_with_str_overload():
     """
         Check if the `friendyEx` is formatting exceptions with a reason field correctly
     """
@@ -32,7 +32,7 @@ def test_friendly_exception_formatting_exception_with_reason_field():
 
     formatted_exception = friendlyEx(ex)
 
-    assert formatted_exception == ex.reason
+    assert formatted_exception == '{}'.format(ex)
 
 
 def test_friendly_exception_formatting_multiple_exceptions():
@@ -45,7 +45,7 @@ def test_friendly_exception_formatting_multiple_exceptions():
     ex3 = SigningException()
     ex3.__cause__ = ex2
 
-    expected = '{} [caused by {} [caused by {}]]'.format('SigningException()', ex2.reason, ex1.reason)
+    expected = '{} [caused by {} [caused by {}]]'.format(ex3, ex2, ex1)
     formatted_exception = friendlyEx(ex3)
 
     assert formatted_exception == expected
