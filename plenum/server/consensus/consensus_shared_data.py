@@ -19,7 +19,7 @@ from plenum.server.quorums import Quorums
 BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
-def preprepare_to_batch_id(view_no:int, pre_prepare: PrePrepare) -> BatchID:
+def preprepare_to_batch_id(view_no: int, pre_prepare: PrePrepare) -> BatchID:
     return BatchID(view_no, pre_prepare.viewNo, pre_prepare.ppSeqNo, pre_prepare.digest)
 
 
