@@ -337,7 +337,7 @@ class NewViewBuilder:
                 if some_bid.pp_seq_no != bid.pp_seq_no:
                     continue
 
-                # not ( (v' < v) OR (v'==v and d'==d) )
+                # not ( (v' < v) OR (v'==v and d'==d and pp_view_no'==pp_view_no) )
                 if some_bid.view_no > bid.view_no:
                     return False
                 if some_bid.view_no >= bid.view_no and some_bid.pp_digest != bid.pp_digest:
