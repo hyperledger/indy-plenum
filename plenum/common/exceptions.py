@@ -55,6 +55,9 @@ class CouldNotAuthenticate(SigningException, ReqInfo):
         self.reason = self.reason.format(identifier)
         ReqInfo.__init__(self, *args, **kwargs)
 
+    def __str__(self):
+        return self.reason
+
 
 class MissingSignature(SigningException):
     code = 120
@@ -93,6 +96,9 @@ class InsufficientSignatures(SigningException, ReqInfo):
         self.reason = self.reason.format(provided, required)
         ReqInfo.__init__(self, *args, **kwargs)
 
+    def __str__(self):
+        return self.reason
+
 
 class InsufficientCorrectSignatures(SigningException, ReqInfo):
     code = 127
@@ -105,6 +111,9 @@ class InsufficientCorrectSignatures(SigningException, ReqInfo):
         invalid_sigs_str = '; '.join('did={}, signature={}'.format(k, v) for k, v in invalid_sigs.items())
         self.reason = self.reason.format(required_sig_cnt, valid_sig_cnt, len(invalid_sigs), invalid_sigs_str)
         ReqInfo.__init__(self, *args, **kwargs)
+
+    def __str__(self):
+        return self.reason
 
 
 class MissingIdentifier(SigningException):
