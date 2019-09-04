@@ -834,6 +834,7 @@ def sdk_multisign_request_object(looper, sdk_wallet, req):
     wh, did = sdk_wallet
     return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
 
+
 def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
     wh, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
@@ -844,6 +845,7 @@ def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acce
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
     return json.loads(resp)
+
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
