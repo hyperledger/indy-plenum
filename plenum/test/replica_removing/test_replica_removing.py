@@ -5,14 +5,16 @@ import pytest
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint
 from plenum.test.delayers import cDelay
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.replica_removing.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange, \
-    freshness, sdk_send_batches_of_random_and_check
+    freshness, sdk_send_batches_of_random_and_check, get_pp_seq_no
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, \
     get_master_primary_node, get_last_master_non_primary_node
 
@@ -20,6 +22,15 @@ from plenum.test.checkpoints.conftest import chkFreqPatched
 
 logger = getlogger()
 CHK_FREQ = 3
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    max_b_size = tconf.Max3PCBatchSize
+    tconf.Max3PCBatchSize = 1
+    yield tconf
+    tconf.Max3PCBatchSize = max_b_size
+
 
 @pytest.fixture(scope="function")
 def view_change(txnPoolNodeSet, looper):
@@ -93,6 +104,7 @@ def test_removed_replica_restored_on_view_change(
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     assert start_replicas_count == node.replicas.num_replicas
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
 def test_ordered_request_freed_on_replica_removal(looper,
@@ -102,9 +114,8 @@ def test_ordered_request_freed_on_replica_removal(looper,
                                                   chkFreqPatched,
                                                   view_change):
     node = txnPoolNodeSet[0]
-    if node.master_replica._consensus_data.checkpoints:
-        num_requests_to_stable_checkpoint = node.master_replica._consensus_data.stable_checkpoint - \
-                                            node.master_replica._consensus_data.checkpoints[-1].seqNoEnd
+    num_requests_to_stable_checkpoint = get_pp_seq_no(txnPoolNodeSet) % CHK_FREQ
+    if num_requests_to_stable_checkpoint:
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                                   num_requests_to_stable_checkpoint)
     assert not node.master_replica._consensus_data.checkpoints
