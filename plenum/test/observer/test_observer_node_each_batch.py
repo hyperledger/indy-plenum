@@ -61,13 +61,14 @@ def fake_node_observer(fake_node):
 def test_apply_data(fake_node,
                     fake_node_observer,
                     txnPoolNodeSet,
-                    observed_data_msgs):
+                    observed_data_msgs,
+                    looper):
     '''
     - Create a Node (do not add it to the pool) with Observer.
-    - Send txns and get ObservedData msgs from Validators.
+    - Send txns and get ObservedData msgs from Validators.looper
     - Apply the ObservedData masgs by the Observer and make sure that it becomes synced with the pool.
     '''
-
+    looper.add(fake_node)
     # check that Observer is not synced with the pool
     checkNodeDataForInequality(fake_node,
                                *txnPoolNodeSet,
