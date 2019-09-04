@@ -78,7 +78,7 @@ def expectedPoolInterconnectionTime(nodeCount):
     # (we may send pings on some of the re-tries)
     return min(0.8 * config.TestRunningTimeLimitSec,
                interconnectionCount * nodeConnectionTimeout +
-               config.MAX_RECONNECT_RETRY_ON_SAME_SOCKET * config.RETRY_TIMEOUT_RESTRICTED + 2)
+               3 * (config.MAX_RECONNECT_RETRY_ON_SAME_SOCKET * config.RETRY_TIMEOUT_RESTRICTED) + 2)
 
 
 def expectedPoolDisconnectionTime(nodeCount):
