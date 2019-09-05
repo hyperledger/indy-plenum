@@ -4,11 +4,13 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
-from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID, AUDIT_LEDGER_ID, TXN_PAYLOAD, \
+    TXN_PAYLOAD_DATA, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
+from plenum.server.database_manager import DatabaseManager
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -19,10 +21,13 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                  node_id,
                  bls_bft: BlsBft,
                  is_master,
+                 database_manager: DatabaseManager,
                  metrics: MetricsCollector = NullMetricsCollector()):
         super().__init__(bls_bft, is_master)
         self.node_id = node_id
+        self._database_manager = database_manager
         self._signatures = {}
+        self._all_signatures = {}
         self._bls_latest_multi_sig = None  # MultiSignature
         self.state_root_serializer = state_roots_serializer
         self.metrics = metrics
@@ -92,6 +97,36 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         logger.debug("{}{} signed COMMIT {} for state {} with sig {}"
                      .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
         commit_params.append(bls_signature)
+
+        audit_ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
+        if audit_ledger is not None:
+            last_audit_txn = audit_ledger.get_last_txn()
+            res = {}
+            payload_data = last_audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+            for ledger_id in payload_data[AUDIT_TXN_STATE_ROOT].keys():
+                params = [
+                    pre_prepare.instId,
+                    pre_prepare.viewNo,
+                    pre_prepare.ppSeqNo,
+                    pre_prepare.ppTime,
+                    pre_prepare.reqIdr,
+                    pre_prepare.discarded,
+                    pre_prepare.digest,
+                    ledger_id,
+                    payload_data[AUDIT_TXN_STATE_ROOT].get(ledger_id),
+                    payload_data[AUDIT_TXN_LEDGER_ROOT].get(ledger_id),
+                    pre_prepare.sub_seq_no,
+                    pre_prepare.final,
+                    pre_prepare.poolStateRootHash,
+                    pre_prepare.auditTxnRootHash
+                ]
+
+                fake_pp = PrePrepare(*params)
+                bls_signature = self._sign_state(fake_pp)
+                res[ledger_id] = bls_signature
+            commit_params.append(None)  # for plugin fields
+            commit_params.append(res)
+
         return commit_params
 
     # ----PROCESS----
@@ -114,6 +149,18 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if key_3PC not in self._signatures:
             self._signatures[key_3PC] = {}
         self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
+
+        if f.BLS_SIGS.nm not in commit:
+            return
+        if commit.blsSigs is None:
+            return
+
+        if key_3PC not in self._all_signatures:
+            self._all_signatures[key_3PC] = {}
+        for ledger_id in commit.blsSigs.keys():
+            if ledger_id not in self._all_signatures[key_3PC]:
+                self._all_signatures[key_3PC][ledger_id] = {}
+            self._all_signatures[key_3PC][ledger_id][self.get_node_name(sender)] = commit.blsSigs[ledger_id]
 
     def process_order(self, key, quorums, pre_prepare):
         if not self._can_process_ledger(pre_prepare.ledgerId):

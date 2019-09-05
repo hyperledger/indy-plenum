@@ -14,7 +14,7 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField, ViewChangeField
+    IntegerField, BatchIDField, ViewChangeField, MapField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -132,6 +132,7 @@ class PrePrepare(MessageBase):
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
+        # TODO field for a support of multiple signatures of a single batch
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
@@ -173,7 +174,10 @@ class Commit(MessageBase):
                                                 optional=True)),
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
-        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
+        (f.BLS_SIGS.nm, MapField(optional=True,
+                                 key_field=LedgerIdField(),
+                                 value_field=LimitedLengthStringField(max_length=BLS_SIG_LIMIT)))
     )
 
 
