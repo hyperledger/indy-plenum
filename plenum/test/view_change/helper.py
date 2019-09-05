@@ -385,4 +385,4 @@ def check_prepare_certificate(nodes, ppSeqNo):
         key = (node.viewNo, ppSeqNo)
         quorum = node.master_replica.quorums.prepare.value
         assert node.master_replica._ordering_service.prepares.hasQuorum(ThreePhaseKey(*key),
-                                                       quorum)
+                                                                        quorum)

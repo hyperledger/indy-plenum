@@ -283,32 +283,15 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self._consensus_data.last_ordered_3pc
+        return self._ordering_service.last_ordered_3pc
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self._consensus_data.last_ordered_3pc = key3PC
-        self.logger.info('{} set last ordered as {}'.format(self, key3PC))
+        self._ordering_service.last_ordered_3pc = key3PC
 
     @property
     def lastPrePrepareSeqNo(self):
-        return self._ordering_service._lastPrePrepareSeqNo
-
-    @lastPrePrepareSeqNo.setter
-    def lastPrePrepareSeqNo(self, n):
-        """
-        This will _lastPrePrepareSeqNo to values greater than its previous
-        values else it will not. To forcefully override as in case of `revert`,
-        directly set `self._lastPrePrepareSeqNo`
-        """
-        if n > self._ordering_service._lastPrePrepareSeqNo:
-            # ToDo: need to pass it into ordering service through ConsensusDataProvider
-            self._ordering_service._lastPrePrepareSeqNo = n
-        else:
-            self.logger.debug(
-                '{} cannot set lastPrePrepareSeqNo to {} as its '
-                'already {}'.format(
-                    self, n, self.lastPrePrepareSeqNo))
+        return self._ordering_service.lastPrePrepareSeqNo
 
     @property
     def requests(self):
@@ -388,9 +371,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 # decided.
                 return
             self._gc_before_new_view()
-            if self._checkpointer.should_reset_watermarks_before_new_view():
-                self._checkpointer.reset_watermarks_before_new_view()
-                self._ordering_service._lastPrePrepareSeqNo = 0
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -428,7 +408,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self.last_prepared_before_view_change = None
         self.stasher.process_all_stashed(STASH_VIEW)
 
+    def _clear_all_3pc_msgs(self):
+        self._ordering_service._clear_all_3pc_msgs()
+
     def clear_requests_and_fix_last_ordered(self):
+        self._clear_all_3pc_msgs()
         if self.isMaster:
             return
         reqs_for_remove = []
@@ -451,8 +435,6 @@ class Replica(HasActionQueue, MessageProcessor):
             # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
             self._checkpointer.update_watermark_from_3pc()
-            if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
-                self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
             self._checkpointer.set_watermarks(low_watermark=0,
                                               high_watermark=sys.maxsize)
@@ -635,6 +617,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def dequeue_pre_prepares(self):
         return self._ordering_service.dequeue_pre_prepares()
 
+    # ToDo: it's look like we don't use it anymore
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
         digest = self.requests.digest(reqKey)
@@ -646,6 +629,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             return digest
 
+    # ToDo: it's look like we don't use it anymore
     def getReqKeyFrom3PhaseKey(self, key: ThreePhaseKey):
         reqKey = None
         if key in self.sentPrePrepares:
