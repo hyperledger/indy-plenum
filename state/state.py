@@ -72,5 +72,10 @@ class State:
 
     @property
     @abstractmethod
+    def closed(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
     def isEmpty(self):
         raise NotImplementedError

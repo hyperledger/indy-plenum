@@ -146,8 +146,12 @@ class PruningState(State):
         return self._kv.get(self.rootHashKey)
 
     @property
+    def closed(self):
+        return not self._kv or self._kv.closed
+
+    @property
     def isEmpty(self):
-        return self.committedHeadHash == BLANK_ROOT
+        return self._kv and self.committedHeadHash == BLANK_ROOT
 
     def close(self):
         if self._kv:
