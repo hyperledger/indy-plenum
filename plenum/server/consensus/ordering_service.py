@@ -1259,7 +1259,7 @@ class OrderingService:
         values else it will not. To forcefully override as in case of `revert`,
         directly set `self._lastPrePrepareSeqNo`
         """
-        if n > self._lastPrePrepareSeqNo or not self.is_master:
+        if n > self._lastPrePrepareSeqNo:
             self._lastPrePrepareSeqNo = n
         else:
             self._logger.debug(
