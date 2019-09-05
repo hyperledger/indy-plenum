@@ -9,15 +9,6 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 
-# def _get_ppseqno(nodes):
-#     res = set()
-#     for node in nodes:
-#         for repl in node.replicas.values():
-#             res.add(repl.lastPrePrepareSeqNo)
-#     assert (len(res) == 1)
-#     return min(res)
-
-
 def _set_ppseqno(nodes, new_ppsn):
     for node in nodes:
         for repl in node.replicas.values():

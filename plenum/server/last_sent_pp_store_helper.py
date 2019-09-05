@@ -70,7 +70,7 @@ class LastSentPpStoreHelper:
         logger.info("{} restoring lastPrePrepareSeqNo from {}"
                     .format(self.node, stored))
         replica = self.node.replicas[inst_id]
-        replica.lastPrePrepareSeqNo = pair_3pc[1]
+        replica._ordering_service.lastPrePrepareSeqNo = pair_3pc[1]
         replica.last_ordered_3pc = (pair_3pc[0], pair_3pc[1])
         # TODO: add the method update_watermark_from_3pc to replica
         # or solve this problem better

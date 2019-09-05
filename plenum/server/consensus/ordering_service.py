@@ -634,8 +634,6 @@ class OrderingService:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
             _, last_pp_seq_no = self.__last_pp_3pc
-            # if pp_view_no >= last_pp_view_no and (
-            #         self.is_master or self.last_ordered_3pc[1] != 0):
             if self.is_master or self.last_ordered_3pc[1] != 0:
                 seq_frm = last_pp_seq_no + 1
                 seq_to = pp_seq_no - 1
@@ -671,7 +669,9 @@ class OrderingService:
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, lo_tuple):
         self._data.last_ordered_3pc = lo_tuple
-        self.lastPrePrepareSeqNo = lo_tuple[1]
+        pp_seq_no = lo_tuple[1]
+        if pp_seq_no > self.lastPrePrepareSeqNo:
+            self.lastPrePrepareSeqNo = pp_seq_no
         self._logger.info('{} set last ordered as {}'.format(self, lo_tuple))
 
     @property
@@ -1259,7 +1259,7 @@ class OrderingService:
         values else it will not. To forcefully override as in case of `revert`,
         directly set `self._lastPrePrepareSeqNo`
         """
-        if n > self._lastPrePrepareSeqNo:
+        if n > self._lastPrePrepareSeqNo or not self.is_master:
             self._lastPrePrepareSeqNo = n
         else:
             self._logger.debug(
@@ -2231,11 +2231,21 @@ class OrderingService:
     def replica_batch_digest(self, reqs):
         return replica_batch_digest(reqs)
 
-    def _clear_all_3pc_msgs_after_vc(self):
-        self.sentPrePrepares.clear()
-        self.prepares.clear()
+    def _clear_all_3pc_msgs(self):
+
+        # Clear the 3PC log
         self.prePrepares.clear()
+        self.prepares.clear()
         self.commits.clear()
+
+        self.requested_pre_prepares.clear()
+        self.requested_prepares.clear()
+        self.requested_commits.clear()
+
+        self.pre_prepare_tss.clear()
+        self.prePreparesPendingFinReqs.clear()
+        self.prePreparesPendingPrevPP.clear()
+        self.sentPrePrepares.clear()
 
     def process_view_change_started(self, msg: ViewChangeStarted):
         # 1. update shared data
@@ -2251,20 +2261,12 @@ class OrderingService:
         if self.is_master:
             self.revert_unordered_batches()
 
-        # 4. Clear the 3PC log
-        self.prePrepares.clear()
-        self.prepares.clear()
-        self.commits.clear()
+        # 4. clear all 3pc messages
+        self._clear_all_3pc_msgs()
 
-        self.requested_pre_prepares.clear()
-        self.requested_prepares.clear()
-        self.requested_commits.clear()
-
-        self.pre_prepare_tss.clear()
-        self.prePreparesPendingFinReqs.clear()
-        self.prePreparesPendingPrevPP.clear()
-        self.sentPrePrepares.clear()
         self.batches.clear()
+
+        # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
 

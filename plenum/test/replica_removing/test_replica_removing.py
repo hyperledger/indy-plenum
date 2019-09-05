@@ -135,8 +135,9 @@ def test_ordered_request_freed_on_replica_removal(looper,
     looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint))
 
     # Send one more request to stabilize checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                         sdk_pool_handle, sdk_wallet_client,
+                                         num_reqs=CHK_FREQ - 1, num_batches=CHK_FREQ - 1)
     looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint + 3))
     assert len(node.requests) == 0
 

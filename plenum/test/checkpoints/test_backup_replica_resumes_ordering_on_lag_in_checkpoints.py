@@ -15,6 +15,7 @@ nodeCount = 4
 
 CHK_FREQ = 6
 LOG_SIZE = 3 * CHK_FREQ
+first_run = True
 
 
 @pytest.fixture(scope="module")
@@ -36,9 +37,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     on detection of a lag in checkpoints
     """
 
+    global first_run
     slow_replica, other_replicas = one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
-    slow_replica._checkpointer._received_checkpoints.clear()
     batches_count = slow_replica.last_ordered_3pc[1]
 
     # Send a request and ensure that the replica orders the batch for it
@@ -80,7 +81,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == low_watermark
-    # assert slow_replica.H == sys.maxsize
+    assert slow_replica.H == (sys.maxsize if first_run else low_watermark + LOG_SIZE)
 
     # Ensure that the collections related to requests, batches and
     # own checkpoints are not empty.
@@ -140,7 +141,9 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
+    slow_replica._checkpointer._received_checkpoints.clear()
     batches_count = get_pp_seq_no(txnPoolNodeSet)
+    first_run = False
 
 
 def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
@@ -218,7 +221,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == low_watermark
-    # assert slow_replica.H == low_watermark + LOG_SIZE
+    assert slow_replica.H == low_watermark + LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
     check_num_quorumed_received_checkpoints(slow_replica, 1)

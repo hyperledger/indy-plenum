@@ -201,20 +201,6 @@ class CheckpointService:
         self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, pp_seq_no)))  # call OrderingService.l_gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, pp_seq_no))
 
-    def reset_watermarks_before_new_view(self):
-        # Reset any previous view watermarks since for view change to
-        # successfully complete, the node must have reached the same state
-        # as other nodes
-        pass
-        # self.set_watermarks(low_watermark=0)
-
-    def should_reset_watermarks_before_new_view(self):
-        if self.view_no <= 0:
-            return False
-        if self.last_ordered_3pc[0] == self.view_no and self.last_ordered_3pc[1] > 0:
-            return False
-        return True
-
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark
         self._data.high_watermark = self._data.low_watermark + self._config.LOG_SIZE \
@@ -254,9 +240,6 @@ class CheckpointService:
         # because according to paper, checkpoints cleared only when next stabilized.
         # Avoid using it while implement other services.
         self._data.checkpoints.clear()
-        # TODO: change to = 1 in ViewChangeService integration.
-        # need for stop resetting ppSeqNo
-        # self._data.stable_checkpoint = 0
 
     def __str__(self) -> str:
         return "{} - checkpoint_service".format(self._data.name)

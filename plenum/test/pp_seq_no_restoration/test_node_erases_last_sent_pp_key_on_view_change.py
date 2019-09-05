@@ -38,7 +38,7 @@ def test_node_erases_last_sent_pp_key_on_view_change(
 
     # Verify that the node has erased the stored last sent PrePrepare key
     for value in node.last_sent_pp_store_helper._load_last_sent_pp_key().values():
-        # + 1 it's after catchup
+        # + 1 it's after view_change
         assert value == [node.viewNo, num_batches_before + 1]
 
     # Send a 3PC-batch and ensure that the replica orders it

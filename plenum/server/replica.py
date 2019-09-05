@@ -283,7 +283,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self._consensus_data.last_ordered_3pc
+        return self._ordering_service.last_ordered_3pc
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
@@ -292,15 +292,6 @@ class Replica(HasActionQueue, MessageProcessor):
     @property
     def lastPrePrepareSeqNo(self):
         return self._ordering_service.lastPrePrepareSeqNo
-
-    @lastPrePrepareSeqNo.setter
-    def lastPrePrepareSeqNo(self, n):
-        """
-        This will _lastPrePrepareSeqNo to values greater than its previous
-        values else it will not. To forcefully override as in case of `revert`,
-        directly set `self._lastPrePrepareSeqNo`
-        """
-        self._ordering_service.lastPrePrepareSeqNo = n
 
     @property
     def requests(self):
@@ -380,8 +371,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 # decided.
                 return
             self._gc_before_new_view()
-            if self._checkpointer.should_reset_watermarks_before_new_view():
-                self._checkpointer.reset_watermarks_before_new_view()
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -419,11 +408,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self.last_prepared_before_view_change = None
         self.stasher.process_all_stashed(STASH_VIEW)
 
-    def _clear_all_3pc_msgs_after_vc(self):
-        self._ordering_service._clear_all_3pc_msgs_after_vc()
+    def _clear_all_3pc_msgs(self):
+        self._ordering_service._clear_all_3pc_msgs()
 
     def clear_requests_and_fix_last_ordered(self):
-        self._clear_all_3pc_msgs_after_vc()
+        self._clear_all_3pc_msgs()
         if self.isMaster:
             return
         reqs_for_remove = []
@@ -628,6 +617,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def dequeue_pre_prepares(self):
         return self._ordering_service.dequeue_pre_prepares()
 
+    # ToDo: it's look like we don't use it anymore
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
         digest = self.requests.digest(reqKey)
@@ -639,6 +629,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             return digest
 
+    # ToDo: it's look like we don't use it anymore
     def getReqKeyFrom3PhaseKey(self, key: ThreePhaseKey):
         reqKey = None
         if key in self.sentPrePrepares:
