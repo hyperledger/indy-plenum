@@ -2,9 +2,10 @@ import sys
 
 import pytest
 
+from plenum.common.constants import COMMIT
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint
-from plenum.test.delayers import cDelay
+from plenum.test.delayers import cDelay, msg_rep_delay
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -14,7 +15,7 @@ from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange, \
-    freshness, sdk_send_batches_of_random_and_check, get_pp_seq_no
+    freshness, sdk_send_batches_of_random_and_check, get_pp_seq_no, assertExp
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, \
     get_master_primary_node, get_last_master_non_primary_node
 
@@ -113,33 +114,33 @@ def test_ordered_request_freed_on_replica_removal(looper,
                                                   sdk_wallet_client,
                                                   chkFreqPatched,
                                                   view_change):
+    def get_forwarded_to_all(node):
+        for digest, req_state in node.requests.items():
+            if req_state.forwardedTo == node.replicas.num_replicas:
+                return (digest, req_state)
+        return (None, None)
+
     node = txnPoolNodeSet[0]
-    num_requests_to_stable_checkpoint = get_pp_seq_no(txnPoolNodeSet) % CHK_FREQ
-    if num_requests_to_stable_checkpoint:
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
-                                  num_requests_to_stable_checkpoint)
-    assert not node.master_replica._consensus_data.checkpoints
+    # Stabilize checkpoint
+    # Send one more request to stabilize checkpoint
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                              CHK_FREQ - get_pp_seq_no(txnPoolNodeSet) % CHK_FREQ)
     old_stable_checkpoint = node.master_replica._consensus_data.stable_checkpoint
-    assert len(node.requests) == 0
-    with delay_rules(node.nodeIbStasher, cDelay()):
+
+    with delay_rules(node.nodeIbStasher, cDelay(), msg_rep_delay(types_to_delay=[COMMIT])):
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
-        assert len(node.requests) == 1
-
-        forwardedToBefore = next(iter(node.requests.values())).forwardedTo
+        f_d, f_r = get_forwarded_to_all(node)
+        assert f_d
         node.replicas.remove_replica(node.replicas.num_replicas - 1)
 
-        assert len(node.requests) == 1
-        forwardedToAfter = next(iter(node.requests.values())).forwardedTo
-        assert forwardedToAfter == forwardedToBefore - 1
+        assert node.requests[f_d].forwardedTo == node.replicas.num_replicas
     looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint))
 
     # Send one more request to stabilize checkpoint
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                         sdk_pool_handle, sdk_wallet_client,
-                                         num_reqs=CHK_FREQ - 1, num_batches=CHK_FREQ - 1)
-    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint + 3))
-    assert len(node.requests) == 0
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+                              CHK_FREQ - 1)
+    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint + CHK_FREQ))
 
 
 def test_unordered_request_freed_on_replica_removal(looper,
