@@ -5,16 +5,14 @@ import pytest
 from indy.did import create_and_store_my_did
 
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.replica import Replica
 
 from plenum.common.messages.node_messages import InstanceChange
 
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.node import Node
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getPrimaryReplica
-from plenum.common.exceptions import RequestNackedException, SuspiciousPrePrepare
-from plenum.common.request import Request, ReqKey
+from plenum.common.exceptions import RequestNackedException
+from plenum.common.request import Request
 from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sdk_send_signed_requests, \
     sdk_get_and_check_replies, sdk_random_request_objects, waitForViewChange, max_3pc_batch_limits, \
     sdk_send_random_and_check
@@ -22,7 +20,6 @@ from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sd
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID, TXN_TYPE
 
 from plenum.common.util import randomString
-from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 
 
