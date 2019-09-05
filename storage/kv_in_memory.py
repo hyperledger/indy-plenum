@@ -83,6 +83,7 @@ class KeyValueStorageInMemory(KeyValueStorage):
                 return (v for k, v in self._dict.items() if filter(k, start, end))
             return self._dict.values()
 
+    @property
     def closed(self):
         return False
 
