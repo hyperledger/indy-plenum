@@ -237,7 +237,7 @@ class LedgersBootstrap:
         txns from ledger.
         """
         state = self.db_manager.get_state(ledger_id)
-        if not state:
+        if not state or state.closed:
             return
         if state.isEmpty:
             logger.info('{} found state to be empty, recreating from ledger {}'.format(self, ledger_id))
