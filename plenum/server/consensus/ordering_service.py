@@ -230,7 +230,7 @@ class OrderingService:
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
-        # key is (viewNo, ppDigest) tuple, and value is a PrePrepare
+        # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
         self.old_view_preprepares = {}
 
     def cleanup(self):
@@ -755,6 +755,9 @@ class OrderingService:
         self._logger.trace("{} found {} request keys to clean".
                            format(self, len(reqKeys)))
 
+        self.old_view_preprepares = {k: v for k, v in self.old_view_preprepares.items()
+                                     if compare_3PC_keys(till3PCKey, (k[0], k[1])) > 0}
+
         to_clean_up = (
             self.pre_prepare_tss,
             self.sentPrePrepares,
@@ -766,7 +769,6 @@ class OrderingService:
             self.requested_prepares,
             self.requested_commits,
             self.pre_prepares_stashed_for_incorrect_time,
-            self.old_view_preprepares
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -2239,9 +2241,7 @@ class OrderingService:
         self._data.prepared = []
 
         # 2. save existing PrePrepares
-        new_old_view_preprepares = {(pp.ppSeqNo, pp.digest): pp
-                                    for pp in itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values())}
-        self.old_view_preprepares.update(new_old_view_preprepares)
+        self._update_old_view_preprepares(itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values()))
 
         # 3. revert unordered transactions
         if self.is_master:
@@ -2264,6 +2264,12 @@ class OrderingService:
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
 
+    def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
+        new_old_view_preprepares = {(pp.viewNo, pp.ppSeqNo, pp.digest): pp
+                                    for pp in pre_prepares}
+        self.old_view_preprepares.update(new_old_view_preprepares)
+
+
     def process_new_view_checkpoints_applied(self, msg: NewViewCheckpointsApplied):
         result, reason = self._validate(msg)
         if result != PROCESS:
@@ -2273,24 +2279,21 @@ class OrderingService:
             return DISCARD, "not master"
 
         for batch_id in msg.batches:
-            # TODO: take into account original view no
-            pp = self.old_view_preprepares.get((batch_id.pp_seq_no, batch_id.pp_digest))
+            pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
             if pp is None:
                 # TODO: implement correct re-sending logic
                 # self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
                 continue
             if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
-                self._add_to_pre_prepares(pp)
+                if self._data.is_primary:
+                    self.sentPrePrepares[pp.viewNo, pp.ppSeqNo] = pp
+                    self._preprepare_batch(pp)
+                else:
+                    self._add_to_pre_prepares(pp)
             else:
+                # PrePrepare is accepted from the current Primary only
                 sender = self.generateName(self._data.primary_name, self._data.inst_id)
-                # TODO: route it through the bus?
                 self.process_preprepare(pp, sender)
-
-        # TODO: this needs to be removed
-        self._data.preprepared = [BatchID(view_no=self.view_no, pp_view_no=batch_id.pp_view_no,
-                                          pp_seq_no=batch_id.pp_seq_no, pp_digest=batch_id.pp_digest)
-                                  for batch_id in msg.batches]
-        self._data.prepared = []
 
         return PROCESS, None
 

@@ -10,7 +10,7 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck
 from plenum.common.txn_util import get_type
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
@@ -22,7 +22,7 @@ from plenum.server.request_managers.read_request_manager import ReadRequestManag
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer, create_pool_txn_data
+from plenum.test.helper import MockTimer, create_pool_txn_data, create_pre_prepare_no_bls, generate_state_root
 from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import DefaultSimRandom, SimRandom
 from plenum.test.testing_utils import FakeSomething
@@ -121,6 +121,16 @@ def create_checkpoints(view_no):
     return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]
 
 
+def create_pre_prepares(view_no):
+    return [create_pre_prepare_no_bls(generate_state_root(), view_no=view_no, pp_seq_no=11),
+            create_pre_prepare_no_bls(generate_state_root(), view_no=view_no, pp_seq_no=12),
+            create_pre_prepare_no_bls(generate_state_root(), view_no=view_no, pp_seq_no=13)]
+
+
+def create_batches_from_preprepares(preprepares):
+    return [preprepare_to_batch_id(pp.viewNo, pp) for pp in preprepares]
+
+
 def create_batches(view_no):
     return [BatchID(view_no, view_no, 11, "d1"),
             BatchID(view_no, view_no, 12, "d2"),
@@ -150,9 +160,9 @@ def create_new_view_from_vc(vc, validators, checkpoint=None, batches=None):
                    batches)
 
 
-def create_new_view(initial_view_no, stable_cp, validators=None):
+def create_new_view(initial_view_no, stable_cp, validators=None, batches=None):
     validators = validators or genNodeNames(4)
-    batches = create_batches(initial_view_no)
+    batches = batches or create_batches(initial_view_no)
     vc = create_view_change(initial_view_no, stable_cp, batches)
     return create_new_view_from_vc(vc, validators)
 

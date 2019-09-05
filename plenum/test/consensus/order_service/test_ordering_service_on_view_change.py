@@ -1,9 +1,21 @@
+import pytest
+
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.server.consensus.consensus_shared_data import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.test.consensus.helper import copy_shared_data, create_batches, \
-    check_service_changed_only_owned_fields_in_shared_data, create_new_view
+    check_service_changed_only_owned_fields_in_shared_data, create_new_view, \
+    create_pre_prepares, create_batches_from_preprepares
+from plenum.test.consensus.order_service.helper import check_prepares_sent
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, create_prepare, create_commit_no_bls_sig
+from plenum.test.consensus.order_service.conftest import orderer as _orderer
+
+
+@pytest.fixture()
+def orderer(_orderer):
+    _orderer._validator = OrderingServiceMsgValidator(_orderer._data)
+    return _orderer
 
 
 def test_update_shared_data_on_view_change_started(internal_bus, orderer):
@@ -81,10 +93,10 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
 
     internal_bus.send(ViewChangeStarted(view_no=4))
 
-    assert orderer.old_view_preprepares[(pp1.ppSeqNo, pp1.digest)] == pp1
-    assert orderer.old_view_preprepares[(pp2.ppSeqNo, pp2.digest)] == pp2
-    assert orderer.old_view_preprepares[(pp3.ppSeqNo, pp3.digest)] == pp3
-    assert orderer.old_view_preprepares[(pp4.ppSeqNo, pp4.digest)] == pp4
+    assert orderer.old_view_preprepares[(pp1.viewNo, pp1.ppSeqNo, pp1.digest)] == pp1
+    assert orderer.old_view_preprepares[(pp2.viewNo, pp2.ppSeqNo, pp2.digest)] == pp2
+    assert orderer.old_view_preprepares[(pp3.viewNo, pp3.ppSeqNo, pp3.digest)] == pp3
+    assert orderer.old_view_preprepares[(pp4.viewNo, pp4.ppSeqNo, pp4.digest)] == pp4
 
     # next calls append to existing data
     orderer.prePrepares[(pp5.viewNo, pp5.ppSeqNo)] = pp5
@@ -92,12 +104,12 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
 
     internal_bus.send(ViewChangeStarted(view_no=4))
 
-    assert orderer.old_view_preprepares[(pp1.ppSeqNo, pp1.digest)] == pp1
-    assert orderer.old_view_preprepares[(pp2.ppSeqNo, pp2.digest)] == pp2
-    assert orderer.old_view_preprepares[(pp3.ppSeqNo, pp3.digest)] == pp3
-    assert orderer.old_view_preprepares[(pp4.ppSeqNo, pp4.digest)] == pp4
-    assert orderer.old_view_preprepares[(pp5.ppSeqNo, pp5.digest)] == pp5
-    assert orderer.old_view_preprepares[(pp6.ppSeqNo, pp6.digest)] == pp6
+    assert orderer.old_view_preprepares[(pp1.viewNo, pp1.ppSeqNo, pp1.digest)] == pp1
+    assert orderer.old_view_preprepares[(pp2.viewNo, pp2.ppSeqNo, pp2.digest)] == pp2
+    assert orderer.old_view_preprepares[(pp3.viewNo, pp3.ppSeqNo, pp3.digest)] == pp3
+    assert orderer.old_view_preprepares[(pp4.viewNo, pp4.ppSeqNo, pp4.digest)] == pp4
+    assert orderer.old_view_preprepares[(pp5.viewNo, pp5.ppSeqNo, pp5.digest)] == pp5
+    assert orderer.old_view_preprepares[(pp6.viewNo, pp6.ppSeqNo, pp6.digest)] == pp6
 
 
 def test_do_nothing_on_new_view_accepted(internal_bus, orderer):
@@ -132,13 +144,131 @@ def test_update_shared_data_on_new_view_checkpoint_applied(internal_bus, orderer
     new_data = copy_shared_data(orderer._data)
     check_service_changed_only_owned_fields_in_shared_data(OrderingService, old_data, new_data)
 
-    # preprepared are created for new view
+    # Since we didn't order the PrePrepare from Batches, it should not be added into shared data
+    # (we will request the PrePrepares instead, see next tests)
+    assert orderer._data.preprepared == []
+    assert orderer._data.prepared == []
+
+
+def test_on_new_view_checkpoint_applied_non_primary_ordered_has_all_pre_prepares(internal_bus, external_bus, orderer):
+    initial_view_no = 3
+    orderer._data.view_no = initial_view_no + 1
+    orderer._data.primary_name = 'some_node'  # non-primary
+
+    pre_prepares = create_pre_prepares(view_no=initial_view_no)
+    new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
+                               batches=create_batches_from_preprepares(pre_prepares))
+
+    # emulate that we received all PrePrepares before View Change
+    orderer._update_old_view_preprepares(pre_prepares)
+
+    # emulate that we've already ordered the PrePrepares
+    orderer.last_ordered_3pc = (initial_view_no, pre_prepares[-1].ppSeqNo)
+
+    # SEND NewViewCheckpointsApplied
+    internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
+                                                view_changes=new_view.viewChanges,
+                                                checkpoint=new_view.checkpoint,
+                                                batches=new_view.batches))
+
     if orderer.is_master:
-        assert orderer._data.preprepared
+        # check that PPs were added
         assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_view_no=initial_view_no,
                                                      pp_seq_no=batch_id.pp_seq_no, pp_digest=batch_id.pp_digest)
                                              for batch_id in new_view.batches]
+        for pp in pre_prepares:
+            assert (pp.viewNo, pp.ppSeqNo) in orderer.prePrepares
+            assert orderer.prePrepares[(pp.viewNo, pp.ppSeqNo)] == pp
+        assert not orderer.sentPrePrepares
+
+        # check that Prepare is sent
+        check_prepares_sent(external_bus, pre_prepares, initial_view_no + 1)
+
+        # we don't have a quorum of Prepares yet
         assert orderer._data.prepared == []
     else:
+        # no re-ordering is expected on non-master
+        assert orderer._data.preprepared == []
+        assert orderer._data.prepared == []
+
+
+def test_on_new_view_checkpoint_applied_primary_ordered_has_all_pre_prepares(external_bus, internal_bus, orderer):
+    initial_view_no = 3
+    orderer._data.view_no = initial_view_no + 1
+    orderer._data.primary_name = orderer.name  # primary
+
+    pre_prepares = create_pre_prepares(view_no=initial_view_no)
+    new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
+                               batches=create_batches_from_preprepares(pre_prepares))
+
+    # emulate that we received all PrePrepares before View Change
+    orderer._update_old_view_preprepares(pre_prepares)
+
+    # emulate that we've already ordered the PrePrepares
+    orderer.last_ordered_3pc = (initial_view_no, pre_prepares[-1].ppSeqNo)
+
+    # SEND NewViewCheckpointsApplied
+    internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
+                                                view_changes=new_view.viewChanges,
+                                                checkpoint=new_view.checkpoint,
+                                                batches=new_view.batches))
+
+    if orderer.is_master:
+        # check that PPs were added
+        assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_view_no=initial_view_no,
+                                                     pp_seq_no=batch_id.pp_seq_no, pp_digest=batch_id.pp_digest)
+                                             for batch_id in new_view.batches]
+        for pp in pre_prepares:
+            assert (initial_view_no + 1, pp.ppSeqNo) in orderer.sentPrePrepares
+            assert orderer.sentPrePrepares[(initial_view_no + 1, pp.ppSeqNo)] == pp
+        assert not orderer.prePrepares
+
+        # check that no Prepares sent
+        assert len(external_bus.sent_messages) == 0
+
+        # we don't have a quorum of Prepares yet
+        assert orderer._data.prepared == []
+    else:
+        # no re-ordering is expected on non-master
+        assert orderer._data.preprepared == []
+        assert orderer._data.prepared == []
+
+
+def test_on_new_view_checkpoint_applied_non_primary_non_ordered_has_all_pre_prepares(internal_bus, external_bus,
+                                                                                     orderer):
+    initial_view_no = 3
+    orderer._data.view_no = initial_view_no + 1
+    orderer._data.primary_name = 'some_node'  # non-primary
+
+    pre_prepares = create_pre_prepares(view_no=initial_view_no)
+    new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
+                               batches=create_batches_from_preprepares(pre_prepares))
+
+    # # emulate that we received all PrePrepares before View Change
+    orderer._update_old_view_preprepares(pre_prepares)
+
+    # SEND NewViewCheckpointsApplied
+    internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
+                                                view_changes=new_view.viewChanges,
+                                                checkpoint=new_view.checkpoint,
+                                                batches=new_view.batches))
+
+    if orderer.is_master:
+        # check that PPs were added
+        assert orderer._data.preprepared == [BatchID(view_no=initial_view_no + 1, pp_view_no=initial_view_no,
+                                                     pp_seq_no=batch_id.pp_seq_no, pp_digest=batch_id.pp_digest)
+                                             for batch_id in new_view.batches]
+        for pp in pre_prepares:
+            assert (pp.viewNo, pp.ppSeqNo) in orderer.prePrepares
+            assert orderer.prePrepares[(pp.viewNo, pp.ppSeqNo)] == pp
+        assert not orderer.sentPrePrepares
+
+        # check that Prepare is sent
+        check_prepares_sent(external_bus, pre_prepares, initial_view_no + 1)
+
+        # we don't have a quorum of Prepares yet
+        assert orderer._data.prepared == []
+    else:
+        # no re-ordering is expected on non-master
         assert orderer._data.preprepared == []
         assert orderer._data.prepared == []
