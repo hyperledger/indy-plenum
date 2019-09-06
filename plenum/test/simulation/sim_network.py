@@ -4,6 +4,7 @@ from typing import Any, Iterable
 
 from plenum.common.event_bus import ExternalBus
 from plenum.common.timer import TimerService
+from plenum.server.replica_helper import generateName
 from plenum.test.simulation.sim_random import SimRandom
 
 
@@ -43,5 +44,7 @@ class SimNetwork:
             peer = self._peers.get(name)
             assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
 
+            # emulate it the same way as in Replica, that is sender must have 'node_name:inst_id' form
+            frm = generateName(frm, 0)
             self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
                                  partial(peer.process_incoming, msg, frm))

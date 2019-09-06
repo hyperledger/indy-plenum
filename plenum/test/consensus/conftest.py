@@ -13,6 +13,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import primary_in_view
@@ -49,7 +50,7 @@ def initial_checkpoints(initial_view_no):
 @pytest.fixture
 def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is_master):
     def _data(name):
-        data = ConsensusSharedData(name, validators, 0, is_master)
+        data = ConsensusSharedData(generateName(name, 0), validators, 0, is_master)
         data.view_no = initial_view_no
         data.checkpoints.update(initial_checkpoints)
         return data

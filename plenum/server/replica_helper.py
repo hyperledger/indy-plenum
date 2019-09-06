@@ -23,6 +23,26 @@ PP_APPLY_AUDIT_HASH_MISMATCH = 15
 PP_REQUEST_ALREADY_ORDERED = 16
 
 
+def generateName(nodeName: str, instId: int):
+    """
+    Create and return the name for a replica using its nodeName and
+    instanceId.
+     Ex: Alpha:1
+    """
+
+    if isinstance(nodeName, str):
+        # Because sometimes it is bytes (why?)
+        if ":" in nodeName:
+            # Because in some cases (for requested messages) it
+            # already has ':'. This should be fixed.
+            return nodeName
+    return "{}:{}".format(nodeName, instId)
+
+
+def getNodeName(replicaName: str):
+    return replicaName.split(":")[0]
+
+
 @unique
 class TPCStat(IntEnum):  # TPC => Three-Phase Commit
     ReqDigestRcvd = 0

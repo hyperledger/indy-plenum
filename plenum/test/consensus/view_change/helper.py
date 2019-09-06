@@ -1,7 +1,9 @@
+from functools import partial
 from typing import Optional, List
 
 import base58
 
+from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
 from plenum.test.consensus.helper import SimPool
@@ -44,6 +46,18 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         node._data.checkpoints.update(checkpoints[:cp_count[i]])
         node._data.stable_checkpoint = stable_cp[i]
 
+    # Mock Ordering service to update preprepares for new view
+    for node in pool.nodes:
+        def update_shared_data(node, msg: NewViewCheckpointsApplied):
+            x = [
+                BatchID(view_no=msg.view_no, pp_view_no=batch_id.pp_view_no, pp_seq_no=batch_id.pp_seq_no,
+                        pp_digest=batch_id.pp_digest)
+                for batch_id in msg.batches
+            ]
+            node._orderer._data.preprepared = x
+
+        node._orderer._subscription.subscribe(node._orderer._stasher, NewViewCheckpointsApplied, partial(update_shared_data, node))
+
     committed = []
     for i in range(1, max_batches):
         prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
@@ -56,7 +70,6 @@ def some_pool(random: SimRandom) -> (SimPool, List):
 
 
 def calc_committed(view_changes, max_pp_seq_no, n, f) -> List[BatchID]:
-
     def check_prepared_in_vc(vc, batch_id):
         # check that batch_id is present in VC's prepared and preprepared
         for p_batch_id in vc.prepared:

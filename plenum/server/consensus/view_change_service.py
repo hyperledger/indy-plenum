@@ -15,7 +15,7 @@ from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
-from plenum.server.replica import Replica
+from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_VIEW
 from stp_core.common.log import getlogger
 
@@ -72,7 +72,7 @@ class ViewChangeService:
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
                                                                          instance_count=self._data.quorums.f + 1,
                                                                          validators=self._data.validators)
-        self._data.primary_name = Replica.generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
+        self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
@@ -132,10 +132,11 @@ class ViewChangeService:
 
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
-            name=frm,
+            name=getNodeName(frm),
             digest=view_change_digest(msg)
         )
-        self._network.send(vca, self._data.primary_name)
+        primary_node_name = getNodeName(self._data.primary_name)
+        self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
         return PROCESS, None
@@ -477,12 +478,14 @@ class ViewChangeVotesForView:
         """
         Adds view change ack and returns boolean indicating if it found node suspicios
         """
+        frm = getNodeName(frm)
         return self._votes[frm].add_view_change(msg)
 
     def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
         """
         Adds view change ack and returns boolean indicating if it found node suspicios
         """
+        frm = getNodeName(frm)
         return self._votes[msg.name].add_view_change_ack(msg, frm)
 
     def clear(self):

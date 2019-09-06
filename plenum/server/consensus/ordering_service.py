@@ -42,7 +42,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
@@ -871,12 +871,21 @@ class OrderingService:
         self._timer.schedule(delay, func)
 
     def _process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
+        why_not_applied = None
+        # apply and validate applied PrePrepare if it's not odered yet
         if not self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
-            self._apply_and_validate_applied_pre_prepare(pre_prepare, sender)
+            why_not_applied = self._apply_and_validate_applied_pre_prepare(pre_prepare, sender)
+
+        if why_not_applied is not None:
+            return why_not_applied
+
+        # add to PrePrepares
         if self._data.is_primary:
             self._add_to_sent_pre_prepares(pre_prepare)
         else:
             self._add_to_pre_prepares(pre_prepare)
+
+        return None
 
     def _apply_and_validate_applied_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         self.first_batch_after_catchup = False
@@ -988,7 +997,7 @@ class OrderingService:
         """
         Request preprepare
         """
-        recipients = self.primary_name
+        recipients = [getNodeName(self.primary_name)]
         return self._request_three_phase_msg(three_pc_key,
                                              self.requested_pre_prepares,
                                              PREPREPARE,
@@ -1003,9 +1012,9 @@ class OrderingService:
         """
         if recipients is None:
             recipients = self._network.connecteds.copy()
-            primary_name = self.primary_name[:self.primary_name.rfind(":")]
-            if primary_name in recipients:
-                recipients.remove(primary_name)
+            primary_node_name = getNodeName(self.primary_name)
+            if primary_node_name in recipients:
+                recipients.remove(primary_node_name)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
@@ -1843,22 +1852,6 @@ class OrderingService:
             return True
         return False
 
-    @staticmethod
-    def generateName(node_name: str, inst_id: int):
-        """
-        Create and return the name for a replica using its nodeName and
-        instanceId.
-         Ex: Alpha:1
-        """
-
-        if isinstance(node_name, str):
-            # Because sometimes it is bytes (why?)
-            if ":" in node_name:
-                # Because in some cases (for requested messages) it
-                # already has ':'. This should be fixed.
-                return node_name
-        return "{}:{}".format(node_name, inst_id)
-
     def dequeue_pre_prepares(self):
         """
         Dequeue any received PRE-PREPAREs that did not have finalized requests
@@ -2003,7 +1996,6 @@ class OrderingService:
     def _do_send_3pc_batch(self, ledger_id):
         oldStateRootHash = self.get_state_root_hash(ledger_id, to_str=False)
         pre_prepare = self.create_3pc_batch(ledger_id)
-        self._add_to_sent_pre_prepares(pre_prepare)
         self.send_pre_prepare(pre_prepare)
         if not self.is_master:
             self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
@@ -2078,6 +2070,8 @@ class OrderingService:
         if self.is_master and rejects:
             for reject in rejects:
                 self._network.send(reject)
+
+        self._add_to_sent_pre_prepares(pre_prepare)
         return pre_prepare
 
     def _get_last_timestamp_from_state(self, ledger_id):
@@ -2308,7 +2302,7 @@ class OrderingService:
             new_pp = updateNamedTuple(pp, viewNo=self.view_no, originalViewNo=batch_id.pp_view_no)
 
             # PrePrepare is accepted from the current Primary only
-            sender = self.generateName(self._data.primary_name, self._data.inst_id)
+            sender = generateName(self._data.primary_name, self._data.inst_id)
             self.process_preprepare(new_pp, sender)
 
         return PROCESS, None

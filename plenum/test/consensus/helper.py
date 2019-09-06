@@ -18,6 +18,7 @@ from plenum.server.consensus.view_change_service import ViewChangeService, view_
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
+from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
@@ -76,7 +77,7 @@ class SimPool:
             crypto_factory=create_default_bls_crypto_factory(),
             get_free_port=partial(random.integer, 9000, 9999))['txns']
 
-        self._nodes = [ReplicaService(name, validators, primary_name,
+        self._nodes = [ReplicaService(generateName(name, 0), validators, primary_name,
                                       self._timer, InternalBus(), self.network.create_peer(name),
                                       write_manager=create_test_write_req_manager(name, genesis_txns))
                        for name in validators]
