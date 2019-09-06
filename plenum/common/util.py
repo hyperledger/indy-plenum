@@ -611,18 +611,15 @@ def compare_3PC_keys(key1, key2) -> int:
     """
     Return >0 if key2 is greater than key1, <0 if lesser, 0 otherwise
     """
-    if key1[0] == key2[0]:
-        return key2[1] - key1[1]
-    else:
-        return key2[0] - key1[0]
+    return key2[1] - key1[1]
 
 
 def min_3PC_key(keys) -> Tuple[int, int]:
-    return min(keys, key=lambda k: (k[0], k[1]))
+    return min(keys, key=lambda k: k[1])
 
 
 def max_3PC_key(keys) -> Tuple[int, int]:
-    return max(keys, key=lambda k: (k[0], k[1]))
+    return max(keys, key=lambda k: k[1])
 
 
 if 'peekitem' in dir(_SortedDict):

@@ -83,4 +83,3 @@ def test_seq_no_db_unsigned_request(looper, node, sdk_wallet_client):
     signed_req = deserialize_req(signed_req)
     rep = node.getReplyFromLedgerForRequest(signed_req)
     assert isinstance(rep, RequestNack)
-

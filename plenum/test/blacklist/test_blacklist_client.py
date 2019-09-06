@@ -25,9 +25,8 @@ def testDoNotBlacklistClient(looper, txnPoolNodeSet,
 
     reqs = sdk_send_signed_requests(sdk_pool_handle, [json.dumps(req_obj.as_dict)])
 
-    with pytest.raises(RequestNackedException) as e:
+    with pytest.raises(RequestNackedException, match='MissingSignature'):
         sdk_get_and_check_replies(looper, reqs)
-    assert 'MissingSignature' in e._excinfo[1].args[0]
 
     def chk():
         for node in txnPoolNodeSet:

@@ -319,7 +319,7 @@ def test_can_send_3pc_batch_old_view(primary_validator, mode):
 
 def test_can_send_3pc_batch_old_pp_seq_no_for_view(primary_validator, mode):
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, 100)
-    primary_validator.replica.lastPrePrepareSeqNo = 0
+    primary_validator.replica._ordering_service._lastPrePrepareSeqNo = 0
     primary_validator.replica.node.mode = mode
     assert not primary_validator.can_send_3pc_batch()
 
@@ -328,7 +328,7 @@ def test_can_send_3pc_batch_old_pp_seq_no_for_view(primary_validator, mode):
 def test_can_send_multiple_3pc_batches(primary_validator, initial_seq_no, monkeypatch):
     monkeypatch.setattr(primary_validator.replica.config, 'Max3PCBatchesInFlight', None)
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, initial_seq_no)
-    primary_validator.replica.lastPrePrepareSeqNo = initial_seq_no + 10
+    primary_validator.replica._ordering_service.lastPrePrepareSeqNo = initial_seq_no + 10
     assert primary_validator.can_send_3pc_batch()
 
 
@@ -338,7 +338,7 @@ def test_can_send_multiple_3pc_batches_below_limit(primary_validator, initial_se
     limit = 4
     monkeypatch.setattr(primary_validator.replica.config, 'Max3PCBatchesInFlight', limit)
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, initial_seq_no)
-    primary_validator.replica.lastPrePrepareSeqNo = initial_seq_no + num_in_flight
+    primary_validator.replica._ordering_service.lastPrePrepareSeqNo = initial_seq_no + num_in_flight
     assert primary_validator.can_send_3pc_batch()
 
 
@@ -348,7 +348,7 @@ def test_cannot_send_multiple_3pc_batches_above_limit(primary_validator, initial
     limit = 4
     monkeypatch.setattr(primary_validator.replica.config, 'Max3PCBatchesInFlight', limit)
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo, initial_seq_no)
-    primary_validator.replica.lastPrePrepareSeqNo = initial_seq_no + limit + above_limit
+    primary_validator.replica._ordering_service.lastPrePrepareSeqNo = initial_seq_no + limit + above_limit
     assert not primary_validator.can_send_3pc_batch()
 
 
@@ -358,7 +358,7 @@ def test_can_send_multiple_3pc_batches_in_next_view(primary_validator, initial_s
     limit = 4
     monkeypatch.setattr(primary_validator.replica.config, 'Max3PCBatchesInFlight', limit)
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo - 1, initial_seq_no)
-    primary_validator.replica.lastPrePrepareSeqNo = initial_seq_no + num_in_flight
+    primary_validator.replica._ordering_service.lastPrePrepareSeqNo = initial_seq_no + num_in_flight
     assert primary_validator.can_send_3pc_batch()
 
 

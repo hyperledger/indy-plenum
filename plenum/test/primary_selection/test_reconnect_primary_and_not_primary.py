@@ -12,17 +12,6 @@ logger = getlogger()
 
 nodeCount = 7
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    old_timeout_restricted = tconf.RETRY_TIMEOUT_RESTRICTED
-    old_timeout_not_restricted = tconf.RETRY_TIMEOUT_NOT_RESTRICTED
-    tconf.RETRY_TIMEOUT_RESTRICTED = 2
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = 2
-    yield tconf
-
-    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout_restricted
-    tconf.RETRY_TIMEOUT_NOT_RESTRICTED = old_timeout_not_restricted
-
 
 def check_count_connected_node(nodes, expected_count):
     assert set([n.connectedNodeCount for n in nodes]) == {expected_count}

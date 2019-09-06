@@ -1,8 +1,7 @@
 import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
-from plenum.test.checkpoints.helper import cp_key, check_stable_checkpoint, check_num_received_checkpoints, \
-    check_last_received_checkpoint
+from plenum.test.checkpoints.helper import cp_key, check_num_received_checkpoints, check_last_received_checkpoint
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change_complete
@@ -22,8 +21,12 @@ def view_setup(looper, txnPoolNodeSet):
 def clear_checkpoints(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         for inst_id, replica in node.replicas.items():
-            # TODO: Don't clear own stable checkpoint
+            stable_cp_seq_no = replica._consensus_data.stable_checkpoint
+            own_stable_checkpoints = list(replica._consensus_data.checkpoints.irange_key(min_key=stable_cp_seq_no,
+                                                                                         max_key=stable_cp_seq_no))
             replica._consensus_data.checkpoints.clear()
+            if len(own_stable_checkpoints) > 0:
+                replica._consensus_data.checkpoints.append(own_stable_checkpoints[0])
             replica._checkpointer._received_checkpoints.clear()
 
 
@@ -36,7 +39,7 @@ def test_checkpoints_removed_on_master_non_primary_replica_after_catchup(
 
     node.master_replica.last_ordered_3pc = (2, 12)
 
-    replica._consensus_data.stable_checkpoint = 10
+    replica._checkpointer._mark_checkpoint_stable(10)
     replica._checkpointer._received_checkpoints[cp_key(2, 15)] = [r.name for r in others]
     replica._checkpointer._received_checkpoints[cp_key(2, 20)] = [r.name for r in others]
     replica._checkpointer._received_checkpoints[cp_key(2, 25)] = [next(iter(others)).name]

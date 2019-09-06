@@ -27,6 +27,9 @@ class ReplicaFakeNode(FakeSomething):
         )
         self.replicas = []
         self.viewNo = viewNo
+        audit_ledger = FakeSomething(size=0)
+        db_manager = DatabaseManager()
+        db_manager.register_new_database(AUDIT_LEDGER_ID, audit_ledger)
         super().__init__(
             name="fake node",
             ledger_ids=ledger_ids,
@@ -42,8 +45,8 @@ class ReplicaFakeNode(FakeSomething):
             applyReq=lambda self, *args, **kwargs: True,
             primaries=[],
             get_validators=lambda: [],
-            db_manager=None,
-            write_manager=FakeSomething(database_manager=DatabaseManager(),
+            db_manager=db_manager,
+            write_manager=FakeSomething(database_manager=db_manager,
                                         apply_request=lambda req, cons_time: None),
             timer=QueueTimer()
         )
