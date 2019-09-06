@@ -39,7 +39,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.server.replica_helper import replica_batch_digest
+from plenum.server.replica_helper import replica_batch_digest, TPCStat
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
 from plenum.server.router import Router
