@@ -172,7 +172,7 @@ class ViewChangeService:
         self._finish_view_change_if_needed()
         return PROCESS, None
 
-    def process_new_view_accepted(self, msg:NewViewAccepted):
+    def process_new_view_accepted(self, msg: NewViewAccepted):
         self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
