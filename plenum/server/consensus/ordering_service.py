@@ -2310,7 +2310,6 @@ class OrderingService:
 
         return PROCESS, None
 
-
     def _preprepare_batch(self, pp: PrePrepare):
         """
         After pp had validated, it placed into _preprepared list
