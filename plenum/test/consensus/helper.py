@@ -94,7 +94,7 @@ class SimPool:
         return self._nodes
 
 
-VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries'
+VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
 ORDERING_SERVICE_FIELDS = 'last_ordered_3pc', 'preprepared', 'prepared'
 CHECKPOINT_SERVICE_FIELDS = 'stable_checkpoint', 'checkpoints', 'low_watermark', 'high_watermark'
 
@@ -162,7 +162,7 @@ def create_new_view_from_vc(vc, validators, checkpoint=None, batches=None):
 
 def create_new_view(initial_view_no, stable_cp, validators=None, batches=None):
     validators = validators or genNodeNames(4)
-    batches = batches or create_batches(initial_view_no)
+    batches = create_batches(initial_view_no) if batches is None else batches
     vc = create_view_change(initial_view_no, stable_cp, batches)
     return create_new_view_from_vc(vc, validators)
 

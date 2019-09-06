@@ -52,6 +52,7 @@ class ViewChangeService:
 
         self._subscription = Subscription()
         self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
+        self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
 
     def __repr__(self):
         return self._data.name
@@ -169,6 +170,9 @@ class ViewChangeService:
         self._new_view = msg
         self._finish_view_change_if_needed()
         return PROCESS, None
+
+    def process_new_view_accepted(self, msg:NewViewAccepted):
+        self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation

@@ -21,12 +21,12 @@ from plenum.test.helper import MockTimer, MockNetwork
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(params=[4, 6, 7])
+@pytest.fixture(params=[4, 6, 7], ids=['4nodes', '6nodes', '7nodes'])
 def validators(request):
     return genNodeNames(request.param)
 
 
-@pytest.fixture(params=[0, 2])
+@pytest.fixture(params=[0, 2], ids=['view=0', 'view=2'])
 def initial_view_no(request):
     return request.param
 
@@ -110,7 +110,7 @@ def view_change_message():
     return _view_change
 
 
-@pytest.fixture(params=[True, False])
+@pytest.fixture(params=[True, False], ids=['master', 'non-master'])
 def is_master(request):
     return request.param
 

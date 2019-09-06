@@ -72,6 +72,7 @@ class ConsensusSharedData:
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
+        self.prev_view_prepare_cert = None
 
     @property
     def name(self) -> str:

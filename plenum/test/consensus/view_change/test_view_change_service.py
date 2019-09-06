@@ -79,11 +79,12 @@ def test_do_nothing_on_view_change_started(internal_bus, view_change_service):
     assert old_data == new_data
 
 
-def test_do_nothing_on_new_view_accepted(internal_bus, view_change_service):
+def test_update_shared_data_on_new_view_accepted(internal_bus, view_change_service):
     view_change_service._data.waiting_for_new_view = False
     view_change_service._data.view_no = 1
     view_change_service._data.primary_name = "Alpha"
     view_change_service._data.primaries = ["Alpha", "Beta"]
+    view_change_service._data.prev_view_prepare_cert = 1
     old_data = copy_shared_data(view_change_service._data)
 
     new_view = create_new_view(initial_view_no=3, stable_cp=200)
@@ -93,7 +94,27 @@ def test_do_nothing_on_new_view_accepted(internal_bus, view_change_service):
                                       batches=new_view.batches))
 
     new_data = copy_shared_data(view_change_service._data)
-    assert old_data == new_data
+    assert view_change_service._data.prev_view_prepare_cert == new_view.batches[-1].pp_seq_no
+    check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
+
+
+def test_update_shared_data_on_new_view_accepted_no_batches(internal_bus, view_change_service):
+    view_change_service._data.waiting_for_new_view = False
+    view_change_service._data.view_no = 1
+    view_change_service._data.primary_name = "Alpha"
+    view_change_service._data.primaries = ["Alpha", "Beta"]
+    view_change_service._data.prev_view_prepare_cert = 1
+    old_data = copy_shared_data(view_change_service._data)
+
+    new_view = create_new_view(initial_view_no=3, stable_cp=200, batches=[])
+    internal_bus.send(NewViewAccepted(view_no=4,
+                                      view_changes=new_view.viewChanges,
+                                      checkpoint=new_view.checkpoint,
+                                      batches=new_view.batches))
+
+    new_data = copy_shared_data(view_change_service._data)
+    assert view_change_service._data.prev_view_prepare_cert is None
+    check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
 
 def test_do_nothing_on_new_view_checkpoint_applied(internal_bus, view_change_service):

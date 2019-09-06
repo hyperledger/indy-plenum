@@ -1799,6 +1799,9 @@ class OrderingService:
             return False
         if not self._data.is_participating:
             return False
+        if self._data.prev_view_prepare_cert is not None and self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
+            return False
+
         # ToDo: is pre_view_change_in_progress needed?
         # if self.replica.node.pre_view_change_in_progress:
         #     return False
