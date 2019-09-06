@@ -187,7 +187,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.db_manager = DatabaseManager()
         self.init_req_managers()
         # init storages and request handlers
-        self._bootstrap_node(bootstrap_cls, storage)
+        self.bootstrapper = self._bootstrap_node(bootstrap_cls, storage)
 
         # ToDo: refactor this on pluggable req handler integration phase
         self.register_executer(POOL_LEDGER_ID, self.execute_pool_txns)
@@ -954,6 +954,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def start(self, loop):
         # Avoid calling stop and then start on the same node object as start
         # does not re-initialise states
+        self.bootstrapper.upload_states(self.ledger_ids)
         oldstatus = self.status
         if oldstatus in Status.going():
             logger.debug("{} is already {}, so start has no effect".
@@ -3520,7 +3521,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.action_manager = ActionRequestManager()
 
     def _bootstrap_node(self, bootstrap_cls, storage):
-        bootstrap_cls(self).init(domain_storage=storage)
+        bootstrapper = bootstrap_cls(self)
+        bootstrapper.init(domain_storage=storage)
+        return bootstrapper
 
     def get_validators(self):
         return self.poolManager.node_ids_ordered_by_rank(

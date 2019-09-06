@@ -19,7 +19,6 @@ def test_promotion_leads_to_primary_inconsistency(looper,
                                                   tconf,
                                                   allPluginsPath,
                                                   sdk_wallet_stewards,
-
                                                   sdk_pool_handle):
     # We are saving pool state at moment of last view_change to send it
     # to newly connected nodes so they could restore primaries basing on this node set.
@@ -60,8 +59,10 @@ def test_promotion_leads_to_primary_inconsistency(looper,
     node_1 = start_stopped_node(node_1, looper, tconf, tdir, allPluginsPath)
     txnPoolNodeSet.append(node_1)
 
-    # Wait so node_1 could start and finish view_change
-    looper.runFor(1)
+    # # Wait so node_1 could start and finish view_change
+    # looper.runFor(1)
+    # Checking that view change happened
+    ensureElectionsDone(looper, txnPoolNodeSet, instances_list=[0, 1])
 
     # Promoting node 3, increasing replica count
     node_3 = start_stopped_node(node_3, looper, tconf, tdir, allPluginsPath)

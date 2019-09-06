@@ -483,6 +483,8 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
+    if db1._keyValueStorage._db is None or db2._keyValueStorage._db is None:
+        return False
     assert db1.size == db2.size, \
         "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
@@ -522,8 +524,8 @@ def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
     for n in nodes:
         for r in n.replicas.values():
             assert r.last_ordered_3pc == last_ordered_3pc, \
-                "{} != {}".format(r.last_ordered_3pc,
-                                  last_ordered_3pc)
+                "{} != {}, Replica: {}".format(r.last_ordered_3pc,
+                                               last_ordered_3pc, r)
 
 
 def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
@@ -834,6 +836,7 @@ def sdk_multisign_request_object(looper, sdk_wallet, req):
     wh, did = sdk_wallet
     return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
 
+
 def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
     wh, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
@@ -844,6 +847,7 @@ def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acce
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
     return json.loads(resp)
+
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
@@ -1496,3 +1500,8 @@ def create_pool_txn_data(node_names: List[str],
     data['txns'].extend(more_data_users)
     data['seeds'].update(more_data_seeds)
     return data
+
+def get_pp_seq_no(nodes: list) -> int:
+    los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
+    assert len(los) == 1
+    return los.pop()

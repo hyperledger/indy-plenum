@@ -49,11 +49,12 @@ def test_replica_clear_collections_after_view_change(looper,
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
                           customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
 
+    # + 1 because of lastPrePrepareSeqNo was not dropped after view_change
     sdk_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,
-                                         num_reqs=reqs_for_checkpoint)
+                                         num_reqs=reqs_for_checkpoint + 1)
 
     def check_request_queues():
         assert len(txnPoolNodeSet[0].requests) == 1

@@ -26,4 +26,4 @@ def test_initial_consensus_state(some_item, other_item, validators):
 
     # Checkpoints
     assert data.stable_checkpoint == 0
-    assert list(data.checkpoints) == []
+    assert list(data.checkpoints) == [data.initial_checkpoint]

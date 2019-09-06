@@ -14,7 +14,7 @@ from plenum.test.delayers import cr_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
-    check_last_ordered_3pc_on_all_replicas
+    check_last_ordered_3pc_on_all_replicas, get_pp_seq_no
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
@@ -50,6 +50,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     is received.
     '''
 
+    batches_count = get_pp_seq_no(txnPoolNodeSet)
     # Prepare nodes
     lagging_node = txnPoolNodeSet[-1]
     rest_nodes = txnPoolNodeSet[:-1]
@@ -57,7 +58,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     # Check that requests executed well
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
-
+    batches_count += 1
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
     disconnect_node_and_ensure_disconnected(looper,
@@ -69,6 +70,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     # Send more requests to active nodes
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
+    batches_count += 1
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Restart stopped node and wait for successful catch up
@@ -102,9 +104,10 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client,
                                   num_reqs)
+        batches_count += num_reqs
         looper.run(
             eventually(check_last_ordered_3pc_on_all_replicas, rest_nodes,
-                       (0, num_reqs + 2))
+                       (0, batches_count))
         )
 
         # all good nodes stabilized checkpoint
@@ -122,7 +125,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     # check that last_ordered is set
     looper.run(
         eventually(check_last_ordered_3pc_on_all_replicas, [lagging_node],
-                   (0, num_reqs + 2))
+                   (0, batches_count))
     )
 
     # check that checkpoint is stabilized for master

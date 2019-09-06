@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from plenum.test.replica.helper import emulate_catchup, emulate_select_primaries
 
 
@@ -49,29 +51,23 @@ def test_propagate_primary_non_Master_watermarks_not_maxsize_if_is_primary(repli
 
 
 def test_catchup_clear_for_backup(replica):
+    last_ordered_before = replica.last_ordered_3pc
     replica._consensus_data.primary_name = None
     replica.isMaster = False
     replica._catchup_clear_for_backup()
-    assert replica.last_ordered_3pc == (replica.viewNo, 0)
+    assert replica.last_ordered_3pc == last_ordered_before
     assert replica.h == 0
     assert replica.H == sys.maxsize
 
-def test_reset_watermarks_before_new_view_on_master(replica, tconf):
+
+def test_do_not_reset_watermarks_before_new_view_on_master(replica, tconf):
     replica.isMaster = True
-    replica._checkpointer.set_watermarks(low_watermark=100)
-    replica._checkpointer.reset_watermarks_before_new_view()
-    assert replica.h == 0
-    assert replica.H == tconf.LOG_SIZE
-    assert replica._ordering_service._lastPrePrepareSeqNo == replica.h
-
-
-def test_reset_watermarks_before_new_view_non_master(replica, tconf):
-    replica.isMaster = False
-    replica._checkpointer.set_watermarks(low_watermark=100)
-    replica._checkpointer.reset_watermarks_before_new_view()
-    assert replica.h == 0
-    assert replica.H == tconf.LOG_SIZE
-    assert replica._ordering_service._lastPrePrepareSeqNo == replica.h
+    h_before = 100
+    last_pp_before = replica._ordering_service._lastPrePrepareSeqNo
+    replica._checkpointer.set_watermarks(low_watermark=h_before)
+    assert replica.h == h_before
+    assert replica.H == h_before + tconf.LOG_SIZE
+    assert replica._ordering_service._lastPrePrepareSeqNo == last_pp_before
 
 
 def test_catchup_without_vc_and_no_primary_on_master(replica, tconf):
@@ -96,12 +92,8 @@ def test_catchup_without_vc_and_no_primary_on_backup(replica, tconf):
     emulate_catchup(replica, ppSeqNo)
     # select_primaries after allLedgersCaughtUp
     emulate_select_primaries(replica)
-    if replica.viewNo > 0:
-        assert replica.h == 0
-        assert replica.H == tconf.LOG_SIZE
-    else:
-        assert replica.h == 0
-        assert replica.H == sys.maxsize
+    assert replica.h == 0
+    assert replica.H == sys.maxsize
 
 
 def test_catchup_without_during_vc_with_primary_on_master(replica, tconf):
@@ -116,17 +108,21 @@ def test_catchup_without_during_vc_with_primary_on_master(replica, tconf):
     assert replica.H == ppSeqNo + tconf.LOG_SIZE
 
 
-
 def test_catchup_without_during_vc_with_primary_on_backup(replica):
     # this test emulate situation of simple catchup procedure without view_change
     # (by checkpoints or ledger_statuses)
-    ppSeqNo = 100
+    caughtup_pp_seq_no = 100
+    current_pp_seq_no = 50
+    replica._ordering_service.last_ordered_3pc = (replica.viewNo, current_pp_seq_no)
+    replica._ordering_service.first_batch_after_catchup = False
     replica._consensus_data.primary_name = 'SomeNode'
+    replica._consensus_data._name = "SomeAnotherNode"
     replica.isMaster = False
-    emulate_catchup(replica, ppSeqNo)
-    assert replica.last_ordered_3pc == (replica.viewNo, 0)
+    emulate_catchup(replica, caughtup_pp_seq_no)
+    assert replica.last_ordered_3pc == (replica.viewNo, current_pp_seq_no)
     assert replica.h == 0
     assert replica.H == sys.maxsize
+    assert replica._ordering_service.first_batch_after_catchup
 
 
 def test_view_change_no_propagate_primary_on_master(replica, tconf):
@@ -147,12 +143,8 @@ def test_view_change_no_propagate_primary_on_backup(replica, tconf):
     # next calls emulate simple view_change procedure (replica's watermark related steps)
     emulate_catchup(replica, ppSeqNo)
     emulate_select_primaries(replica)
-    if replica.viewNo > 0:
-        assert replica.h == 0
-        assert replica.H == tconf.LOG_SIZE
-    else:
-        assert replica.h == 0
-        assert replica.H == sys.maxsize
+    assert replica.h == 0
+    assert replica.H == sys.maxsize
 
 
 def test_view_change_propagate_primary_on_master(replica, tconf):

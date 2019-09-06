@@ -123,8 +123,8 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
     checkpoint_service.caught_up_till_3pc(checkpoint_service._data.last_ordered_3pc)
 
     assert checkpoint_service._data.low_watermark == till_seq_no
-    assert not checkpoint_service._data.checkpoints
-    assert checkpoint_service._data.stable_checkpoint == 0
+    assert checkpoint in checkpoint_service._data.checkpoints
+    assert checkpoint_service._data.stable_checkpoint == till_seq_no
     assert key not in checkpoint_service._received_checkpoints
     assert new_key not in checkpoint_service._received_checkpoints
 
@@ -140,7 +140,9 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     till_seq_no = tconf.CHK_FREQ
 
     checkpoint_service._received_checkpoints[cp_key(checkpoint.viewNo, 1)] = {"frm"}
-    checkpoint_service._received_checkpoints[cp_key(checkpoint.viewNo + 1, 1)] = {"frm"}
+    # For now, on checkpoint stabilization phase all checkpoints
+    # with ppSeqNo less then stable_checkpoint will be removed
+    checkpoint_service._received_checkpoints[cp_key(checkpoint.viewNo + 1, till_seq_no + 100)] = {"frm"}
 
     pre_prepare.ppSeqNo = till_seq_no
     pre_prepare.auditTxnRootHash = cp_digest(till_seq_no)

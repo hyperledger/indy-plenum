@@ -1,17 +1,20 @@
 from collections import defaultdict
 
 import sys
-from typing import Tuple, NamedTuple, List, Set
+from typing import Tuple, NamedTuple, List, Set, Optional
 
 from common.exceptions import LogicError
 from plenum.common.config_util import getConfig
+from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
     BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS
+from plenum.common.txn_util import get_payload_data
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
@@ -138,16 +141,13 @@ class CheckpointService:
 
     def gc_before_new_view(self):
         self._reset_checkpoints()
+        # ToDo: till_3pc_key should be None?
         self._remove_received_checkpoints(till_3pc_key=(self.view_no, 0))
 
     def caught_up_till_3pc(self, caught_up_till_3pc):
-        # TODO: Implement it like this
-        # cp_seq_no = caught_up_till_3pc[1] // self._config.CHK_FREQ * self._config.CHK_FREQ
-        # self._mark_checkpoint_stable(cp_seq_no)
-
-        self._reset_checkpoints()
-        self._remove_received_checkpoints(till_3pc_key=caught_up_till_3pc)
-        self.update_watermark_from_3pc()
+        # TODO: Add checkpoint using audit ledger
+        cp_seq_no = caught_up_till_3pc[1] // self._config.CHK_FREQ * self._config.CHK_FREQ
+        self._mark_checkpoint_stable(cp_seq_no)
 
     def catchup_clear_for_backup(self):
         self._reset_checkpoints()
@@ -188,9 +188,19 @@ class CheckpointService:
     def _mark_checkpoint_stable(self, pp_seq_no):
         self._data.stable_checkpoint = pp_seq_no
 
+        stable_checkpoints = self._data.checkpoints.irange_key(min_key=pp_seq_no, max_key=pp_seq_no)
+        if len(list(stable_checkpoints)) == 0:
+            # TODO: Is it okay to get view_no like this?
+            view_no = self._data.last_ordered_3pc[0]
+            checkpoint = Checkpoint(instId=self._data.inst_id,
+                                    viewNo=view_no,
+                                    seqNoStart=0,
+                                    seqNoEnd=pp_seq_no,
+                                    digest=self._audit_txn_root_hash(view_no, pp_seq_no))
+            self._data.checkpoints.add(checkpoint)
+
         for cp in self._data.checkpoints.copy():
-            # TODO: Change to < to make checkpoints compatible with PBFT view change
-            if cp.seqNoEnd <= pp_seq_no:
+            if cp.seqNoEnd < pp_seq_no:
                 self._logger.trace("{} removing previous checkpoint {}".format(self, cp))
                 self._data.checkpoints.remove(cp)
 
@@ -199,19 +209,6 @@ class CheckpointService:
         self._remove_received_checkpoints(till_3pc_key=(self.view_no, pp_seq_no))
         self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, pp_seq_no)))  # call OrderingService.l_gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, pp_seq_no))
-
-    def reset_watermarks_before_new_view(self):
-        # Reset any previous view watermarks since for view change to
-        # successfully complete, the node must have reached the same state
-        # as other nodes
-        self.set_watermarks(low_watermark=0)
-
-    def should_reset_watermarks_before_new_view(self):
-        if self.view_no <= 0:
-            return False
-        if self.last_ordered_3pc[0] == self.view_no and self.last_ordered_3pc[1] > 0:
-            return False
-        return True
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark
@@ -252,8 +249,7 @@ class CheckpointService:
         # because according to paper, checkpoints cleared only when next stabilized.
         # Avoid using it while implement other services.
         self._data.checkpoints.clear()
-        # TODO: change to = 1 in ViewChangeService integration.
-        self._data.stable_checkpoint = 0
+        self._data.checkpoints.append(self._data.initial_checkpoint)
 
     def __str__(self) -> str:
         return "{} - checkpoint_service".format(self._data.name)
@@ -287,6 +283,30 @@ class CheckpointService:
             pp_seq_no=checkpoint.seqNoEnd,
             digest=checkpoint.digest
         )
+
+    @staticmethod
+    def _audit_seq_no_from_3pc_key(audit_ledger: Ledger, view_no: int, pp_seq_no: int) -> int:
+        # TODO: Should we put it into some common code?
+        seq_no = audit_ledger.size
+        while seq_no > 0:
+            txn = audit_ledger.getBySeqNo(seq_no)
+            txn_data = get_payload_data(txn)
+            audit_view_no = txn_data[AUDIT_TXN_VIEW_NO]
+            audit_pp_seq_no = txn_data[AUDIT_TXN_PP_SEQ_NO]
+            if audit_view_no == view_no and audit_pp_seq_no == pp_seq_no:
+                break
+            seq_no -= 1
+        return seq_no
+
+    def _audit_txn_root_hash(self, view_no: int, pp_seq_no: int) -> Optional[str]:
+        audit_ledger = self._db_manager.get_ledger(AUDIT_LEDGER_ID)
+        # TODO: Should we remove view_no at some point?
+        seq_no = self._audit_seq_no_from_3pc_key(audit_ledger, view_no, pp_seq_no)
+        # TODO: What should we do if txn not found or audit ledger is empty?
+        if seq_no == 0:
+            return None
+        root_hash = audit_ledger.tree.merkle_tree_hash(0, seq_no)
+        return audit_ledger.hashToStr(root_hash)
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
         # 1. update shared data

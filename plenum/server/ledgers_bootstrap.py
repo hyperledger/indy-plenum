@@ -80,7 +80,6 @@ class LedgersBootstrap:
         self._register_req_handlers()
         self._register_batch_handlers()
         self._register_common_handlers()
-        self._upload_states()
 
     @property
     def bls_bft(self) -> BlsBft:
@@ -185,10 +184,11 @@ class LedgersBootstrap:
     def _register_common_handlers(self):
         pass
 
-    def _upload_states(self):
-        self._init_state_from_ledger(POOL_LEDGER_ID)
-        self._init_state_from_ledger(CONFIG_LEDGER_ID)
-        self._init_state_from_ledger(DOMAIN_LEDGER_ID)
+    def upload_states(self, ledger_ids=[POOL_LEDGER_ID,
+                                        CONFIG_LEDGER_ID,
+                                        DOMAIN_LEDGER_ID]):
+        for l_id in ledger_ids:
+            self._init_state_from_ledger(l_id)
 
     def _create_ledger(self, name: str, genesis: Optional[GenesisTxnInitiator] = None) -> Ledger:
         hs_type = HS_MEMORY if self.data_location is None else None
@@ -237,6 +237,8 @@ class LedgersBootstrap:
         txns from ledger.
         """
         state = self.db_manager.get_state(ledger_id)
+        if not state or state.closed:
+            return
         if state.isEmpty:
             logger.info('{} found state to be empty, recreating from ledger {}'.format(self, ledger_id))
             ledger = self.db_manager.get_ledger(ledger_id)
