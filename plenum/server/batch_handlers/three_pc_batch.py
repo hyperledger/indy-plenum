@@ -55,7 +55,7 @@ class ThreePcBatch:
                             primaries=ordered.primaries,
                             valid_digests=ordered.valid_reqIdr,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None,
-                            original_view_no=ordered.originalViewNo if f.ORIGINAL_VIEW_NO.nm in ordered else None)
+                            original_view_no=ordered.originalViewNo)
 
     @staticmethod
     def from_batch_committed_dict(batch_comitted):
@@ -71,4 +71,4 @@ class ThreePcBatch:
                             valid_digests=valid_req_keys,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
                                 f.AUDIT_TXN_ROOT_HASH.nm] is not None,
-                            original_view_no=batch_comitted.originalViewNo if f.ORIGINAL_VIEW_NO.nm in batch_comitted else None)
+                            original_view_no=batch_comitted[f.ORIGINAL_VIEW_NO.nm] if f.ORIGINAL_VIEW_NO.nm in batch_comitted else None)
