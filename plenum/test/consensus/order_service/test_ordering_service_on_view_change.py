@@ -182,7 +182,7 @@ def test_on_new_view_checkpoint_applied__non_primary__ordered__has_all_pre_prepa
     orderer._update_old_view_preprepares(pre_prepares)
 
     # emulate that we've already ordered the PrePrepares
-    orderer.last_ordered_3pc = (initial_view_no + 1, pre_prepares[-1].ppSeqNo)
+    orderer.last_ordered_3pc = (initial_view_no, pre_prepares[-1].ppSeqNo)
 
     # SEND NewViewCheckpointsApplied
     internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
@@ -225,7 +225,7 @@ def test_on_new_view_checkpoint_applied__primary__ordered__has_all_pre_prepares(
     orderer._update_old_view_preprepares(pre_prepares)
 
     # emulate that we've already ordered the PrePrepares
-    orderer.last_ordered_3pc = (initial_view_no + 1, pre_prepares[-1].ppSeqNo)
+    orderer.last_ordered_3pc = (initial_view_no, pre_prepares[-1].ppSeqNo)
 
     # SEND NewViewCheckpointsApplied
     internal_bus.send(NewViewCheckpointsApplied(view_no=initial_view_no + 1,
