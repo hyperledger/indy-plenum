@@ -77,10 +77,18 @@ class SimPool:
             crypto_factory=create_default_bls_crypto_factory(),
             get_free_port=partial(random.integer, 9000, 9999))['txns']
 
-        self._nodes = [ReplicaService(generateName(name, 0), validators, primary_name,
-                                      self._timer, InternalBus(), self.network.create_peer(name),
-                                      write_manager=create_test_write_req_manager(name, genesis_txns))
-                       for name in validators]
+        self._nodes = []
+        for name in validators:
+            # TODO: emulate it the same way as in Replica, that is sender must have 'node_name:inst_id' form
+            replica_name = generateName(name, 0)
+            handler = partial(self.network._send_message, replica_name)
+            replica = ReplicaService(replica_name,
+                                     validators, primary_name,
+                                     self._timer,
+                                     InternalBus(),
+                                     self.network.create_peer(name, handler),
+                                     write_manager=create_test_write_req_manager(name, genesis_txns))
+            self._nodes.append(replica)
 
     @property
     def timer(self) -> MockTimer:
