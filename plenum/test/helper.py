@@ -17,7 +17,11 @@ import pytest
 from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
+from crypto.bls.bls_factory import BlsFactoryCrypto
 from plenum.common.event_bus import ExternalBus
+from plenum.common.member.member import Member
+from plenum.common.member.steward import Steward
+from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.timer import QueueTimer
 from plenum.config import Max3PCBatchWait
@@ -31,11 +35,11 @@ from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
-    CURRENT_PROTOCOL_VERSION
+    CURRENT_PROTOCOL_VERSION, STEWARD, VALIDATOR, TRUSTEE, DATA, BLS_KEY, BLS_KEY_PROOF
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException, CommonSdkIOException, \
     PoolLedgerTimeoutException
 from plenum.common.messages.node_messages import Reply, PrePrepare, Prepare, Commit
-from plenum.common.txn_util import get_req_id, get_from
+from plenum.common.txn_util import get_req_id, get_from, get_payload_data
 from plenum.common.types import f, OPERATION
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
@@ -309,7 +313,8 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    prePreparesSent = getAllArgs(replica._ordering_service,
+                                 replica._ordering_service.send_pre_prepare)
     expectedDigest = TestReplica.batchDigest([req])
     assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
     assert (req.digest,) in \
@@ -319,15 +324,15 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
-        params = getAllArgs(replica, replica._can_process_pre_prepare)
+        params = getAllArgs(replica._ordering_service, replica._ordering_service._can_process_pre_prepare)
         assert expectedRequest.reqIdr in [p['pre_prepare'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, key: str,
                         view_no: int):
-    paramsList = getAllArgs(replica, replica.canPrepare)
-    rv = getAllReturnVals(replica,
-                          replica.canPrepare)
+    paramsList = getAllArgs(replica._ordering_service, replica._ordering_service._can_prepare)
+    rv = getAllReturnVals(replica._ordering_service,
+                          replica._ordering_service._can_prepare)
     args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
     assert (key,) in args
     idx = args.index((key,))
@@ -337,16 +342,16 @@ def checkPrepareReqSent(replica: TestReplica, key: str,
 def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,
                                    ppSeqNo: int):
     key = (viewNo, ppSeqNo)
-    assert key in replica.prepares
-    assert len(replica.prepares[key][1]) >= replica.quorums.prepare.value
+    assert key in replica._ordering_service.prepares
+    assert len(replica._ordering_service.prepares[key][1]) >= replica.quorums.prepare.value
 
 
 def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
                                   ppSeqNo: int):
     for replica in replicas:
         key = (viewNo, ppSeqNo)
-        assert key in replica.commits
-        received = len(replica.commits[key][1])
+        assert key in replica._ordering_service.commits
+        received = len(replica._ordering_service.commits[key][1])
         minimum = replica.quorums.commit.value
         assert received > minimum
 
@@ -478,6 +483,8 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
+    if db1._keyValueStorage._db is None or db2._keyValueStorage._db is None:
+        return False
     assert db1.size == db2.size, \
         "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
@@ -517,8 +524,8 @@ def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
     for n in nodes:
         for r in n.replicas.values():
             assert r.last_ordered_3pc == last_ordered_3pc, \
-                "{} != {}".format(r.last_ordered_3pc,
-                                  last_ordered_3pc)
+                "{} != {}, Replica: {}".format(r.last_ordered_3pc,
+                                               last_ordered_3pc, r)
 
 
 def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
@@ -829,6 +836,7 @@ def sdk_multisign_request_object(looper, sdk_wallet, req):
     wh, did = sdk_wallet
     return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
 
+
 def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
     wh, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
@@ -839,6 +847,7 @@ def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acce
     req_str = json.dumps(request.as_dict)
     resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
     return json.loads(resp)
+
 
 def sdk_signed_random_requests(looper, sdk_wallet, count):
     _, did = sdk_wallet
@@ -1214,7 +1223,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None):
-    digest = Replica.batchDigest(reqs) if reqs is not None else "random digest"
+    digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
     params = [inst_id,
               view_no,
@@ -1290,6 +1299,11 @@ def create_prepare_from_pre_prepare(pre_prepare):
               pre_prepare.auditTxnRootHash]
     return Prepare(*params)
 
+def create_commit_from_pre_prepare(pre_prepare):
+    params = [pre_prepare.instId,
+              pre_prepare.viewNo,
+              pre_prepare.ppSeqNo]
+    return Commit(*params)
 
 def create_prepare(req_key, state_root, inst_id=0):
     view_no, pp_seq_no = req_key
@@ -1319,7 +1333,7 @@ def incoming_3pc_msgs_count(nodes_count: int = 4) -> int:
 
 
 def check_missing_pre_prepares(nodes, count):
-    assert all(count <= len(replica.prePreparesPendingPrevPP)
+    assert all(count <= len(replica._ordering_service.prePreparesPendingPrevPP)
                for replica in getNonPrimaryReplicas(nodes, instId=0))
 
 
@@ -1410,3 +1424,84 @@ def get_handler_by_type_wm(write_manager, h_type):
         for h in h_l:
             if isinstance(h, h_type):
                 return h
+
+
+def create_pool_txn_data(node_names: List[str],
+                         crypto_factory: BlsFactoryCrypto,
+                         get_free_port: Callable[[], int],
+                         nodes_with_bls: Optional[int] = None):
+    nodeCount = len(node_names)
+    data = {'txns': [], 'seeds': {}, 'nodesWithBls': {}}
+    for i, node_name in zip(range(1, nodeCount + 1), node_names):
+        data['seeds'][node_name] = node_name + '0' * (32 - len(node_name))
+        steward_name = 'Steward' + str(i)
+        data['seeds'][steward_name] = steward_name + '0' * (32 - len(steward_name))
+
+        n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
+        s_idr = DidSigner(seed=data['seeds'][steward_name].encode())
+
+        data['txns'].append(
+                Member.nym_txn(nym=s_idr.identifier,
+                               verkey=s_idr.verkey,
+                               role=STEWARD,
+                               name=steward_name,
+                               seq_no=i)
+        )
+
+        node_txn = Steward.node_txn(steward_nym=s_idr.identifier,
+                                    node_name=node_name,
+                                    nym=n_idr,
+                                    ip='127.0.0.1',
+                                    node_port=get_free_port(),
+                                    client_port=get_free_port(),
+                                    client_ip='127.0.0.1',
+                                    services=[VALIDATOR],
+                                    seq_no=i)
+
+        if nodes_with_bls is None or i <= nodes_with_bls:
+            _, bls_key, bls_key_proof = crypto_factory.generate_bls_keys(
+                seed=data['seeds'][node_name])
+            get_payload_data(node_txn)[DATA][BLS_KEY] = bls_key
+            get_payload_data(node_txn)[DATA][BLS_KEY_PROOF] = bls_key_proof
+            data['nodesWithBls'][node_name] = True
+
+        data['txns'].append(node_txn)
+
+    # Add 4 Trustees
+    for i in range(4):
+        trustee_name = 'Trs' + str(i)
+        data['seeds'][trustee_name] = trustee_name + '0' * (
+                32 - len(trustee_name))
+        t_sgnr = DidSigner(seed=data['seeds'][trustee_name].encode())
+        data['txns'].append(
+            Member.nym_txn(nym=t_sgnr.identifier,
+                           verkey=t_sgnr.verkey,
+                           role=TRUSTEE,
+                           name=trustee_name)
+        )
+
+    more_data_seeds = \
+        {
+            "Alice": "99999999999999999999999999999999",
+            "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "John": "dddddddddddddddddddddddddddddddd",
+            "Les": "ffffffffffffffffffffffffffffffff"
+        }
+    more_data_users = []
+    for more_name, more_seed in more_data_seeds.items():
+        signer = DidSigner(seed=more_seed.encode())
+        more_data_users.append(
+            Member.nym_txn(nym=signer.identifier,
+                           verkey=signer.verkey,
+                           name=more_name,
+                           creator="5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC")
+        )
+
+    data['txns'].extend(more_data_users)
+    data['seeds'].update(more_data_seeds)
+    return data
+
+def get_pp_seq_no(nodes: list) -> int:
+    los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
+    assert len(los) == 1
+    return los.pop()

@@ -53,7 +53,7 @@ def test_1_node_got_no_preprepare(looper,
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
 
     # behind_node stashing new 3pc messages and not ordering and not participating in consensus
-    assert len(behind_node.master_replica.prePreparesPendingPrevPP) == 1
+    assert len(behind_node.master_replica._ordering_service.prePreparesPendingPrevPP) == 1
     with pytest.raises(AssertionError):
         nodes_last_ordered_equal(behind_node, master_node)
 
@@ -102,7 +102,7 @@ def test_2_node_got_no_preprepare(looper,
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
 
     # behind_node stashing new 3pc messages and not ordering and not participating in consensus
-    assert len(behind_nodes[0].master_replica.prePreparesPendingPrevPP) == 1
+    assert len(behind_nodes[0].master_replica._ordering_service.prePreparesPendingPrevPP) == 1
     with pytest.raises(AssertionError):
         nodes_last_ordered_equal(behind_nodes[0], master_node)
 

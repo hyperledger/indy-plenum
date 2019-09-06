@@ -33,7 +33,7 @@ def testMsgFromInstanceDelay(configNodeSet, looper,
 
     def getCommits(node: TestNode, instId: int):
         replica = node.replicas[instId]  # type: Replica
-        return list(replica.commits.values())
+        return list(replica._ordering_service.commits.values())
 
     def checkPresence():
         for node in [C, D]:

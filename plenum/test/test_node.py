@@ -13,9 +13,9 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.node_bootstrap import NodeBootstrap
-from plenum.server.replica_stasher import ReplicaStasher
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import BUY, GET_BUY, RANDOM_BUY
 from plenum.test.get_buy_handler import GetBuyHandler
@@ -42,7 +42,6 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -137,25 +136,12 @@ class TestNodeCore(StackedTester):
         self.actionQueueStasher.process()
         return super()._serviceActions()
 
-    def newPrimaryDecider(self):
-        pdCls = self.primaryDecider if self.primaryDecider else \
-            TestPrimarySelector
-        return pdCls(self)
-
     def newViewChanger(self):
         view_changer = self.view_changer if self.view_changer is not None \
             else create_view_changer(self, TestViewChanger)
         # TODO: This is a hack for tests compatibility, do something better
         view_changer.node = self
         return view_changer
-
-    def delaySelfNomination(self, delay: Seconds):
-        if isinstance(self.primaryDecider, PrimarySelector):
-            raise RuntimeError('Does not support nomination since primary is '
-                               'selected deterministically')
-        else:
-            raise RuntimeError('Unknown primary decider encountered {}'.
-                               format(self.primaryDecider))
 
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
@@ -316,14 +302,14 @@ node_spyables = [Node.handleOneNodeMsg,
 
 class TestNodeBootstrap(NodeBootstrap):
 
-    def register_domain_req_handlers(self):
-        super().register_domain_req_handlers()
+    def _register_domain_req_handlers(self):
+        super()._register_domain_req_handlers()
         self.node.write_manager.register_req_handler(BuyHandler(self.node.db_manager))
         self.node.write_manager.register_req_handler(RandomBuyHandler(self.node.db_manager))
         self.node.read_manager.register_req_handler(GetBuyHandler(self.node.db_manager))
 
-    def init_common_managers(self):
-        super().init_common_managers()
+    def _init_common_managers(self):
+        super()._init_common_managers()
         self.node.ledgerManager = TestLedgerManager(self.node,
                                                     postAllLedgersCaughtUp=self.node.allLedgersCaughtUp,
                                                     preCatchupClbk=self.node.preLedgerCatchUp,
@@ -385,14 +371,6 @@ class TestNode(TestNodeCore, Node):
         self.clientstack.restart()
 
 
-selector_spyables = [PrimarySelector.decidePrimaries]
-
-
-@spyable(methods=selector_spyables)
-class TestPrimarySelector(PrimarySelector):
-    pass
-
-
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
     ViewChanger._do_view_change_by_future_vcd,
@@ -408,41 +386,23 @@ class TestViewChanger(ViewChanger):
 
 
 replica_stasher_spyables = [
-    ReplicaStasher.stash
+    StashingRouter._stash,
+    StashingRouter._process,
+    StashingRouter.discard
 ]
 
 
 @spyable(methods=replica_stasher_spyables)
-class TestReplicaStasher(ReplicaStasher):
+class TestStashingRouter(StashingRouter):
     pass
 
 
 replica_spyables = [
-    replica.Replica.sendPrePrepare,
-    replica.Replica._can_process_pre_prepare,
-    replica.Replica.canPrepare,
-    replica.Replica.validatePrepare,
-    replica.Replica.addToPrePrepares,
-    replica.Replica.processPrePrepare,
-    replica.Replica.processPrepare,
-    replica.Replica.processCommit,
-    replica.Replica.doPrepare,
-    replica.Replica.doOrder,
-    replica.Replica.discard,
     replica.Replica.revert_unordered_batches,
-    replica.Replica.revert,
-    replica.Replica.process_three_phase_msg,
-    replica.Replica._request_pre_prepare,
-    replica.Replica._request_pre_prepare_for_prepare,
-    replica.Replica._request_prepare,
-    replica.Replica._request_commit,
     replica.Replica.process_requested_pre_prepare,
     replica.Replica.process_requested_prepare,
+    replica.Replica._send_ordered,
     replica.Replica.process_requested_commit,
-    replica.Replica.is_pre_prepare_time_correct,
-    replica.Replica.is_pre_prepare_time_acceptable,
-    replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
-    replica.Replica.request_propagates_if_needed,
 ]
 
 
@@ -456,16 +416,30 @@ class TestReplica(replica.Replica):
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
     def _init_replica_stasher(self):
-        return TestReplicaStasher(self)
+        return TestStashingRouter(self.config.REPLICA_STASH_LIMIT,
+                                  buses=[self.internal_bus, self._external_bus],
+                                  unstash_handler=self._add_to_inbox)
 
     def _init_checkpoint_service(self) -> CheckpointService:
         return TestCheckpointService(data=self._consensus_data,
-                                     bus=self.node.internal_bus,
+                                     bus=self.internal_bus,
                                      network=self._external_bus,
-                                     stasher=StashingRouter(self.config.REPLICA_STASH_LIMIT),
+                                     stasher=self.stasher,
                                      db_manager=self.node.db_manager,
-                                     old_stasher=self.stasher,
                                      metrics=self.metrics)
+
+    def _init_ordering_service(self) -> OrderingService:
+        return TestOrderingService(self._consensus_data,
+                                   timer=self.node.timer,
+                                   bus=self.internal_bus,
+                                   network=self._external_bus,
+                                   write_manager=self.node.write_manager,
+                                   bls_bft_replica=self._bls_bft_replica,
+                                   freshness_checker=self._freshness_checker,
+                                   get_current_time=self.get_current_time,
+                                   get_time_for_3pc_batch=self.get_time_for_3pc_batch,
+                                   stasher=self.stasher,
+                                   metrics=self.metrics)
 
 
 checkpointer_spyables = [
@@ -478,6 +452,41 @@ checkpointer_spyables = [
 
 @spyable(methods=checkpointer_spyables)
 class TestCheckpointService(CheckpointService):
+    pass
+
+
+ordering_service_spyables = [
+    OrderingService._order_3pc_key,
+    OrderingService._can_prepare,
+    OrderingService._is_pre_prepare_time_correct,
+    OrderingService._is_pre_prepare_time_acceptable,
+    OrderingService._process_stashed_pre_prepare_for_time_if_possible,
+    OrderingService._request_propagates_if_needed,
+    OrderingService.revert_unordered_batches,
+    OrderingService._request_pre_prepare_for_prepare,
+    OrderingService._order_3pc_key,
+    OrderingService._request_pre_prepare,
+    OrderingService._request_prepare,
+    OrderingService._request_commit,
+    OrderingService.send_pre_prepare,
+    OrderingService._can_process_pre_prepare,
+    OrderingService._can_prepare,
+    OrderingService._validate_prepare,
+    OrderingService._add_to_pre_prepares,
+    OrderingService.process_preprepare,
+    OrderingService.process_prepare,
+    OrderingService.process_commit,
+    OrderingService._do_prepare,
+    OrderingService._do_order,
+    OrderingService._revert,
+    OrderingService._validate,
+    OrderingService.post_batch_rejection,
+    OrderingService.post_batch_creation
+]
+
+
+@spyable(methods=ordering_service_spyables)
+class TestOrderingService(OrderingService):
     pass
 
 
@@ -940,7 +949,6 @@ def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     args = params[-1]
     assert args["proposedViewNo"] == proposedViewNo
     assert node.viewNo == proposedViewNo
-    assert node.elector.viewNo == proposedViewNo
 
 
 def timeThis(func, *args, **kwargs):

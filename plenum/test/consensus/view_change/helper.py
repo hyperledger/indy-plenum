@@ -1,45 +1,17 @@
 from typing import Optional, List
 
-from plenum.common.event_bus import InternalBus
+import base58
+
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.replica_service import ReplicaService
-from plenum.server.consensus.view_change_service import BatchID
-from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer
-from plenum.test.simulation.sim_network import SimNetwork
-from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
-from plenum.test.testing_utils import FakeSomething
-
-
-class SimPool:
-    def __init__(self, node_count: int = 4, random: Optional[SimRandom] = None):
-        self._random = random if random else DefaultSimRandom()
-        self._timer = MockTimer()
-        self._network = SimNetwork(self._timer, self._random)
-        validators = genNodeNames(node_count)
-        primary_name = validators[0]
-        self._nodes = [ReplicaService(name, validators, primary_name,
-                                      self._timer, InternalBus(), self.network.create_peer(name),
-                                      write_manager=FakeSomething(database_manager=None))
-                       for name in validators]
-
-    @property
-    def timer(self) -> MockTimer:
-        return self._timer
-
-    @property
-    def network(self) -> SimNetwork:
-        return self._network
-
-    @property
-    def nodes(self) -> List[ReplicaService]:
-        return self._nodes
+from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
+from plenum.test.consensus.helper import SimPool
+from plenum.test.simulation.sim_random import SimRandom
 
 
 def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoint:
     return Checkpoint(
-        instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no, digest=random.string(40)
-    )
+        instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no,
+        digest=base58.b58encode(random.string(32)).decode())
 
 
 def some_pool(random: SimRandom) -> (SimPool, List):
@@ -69,7 +41,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     for i, node in enumerate(pool.nodes):
         node._data.preprepared = batches[:pp_count[i]]
         node._data.prepared = batches[:p_count[i]]
-        node._data.checkpoints = checkpoints[:cp_count[i]]
+        node._data.checkpoints.update(checkpoints[:cp_count[i]])
         node._data.stable_checkpoint = stable_cp[i]
 
     committed = []
@@ -77,7 +49,8 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
         has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
-            committed.append(batches[i - 1])
+            batch_id = batches[i - 1]
+            committed.append(BatchID(1, batch_id.pp_seq_no, batch_id.pp_digest))
 
     return pool, committed
 

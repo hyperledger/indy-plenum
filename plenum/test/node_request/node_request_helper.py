@@ -4,6 +4,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
@@ -64,7 +65,8 @@ def checkPrePrepared(looper,
             method for primary must be 0 with or without faults in system
             """
             l1 = len([param for param in
-                      getAllArgs(primary, primary.processPrePrepare)])
+                      getAllArgs(primary._ordering_service,
+                                 primary._ordering_service.process_preprepare)])
             assert l1 == 0, 'Primary {} sees no pre-prepare'.format(primary)
 
         def nonPrimarySeesCorrectNumberOfPREPREPAREs():
@@ -85,18 +87,19 @@ def checkPrePrepared(looper,
                 init_discarded(),
                 Replica.batchDigest([propagated1, ]),
                 DOMAIN_LEDGER_ID,
-                primary.stateRootHash(DOMAIN_LEDGER_ID),
-                primary.txnRootHash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
+                primary._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
                 0,
                 True,
-                primary.stateRootHash(POOL_LEDGER_ID),
-                primary.txnRootHash(AUDIT_LEDGER_ID)
+                primary._ordering_service.get_state_root_hash(POOL_LEDGER_ID),
+                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID)
             )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
-                                  getAllArgs(npr, npr.processPrePrepare)
+                                  getAllArgs(npr._ordering_service,
+                                             npr._ordering_service.process_preprepare)
                                   if (param['pre_prepare'][0:3] +
                                       param['pre_prepare'][4:],
                                       param['sender']) == (
@@ -122,7 +125,8 @@ def checkPrePrepared(looper,
              will be zero and primary must be marked as malicious.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary, primary.sendPrePrepare)
+                              getAllArgs(primary._ordering_service,
+                                         primary._ordering_service.send_pre_prepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
                               primary.batchDigest([propagated1, ])])
@@ -146,7 +150,8 @@ def checkPrePrepared(looper,
             passes = 0
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
-                          getAllArgs(npr, npr.addToPrePrepares)
+                          getAllArgs(npr._ordering_service,
+                                     npr._ordering_service._add_to_pre_prepares)
                           if param['pp'].reqIdr[0] == propagated1.digest
                           and param['pp'].digest ==
                           primary.batchDigest([propagated1, ])])
@@ -189,7 +194,8 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
             1. no of PREPARE sent by primary should be 0
             """
             for r in allReplicas:
-                for param in getAllArgs(r, Replica.processPrepare):
+                for param in getAllArgs(r._ordering_service,
+                                        OrderingService.process_prepare):
                     sender = param['sender']
                     assert sender != primary.name
 
@@ -205,8 +211,8 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
 
             for replica in allReplicas:
                 key = primary.viewNo, primary.lastPrePrepareSeqNo
-                if key in replica.prepares:
-                    actualMsgs = len(replica.prepares[key].voters)
+                if key in replica._ordering_service.prepares:
+                    actualMsgs = len(replica._ordering_service.prepares[key].voters)
 
                     passes += int(msgCountOK(nodeCount,
                                              faultyNodes,
@@ -222,8 +228,8 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
              n-f-1 with faults.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary,
-                                         primary.processPrepare)
+                              getAllArgs(primary._ordering_service,
+                                         primary._ordering_service.process_prepare)
                               if (param['prepare'].instId,
                                   param['prepare'].viewNo,
                                   param['prepare'].ppSeqNo) == (
@@ -254,14 +260,13 @@ def checkPrepared(looper, txnPoolNodeSet, preprepared1, instIds, faultyNodes=0,
                 actualMsgs = len(
                     [
                         param for param in getAllArgs(
-                        npr,
-                        npr.processPrepare) if (
-                                                   param['prepare'].instId,
-                                                   param['prepare'].viewNo,
-                                                   param['prepare'].ppSeqNo) == (
-                                                   primary.instId,
-                                                   primary.viewNo,
-                                                   primary.lastPrePrepareSeqNo)])
+                        npr._ordering_service,
+                        npr._ordering_service.process_prepare) if (param['prepare'].instId,
+                                                                   param['prepare'].viewNo,
+                                                                   param['prepare'].ppSeqNo) == (
+                                                                      primary.instId,
+                                                                      primary.viewNo,
+                                                                      primary.lastPrePrepareSeqNo)])
 
                 passes += int(msgCountOK(nodeCount,
                                          faultyNodes,
@@ -305,8 +310,8 @@ def checkCommitted(looper, txnPoolNodeSet, prepared1, instIds, faultyNodes=0):
 
             key = (primaryReplica.viewNo, primaryReplica.lastPrePrepareSeqNo)
             for r in allReplicas:
-                if key in r.commits:
-                    rcvdCommitRqst = r.commits[key]
+                if key in r._ordering_service.commits:
+                    rcvdCommitRqst = r._ordering_service.commits[key]
                     actualMsgsReceived = len(rcvdCommitRqst.voters)
 
                     passes += int(msgCountOK(nodeCount,
@@ -350,9 +355,9 @@ def chk_commits_prepares_recvd(count, receivers, sender):
             if replica.instId not in counts:
                 counts[replica.instId] = 0
             nm = sender_replica_names[replica.instId]
-            for commit in replica.commits.values():
+            for commit in replica._ordering_service.commits.values():
                 counts[replica.instId] += int(nm in commit.voters)
-            for prepare in replica.prepares.values():
+            for prepare in replica._ordering_service.prepares.values():
                 counts[replica.instId] += int(nm in prepare.voters)
     for c in counts.values():
         assert count == c, "expected {}, but have {}".format(count, c)

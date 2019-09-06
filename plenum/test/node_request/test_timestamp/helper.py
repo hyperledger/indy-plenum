@@ -19,9 +19,12 @@ def make_clock_faulty(node, clock_slow_by_sec=None, ppr_always_wrong=True):
     # slow_utc_epoch = types.MethodType(utc_epoch, node)
     # setattr(node, 'utc_epoch', property(slow_utc_epoch))
     node.utc_epoch = types.MethodType(utc_epoch, node)
-    node.master_replica.get_time_for_3pc_batch = types.MethodType(utc_epoch, node.master_replica)
+    node.master_replica.get_time_for_3pc_batch = types.MethodType(utc_epoch,
+                                                                  node.master_replica)
+    node.master_replica._ordering_service.get_time_for_3pc_batch = types.MethodType(utc_epoch,
+                                                                                    node.master_replica)
 
     if ppr_always_wrong:
         for repl in node.replicas.values():
-            repl.is_pre_prepare_time_correct = types.MethodType(
+            repl._ordering_service._is_pre_prepare_time_correct = types.MethodType(
                 lambda *x, **y: False, repl)

@@ -17,7 +17,7 @@ def nodeSetWithoutTaaAlwaysResponding(txnPoolNodeSet, looper):
     global TIMESTAMP_NONE
 
     # Simulate freshness update
-    txnPoolNodeSet[0].master_replica._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
+    txnPoolNodeSet[0].master_replica._ordering_service._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
 
     looper.runFor(1)  # Make sure we have long enough gap between updates
     TIMESTAMP_NONE = get_utc_epoch()

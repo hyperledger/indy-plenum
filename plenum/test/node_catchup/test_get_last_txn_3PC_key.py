@@ -57,7 +57,9 @@ def test_quorum_min_value1(cons_proof_service):
     cons_proof_service._last_txn_3PC_key['2'] = (2, 1)
     cons_proof_service._last_txn_3PC_key['3'] = (1, 3)
     cons_proof_service._last_txn_3PC_key['4'] = (1, 3)
-    assert (1, 3) == cons_proof_service._get_last_txn_3PC_key()
+    # Results will be (1, 3) and (2, 1) and becasue we don't reset ppSeqNo, (2, 1) is less then (1, 3)
+    # (take a look at the second element only)
+    assert (2, 1) == cons_proof_service._get_last_txn_3PC_key()
 
 
 def test_quorum_min_value2(cons_proof_service):

@@ -92,18 +92,20 @@ def test_list_item_equality():
 
 
 def test_3PC_key_comaparison():
+    # Because of INDY-1336 compare_3PC_keys, min_3PC_key, max_3PC_key
+    # taking into account only ppSeqNo part
     assert compare_3PC_keys((1, 2), (1, 2)) == 0
     assert compare_3PC_keys((1, 3), (1, 2)) < 0
     assert compare_3PC_keys((1, 2), (1, 3)) > 0
     assert compare_3PC_keys((1, 2), (1, 10)) > 0
-    assert compare_3PC_keys((1, 100), (2, 3)) > 0
-    assert compare_3PC_keys((1, 100), (4, 3)) > 0
-    assert compare_3PC_keys((2, 100), (1, 300)) < 0
-    assert min_3PC_key([(2, 100), (1, 300), (5, 600)]) == (1, 300)
+    assert compare_3PC_keys((1, 100), (2, 3)) < 0
+    assert compare_3PC_keys((1, 100), (4, 3)) < 0
+    assert compare_3PC_keys((2, 100), (1, 300)) > 0
+    assert min_3PC_key([(2, 100), (1, 300), (5, 600)]) == (2, 100)
     assert min_3PC_key([(2, 100), (2, 300), (2, 600)]) == (2, 100)
-    assert min_3PC_key([(2, 100), (2, 300), (1, 600)]) == (1, 600)
-    assert max_3PC_key([(2, 100), (1, 300), (5, 6)]) == (5, 6)
-    assert max_3PC_key([(2, 100), (3, 20), (4, 1)]) == (4, 1)
+    assert min_3PC_key([(2, 100), (2, 300), (1, 600)]) == (2, 100)
+    assert max_3PC_key([(2, 100), (1, 300), (5, 6)]) == (1, 300)
+    assert max_3PC_key([(2, 100), (3, 20), (4, 1)]) == (2, 100)
     assert max_3PC_key([(2, 100), (2, 300), (2, 400)]) == (2, 400)
 
 

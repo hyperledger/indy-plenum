@@ -2,8 +2,11 @@ import json
 from collections import deque
 
 import functools
+from unittest.mock import Mock
+
 import pytest
 
+from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import ViewChangeStartMessage, ViewChangeContinueMessage, Prepare, \
     InstanceChange
 from plenum.common.timer import QueueTimer
@@ -12,6 +15,7 @@ from plenum.server.node import Node
 from plenum.server.router import Router
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
+from plenum.test.helper import MockNetwork
 from plenum.test.testing_utils import FakeSomething
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
@@ -25,6 +29,8 @@ def fake_node(tconf):
                          nodeStatusDB=None,
                          master_replica=FakeSomething(inBox=deque(),
                                                       inBoxRouter=Router(),
+                                                      _external_bus=MockNetwork(),
+                                                      internal_bus=InternalBus(),
                                                       logger=FakeSomething(
                                                           info=lambda *args, **kwargs: True
                                                       )),
@@ -41,7 +47,7 @@ def fake_node(tconf):
                                               size=100)),
                          nodestack=FakeSomething(
                              service=lambda *args, **kwargs: eventually(lambda: True)),
-                         set_view_for_replicas=lambda view_no: None,
+                         set_view_for_replicas= lambda view_no: None,
                          set_view_change_status=lambda view_no: None
                          )
     node.metrics = functools.partial(Node._createMetricsCollector, node)()
@@ -82,10 +88,9 @@ def test_set_req_handlers_on_first_prepare_view_change_call(pre_vc_strategy):
     assert req_handler.func.__name__ == VCStartMsgStrategy.on_view_change_started.__name__
 
     """Check, that req handler is set for ViewChangeContinuedMessage on replica's inBoxRouter"""
-    assert len(pre_vc_strategy.node.master_replica.inBoxRouter.routes) == 1
-    req_handler = pre_vc_strategy.node.master_replica.inBoxRouter.routes.get(ViewChangeContinueMessage, None)
+    req_handler = pre_vc_strategy.replica._external_bus.handlers(ViewChangeContinueMessage)[0]
     assert req_handler
-    assert req_handler.func.__name__ == VCStartMsgStrategy.on_view_change_continued.__name__
+    assert VCStartMsgStrategy.on_view_change_continued.__name__ in str(req_handler)
 
 
 def test_add_vc_start_msg(pre_vc_strategy):

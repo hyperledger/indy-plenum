@@ -39,11 +39,11 @@ def check_last_prepared_certificate_on_quorum(nodes, num):
 def check_last_prepared_certificate(nodes, num):
     # Check that last_prepared_certificate reaches some 3PC key on all nodes
     for n in nodes:
-        assert n.master_replica.last_prepared_certificate_in_view() == num
+        assert n.master_replica._ordering_service.l_last_prepared_certificate_in_view() == num
 
 
 def check_last_prepared_certificate_after_view_change_start(nodes, num):
-    # Check that last_prepared_certificate reaches some 3PC key on all nodes
+    # Check that last_prepared_certificate reaches some 3PC key on all nodestest_slow_node_reverts_unordered_state_during_catchup
     for n in nodes:
         assert n.master_replica.last_prepared_before_view_change == num
 
