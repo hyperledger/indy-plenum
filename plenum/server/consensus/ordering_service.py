@@ -633,10 +633,9 @@ class OrderingService:
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
-            last_pp_view_no, last_pp_seq_no = self.__last_pp_3pc
-            if pp_view_no >= last_pp_view_no and (
-                    self.is_master or self.last_ordered_3pc[1] != 0):
-                seq_frm = last_pp_seq_no + 1 if pp_view_no == last_pp_view_no else 1
+            _, last_pp_seq_no = self.__last_pp_3pc
+            if self.is_master or self.last_ordered_3pc[1] != 0:
+                seq_frm = last_pp_seq_no + 1
                 seq_to = pp_seq_no - 1
                 if seq_to >= seq_frm >= pp_seq_no - self._config.CHK_FREQ + 1:
                     self._logger.warning(
@@ -670,6 +669,9 @@ class OrderingService:
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, lo_tuple):
         self._data.last_ordered_3pc = lo_tuple
+        pp_seq_no = lo_tuple[1]
+        if pp_seq_no > self.lastPrePrepareSeqNo:
+            self.lastPrePrepareSeqNo = pp_seq_no
         self._logger.info('{} set last ordered as {}'.format(self, lo_tuple))
 
     @property
@@ -1117,20 +1119,13 @@ class OrderingService:
         """
         return {key for key in reqKeys if not self._requests.is_finalised(key)}
 
+    """Method from legacy code"""
     def _is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
-        if view_no == self.view_no and pp_seq_no == 1:
-            # First PRE-PREPARE in a new view
+        if pp_seq_no == 1:
+            # First PRE-PREPARE
             return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-        if last_pp_view_no > view_no:
-            return False
-        if last_pp_view_no < view_no:
-            if view_no != self.view_no:
-                return False
-            last_pp_seq_no = 0
-        if pp_seq_no - last_pp_seq_no > 1:
-            return False
-        return True
+        return pp_seq_no - last_pp_seq_no == 1
 
     def _apply_pre_prepare(self, pre_prepare: PrePrepare):
         """
@@ -1531,7 +1526,6 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
         self.requested_prepares.pop((view_no, pp_seq_no), None)
         self.requested_commits.pop((view_no, pp_seq_no), None)
@@ -1870,7 +1864,7 @@ class OrderingService:
             self.prePreparesPendingPrevPP[pp.viewNo, pp.ppSeqNo] = (pp, sender)
 
         r = 0
-        while self.prePreparesPendingPrevPP and self._is_next_pre_prepare(
+        while self.prePreparesPendingPrevPP and self._can_dequeue_pre_prepare(
                 *self.prePreparesPendingPrevPP.iloc[0]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self._can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
@@ -1882,6 +1876,10 @@ class OrderingService:
             self._network.process_incoming(pp, sender)
             r += 1
         return r
+
+    def _can_dequeue_pre_prepare(self, view_no: int, pp_seq_no: int):
+        return self._is_next_pre_prepare(view_no, pp_seq_no) or compare_3PC_keys(
+            (view_no, pp_seq_no), self.last_ordered_3pc) >= 0
 
     # TODO: Convert this into a free function?
     def _discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
@@ -2151,6 +2149,7 @@ class OrderingService:
                 discarded = invalid_index_serializer.deserialize(discarded)
                 self._logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self._revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
+                self._lastPrePrepareSeqNo -= 1
                 i += 1
             else:
                 break
@@ -2175,7 +2174,6 @@ class OrderingService:
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
-            self.last_ordered_3pc = (self._data.view_no, 0)
             self.batches.clear()
             self.sentPrePrepares.clear()
             self.prePrepares.clear()
@@ -2233,6 +2231,22 @@ class OrderingService:
     def replica_batch_digest(self, reqs):
         return replica_batch_digest(reqs)
 
+    def _clear_all_3pc_msgs(self):
+
+        # Clear the 3PC log
+        self.prePrepares.clear()
+        self.prepares.clear()
+        self.commits.clear()
+
+        self.requested_pre_prepares.clear()
+        self.requested_prepares.clear()
+        self.requested_commits.clear()
+
+        self.pre_prepare_tss.clear()
+        self.prePreparesPendingFinReqs.clear()
+        self.prePreparesPendingPrevPP.clear()
+        self.sentPrePrepares.clear()
+
     def process_view_change_started(self, msg: ViewChangeStarted):
         # 1. update shared data
         self._data.preprepared = []
@@ -2247,20 +2261,12 @@ class OrderingService:
         if self.is_master:
             self.revert_unordered_batches()
 
-        # 4. Clear the 3PC log
-        self.prePrepares.clear()
-        self.prepares.clear()
-        self.commits.clear()
+        # 4. clear all 3pc messages
+        self._clear_all_3pc_msgs()
 
-        self.requested_pre_prepares.clear()
-        self.requested_prepares.clear()
-        self.requested_commits.clear()
-
-        self.pre_prepare_tss.clear()
-        self.prePreparesPendingFinReqs.clear()
-        self.prePreparesPendingPrevPP.clear()
-        self.sentPrePrepares.clear()
         self.batches.clear()
+
+        # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
 
