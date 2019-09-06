@@ -1509,6 +1509,7 @@ class OrderingService:
                 valid_reqIdr.append(reqIdr)
             self._requests.ordered_by_replica(reqIdr)
 
+        original_view_no = pp.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pp else pp.viewNo
         ordered = Ordered(self._data.inst_id,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1520,7 +1521,7 @@ class OrderingService:
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
                           self._get_primaries_for_ordered(pp),
-                          pp.originalViewNo)
+                          original_view_no)
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)

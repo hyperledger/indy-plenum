@@ -135,7 +135,7 @@ class PrePrepare(MessageBase):
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
-                                                    nullable=True)),
+                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
@@ -186,10 +186,10 @@ class Checkpoint(MessageBase):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),          # This will no longer be used soon
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),     # This is no longer used and must always be 0
+        (f.VIEW_NO.nm, NonNegativeNumberField()),  # This will no longer be used soon
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),  # This is no longer used and must always be 0
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, MerkleRootField(nullable=True)),     # This is actually audit ledger merkle root
+        (f.DIGEST.nm, MerkleRootField(nullable=True)),  # This is actually audit ledger merkle root
     )
 
 

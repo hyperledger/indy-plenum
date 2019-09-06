@@ -44,7 +44,7 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
     assert lagging_node.master_last_ordered_3PC == (0, 0)
     new_master = txnPoolNodeSet[1]
     batches = [preprepare_to_batch_id(pp) for _, pp in new_master.master_replica._ordering_service.old_view_preprepares.items()]
-    new_view_msg = NewViewCheckpointsApplied(view_no=1,
+    new_view_msg = NewViewCheckpointsApplied(view_no=0,
                                              view_changes=[],
                                              checkpoint=None,
                                              batches=batches)
