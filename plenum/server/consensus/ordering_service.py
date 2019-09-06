@@ -2191,7 +2191,7 @@ class OrderingService:
         self.pre_prepare_tss.clear()
         self.prePreparesPendingFinReqs.clear()
         self.prePreparesPendingPrevPP.clear()
-        self.sentPrePrepares.clear()
+        self.sent_preprepares.clear()
 
     def process_view_change_started(self, msg: ViewChangeStarted):
         # 1. update shared data
