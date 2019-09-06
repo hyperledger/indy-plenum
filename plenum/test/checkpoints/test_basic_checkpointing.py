@@ -16,9 +16,8 @@ def test_checkpoint_created(chkFreqPatched, tconf, looper, txnPoolNodeSet, sdk_p
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                               reqs_for_checkpoint - (chkFreqPatched.Max3PCBatchSize))
     # Deliberately waiting so as to verify that checkpoint is not created nor stabilized
-    looper.runFor(2)
-    check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, 0)
-    check_for_nodes(txnPoolNodeSet, check_num_unstable_checkpoints, 0)
+    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, 0))
+    looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_num_unstable_checkpoints, 0))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                               chkFreqPatched.Max3PCBatchSize)

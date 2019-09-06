@@ -23,11 +23,16 @@ def cp_digest(max: int, key: str = '0') -> str:
 def check_stable_checkpoint(replica, pp_seq_no):
     assert replica._consensus_data.stable_checkpoint == pp_seq_no, \
         "expected stable checkpoint {}, got {}".format(pp_seq_no, replica._consensus_data.stable_checkpoint)
+    stable_checkpoints = list(replica._consensus_data.checkpoints.irange_key(min_key=pp_seq_no, max_key=pp_seq_no))
+    assert len(stable_checkpoints) == 1, \
+        "expected one stable checkpoint, got {}".format(stable_checkpoints)
 
 
 def check_num_unstable_checkpoints(replica, num):
-    # TODO: This should be actually == num + 1
-    assert len(replica._consensus_data.checkpoints) == num
+    assert len(replica._consensus_data.checkpoints) == num + 1, \
+        "expected {} unstable checkpoints, got {} (stable is {})".format(num,
+                                                                         replica._consensus_data.checkpoints,
+                                                                         replica._consensus_data.stable_checkpoint)
 
 
 def check_last_checkpoint(replica, pp_seq_no, view_no=0):
