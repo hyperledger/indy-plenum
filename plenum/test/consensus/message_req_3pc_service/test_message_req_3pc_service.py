@@ -6,8 +6,8 @@ import pytest
 from plenum.common.messages.internal_messages import Missing3pcMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep
 from plenum.common.types import f
+from plenum.server.consensus.message_request.message_handlers import ThreePhaseMessagesHandler
 from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
-from plenum.server.message_handlers import ThreePhaseMessagesHandler
 
 
 class TestHandler(ThreePhaseMessagesHandler):

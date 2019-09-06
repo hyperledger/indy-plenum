@@ -1,4 +1,5 @@
 import logging
+from struct import Struct
 from typing import Dict, Any, Optional, Tuple, Callable
 from abc import ABCMeta, abstractmethod
 
@@ -56,10 +57,11 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
         for field_name, type_name in self.fields.items():
             params[field_name] = msg.params.get(type_name)
         self._logger.debug('{} received requested msg ({}) from {}'.format(self, msg, frm))
-        self._validate_message_rep(**params)
         try:
-            return self._create(msg.msg, **params)
-        except TypeError:
+            result = self._create(msg.msg, **params)
+            self._validate_message_rep(result)
+            return result
+        except TypeError as e:
             raise IncorrectMessageForHandlingException(msg, 'replied message has invalid structure',
                                                        self._logger.warning)
         except MismatchedMessageReplyException:

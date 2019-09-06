@@ -62,7 +62,7 @@ class MessageReq3pcService:
                 f.MSG_TYPE.nm: msg_type,
                 f.PARAMS.nm: msg.params,
                 f.MSG.nm: resp
-            }), dst=[frm, ])
+            }), dst=[frm.split(":")[0], ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):
@@ -99,15 +99,15 @@ class MessageReq3pcService:
             }), dst=msg.dst)
 
     def process_ordered(self, msg: Ordered):
-        for handler in self.handlers:
-            handler.requested_messages.pop((msg.viewNo, msg.ppSeqNo))
+        for handler in self.handlers.values():
+            handler.requested_messages.pop((msg.viewNo, msg.ppSeqNo), None)
 
     def process_view_change_started(self, msg: ViewChangeStarted):
-        for handler in self.handlers:
+        for handler in self.handlers.values():
             handler.requested_messages.clear()
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
-        for handler in self.handlers:
+        for handler in self.handlers.values():
             for key in list(handler.requested_messages.keys()):
                 if compare_3PC_keys(key, msg.last_stable_3pc) >= 0:
                     handler.requested_messages.pop(key)
@@ -125,3 +125,10 @@ class MessageReq3pcService:
         reason = "" if not reason else " because {}".format(reason)
         logMethod("{} discarding message {}{}".format(self, msg, reason),
                   extra={"cli": cliOutput})
+
+    @property
+    def name(self):
+        return self._data.name
+
+    def __str__(self) -> str:
+        return "{} - MessageReq3pcService".format(self._data.name)

@@ -443,7 +443,7 @@ class TestReplica(replica.Replica):
 
     def _init_message_req_service(self) -> MessageReq3pcService:
         return TestMessageReq3pcService(data=self._consensus_data,
-                                        bus=self.node.internal_bus,
+                                        bus=self.internal_bus,
                                         network=self._external_bus,
                                         metrics=self.metrics)
 

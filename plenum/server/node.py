@@ -1608,17 +1608,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
-    def sendToReplica(self, msg, frm):
+    def sendToReplica(self, msg, frm, inst_id=None):
         """
         Send the message to the intended replica.
 
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        # TODO: discard or stash messages here instead of doing
-        # this in msgHas* methods!!!
-        if self.msgHasAcceptableInstId(msg, frm):
-            self.replicas.pass_message((msg, frm), msg.instId)
+        if inst_id is None and self.msgHasAcceptableInstId(msg, frm):
+            inst_id = getattr(msg, f.INST_ID.nm, None)
+        if inst_id is not None:
+            self.replicas.pass_message((msg, frm), inst_id)
 
     def sendToViewChanger(self, msg, frm):
         """
@@ -3549,10 +3549,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if msg.msg_type in self.handlers.keys():
             self.process_message_req(msg, frm)
         else:
-            self.sendToReplica(msg, frm)
+            inst_id = msg.params.get(f.INST_ID.nm)
+            self.sendToReplica(msg, frm, inst_id)
 
     def route_message_rep(self, msg: MessageRep, frm):
         if msg.msg_type in self.handlers.keys():
             self.process_message_rep(msg, frm)
         else:
-            self.sendToReplica(msg, frm)
+            inst_id = msg.params.get(f.INST_ID.nm)
+            self.sendToReplica(msg, frm, inst_id)

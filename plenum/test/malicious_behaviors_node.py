@@ -14,7 +14,6 @@ from plenum.common.util import updateNamedTuple
 
 from plenum.server.node import Node
 from stp_core.common.log import getlogger
-from plenum.server.replica import TPCStat
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
 from plenum.test.delayers import ppDelay, cDelay

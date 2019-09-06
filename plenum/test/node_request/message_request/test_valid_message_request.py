@@ -159,15 +159,16 @@ msg_reps_with_mismatched_params = [
 
 def fill_counters(nodes, log_message):
     global discard_counts
-    discard_counts[log_message] = {n.name: countDiscarded(n, log_message)
+    discard_counts[log_message] = {n.master_replica._message_req_service.name:
+                                       countDiscarded(n.master_replica._message_req_service, log_message)
                                    for n in nodes}
 
 
-def chk(nodes, log_message):
+def chk(services, log_message):
     global discard_counts
-    for n in nodes:
+    for s in services:
         assert countDiscarded(
-            n, log_message) > discard_counts[log_message][n.name]
+            s, log_message) > discard_counts[log_message][s.name]
 
 
 @pytest.fixture(scope='module')

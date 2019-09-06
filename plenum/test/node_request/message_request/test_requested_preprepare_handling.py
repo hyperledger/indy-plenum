@@ -21,18 +21,17 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     slow_node, other_nodes, primary_node, other_non_primary_nodes = \
         split_nodes(txnPoolNodeSet)
     # This node will send PRE-PREPARE again
-    orig_method = primary_node.handlers[PREPREPARE].serve
+    orig_method = primary_node.master_replica._message_req_service.handlers[PREPREPARE].get_3pc_message
 
     last_pp = None
 
-    def patched_method(self, msg):
+    def patched_method(msg):
         nonlocal last_pp
         last_pp = orig_method(msg)
         return last_pp
 
-    primary_node.handlers[PREPREPARE].serve = types.MethodType(patched_method,
-                                                               primary_node.handlers[
-                                                                   PREPREPARE])
+    primary_node.master_replica._message_req_service. \
+        handlers[PREPREPARE].get_3pc_message = patched_method
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
@@ -45,8 +44,8 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
     slow_master_replica = slow_node.master_replica
-    count_pr_req = get_count(slow_master_replica,
-                             slow_master_replica.process_requested_pre_prepare)
+    count_pr_req = get_count(slow_master_replica._message_req_service,
+                             slow_master_replica._message_req_service.process_message_rep)
 
     count_pr_tpc = get_count(slow_master_replica._ordering_service,
                              slow_master_replica._ordering_service._validate)
@@ -65,8 +64,8 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
         # `process_requested_pre_prepare` is called but
         # `processThreePhaseMsg` is not called
         assert get_count(
-            slow_master_replica,
-            slow_master_replica.process_requested_pre_prepare) > count_pr_req
+            slow_master_replica._message_req_service,
+            slow_master_replica._message_req_service.process_message_rep) > count_pr_req
         assert get_count(
             slow_master_replica._ordering_service,
             slow_master_replica._ordering_service._validate) == count_pr_tpc
