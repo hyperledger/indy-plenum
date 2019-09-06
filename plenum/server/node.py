@@ -3092,7 +3092,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  first_txn_seq_no,
                                                  last_txn_seq_no,
                                                  audit_txn_root,
-                                                 three_pc_batch.primaries)
+                                                 three_pc_batch.primaries,
+                                                 three_pc_batch.view_no)
             self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns, ledger_id):

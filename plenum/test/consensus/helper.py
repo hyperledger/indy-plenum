@@ -128,7 +128,7 @@ def create_pre_prepares(view_no):
 
 
 def create_batches_from_preprepares(preprepares):
-    return [preprepare_to_batch_id(pp.viewNo, pp) for pp in preprepares]
+    return [preprepare_to_batch_id(pp) for pp in preprepares]
 
 
 def create_batches(view_no):

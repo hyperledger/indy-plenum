@@ -146,7 +146,7 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
     pre_prepare.auditTxnRootHash = cp_digest(till_seq_no)
     ordered.ppSeqNo = pre_prepare.ppSeqNo
     ordered.auditTxnRootHash = pre_prepare.auditTxnRootHash
-    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare.viewNo, pre_prepare))
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
 
     _check_checkpoint(checkpoint_service, till_seq_no, pre_prepare, check_shared_data=True)
@@ -179,19 +179,19 @@ def test_process_ordered(checkpoint_service, ordered, pre_prepare, tconf):
                                          "ppSeqNo {} not in preprepared".format(ordered.ppSeqNo)):
         checkpoint_service.process_ordered(ordered)
 
-    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare.viewNo, pre_prepare))
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, tconf.CHK_FREQ, pre_prepare)
 
     pre_prepare.ppSeqNo = tconf.CHK_FREQ
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare.viewNo, pre_prepare))
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, tconf.CHK_FREQ, pre_prepare, check_shared_data=True)
 
     pre_prepare.ppSeqNo += 1
     ordered.ppSeqNo = pre_prepare.ppSeqNo
-    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare.viewNo, pre_prepare))
+    checkpoint_service._data.preprepared.append(preprepare_to_batch_id(pre_prepare))
     checkpoint_service.process_ordered(ordered)
     _check_checkpoint(checkpoint_service, tconf.CHK_FREQ * 2, pre_prepare)
 

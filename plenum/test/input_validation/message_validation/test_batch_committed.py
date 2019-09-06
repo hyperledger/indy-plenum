@@ -21,7 +21,8 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("seqNoStart", NonNegativeNumberField),
     ("seqNoEnd", NonNegativeNumberField),
     ("auditTxnRootHash", MerkleRootField),
-    ("primaries", IterableField)
+    ("primaries", IterableField),
+    ("originalViewNo", NonNegativeNumberField),
 ])
 
 

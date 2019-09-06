@@ -15,6 +15,7 @@ from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
+from plenum.server.replica import Replica
 from plenum.server.replica_validator_enums import STASH_VIEW
 from stp_core.common.log import getlogger
 
@@ -70,7 +71,7 @@ class ViewChangeService:
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
                                                                          instance_count=self._data.quorums.f + 1,
                                                                          validators=self._data.validators)
-        self._data.primary_name = self._data.primaries[self._data.inst_id]
+        self._data.primary_name = Replica.generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()

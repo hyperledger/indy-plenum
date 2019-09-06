@@ -5,6 +5,7 @@ from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
+from plenum.common.types import f
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
 
@@ -19,8 +20,9 @@ from plenum.server.quorums import Quorums
 BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
-def preprepare_to_batch_id(view_no: int, pre_prepare: PrePrepare) -> BatchID:
-    return BatchID(view_no, pre_prepare.viewNo, pre_prepare.ppSeqNo, pre_prepare.digest)
+def preprepare_to_batch_id(pre_prepare: PrePrepare) -> BatchID:
+    pp_view_no = pre_prepare.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pre_prepare else pre_prepare.viewNo
+    return BatchID(pre_prepare.viewNo, pp_view_no, pre_prepare.ppSeqNo, pre_prepare.digest)
 
 
 class ConsensusSharedData:

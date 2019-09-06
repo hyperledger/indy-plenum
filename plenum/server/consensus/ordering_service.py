@@ -828,7 +828,9 @@ class OrderingService:
         :param pre_prepare: a PRE-PREPARE msg to process
         :param sender: the name of the node that sent the PRE-PREPARE msg
         """
-        # TODO: Check whether it is rejecting PRE-PREPARE from previous view
+
+        if self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
+            return None
 
         # PRE-PREPARE should not be sent from non primary
         if not self._is_msg_from_primary(pre_prepare, sender):
@@ -867,6 +869,14 @@ class OrderingService:
         self._timer.schedule(delay, func)
 
     def _process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
+        if not self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
+            self._apply_and_validate_applied_pre_prepare(pre_prepare, sender)
+        if self._data.is_primary:
+            self._add_to_sent_pre_prepares(pre_prepare)
+        else:
+            self._add_to_pre_prepares(pre_prepare)
+
+    def _apply_and_validate_applied_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         self.first_batch_after_catchup = False
         old_state_root = self.get_state_root_hash(pre_prepare.ledgerId, to_str=False)
         old_txn_root = self.get_txn_root_hash(pre_prepare.ledgerId)
@@ -907,7 +917,6 @@ class OrderingService:
         if rejects:
             for reject in rejects:
                 self._network.send(reject)
-        self._add_to_pre_prepares(pre_prepare)
 
         if self.is_master:
             # BLS multi-sig:
@@ -1292,6 +1301,11 @@ class OrderingService:
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.try_prepare(pp)
 
+    def _add_to_sent_pre_prepares(self, pp: PrePrepare) -> None:
+        self.sentPrePrepares[pp.viewNo, pp.ppSeqNo] = pp
+        self._preprepare_batch(pp)
+        self.lastPrePrepareSeqNo = pp.ppSeqNo
+
     def _dequeue_prepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.preparesWaitingForPrePrepare:
@@ -1505,7 +1519,8 @@ class OrderingService:
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self._get_primaries_for_ordered(pp))
+                          self._get_primaries_for_ordered(pp),
+                          pp.originalViewNo)
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
@@ -1986,12 +2001,11 @@ class OrderingService:
     def _do_send_3pc_batch(self, ledger_id):
         oldStateRootHash = self.get_state_root_hash(ledger_id, to_str=False)
         pre_prepare = self.create_3pc_batch(ledger_id)
+        self._add_to_sent_pre_prepares(pre_prepare)
         self.send_pre_prepare(pre_prepare)
         if not self.is_master:
             self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
                 self._data.inst_id, pre_prepare.ppSeqNo)
-
-        self._preprepare_batch(pre_prepare)
         self._track_batches(pre_prepare, oldStateRootHash)
         return ledger_id
 
@@ -2058,7 +2072,6 @@ class OrderingService:
 
         self._logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(reqs), ledger_id))
-        self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.is_master and rejects:
             for reject in rejects:
@@ -2126,7 +2139,6 @@ class OrderingService:
     @measure_consensus_time(MetricsName.SEND_PREPREPARE_TIME,
                             MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def send_pre_prepare(self, ppReq: PrePrepare):
-        self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self._send(ppReq, stat=TPCStat.PrePrepareSent)
 
     def _send(self, msg, dst=None, stat=None) -> None:
@@ -2265,10 +2277,9 @@ class OrderingService:
         return PROCESS, None
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
-        new_old_view_preprepares = {(pp.viewNo, pp.ppSeqNo, pp.digest): pp
-                                    for pp in pre_prepares}
-        self.old_view_preprepares.update(new_old_view_preprepares)
-
+        for pp in pre_prepares:
+            view_no = pp.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pp else pp.viewNo
+            self.old_view_preprepares[(view_no, pp.ppSeqNo, pp.digest)] = pp
 
     def process_new_view_checkpoints_applied(self, msg: NewViewCheckpointsApplied):
         result, reason = self._validate(msg)
@@ -2284,24 +2295,20 @@ class OrderingService:
                 # TODO: implement correct re-sending logic
                 # self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
                 continue
-            if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
-                if self._data.is_primary:
-                    self.sentPrePrepares[pp.viewNo, pp.ppSeqNo] = pp
-                    self._preprepare_batch(pp)
-                else:
-                    self._add_to_pre_prepares(pp)
-            else:
-                # PrePrepare is accepted from the current Primary only
-                sender = self.generateName(self._data.primary_name, self._data.inst_id)
-                self.process_preprepare(pp, sender)
+            new_pp = updateNamedTuple(pp, viewNo=self.view_no, originalViewNo=batch_id.pp_view_no)
+
+            # PrePrepare is accepted from the current Primary only
+            sender = self.generateName(self._data.primary_name, self._data.inst_id)
+            self.process_preprepare(new_pp, sender)
 
         return PROCESS, None
+
 
     def _preprepare_batch(self, pp: PrePrepare):
         """
         After pp had validated, it placed into _preprepared list
         """
-        batch_id = preprepare_to_batch_id(self.view_no, pp)
+        batch_id = preprepare_to_batch_id(pp)
         if batch_id in self._data.preprepared:
             raise LogicError('New pp cannot be stored in preprepared')
         if self._data.checkpoints and pp.ppSeqNo < self._data.last_checkpoint.seqNoEnd:
@@ -2313,13 +2320,13 @@ class OrderingService:
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        self._data.prepared.append(preprepare_to_batch_id(self.view_no, pp))
+        self._data.prepared.append(preprepare_to_batch_id(pp))
 
     def _clear_batch(self, pp: PrePrepare):
         """
         When 3pc batch processed, it removed from _prepared list
         """
-        batch_id = preprepare_to_batch_id(self.view_no, pp)
+        batch_id = preprepare_to_batch_id(pp)
         if batch_id in self._data.preprepared:
             self._data.preprepared.remove(batch_id)
         if batch_id in self._data.prepared:
