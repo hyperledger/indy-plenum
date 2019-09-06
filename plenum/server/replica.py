@@ -593,6 +593,7 @@ class Replica(HasActionQueue, MessageProcessor):
             count += 1
             msg = deq.popleft()
             external_msg, sender = msg if len(msg) == 2 else (msg, None)
+            # TODO: get rid of appending instId to sender
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count
