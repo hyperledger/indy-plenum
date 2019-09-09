@@ -15,7 +15,7 @@ from plenum.server.quorums import Quorums
 from plenum.test.bls.helper import process_commits_for_key, calculate_multi_sig, process_ordered
 from plenum.test.helper import create_pre_prepare_params, create_pre_prepare_no_bls, create_commit_params, \
     create_commit_no_bls_sig, create_commit_with_bls_sig, create_commit_bls_sig, create_prepare_params, create_prepare, \
-    generate_state_root
+    generate_state_root, create_commit_with_bls_sigs
 
 whitelist = ['Indy Crypto error']
 
@@ -403,6 +403,18 @@ def test_validate_pre_prepare_multiple_correct_multi_sigs(bls_bft_replicas, pre_
         for verifier_bls_bft_replica in bls_bft_replicas:
             assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls_multi,
                                                                      sender_bls_bft_replica.node_id)
+
+
+def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls):
+    key = (0, 0)
+    for sender_bls_bft in bls_bft_replicas:
+        fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
+        commit = create_commit_with_bls_sigs(key, fake_sig)
+        for verifier_bls_bft in bls_bft_replicas:
+            status = verifier_bls_bft.validate_commit(commit,
+                                                      sender_bls_bft.node_id,
+                                                      pre_prepare_with_bls)
+            assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
 def test_process_commit_with_multiple_sigs(bls_bft_replicas, fake_pre_prepare_with_bls,
