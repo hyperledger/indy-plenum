@@ -64,6 +64,7 @@ class f:  # provides a namespace for reusable field constants
     BLS_SIG = Field("blsSig", str)
     BLS_SIGS = Field("blsSigs", Dict[int, str])
     BLS_MULTI_SIG = Field("blsMultiSig", str)
+    BLS_MULTI_SIGS = Field("blsMultiSigs", str)
     BLS_MULTI_SIG_STATE_ROOT = Field("blsMultiSigStateRoot", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)

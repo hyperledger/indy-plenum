@@ -14,7 +14,7 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField, ViewChangeField, MapField
+    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -132,7 +132,8 @@ class PrePrepare(MessageBase):
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
-        # TODO field for a support of multiple signatures of a single batch
+        (f.BLS_MULTI_SIGS.nm, IterableField(optional=True,
+                                            inner_field_type=BlsMultiSignatureField(optional=True, nullable=True))),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
@@ -144,6 +145,13 @@ class PrePrepare(MessageBase):
         bls = input_as_dict.get(f.BLS_MULTI_SIG.nm, None)
         if bls is not None:
             input_as_dict[f.BLS_MULTI_SIG.nm] = (bls[0], tuple(bls[1]), tuple(bls[2]))
+
+        bls_sigs = input_as_dict.get(f.BLS_MULTI_SIGS.nm, None)
+        if bls_sigs is not None:
+            sub = []
+            for sig in bls_sigs:
+                sub.append((sig[0], tuple(sig[1]), tuple(sig[2])))
+            input_as_dict[f.BLS_MULTI_SIGS.nm] = tuple(sub)
 
         return input_as_dict
 
@@ -172,12 +180,12 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
+        (f.BLS_SIGS.nm, MapField(optional=True,
+                                 key_field=StringifiedNonNegativeNumberField(),
+                                 value_field=LimitedLengthStringField(max_length=BLS_SIG_LIMIT))),
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
-        (f.BLS_SIGS.nm, MapField(optional=True,
-                                 key_field=LedgerIdField(),
-                                 value_field=LimitedLengthStringField(max_length=BLS_SIG_LIMIT)))
     )
 
 

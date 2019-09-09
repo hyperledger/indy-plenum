@@ -6,7 +6,8 @@ import pytest
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
-from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_PAYLOAD, \
+    TXN_PAYLOAD_DATA, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_LEDGER_ROOT
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
@@ -92,6 +93,15 @@ def pre_prepare_with_bls(multi_signature, ledger_id):
                                        bls_multi_sig=multi_signature)
     return PrePrepare(*params)
 
+@pytest.fixture()
+def pre_prepare_with_bls_multi(multi_signature, ledger_id):
+    params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
+                                       ledger_id=ledger_id,
+                                       pool_state_root=multi_signature.value.pool_state_root_hash,
+                                       bls_multi_sig=multi_signature,
+                                       bls_multi_sigs=[multi_signature])
+    return PrePrepare(*params)
+
 
 @pytest.fixture()
 def pre_prepare_with_incorrect_bls(multi_signature, ledger_id):
@@ -109,6 +119,26 @@ def pre_prepare_no_bls(state_root, pool_state_root, ledger_id):
                                        ledger_id=ledger_id,
                                        pool_state_root=pool_state_root)
     return PrePrepare(*params)
+
+
+@pytest.fixture()
+def create_audit_txn_with_multiple_ledgers(txnPoolNodeSet):
+    for node in txnPoolNodeSet:
+        audit_ledger = node.db_manager.get_ledger(AUDIT_LEDGER_ID)
+        audit_ledger.get_last_txn = lambda: {
+            TXN_PAYLOAD: {
+                TXN_PAYLOAD_DATA: {
+                    AUDIT_TXN_STATE_ROOT: {
+                        POOL_LEDGER_ID: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
+                        DOMAIN_LEDGER_ID: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm"
+                    },
+                    AUDIT_TXN_LEDGER_ROOT: {
+                        POOL_LEDGER_ID: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
+                        DOMAIN_LEDGER_ID: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm"
+                    }
+                }
+            }
+        }
 
 
 @pytest.yield_fixture(scope="function", params=['state_root', 'timestamp', 'txn_root'])
@@ -337,6 +367,62 @@ def test_process_order(bls_bft_replicas, pre_prepare_no_bls, quorums):
         bls_bft.process_order(key,
                               quorums,
                               pre_prepare_no_bls)
+
+
+# ------ MULTIPLE MULTI_SIGS ------
+
+
+def test_update_pre_prepare_after_ordered_with_multiple_sigs(bls_bft_replicas, state_root, fake_multi_sig, ledger_id,
+                                                             create_audit_txn_with_multiple_ledgers):
+    for bls_bft_replica in bls_bft_replicas:
+        bls_bft_replica._bls_latest_multi_sig = fake_multi_sig
+        bls_bft_replica._all_bls_latest_multi_sigs = [fake_multi_sig]
+
+    params = create_pre_prepare_params(state_root, ledger_id=ledger_id)
+
+    params_initial = copy(params)
+    for bls_bft_replica in bls_bft_replicas:
+        params_res = bls_bft_replica.update_pre_prepare(copy(params), ledger_id)
+        assert params_res != params_initial
+        assert len(params_res) - len(params_initial) == 2
+
+
+def test_update_commit_with_multiple_sigs(bls_bft_replicas, fake_pre_prepare_with_bls,
+                                          create_audit_txn_with_multiple_ledgers):
+    params = create_commit_params(0, 0)
+    params_initial = copy(params)
+    for bls_bft_replica in bls_bft_replicas:
+        params_res = bls_bft_replica.update_commit(copy(params), fake_pre_prepare_with_bls)
+        assert params_res != params_initial
+        assert len(params_res) - len(params_initial) == 2
+
+
+def test_validate_pre_prepare_multiple_correct_multi_sigs(bls_bft_replicas, pre_prepare_with_bls_multi,
+                                                          create_audit_txn_with_multiple_ledgers):
+    for sender_bls_bft_replica in bls_bft_replicas:
+        for verifier_bls_bft_replica in bls_bft_replicas:
+            assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls_multi,
+                                                                     sender_bls_bft_replica.node_id)
+
+
+def test_process_commit_with_multiple_sigs(bls_bft_replicas, fake_pre_prepare_with_bls,
+                                           create_audit_txn_with_multiple_ledgers):
+    for sender_bls_bft in bls_bft_replicas:
+        commit = create_commit_bls_sig(sender_bls_bft, (0, 0), fake_pre_prepare_with_bls)
+        assert commit.blsSigs is not None
+        for verifier_bls_bft in bls_bft_replicas:
+            verifier_bls_bft.process_commit(commit,
+                                            sender_bls_bft.node_id)
+
+
+def test_process_order_with_multiple_sigs(bls_bft_replicas, fake_pre_prepare_with_bls, quorums,
+                                          create_audit_txn_with_multiple_ledgers):
+    key = (0, 0)
+    process_commits_for_key(key, fake_pre_prepare_with_bls, bls_bft_replicas)
+    for bls_bft in bls_bft_replicas:
+        bls_bft.process_order(key,
+                              quorums,
+                              fake_pre_prepare_with_bls)
 
 
 # ------ CREATE MULTI_SIG ------
