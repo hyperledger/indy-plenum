@@ -123,6 +123,7 @@ def pre_prepare_no_bls(state_root, pool_state_root, ledger_id):
 
 @pytest.yield_fixture()
 def create_audit_txn_with_multiple_ledgers(txnPoolNodeSet):
+    ledgers_subst = []
     for node in txnPoolNodeSet:
         audit_ledger = node.db_manager.get_ledger(AUDIT_LEDGER_ID)
         old_last = audit_ledger.get_last_txn
@@ -140,8 +141,10 @@ def create_audit_txn_with_multiple_ledgers(txnPoolNodeSet):
                 }
             }
         }
-        yield audit_ledger
-        audit_ledger.get_last_txn = old_last
+        ledgers_subst.append((audit_ledger, old_last))
+    yield txnPoolNodeSet
+    for ledger, old in ledgers_subst:
+        ledger.get_last_txn = old
 
 
 @pytest.yield_fixture(scope="function", params=['state_root', 'timestamp', 'txn_root'])
