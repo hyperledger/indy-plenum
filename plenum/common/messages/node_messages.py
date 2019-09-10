@@ -133,10 +133,10 @@ class PrePrepare(MessageBase):
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
-        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
-                                                       nullable=True)),
         (f.BLS_MULTI_SIGS.nm, IterableField(optional=True,
                                             inner_field_type=BlsMultiSignatureField(optional=True, nullable=True))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
+                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
