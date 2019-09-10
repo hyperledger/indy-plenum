@@ -121,10 +121,11 @@ def pre_prepare_no_bls(state_root, pool_state_root, ledger_id):
     return PrePrepare(*params)
 
 
-@pytest.fixture()
+@pytest.yield_fixture()
 def create_audit_txn_with_multiple_ledgers(txnPoolNodeSet):
     for node in txnPoolNodeSet:
         audit_ledger = node.db_manager.get_ledger(AUDIT_LEDGER_ID)
+        old_last = audit_ledger.get_last_txn
         audit_ledger.get_last_txn = lambda: {
             TXN_PAYLOAD: {
                 TXN_PAYLOAD_DATA: {
@@ -139,6 +140,8 @@ def create_audit_txn_with_multiple_ledgers(txnPoolNodeSet):
                 }
             }
         }
+        yield audit_ledger
+        audit_ledger.get_last_txn = old_last
 
 
 @pytest.yield_fixture(scope="function", params=['state_root', 'timestamp', 'txn_root'])
