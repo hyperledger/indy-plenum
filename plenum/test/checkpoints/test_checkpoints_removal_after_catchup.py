@@ -1,7 +1,8 @@
 import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
-from plenum.test.checkpoints.helper import cp_key, check_num_received_checkpoints, check_last_received_checkpoint
+from plenum.test.checkpoints.helper import cp_key, check_num_received_checkpoints, check_last_received_checkpoint, \
+    check_stable_checkpoint
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change_complete
@@ -30,7 +31,7 @@ def clear_checkpoints(txnPoolNodeSet):
             replica._checkpointer._received_checkpoints.clear()
 
 
-def test_checkpoints_removed_on_master_non_primary_replica_after_catchup(
+def test_received_checkpoints_removed_on_master_non_primary_replica_after_catchup(
         chkFreqPatched, txnPoolNodeSet, view_setup, clear_checkpoints):
 
     replica = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1]
@@ -56,11 +57,12 @@ def test_checkpoints_removed_on_master_non_primary_replica_after_catchup(
     check_num_received_checkpoints(replica, 1)
     check_last_received_checkpoint(replica, 25, view_no=2)
 
-    # TODO: This wasn't checked in original test, but most probably it should. And now this fails.
-    # check_stable_checkpoint(replica, 20)
+    # We call _mark_stable_checkpoint for backup and expects,
+    # that stable_checkpoint will be as pp_seq_no from last_caught_up
+    assert replica._consensus_data.stable_checkpoint == 20
 
 
-def test_checkpoints_removed_on_backup_non_primary_replica_after_catchup(
+def test_received_checkpoints_removed_on_backup_non_primary_replica_after_catchup(
         chkFreqPatched, txnPoolNodeSet, view_setup, clear_checkpoints):
 
     replica = getNonPrimaryReplicas(txnPoolNodeSet, 1)[-1]
@@ -69,7 +71,7 @@ def test_checkpoints_removed_on_backup_non_primary_replica_after_catchup(
 
     node.master_replica.last_ordered_3pc = (2, 12)
 
-    replica._consensus_data.stable_checkpoint = 10
+    replica._checkpointer._mark_checkpoint_stable(10)
     replica._checkpointer._received_checkpoints[cp_key(2, 15)] = [r.name for r in others]
     replica._checkpointer._received_checkpoints[cp_key(2, 20)] = [r.name for r in others]
     replica._checkpointer._received_checkpoints[cp_key(2, 25)] = [next(iter(others)).name]
@@ -85,11 +87,11 @@ def test_checkpoints_removed_on_backup_non_primary_replica_after_catchup(
 
     check_num_received_checkpoints(replica, 0)
 
-    # TODO: This wasn't checked in original test, but most probably it should. And now this fails.
-    # check_stable_checkpoint(replica, 20)
+    # # We don't call mark_stable_checkpoint for backup
+    assert replica._consensus_data.stable_checkpoint == 10
 
 
-def test_checkpoints_removed_on_backup_primary_replica_after_catchup(
+def test_received_checkpoints_removed_on_backup_primary_replica_after_catchup(
         chkFreqPatched, txnPoolNodeSet, view_setup, clear_checkpoints):
 
     replica = getPrimaryReplica(txnPoolNodeSet, 1)
