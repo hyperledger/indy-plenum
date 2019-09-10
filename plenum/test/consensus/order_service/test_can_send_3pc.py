@@ -71,3 +71,27 @@ def test_can_send_multiple_3pc_batches_in_next_view(primary_orderer, initial_seq
     primary_orderer.last_ordered_3pc = (primary_orderer.view_no - 1, initial_seq_no)
     primary_orderer._lastPrePrepareSeqNo = initial_seq_no + num_in_flight
     assert primary_orderer.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('last_pp_seqno', [0, 1, 9])
+def test_cannot_send_3pc_batch_below_prev_view_prep_cert(primary_orderer, last_pp_seqno):
+    primary_orderer._data.prev_view_prepare_cert = 10
+    primary_orderer._lastPrePrepareSeqNo = last_pp_seqno
+    primary_orderer.last_ordered_3pc = (primary_orderer.view_no, last_pp_seqno)
+    assert not primary_orderer.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('last_pp_seqno', [0, 9, 10])
+def test_can_send_3pc_batch_None_prev_view_prep_cert(primary_orderer, last_pp_seqno):
+    primary_orderer._data.prev_view_prepare_cert = None
+    primary_orderer._lastPrePrepareSeqNo = last_pp_seqno
+    primary_orderer.last_ordered_3pc = (primary_orderer.view_no, last_pp_seqno)
+    assert primary_orderer.can_send_3pc_batch()
+
+
+@pytest.mark.parametrize('last_pp_seqno', [10, 11, 100])
+def test_can_send_3pc_batch_above_prev_view_prep_cert(primary_orderer, last_pp_seqno):
+    primary_orderer._data.prev_view_prepare_cert = 10
+    primary_orderer._lastPrePrepareSeqNo = last_pp_seqno
+    primary_orderer.last_ordered_3pc = (primary_orderer.view_no, last_pp_seqno)
+    assert primary_orderer.can_send_3pc_batch()

@@ -15,11 +15,12 @@ class SimNetwork:
         self._max_latency = 500
         self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
 
-    def create_peer(self, name: str) -> ExternalBus:
+    def create_peer(self, name: str, handler=None) -> ExternalBus:
         if name in self._peers:
             raise ValueError("Peer with name '{}' already exists".format(name))
 
-        bus = ExternalBus(partial(self._send_message, name))
+        handler = handler or partial(self._send_message, name)
+        bus = ExternalBus(handler)
         self._peers[name] = bus
         return bus
 

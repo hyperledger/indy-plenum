@@ -4,8 +4,6 @@ from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn,
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 from plenum.test.plugin.demo_plugin.main import integrate_plugin_in_node
 from plenum.test.testing_utils import FakeSomething
-from state.pruning_state import PruningState
-from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 def check_apply_audit_txn(alh,
@@ -13,21 +11,24 @@ def check_apply_audit_txn(alh,
                           view_no, pp_sq_no, txn_time, seq_no,
                           pool_size, domain_size, config_size,
                           last_pool_seqno, last_domain_seqno, last_config_seqno,
-                          primaries, other_sizes={}):
+                          primaries, other_sizes={},
+                          original_view_no=None):
     db_manager = alh.database_manager
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
 
     do_apply_audit_txn(alh,
                        txns_count=txns_count, ledger_id=ledger_ids[0],
-                       view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time)
+                       view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time,
+                       original_view_no=original_view_no)
 
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before
 
     txn = alh.ledger.get_uncommitted_txns()[-1]
+    expected_view_no = original_view_no if original_view_no is not None else view_no
     check_audit_txn(txn=txn,
-                    view_no=view_no, pp_seq_no=pp_sq_no,
+                    view_no=expected_view_no, pp_seq_no=pp_sq_no,
                     seq_no=seq_no, txn_time=txn_time,
                     txn_roots={
                         ledger_id: db_manager.get_ledger(ledger_id).uncommitted_root_hash for ledger_id in ledger_ids
@@ -51,7 +52,8 @@ def test_apply_audit_ledger_txn_pool_ledger(alh,
                           pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=DEFAULT_PRIMARIES)
+                          primaries=DEFAULT_PRIMARIES,
+                          original_view_no=0)
 
 
 def test_apply_audit_ledger_txn_domain_ledger(alh,
@@ -62,7 +64,8 @@ def test_apply_audit_ledger_txn_domain_ledger(alh,
                           pool_size=initial_pool_size, domain_size=initial_domain_size + 15,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=DEFAULT_PRIMARIES)
+                          primaries=DEFAULT_PRIMARIES,
+                          original_view_no=0)
 
 
 def test_apply_audit_ledger_txn_config_ledger(alh,
@@ -73,7 +76,8 @@ def test_apply_audit_ledger_txn_config_ledger(alh,
                           pool_size=initial_pool_size, domain_size=initial_domain_size,
                           config_size=initial_config_size + 20,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=DEFAULT_PRIMARIES)
+                          primaries=DEFAULT_PRIMARIES,
+                          original_view_no=0)
 
 
 def test_apply_audit_ledger_txn_multi_ledger(alh,

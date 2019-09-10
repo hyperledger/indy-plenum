@@ -15,6 +15,7 @@ from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
+from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_VIEW
 from stp_core.common.log import getlogger
 
@@ -24,107 +25,6 @@ def view_change_digest(msg: ViewChange) -> str:
     msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
     serialized = JsonSerializer().dumps(msg_as_dict)
     return sha256(serialized).hexdigest()
-
-
-class ViewChangeVotesForNode:
-    """
-    Storage for view change vote from some node for some view + corresponding acks
-    """
-
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._view_change = None
-        self._digest = None
-        self._acks = defaultdict(set)  # Dict[str, Set[str]]
-
-    @property
-    def digest(self) -> Optional[str]:
-        """
-        Returns digest of received view change message
-        """
-        return self._digest
-
-    @property
-    def view_change(self) -> Optional[ViewChange]:
-        """
-        Returns received view change
-        """
-        return self._view_change
-
-    @property
-    def is_confirmed(self) -> bool:
-        """
-        Returns True if received view change message and enough corresponding acks
-        """
-        if self._digest is None:
-            return False
-
-        return self._quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
-
-    def add_view_change(self, msg: ViewChange) -> bool:
-        """
-        Adds view change vote and returns boolean indicating if it found node suspicios
-        """
-        if self._view_change is None:
-            self._view_change = msg
-            self._digest = view_change_digest(msg)
-            return self._validate_acks()
-
-        return self._digest == view_change_digest(msg)
-
-    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        self._acks[msg.digest].add(frm)
-        return self._validate_acks()
-
-    def _validate_acks(self) -> bool:
-        digests = [digest for digest, acks in self._acks.items()
-                   if self._quorums.weak.is_reached(len(acks))]
-
-        if len(digests) > 1:
-            return False
-
-        if len(digests) < 1 or self._digest is None:
-            return True
-
-        return self._digest == digests[0]
-
-
-class ViewChangeVotesForView:
-    """
-    Storage for view change votes for some view + corresponding acks
-    """
-
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._votes = defaultdict(partial(ViewChangeVotesForNode, quorums))
-
-    @property
-    def confirmed_votes(self) -> List[Tuple[str, str]]:
-        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
-                if node_votes.is_confirmed]
-
-    def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:
-        vc = self._votes[frm].view_change
-        if vc is not None and view_change_digest(vc) == digest:
-            return vc
-
-    def add_view_change(self, msg: ViewChange, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        return self._votes[frm].add_view_change(msg)
-
-    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        return self._votes[msg.name].add_view_change_ack(msg, frm)
-
-    def clear(self):
-        self._votes.clear()
 
 
 class ViewChangeService:
@@ -152,6 +52,7 @@ class ViewChangeService:
 
         self._subscription = Subscription()
         self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
+        self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
 
     def __repr__(self):
         return self._data.name
@@ -171,7 +72,7 @@ class ViewChangeService:
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
                                                                          instance_count=self._data.quorums.f + 1,
                                                                          validators=self._data.validators)
-        self._data.primary_name = self._data.primaries[self._data.inst_id]
+        self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
@@ -231,10 +132,11 @@ class ViewChangeService:
 
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
-            name=frm,
+            name=getNodeName(frm),
             digest=view_change_digest(msg)
         )
-        self._network.send(vca, self._data.primary_name)
+        primary_node_name = getNodeName(self._data.primary_name)
+        self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
         return PROCESS, None
@@ -269,6 +171,9 @@ class ViewChangeService:
         self._new_view = msg
         self._finish_view_change_if_needed()
         return PROCESS, None
+
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
@@ -437,11 +342,15 @@ class NewViewBuilder:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
                     continue
-                # not ( (v' < v) OR (v'==v and d'==d) )
+
+                # not ( (v' < v) OR (v'==v and d'==d and pp_view_no'==pp_view_no) )
                 if some_bid.view_no > bid.view_no:
                     return False
                 if some_bid.view_no >= bid.view_no and some_bid.pp_digest != bid.pp_digest:
                     return False
+                if some_bid.view_no >= bid.view_no and some_bid.pp_view_no != bid.pp_view_no:
+                    return False
+
             return True
 
         prepared_witnesses = sum(1 for vc in vcs if check(vc))
@@ -452,6 +361,8 @@ class NewViewBuilder:
             for _some_bid in vc.preprepared:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
+                    continue
+                if some_bid.pp_view_no != bid.pp_view_no:
                     continue
                 if some_bid.pp_digest != bid.pp_digest:
                     continue
@@ -476,3 +387,106 @@ class NewViewBuilder:
 
         null_batch_witnesses = sum(1 for vc in vcs if check(vc))
         return self._data.quorums.strong.is_reached(null_batch_witnesses)
+
+
+class ViewChangeVotesForNode:
+    """
+    Storage for view change vote from some node for some view + corresponding acks
+    """
+
+    def __init__(self, quorums: Quorums):
+        self._quorums = quorums
+        self._view_change = None
+        self._digest = None
+        self._acks = defaultdict(set)  # Dict[str, Set[str]]
+
+    @property
+    def digest(self) -> Optional[str]:
+        """
+        Returns digest of received view change message
+        """
+        return self._digest
+
+    @property
+    def view_change(self) -> Optional[ViewChange]:
+        """
+        Returns received view change
+        """
+        return self._view_change
+
+    @property
+    def is_confirmed(self) -> bool:
+        """
+        Returns True if received view change message and enough corresponding acks
+        """
+        if self._digest is None:
+            return False
+
+        return self._quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
+
+    def add_view_change(self, msg: ViewChange) -> bool:
+        """
+        Adds view change vote and returns boolean indicating if it found node suspicios
+        """
+        if self._view_change is None:
+            self._view_change = msg
+            self._digest = view_change_digest(msg)
+            return self._validate_acks()
+
+        return self._digest == view_change_digest(msg)
+
+    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
+        """
+        Adds view change ack and returns boolean indicating if it found node suspicios
+        """
+        self._acks[msg.digest].add(frm)
+        return self._validate_acks()
+
+    def _validate_acks(self) -> bool:
+        digests = [digest for digest, acks in self._acks.items()
+                   if self._quorums.weak.is_reached(len(acks))]
+
+        if len(digests) > 1:
+            return False
+
+        if len(digests) < 1 or self._digest is None:
+            return True
+
+        return self._digest == digests[0]
+
+
+class ViewChangeVotesForView:
+    """
+    Storage for view change votes for some view + corresponding acks
+    """
+
+    def __init__(self, quorums: Quorums):
+        self._quorums = quorums
+        self._votes = defaultdict(partial(ViewChangeVotesForNode, quorums))
+
+    @property
+    def confirmed_votes(self) -> List[Tuple[str, str]]:
+        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
+                if node_votes.is_confirmed]
+
+    def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:
+        vc = self._votes[frm].view_change
+        if vc is not None and view_change_digest(vc) == digest:
+            return vc
+
+    def add_view_change(self, msg: ViewChange, frm: str) -> bool:
+        """
+        Adds view change ack and returns boolean indicating if it found node suspicios
+        """
+        frm = getNodeName(frm)
+        return self._votes[frm].add_view_change(msg)
+
+    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
+        """
+        Adds view change ack and returns boolean indicating if it found node suspicios
+        """
+        frm = getNodeName(frm)
+        return self._votes[msg.name].add_view_change_ack(msg, frm)
+
+    def clear(self):
+        self._votes.clear()

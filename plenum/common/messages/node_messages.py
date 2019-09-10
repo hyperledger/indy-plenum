@@ -97,6 +97,7 @@ class Ordered(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -132,6 +133,8 @@ class PrePrepare(MessageBase):
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
+                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
@@ -171,6 +174,7 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
+
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
@@ -181,10 +185,10 @@ class Checkpoint(MessageBase):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),          # This will no longer be used soon
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),     # This is no longer used and must always be 0
+        (f.VIEW_NO.nm, NonNegativeNumberField()),  # This will no longer be used soon
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),  # This is no longer used and must always be 0
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, MerkleRootField(nullable=True)),     # This is actually audit ledger merkle root
+        (f.DIGEST.nm, MerkleRootField(nullable=True)),  # This is actually audit ledger merkle root
     )
 
 
@@ -396,6 +400,7 @@ class BatchCommitted(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
     )
 
 

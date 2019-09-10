@@ -19,8 +19,8 @@ from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.messages.node_messages import Ordered, \
+    PrePrepare, Prepare, Commit, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
@@ -32,11 +32,11 @@ from plenum.server.consensus.message_request.message_req_3pc_service import Mess
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.server.replica_helper import replica_batch_digest
+from plenum.server.replica_helper import replica_batch_digest, TPCStat
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
 from plenum.server.router import Router
-from sortedcontainers import SortedList, SortedListWithKey
+from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -565,6 +565,7 @@ class Replica(HasActionQueue, MessageProcessor):
             count += 1
             msg = deq.popleft()
             external_msg, sender = msg if len(msg) == 2 else (msg, None)
+            # TODO: get rid of appending instId to sender
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count

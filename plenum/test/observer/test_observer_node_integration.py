@@ -41,7 +41,7 @@ def test_observer_node(txnPoolNodeSet,
     # send requests, so that they will be propagated to Observer (Delta)
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client,
-                              60)
+                              10)
 
     # check that Delta is in sync with other Nodes.
     checkNodeDataForEquality(observer_node,

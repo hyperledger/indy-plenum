@@ -72,4 +72,5 @@ def fake_msg_batch_committed():
                           1,
                           10,
                           generate_state_root(),
-                          ['Alpha', 'Beta'])
+                          ['Alpha', 'Beta'],
+                          0)
