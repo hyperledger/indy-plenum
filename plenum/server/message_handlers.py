@@ -22,6 +22,9 @@ class BaseHandler(metaclass=ABCMeta):
 
     fields = NotImplemented
 
+    def __init__(self, node):
+        self.node = node
+
     @abstractmethod
     def validate(self, **kwargs) -> bool:
         pass
@@ -82,19 +85,13 @@ class BaseHandler(metaclass=ABCMeta):
         :param cliOutput: if truthy, informs a CLI that the logged msg should
         be printed
         """
-        reason = "" if not reason else " because {}".format(reason)
-        logMethod("{} discarding message {}{}".format(self, msg, reason),
-                  extra={"cli": cliOutput})
+        self.node.discard(msg, reason, logMethod, cliOutput)
 
 
 class LedgerStatusHandler(BaseHandler):
     fields = {
         'ledger_id': f.LEDGER_ID.nm
     }
-
-    def __init__(self, node):
-        super().__init__()
-        self.node = node
 
     def validate(self, **kwargs) -> bool:
         return kwargs['ledger_id'] in self.node.ledger_ids
@@ -118,10 +115,6 @@ class ConsistencyProofHandler(BaseHandler):
         'seq_no_start': f.SEQ_NO_START.nm,
         'seq_no_end': f.SEQ_NO_END.nm
     }
-
-    def __init__(self, node):
-        super().__init__()
-        self.node = node
 
     def validate(self, **kwargs) -> bool:
         return kwargs['ledger_id'] in self.node.ledger_ids and \
@@ -152,10 +145,6 @@ class PropagateHandler(BaseHandler):
     fields = {
         'digest': f.DIGEST.nm
     }
-
-    def __init__(self, node):
-        super().__init__()
-        self.node = node
 
     def validate(self, **kwargs) -> bool:
         return kwargs['digest'] is not None

@@ -1618,8 +1618,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if inst_id is None and self.msgHasAcceptableInstId(msg, frm):
             inst_id = getattr(msg, f.INST_ID.nm, None)
-        if inst_id is not None:
-            self.replicas.pass_message((msg, frm), inst_id)
+        if inst_id is None:
+            self.discard(msg, "Invalid node msg", logger.debug)
+        self.replicas.pass_message((msg, frm), inst_id)
 
     def sendToViewChanger(self, msg, frm):
         """
@@ -2646,10 +2647,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                sum_for_values(self.master_replica._ordering_service.requestQueues))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica._ordering_service.batches))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_MASTER,
-                               len(self.master_replica.requested_pre_prepares))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_MASTER,
-                               len(self.master_replica.requested_prepares))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
+                               len(self.master_replica._consensus_data.requested_pre_prepares))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_MASTER,
+        #                        len(self.master_replica.requested_prepares))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_MASTER,
                                len(self.master_replica._ordering_service.pre_prepares_stashed_for_incorrect_time))
 
@@ -2718,10 +2719,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups_ordering_service('batches'))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_BACKUP,
                                sum_for_backups_ordering_service('requested_pre_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP,
-                               sum_for_backups_ordering_service('requested_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP,
-                               sum_for_backups_ordering_service('requested_commits'))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP,
+        #                        sum_for_backups_ordering_service('requested_prepares'))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP,
+        #                        sum_for_backups_ordering_service('requested_commits'))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_BACKUP,
                                sum_for_backups_ordering_service('pre_prepares_stashed_for_incorrect_time'))
         self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_BACKUP, sum_for_backups('actionQueue'))

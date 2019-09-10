@@ -49,7 +49,8 @@ def patched_LedgerStatus():
     return PLedgerStatus
 
 
-discard_counts = {}
+service_discard_counts = {}
+node_discard_counts = {}
 
 pre_prepare_msg = PrePrepare(
     0,
@@ -90,16 +91,7 @@ propagate_msg = Propagate(**{'request': {'identifier': '5rArie7XKukPCaEwq5XGQJnM
                                          'protocolVersion': CURRENT_PROTOCOL_VERSION},
                              'senderClient': '+DG1:vO9#de6?R?>:3RwdAXSdefgLLfxSoN4WMEe'})
 
-msg_reps_with_invalid_params = [
-    (LEDGER_STATUS, {'p1': 'v1', 'p2': 'v2'}, LedgerStatus(
-        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
-    (LEDGER_STATUS, {f.LEDGER_ID.nm: 100}, LedgerStatus(
-        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
-    (CONSISTENCY_PROOF, {f.LEDGER_ID.nm: 1, f.SEQ_NO_START.nm: 10},
-     ConsistencyProof(1, 2, 20, 1, 3,
-                      'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',
-                      'Dce684wcwhV2wNZCuYTzdW9Kr13ZXFgiuAuAGibFZc4v',
-                      ['58qasGZ9y3TB1pMz7ARKjJeccEbvbx6FT6g3NFnjYsTS'])),
+msg_reps_with_invalid_3pc_params = [
     (PREPREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 0, f.SEQ_NO_START.nm: 10},
      pre_prepare_msg),
     (PREPREPARE, {f.INST_ID.nm: -1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 10},
@@ -112,6 +104,18 @@ msg_reps_with_invalid_params = [
      commit_msg),
     (COMMIT, {f.INST_ID.nm: -1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 10},
      commit_msg),
+]
+
+msg_reps_with_invalid_params = [
+    (LEDGER_STATUS, {'p1': 'v1', 'p2': 'v2'}, LedgerStatus(
+        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
+    (LEDGER_STATUS, {f.LEDGER_ID.nm: 100}, LedgerStatus(
+        1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq', CURRENT_PROTOCOL_VERSION)),
+    (CONSISTENCY_PROOF, {f.LEDGER_ID.nm: 1, f.SEQ_NO_START.nm: 10},
+     ConsistencyProof(1, 2, 20, 1, 3,
+                      'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',
+                      'Dce684wcwhV2wNZCuYTzdW9Kr13ZXFgiuAuAGibFZc4v',
+                      ['58qasGZ9y3TB1pMz7ARKjJeccEbvbx6FT6g3NFnjYsTS'])),
     (PROPAGATE, {f.IDENTIFIER.nm: 'aa', f.REQ_ID.nm: 'fr'}, propagate_msg),
     (PROPAGATE, {
         f.IDENTIFIER.nm: '4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ'}, propagate_msg),
@@ -121,6 +125,22 @@ msg_reps_with_invalid_params = [
 
 msg_reqs_with_invalid_params = map(lambda triplet: triplet[:2],
                                    msg_reps_with_invalid_params)
+
+
+msg_reps_with_mismatched_3pc_params = [
+    (PREPREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
+     pre_prepare_msg),
+    (PREPREPARE, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
+     pre_prepare_msg),
+    (PREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
+     prepare_msg),
+    (PREPARE, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
+     prepare_msg),
+    (COMMIT, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
+     commit_msg),
+    (COMMIT, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
+     commit_msg),
+]
 
 
 msg_reps_with_mismatched_params = [
@@ -141,34 +161,26 @@ msg_reps_with_mismatched_params = [
                       'BvmagFYpXAYNTuNW8Qssk9tMhEEPucLqL55YuwngUvMw',
                       'Dce684wcwhV2wNZCuYTzdW9Kr13ZXFgiuAuAGibFZc4v',
                       ['58qasGZ9y3TB1pMz7ARKjJeccEbvbx6FT6g3NFnjYsTS'])),
-    (PREPREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
-     pre_prepare_msg),
-    (PREPREPARE, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
-     pre_prepare_msg),
-    (PREPARE, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
-     prepare_msg),
-    (PREPARE, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
-     prepare_msg),
-    (COMMIT, {f.INST_ID.nm: 1, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 3},
-     commit_msg),
-    (COMMIT, {f.INST_ID.nm: 0, f.VIEW_NO.nm: 1, f.PP_SEQ_NO.nm: 5},
-     commit_msg),
     (PROPAGATE, {f.DIGEST.nm: 'MISMATCHED_DIGEST'}, propagate_msg),
 ]
 
 
 def fill_counters(nodes, log_message):
-    global discard_counts
-    discard_counts[log_message] = {n.master_replica._message_req_service.name:
+    global service_discard_counts
+    service_discard_counts[log_message] = {n.master_replica._message_req_service.name:
                                        countDiscarded(n.master_replica._message_req_service, log_message)
-                                   for n in nodes}
+                                           for n in nodes}
+    node_discard_counts[log_message] = {n.name: countDiscarded(n, log_message)
+                                        for n in nodes}
 
 
-def chk(services, log_message):
-    global discard_counts
+def chk(services, log_message, old_discard_counts=None):
+    if old_discard_counts is None:
+        global node_discard_counts
+        old_discard_counts = node_discard_counts
     for s in services:
         assert countDiscarded(
-            s, log_message) > discard_counts[log_message][s.name]
+            s, log_message) > old_discard_counts[log_message][s.name]
 
 
 @pytest.fixture(scope='module')
@@ -188,7 +200,7 @@ def test_node_rejects_msg_reqs_with_invalid_type(looper, nodes):
     bad_node.send(bad_msg)
 
     looper.run(eventually(chk,
-                          [n.master_replica._message_req_service for n in other_nodes],
+                          other_nodes,
                           invalid_type_discard_log, retryWait=1))
 
 
@@ -203,7 +215,7 @@ def test_node_rejects_msg_reps_with_invalid_type(looper, nodes):
                                    {'some_message': 'message'})
     bad_node.send(bad_msg)
     looper.run(eventually(chk,
-                          [n.master_replica._message_req_service for n in other_nodes],
+                          other_nodes,
                           invalid_type_discard_log, retryWait=1))
 
 
@@ -217,7 +229,7 @@ def test_node_rejects_msg_reqs_with_invalid_params(looper, nodes):
         fill_counters(other_nodes, invalid_req_discard_log)
         bad_node.send(patched_MessageReq()(*msg_req_with_invalid_params))
         looper.run(eventually(chk,
-                              [n.master_replica._message_req_service for n in other_nodes],
+                              other_nodes,
                               invalid_req_discard_log,
                               retryWait=1))
 
@@ -232,7 +244,7 @@ def test_node_rejects_msg_reps_with_invalid_params(looper, nodes):
         fill_counters(other_nodes, invalid_rep_discard_log)
         bad_node.send(patched_MessageRep()(*msg_rep_with_invalid_params))
         looper.run(eventually(chk,
-                              [n.master_replica._message_req_service for n in other_nodes],
+                              other_nodes,
                               invalid_rep_discard_log,
                               retryWait=1))
 
@@ -252,7 +264,7 @@ def test_node_rejects_msg_reps_with_invalid_msg_structure(looper, nodes):
         patched_LedgerStatus()(1, 20, 1, 2, '77wuDUSr4FtAJzJbSqSW7bBw8bKAbra8ABSAjR72Nipq'))
     bad_node.send(bad_msg)
     looper.run(eventually(chk,
-                          [n.master_replica._message_req_service for n in other_nodes],
+                          other_nodes,
                           invalid_replied_msg_structure, retryWait=1))
 
 
@@ -267,6 +279,6 @@ def test_node_rejects_msg_reps_with_mismatched_params(looper, nodes):
         fill_counters(other_nodes, mismatched_params_log)
         bad_node.send(patched_MessageRep()(*msg_rep_with_mismatched_params))
         looper.run(eventually(chk,
-                              [n.master_replica._message_req_service for n in other_nodes],
+                              other_nodes,
                               mismatched_params_log,
                               retryWait=1))

@@ -642,6 +642,10 @@ class OrderingService:
         return self._data.commits
 
     @property
+    def requested_pre_prepares(self):
+        return self._data.requested_pre_prepares
+
+    @property
     def last_ordered_3pc(self):
         return self._data.last_ordered_3pc
 

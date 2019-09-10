@@ -30,9 +30,6 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     orderer.prePrepares[key] = pp
     orderer.prepares[key] = prepare
     orderer.commits[key] = commit
-    orderer.requested_pre_prepares[key] = pp
-    orderer.requested_prepares[key] = prepare
-    orderer.requested_commits[key] = commit
     orderer.pre_prepare_tss[key][pp, "Node1"] = 1234
     orderer.prePreparesPendingFinReqs.append(pp)
     orderer.prePreparesPendingPrevPP[key] = pp
@@ -46,10 +43,6 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     assert not orderer.prePrepares
     assert not orderer.prepares
     assert not orderer.commits
-
-    assert not orderer.requested_pre_prepares
-    assert not orderer.requested_prepares
-    assert not orderer.requested_commits
 
     assert not orderer.pre_prepare_tss
     assert not orderer.prePreparesPendingFinReqs

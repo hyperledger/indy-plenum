@@ -78,7 +78,8 @@ class SimPool:
 
         self._nodes = [ReplicaService(name, validators, primary_name,
                                       self._timer, InternalBus(), self.network.create_peer(name),
-                                      write_manager=create_test_write_req_manager(name, genesis_txns))
+                                      write_manager=create_test_write_req_manager(name, genesis_txns),
+                                      bls_bft_replica=FakeSomething(gc=lambda key: None))
                        for name in validators]
 
     @property

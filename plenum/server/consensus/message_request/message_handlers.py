@@ -61,7 +61,7 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
             result = self._create(msg.msg, **params)
             self._validate_message_rep(result)
             return result
-        except TypeError as e:
+        except TypeError:
             raise IncorrectMessageForHandlingException(msg, 'replied message has invalid structure',
                                                        self._logger.warning)
         except MismatchedMessageReplyException:
