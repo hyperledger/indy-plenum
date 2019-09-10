@@ -183,13 +183,9 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
-<<<<<<< HEAD
         (f.BLS_SIGS.nm, MapField(optional=True,
                                  key_field=StringifiedNonNegativeNumberField(),
                                  value_field=LimitedLengthStringField(max_length=BLS_SIG_LIMIT))),
-=======
-
->>>>>>> 98d5363feebf0610e5f982db6bc769d53f480fb3
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
