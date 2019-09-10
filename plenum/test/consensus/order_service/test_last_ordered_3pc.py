@@ -1,10 +1,5 @@
 import pytest
 
-
-@pytest.fixture(params=[True, False])
-def is_master(request):
-    return request.param
-
 @pytest.fixture(params=[0, 10])
 def view_no(request):
     return request.param

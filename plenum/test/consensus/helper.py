@@ -10,7 +10,7 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck
 from plenum.common.txn_util import get_type
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
@@ -18,11 +18,12 @@ from plenum.server.consensus.view_change_service import ViewChangeService, view_
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
+from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer, create_pool_txn_data
+from plenum.test.helper import MockTimer, create_pool_txn_data, create_pre_prepare_no_bls, generate_state_root
 from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import DefaultSimRandom, SimRandom
 from plenum.test.testing_utils import FakeSomething
@@ -76,10 +77,18 @@ class SimPool:
             crypto_factory=create_default_bls_crypto_factory(),
             get_free_port=partial(random.integer, 9000, 9999))['txns']
 
-        self._nodes = [ReplicaService(name, validators, primary_name,
-                                      self._timer, InternalBus(), self.network.create_peer(name),
-                                      write_manager=create_test_write_req_manager(name, genesis_txns))
-                       for name in validators]
+        self._nodes = []
+        for name in validators:
+            # TODO: emulate it the same way as in Replica, that is sender must have 'node_name:inst_id' form
+            replica_name = generateName(name, 0)
+            handler = partial(self.network._send_message, replica_name)
+            replica = ReplicaService(replica_name,
+                                     validators, primary_name,
+                                     self._timer,
+                                     InternalBus(),
+                                     self.network.create_peer(name, handler),
+                                     write_manager=create_test_write_req_manager(name, genesis_txns))
+            self._nodes.append(replica)
 
     @property
     def timer(self) -> MockTimer:
@@ -94,7 +103,7 @@ class SimPool:
         return self._nodes
 
 
-VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries'
+VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
 ORDERING_SERVICE_FIELDS = 'last_ordered_3pc', 'preprepared', 'prepared'
 CHECKPOINT_SERVICE_FIELDS = 'stable_checkpoint', 'checkpoints', 'low_watermark', 'high_watermark'
 
@@ -121,10 +130,20 @@ def create_checkpoints(view_no):
     return [Checkpoint(instId=0, viewNo=view_no, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]
 
 
+def create_pre_prepares(view_no):
+    return [create_pre_prepare_no_bls(generate_state_root(), view_no=view_no, pp_seq_no=11),
+            create_pre_prepare_no_bls(generate_state_root(), view_no=view_no, pp_seq_no=12),
+            create_pre_prepare_no_bls(generate_state_root(), view_no=view_no, pp_seq_no=13)]
+
+
+def create_batches_from_preprepares(preprepares):
+    return [preprepare_to_batch_id(pp) for pp in preprepares]
+
+
 def create_batches(view_no):
-    return [BatchID(view_no, 11, "d1"),
-            BatchID(view_no, 12, "d2"),
-            BatchID(view_no, 13, "d3")]
+    return [BatchID(view_no, view_no, 11, "d1"),
+            BatchID(view_no, view_no, 12, "d2"),
+            BatchID(view_no, view_no, 13, "d3")]
 
 
 def create_view_change(initial_view_no, stable_cp=10, batches=None):
@@ -150,9 +169,9 @@ def create_new_view_from_vc(vc, validators, checkpoint=None, batches=None):
                    batches)
 
 
-def create_new_view(initial_view_no, stable_cp, validators=None):
+def create_new_view(initial_view_no, stable_cp, validators=None, batches=None):
     validators = validators or genNodeNames(4)
-    batches = create_batches(initial_view_no)
+    batches = create_batches(initial_view_no) if batches is None else batches
     vc = create_view_change(initial_view_no, stable_cp, batches)
     return create_new_view_from_vc(vc, validators)
 

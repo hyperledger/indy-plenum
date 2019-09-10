@@ -27,25 +27,23 @@ from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.messages.node_messages import Ordered, \
+    PrePrepare, Prepare, Commit, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
-from plenum.common.request import Request, ReqKey
+from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter
-from plenum.common.util import updateNamedTuple, compare_3PC_keys
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
-from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest, TPCStat
-from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
 from plenum.server.router import Router
-from sortedcontainers import SortedList, SortedListWithKey
+from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -595,6 +593,7 @@ class Replica(HasActionQueue, MessageProcessor):
             count += 1
             msg = deq.popleft()
             external_msg, sender = msg if len(msg) == 2 else (msg, None)
+            # TODO: get rid of appending instId to sender
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count

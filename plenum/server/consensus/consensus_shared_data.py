@@ -5,14 +5,24 @@ from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
+from plenum.common.types import f
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
 
-BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
+# `view_no` is a view no is the current view_no, but `pp_view_no` is a view no when the given PrePrepare has been
+# initially created and applied
+
+# it's critical to keep the original view no to correctly create audit ledger transaction
+# (since PrePrepare's view no is present there)
+
+# An example when `view_no` != `pp_view_no`, is when view change didn't finish at first round
+# (next primary is unavailable for example)
+BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
 def preprepare_to_batch_id(pre_prepare: PrePrepare) -> BatchID:
-    return BatchID(pre_prepare.viewNo, pre_prepare.ppSeqNo, pre_prepare.digest)
+    pp_view_no = pre_prepare.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pre_prepare else pre_prepare.viewNo
+    return BatchID(pre_prepare.viewNo, pp_view_no, pre_prepare.ppSeqNo, pre_prepare.digest)
 
 
 class ConsensusSharedData:
@@ -62,6 +72,7 @@ class ConsensusSharedData:
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
+        self.prev_view_prepare_cert = None
 
     @property
     def name(self) -> str:

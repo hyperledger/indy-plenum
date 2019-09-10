@@ -126,23 +126,16 @@ def test_discard_below_watermark_3pc_no_stash(validator, view_no, mode, waiting_
     assert validator.validate_commit(commit(view_no, 99)) == (DISCARD, ALREADY_ORDERED)
 
 
-@pytest.mark.parametrize('pp_seq_no, result', [
-    (1, (DISCARD, ALREADY_ORDERED)),
-    (9, (DISCARD, ALREADY_ORDERED)),
-    (10, (DISCARD, ALREADY_ORDERED)),
-    (11, (PROCESS, None)),
-    (12, (PROCESS, None)),
-    (100, (PROCESS, None))
-])
-def test_discard_ordered_pre_prepare(validator, view_no, pp_seq_no, result):
+@pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
+def test_process_ordered_pre_prepare(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
-    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == result
+    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 @pytest.mark.parametrize('pp_seq_no', [1, 5, 9, 10])
 def test_discard_ordered_pre_prepare_no_stash(validator, view_no, pp_seq_no, mode, waiting_for_new_view):
     validator._data.last_ordered_3pc = (view_no, 10)
-    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (DISCARD, ALREADY_ORDERED)
+    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 @pytest.mark.parametrize('mode, result', [
