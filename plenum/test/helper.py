@@ -1276,7 +1276,7 @@ def create_commit_with_bls_sigs(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
     params.append(bls_sig)
-    params.append([str(DOMAIN_LEDGER_ID): bls_sig])
+    params.append({str(DOMAIN_LEDGER_ID): bls_sig})
     return Commit(*params)
 
 

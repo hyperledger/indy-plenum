@@ -405,7 +405,8 @@ def test_validate_pre_prepare_multiple_correct_multi_sigs(bls_bft_replicas, pre_
                                                                      sender_bls_bft_replica.node_id)
 
 
-def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls):
+def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls,
+                                                          create_audit_txn_with_multiple_ledgers):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
         fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
@@ -415,6 +416,12 @@ def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_
                                                       sender_bls_bft.node_id,
                                                       pre_prepare_with_bls)
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
+
+
+def test_process_pre_prepare_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls_multi):
+    for sender_bls_bft in bls_bft_replicas:
+        for verifier_bls_bft in bls_bft_replicas:
+            verifier_bls_bft.process_pre_prepare(pre_prepare_with_bls_multi, sender_bls_bft.node_id)
 
 
 def test_process_commit_with_multiple_sigs(bls_bft_replicas, fake_pre_prepare_with_bls,
