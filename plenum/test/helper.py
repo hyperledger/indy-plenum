@@ -483,6 +483,8 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
+    if db1._keyValueStorage._db is None or db2._keyValueStorage._db is None:
+        return False
     assert db1.size == db2.size, \
         "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
@@ -522,8 +524,8 @@ def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
     for n in nodes:
         for r in n.replicas.values():
             assert r.last_ordered_3pc == last_ordered_3pc, \
-                "{} != {}".format(r.last_ordered_3pc,
-                                  last_ordered_3pc)
+                "{} != {}, Replica: {}".format(r.last_ordered_3pc,
+                                               last_ordered_3pc, r)
 
 
 def check_last_ordered_3pc_on_master(nodes, last_ordered_3pc):
@@ -1223,7 +1225,7 @@ def create_pre_prepare_params(state_root,
                               reqs=None,
                               bls_multi_sigs=[]):
     digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
-    req_idrs = [req.key for req in reqs] if reqs is not None else ["random request"]
+    req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
     params = [inst_id,
               view_no,
               pp_seq_no,
@@ -1509,3 +1511,8 @@ def create_pool_txn_data(node_names: List[str],
     data['txns'].extend(more_data_users)
     data['seeds'].update(more_data_seeds)
     return data
+
+def get_pp_seq_no(nodes: list) -> int:
+    los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
+    assert len(los) == 1
+    return los.pop()

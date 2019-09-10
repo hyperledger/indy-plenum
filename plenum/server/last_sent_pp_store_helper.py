@@ -44,10 +44,6 @@ class LastSentPpStoreHelper:
 
     def _can_restore_last_sent_pp_seq_no(self, inst_id, pair_3pc) -> bool:
         stored = (inst_id, pair_3pc)
-        if pair_3pc[0] != self.node.viewNo:
-            logger.info("{} ignoring stored {} because current view no is {}"
-                        .format(self.node, stored, self.node.viewNo))
-            return False
 
         if inst_id not in self.node.replicas.keys():
             logger.info("{} ignoring stored {} because it does not have replica for instance {}"
@@ -74,7 +70,7 @@ class LastSentPpStoreHelper:
         logger.info("{} restoring lastPrePrepareSeqNo from {}"
                     .format(self.node, stored))
         replica = self.node.replicas[inst_id]
-        replica.lastPrePrepareSeqNo = pair_3pc[1]
+        replica._ordering_service.lastPrePrepareSeqNo = pair_3pc[1]
         replica.last_ordered_3pc = (pair_3pc[0], pair_3pc[1])
         # TODO: add the method update_watermark_from_3pc to replica
         # or solve this problem better

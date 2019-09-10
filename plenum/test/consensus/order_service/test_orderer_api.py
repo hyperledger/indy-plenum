@@ -12,8 +12,8 @@ def initial_view_no(request):
 
 def test_is_next_pre_prepare(orderer):
     pp_view_no = 2
-    pp_seq_no = 1
-    orderer.last_ordered_3pc = (1, 2)
+    pp_seq_no = 2
+    orderer.last_ordered_3pc = (1, 3)
 
     assert orderer.view_no != pp_view_no
     assert not orderer._is_next_pre_prepare(pp_view_no, pp_seq_no)

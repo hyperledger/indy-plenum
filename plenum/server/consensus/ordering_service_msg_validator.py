@@ -32,10 +32,12 @@ class OrderingServiceMsgValidator:
     def validate_pre_prepare(self, msg: PrePrepare) -> Tuple[int, Optional[str]]:
         # we discard already ordered PrePrepares
         # check for discarded first of all
-        view_no = getattr(msg, f.VIEW_NO.nm, None)
-        pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
-        if self.has_already_ordered(view_no, pp_seq_no):
-            return DISCARD, ALREADY_ORDERED
+
+        # TODO: allow re-order of ordered pre-prepares below last_prep_certificate for a view only
+        # view_no = getattr(msg, f.VIEW_NO.nm, None)
+        # pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
+        # if self.has_already_ordered(view_no, pp_seq_no):
+        #     return DISCARD, ALREADY_ORDERED
 
         return self._validate_3pc(msg)
 

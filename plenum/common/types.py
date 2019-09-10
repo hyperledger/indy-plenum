@@ -42,6 +42,7 @@ class f:  # provides a namespace for reusable field constants
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
     VIEW_NO = Field('viewNo', int)
+    ORIGINAL_VIEW_NO = Field('originalViewNo', int)
     LEDGER_INFO = Field("ledgerInfo", List[tuple])
     INST_ID = Field('instId', int)
     IS_STABLE = Field('isStable', bool)

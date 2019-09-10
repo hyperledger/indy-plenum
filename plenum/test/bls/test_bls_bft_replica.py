@@ -624,7 +624,7 @@ def test_commits_gc(bls_bft_replicas):
     pre_prepare2 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key2, pre_prepare2, bls_bft_replicas)
 
-    key3 = (1, 0)
+    key3 = (1, 2)
     pre_prepare3 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key3, pre_prepare3, bls_bft_replicas)
 

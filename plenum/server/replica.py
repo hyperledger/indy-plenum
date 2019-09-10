@@ -27,25 +27,23 @@ from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
 from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import Reject, Ordered, \
-    PrePrepare, Prepare, Commit, Checkpoint, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.messages.node_messages import Ordered, \
+    PrePrepare, Prepare, Commit, ThreePhaseKey
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
-from plenum.common.request import Request, ReqKey
+from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter
-from plenum.common.util import updateNamedTuple, compare_3PC_keys
+from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
-from plenum.server.models import Commits, Prepares
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest, TPCStat
-from plenum.server.replica_stasher import ReplicaStasher
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WATERMARKS, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
 from plenum.server.router import Router
-from sortedcontainers import SortedList, SortedListWithKey
+from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
 
 import plenum.server.node
@@ -283,32 +281,15 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @property
     def last_ordered_3pc(self) -> tuple:
-        return self._consensus_data.last_ordered_3pc
+        return self._ordering_service.last_ordered_3pc
 
     @last_ordered_3pc.setter
     def last_ordered_3pc(self, key3PC):
-        self._consensus_data.last_ordered_3pc = key3PC
-        self.logger.info('{} set last ordered as {}'.format(self, key3PC))
+        self._ordering_service.last_ordered_3pc = key3PC
 
     @property
     def lastPrePrepareSeqNo(self):
-        return self._ordering_service._lastPrePrepareSeqNo
-
-    @lastPrePrepareSeqNo.setter
-    def lastPrePrepareSeqNo(self, n):
-        """
-        This will _lastPrePrepareSeqNo to values greater than its previous
-        values else it will not. To forcefully override as in case of `revert`,
-        directly set `self._lastPrePrepareSeqNo`
-        """
-        if n > self._ordering_service._lastPrePrepareSeqNo:
-            # ToDo: need to pass it into ordering service through ConsensusDataProvider
-            self._ordering_service._lastPrePrepareSeqNo = n
-        else:
-            self.logger.debug(
-                '{} cannot set lastPrePrepareSeqNo to {} as its '
-                'already {}'.format(
-                    self, n, self.lastPrePrepareSeqNo))
+        return self._ordering_service.lastPrePrepareSeqNo
 
     @property
     def requests(self):
@@ -388,9 +369,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 # decided.
                 return
             self._gc_before_new_view()
-            if self._checkpointer.should_reset_watermarks_before_new_view():
-                self._checkpointer.reset_watermarks_before_new_view()
-                self._ordering_service._lastPrePrepareSeqNo = 0
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -428,7 +406,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self.last_prepared_before_view_change = None
         self.stasher.process_all_stashed(STASH_VIEW)
 
+    def _clear_all_3pc_msgs(self):
+        self._ordering_service._clear_all_3pc_msgs()
+
     def clear_requests_and_fix_last_ordered(self):
+        self._clear_all_3pc_msgs()
         if self.isMaster:
             return
         reqs_for_remove = []
@@ -451,8 +433,6 @@ class Replica(HasActionQueue, MessageProcessor):
             # we just propagate it, then make sure that we did't break the sequence
             # of ppSeqNo
             self._checkpointer.update_watermark_from_3pc()
-            if self.isPrimary and (self.last_ordered_3pc[0] == self.viewNo):
-                self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         elif not self.isPrimary:
             self._checkpointer.set_watermarks(low_watermark=0,
                                               high_watermark=sys.maxsize)
@@ -613,6 +593,7 @@ class Replica(HasActionQueue, MessageProcessor):
             count += 1
             msg = deq.popleft()
             external_msg, sender = msg if len(msg) == 2 else (msg, None)
+            # TODO: get rid of appending instId to sender
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count
@@ -635,6 +616,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def dequeue_pre_prepares(self):
         return self._ordering_service.dequeue_pre_prepares()
 
+    # ToDo: it's look like we don't use it anymore
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
         digest = self.requests.digest(reqKey)
@@ -646,6 +628,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             return digest
 
+    # ToDo: it's look like we don't use it anymore
     def getReqKeyFrom3PhaseKey(self, key: ThreePhaseKey):
         reqKey = None
         if key in self.sentPrePrepares:

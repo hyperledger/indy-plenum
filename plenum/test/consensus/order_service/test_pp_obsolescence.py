@@ -4,6 +4,7 @@ from plenum.common.util import SortedDict
 from plenum.common.messages.node_messages import PrePrepare
 
 # from plenum.test.replica.conftest import *
+from plenum.server.replica_helper import generateName
 from plenum.test.consensus.order_service.conftest import primary_orderer as _primary_orderer
 from plenum.test.helper import MockTimestamp
 from plenum.test.testing_utils import FakeSomething
@@ -67,7 +68,7 @@ def primary_orderer(_primary_orderer, ts_now, mock_timestamp):
 
 @pytest.fixture
 def sender_orderer(primary_orderer, sender, inst_id):
-    return primary_orderer.generateName(sender, inst_id)
+    return generateName(sender, inst_id)
 
 
 @pytest.fixture

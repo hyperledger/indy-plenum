@@ -78,6 +78,7 @@ def test_view_change_by_order_stashed_on_3_nodes_and_catchup_on_1_node(txnPoolNo
     initial_last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
     txns_count = 4
     eventual_last_ordered = initial_last_ordered[0], initial_last_ordered[1] + txns_count
+    batches_count = initial_last_ordered[1]
 
     with delay_rules(all_stashers, vcd_delay()):
         # the lagging node is slow in receiving Commits and Catchup mghs
@@ -88,8 +89,9 @@ def test_view_change_by_order_stashed_on_3_nodes_and_catchup_on_1_node(txnPoolNo
                     with delay_rules(fast_stashers, lsDelay(), msg_rep_delay(types_to_delay=[LEDGER_STATUS])):
                         sdk_send_random_requests(looper, sdk_pool_handle,
                                                  sdk_wallet_steward, txns_count)
+                        batches_count += txns_count
 
-                        looper.run(eventually(check_prepare_certificate, txnPoolNodeSet, txns_count))
+                        looper.run(eventually(check_prepare_certificate, txnPoolNodeSet, batches_count))
                         check_last_ordered_3pc_on_master(txnPoolNodeSet, initial_last_ordered)
 
                         # trigger view change on all nodes
