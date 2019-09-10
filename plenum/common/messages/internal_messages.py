@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Any
+from typing import NamedTuple, List, Any, Optional
 
 from plenum.common.exceptions import SuspiciousNode
 
@@ -36,7 +36,7 @@ Missing3pcMessage = NamedTuple('Missing3pcMessage',
                                 ('three_pc_key', tuple),
                                 ('inst_id', int),
                                 ('dst', List[str]),
-                                ('stash_data', tuple)])
+                                ('stash_data', Optional[tuple])])
 
 # by default view_no for StartViewChange is None meaning that we move to the next view
 NeedViewChange = NamedTuple('StartViewChange',

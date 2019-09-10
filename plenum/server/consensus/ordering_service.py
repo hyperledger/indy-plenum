@@ -1265,7 +1265,7 @@ class OrderingService:
         self.try_prepare(pp)
 
     def _add_to_sent_pre_prepares(self, pp: PrePrepare) -> None:
-        self.sentPrePrepares[pp.viewNo, pp.ppSeqNo] = pp
+        self.sent_preprepares[pp.viewNo, pp.ppSeqNo] = pp
         self._preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
 
