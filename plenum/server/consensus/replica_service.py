@@ -1,6 +1,7 @@
 from typing import List
 
 from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_freshness_checker import FreshnessChecker
 
 from crypto.bls.bls_bft_replica import BlsBftReplica
@@ -39,6 +40,7 @@ class ReplicaService:
                                         freshness_checker=FreshnessChecker(
                                             freshness_timeout=config.STATE_FRESHNESS_UPDATE_INTERVAL),
                                         stasher=stasher)
+        self._orderer._validator = OrderingServiceMsgValidator(self._orderer._data)
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
                                                write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network, stasher)

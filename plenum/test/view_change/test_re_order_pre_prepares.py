@@ -1,11 +1,20 @@
+import pytest
+
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewCheckpointsApplied
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.test.delayers import cDelay, pDelay
-from plenum.test.helper import sdk_send_random_and_check, assert_eq
+from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
+from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules_without_processing
-from stp_core.loop.eventually import eventually
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+    with max_3pc_batch_limits(tconf, size=1) as tconf:
+        yield tconf
 
 
 def test_re_order_pre_prepares(looper, txnPoolNodeSet,
@@ -21,8 +30,8 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
     other_nodes = txnPoolNodeSet[:-1]
     with delay_rules_without_processing(lagging_node.nodeIbStasher, cDelay(), pDelay()):
         sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 1)
-        assert all(n.master_last_ordered_3PC == (0, 1) for n in other_nodes)
+                                  sdk_pool_handle, sdk_wallet_client, 3)
+        assert all(n.master_last_ordered_3PC == (0, 3) for n in other_nodes)
 
     # 2. simulate view change start so that
     # all PrePrepares/Prepares/Commits are cleared
@@ -43,7 +52,8 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
     # 3. Simulate View Change finish to re-order the same PrePrepare
     assert lagging_node.master_last_ordered_3PC == (0, 0)
     new_master = txnPoolNodeSet[1]
-    batches = [preprepare_to_batch_id(pp) for _, pp in new_master.master_replica._ordering_service.old_view_preprepares.items()]
+    batches = [preprepare_to_batch_id(pp) for _, pp in
+               new_master.master_replica._ordering_service.old_view_preprepares.items()]
     new_view_msg = NewViewCheckpointsApplied(view_no=0,
                                              view_changes=[],
                                              checkpoint=None,
@@ -53,4 +63,8 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
 
     # 4. Make sure that the nodes 1-3 (that already ordered the requests) sent Prepares and Commits so that
     # the request was eventually ordered on Node4 as well
-    looper.run(eventually(lambda: assert_eq(lagging_node.master_last_ordered_3PC, (0, 1))))
+    waitNodeDataEquality(looper, lagging_node, *other_nodes)
+    assert lagging_node.master_last_ordered_3PC == (0, 3)
+
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+
