@@ -236,8 +236,8 @@ def test_process_preprepare_on_new_view_checkpoint_applied(internal_bus, externa
                                          for batch_id in new_view.batches if batch_id in stored_batch_ids]
 
     # check that sentPrePrepares is updated in case of Primary and prePrepares in case of non-primary
-    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sentPrePrepares
-    non_updated_prepares_collection = orderer.sentPrePrepares if not is_primary else orderer.prePrepares
+    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sent_preprepares
+    non_updated_prepares_collection = orderer.sent_preprepares if not is_primary else orderer.prePrepares
     for pp in stored_old_view_pre_prepares:
         new_pp = updateNamedTuple(pp, viewNo=initial_view_no + 1, originalViewNo=pp.viewNo)
         assert (initial_view_no + 1, new_pp.ppSeqNo) in updated_prepares_collection
@@ -308,9 +308,9 @@ def test_process_preprepare_on_old_view_pre_prepares_reply(external_bus, interna
                                                  pp_seq_no=pp.ppSeqNo, pp_digest=pp.digest)
                                          for pp in pre_prepares]
 
-    # check that sentPrePrepares is updated in case of Primary and prePrepares in case of non-primary
-    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sentPrePrepares
-    non_updated_prepares_collection = orderer.sentPrePrepares if not is_primary else orderer.prePrepares
+    # check that sent_preprepares is updated in case of Primary and prePrepares in case of non-primary
+    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sent_preprepares
+    non_updated_prepares_collection = orderer.sent_preprepares if not is_primary else orderer.prePrepares
     for pp in pre_prepares:
         new_pp = updateNamedTuple(pp, viewNo=initial_view_no + 1, originalViewNo=pp.viewNo)
         assert (initial_view_no + 1, new_pp.ppSeqNo) in updated_prepares_collection
