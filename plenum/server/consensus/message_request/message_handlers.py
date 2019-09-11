@@ -91,15 +91,21 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
 
         return self._get_reply(params)
 
-    def _validate_message_rep(self, msg: object):
+    def _validate_message_rep(self, msg: object) -> None:
         if msg is None:
-            return False, "received null"
+            raise IncorrectMessageForHandlingException(msg,
+                                                       reason='received null',
+                                                       log_method=self._logger.debug)
         key = (msg.viewNo, msg.ppSeqNo)
         if key not in self.requested_messages:
-            return False, 'Had either not requested this msg or already ' \
-                          'received the msg for {}'.format(key)
+            raise IncorrectMessageForHandlingException(msg,
+                                                       reason='Had either not requested this msg or already '
+                                                              'received the msg for {}'.format(key),
+                                                       log_method=self._logger.debug)
         if self._has_already_ordered(*key):
-            return False, 'already ordered msg ({})'.format(self, key)
+            raise IncorrectMessageForHandlingException(msg,
+                                                       reason='already ordered msg ({})'.format(self, key),
+                                                       log_method=self._logger.debug)
         # There still might be stashed msg but not checking that
         # it is expensive, also reception of msgs is idempotent
         stashed_data = self.requested_messages[key]
@@ -107,11 +113,11 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
             if isinstance(msg, PrePrepare) or isinstance(msg, Prepare) \
             else None
         if stashed_data is None or curr_data == stashed_data:
-            return True, None
+            return
 
         raise IncorrectMessageForHandlingException(msg, reason='{} does not have expected state {}'.
                                                    format(THREE_PC_PREFIX, stashed_data),
-                                                   logMethod=self._logger.warning)
+                                                   log_method=self._logger.warning)
 
     def _has_already_ordered(self, view_no, pp_seq_no):
         return compare_3PC_keys((view_no, pp_seq_no),
@@ -130,13 +136,11 @@ class PreprepareHandler(ThreePhaseMessagesHandler):
         return self._data.sent_preprepares.get(key)
 
     def _validate_message_rep(self, msg: object):
-        result, error_msg = super()._validate_message_rep(msg)
+        super()._validate_message_rep(msg)
         key = (msg.viewNo, msg.ppSeqNo)
-        if result:
-            for pp in self._data.preprepared:
-                if (pp.view_no, pp.pp_seq_no) == key:
-                    return False, 'already received msg ({})'.format(self, key)
-        return result, error_msg
+        for pp in self._data.preprepared:
+            if (pp.view_no, pp.pp_seq_no) == key:
+                return False, 'already received msg ({})'.format(self, key)
 
 
 class PrepareHandler(ThreePhaseMessagesHandler):

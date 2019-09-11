@@ -68,6 +68,9 @@ class MessageReq3pcService:
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):
         msg_type = msg.msg_type
+        if msg_type not in self.handlers.keys():
+            self.discard(msg.msg, "Unknown message type {}".format(msg_type), self._logger.warning)
+            return
         if msg.msg is None:
             self._logger.debug('{} got null response for requested {} from {}'.
                                format(self, msg_type, frm))
