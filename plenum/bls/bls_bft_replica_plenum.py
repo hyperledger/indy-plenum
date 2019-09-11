@@ -62,10 +62,19 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
     def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
-        if f.BLS_MULTI_SIGS.nm in commit:
-            if not list(filter(lambda sig: self._validate_signature(sender, sig, pre_prepare), commit.blsSigs)):
-                return
-            return BlsBftReplica.CM_BLS_SIG_WRONG
+        if f.BLS_SIGS.nm in commit:
+            audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
+            if audit_txn:
+                audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+                for lid, sig in commit.blsSigs.items():
+                    if not self._validate_signature(sender, sig,
+                                                    BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(
+                                                        int(lid),
+                                                        audit_payload[AUDIT_TXN_STATE_ROOT][int(lid)],
+                                                        audit_payload[AUDIT_TXN_LEDGER_ROOT][int(lid)],
+                                                        pre_prepare
+                                                    )):
+                        return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
         if f.BLS_SIG.nm not in commit:
             # TODO: It's optional for now
             return
@@ -113,22 +122,20 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                      .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
         commit_params.append(bls_signature)
 
-        audit_ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
-        if audit_ledger is not None:
-            last_audit_txn = audit_ledger.get_last_txn()
-            if last_audit_txn:
-                res = {}
-                payload_data = last_audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
-                for ledger_id in payload_data[AUDIT_TXN_STATE_ROOT].keys():
-                    fake_pp = BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(
-                        ledger_id,
-                        payload_data[AUDIT_TXN_STATE_ROOT].get(ledger_id),
-                        payload_data[AUDIT_TXN_LEDGER_ROOT].get(ledger_id),
-                        pre_prepare
-                    )
-                    bls_signature = self._sign_state(fake_pp)
-                    res[str(ledger_id)] = bls_signature
-                commit_params.append(res)
+        last_audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
+        if last_audit_txn:
+            res = {}
+            payload_data = last_audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+            for ledger_id in payload_data[AUDIT_TXN_STATE_ROOT].keys():
+                fake_pp = BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(
+                    ledger_id,
+                    payload_data[AUDIT_TXN_STATE_ROOT].get(ledger_id),
+                    payload_data[AUDIT_TXN_LEDGER_ROOT].get(ledger_id),
+                    pre_prepare
+                )
+                bls_signature = self._sign_state(fake_pp)
+                res[str(ledger_id)] = bls_signature
+            commit_params.append(res)
 
         return commit_params
 
@@ -163,16 +170,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         for ledger_id in commit.blsSigs.keys():
             if ledger_id not in self._all_signatures[key_3PC]:
                 self._all_signatures[key_3PC][ledger_id] = {}
-                audit_ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
-                if audit_ledger is not None:
-                    last_audit_txn = audit_ledger.get_last_txn()
-                    if last_audit_txn:
-                        payload_data = last_audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
-                        self._all_signatures[key_3PC][ledger_id]["state_hash"] = payload_data[AUDIT_TXN_STATE_ROOT].get(
-                            int(ledger_id))
-                        self._all_signatures[key_3PC][ledger_id]["txn_hash"] = payload_data[AUDIT_TXN_LEDGER_ROOT].get(
-                            int(ledger_id))
-
             self._all_signatures[key_3PC][ledger_id][self.get_node_name(sender)] = commit.blsSigs[ledger_id]
 
     def process_order(self, key, quorums, pre_prepare):
@@ -315,10 +312,13 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if sigs_for_request:
             for lid in sigs_for_request:
                 sig = sigs_for_request[lid]
-                fake_pp = BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(int(lid), sig["state_hash"],
-                                                                                     sig["txn_hash"], pre_prepare)
-                sig.pop("state_hash")
-                sig.pop("txn_hash")
+                audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
+                audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+                fake_pp = BlsBftReplicaPlenum. \
+                    _create_fake_pre_prepare_for_multi_sig(int(lid),
+                                                           audit_payload[AUDIT_TXN_STATE_ROOT][int(lid)],
+                                                           audit_payload[AUDIT_TXN_LEDGER_ROOT][int(lid)],
+                                                           pre_prepare)
                 res.append(self._calculate_single_multi_sig(sig, fake_pp))
         return res
 
@@ -372,6 +372,19 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                      .format(BLS_PREFIX, self, multi_sig,
                              multi_sig.value.state_root_hash))
         # TODO: support multiple multi-sigs for multiple previous batches
+
+    def _get_correct_audit_transaction(self, lid, state_root_hash):
+        ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
+        if ledger is None:
+            return None
+        seqNo = ledger.uncommitted_size
+        for curSeqNo in reversed(range(1, seqNo + 1)):
+            txn = ledger.get_by_seq_no_uncommitted(curSeqNo)
+            if txn:
+                payload = txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+                if (lid in payload[AUDIT_TXN_STATE_ROOT]) and (payload[AUDIT_TXN_STATE_ROOT][lid] == state_root_hash):
+                    return txn
+        return None
 
     @staticmethod
     def _create_fake_pre_prepare_for_multi_sig(lid, state_root_hash, txn_root_hash, pre_prepare):
