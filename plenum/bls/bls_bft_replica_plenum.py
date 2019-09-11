@@ -313,13 +313,14 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             for lid in sigs_for_request:
                 sig = sigs_for_request[lid]
                 audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
-                audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
-                fake_pp = BlsBftReplicaPlenum. \
-                    _create_fake_pre_prepare_for_multi_sig(int(lid),
-                                                           audit_payload[AUDIT_TXN_STATE_ROOT][int(lid)],
-                                                           audit_payload[AUDIT_TXN_LEDGER_ROOT][int(lid)],
-                                                           pre_prepare)
-                res.append(self._calculate_single_multi_sig(sig, fake_pp))
+                if audit_txn:
+                    audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+                    fake_pp = BlsBftReplicaPlenum. \
+                        _create_fake_pre_prepare_for_multi_sig(int(lid),
+                                                               audit_payload[AUDIT_TXN_STATE_ROOT][int(lid)],
+                                                               audit_payload[AUDIT_TXN_LEDGER_ROOT][int(lid)],
+                                                               pre_prepare)
+                    res.append(self._calculate_single_multi_sig(sig, fake_pp))
         return res
 
     def _calculate_single_multi_sig(self, sigs_for_request, pre_prepare) -> Optional[MultiSignature]:
