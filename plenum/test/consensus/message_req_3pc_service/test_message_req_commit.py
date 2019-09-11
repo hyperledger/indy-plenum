@@ -10,15 +10,6 @@ from plenum.server.consensus.message_request.message_req_3pc_service import Mess
 from plenum.test.helper import create_commit_no_bls_sig
 
 
-@pytest.fixture
-def commit(data):
-    key = (data.view_no, 1)
-    commit = create_commit_no_bls_sig(key,
-                                      data.inst_id)
-    data.commits.addVote(commit, data.name)
-    return commit
-
-
 def test_process_message_req_commit(message_req_3pc_service: MessageReq3pcService, external_bus, data, commit):
     key = (commit.viewNo, commit.ppSeqNo)
     message_req = MessageReq(**{

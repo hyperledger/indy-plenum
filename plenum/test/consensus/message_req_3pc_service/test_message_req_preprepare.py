@@ -10,15 +10,6 @@ from plenum.server.consensus.message_request.message_req_3pc_service import Mess
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
 
 
-@pytest.fixture
-def pp(data):
-    pp = create_pre_prepare_no_bls(generate_state_root(),
-                                   pp_seq_no=1,
-                                   view_no=data.view_no)
-    data.sent_preprepares[(pp.viewNo, pp.ppSeqNo)] = pp
-    return pp
-
-
 def test_process_message_req_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     message_req = MessageReq(**{

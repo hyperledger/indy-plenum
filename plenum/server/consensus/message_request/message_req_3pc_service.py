@@ -29,6 +29,7 @@ class MessageReq3pcService:
         self._subscription.subscribe(bus, Missing3pcMessage, self.process_missing_message)
         self._subscription.subscribe(bus, Ordered, self.process_ordered)
         self._subscription.subscribe(bus, ViewChangeStarted, self.process_view_change_started)
+        self._subscription.subscribe(bus, CheckpointStabilized, self.process_checkpoint_stabilized)
 
         self._network = network
         self._subscription.subscribe(network, MessageReq, self.process_message_req)
