@@ -66,11 +66,14 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             if audit_txn:
                 audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
                 for lid, sig in commit.blsSigs.items():
+                    lid = int(lid)
+                    if lid not in audit_payload[AUDIT_TXN_STATE_ROOT] or lid not in audit_payload[AUDIT_TXN_LEDGER_ROOT]:
+                        return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
                     if not self._validate_signature(sender, sig,
                                                     BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(
-                                                        int(lid),
-                                                        audit_payload[AUDIT_TXN_STATE_ROOT][int(lid)],
-                                                        audit_payload[AUDIT_TXN_LEDGER_ROOT][int(lid)],
+                                                        lid,
+                                                        audit_payload[AUDIT_TXN_STATE_ROOT][lid],
+                                                        audit_payload[AUDIT_TXN_LEDGER_ROOT][lid],
                                                         pre_prepare
                                                     )):
                         return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
