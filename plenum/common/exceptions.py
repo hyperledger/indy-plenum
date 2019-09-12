@@ -4,6 +4,7 @@ from re import compile
 #  - review the list and remove obsolete ones
 #  - refactor hierarchy of exceptions taking into account ones
 #    from common/exceptions.py
+from typing import Any, Callable
 
 from common.exceptions import LogicError
 
@@ -202,6 +203,15 @@ class InvalidNodeMsg(InvalidNodeMessageException):
 
 class MismatchedMessageReplyException(InvalidNodeMsg):
     pass
+
+
+class IncorrectMessageForHandlingException(InvalidNodeMsg):
+    def __init__(self, msg: Any, reason: str, log_method: Callable, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.log_method = log_method
+        self.msg = msg
+        self.reason = reason
+        self.args = args
 
 
 class MissingNodeOp(InvalidNodeMsg):

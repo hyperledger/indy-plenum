@@ -95,13 +95,10 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     orderer.prePrepares[key] = pp
     orderer.prepares[key] = prepare
     orderer.commits[key] = commit
-    orderer.requested_pre_prepares[key] = pp
-    orderer.requested_prepares[key] = prepare
-    orderer.requested_commits[key] = commit
     orderer.pre_prepare_tss[key][pp, "Node1"] = 1234
     orderer.prePreparesPendingFinReqs.append(pp)
     orderer.prePreparesPendingPrevPP[key] = pp
-    orderer.sentPrePrepares[key] = pp
+    orderer.sent_preprepares[key] = pp
     orderer.batches[key] = [pp.ledgerId, pp.discarded,
                             pp.ppTime, generate_state_root(), len(pp.reqIdr)]
     orderer.ordered.add(*key)
@@ -112,14 +109,10 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     assert not orderer.prepares
     assert not orderer.commits
 
-    assert not orderer.requested_pre_prepares
-    assert not orderer.requested_prepares
-    assert not orderer.requested_commits
-
     assert not orderer.pre_prepare_tss
     assert not orderer.prePreparesPendingFinReqs
     assert not orderer.prePreparesPendingPrevPP
-    assert not orderer.sentPrePrepares
+    assert not orderer.sent_preprepares
     assert not orderer.batches
     assert not orderer.ordered
 
@@ -140,8 +133,8 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
 
     orderer.prePrepares[(pp1.viewNo, pp1.ppSeqNo)] = pp1
     orderer.prePrepares[(pp3.viewNo, pp3.ppSeqNo)] = pp3
-    orderer.sentPrePrepares[(pp2.viewNo, pp2.ppSeqNo)] = pp2
-    orderer.sentPrePrepares[(pp4.viewNo, pp4.ppSeqNo)] = pp4
+    orderer.sent_preprepares[(pp2.viewNo, pp2.ppSeqNo)] = pp2
+    orderer.sent_preprepares[(pp4.viewNo, pp4.ppSeqNo)] = pp4
     assert not orderer.old_view_preprepares
 
     internal_bus.send(ViewChangeStarted(view_no=4))
@@ -153,7 +146,7 @@ def test_stores_old_pre_prepares_on_view_change_started(internal_bus, orderer):
 
     # next calls append to existing data
     orderer.prePrepares[(pp5.viewNo, pp5.ppSeqNo)] = pp5
-    orderer.sentPrePrepares[(pp6.viewNo, pp6.ppSeqNo)] = pp6
+    orderer.sent_preprepares[(pp6.viewNo, pp6.ppSeqNo)] = pp6
 
     internal_bus.send(ViewChangeStarted(view_no=4))
 
@@ -243,8 +236,8 @@ def test_process_preprepare_on_new_view_checkpoint_applied(internal_bus, externa
                                          for batch_id in new_view.batches if batch_id in stored_batch_ids]
 
     # check that sentPrePrepares is updated in case of Primary and prePrepares in case of non-primary
-    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sentPrePrepares
-    non_updated_prepares_collection = orderer.sentPrePrepares if not is_primary else orderer.prePrepares
+    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sent_preprepares
+    non_updated_prepares_collection = orderer.sent_preprepares if not is_primary else orderer.prePrepares
     for pp in stored_old_view_pre_prepares:
         new_pp = updateNamedTuple(pp, viewNo=initial_view_no + 1, originalViewNo=pp.viewNo)
         assert (initial_view_no + 1, new_pp.ppSeqNo) in updated_prepares_collection
@@ -315,9 +308,9 @@ def test_process_preprepare_on_old_view_pre_prepares_reply(external_bus, interna
                                                  pp_seq_no=pp.ppSeqNo, pp_digest=pp.digest)
                                          for pp in pre_prepares]
 
-    # check that sentPrePrepares is updated in case of Primary and prePrepares in case of non-primary
-    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sentPrePrepares
-    non_updated_prepares_collection = orderer.sentPrePrepares if not is_primary else orderer.prePrepares
+    # check that sent_preprepares is updated in case of Primary and prePrepares in case of non-primary
+    updated_prepares_collection = orderer.prePrepares if not is_primary else orderer.sent_preprepares
+    non_updated_prepares_collection = orderer.sent_preprepares if not is_primary else orderer.prePrepares
     for pp in pre_prepares:
         new_pp = updateNamedTuple(pp, viewNo=initial_view_no + 1, originalViewNo=pp.viewNo)
         assert (initial_view_no + 1, new_pp.ppSeqNo) in updated_prepares_collection
