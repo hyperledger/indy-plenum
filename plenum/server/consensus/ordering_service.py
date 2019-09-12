@@ -967,7 +967,6 @@ class OrderingService:
         Request preprepare
         """
         recipients = [getNodeName(self.primary_name)]
-        recipients = self.primary_name
         self._request_three_phase_msg(three_pc_key,
                                       PREPREPARE,
                                       recipients,
