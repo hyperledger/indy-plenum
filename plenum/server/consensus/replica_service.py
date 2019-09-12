@@ -64,7 +64,6 @@ class ReplicaService:
         queue = self._orderer.requestQueues[ledger_id]
         queue.add(req_key.digest)
 
-
     def _add_ledgers(self):
         for lid in self._write_manager.ledger_ids:
             self._orderer.requestQueues[lid] = OrderedSet()
