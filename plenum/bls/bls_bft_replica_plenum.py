@@ -5,7 +5,7 @@ from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.common.constants import DOMAIN_LEDGER_ID, BLS_PREFIX, POOL_LEDGER_ID, AUDIT_LEDGER_ID, TXN_PAYLOAD, \
-    TXN_PAYLOAD_DATA, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT
+    TXN_PAYLOAD_DATA, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.types import f
@@ -62,7 +62,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
     def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
         if f.BLS_SIGS.nm in commit:
-            audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
+            audit_txn = self._get_correct_audit_transaction(pre_prepare)
             if audit_txn:
                 audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
                 for lid, sig in commit.blsSigs.items():
@@ -121,7 +121,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                      .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
         commit_params.append(bls_signature)
 
-        last_audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
+        last_audit_txn = self._get_correct_audit_transaction(pre_prepare)
         if last_audit_txn:
             res = {}
             payload_data = last_audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
@@ -302,7 +302,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if sigs_for_request:
             for lid in sigs_for_request:
                 sig = sigs_for_request[lid]
-                audit_txn = self._get_correct_audit_transaction(pre_prepare.ledgerId, pre_prepare.stateRootHash)
+                audit_txn = self._get_correct_audit_transaction(pre_prepare)
                 if audit_txn:
                     audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
                     fake_pp = BlsBftReplicaPlenum. \
@@ -364,7 +364,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                              multi_sig.value.state_root_hash))
         # TODO: support multiple multi-sigs for multiple previous batches
 
-    def _get_correct_audit_transaction(self, lid, state_root_hash):
+    def _get_correct_audit_transaction(self, pp: PrePrepare):
         ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
         if ledger is None:
             return None
@@ -373,7 +373,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             txn = ledger.get_by_seq_no_uncommitted(curSeqNo)
             if txn:
                 payload = txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
-                if (lid in payload[AUDIT_TXN_STATE_ROOT]) and (payload[AUDIT_TXN_STATE_ROOT][lid] == state_root_hash):
+                if pp.ppSeqNo == payload[AUDIT_TXN_PP_SEQ_NO]:
                     return txn
         return None
 
