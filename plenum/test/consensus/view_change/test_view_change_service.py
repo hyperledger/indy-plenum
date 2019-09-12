@@ -411,3 +411,46 @@ def test_new_view_incorrect_batches(internal_bus, validators, primary, view_chan
     # make sure that we get to the next view
     assert service._data.view_no == initial_view_no + 2
     assert service._data.waiting_for_new_view
+
+
+def test_new_view_change_on_timeout_no_new_view_received(internal_bus, external_bus, timer,
+                                                         view_change_service):
+    handler = Mock()
+    internal_bus.subscribe(ViewChangeStarted, handler)
+
+    internal_bus.send(NeedViewChange(view_no=1))
+    timer.run_for(view_change_service._config.NEW_VIEW_TIMEOUT + 1)
+    timer.advance()
+
+    assert handler.assert_called_with(NeedViewChange(view_no=2))
+    assert view_change_service._data.view_no == 2
+    msg, dst = external_bus.sent_messages[-1]
+    assert isinstance(msg, ViewChange)
+    assert msg.viewNo == 2
+
+    timer.run_for(view_change_service._config.NEW_VIEW_TIMEOUT + 1)
+    timer.advance()
+
+    assert handler.assert_called_with(NeedViewChange(view_no=3))
+    assert view_change_service._data.view_no == 3
+    msg, dst = external_bus.sent_messages[-1]
+    assert isinstance(msg, ViewChange)
+    assert msg.viewNo == 3
+
+
+def test_new_view_change_on_timeout_when_new_view_received_but_not_processed(internal_bus, external_bus, timer,
+                                                                             view_change_service):
+    handler = Mock()
+    internal_bus.subscribe(ViewChangeStarted, handler)
+
+    internal_bus.send(NeedViewChange(view_no=1))
+    new_view = create_new_view(initial_view_no=0, stable_cp=200)
+    external_bus.process_incoming(new_view, view_change_service._data.primary_name)
+
+    timer.advance(view_change_service._config.NEW_VIEW_TIMEOUT + 1)
+
+    assert handler.assert_called_with(NeedViewChange(view_no=2))
+    assert view_change_service._data.view_no == 2
+    msg, dst = external_bus.sent_messages[-1]
+    assert isinstance(msg, ViewChange)
+    assert msg.viewNo == 2

@@ -85,7 +85,10 @@ class ViewChangeService:
         self._votes.add_view_change(vc, self._data.name)
 
         # 6. Unstash messages for new view
-        self._router.process_all_stashed()
+        self._router.process_all_stashed(STASH_VIEW)
+
+        # 7. Scehdule New View after timeout
+        self._timer.schedule(self._config.NEW_VIEW_TIMEOUT, self._go_to_next_view)
 
     def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
@@ -234,7 +237,7 @@ class ViewChangeService:
                                                                                             self._data.view_no,
                                                                                             cp)
             )
-            self._bus.send(NeedViewChange())
+            self._go_to_next_view()
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
@@ -246,7 +249,7 @@ class ViewChangeService:
                                                                                          self._data.view_no,
                                                                                          batches)
             )
-            self._bus.send(NeedViewChange())
+            self._go_to_next_view()
             return
 
         self._finish_view_change()
@@ -260,6 +263,9 @@ class ViewChangeService:
                                        view_changes=self._new_view.viewChanges,
                                        checkpoint=self._new_view.checkpoint,
                                        batches=self._new_view.batches))
+
+    def _go_to_next_view(self):
+        self._bus.send(NeedViewChange(view_no=self._data.view_no + 1))
 
 
 class NewViewBuilder:

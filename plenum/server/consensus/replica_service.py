@@ -30,7 +30,7 @@ class ReplicaService:
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = primary_name
         config = getConfig()
-        stasher = StashingRouter(config.REPLICA_STASH_LIMIT, buses=[bus, network])
+        self.stasher = StashingRouter(config.REPLICA_STASH_LIMIT, buses=[bus, network])
         self._orderer = OrderingService(data=self._data,
                                         timer=timer,
                                         bus=bus,
@@ -39,11 +39,11 @@ class ReplicaService:
                                         bls_bft_replica=bls_bft_replica,
                                         freshness_checker=FreshnessChecker(
                                             freshness_timeout=config.STATE_FRESHNESS_UPDATE_INTERVAL),
-                                        stasher=stasher)
+                                        stasher=self.stasher)
         self._orderer._validator = OrderingServiceMsgValidator(self._orderer._data)
-        self._checkpointer = CheckpointService(self._data, bus, network, stasher,
+        self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
                                                write_manager.database_manager)
-        self._view_changer = ViewChangeService(self._data, timer, bus, network, stasher)
+        self._view_changer = ViewChangeService(self._data, timer, bus, network, self.stasher)
         self._message_requestor = MessageReq3pcService(self._data, bus, network)
 
         # TODO: This is just for testing purposes only

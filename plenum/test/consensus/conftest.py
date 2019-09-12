@@ -2,6 +2,7 @@ from functools import partial
 
 import pytest
 
+from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.startable import Mode
@@ -11,14 +12,15 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
-from plenum.test.consensus.helper import primary_in_view
+from plenum.test.consensus.helper import primary_in_view, create_test_write_req_manager
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer, MockNetwork
+from plenum.test.helper import MockTimer, MockNetwork, create_pool_txn_data
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -59,9 +61,14 @@ def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is
 
 
 @pytest.fixture
-def view_change_service(internal_bus, external_bus, stasher):
+def timer():
+    return MockTimer(0)
+
+
+@pytest.fixture
+def view_change_service(internal_bus, external_bus, timer, stasher):
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
-    return ViewChangeService(data, MockTimer(0), internal_bus, external_bus, stasher)
+    return ViewChangeService(data, timer, internal_bus, external_bus, stasher)
 
 
 @pytest.fixture
@@ -161,3 +168,19 @@ def write_manager(db_manager):
 @pytest.fixture()
 def stasher(internal_bus, external_bus):
     return StashingRouter(limit=100000, buses=[internal_bus, external_bus])
+
+
+@pytest.fixture()
+def replica_service(validators, primary, timer,
+                    internal_bus, external_bus):
+    genesis_txns = create_pool_txn_data(
+        node_names=validators,
+        crypto_factory=create_default_bls_crypto_factory(),
+        get_free_port=lambda: 8090)['txns']
+    return ReplicaService("Alpha:0",
+                          validators, primary,
+                          timer,
+                          internal_bus,
+                          external_bus,
+                          write_manager=create_test_write_req_manager("Alpha", genesis_txns),
+                          bls_bft_replica=FakeSomething(gc=lambda key: None))
