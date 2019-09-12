@@ -1,16 +1,23 @@
+from functools import partial
+
 import pytest
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.request import ReqKey
 from plenum.common.startable import Mode
+from plenum.common.timer import RepeatingTimer
 from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.helper import SimPool
 from plenum.test.helper import sdk_random_request_objects
 from plenum.test.simulation.sim_random import DefaultSimRandom
 from plenum.test.testing_utils import FakeSomething
+from stp_core.common.log import getlogger
 
+
+logger = getlogger()
 MAX_BATCH_SIZE = 2
-REQUEST_COUNT = 10
+REQUEST_COUNT = 100
 
 
 def create_requests(count):
@@ -66,6 +73,19 @@ def check_consistency(pool):
                     another_node._write_manager.database_manager.get_ledger(ledger_id).uncommittedRootHash
 
 
+def check_batch_count(node, expected_pp_seq_no):
+    logger.debug("Node: {}, Actual pp_seq_no: {}, Expected pp_seq_no is: {}".format(node,
+                                                                                    node._orderer.last_ordered_3pc[1],
+                                                                                    expected_pp_seq_no))
+    return node._orderer.last_ordered_3pc[1] == expected_pp_seq_no
+
+
+def order_requests(pool):
+    primary_nodes = [n for n in pool.nodes if n._data.is_primary]
+    if primary_nodes:
+        primary_nodes[0]._orderer.send_3pc_batch()
+
+
 @pytest.mark.parametrize("seed", range(10))
 def test_ordering_with_real_msgs(seed):
     # 1. Setup pool
@@ -73,21 +93,21 @@ def test_ordering_with_real_msgs(seed):
     batches_count = requests_count // MAX_BATCH_SIZE
     random = DefaultSimRandom(seed)
     pool = setup_pool(random, requests_count)
-    primary_node = [n for n in pool.nodes if n._data.is_primary][0]
 
     # 2. Send 3pc batches
-    prev_t = 0
-    for i in range(batches_count):
-        prev_t += random.integer(0, 10000)
-        pool.timer.schedule(prev_t,
-                            primary_node._orderer.send_3pc_batch)
+    random_interval = 1000
+    RepeatingTimer(pool.timer, random_interval, partial(order_requests, pool))
+
     # for node in pool.nodes:
-    #     pool.timer.schedule(random.integer(1000, 10000),
-    #                         partial(node._view_changer.process_need_view_change, NeedViewChange()))
+    #     pool.timer.schedule(3000,
+    #                         partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
+    # # 3. Make sure that view_change is completed
+    # for node in pool.nodes:
+    #     pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1, timeout=200000)
 
     # 3. Make sure all nodes ordered all the requests
     for node in pool.nodes:
-        pool.timer.wait_for(lambda: node._orderer.last_ordered_3pc[1] == batches_count, timeout=200000)
+        pool.timer.wait_for(partial(check_batch_count, node, batches_count), timeout=200000)
 
     # 4. Check data consistency
     check_consistency(pool)
