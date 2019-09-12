@@ -61,8 +61,8 @@ def check_consistency(pool):
                 if state:
                     assert state.headHash == \
                            another_node._write_manager.database_manager.get_state(ledger_id).headHash
-                assert node._write_manager.database_manager.get_ledger(ledger_id).uncommittedRootHash == \
-                    another_node._write_manager.database_manager.get_ledger(ledger_id).uncommittedRootHash
+                assert node._write_manager.database_manager.get_ledger(ledger_id).uncommitted_root_hash == \
+                    another_node._write_manager.database_manager.get_ledger(ledger_id).uncommitted_root_hash
 
 
 def check_batch_count(node, expected_pp_seq_no):

@@ -1687,26 +1687,8 @@ class OrderingService:
 
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
 
-        if self.last_ordered_3pc[1] == ppSeqNo - 1:
-            # Last ordered was in same view as this COMMIT
-            return True
+        return self.last_ordered_3pc[1] == ppSeqNo - 1
 
-        # if some PREPAREs/COMMITs were completely missed in the same view
-        toCheck = set()
-        toCheck.update(set(self.sentPrePrepares.keys()))
-        toCheck.update(set(self.prePrepares.keys()))
-        toCheck.update(set(self.prepares.keys()))
-        toCheck.update(set(self.commits.keys()))
-        for (v, p) in toCheck:
-            if v < viewNo and (v, p) not in self.ordered:
-                # Have commits from previous view that are unordered.
-                return False
-            if v == viewNo and p < ppSeqNo and (v, p) not in self.ordered:
-                # If unordered commits are found with lower ppSeqNo then this
-                # cannot be ordered.
-                return False
-
-        return True
 
     def _can_commit(self, prepare: Prepare) -> (bool, str):
         """
