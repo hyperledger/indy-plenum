@@ -435,7 +435,7 @@ def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
         fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
-        commit = create_commit_with_bls_sigs(key, fake_sig)
+        commit = create_commit_with_bls_sigs(key, fake_sig, pre_prepare_with_bls_multi.ledgerId)
         for verifier_bls_bft in bls_bft_replicas:
             status = verifier_bls_bft.validate_commit(commit,
                                                       sender_bls_bft.node_id,

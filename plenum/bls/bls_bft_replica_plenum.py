@@ -89,14 +89,14 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if not self._can_process_ledger(ledger_id):
             return pre_prepare_params
 
-        if not self._bls_latest_multi_sig:
-            return pre_prepare_params
+        if self._bls_latest_multi_sig is not None:
+            pre_prepare_params.append(self._bls_latest_multi_sig.as_list())
+            self._bls_latest_multi_sig = None
 
-        pre_prepare_params.append(self._bls_latest_multi_sig.as_list())
-        self._bls_latest_multi_sig = None
         # Send signature in COMMITs only
         if self._all_bls_latest_multi_sigs is not None:
             pre_prepare_params.append([val.as_list() for val in self._all_bls_latest_multi_sigs])
+            self._all_bls_latest_multi_sigs = None
 
         return pre_prepare_params
 
@@ -150,27 +150,19 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         pass
 
     def process_commit(self, commit: Commit, sender):
-        if f.BLS_SIG.nm not in commit:
-            return
-        if commit.blsSig is None:
-            return
-
         key_3PC = (commit.viewNo, commit.ppSeqNo)
-        if key_3PC not in self._signatures:
-            self._signatures[key_3PC] = {}
-        self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
+        if f.BLS_SIG.nm in commit and commit.blsSig is not None:
+            if key_3PC not in self._signatures:
+                self._signatures[key_3PC] = {}
+            self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
 
-        if f.BLS_SIGS.nm not in commit:
-            return
-        if commit.blsSigs is None:
-            return
-
-        if key_3PC not in self._all_signatures:
-            self._all_signatures[key_3PC] = {}
-        for ledger_id in commit.blsSigs.keys():
-            if ledger_id not in self._all_signatures[key_3PC]:
-                self._all_signatures[key_3PC][ledger_id] = {}
-            self._all_signatures[key_3PC][ledger_id][self.get_node_name(sender)] = commit.blsSigs[ledger_id]
+        if f.BLS_SIGS.nm in commit and commit.blsSigs is not None:
+            if key_3PC not in self._all_signatures:
+                self._all_signatures[key_3PC] = {}
+            for ledger_id in commit.blsSigs.keys():
+                if ledger_id not in self._all_signatures[key_3PC]:
+                    self._all_signatures[key_3PC][ledger_id] = {}
+                self._all_signatures[key_3PC][ledger_id][self.get_node_name(sender)] = commit.blsSigs[ledger_id]
 
     def process_order(self, key, quorums, pre_prepare):
         if not self._can_process_ledger(pre_prepare.ledgerId):
@@ -272,7 +264,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                 )
             )
             if sigs_invalid:
-                self._all_signatures.pop(key_3PC, None)
                 for lid, sigs in sigs_invalid:
                     logger.debug(
                         '{}Can not create bls signatures for batch {}: '
@@ -397,7 +388,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             pre_prepare.reqIdr,
             pre_prepare.discarded,
             pre_prepare.digest,
-            lid,
+            1, # doing it to work around the ledgers that are not in plenum -- it will fail the validation of pre-prepare
             state_root_hash,
             txn_root_hash,
             pre_prepare.sub_seq_no,
@@ -405,8 +396,9 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             pre_prepare.poolStateRootHash,
             pre_prepare.auditTxnRootHash
         ]
-
-        return PrePrepare(*params)
+        pp = PrePrepare(*params)
+        pp.ledgerId = lid
+        return pp
 
     @staticmethod
     def get_node_name(replica_name: str):
