@@ -7,7 +7,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_PAYLOAD, \
-    TXN_PAYLOAD_DATA, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_LEDGER_ROOT
+    TXN_PAYLOAD_DATA, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
@@ -148,7 +148,8 @@ def _fix_audit_ledger(node, multi_signature, ledger_id):
                 AUDIT_TXN_LEDGER_ROOT: {
                     3: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
                     ledger_id: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm"
-                }
+                },
+                AUDIT_TXN_PP_SEQ_NO: 0
             }
         }
     }

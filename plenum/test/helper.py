@@ -1223,7 +1223,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None,
-                              bls_multi_sigs=[]):
+                              bls_multi_sigs=None):
     digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
     params = [inst_id,
@@ -1242,7 +1242,7 @@ def create_pre_prepare_params(state_root,
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
-    if bls_multi_sigs:
+    if bls_multi_sigs is not None:
         params.append([sig.as_list() for sig in bls_multi_sigs])
     elif bls_multi_sig:
         params.append([bls_multi_sig.as_list()])
