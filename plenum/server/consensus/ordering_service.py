@@ -1640,9 +1640,7 @@ class OrderingService:
         # TODO: This method does a lot of work, choose correct data
         # structures to make it efficient.
 
-        viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
-
-        return self.last_ordered_3pc[1] == ppSeqNo - 1
+        return self.last_ordered_3pc[1] == commit.ppSeqNo - 1
 
     def _can_commit(self, prepare: Prepare) -> (bool, str):
         """
