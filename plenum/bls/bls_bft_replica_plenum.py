@@ -388,7 +388,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             pre_prepare.reqIdr,
             pre_prepare.discarded,
             pre_prepare.digest,
-            1, # doing it to work around the ledgers that are not in plenum -- it will fail the validation of pre-prepare
+            1,  # doing it to work around the ledgers that are not in plenum -- it will fail the validation of pre-prepare
             state_root_hash,
             txn_root_hash,
             pre_prepare.sub_seq_no,
