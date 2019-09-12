@@ -3,12 +3,6 @@ from collections import OrderedDict, defaultdict
 from enum import IntEnum, unique
 from typing import List
 
-from sortedcontainers import SortedListWithKey
-
-from common.exceptions import LogicError
-from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
-
 PP_CHECK_NOT_FROM_PRIMARY = 0
 PP_CHECK_TO_PRIMARY = 1
 PP_CHECK_DUPLICATE = 2
@@ -27,6 +21,26 @@ PP_SUB_SEQ_NO_WRONG = 12
 PP_NOT_FINAL = 13
 PP_APPLY_AUDIT_HASH_MISMATCH = 15
 PP_REQUEST_ALREADY_ORDERED = 16
+
+
+def generateName(nodeName: str, instId: int):
+    """
+    Create and return the name for a replica using its nodeName and
+    instanceId.
+     Ex: Alpha:1
+    """
+
+    if isinstance(nodeName, str):
+        # Because sometimes it is bytes (why?)
+        if ":" in nodeName:
+            # Because in some cases (for requested messages) it
+            # already has ':'. This should be fixed.
+            return nodeName
+    return "{}:{}".format(nodeName, instId)
+
+
+def getNodeName(replicaName: str):
+    return replicaName.split(":")[0]
 
 
 @unique

@@ -13,6 +13,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import primary_in_view
@@ -21,12 +22,12 @@ from plenum.test.helper import MockTimer, MockNetwork
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(params=[4, 6, 7])
+@pytest.fixture(params=[4, 6, 7], ids=['4nodes', '6nodes', '7nodes'])
 def validators(request):
     return genNodeNames(request.param)
 
 
-@pytest.fixture(params=[0, 2])
+@pytest.fixture(params=[0, 2], ids=['view=0', 'view=2'])
 def initial_view_no(request):
     return request.param
 
@@ -49,7 +50,7 @@ def initial_checkpoints(initial_view_no):
 @pytest.fixture
 def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is_master):
     def _data(name):
-        data = ConsensusSharedData(name, validators, 0, is_master)
+        data = ConsensusSharedData(generateName(name, 0), validators, 0, is_master)
         data.view_no = initial_view_no
         data.checkpoints.update(initial_checkpoints)
         return data
@@ -110,7 +111,7 @@ def view_change_message():
     return _view_change
 
 
-@pytest.fixture(params=[True, False])
+@pytest.fixture(params=[True, False], ids=['master', 'non-master'])
 def is_master(request):
     return request.param
 

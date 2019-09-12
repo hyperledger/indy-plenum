@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
 from plenum.test.checkpoints.helper import cp_key, check_num_received_checkpoints, \
-    check_last_received_checkpoint
+    check_last_received_checkpoint, check_stable_checkpoint
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change_complete
@@ -67,7 +67,7 @@ def test_checkpoints_removed_on_master_replica_after_catchup_during_view_change(
     check_last_received_checkpoint(replica, 25, view_no=2)
 
     # TODO: This wasn't checked in original test, but most probably it should. And now this fails.
-    # check_stable_checkpoint(replica, 20)
+    check_stable_checkpoint(replica, 20)
 
 
 def test_checkpoints_removed_on_backup_replica_after_catchup_during_view_change(

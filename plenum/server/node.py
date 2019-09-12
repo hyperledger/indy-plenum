@@ -75,7 +75,8 @@ from plenum.common.messages.node_messages import Batch, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone, BackupInstanceFaulty
+    ObservedData, FutureViewChangeDone, BackupInstanceFaulty, OldViewPrePrepareRequest, OldViewPrePrepareReply, \
+    ViewChange, ViewChangeAck, NewView
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -435,7 +436,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             MessageReq,
             MessageRep,
             ObservedData,
-            BackupInstanceFaulty
+            BackupInstanceFaulty,
+            ViewChange,
+            ViewChangeAck,
+            NewView,
+            OldViewPrePrepareRequest,
+            OldViewPrePrepareReply
         )
 
     def routers_init(self):
@@ -450,6 +456,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (Prepare, self.sendToReplica),
             (Commit, self.sendToReplica),
             (Checkpoint, self.sendToReplica),
+            (ViewChange, self.sendToReplica),
+            (ViewChangeAck, self.sendToReplica),
+            (NewView, self.sendToReplica),
+            (OldViewPrePrepareRequest, self.sendToReplica),
+            (OldViewPrePrepareReply, self.sendToReplica),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
@@ -1464,7 +1475,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         num_processed = 0
         for message in self.replicas.get_output(limit):
             num_processed += 1
-            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq)):
+            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq,
+                                    OldViewPrePrepareRequest, OldViewPrePrepareReply,
+                                    ViewChange, ViewChangeAck, NewView)):
                 self.send(message)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
@@ -3093,7 +3106,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  first_txn_seq_no,
                                                  last_txn_seq_no,
                                                  audit_txn_root,
-                                                 three_pc_batch.primaries)
+                                                 three_pc_batch.primaries,
+                                                 three_pc_batch.original_view_no)
             self._observable.append_input(batch_committed_msg, self.name)
 
     def updateSeqNoMap(self, committedTxns, ledger_id):

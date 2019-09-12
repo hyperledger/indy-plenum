@@ -44,7 +44,7 @@ def calc_committed(view_changes):
         for vc in view_changes:
             # pp_seq_no must be present in all PrePrepares
             for pp in vc.preprepared:
-                if pp[1] == pp_seq_no:
+                if pp[2] == pp_seq_no:
                     if batch_id is None:
                         batch_id = pp
                     assert batch_id == pp

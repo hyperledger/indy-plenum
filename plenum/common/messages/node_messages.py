@@ -8,7 +8,7 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
     MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
     BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE, VIEW_CHANGE, VIEW_CHANGE_ACK, \
-    NEW_VIEW
+    NEW_VIEW, OLD_VIEW_PREPREPARE_REQ, OLD_VIEW_PREPREPARE_REP
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
@@ -97,6 +97,7 @@ class Ordered(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -132,6 +133,8 @@ class PrePrepare(MessageBase):
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
+                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
@@ -145,6 +148,23 @@ class PrePrepare(MessageBase):
             input_as_dict[f.BLS_MULTI_SIG.nm] = (bls[0], tuple(bls[1]), tuple(bls[2]))
 
         return input_as_dict
+
+
+# TODO: use generic MessageReq mechanism once it's separated into an independent service
+class OldViewPrePrepareRequest(MessageBase):
+    typename = OLD_VIEW_PREPREPARE_REQ
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.BATCH_IDS.nm, IterableField(BatchIDField())),
+    )
+
+
+class OldViewPrePrepareReply(MessageBase):
+    typename = OLD_VIEW_PREPREPARE_REP
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.PREPREPARES.nm, IterableField(AnyField())),
+    )
 
 
 class Prepare(MessageBase):
@@ -171,6 +191,7 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
+
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
@@ -181,10 +202,10 @@ class Checkpoint(MessageBase):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),          # This will no longer be used soon
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),     # This is no longer used and must always be 0
+        (f.VIEW_NO.nm, NonNegativeNumberField()),  # This will no longer be used soon
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),  # This is no longer used and must always be 0
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        (f.DIGEST.nm, MerkleRootField(nullable=True)),     # This is actually audit ledger merkle root
+        (f.DIGEST.nm, MerkleRootField(nullable=True)),  # This is actually audit ledger merkle root
     )
 
 
@@ -218,8 +239,8 @@ class ViewChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
-        (f.PREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
-        (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.PREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
+        (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
 
@@ -239,7 +260,7 @@ class NewView(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.VIEW_CHANGES.nm, IterableField(ViewChangeField())),  # list of tuples (node_name, view_change_digest)
         (f.CHECKPOINT.nm, AnyField()),  # Checkpoint to be selected as stable (TODO: or tuple?)
-        (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_seq_no, pp_digest)
+        (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         # that should get into new view
     )
 
@@ -396,6 +417,7 @@ class BatchCommitted(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
     )
 
 

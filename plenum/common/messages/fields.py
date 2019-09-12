@@ -707,11 +707,12 @@ class BatchIDField(FieldBase):
     _base_types = (list, tuple)
 
     def _specific_validation(self, val):
-        if len(val) != 3:
-            return 'should have size of 3'
+        if len(val) != 4:
+            return 'should have size of 4'
 
-        view_no, pp_seq_no, pp_digest = val
+        view_no, pp_view_no, pp_seq_no, pp_digest = val
         for validator, value in ((NonNegativeNumberField().validate, view_no),
+                                 (NonNegativeNumberField().validate, pp_view_no),
                                  (NonNegativeNumberField().validate, pp_seq_no),
                                  (NonEmptyStringField().validate, pp_digest)):
             err = validator(value)

@@ -23,7 +23,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
-    MessageReq
+    MessageReq, OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
 from plenum.common.request import Request
 from plenum.common.router import Subscription
@@ -34,7 +34,8 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id, \
+    get_original_viewno
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.models import Prepares, Commits
@@ -42,7 +43,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
@@ -227,10 +228,12 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
         self._subscription.subscribe(self._stasher, Commit, self.process_commit)
         self._subscription.subscribe(self._stasher, NewViewCheckpointsApplied, self.process_new_view_checkpoints_applied)
+        self._subscription.subscribe(self._stasher, OldViewPrePrepareRequest, self.process_old_view_preprepare_request)
+        self._subscription.subscribe(self._stasher, OldViewPrePrepareReply, self.process_old_view_preprepare_reply)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
-        # key is (viewNo, ppDigest) tuple, and value is a PrePrepare
+        # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
         self.old_view_preprepares = {}
 
     def cleanup(self):
@@ -757,6 +760,9 @@ class OrderingService:
         self._logger.trace("{} found {} request keys to clean".
                            format(self, len(reqKeys)))
 
+        self.old_view_preprepares = {k: v for k, v in self.old_view_preprepares.items()
+                                     if compare_3PC_keys(till3PCKey, (k[0], k[1])) > 0}
+
         to_clean_up = (
             self.pre_prepare_tss,
             self.sentPrePrepares,
@@ -768,7 +774,6 @@ class OrderingService:
             self.requested_prepares,
             self.requested_commits,
             self.pre_prepares_stashed_for_incorrect_time,
-            self.old_view_preprepares
         )
         for request_key in tpcKeys:
             for coll in to_clean_up:
@@ -828,7 +833,9 @@ class OrderingService:
         :param pre_prepare: a PRE-PREPARE msg to process
         :param sender: the name of the node that sent the PRE-PREPARE msg
         """
-        # TODO: Check whether it is rejecting PRE-PREPARE from previous view
+
+        if self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
+            return None
 
         # PRE-PREPARE should not be sent from non primary
         if not self._is_msg_from_primary(pre_prepare, sender):
@@ -867,6 +874,23 @@ class OrderingService:
         self._timer.schedule(delay, func)
 
     def _process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
+        why_not_applied = None
+        # apply and validate applied PrePrepare if it's not odered yet
+        if not self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
+            why_not_applied = self._apply_and_validate_applied_pre_prepare(pre_prepare, sender)
+
+        if why_not_applied is not None:
+            return why_not_applied
+
+        # add to PrePrepares
+        if self._data.is_primary:
+            self._add_to_sent_pre_prepares(pre_prepare)
+        else:
+            self._add_to_pre_prepares(pre_prepare)
+
+        return None
+
+    def _apply_and_validate_applied_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         self.first_batch_after_catchup = False
         old_state_root = self.get_state_root_hash(pre_prepare.ledgerId, to_str=False)
         old_txn_root = self.get_txn_root_hash(pre_prepare.ledgerId)
@@ -907,7 +931,6 @@ class OrderingService:
         if rejects:
             for reject in rejects:
                 self._network.send(reject)
-        self._add_to_pre_prepares(pre_prepare)
 
         if self.is_master:
             # BLS multi-sig:
@@ -977,7 +1000,7 @@ class OrderingService:
         """
         Request preprepare
         """
-        recipients = self.primary_name
+        recipients = [getNodeName(self.primary_name)]
         return self._request_three_phase_msg(three_pc_key,
                                              self.requested_pre_prepares,
                                              PREPREPARE,
@@ -992,9 +1015,9 @@ class OrderingService:
         """
         if recipients is None:
             recipients = self._network.connecteds.copy()
-            primary_name = self.primary_name[:self.primary_name.rfind(":")]
-            if primary_name in recipients:
-                recipients.remove(primary_name)
+            primary_node_name = getNodeName(self.primary_name)
+            if primary_node_name in recipients:
+                recipients.remove(primary_node_name)
         return self._request_three_phase_msg(three_pc_key, self.requested_prepares, PREPARE, recipients, stash_data)
 
     def _request_commit(self, three_pc_key: Tuple[int, int],
@@ -1285,6 +1308,11 @@ class OrderingService:
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.try_prepare(pp)
 
+    def _add_to_sent_pre_prepares(self, pp: PrePrepare) -> None:
+        self.sentPrePrepares[pp.viewNo, pp.ppSeqNo] = pp
+        self._preprepare_batch(pp)
+        self.lastPrePrepareSeqNo = pp.ppSeqNo
+
     def _dequeue_prepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.preparesWaitingForPrePrepare:
@@ -1488,6 +1516,7 @@ class OrderingService:
                 valid_reqIdr.append(reqIdr)
             self._requests.ordered_by_replica(reqIdr)
 
+        original_view_no = get_original_viewno(pp)
         ordered = Ordered(self._data.inst_id,
                           pp.viewNo,
                           valid_reqIdr,
@@ -1498,7 +1527,8 @@ class OrderingService:
                           pp.stateRootHash,
                           pp.txnRootHash,
                           pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self._get_primaries_for_ordered(pp))
+                          self._get_primaries_for_ordered(pp),
+                          original_view_no)
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
@@ -1781,6 +1811,9 @@ class OrderingService:
             return False
         if not self._data.is_participating:
             return False
+        if self._data.prev_view_prepare_cert is not None and self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
+            return False
+
         # ToDo: is pre_view_change_in_progress needed?
         # if self.replica.node.pre_view_change_in_progress:
         #     return False
@@ -1821,22 +1854,6 @@ class OrderingService:
         if self._data.is_synced and self._data.legacy_vc_in_progress:
             return True
         return False
-
-    @staticmethod
-    def generateName(node_name: str, inst_id: int):
-        """
-        Create and return the name for a replica using its nodeName and
-        instanceId.
-         Ex: Alpha:1
-        """
-
-        if isinstance(node_name, str):
-            # Because sometimes it is bytes (why?)
-            if ":" in node_name:
-                # Because in some cases (for requested messages) it
-                # already has ':'. This should be fixed.
-                return node_name
-        return "{}:{}".format(node_name, inst_id)
 
     def dequeue_pre_prepares(self):
         """
@@ -1986,8 +2003,6 @@ class OrderingService:
         if not self.is_master:
             self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL).store_last_sent_pp_seq_no(
                 self._data.inst_id, pre_prepare.ppSeqNo)
-
-        self._preprepare_batch(pre_prepare)
         self._track_batches(pre_prepare, oldStateRootHash)
         return ledger_id
 
@@ -2054,11 +2069,12 @@ class OrderingService:
 
         self._logger.trace('{} created a PRE-PREPARE with {} requests for ledger {}'.format(
             self, len(reqs), ledger_id))
-        self.lastPrePrepareSeqNo = pp_seq_no
         self.last_accepted_pre_prepare_time = tm
         if self.is_master and rejects:
             for reject in rejects:
                 self._network.send(reject)
+
+        self._add_to_sent_pre_prepares(pre_prepare)
         return pre_prepare
 
     def _get_last_timestamp_from_state(self, ledger_id):
@@ -2122,7 +2138,6 @@ class OrderingService:
     @measure_consensus_time(MetricsName.SEND_PREPREPARE_TIME,
                             MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def send_pre_prepare(self, ppReq: PrePrepare):
-        self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self._send(ppReq, stat=TPCStat.PrePrepareSent)
 
     def _send(self, msg, dst=None, stat=None) -> None:
@@ -2253,9 +2268,7 @@ class OrderingService:
         self._data.prepared = []
 
         # 2. save existing PrePrepares
-        new_old_view_preprepares = {(pp.ppSeqNo, pp.digest): pp
-                                    for pp in itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values())}
-        self.old_view_preprepares.update(new_old_view_preprepares)
+        self._update_old_view_preprepares(itertools.chain(self.prePrepares.values(), self.sentPrePrepares.values()))
 
         # 3. revert unordered transactions
         if self.is_master:
@@ -2270,58 +2283,90 @@ class OrderingService:
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
 
+    def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
+        for pp in pre_prepares:
+            view_no = get_original_viewno(pp)
+            self.old_view_preprepares[(view_no, pp.ppSeqNo, pp.digest)] = pp
+
     def process_new_view_checkpoints_applied(self, msg: NewViewCheckpointsApplied):
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
 
-        if not self.is_master:
-            return DISCARD, "not master"
-
+        missing_batches = []
         for batch_id in msg.batches:
-            # TODO: take into account original view no
-            pp = self.old_view_preprepares.get((batch_id.pp_seq_no, batch_id.pp_digest))
+            pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
             if pp is None:
-                # TODO: implement correct re-sending logic
-                # self._request_pre_prepare(three_pc_key=(batch_id.view_no, batch_id.pp_seq_no))
-                continue
-            if self._validator.has_already_ordered(batch_id.view_no, batch_id.pp_seq_no):
-                self._add_to_pre_prepares(pp)
+                missing_batches.append(batch_id)
             else:
-                sender = self.generateName(self._data.primary_name, self._data.inst_id)
-                # TODO: route it through the bus?
-                self.process_preprepare(pp, sender)
+                self._process_pre_prepare_from_old_view(pp)
 
-        # TODO: this needs to be removed
-        self._data.preprepared = [BatchID(view_no=msg.view_no, pp_seq_no=batch_id.pp_seq_no,
-                                          pp_digest=batch_id.pp_digest)
-                                  for batch_id in msg.batches]
-        self._data.prepared = []
+        if missing_batches:
+            self._request_old_view_pre_prepares(missing_batches)
 
         return PROCESS, None
+
+    def process_old_view_preprepare_request(self, msg: OldViewPrePrepareRequest, sender):
+        result, reason = self._validate(msg)
+        if result != PROCESS:
+            return result, reason
+
+        old_view_pps = []
+        for batch_id in msg.batch_ids:
+            batch_id = BatchID(*batch_id)
+            pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
+            if pp is not None:
+                old_view_pps.append(pp)
+        rep = OldViewPrePrepareReply(self._data.inst_id, old_view_pps)
+        self._send(rep, dst=[getNodeName(sender)])
+
+    def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
+        result, reason = self._validate(msg)
+        if result != PROCESS:
+            return result, reason
+
+        for pp_dict in msg.preprepares:
+            try:
+                pp = PrePrepare(**pp_dict)
+                self._process_pre_prepare_from_old_view(pp)
+            except Exception as ex:
+                # TODO: catch more specific error here
+                self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
+
+    def _request_old_view_pre_prepares(self, batches):
+        old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
+        self._send(old_pp_req)
+
+    def _process_pre_prepare_from_old_view(self, pp):
+        new_pp = updateNamedTuple(pp, viewNo=self.view_no, originalViewNo=get_original_viewno(pp))
+
+        # PrePrepare is accepted from the current Primary only
+        sender = generateName(self._data.primary_name, self._data.inst_id)
+        self.process_preprepare(new_pp, sender)
 
     def _preprepare_batch(self, pp: PrePrepare):
         """
         After pp had validated, it placed into _preprepared list
         """
-        if preprepare_to_batch_id(pp) in self._data.preprepared:
-            raise LogicError('New pp cannot be stored in preprepared')
-        if self._data.checkpoints and pp.ppSeqNo < self._data.last_checkpoint.seqNoEnd:
-            raise LogicError('ppSeqNo cannot be lower than last checkpoint')
-        self._data.preprepared.append(preprepare_to_batch_id(pp))
+        batch_id = preprepare_to_batch_id(pp)
+        if batch_id not in self._data.preprepared:
+            self._data.preprepared.append(batch_id)
 
     def _prepare_batch(self, pp: PrePrepare):
         """
         After prepared certificate for pp had collected,
         it removed from _preprepared and placed into _prepared list
         """
-        self._data.prepared.append(preprepare_to_batch_id(pp))
+        batch_id = preprepare_to_batch_id(pp)
+        if batch_id not in self._data.prepared:
+            self._data.prepared.append(batch_id)
 
     def _clear_batch(self, pp: PrePrepare):
         """
         When 3pc batch processed, it removed from _prepared list
         """
-        if preprepare_to_batch_id(pp) in self._data.preprepared:
-            self._data.preprepared.remove(preprepare_to_batch_id(pp))
-        if preprepare_to_batch_id(pp) in self._data.prepared:
-            self._data.prepared.remove(preprepare_to_batch_id(pp))
+        batch_id = preprepare_to_batch_id(pp)
+        if batch_id in self._data.preprepared:
+            self._data.preprepared.remove(batch_id)
+        if batch_id in self._data.prepared:
+            self._data.prepared.remove(batch_id)
