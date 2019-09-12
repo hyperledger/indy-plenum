@@ -117,7 +117,7 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
     assert len(txnPoolNodeSet[0].requests) == old_reqs + 2
 
-    pps = txnPoolNodeSet[0].master_replica._ordering_service.sentPrePrepares
+    pps = txnPoolNodeSet[0].master_replica._ordering_service.sent_preprepares
     pp = pps[pps.keys()[-1]]
     idrs = pp.reqIdr
     assert len(idrs) == 1

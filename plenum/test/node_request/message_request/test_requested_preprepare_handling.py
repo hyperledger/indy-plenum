@@ -14,15 +14,16 @@ from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
                                     sdk_wallet_client, sdk_pool_handle,
-                                    teardown):
+                                    teardown,
+                                    monkeypatch):
     """
     Make a node send PREPREPARE again after the slow node has ordered
     """
     slow_node, other_nodes, primary_node, other_non_primary_nodes = \
         split_nodes(txnPoolNodeSet)
     # This node will send PRE-PREPARE again
-    orig_method = primary_node.handlers[PREPREPARE].serve
-
+    orig_method = primary_node.master_replica._message_req_service.handlers[PREPREPARE].process_message_req
+    handler = primary_node.master_replica._message_req_service.handlers[PREPREPARE]
     last_pp = None
 
     def patched_method(self, msg):
@@ -30,9 +31,9 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
         last_pp = orig_method(msg)
         return last_pp
 
-    primary_node.handlers[PREPREPARE].serve = types.MethodType(patched_method,
-                                                               primary_node.handlers[
-                                                                   PREPREPARE])
+    handler.process_message_req = types.MethodType(patched_method,
+                                                   handler)
+
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
@@ -45,11 +46,8 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
     slow_master_replica = slow_node.master_replica
-    count_pr_req = get_count(slow_master_replica,
-                             slow_master_replica.process_requested_pre_prepare)
-
-    count_pr_tpc = get_count(slow_master_replica._ordering_service,
-                             slow_master_replica._ordering_service._validate)
+    count_pr_req = get_count(slow_master_replica._message_req_service,
+                             slow_master_replica._message_req_service.process_message_rep)
 
     primary_node.sendToNodes(MessageRep(**{
         f.MSG_TYPE.nm: PREPREPARE,
@@ -65,10 +63,8 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
         # `process_requested_pre_prepare` is called but
         # `processThreePhaseMsg` is not called
         assert get_count(
-            slow_master_replica,
-            slow_master_replica.process_requested_pre_prepare) > count_pr_req
-        assert get_count(
-            slow_master_replica._ordering_service,
-            slow_master_replica._ordering_service._validate) == count_pr_tpc
+            slow_master_replica._message_req_service,
+            slow_master_replica._message_req_service.process_message_rep) > count_pr_req
+        assert slow_master_replica._ordering_service.spylog.getLast("_validate").result[0] == -1
 
     looper.run(eventually(chk, retryWait=1))

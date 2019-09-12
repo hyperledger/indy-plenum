@@ -239,7 +239,7 @@ opt last_caught_up_3PC > Master's last_ordered_3pc
             note right Node4
                 <b>Clear following replica's collections:
                     - batches <i>- up to last_caught_up_3PC,
-                    - sentPrePrepares <i>- up to last_caught_up_3PC,
+                    - sent_preprepares <i>- up to last_caught_up_3PC,
                     - prePrepares <i>- up to last_caught_up_3PC,
                     - prepares <i>- up to last_caught_up_3PC,
                     - commits <i>- up to last_caught_up_3PC,
@@ -275,7 +275,7 @@ opt last_caught_up_3PC > Master's last_ordered_3pc
                 note right Node4
                     <b>Clear following replica's collections completely:
                         - batches,
-                        - sentPrePrepares,
+                        - sent_preprepares,
                         - prePrepares,
                         - prepares,
                         - commits,
