@@ -1244,6 +1244,8 @@ def create_pre_prepare_params(state_root,
         params.append(bls_multi_sig.as_list())
     if bls_multi_sigs:
         params.append([sig.as_list() for sig in bls_multi_sigs])
+    elif bls_multi_sig:
+        params.append([bls_multi_sig.as_list()])
     return params
 
 

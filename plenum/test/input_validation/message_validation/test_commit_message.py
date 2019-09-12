@@ -1,13 +1,14 @@
 from plenum.common.messages.node_messages import Commit
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LimitedLengthStringField, AnyMapField
+    LimitedLengthStringField, AnyMapField, MapField
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
     ("blsSig", LimitedLengthStringField),
+    ("blsSigs", MapField),
     ('plugin_fields', AnyMapField)
 ])
 

@@ -47,7 +47,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                 multi_sig = MultiSignature.from_list(*sig)
                 if not self._validate_multi_sig(multi_sig):
                     return BlsBftReplica.PPR_BLS_MULTISIG_WRONG
-            return
 
         if f.BLS_MULTI_SIG.nm not in pre_prepare or \
                 pre_prepare.blsMultiSig is None:
