@@ -258,6 +258,9 @@ class ViewChangeService:
         # Update shared data
         self._data.waiting_for_new_view = False
 
+        # Cancel View Change timeout task
+        self._timer.cancel(self._go_to_next_view)
+
         # send message to other services
         self._bus.send(NewViewAccepted(view_no=self._new_view.viewNo,
                                        view_changes=self._new_view.viewChanges,
@@ -265,7 +268,7 @@ class ViewChangeService:
                                        batches=self._new_view.batches))
 
     def _go_to_next_view(self):
-        self._bus.send(NeedViewChange(view_no=self._data.view_no + 1))
+        self._bus.send(NeedViewChange())
 
 
 class NewViewBuilder:
