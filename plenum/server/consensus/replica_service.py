@@ -29,8 +29,8 @@ class ReplicaService:
                  bls_bft_replica: BlsBftReplica=None):
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = primary_name
-        config = getConfig()
-        self.stasher = StashingRouter(config.REPLICA_STASH_LIMIT, buses=[bus, network])
+        self.config = getConfig()
+        self.stasher = StashingRouter(self.config.REPLICA_STASH_LIMIT, buses=[bus, network])
         self._orderer = OrderingService(data=self._data,
                                         timer=timer,
                                         bus=bus,
@@ -38,7 +38,7 @@ class ReplicaService:
                                         write_manager=write_manager,
                                         bls_bft_replica=bls_bft_replica,
                                         freshness_checker=FreshnessChecker(
-                                            freshness_timeout=config.STATE_FRESHNESS_UPDATE_INTERVAL),
+                                            freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL),
                                         stasher=self.stasher)
         self._orderer._validator = OrderingServiceMsgValidator(self._orderer._data)
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,

@@ -89,7 +89,9 @@ class SimPool:
                                      self.network.create_peer(name, handler),
                                      write_manager=create_test_write_req_manager(name, genesis_txns),
                                      bls_bft_replica=FakeSomething(gc=lambda key: None))
+            replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)
+
 
     @property
     def timer(self) -> MockTimer:
