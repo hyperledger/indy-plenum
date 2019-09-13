@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from plenum.common.constants import PREPREPARE
-from plenum.common.messages.internal_messages import Missing3pcMessage
+from plenum.common.messages.internal_messages import MissingMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare
 from plenum.common.types import f
 from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
@@ -29,11 +29,11 @@ def test_process_message_req_preprepare(message_req_3pc_service: MessageReq3pcSe
 
 def test_process_missing_message_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
-    missing_msg = Missing3pcMessage(msg_type=PREPREPARE,
-                                    three_pc_key=data.last_ordered_3pc,
-                                    inst_id=data.inst_id,
-                                    dst=[frm],
-                                    stash_data=None)
+    missing_msg = MissingMessage(msg_type=PREPREPARE,
+                                 three_pc_key=data.last_ordered_3pc,
+                                 inst_id=data.inst_id,
+                                 dst=[frm],
+                                 stash_data=None)
     message_req_3pc_service.process_missing_message(missing_msg)
     assert len(external_bus.sent_messages) == 1
     assert external_bus.sent_messages[0] == (MessageReq(PREPREPARE,

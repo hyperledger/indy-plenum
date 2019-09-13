@@ -39,7 +39,6 @@ class ViewChangeService:
         self._bus = bus
         self._network = network
         self._router = stasher
-        self._votes = ViewChangeVotesForView(self._data.quorums)
         self._new_view = None  # type: Optional[NewView]
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
@@ -56,6 +55,10 @@ class ViewChangeService:
 
     def __repr__(self):
         return self._data.name
+
+    @property
+    def view_change_votes(self):
+        return self._data.view_change_votes
 
     def process_need_view_change(self, msg: NeedViewChange):
         # 1. calculate new viewno
@@ -82,7 +85,7 @@ class ViewChangeService:
 
         # 6. Send ViewChange msg to other nodes (via external bus)
         self._network.send(vc)
-        self._votes.add_view_change(vc, self._data.name)
+        self.view_change_votes.add_view_change(vc, self._data.name)
 
         # 6. Unstash messages for new view
         self._router.process_all_stashed()
@@ -90,7 +93,7 @@ class ViewChangeService:
     def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
-        self._votes.clear()
+        self.view_change_votes.clear()
         self._new_view = None
 
     def _clear_old_batches(self, batches: Dict[int, Any]):
@@ -124,7 +127,7 @@ class ViewChangeService:
         if result != PROCESS:
             return result, None
 
-        self._votes.add_view_change(msg, frm)
+        self.view_change_votes.add_view_change(msg, frm)
 
         if self._data.is_primary:
             self._send_new_view_if_needed()
@@ -149,7 +152,7 @@ class ViewChangeService:
         if not self._data.is_primary:
             return PROCESS, None
 
-        self._votes.add_view_change_ack(msg, frm)
+        self.view_change_votes.add_view_change_ack(msg, frm)
         self._send_new_view_if_needed()
         return PROCESS, None
 
@@ -190,11 +193,11 @@ class ViewChangeService:
         return PROCESS
 
     def _send_new_view_if_needed(self):
-        confirmed_votes = self._votes.confirmed_votes
+        confirmed_votes = self.view_change_votes.confirmed_votes
         if not self._data.quorums.view_change.is_reached(len(confirmed_votes)):
             return
 
-        view_changes = [self._votes.get_view_change(*v) for v in confirmed_votes]
+        view_changes = [self.view_change_votes.get_view_change(*v) for v in confirmed_votes]
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None:
             return
@@ -219,7 +222,7 @@ class ViewChangeService:
 
         view_changes = []
         for name, vc_digest in self._new_view.viewChanges:
-            vc = self._votes.get_view_change(name, vc_digest)
+            vc = self.view_change_votes.get_view_change(name, vc_digest)
             # We don't have needed ViewChange, so we cannot validate NewView
             if vc is None:
                 return
@@ -394,8 +397,8 @@ class ViewChangeVotesForNode:
     Storage for view change vote from some node for some view + corresponding acks
     """
 
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
+    def __init__(self, data: ConsensusSharedData):
+        self._data = data
         self._view_change = None
         self._digest = None
         self._acks = defaultdict(set)  # Dict[str, Set[str]]
@@ -422,7 +425,7 @@ class ViewChangeVotesForNode:
         if self._digest is None:
             return False
 
-        return self._quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
+        return self._data.quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
 
     def add_view_change(self, msg: ViewChange) -> bool:
         """
@@ -444,7 +447,7 @@ class ViewChangeVotesForNode:
 
     def _validate_acks(self) -> bool:
         digests = [digest for digest, acks in self._acks.items()
-                   if self._quorums.weak.is_reached(len(acks))]
+                   if self._data.quorums.weak.is_reached(len(acks))]
 
         if len(digests) > 1:
             return False
@@ -460,9 +463,8 @@ class ViewChangeVotesForView:
     Storage for view change votes for some view + corresponding acks
     """
 
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._votes = defaultdict(partial(ViewChangeVotesForNode, quorums))
+    def __init__(self, data: ConsensusSharedData):
+        self._votes = defaultdict(partial(ViewChangeVotesForNode, data))
 
     @property
     def confirmed_votes(self) -> List[Tuple[str, str]]:

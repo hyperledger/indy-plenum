@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.constants import PREPREPARE, COMMIT, PREPARE
 from plenum.common.exceptions import IncorrectMessageForHandlingException
-from plenum.common.messages.internal_messages import Missing3pcMessage, ViewChangeStarted, CheckpointStabilized
+from plenum.common.messages.internal_messages import MissingMessage, ViewChangeStarted, CheckpointStabilized
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare, Ordered
 from plenum.common.types import f
 from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService

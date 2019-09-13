@@ -13,7 +13,7 @@ from plenum.common.txn_util import TxnUtilConfig
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.view_change_service import ViewChangeVotesForView
+from plenum.server.consensus.view_change_service import ViewChangeVotesForView, view_change_digest
 from stp_core.common.log import getlogger
 
 
@@ -207,7 +207,9 @@ class ViewChangeHandler(AbstractMessagesHandler):
         pass
 
     def _create_params(self, key) -> Dict[str, Any]:
-        pass
+        return {f.INST_ID.nm: self._data.inst_id,
+                f.NAME.nm: key[0],
+                f.DIGEST.nm: key[1]}
 
     def _get_reply(self, params: Dict[str, Any]):
         return self._data.view_change_votes.get_view_change(params[f.NAME.nm],
@@ -218,8 +220,8 @@ class ViewChangeHandler(AbstractMessagesHandler):
             raise IncorrectMessageForHandlingException(msg,
                                                        reason='received null',
                                                        log_method=self._logger.debug)
-        view_change_digest(view_change_message)
-        key = (, msg.ppSeqNo)
+
+        key = (msg.viewChange, view_change_digest(msg))
         if key not in self.requested_messages:
             raise IncorrectMessageForHandlingException(msg,
                                                        reason='Had either not requested this msg or already '
@@ -227,6 +229,8 @@ class ViewChangeHandler(AbstractMessagesHandler):
                                                        log_method=self._logger.debug)
         self._received_vc.setdefault(msg, set())
         self._received_vc[msg].update(frm)
-        if len(self._received_vc[msg])
-
-# view_change_digest
+        if not self._data.quorums.weak.is_reached(len(self._received_vc[msg])):
+            raise IncorrectMessageForHandlingException(msg,
+                                                       reason='Count of VIEW_CHANGE messages {} '
+                                                              'is not enough for quorum.'.format(msg),
+                                                       log_method=self._logger.trace)

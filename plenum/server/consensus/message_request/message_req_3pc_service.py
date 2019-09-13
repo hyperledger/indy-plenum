@@ -5,7 +5,7 @@ from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF
     PROPAGATE, PREPARE, COMMIT
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import IncorrectMessageForHandlingException
-from plenum.common.messages.internal_messages import Missing3pcMessage, CheckpointStabilized, ViewChangeStarted
+from plenum.common.messages.internal_messages import MissingMessage, CheckpointStabilized, ViewChangeStarted
 from plenum.common.messages.node_messages import MessageReq, MessageRep, Ordered
 from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
 from plenum.common.router import Subscription
@@ -26,7 +26,7 @@ class MessageReq3pcService:
         self._data = data
         self._bus = bus
         self._subscription = Subscription()
-        self._subscription.subscribe(bus, Missing3pcMessage, self.process_missing_message)
+        self._subscription.subscribe(bus, MissingMessage, self.process_missing_message)
         self._subscription.subscribe(bus, Ordered, self.process_ordered)
         self._subscription.subscribe(bus, ViewChangeStarted, self.process_view_change_started)
         self._subscription.subscribe(bus, CheckpointStabilized, self.process_checkpoint_stabilized)
@@ -50,7 +50,7 @@ class MessageReq3pcService:
         msg_type = msg.msg_type
         handler = self.handlers[msg_type]
         try:
-            resp = handler.process_message_req(msg)
+            resp = handler.process_message_req(msg, frm)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)
             return
@@ -83,16 +83,16 @@ class MessageReq3pcService:
             self.discard(e.msg, e.reason, e.log_method)
 
     @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
-    def process_missing_message(self, msg: Missing3pcMessage):
+    def process_missing_message(self, msg: MissingMessage):
         if msg.inst_id != self._data.inst_id:
             return
         # TODO: Using a timer to retry would be a better thing to do
         self._logger.trace('{} requesting {} for {} from {}'.format(
-            self, msg.msg_type, msg.three_pc_key, msg.dst))
+            self, msg.msg_type, msg.key, msg.dst))
         handler = self.handlers[msg.msg_type]
 
         try:
-            params = handler.prepare_msg_to_request(msg.three_pc_key, msg.stash_data)
+            params = handler.prepare_msg_to_request(msg.key, msg.stash_data)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)
             return

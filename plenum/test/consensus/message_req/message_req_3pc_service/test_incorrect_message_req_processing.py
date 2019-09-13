@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.constants import PREPREPARE, COMMIT, PREPARE, LEDGER_STATUS
 from plenum.common.exceptions import IncorrectMessageForHandlingException
-from plenum.common.messages.internal_messages import Missing3pcMessage
+from plenum.common.messages.internal_messages import MissingMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare, Prepare, Commit
 from plenum.common.types import f
 from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
@@ -44,11 +44,11 @@ def test_process_message_req_handler_raise_ex(message_req_3pc_service: MessageRe
 
 def test_process_missing_message_inst_id(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
-    missing_msg = Missing3pcMessage(msg_type=PREPREPARE,
-                                    three_pc_key=data.last_ordered_3pc,
-                                    inst_id=data.inst_id + 1,
-                                    dst=[frm],
-                                    stash_data=None)
+    missing_msg = MissingMessage(msg_type=PREPREPARE,
+                                 three_pc_key=data.last_ordered_3pc,
+                                 inst_id=data.inst_id + 1,
+                                 dst=[frm],
+                                 stash_data=None)
     message_req_3pc_service.process_missing_message(missing_msg)
     assert len(external_bus.sent_messages) == 0
 
@@ -56,11 +56,11 @@ def test_process_missing_message_inst_id(message_req_3pc_service: MessageReq3pcS
 def test_process_missing_message_raise_ex(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
     msg_type = PREPREPARE
-    missing_msg = Missing3pcMessage(msg_type=msg_type,
-                                    three_pc_key=data.last_ordered_3pc,
-                                    inst_id=data.inst_id + 1,
-                                    dst=[frm],
-                                    stash_data=None)
+    missing_msg = MissingMessage(msg_type=msg_type,
+                                 three_pc_key=data.last_ordered_3pc,
+                                 inst_id=data.inst_id + 1,
+                                 dst=[frm],
+                                 stash_data=None)
     message_req_3pc_service.handlers[msg_type].prepare_msg_to_request = lambda msg: raise_ex()
     message_req_3pc_service.process_missing_message(missing_msg)
     assert len(external_bus.sent_messages) == 0

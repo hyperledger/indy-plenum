@@ -6,6 +6,7 @@ from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
 from plenum.common.util import SortedDict
+from plenum.server.consensus.view_change_service import ViewChangeVotesForView
 from plenum.server.models import Prepares, Commits
 from plenum.common.types import f
 from plenum.server.propagator import Requests
@@ -101,6 +102,8 @@ class ConsensusSharedData:
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
         self.requested_pre_prepares = {}
+
+        self.view_change_votes = ViewChangeVotesForView(self)
 
     @property
     def name(self) -> str:
