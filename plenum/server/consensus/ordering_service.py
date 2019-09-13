@@ -1643,7 +1643,7 @@ class OrderingService:
 
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
 
-        if self.last_ordered_3pc == (viewNo, ppSeqNo - 1):
+        if self.last_ordered_3pc[1] == ppSeqNo - 1:
             # Last ordered was in same view as this COMMIT
             return True
 
@@ -2094,6 +2094,8 @@ class OrderingService:
     @measure_consensus_time(MetricsName.SEND_PREPREPARE_TIME,
                             MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def send_pre_prepare(self, ppReq: PrePrepare):
+        key = (ppReq.viewNo, ppReq.ppSeqNo)
+        self._logger.debug("{} Sending PRE-PREPARE{}".format(self, key))
         self._send(ppReq, stat=TPCStat.PrePrepareSent)
 
     def _send(self, msg, dst=None, stat=None) -> None:
