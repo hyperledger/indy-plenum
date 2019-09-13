@@ -29,7 +29,7 @@ class DatabaseManager():
             return None
         return self.databases[lid]
 
-    def get_ledger(self, lid):
+    def get_ledger(self, lid) -> Ledger:
         if lid not in self.databases:
             return None
         return self.databases[lid].ledger
