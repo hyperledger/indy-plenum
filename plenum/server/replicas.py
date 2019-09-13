@@ -3,11 +3,8 @@ from typing import Generator, Type, Callable
 
 from common.exceptions import PlenumTypeError
 from crypto.bls.bls_bft import BlsBft
-from crypto.bls.bls_key_manager import LoadBLSKeyError
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
-from plenum.common.constants import BLS_PREFIX
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
-from plenum.common.request import ReqKey
 from plenum.common.util import SortedDict
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
@@ -36,6 +33,7 @@ class Replicas:
         description = "master" if is_master else "backup"
         bls_bft = self._create_bls_bft_replica(is_master)
         replica = self._new_replica(instance_id, is_master, bls_bft)
+        replica.set_view_no(self._node.viewNo if self._node.viewNo is not None else 0)
         self._replicas[instance_id] = replica
         self._messages_to_replicas[instance_id] = deque()
         self._monitor.addInstance(instance_id)
