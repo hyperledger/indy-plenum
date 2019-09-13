@@ -8,15 +8,16 @@ from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
-from plenum.common.timer import TimerService
+from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.quorums import Quorums
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_VIEW
+from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
 
@@ -41,6 +42,7 @@ class ViewChangeService:
         self._router = stasher
         self._votes = ViewChangeVotesForView(self._data.quorums)
         self._new_view = None  # type: Optional[NewView]
+        self._resend_inst_change_timer = None
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
         self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
@@ -85,7 +87,16 @@ class ViewChangeService:
         self._votes.add_view_change(vc, self._data.name)
 
         # 6. Unstash messages for new view
-        self._router.process_all_stashed()
+        self._router.process_all_stashed(STASH_VIEW)
+
+        # 7. Schedule New View after timeout
+        if self._resend_inst_change_timer is not None:
+            self._resend_inst_change_timer.stop()
+        self._resend_inst_change_timer = \
+            RepeatingTimer(self._timer,
+                           self._config.NEW_VIEW_TIMEOUT,
+                           partial(self._propose_view_change, Suspicions.INSTANCE_CHANGE_TIMEOUT.code),
+                           active=True)
 
     def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
@@ -234,7 +245,7 @@ class ViewChangeService:
                                                                                             self._data.view_no,
                                                                                             cp)
             )
-            self._bus.send(NeedViewChange())
+            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_CHECKPOINTS.code)
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
@@ -246,7 +257,7 @@ class ViewChangeService:
                                                                                          self._data.view_no,
                                                                                          batches)
             )
-            self._bus.send(NeedViewChange())
+            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_BATCHES.code)
             return
 
         self._finish_view_change()
@@ -255,11 +266,20 @@ class ViewChangeService:
         # Update shared data
         self._data.waiting_for_new_view = False
 
+        # Cancel View Change timeout task
+        if self._resend_inst_change_timer is not None:
+            self._resend_inst_change_timer.stop()
+            self._resend_inst_change_timer = None
+
         # send message to other services
         self._bus.send(NewViewAccepted(view_no=self._new_view.viewNo,
                                        view_changes=self._new_view.viewChanges,
                                        checkpoint=self._new_view.checkpoint,
                                        batches=self._new_view.batches))
+
+    def _propose_view_change(self, suspision_code):
+        msg = InstanceChange(self._data.view_no + 1, suspision_code)
+        self._network.send(msg)
 
 
 class NewViewBuilder:
