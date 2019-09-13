@@ -8,20 +8,17 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import MismatchedMessageReplyException, IncorrectMessageForHandlingException
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
-    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit
+    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit, ViewChangeAck, ViewChange
 from plenum.common.txn_util import TxnUtilConfig
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.view_change_service import ViewChangeVotesForView
 from stp_core.common.log import getlogger
 
 
-class ThreePhaseMessagesHandler(metaclass=ABCMeta):
-    fields = {
-        'inst_id': f.INST_ID.nm,
-        'view_no': f.VIEW_NO.nm,
-        'pp_seq_no': f.PP_SEQ_NO.nm
-    }
+class AbstractMessagesHandler(metaclass=ABCMeta):
+    fields = NotImplemented
     msg_cls = NotImplemented
 
     def __init__(self,
@@ -37,19 +34,20 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
     def _get_reply(self, params: Dict[str, Any]) -> Any:
         pass
 
+    @abstractmethod
     def _validate(self, **kwargs) -> bool:
-        return kwargs['inst_id'] == self._data.inst_id and \
-            kwargs['view_no'] == self._data.view_no and \
-            isinstance(kwargs['pp_seq_no'], int) and \
-            kwargs['pp_seq_no'] > 0
+        pass
 
     def _create(self, msg: Dict, **kwargs):
-        message = self.msg_cls(**msg)
-        if message.instId != kwargs['inst_id'] \
-                or message.viewNo != kwargs['view_no'] \
-                or message.ppSeqNo != kwargs['pp_seq_no']:
-            raise MismatchedMessageReplyException
-        return message
+        return self.msg_cls(**msg)
+
+    @abstractmethod
+    def _validate_message_rep(self, msg: object) -> None:
+        pass
+
+    @abstractmethod
+    def _create_params(self, key) -> Dict[str, Any]:
+        pass
 
     def get_3pc_message(self, msg: MessageRep, frm: str):
         params = {}
@@ -68,18 +66,16 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
             raise IncorrectMessageForHandlingException(msg, 'replied message does not satisfy query criteria',
                                                        self._logger.warning)
 
-    def prepare_msg_to_request(self, three_pc_key: Tuple[int, int],
+    def prepare_msg_to_request(self, key,
                                stash_data: Optional[Tuple[str, str, str]] = None) -> Optional[Dict]:
-        if three_pc_key in self.requested_messages:
+        if key in self.requested_messages:
             self._logger.debug('{} not requesting {} since already '
-                               'requested for {}'.format(self._data.name, self.msg_cls, three_pc_key))
+                               'requested for {}'.format(self._data.name, self.msg_cls, key))
             return
-        self.requested_messages[three_pc_key] = stash_data
-        return {f.INST_ID.nm: self._data.inst_id,
-                f.VIEW_NO.nm: three_pc_key[0],
-                f.PP_SEQ_NO.nm: three_pc_key[1]}
+        self.requested_messages[key] = stash_data
+        return self._create_params(key)
 
-    def process_message_req(self, msg: MessageReq):
+    def process_message_req(self, msg: MessageReq, frm: str):
         params = {}
 
         for field_name, type_name in self.fields.items():
@@ -90,6 +86,33 @@ class ThreePhaseMessagesHandler(metaclass=ABCMeta):
                                                        self._logger.debug)
 
         return self._get_reply(params)
+
+
+class ThreePhaseMessagesHandler(AbstractMessagesHandler, metaclass=ABCMeta):
+    fields = {
+        'inst_id': f.INST_ID.nm,
+        'view_no': f.VIEW_NO.nm,
+        'pp_seq_no': f.PP_SEQ_NO.nm
+    }
+
+    def _create_params(self, key) -> Dict[str, Any]:
+        return {f.INST_ID.nm: self._data.inst_id,
+                f.VIEW_NO.nm: three_pc_key[0],
+                f.PP_SEQ_NO.nm: three_pc_key[1]}
+
+    def _validate(self, **kwargs) -> bool:
+        return kwargs['inst_id'] == self._data.inst_id and \
+               kwargs['view_no'] == self._data.view_no and \
+               isinstance(kwargs['pp_seq_no'], int) and \
+               kwargs['pp_seq_no'] > 0
+
+    def _create(self, msg: Dict, **kwargs):
+        message = super()._create(msg)
+        if message.instId != kwargs['inst_id'] \
+                or message.viewNo != kwargs['view_no'] \
+                or message.ppSeqNo != kwargs['pp_seq_no']:
+            raise MismatchedMessageReplyException
+        return message
 
     def _validate_message_rep(self, msg: object) -> None:
         if msg is None:
@@ -165,3 +188,45 @@ class CommitHandler(ThreePhaseMessagesHandler):
             if self._data.commits.hasCommitFrom(commit, self._data.name):
                 return commit
         return None
+
+
+class ViewChangeHandler(AbstractMessagesHandler):
+    msg_cls = ViewChange
+
+    def __init__(self, data: ConsensusSharedData):
+        super().__init__(data)
+        self._received_vc = {}  # Dict[ViewChange, Set[str]]
+
+    def _create(self, msg: Dict, **kwargs):
+        message = super()._create(msg)
+        if message.viewNo != kwargs['view_no']:
+            raise MismatchedMessageReplyException
+        return message
+
+    def _validate(self, **kwargs) -> bool:
+        pass
+
+    def _create_params(self, key) -> Dict[str, Any]:
+        pass
+
+    def _get_reply(self, params: Dict[str, Any]):
+        return self._data.view_change_votes.get_view_change(params[f.NAME.nm],
+                                                            params[f.DIGEST.nm])
+
+    def _validate_message_rep(self, msg: ViewChange, frm: str):
+        if msg is None:
+            raise IncorrectMessageForHandlingException(msg,
+                                                       reason='received null',
+                                                       log_method=self._logger.debug)
+        view_change_digest(view_change_message)
+        key = (, msg.ppSeqNo)
+        if key not in self.requested_messages:
+            raise IncorrectMessageForHandlingException(msg,
+                                                       reason='Had either not requested this msg or already '
+                                                              'received the msg for {}'.format(key),
+                                                       log_method=self._logger.debug)
+        self._received_vc.setdefault(msg, set())
+        self._received_vc[msg].update(frm)
+        if len(self._received_vc[msg])
+
+# view_change_digest
