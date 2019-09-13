@@ -2,13 +2,14 @@ from typing import Tuple, Optional
 
 from common.exceptions import LogicError
 from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
-from plenum.common.messages.node_messages import PrePrepare, Commit, Prepare
+from plenum.common.messages.node_messages import PrePrepare, Commit, Prepare, OldViewPrePrepareRequest, \
+    OldViewPrePrepareReply
 from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW, STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP, \
-    ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW
+    ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER
 
 
 class OrderingServiceMsgValidator:
@@ -27,6 +28,10 @@ class OrderingServiceMsgValidator:
             return self.validate_commit(msg)
         if isinstance(msg, NewViewCheckpointsApplied):
             return self.validate_new_view(msg)
+        if isinstance(msg, OldViewPrePrepareRequest):
+            return self.validate_old_view_prep_prepare_req(msg)
+        if isinstance(msg, OldViewPrePrepareReply):
+            return self.validate_old_view_prep_prepare_rep(msg)
         raise LogicError("Unknown message type")
 
     def validate_pre_prepare(self, msg: PrePrepare) -> Tuple[int, Optional[str]]:
@@ -56,7 +61,37 @@ class OrderingServiceMsgValidator:
     def validate_new_view(self, msg: NewViewCheckpointsApplied) -> Tuple[int, Optional[str]]:
         # View Change service has already validated NewView
         # so basic validation here is sufficient
+
+        if not self._data.is_master:
+            return DISCARD, NON_MASTER
+
         return self._validate_base(msg, msg.view_no)
+
+    def validate_old_view_prep_prepare_req(self, msg: OldViewPrePrepareRequest):
+        if not self._data.is_master:
+            return DISCARD, NON_MASTER
+
+        # Check if catchup is in progress
+        if not self._data.is_participating:
+            return STASH_CATCH_UP, CATCHING_UP
+
+        # PROCESS
+        return PROCESS, None
+
+    def validate_old_view_prep_prepare_rep(self, msg: OldViewPrePrepareReply):
+        if not self._data.is_master:
+            return DISCARD, NON_MASTER
+
+        # Check if waiting for new view
+        if self._data.waiting_for_new_view:
+            return STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW
+
+        # Check if catchup is in progress
+        if not self._data.is_participating:
+            return STASH_CATCH_UP, CATCHING_UP
+
+        # PROCESS
+        return PROCESS, None
 
     def _validate_3pc(self, msg) -> Tuple[int, Optional[str]]:
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)

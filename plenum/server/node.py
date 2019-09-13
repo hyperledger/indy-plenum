@@ -75,7 +75,8 @@ from plenum.common.messages.node_messages import Batch, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
     MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone, BackupInstanceFaulty
+    ObservedData, FutureViewChangeDone, BackupInstanceFaulty, OldViewPrePrepareRequest, OldViewPrePrepareReply, \
+    ViewChange, ViewChangeAck, NewView
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -435,7 +436,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             MessageReq,
             MessageRep,
             ObservedData,
-            BackupInstanceFaulty
+            BackupInstanceFaulty,
+            ViewChange,
+            ViewChangeAck,
+            NewView,
+            OldViewPrePrepareRequest,
+            OldViewPrePrepareReply
         )
 
     def routers_init(self):
@@ -444,12 +450,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (Propagate, self.processPropagate),
             (InstanceChange, self.sendToViewChanger),
             (ViewChangeDone, self.sendToViewChanger),
-            (MessageReq, self.process_message_req),
-            (MessageRep, self.process_message_rep),
+            (MessageReq, self.route_message_req),
+            (MessageRep, self.route_message_rep),
             (PrePrepare, self.sendToReplica),
             (Prepare, self.sendToReplica),
             (Commit, self.sendToReplica),
             (Checkpoint, self.sendToReplica),
+            (ViewChange, self.sendToReplica),
+            (ViewChangeAck, self.sendToReplica),
+            (NewView, self.sendToReplica),
+            (OldViewPrePrepareRequest, self.sendToReplica),
+            (OldViewPrePrepareReply, self.sendToReplica),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq, self.ledgerManager.processCatchupReq),
@@ -1464,7 +1475,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         num_processed = 0
         for message in self.replicas.get_output(limit):
             num_processed += 1
-            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq)):
+            if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq,
+                                    OldViewPrePrepareRequest, OldViewPrePrepareReply,
+                                    ViewChange, ViewChangeAck, NewView)):
                 self.send(message)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
@@ -1609,17 +1622,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return False
 
     @measure_time(MetricsName.SEND_TO_REPLICA_TIME)
-    def sendToReplica(self, msg, frm):
+    def sendToReplica(self, msg, frm, inst_id=None):
         """
         Send the message to the intended replica.
 
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        # TODO: discard or stash messages here instead of doing
-        # this in msgHas* methods!!!
-        if self.msgHasAcceptableInstId(msg, frm):
-            self.replicas.pass_message((msg, frm), msg.instId)
+        if inst_id is None and self.msgHasAcceptableInstId(msg, frm):
+            inst_id = getattr(msg, f.INST_ID.nm, None)
+        if inst_id is None:
+            self.discard(msg, "Invalid node msg", logger.debug)
+        self.replicas.pass_message((msg, frm), inst_id)
 
     def sendToViewChanger(self, msg, frm):
         """
@@ -2629,7 +2643,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                sum_for_values(self.master_replica._ordering_service.preparesWaitingForPrePrepare))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_MASTER,
                                sum_for_values(self.master_replica._ordering_service.commitsWaitingForPrepare))
-        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica._ordering_service.sentPrePrepares))
+        self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_MASTER, len(self.master_replica._ordering_service.sent_preprepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_MASTER, len(self.master_replica._ordering_service.prePrepares))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_MASTER, len(self.master_replica._ordering_service.prepares))
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica._ordering_service.commits))
@@ -2646,10 +2660,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                sum_for_values(self.master_replica._ordering_service.requestQueues))
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_MASTER, len(self.master_replica._ordering_service.batches))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_MASTER,
-                               len(self.master_replica.requested_pre_prepares))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_MASTER,
-                               len(self.master_replica.requested_prepares))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
+                               len(self.master_replica._consensus_data.requested_pre_prepares))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_MASTER,
+        #                        len(self.master_replica.requested_prepares))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_MASTER, len(self.master_replica.requested_commits))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_MASTER,
                                len(self.master_replica._ordering_service.pre_prepares_stashed_for_incorrect_time))
 
@@ -2697,7 +2711,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_WAITING_FOR_PREPARE_BACKUP,
                                sum_for_values_for_backups_ordering_service('commitsWaitingForPrepare'))
         self.metrics.add_event(MetricsName.REPLICA_SENT_PREPREPARES_BACKUP,
-                               sum_for_backups_ordering_service('sentPrePrepares'))
+                               sum_for_backups_ordering_service('sent_preprepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPREPARES_BACKUP,
                                sum_for_backups_ordering_service('prePrepares'))
         self.metrics.add_event(MetricsName.REPLICA_PREPARES_BACKUP,
@@ -2718,10 +2732,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_BATCHES_BACKUP, sum_for_backups_ordering_service('batches'))
         self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PRE_PREPARES_BACKUP,
                                sum_for_backups_ordering_service('requested_pre_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP,
-                               sum_for_backups_ordering_service('requested_prepares'))
-        self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP,
-                               sum_for_backups_ordering_service('requested_commits'))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_PREPARES_BACKUP,
+        #                        sum_for_backups_ordering_service('requested_prepares'))
+        # self.metrics.add_event(MetricsName.REPLICA_REQUESTED_COMMITS_BACKUP,
+        #                        sum_for_backups_ordering_service('requested_commits'))
         self.metrics.add_event(MetricsName.REPLICA_PRE_PREPARES_STASHED_FOR_INCORRECT_TIME_BACKUP,
                                sum_for_backups_ordering_service('pre_prepares_stashed_for_incorrect_time'))
         self.metrics.add_event(MetricsName.REPLICA_ACTION_QUEUE_BACKUP, sum_for_backups('actionQueue'))
@@ -3548,3 +3562,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         for r in self.replicas.values():
             r.set_view_change_status(value)
+
+    def route_message_req(self, msg: MessageReq, frm):
+        if msg.msg_type in self.handlers.keys():
+            self.process_message_req(msg, frm)
+        else:
+            inst_id = msg.params.get(f.INST_ID.nm)
+            self.sendToReplica(msg, frm, inst_id)
+
+    def route_message_rep(self, msg: MessageRep, frm):
+        if msg.msg_type in self.handlers.keys():
+            self.process_message_rep(msg, frm)
+        else:
+            inst_id = msg.params.get(f.INST_ID.nm)
+            self.sendToReplica(msg, frm, inst_id)

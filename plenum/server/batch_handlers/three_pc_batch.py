@@ -1,6 +1,7 @@
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.common.types import f
+from plenum.server.consensus.consensus_shared_data import get_original_viewno
 
 
 class ThreePcBatch:
@@ -41,7 +42,7 @@ class ThreePcBatch:
                             primaries=primaries,
                             valid_digests=valid_digests,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None,
-                            original_view_no=pre_prepare.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pre_prepare else None)
+                            original_view_no=get_original_viewno(pre_prepare))
 
     @staticmethod
     def from_ordered(ordered):

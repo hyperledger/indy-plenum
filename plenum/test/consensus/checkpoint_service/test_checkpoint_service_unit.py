@@ -173,8 +173,7 @@ def test_process_checkpoint(checkpoint_service, checkpoint, pre_prepare, tconf, 
 
     # check that a Cleanup msg has been sent
     checkpoint_stabilized_handler.assert_called_once_with(
-        CheckpointStabilized(inst_id=checkpoint_service._data.inst_id,
-                             last_stable_3pc=(checkpoint.viewNo, checkpoint.seqNoEnd)))
+        CheckpointStabilized(last_stable_3pc=(checkpoint.viewNo, checkpoint.seqNoEnd)))
 
 
 def test_process_ordered(checkpoint_service, ordered, pre_prepare, tconf):

@@ -88,7 +88,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # (Note that a primary replica removes requests from requestQueues
     # when creating a batch with them.)
     if slow_replica.isPrimary:
-        assert slow_replica._ordering_service.sentPrePrepares
+        assert slow_replica._ordering_service.sent_preprepares
     else:
         assert slow_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]
         assert slow_replica._ordering_service.prePrepares
@@ -122,7 +122,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # Ensure that the collections related to requests, batches and
     # own checkpoints have been cleared
     assert not slow_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]
-    assert not slow_replica._ordering_service.sentPrePrepares
+    assert not slow_replica._ordering_service.sent_preprepares
     assert not slow_replica._ordering_service.prePrepares
     assert not slow_replica._ordering_service.prepares
     assert not slow_replica._ordering_service.commits

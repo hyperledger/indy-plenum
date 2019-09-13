@@ -5,6 +5,8 @@ from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
+from plenum.common.util import SortedDict
+from plenum.server.models import Prepares, Commits
 from plenum.common.types import f
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
@@ -20,8 +22,12 @@ from plenum.server.quorums import Quorums
 BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
+def get_original_viewno(pp):
+    return pp.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pp else pp.viewNo
+
+
 def preprepare_to_batch_id(pre_prepare: PrePrepare) -> BatchID:
-    pp_view_no = pre_prepare.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pre_prepare else pre_prepare.viewNo
+    pp_view_no = get_original_viewno(pre_prepare)
     return BatchID(pre_prepare.viewNo, pp_view_no, pre_prepare.ppSeqNo, pre_prepare.digest)
 
 
@@ -73,6 +79,28 @@ class ConsensusSharedData:
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
         self.prev_view_prepare_cert = None
+
+        # Dictionary of sent PRE-PREPARE that are stored by primary replica
+        # which it has broadcasted to all other non primary replicas
+        # Key of dictionary is a 2 element tuple with elements viewNo,
+        # pre-prepare seqNo and value is the received PRE-PREPARE
+        self.sent_preprepares = SortedDict(lambda k: (k[0], k[1]))
+        # type: Dict[Tuple[int, int], PrePrepare]
+
+        # Dictionary of all Prepare requests. Key of dictionary is a 2
+        # element tuple with elements viewNo, seqNo and value is a 2 element
+        # tuple containing request digest and set of sender node names(sender
+        # replica names in case of multiple protocol instances)
+        # (viewNo, seqNo) -> ((identifier, reqId), {senders})
+        self.prepares = Prepares()
+        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
+
+        self.commits = Commits()
+        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
+
+        # Tracks for which keys PRE-PREPAREs have been requested.
+        # Cleared in `gc`
+        self.requested_pre_prepares = {}
 
     @property
     def name(self) -> str:

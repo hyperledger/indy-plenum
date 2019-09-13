@@ -47,11 +47,12 @@ from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
+from plenum.test.constants import BUY
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica, getNonPrimaryReplicas, BUY
+    getPrimaryReplica, getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper

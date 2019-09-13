@@ -1,4 +1,4 @@
-from plenum.common.messages.node_messages import Prepare
+from plenum.common.messages.node_messages import Prepare, OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.util import get_utc_epoch
 
 
@@ -29,7 +29,7 @@ def check_suspicious(handler, ex_message):
 
 
 def check_prepares_sent(external_bus, pre_prepares, view_no):
-    assert len(external_bus.sent_messages) == len(pre_prepares)
+    assert len(external_bus.sent_messages) >= len(pre_prepares)
     for i, pre_prepare in enumerate(pre_prepares):
         msg, dst = external_bus.sent_messages[i]
         assert dst is None  # message was broadcast
@@ -42,3 +42,28 @@ def check_prepares_sent(external_bus, pre_prepares, view_no):
         assert msg.stateRootHash == pre_prepare.stateRootHash
         assert msg.txnRootHash == pre_prepare.txnRootHash
         assert msg.auditTxnRootHash == pre_prepare.auditTxnRootHash
+
+
+def check_request_old_view_preprepares_sent(external_bus, batches):
+    if not batches and not external_bus.sent_messages:
+        return
+
+    msg, dst = external_bus.sent_messages[-1]
+
+    if not batches:
+        assert not isinstance(msg, OldViewPrePrepareRequest)
+        return
+
+    assert dst is None  # message was broadcast
+    assert isinstance(msg, OldViewPrePrepareRequest)
+    assert msg.instId == 0
+    assert msg.batch_ids == batches
+
+
+def check_reply_old_view_preprepares_sent(external_bus, frm, pre_prepares):
+    assert len(external_bus.sent_messages) >= 0
+    msg, dst = external_bus.sent_messages[-1]
+    assert dst == [frm]
+    assert isinstance(msg, OldViewPrePrepareReply)
+    assert msg.instId == 0
+    assert msg.preprepares == pre_prepares, "{} != {}".format(msg.preprepares, pre_prepares)
