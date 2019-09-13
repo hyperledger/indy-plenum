@@ -47,11 +47,12 @@ from plenum.common.request import Request
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
+from plenum.test.constants import BUY
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, getAllReturnVals, \
     getAllMsgReceivedForNode
 from plenum.test.test_node import TestNode, TestReplica, \
-    getPrimaryReplica, getNonPrimaryReplicas, BUY
+    getPrimaryReplica, getNonPrimaryReplicas
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -1222,7 +1223,8 @@ def create_pre_prepare_params(state_root,
                               pp_seq_no=0,
                               inst_id=0,
                               audit_txn_root=None,
-                              reqs=None):
+                              reqs=None,
+                              bls_multi_sigs=None):
     digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
     params = [inst_id,
@@ -1241,6 +1243,10 @@ def create_pre_prepare_params(state_root,
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
+    if bls_multi_sigs is not None:
+        params.append([sig.as_list() for sig in bls_multi_sigs])
+    elif bls_multi_sig:
+        params.append([bls_multi_sig.as_list()])
     return params
 
 
@@ -1268,6 +1274,14 @@ def create_commit_with_bls_sig(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
     params.append(bls_sig)
+    return Commit(*params)
+
+
+def create_commit_with_bls_sigs(req_key, bls_sig, lid):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params.append(bls_sig)
+    params.append({str(lid): bls_sig})
     return Commit(*params)
 
 

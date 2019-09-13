@@ -1,5 +1,6 @@
 from typing import List
 
+from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_freshness_checker import FreshnessChecker
 
@@ -14,7 +15,6 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
-from plenum.test.testing_utils import FakeSomething
 
 
 class ReplicaService:
@@ -44,6 +44,7 @@ class ReplicaService:
         self._checkpointer = CheckpointService(self._data, bus, network, stasher,
                                                write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network, stasher)
+        self._message_requestor = MessageReq3pcService(self._data, bus, network)
 
         # TODO: This is just for testing purposes only
         self._data.checkpoints.append(

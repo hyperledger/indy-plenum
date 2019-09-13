@@ -1,6 +1,5 @@
 import math
 
-from plenum.server.replica import TPCStat
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 

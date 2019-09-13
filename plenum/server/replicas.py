@@ -185,7 +185,7 @@ class Replicas:
             reqId, duration = unordered
 
             # get ppSeqNo and viewNo
-            preprepares = replica._ordering_service.sentPrePrepares if replica.isPrimary else replica._ordering_service.prePrepares
+            preprepares = replica._ordering_service.sent_preprepares if replica.isPrimary else replica._ordering_service.prePrepares
             ppSeqNo = None
             viewNo = None
             for key in preprepares:

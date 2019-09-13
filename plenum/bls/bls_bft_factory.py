@@ -26,6 +26,7 @@ class BlsFactoryBftPlenum(BlsFactoryBft):
         return BlsBftReplicaPlenum(self._node.name,
                                    self._node.bls_bft,
                                    is_master,
+                                   self._node.db_manager,
                                    self._node.metrics)
 
 

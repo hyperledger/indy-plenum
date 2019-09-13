@@ -207,7 +207,7 @@ class CheckpointService:
         self.set_watermarks(low_watermark=pp_seq_no)
 
         self._remove_received_checkpoints(till_3pc_key=(self.view_no, pp_seq_no))
-        self._bus.send(CheckpointStabilized(self._data.inst_id, (self.view_no, pp_seq_no)))  # call OrderingService.l_gc()
+        self._bus.send(CheckpointStabilized((self.view_no, pp_seq_no)))  # call OrderingService.gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, pp_seq_no))
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
