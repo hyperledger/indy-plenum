@@ -1885,8 +1885,7 @@ class OrderingService:
         if len(sent_batches) > 0:
             self.lastBatchCreated = self.get_current_time()
 
-        # return len(sent_batches)
-        return 1
+        return len(sent_batches)
 
     def l_send_3pc_primaries_batch(self, sent_batches):
         # As we've selected new primaries, we need to send 3pc batch,
