@@ -39,7 +39,7 @@ def test_node_erases_last_sent_pp_key_on_view_change(
     # Verify that the node has erased the stored last sent PrePrepare key
     for value in node.last_sent_pp_store_helper._load_last_sent_pp_key().values():
         # + 1 it's after view_change
-        assert value == [node.viewNo, num_batches_before + 1]
+        assert value == [node.viewNo, 1]
 
     # Send a 3PC-batch and ensure that the replica orders it
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
@@ -48,6 +48,6 @@ def test_node_erases_last_sent_pp_key_on_view_change(
                                timeout=tconf.Max3PCBatchWait)
 
     looper.run(
-        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, num_batches_before + num_batches_after + 1)),
+        eventually(lambda: assertExp(replica.last_ordered_3pc == (1, num_batches_after + 1)),
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

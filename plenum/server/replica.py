@@ -398,6 +398,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service._lastPrePrepareSeqNo = 0
         self._checkpointer.set_watermarks(0)
         self._checkpointer._reset_checkpoints()
+        self._consensus_data.stable_checkpoint = 0
 
     def on_propagate_primary_done(self):
         if self.isMaster:

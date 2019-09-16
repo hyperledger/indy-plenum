@@ -16,7 +16,10 @@ def test_is_next_pre_prepare(orderer):
     orderer.last_ordered_3pc = (1, 3)
 
     assert orderer.view_no != pp_view_no
-    assert not orderer._is_next_pre_prepare(pp_view_no, pp_seq_no)
+    if orderer.is_master:
+        assert not orderer._is_next_pre_prepare(pp_view_no, pp_seq_no)
+    elif orderer.view_no > pp_view_no:
+        assert orderer._is_next_pre_prepare(pp_view_no, pp_seq_no)
 
 
 def test_order_3pc_key(orderer):

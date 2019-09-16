@@ -43,12 +43,9 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     Please note that to verify this case the config is set up so that
     LOG_SIZE == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
     """
-    global first_run
-    batches_count = get_pp_seq_no(txnPoolNodeSet)
-
     slow_replica, other_replicas = one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
-    low_watermark = slow_replica.h
+    batches_count = other_replicas[0].last_ordered_3pc[1]
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
@@ -80,7 +77,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
-    reqs_until_checkpoints = reqs_for_checkpoint - get_pp_seq_no([r.node for r in other_replicas]) % reqs_for_checkpoint
+    reqs_until_checkpoints = reqs_for_checkpoint - other_replicas[0].last_ordered_3pc[1]
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
                              reqs_until_checkpoints)
@@ -107,20 +104,19 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.last_ordered_3pc == (view_no, batches_count)
 
     # Ensure that the watermarks have not been shifted since the view start
-    assert slow_replica.h == low_watermark
-    assert slow_replica.H == (sys.maxsize if first_run else low_watermark + LOG_SIZE)
+    assert slow_replica.h == 0
+    assert slow_replica.H == LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
     check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Ensure that now there are 3PC-messages stashed
     # as laying outside of the watermarks
-    if not first_run:
-        assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == incoming_3pc_msgs_count(len(txnPoolNodeSet))
+    assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == incoming_3pc_msgs_count(len(txnPoolNodeSet))
 
     # Receive belated Checkpoints
     slow_replica.node.nodeIbStasher.reset_delays_and_process_delayeds()
-    batches_count = get_pp_seq_no([r.node for r in other_replicas])
+    batches_count = other_replicas[0].last_ordered_3pc[1]
 
     # Ensure that the replica has ordered the batch for the last sent request
     looper.run(
@@ -132,8 +128,8 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that the watermarks have been shifted so that the lower watermark
     # now equals to the end of the last stable checkpoint in the instance
-    assert slow_replica.h == low_watermark + (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
-    assert slow_replica.H == low_watermark + (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
+    assert slow_replica.h == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
+    assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
     check_num_quorumed_received_checkpoints(slow_replica, 0)
@@ -152,4 +148,3 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
-    first_run = False
