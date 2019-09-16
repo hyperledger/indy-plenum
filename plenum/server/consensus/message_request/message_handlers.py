@@ -13,7 +13,7 @@ from plenum.common.txn_util import TxnUtilConfig
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.view_change_service import ViewChangeVotesForView, view_change_digest
+from plenum.server.consensus.view_change_storages import view_change_digest
 from stp_core.common.log import getlogger
 
 
@@ -42,29 +42,12 @@ class AbstractMessagesHandler(metaclass=ABCMeta):
         return self.msg_cls(**msg)
 
     @abstractmethod
-    def _validate_message_rep(self, msg: object) -> None:
-        pass
-
-    @abstractmethod
     def _create_params(self, key) -> Dict[str, Any]:
         pass
 
+    @abstractmethod
     def get_3pc_message(self, msg: MessageRep, frm: str):
-        params = {}
-
-        for field_name, type_name in self.fields.items():
-            params[field_name] = msg.params.get(type_name)
-        self._logger.debug('{} received requested msg ({}) from {}'.format(self, msg, frm))
-        try:
-            result = self._create(msg.msg, **params)
-            self._validate_message_rep(result)
-            return result
-        except TypeError:
-            raise IncorrectMessageForHandlingException(msg, 'replied message has invalid structure',
-                                                       self._logger.warning)
-        except MismatchedMessageReplyException:
-            raise IncorrectMessageForHandlingException(msg, 'replied message does not satisfy query criteria',
-                                                       self._logger.warning)
+        pass
 
     def prepare_msg_to_request(self, key,
                                stash_data: Optional[Tuple[str, str, str]] = None) -> Optional[Dict]:
@@ -75,7 +58,7 @@ class AbstractMessagesHandler(metaclass=ABCMeta):
         self.requested_messages[key] = stash_data
         return self._create_params(key)
 
-    def process_message_req(self, msg: MessageReq, frm: str):
+    def process_message_req(self, msg: MessageReq):
         params = {}
 
         for field_name, type_name in self.fields.items():
@@ -97,8 +80,8 @@ class ThreePhaseMessagesHandler(AbstractMessagesHandler, metaclass=ABCMeta):
 
     def _create_params(self, key) -> Dict[str, Any]:
         return {f.INST_ID.nm: self._data.inst_id,
-                f.VIEW_NO.nm: three_pc_key[0],
-                f.PP_SEQ_NO.nm: three_pc_key[1]}
+                f.VIEW_NO.nm: key[0],
+                f.PP_SEQ_NO.nm: key[1]}
 
     def _validate(self, **kwargs) -> bool:
         return kwargs['inst_id'] == self._data.inst_id and \
@@ -146,6 +129,23 @@ class ThreePhaseMessagesHandler(AbstractMessagesHandler, metaclass=ABCMeta):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self._data.last_ordered_3pc) >= 0
 
+    def get_3pc_message(self, msg: MessageRep, frm: str):
+        params = {}
+
+        for field_name, type_name in self.fields.items():
+            params[field_name] = msg.params.get(type_name)
+        self._logger.debug('{} received requested msg ({}) from {}'.format(self, msg, frm))
+        try:
+            result = self._create(msg.msg, **params)
+            self._validate_message_rep(result)
+            return result, frm
+        except TypeError:
+            raise IncorrectMessageForHandlingException(msg, 'replied message has invalid structure',
+                                                       self._logger.warning)
+        except MismatchedMessageReplyException:
+            raise IncorrectMessageForHandlingException(msg, 'replied message does not satisfy query criteria',
+                                                       self._logger.warning)
+
 
 class PreprepareHandler(ThreePhaseMessagesHandler):
     msg_cls = PrePrepare
@@ -192,6 +192,11 @@ class CommitHandler(ThreePhaseMessagesHandler):
 
 class ViewChangeHandler(AbstractMessagesHandler):
     msg_cls = ViewChange
+    fields = {
+        'inst_id': f.INST_ID.nm,
+        'name': f.NAME.nm,
+        'digest': f.DIGEST.nm
+    }
 
     def __init__(self, data: ConsensusSharedData):
         super().__init__(data)
@@ -199,12 +204,12 @@ class ViewChangeHandler(AbstractMessagesHandler):
 
     def _create(self, msg: Dict, **kwargs):
         message = super()._create(msg)
-        if message.viewNo != kwargs['view_no']:
+        if view_change_digest(message) != kwargs[f.DIGEST.nm]:
             raise MismatchedMessageReplyException
         return message
 
     def _validate(self, **kwargs) -> bool:
-        pass
+        return kwargs['inst_id'] == self._data.inst_id
 
     def _create_params(self, key) -> Dict[str, Any]:
         return {f.INST_ID.nm: self._data.inst_id,
@@ -215,22 +220,41 @@ class ViewChangeHandler(AbstractMessagesHandler):
         return self._data.view_change_votes.get_view_change(params[f.NAME.nm],
                                                             params[f.DIGEST.nm])
 
-    def _validate_message_rep(self, msg: ViewChange, frm: str):
+    def _validate_view_change(self, msg: ViewChange, frm: str, params):
         if msg is None:
             raise IncorrectMessageForHandlingException(msg,
                                                        reason='received null',
                                                        log_method=self._logger.debug)
 
-        key = (msg.viewChange, view_change_digest(msg))
+        key = (params["name"], view_change_digest(msg))
         if key not in self.requested_messages:
             raise IncorrectMessageForHandlingException(msg,
                                                        reason='Had either not requested this msg or already '
                                                               'received the msg for {}'.format(key),
                                                        log_method=self._logger.debug)
-        self._received_vc.setdefault(msg, set())
-        self._received_vc[msg].update(frm)
-        if not self._data.quorums.weak.is_reached(len(self._received_vc[msg])):
+        self._received_vc.setdefault(key, set())
+        self._received_vc[key].add(frm)
+        if not self._data.quorums.weak.is_reached(len(self._received_vc[key])) and frm != params["name"]:
             raise IncorrectMessageForHandlingException(msg,
                                                        reason='Count of VIEW_CHANGE messages {} '
                                                               'is not enough for quorum.'.format(msg),
                                                        log_method=self._logger.trace)
+
+
+
+    def get_3pc_message(self, msg: MessageRep, frm: str):
+        params = {}
+
+        for field_name, type_name in self.fields.items():
+            params[field_name] = msg.params.get(type_name)
+        self._logger.debug('{} received requested msg ({}) from {}'.format(self, msg, frm))
+        try:
+            result = self._create(msg.msg, **params)
+            self._validate_view_change(result, frm, params)
+            return result, params["name"]
+        except TypeError:
+            raise IncorrectMessageForHandlingException(msg, 'replied message has invalid structure',
+                                                       self._logger.warning)
+        except MismatchedMessageReplyException:
+            raise IncorrectMessageForHandlingException(msg, 'replied message does not satisfy query criteria',
+                                                       self._logger.warning)

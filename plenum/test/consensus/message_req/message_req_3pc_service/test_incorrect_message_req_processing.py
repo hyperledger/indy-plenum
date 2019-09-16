@@ -45,7 +45,7 @@ def test_process_message_req_handler_raise_ex(message_req_3pc_service: MessageRe
 def test_process_missing_message_inst_id(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
     missing_msg = MissingMessage(msg_type=PREPREPARE,
-                                 three_pc_key=data.last_ordered_3pc,
+                                 key=data.last_ordered_3pc,
                                  inst_id=data.inst_id + 1,
                                  dst=[frm],
                                  stash_data=None)
@@ -57,7 +57,7 @@ def test_process_missing_message_raise_ex(message_req_3pc_service: MessageReq3pc
     frm = "frm"
     msg_type = PREPREPARE
     missing_msg = MissingMessage(msg_type=msg_type,
-                                 three_pc_key=data.last_ordered_3pc,
+                                 key=data.last_ordered_3pc,
                                  inst_id=data.inst_id + 1,
                                  dst=[frm],
                                  stash_data=None)

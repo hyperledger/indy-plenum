@@ -30,7 +30,7 @@ def test_process_message_req_commit(message_req_3pc_service: MessageReq3pcServic
 def test_process_missing_message_commit(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
     missing_msg = MissingMessage(msg_type=COMMIT,
-                                 three_pc_key=data.last_ordered_3pc,
+                                 key=data.last_ordered_3pc,
                                  inst_id=data.inst_id,
                                  dst=[frm],
                                  stash_data=None)

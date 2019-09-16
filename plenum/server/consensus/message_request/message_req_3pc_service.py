@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
-    PROPAGATE, PREPARE, COMMIT
+    PROPAGATE, PREPARE, COMMIT, VIEW_CHANGE
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import IncorrectMessageForHandlingException
 from plenum.common.messages.internal_messages import MissingMessage, CheckpointStabilized, ViewChangeStarted
@@ -12,7 +12,8 @@ from plenum.common.router import Subscription
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler
+from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler, \
+    ViewChangeHandler
 from stp_core.common.log import getlogger
 
 
@@ -40,6 +41,7 @@ class MessageReq3pcService:
             PREPREPARE: PreprepareHandler(self._data),
             PREPARE: PrepareHandler(self._data),
             COMMIT: CommitHandler(self._data),
+            VIEW_CHANGE: ViewChangeHandler(self._data)
         }
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REQ_TIME)
@@ -50,7 +52,7 @@ class MessageReq3pcService:
         msg_type = msg.msg_type
         handler = self.handlers[msg_type]
         try:
-            resp = handler.process_message_req(msg, frm)
+            resp = handler.process_message_req(msg)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)
             return
@@ -77,7 +79,7 @@ class MessageReq3pcService:
             return
         handler = self.handlers[msg_type]
         try:
-            validated_msg = handler.get_3pc_message(msg, frm)
+            validated_msg, frm = handler.get_3pc_message(msg, frm)
             self._network.process_incoming(validated_msg, frm)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)

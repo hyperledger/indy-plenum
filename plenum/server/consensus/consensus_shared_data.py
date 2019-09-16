@@ -6,7 +6,7 @@ from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
 from plenum.common.util import SortedDict
-from plenum.server.consensus.view_change_service import ViewChangeVotesForView
+from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
 from plenum.server.models import Prepares, Commits
 from plenum.common.types import f
 from plenum.server.propagator import Requests

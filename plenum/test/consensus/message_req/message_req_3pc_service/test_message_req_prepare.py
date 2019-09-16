@@ -30,7 +30,7 @@ def test_process_message_req_prepare(message_req_3pc_service: MessageReq3pcServi
 def test_process_missing_message_prepare(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
     missing_msg = MissingMessage(msg_type=PREPARE,
-                                 three_pc_key=data.last_ordered_3pc,
+                                 key=data.last_ordered_3pc,
                                  inst_id=data.inst_id,
                                  dst=[frm],
                                  stash_data=None)
