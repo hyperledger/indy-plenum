@@ -42,7 +42,7 @@ def test_process_message_req_handler_raise_ex(message_req_3pc_service: MessageRe
     assert len(external_bus.sent_messages) == 0
 
 
-def test_process_missing_message_inst_id(message_req_3pc_service: MessageReq3pcService, external_bus, data):
+def test_process_missing_message_incorrect_inst_id(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
     missing_msg = MissingMessage(msg_type=PREPREPARE,
                                  key=data.last_ordered_3pc,
@@ -83,7 +83,7 @@ def test_process_message_rep_without_msg(message_req_3pc_service: MessageReq3pcS
     network_handler.assert_not_called()
 
 
-def test_process_message_rep_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, pp):
+def test_process_message_rep_invalid_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     msg_type = PREPREPARE
     message_req_3pc_service.handlers[PREPREPARE].requested_messages[key] = None
@@ -118,3 +118,18 @@ def test_process_message_rep_with_incorrect_type(message_req_3pc_service: Messag
     external_bus.subscribe(Commit, network_handler)
     message_req_3pc_service.process_message_rep(message_rep, frm)
     network_handler.assert_not_called()
+
+
+def test_process_message_req_with_incorrect_type(message_req_3pc_service: MessageReq3pcService, external_bus, data, pp):
+    msg_type = LEDGER_STATUS
+    key = (data.view_no, 1)
+    message_req = MessageReq(**{
+        f.MSG_TYPE.nm: msg_type,
+        f.PARAMS.nm: {f.INST_ID.nm: data.inst_id,
+                      f.VIEW_NO.nm: key[0],
+                      f.PP_SEQ_NO.nm: key[1]},
+    })
+    message_req_3pc_service.process_message_req(message_req, "frm")
+    assert len(external_bus.sent_messages) == 0
+
+

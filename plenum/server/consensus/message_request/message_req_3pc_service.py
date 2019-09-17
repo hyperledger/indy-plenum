@@ -50,6 +50,9 @@ class MessageReq3pcService:
         # RPC architecture, use deques to communicate the message and node will
         # maintain a unique internal message id to correlate responses.
         msg_type = msg.msg_type
+        if msg_type not in self.handlers.keys():
+            self.discard(msg, "Unknown message type {}".format(msg_type), self._logger.warning)
+            return
         handler = self.handlers[msg_type]
         try:
             resp = handler.process_message_req(msg)
@@ -71,7 +74,7 @@ class MessageReq3pcService:
     def process_message_rep(self, msg: MessageRep, frm):
         msg_type = msg.msg_type
         if msg_type not in self.handlers.keys():
-            self.discard(msg.msg, "Unknown message type {}".format(msg_type), self._logger.warning)
+            self.discard(msg, "Unknown message type {}".format(msg_type), self._logger.warning)
             return
         if msg.msg is None:
             self._logger.debug('{} got null response for requested {} from {}'.

@@ -394,10 +394,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requests.ordered_by_replica(key)
             self.requests.free(key)
             self._ordering_service.requestQueues[int(ledger_id)].discard(key)
-        master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
-        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0 \
-                and self.isPrimary is False:
-            self.last_ordered_3pc = master_last_ordered_3pc
+        self.last_ordered_3pc = (self.viewNo, 0)
+        self._ordering_service._lastPrePrepareSeqNo = 0
+        self._checkpointer.set_watermarks(0)
+        self._checkpointer._reset_checkpoints()
+        self._consensus_data.stable_checkpoint = 0
 
     def on_propagate_primary_done(self):
         if self.isMaster:

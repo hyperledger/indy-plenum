@@ -27,10 +27,32 @@ def test_process_message_req_prepare(message_req_3pc_service: MessageReq3pcServi
                                              [frm])
 
 
+def test_process_message_req_prepare_without_prepare(message_req_3pc_service: MessageReq3pcService,
+                                                     external_bus, data, prepare):
+    key = (prepare.viewNo, prepare.ppSeqNo)
+    other_node_name = "other_node"
+    data.prepares.clear()
+    data.prepares.addVote(prepare, other_node_name)
+    assert not data.prepares.hasPrepareFrom(prepare, data.name)
+    assert data.prepares.hasPrepareFrom(prepare, other_node_name)
+
+    message_req = MessageReq(**{
+        f.MSG_TYPE.nm: PREPARE,
+        f.PARAMS.nm: {f.INST_ID.nm: data.inst_id,
+                      f.VIEW_NO.nm: key[0],
+                      f.PP_SEQ_NO.nm: key[1]},
+    })
+    frm = "frm"
+    message_req_3pc_service.process_message_req(message_req, frm)
+    assert len(external_bus.sent_messages) == 0
+
+
 def test_process_missing_message_prepare(message_req_3pc_service: MessageReq3pcService, external_bus, data):
     frm = "frm"
+    view_no = data.view_no
+    pp_seq_no = data.last_ordered_3pc[1] + 1
     missing_msg = MissingMessage(msg_type=PREPARE,
-                                 key=data.last_ordered_3pc,
+                                 key=(view_no, pp_seq_no),
                                  inst_id=data.inst_id,
                                  dst=[frm],
                                  stash_data=None)
@@ -38,8 +60,8 @@ def test_process_missing_message_prepare(message_req_3pc_service: MessageReq3pcS
     assert len(external_bus.sent_messages) == 1
     assert external_bus.sent_messages[0] == (MessageReq(PREPARE,
                                                         {f.INST_ID.nm: data.inst_id,
-                                                         f.VIEW_NO.nm: data.last_ordered_3pc[0],
-                                                         f.PP_SEQ_NO.nm: data.last_ordered_3pc[1]}),
+                                                         f.VIEW_NO.nm: view_no,
+                                                         f.PP_SEQ_NO.nm: pp_seq_no}),
                                              [frm])
 
 

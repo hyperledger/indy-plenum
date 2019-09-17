@@ -11,9 +11,6 @@ from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
 
-batches_count = 0
-
-
 def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(looper, txnPoolNodeSet,
                                                                             sdk_pool_handle, sdk_wallet_client):
     '''
@@ -24,7 +21,6 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
     5. reset delays
     => we expect that all nodes and all instances have the same last ordered
     '''
-    global batches_count
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     slow_instance = 1
@@ -57,12 +53,12 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, batches_count)))
+                          (old_view_no + 1, 1)))
 
     # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, batches_count)))
+                          (old_view_no + 1, 1)))
 
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
@@ -85,16 +81,14 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
     5. reset delays
     => we expect that all nodes and all instances have the same last ordered
     '''
-    global batches_count
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
-    batches_count += 1
     slow_instance = 1
     slow_nodes = txnPoolNodeSet[1:3]
     fast_nodes = [n for n in txnPoolNodeSet if n not in slow_nodes]
     nodes_stashers = [n.nodeIbStasher for n in slow_nodes]
-    old_last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
-    assert batches_count == old_last_ordered[1]
+    old_last_ordered = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc
+    batches_count = old_last_ordered[1]
 
     with delay_rules(nodes_stashers, pDelay(instId=slow_instance)):
         with delay_rules(nodes_stashers, ppDelay(instId=slow_instance)):
@@ -120,16 +114,17 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, batches_count)))
+                          (old_view_no + 1, 1)))
 
     # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, batches_count)))
+                          (old_view_no + 1, 1)))
 
+    # +2 because 2 batches will be reordered after view_change
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
-                          (old_last_ordered[0] + 1, batches_count)))
+                          (old_last_ordered[0] + 1, batches_count + 2)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
@@ -138,7 +133,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
         eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance,
-                   (txnPoolNodeSet[0].viewNo, batches_count)))
+                   (txnPoolNodeSet[0].viewNo, 2)))
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
@@ -148,16 +143,14 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
     ''' Send random request and do view change then fast_nodes (1, 4 - without
     primary after next view change) are already ordered transaction on master
     and slow_nodes are not. Check ordering on slow_nodes.'''
-    global batches_count
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
-    batches_count += 1
     master_instance = txnPoolNodeSet[0].master_replica.instId
     slow_nodes = txnPoolNodeSet[1:3]
     fast_nodes = [n for n in txnPoolNodeSet if n not in slow_nodes]
     nodes_stashers = [n.nodeIbStasher for n in slow_nodes]
     old_last_ordered = txnPoolNodeSet[0].master_replica.last_ordered_3pc
-    assert batches_count == old_last_ordered[1]
+    batches_count = old_last_ordered[1]
     with delay_rules(nodes_stashers, cDelay()):
         # send one request
         requests = sdk_send_random_requests(looper, sdk_pool_handle,

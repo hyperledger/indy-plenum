@@ -163,7 +163,9 @@ class PreprepareHandler(ThreePhaseMessagesHandler):
         key = (msg.viewNo, msg.ppSeqNo)
         for pp in self._data.preprepared:
             if (pp.view_no, pp.pp_seq_no) == key:
-                return False, 'already received msg ({})'.format(self, key)
+                raise IncorrectMessageForHandlingException(msg,
+                                                           reason='already received msg ({})'.format(self, key),
+                                                           log_method=self._logger.debug)
 
 
 class PrepareHandler(ThreePhaseMessagesHandler):

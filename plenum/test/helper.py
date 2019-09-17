@@ -1223,7 +1223,8 @@ def create_pre_prepare_params(state_root,
                               pp_seq_no=0,
                               inst_id=0,
                               audit_txn_root=None,
-                              reqs=None):
+                              reqs=None,
+                              bls_multi_sigs=None):
     digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
     params = [inst_id,
@@ -1242,6 +1243,10 @@ def create_pre_prepare_params(state_root,
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
+    if bls_multi_sigs is not None:
+        params.append([sig.as_list() for sig in bls_multi_sigs])
+    elif bls_multi_sig:
+        params.append([bls_multi_sig.as_list()])
     return params
 
 
@@ -1269,6 +1274,14 @@ def create_commit_with_bls_sig(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
     params.append(bls_sig)
+    return Commit(*params)
+
+
+def create_commit_with_bls_sigs(req_key, bls_sig, lid):
+    view_no, pp_seq_no = req_key
+    params = create_commit_params(view_no, pp_seq_no)
+    params.append(bls_sig)
+    params.append({str(lid): bls_sig})
     return Commit(*params)
 
 
@@ -1501,6 +1514,7 @@ def create_pool_txn_data(node_names: List[str],
     data['txns'].extend(more_data_users)
     data['seeds'].update(more_data_seeds)
     return data
+
 
 def get_pp_seq_no(nodes: list) -> int:
     los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])

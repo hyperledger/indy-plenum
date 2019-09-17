@@ -3,12 +3,15 @@ from operator import itemgetter
 from typing import Dict, Type, List, Optional
 
 from crypto.bls.bls_bft import BlsBft
+from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.config_util import getConfig
-from plenum.common.constants import NODE, NYM
+from plenum.common.constants import NODE, NYM, SEQ_NO_DB_LABEL
 from plenum.common.event_bus import InternalBus
-from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck
+from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck, PrePrepare, Prepare, \
+    Commit
 from plenum.common.txn_util import get_type
+from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
 from plenum.server.consensus.ordering_service import OrderingService
@@ -22,12 +25,14 @@ from plenum.server.node import Node
 from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
+from plenum.test.buy_handler import BuyHandler
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, create_pool_txn_data, create_pre_prepare_no_bls, generate_state_root
 from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import DefaultSimRandom, SimRandom
 from plenum.test.testing_utils import FakeSomething
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 
 class TestLedgersBootstrap(LedgersBootstrap):
@@ -43,10 +48,18 @@ class TestLedgersBootstrap(LedgersBootstrap):
         return txn
 
 
+def register_test_handler(wm):
+    th = BuyHandler(wm.database_manager)
+    wm.register_req_handler(th)
+
+
 def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequestManager:
     db_manager = DatabaseManager()
     write_manager = WriteRequestManager(db_manager)
     read_manager = ReadRequestManager()
+
+    register_test_handler(write_manager)
+    db_manager.register_new_store(SEQ_NO_DB_LABEL, ReqIdrToTxn(KeyValueStorageInMemory()))
 
     bootstrap = TestLedgersBootstrap(
         write_req_manager=write_manager,
@@ -65,12 +78,53 @@ def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequest
     return write_manager
 
 
+class MockBlsBftReplica(BlsBftReplica):
+
+    def __init__(self):
+        pass
+
+    def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
+        return None
+
+    def validate_prepare(self, prepare: Prepare, sender):
+        return None
+
+    def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
+        return None
+
+    def process_pre_prepare(self, pre_prepare: PrePrepare, sender):
+        return True
+
+    def process_prepare(self, prepare: Prepare, sender):
+        return True
+
+    def process_commit(self, commit: Commit, sender):
+        return True
+
+    def process_order(self, key, quorums, pre_prepare: PrePrepare):
+        return True
+
+    def update_pre_prepare(self, pre_prepare_params, ledger_id):
+        return pre_prepare_params
+
+    def update_prepare(self, prepare_params, ledger_id):
+        return prepare_params
+
+    def update_commit(self, commit_params, pre_prepare: PrePrepare):
+        return commit_params
+
+    def gc(self, key_3PC):
+        pass
+
+
 class SimPool:
     def __init__(self, node_count: int = 4, random: Optional[SimRandom] = None):
         self._random = random if random else DefaultSimRandom()
         self._timer = MockTimer()
         self._network = SimNetwork(self._timer, self._random)
+        self._nodes = []
         validators = genNodeNames(node_count)
+        # ToDo: maybe it should be a random too?
         primary_name = validators[0]
 
         genesis_txns = create_pool_txn_data(
@@ -78,19 +132,21 @@ class SimPool:
             crypto_factory=create_default_bls_crypto_factory(),
             get_free_port=partial(random.integer, 9000, 9999))['txns']
 
-        self._nodes = []
         for name in validators:
             # TODO: emulate it the same way as in Replica, that is sender must have 'node_name:inst_id' form
             replica_name = generateName(name, 0)
             handler = partial(self.network._send_message, replica_name)
             replica = ReplicaService(replica_name,
-                                     validators, primary_name,
+                                     validators,
+                                     primary_name,
                                      self._timer,
                                      InternalBus(),
                                      self.network.create_peer(name, handler),
                                      write_manager=create_test_write_req_manager(name, genesis_txns),
-                                     bls_bft_replica=FakeSomething(gc=lambda key: None))
+                                     bls_bft_replica=MockBlsBftReplica())
+            replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)
+
 
     @property
     def timer(self) -> MockTimer:
@@ -103,6 +159,10 @@ class SimPool:
     @property
     def nodes(self) -> List[ReplicaService]:
         return self._nodes
+
+    @property
+    def size(self):
+        return len(self.nodes)
 
 
 VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
