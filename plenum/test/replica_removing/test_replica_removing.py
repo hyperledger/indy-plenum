@@ -12,6 +12,7 @@ from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.replica_removing.helper import check_replica_removed
 from plenum.test.stasher import delay_rules
+from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange, \
@@ -49,6 +50,27 @@ def get_forwarded_to_all(node, is_ordered=False):
                 continue
             return (digest, req_state)
     return (None, None)
+
+
+def test_primary_after_replica_restored(looper,
+                                        txnPoolNodeSet,
+                                        sdk_pool_handle,
+                                        sdk_wallet_client,
+                                        chkFreqPatched,
+                                        view_change):
+    A, B, C, D = txnPoolNodeSet
+    assert B.master_replica.isPrimary
+    assert C.replicas._replicas[1].isPrimary
+
+    D.replicas.remove_replica(1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ)
+    do_view_change(txnPoolNodeSet, looper)
+    batches_before = D.replicas._replicas[1].last_ordered_3pc[1]
+    assert D.replicas._replicas[1].isPrimary
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ)
+    batches_after = D.replicas._replicas[1].last_ordered_3pc[1]
+    assert batches_after > batches_before
 
 
 def test_replica_removal(looper,
@@ -193,6 +215,5 @@ def test_unordered_request_freed_on_replica_removal(looper,
 
 def do_view_change(txnPoolNodeSet, looper):
     # trigger view change on all nodes
-    for node in txnPoolNodeSet:
-        node.view_changer.on_master_degradation()
+    ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)

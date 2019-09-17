@@ -36,8 +36,6 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     Verifies resumption of ordering 3PC-batches on a backup replica
     on detection of a lag in checkpoints
     """
-
-    global first_run
     slow_replica, other_replicas = one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
     batches_count = slow_replica.last_ordered_3pc[1]
@@ -69,7 +67,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
-    reqs_until_checkpoints = reqs_for_checkpoint - get_pp_seq_no(txnPoolNodeSet) % reqs_for_checkpoint
+    reqs_until_checkpoints = reqs_for_checkpoint - other_replicas[0].last_ordered_3pc[1]
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
                              reqs_until_checkpoints)
@@ -81,7 +79,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == low_watermark
-    assert slow_replica.H == (sys.maxsize if first_run else low_watermark + LOG_SIZE)
+    assert slow_replica.H == low_watermark + LOG_SIZE
 
     # Ensure that the collections related to requests, batches and
     # own checkpoints are not empty.
@@ -143,7 +141,6 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
     slow_replica._checkpointer._received_checkpoints.clear()
     batches_count = get_pp_seq_no(txnPoolNodeSet)
-    first_run = False
 
 
 def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
@@ -199,7 +196,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
 
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
-    reqs_until_checkpoints = reqs_for_checkpoint - get_pp_seq_no([r.node for r in other_replicas]) % reqs_for_checkpoint
+    reqs_until_checkpoints = reqs_for_checkpoint - other_replicas[0].last_ordered_3pc[1]
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
                              reqs_until_checkpoints)

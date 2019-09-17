@@ -25,7 +25,7 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
         tconf, tdir, allPluginsPath, chkFreqPatched, view_no):
     # Get a node with a backup primary replica
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
-    batches_count = get_pp_seq_no(txnPoolNodeSet)
+    batches_count = 0 if view_no == 0 else 1
     node = replica.node
     # Send some 3PC-batches and wait until the replica orders the 3PC-batches
     sdk_send_batches_of_random(looper, txnPoolNodeSet,
