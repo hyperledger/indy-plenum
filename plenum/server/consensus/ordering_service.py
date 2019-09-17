@@ -1106,8 +1106,6 @@ class OrderingService:
             # First PRE-PREPARE
             return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
-        if not self.is_master and self.view_no > last_pp_view_no:
-            return True
 
         return pp_seq_no - last_pp_seq_no == 1
 
