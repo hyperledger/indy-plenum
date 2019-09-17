@@ -39,7 +39,7 @@ class SimNetwork:
         else:
             assert False, "{} tried to send message {} to unsupported destination {}".format(frm, msg, dst)
 
-        for name in dst:
+        for name in sorted(dst):
             assert name != frm, "{} tried to send message {} to itself".format(frm, msg)
 
             peer = self._peers.get(name)

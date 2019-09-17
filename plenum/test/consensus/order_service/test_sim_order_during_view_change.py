@@ -30,11 +30,11 @@ def test_view_change_while_ordering_with_real_msgs(seed):
                             partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
     # 3. Make sure that view_change is completed
     for node in pool.nodes:
-        pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1, timeout=20000)
+        pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1)
 
     # 3. Make sure all nodes ordered all the requests
     for node in pool.nodes:
-        pool.timer.wait_for(partial(check_batch_count, node, batches_count), timeout=20000)
+        pool.timer.wait_for(partial(check_batch_count, node, batches_count))
 
     # 4. Check data consistency
     check_consistency(pool)
