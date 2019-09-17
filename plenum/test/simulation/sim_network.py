@@ -13,6 +13,7 @@ class SimNetwork:
         self._random = random
         self._min_latency = 1
         self._max_latency = 500
+        self._filters = {}
         self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
 
     def create_peer(self, name: str, handler=None) -> ExternalBus:
@@ -27,6 +28,19 @@ class SimNetwork:
     def set_latency(self, min_value: int, max_value: int):
         self._min_latency = min_value
         self._max_latency = max_value
+
+    def reset_filters(self, names: Iterable, messages_types: Iterable[str]):
+        for name in names:
+            if name not in self._filters:
+                break
+            for msg_type in messages_types:
+                self._filters[name].pop(msg_type, None)
+
+    def set_filter(self, names: Iterable, messages_types: Iterable[str]):
+        if messages_types:
+            for name in names:
+                self._filters.setdefault(name, [])
+                self._filters[name].update(messages_types)
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
@@ -43,6 +57,8 @@ class SimNetwork:
 
             peer = self._peers.get(name)
             assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
+
+            # if name in self._filters and isinstance() self._filters[name]
 
             self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
                                  partial(peer.process_incoming, msg, frm))
