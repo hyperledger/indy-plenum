@@ -6,11 +6,11 @@ from plenum.common.constants import PREPREPARE, PREPARE
 from plenum.common.messages.internal_messages import MissingMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare, Prepare
 from plenum.common.types import f
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, create_prepare
 
 
-def test_process_message_req_prepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, prepare):
+def test_process_message_req_prepare(message_req_3pc_service: MessageReqService, external_bus, data, prepare):
     key = (prepare.viewNo, prepare.ppSeqNo)
     message_req = MessageReq(**{
         f.MSG_TYPE.nm: PREPARE,
@@ -27,7 +27,7 @@ def test_process_message_req_prepare(message_req_3pc_service: MessageReq3pcServi
                                              [frm])
 
 
-def test_process_message_req_prepare_without_prepare(message_req_3pc_service: MessageReq3pcService,
+def test_process_message_req_prepare_without_prepare(message_req_3pc_service: MessageReqService,
                                                      external_bus, data, prepare):
     key = (prepare.viewNo, prepare.ppSeqNo)
     other_node_name = "other_node"
@@ -47,7 +47,7 @@ def test_process_message_req_prepare_without_prepare(message_req_3pc_service: Me
     assert len(external_bus.sent_messages) == 0
 
 
-def test_process_missing_message_prepare(message_req_3pc_service: MessageReq3pcService, external_bus, data):
+def test_process_missing_message_prepare(message_req_3pc_service: MessageReqService, external_bus, data):
     frm = "frm"
     view_no = data.view_no
     pp_seq_no = data.last_ordered_3pc[1] + 1
@@ -65,7 +65,7 @@ def test_process_missing_message_prepare(message_req_3pc_service: MessageReq3pcS
                                              [frm])
 
 
-def test_process_message_prepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, prepare):
+def test_process_message_prepare(message_req_3pc_service: MessageReqService, external_bus, data, prepare):
     key = (prepare.viewNo, prepare.ppSeqNo)
     message_req_3pc_service.handlers[PREPARE].requested_messages[key] = None
     message_rep = MessageRep(**{

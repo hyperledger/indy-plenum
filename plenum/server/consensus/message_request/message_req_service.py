@@ -17,7 +17,7 @@ from plenum.server.consensus.message_request.message_handlers import PreprepareH
 from stp_core.common.log import getlogger
 
 
-class MessageReq3pcService:
+class MessageReqService:
     def __init__(self,
                  data: ConsensusSharedData,
                  bus: InternalBus,

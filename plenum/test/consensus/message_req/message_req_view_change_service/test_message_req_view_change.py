@@ -7,7 +7,7 @@ from plenum.common.messages.internal_messages import MissingMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep, Commit, ViewChange, ViewChangeAck
 from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.test.consensus.helper import create_view_change
 from plenum.test.helper import create_commit_no_bls_sig
@@ -18,7 +18,7 @@ def view_change_message(data):
     return create_view_change(data.view_no)
 
 
-def test_process_message_req_view_change(message_req_3pc_service: MessageReq3pcService,
+def test_process_message_req_view_change(message_req_3pc_service: MessageReqService,
                                          external_bus, data: ConsensusSharedData,
                                          view_change_message: ViewChange):
     frm = "frm"
@@ -39,7 +39,7 @@ def test_process_message_req_view_change(message_req_3pc_service: MessageReq3pcS
                                              [frm])
 
 
-def test_process_missing_message_view_change(message_req_3pc_service: MessageReq3pcService, external_bus, data,
+def test_process_missing_message_view_change(message_req_3pc_service: MessageReqService, external_bus, data,
                                              internal_bus, view_change_message: ViewChange):
     frm = "frm"
     confused_node = "confused_node"
@@ -59,8 +59,8 @@ def test_process_missing_message_view_change(message_req_3pc_service: MessageReq
                                              [confused_node])
 
 
-def test_process_message_rep_view_change_by_quorum(message_req_3pc_service: MessageReq3pcService, external_bus, data,
-                                         view_change_message: ViewChange):
+def test_process_message_rep_view_change_by_quorum(message_req_3pc_service: MessageReqService, external_bus, data,
+                                                   view_change_message: ViewChange):
     frm = "frm"
     inst_id = data.inst_id
     digest = view_change_digest(view_change_message)
@@ -82,8 +82,8 @@ def test_process_message_rep_view_change_by_quorum(message_req_3pc_service: Mess
     network_handler.assert_called_once_with(view_change_message, frm)
 
 
-def test_process_message_rep_view_change_from_one(message_req_3pc_service: MessageReq3pcService, external_bus, data,
-                                         view_change_message: ViewChange):
+def test_process_message_rep_view_change_from_one(message_req_3pc_service: MessageReqService, external_bus, data,
+                                                  view_change_message: ViewChange):
     frm = "frm"
     inst_id = data.inst_id
     digest = view_change_digest(view_change_message)
