@@ -9,8 +9,8 @@ from plenum.server.replica_helper import getNodeName
 
 
 def view_change_digest(msg: ViewChange) -> str:
-    msg_as_dict = msg.__dict__
-    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
+    msg_as_dict = msg._asdict()
+#    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
     serialized = JsonSerializer().dumps(msg_as_dict)
     return sha256(serialized).hexdigest()
 

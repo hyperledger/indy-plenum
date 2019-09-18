@@ -60,7 +60,7 @@ def calc_committed(view_changes):
 
 # Increased count from 200 to 150 because of jenkin's failures.
 # After integration, need to get it back
-@pytest.mark.parametrize("seed", range(150))
+@pytest.mark.parametrize("seed", range(1))
 def test_view_change_completes_under_normal_conditions(seed):
     random = DefaultSimRandom(seed)
     check_view_change_completes_under_normal_conditions(random)

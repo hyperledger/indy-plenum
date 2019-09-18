@@ -14,9 +14,9 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField
+    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField, FieldValidator
 from plenum.common.messages.message_base import \
-    MessageBase
+    MessageBase, MessageValidator
 from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
@@ -244,6 +244,20 @@ class BackupInstanceFaulty(MessageBase):
         (f.REASON.nm, NonNegativeNumberField())
     )
 
+#
+# class CheckpointsList(IterableField):
+#
+#     def __init__(self, min_length=None, max_length=None, **kwargs):
+#         super().__init__(AnyField(), min_length, max_length, **kwargs)
+#
+#     def _specific_validation(self, val):
+#         result = super()._specific_validation(val)
+#         if result is not None:
+#             return result
+#         for chk in val:
+#             if not isinstance(chk, Checkpoint):
+#                 return "Checkpoints list contains not Checkpoint objects"
+
 
 class ViewChange(MessageBase):
     typename = VIEW_CHANGE
@@ -254,6 +268,26 @@ class ViewChange(MessageBase):
         (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        checkpoints = []
+        for chk in self.checkpoints:
+            if isinstance(chk, dict):
+                checkpoints.append(Checkpoint(**chk))
+        if len(checkpoints):
+            self.checkpoints = checkpoints
+
+    def _asdict(self):
+        result = super()._asdict()
+        checkpoints = []
+        for chk in result.get(f.CHECKPOINTS.nm, []):
+            if isinstance(chk, dict):
+                continue
+            checkpoints.append(chk._asdict())
+        if len(checkpoints):
+            result[f.CHECKPOINTS.nm] = checkpoints
+        return result
 
 
 class ViewChangeAck(MessageBase):
