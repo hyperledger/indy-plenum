@@ -6,6 +6,7 @@ from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
 from plenum.common.util import SortedDict
+from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
 from plenum.server.models import Prepares, Commits
 from plenum.common.types import f
 from plenum.server.propagator import Requests
@@ -67,6 +68,7 @@ class ConsensusSharedData:
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self.quorums = None
+        self.view_change_votes = ViewChangeVotesForView(Quorums(len(validators)))
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
@@ -109,6 +111,7 @@ class ConsensusSharedData:
     def set_validators(self, validators: List[str]):
         self._validators = validators
         self.quorums = Quorums(len(validators))
+        self.view_change_votes.update_quorums(self.quorums)
 
     @property
     def validators(self) -> List[str]:

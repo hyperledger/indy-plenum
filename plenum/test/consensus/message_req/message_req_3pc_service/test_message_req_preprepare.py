@@ -3,15 +3,15 @@ from unittest.mock import Mock
 import pytest
 
 from plenum.common.constants import PREPREPARE
-from plenum.common.messages.internal_messages import Missing3pcMessage
+from plenum.common.messages.internal_messages import MissingMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare
 from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
 
 
-def test_process_message_req_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, pp):
+def test_process_message_req_preprepare(message_req_3pc_service: MessageReqService, external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     message_req = MessageReq(**{
         f.MSG_TYPE.nm: PREPREPARE,
@@ -28,7 +28,7 @@ def test_process_message_req_preprepare(message_req_3pc_service: MessageReq3pcSe
                                              [frm])
 
 
-def test_process_message_req_preprepare_without_preprepare(message_req_3pc_service: MessageReq3pcService,
+def test_process_message_req_preprepare_without_preprepare(message_req_3pc_service: MessageReqService,
                                                            external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     data.sent_preprepares.pop(key)
@@ -43,15 +43,15 @@ def test_process_message_req_preprepare_without_preprepare(message_req_3pc_servi
     assert len(external_bus.sent_messages) == 0
 
 
-def test_process_missing_message_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data):
+def test_process_missing_message_preprepare(message_req_3pc_service: MessageReqService, external_bus, data):
     frm = "frm"
     view_no = data.view_no
     pp_seq_no = data.last_ordered_3pc[1] + 1
-    missing_msg = Missing3pcMessage(msg_type=PREPREPARE,
-                                    three_pc_key=(view_no, pp_seq_no),
-                                    inst_id=data.inst_id,
-                                    dst=[frm],
-                                    stash_data=None)
+    missing_msg = MissingMessage(msg_type=PREPREPARE,
+                                 key=(view_no, pp_seq_no),
+                                 inst_id=data.inst_id,
+                                 dst=[frm],
+                                 stash_data=None)
     message_req_3pc_service.process_missing_message(missing_msg)
     assert len(external_bus.sent_messages) == 1
     assert external_bus.sent_messages[0] == (MessageReq(PREPREPARE,
@@ -61,7 +61,7 @@ def test_process_missing_message_preprepare(message_req_3pc_service: MessageReq3
                                              [frm])
 
 
-def test_process_message_rep_preprepare(message_req_3pc_service: MessageReq3pcService, external_bus, data, pp):
+def test_process_message_rep_preprepare(message_req_3pc_service: MessageReqService, external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     message_req_3pc_service.handlers[PREPREPARE].requested_messages[key] = None
     message_rep = MessageRep(**{
@@ -78,7 +78,7 @@ def test_process_message_rep_preprepare(message_req_3pc_service: MessageReq3pcSe
     network_handler.assert_called_once_with(pp, frm)
 
 
-def test_process_message_rep_already_ordered_preprepare(message_req_3pc_service: MessageReq3pcService,
+def test_process_message_rep_already_ordered_preprepare(message_req_3pc_service: MessageReqService,
                                                         external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     data.preprepared.append(preprepare_to_batch_id(pp))

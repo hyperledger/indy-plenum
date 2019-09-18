@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
-    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, Missing3pcMessage, CheckpointStabilized
+    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     MessageReq, OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -957,11 +957,11 @@ class OrderingService:
                                  msg_type: str,
                                  recipients: Optional[List[str]] = None,
                                  stash_data: Optional[Tuple[str, str, str]] = None):
-        self._bus.send(Missing3pcMessage(msg_type,
-                                         three_pc_key,
-                                         self._data.inst_id,
-                                         recipients,
-                                         stash_data))
+        self._bus.send(MissingMessage(msg_type,
+                                      three_pc_key,
+                                      self._data.inst_id,
+                                      recipients,
+                                      stash_data))
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
                              stash_data: Optional[Tuple[str, str, str]] = None):
@@ -1108,6 +1108,7 @@ class OrderingService:
             # First PRE-PREPARE
             return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
+
         return pp_seq_no - last_pp_seq_no == 1
 
     def _apply_pre_prepare(self, pre_prepare: PrePrepare):
@@ -1699,12 +1700,17 @@ class OrderingService:
         :return:
         """
         ledger_id = three_pc_batch.ledger_id
-        if ledger_id != POOL_LEDGER_ID and not three_pc_batch.primaries:
+        if ledger_id != POOL_LEDGER_ID and \
+                not three_pc_batch.primaries and \
+                not self._is_pp_from_old_view(three_pc_batch):
             three_pc_batch.primaries = self._write_manager.future_primary_handler.get_last_primaries() or self._data.primaries
         if self._write_manager.is_valid_ledger_id(ledger_id):
             self._write_manager.post_apply_batch(three_pc_batch)
         else:
             self._logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
+
+    def _is_pp_from_old_view(self, three_pc_batch: ThreePcBatch):
+        return three_pc_batch.original_view_no != three_pc_batch.view_no
 
     def post_batch_rejection(self, ledger_id):
         """
@@ -1994,7 +2000,8 @@ class OrderingService:
                                           txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
                                           primaries=[],
                                           valid_digests=self._get_valid_req_ids_from_all_requests(
-                                              reqs, invalid_indices))
+                                              reqs, invalid_indices),
+                                          original_view_no=self.view_no)
             self.post_batch_creation(three_pc_batch)
 
         digest = self.replica_batch_digest(reqs)
@@ -2096,7 +2103,7 @@ class OrderingService:
                             MetricsName.BACKUP_SEND_PREPREPARE_TIME)
     def send_pre_prepare(self, ppReq: PrePrepare):
         key = (ppReq.viewNo, ppReq.ppSeqNo)
-        self._logger.debug("{} Sending PRE-PREPARE{}".format(self, key))
+        self._logger.debug("{} sending PRE-PREPARE{}".format(self, key))
         self._send(ppReq, stat=TPCStat.PrePrepareSent)
 
     def _send(self, msg, dst=None, stat=None) -> None:

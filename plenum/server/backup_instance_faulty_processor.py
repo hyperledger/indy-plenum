@@ -1,5 +1,6 @@
 from typing import List
 
+from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.messages.node_messages import BackupInstanceFaulty
 from plenum.common.types import f
 from plenum.server.suspicion_codes import Suspicions, Suspicion
@@ -23,6 +24,7 @@ class BackupInstanceFaultyProcessor:
         for inst_id in range(self.node.requiredNumberOfInstances):
             if inst_id not in self.node.replicas.keys():
                 self.node.replicas.add_replica(inst_id)
+                self.node.replicas.subscribe_to_internal_bus(RequestPropagates, self.node.request_propagates, inst_id)
 
     def on_backup_degradation(self, degraded_backups) -> None:
         '''

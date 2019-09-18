@@ -4,10 +4,10 @@ import pytest
 
 from plenum.common.constants import PREPREPARE, COMMIT, PREPARE
 from plenum.common.exceptions import IncorrectMessageForHandlingException
-from plenum.common.messages.internal_messages import Missing3pcMessage, ViewChangeStarted, CheckpointStabilized
+from plenum.common.messages.internal_messages import MissingMessage, ViewChangeStarted, CheckpointStabilized
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare, Ordered
 from plenum.common.types import f
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, logger
 
 msg_count = 5
@@ -20,7 +20,7 @@ def fill_requested_lists(message_req_3pc_service):
             handler.requested_messages[(0, seq_no)] = None
 
 
-def test_process_checkpoint_stabilized(message_req_3pc_service: MessageReq3pcService, internal_bus, data,
+def test_process_checkpoint_stabilized(message_req_3pc_service: MessageReqService, internal_bus, data,
                                        fill_requested_lists):
     pp_seq_no = msg_count // 2
     view_no = 0
@@ -34,7 +34,7 @@ def test_process_checkpoint_stabilized(message_req_3pc_service: MessageReq3pcSer
                 assert (view_no, requested_pp_seq_no) in handler.requested_messages
 
 
-def test_process_view_change_started(message_req_3pc_service: MessageReq3pcService, internal_bus, data,
+def test_process_view_change_started(message_req_3pc_service: MessageReqService, internal_bus, data,
                                      fill_requested_lists):
     msg = ViewChangeStarted(0)
     internal_bus.send(msg)
@@ -42,7 +42,7 @@ def test_process_view_change_started(message_req_3pc_service: MessageReq3pcServi
         assert not handler.requested_messages
 
 
-def test_process_ordered(message_req_3pc_service: MessageReq3pcService, internal_bus, data, pp, fill_requested_lists):
+def test_process_ordered(message_req_3pc_service: MessageReqService, internal_bus, data, pp, fill_requested_lists):
     pp_seq_no = msg_count // 2
     view_no = 0
     ord_args = [

@@ -1520,6 +1520,7 @@ def create_pool_txn_data(node_names: List[str],
     data['seeds'].update(more_data_seeds)
     return data
 
+
 def get_pp_seq_no(nodes: list) -> int:
     los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
     assert len(los) == 1
