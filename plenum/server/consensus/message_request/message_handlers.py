@@ -85,9 +85,9 @@ class ThreePhaseMessagesHandler(AbstractMessagesHandler, metaclass=ABCMeta):
 
     def _validate(self, **kwargs) -> bool:
         return kwargs['inst_id'] == self._data.inst_id and \
-               kwargs['view_no'] == self._data.view_no and \
-               isinstance(kwargs['pp_seq_no'], int) and \
-               kwargs['pp_seq_no'] > 0
+            kwargs['view_no'] == self._data.view_no and \
+            isinstance(kwargs['pp_seq_no'], int) and \
+            kwargs['pp_seq_no'] > 0
 
     def _create(self, msg: Dict, **kwargs):
         message = super()._create(msg)
@@ -241,8 +241,6 @@ class ViewChangeHandler(AbstractMessagesHandler):
                                                        reason='Count of VIEW_CHANGE messages {} '
                                                               'is not enough for quorum.'.format(msg),
                                                        log_method=self._logger.trace)
-
-
 
     def get_3pc_message(self, msg: MessageRep, frm: str):
         params = {}
