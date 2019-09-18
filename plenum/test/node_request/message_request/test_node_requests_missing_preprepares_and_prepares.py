@@ -1,4 +1,4 @@
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.test.delayers import delay_3pc
 from plenum.test.node_request.message_request.helper import \
@@ -56,7 +56,7 @@ def test_node_requests_missing_preprepares_and_prepares(
     for node in disconnected_nodes:
         assert node.master_replica._ordering_service.spylog.count(OrderingService._request_pre_prepare) == 0
         assert node.master_replica._ordering_service.spylog.count(OrderingService._request_prepare) == 0
-        assert node.master_replica._message_req_service.spylog.count(MessageReq3pcService.process_message_rep) == 0
+        assert node.master_replica._message_req_service.spylog.count(MessageReqService.process_message_rep) == 0
 
     sdk_send_random_and_check(looper,
                               txnPoolNodeSet,
@@ -68,7 +68,7 @@ def test_node_requests_missing_preprepares_and_prepares(
     for node in disconnected_nodes:
         assert node.master_replica._ordering_service.spylog.count(OrderingService._request_pre_prepare) > 0
         assert node.master_replica._ordering_service.spylog.count(OrderingService._request_prepare) > 0
-        assert node.master_replica._message_req_service.spylog.count(MessageReq3pcService.process_message_rep) > 0
+        assert node.master_replica._message_req_service.spylog.count(MessageReqService.process_message_rep) > 0
 
     def check_all_ordered():
         for node in txnPoolNodeSet:

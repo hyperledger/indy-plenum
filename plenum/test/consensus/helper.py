@@ -17,7 +17,8 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, B
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
-from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
+from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
