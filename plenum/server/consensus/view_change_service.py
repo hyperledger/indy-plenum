@@ -80,6 +80,7 @@ class ViewChangeService:
         vc = self._build_view_change_msg()
 
         # 5. Send ViewChangeStarted via internal bus to update other services
+        self._logger.info("{} sending {}".format(self, vc))
         self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
 
         # 6. Send ViewChange msg to other nodes (via external bus)
@@ -147,6 +148,7 @@ class ViewChangeService:
             digest=view_change_digest(msg)
         )
         primary_node_name = getNodeName(self._data.primary_name)
+        self._logger.info("{} sending {}".format(self, vca))
         self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
@@ -220,6 +222,7 @@ class ViewChangeService:
             checkpoint=cp,
             batches=batches
         )
+        self._logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
         self._new_view = nv
         self._finish_view_change()
