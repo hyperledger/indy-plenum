@@ -12,8 +12,8 @@ from plenum.test.simulation.sim_random import DefaultSimRandom
 REQUEST_COUNT = 10
 
 
-@pytest.mark.skip(reason="Can be turned on after INDY-1340")
-@pytest.mark.parametrize("seed", range(1))
+# @pytest.mark.skip(reason="Can be turned on after INDY-1340")
+@pytest.mark.parametrize("seed", range(100))
 def test_view_change_while_ordering_with_real_msgs(seed):
     # 1. Setup pool
     requests_count = REQUEST_COUNT
