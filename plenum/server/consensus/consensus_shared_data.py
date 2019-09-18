@@ -68,6 +68,7 @@ class ConsensusSharedData:
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self.quorums = None
+        self.view_change_votes = ViewChangeVotesForView(self.quorums)
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
@@ -103,8 +104,6 @@ class ConsensusSharedData:
         # Cleared in `gc`
         self.requested_pre_prepares = {}
 
-        self.view_change_votes = ViewChangeVotesForView(self)
-
     @property
     def name(self) -> str:
         return self._name
@@ -112,6 +111,7 @@ class ConsensusSharedData:
     def set_validators(self, validators: List[str]):
         self._validators = validators
         self.quorums = Quorums(len(validators))
+        self.view_change_votes.update_quorums(self.quorums)
 
     @property
     def validators(self) -> List[str]:

@@ -82,7 +82,7 @@ class MessageReqService:
             return
         handler = self.handlers[msg_type]
         try:
-            validated_msg, frm = handler.get_3pc_message(msg, frm)
+            validated_msg, frm = handler.extract_message(msg, frm)
             self._network.process_incoming(validated_msg, frm)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)

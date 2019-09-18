@@ -46,7 +46,7 @@ class AbstractMessagesHandler(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_3pc_message(self, msg: MessageRep, frm: str):
+    def extract_message(self, msg: MessageRep, frm: str):
         pass
 
     def prepare_msg_to_request(self, key,
@@ -129,7 +129,7 @@ class ThreePhaseMessagesHandler(AbstractMessagesHandler, metaclass=ABCMeta):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self._data.last_ordered_3pc) >= 0
 
-    def get_3pc_message(self, msg: MessageRep, frm: str):
+    def extract_message(self, msg: MessageRep, frm: str):
         params = {}
 
         for field_name, type_name in self.fields.items():
@@ -242,7 +242,7 @@ class ViewChangeHandler(AbstractMessagesHandler):
                                                               'is not enough for quorum.'.format(msg),
                                                        log_method=self._logger.trace)
 
-    def get_3pc_message(self, msg: MessageRep, frm: str):
+    def extract_message(self, msg: MessageRep, frm: str):
         params = {}
 
         for field_name, type_name in self.fields.items():

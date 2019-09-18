@@ -97,7 +97,7 @@ def test_process_message_rep_invalid_preprepare(message_req_3pc_service: Message
     frm = "frm"
     network_handler = Mock()
     external_bus.subscribe(PrePrepare, network_handler)
-    message_req_3pc_service.handlers[msg_type].get_3pc_message = lambda msg, frm: raise_ex()
+    message_req_3pc_service.handlers[msg_type].extract_message = lambda msg, frm: raise_ex()
     message_req_3pc_service.process_message_rep(message_rep, frm)
     network_handler.assert_not_called()
 

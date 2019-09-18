@@ -20,10 +20,10 @@ class ViewChangeVotesForNode:
     Storage for view change vote from some node for some view + corresponding acks
     """
 
-    def __init__(self, data):
-        self._data = data
+    def __init__(self, quorums):
         self._view_change = None
         self._digest = None
+        self._quorums = quorums
         self._acks = defaultdict(set)  # Dict[str, Set[str]]
 
     @property
@@ -48,7 +48,7 @@ class ViewChangeVotesForNode:
         if self._digest is None:
             return False
 
-        return self._data.quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
+        return self._quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
 
     def add_view_change(self, msg: ViewChange) -> bool:
         """
@@ -68,9 +68,12 @@ class ViewChangeVotesForNode:
         self._acks[msg.digest].add(frm)
         return self._validate_acks()
 
+    def update_quorums(self, quorums):
+        self._quorums = quorums
+
     def _validate_acks(self) -> bool:
         digests = [digest for digest, acks in self._acks.items()
-                   if self._data.quorums.weak.is_reached(len(acks))]
+                   if self._quorums.weak.is_reached(len(acks))]
 
         if len(digests) > 1:
             return False
@@ -86,8 +89,9 @@ class ViewChangeVotesForView:
     Storage for view change votes for some view + corresponding acks
     """
 
-    def __init__(self, data):
-        self._votes = defaultdict(partial(ViewChangeVotesForNode, data))
+    def __init__(self, quorums):
+        self._votes = {}
+        self._quorums = quorums
 
     @property
     def confirmed_votes(self) -> List[Tuple[str, str]]:
@@ -95,7 +99,7 @@ class ViewChangeVotesForView:
                 if node_votes.is_confirmed]
 
     def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:
-        vc = self._votes[frm].view_change
+        vc = self._get_vote(frm).view_change
         if vc is not None and view_change_digest(vc) == digest:
             return vc
 
@@ -104,14 +108,23 @@ class ViewChangeVotesForView:
         Adds view change ack and returns boolean indicating if it found node suspicios
         """
         frm = getNodeName(frm)
-        return self._votes[frm].add_view_change(msg)
+        return self._get_vote(frm).add_view_change(msg)
 
     def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
         """
         Adds view change ack and returns boolean indicating if it found node suspicios
         """
         frm = getNodeName(frm)
-        return self._votes[msg.name].add_view_change_ack(msg, frm)
+        return self._get_vote(msg.name).add_view_change_ack(msg, frm)
 
     def clear(self):
         self._votes.clear()
+
+    def update_quorums(self, quorums):
+        for vote in self._votes.values():
+            vote.update_quorums(quorums)
+
+    def _get_vote(self, frm):
+        if frm not in self._votes:
+            self._votes[frm] = ViewChangeVotesForNode(self._quorums)
+        return self._votes[frm]
