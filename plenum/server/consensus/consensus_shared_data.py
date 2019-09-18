@@ -68,7 +68,7 @@ class ConsensusSharedData:
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self.quorums = None
-        self.view_change_votes = ViewChangeVotesForView(self.quorums)
+        self.view_change_votes = ViewChangeVotesForView(Quorums(len(validators)))
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
