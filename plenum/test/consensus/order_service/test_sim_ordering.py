@@ -11,7 +11,7 @@ from plenum.test.simulation.sim_random import DefaultSimRandom
 REQUEST_COUNT = 10
 
 
-@pytest.mark.parametrize("seed", range(10))
+@pytest.mark.parametrize("seed", range(100))
 def test_ordering_with_real_msgs(seed):
     # 1. Setup pool
     requests_count = REQUEST_COUNT

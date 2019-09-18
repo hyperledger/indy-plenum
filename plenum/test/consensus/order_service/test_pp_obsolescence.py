@@ -5,6 +5,7 @@ from plenum.common.messages.node_messages import PrePrepare
 
 # from plenum.test.replica.conftest import *
 from plenum.server.replica_helper import generateName
+from plenum.server.replica_validator_enums import PROCESS
 from plenum.test.consensus.order_service.conftest import primary_orderer as _primary_orderer
 from plenum.test.helper import MockTimestamp
 from plenum.test.testing_utils import FakeSomething
@@ -130,6 +131,7 @@ def test_ts_is_set_for_stahed_pp(primary_orderer, ts_now, sender, pp, sender_ord
 
 def test_ts_is_not_set_for_non_pp(primary_orderer, ts_now, sender, pp, sender_orderer):
     pp = FakeSomethingHashable(**pp.__dict__)
+    primary_orderer._validate = lambda *args, **kwargs: (PROCESS, None)
     primary_orderer.process_prepare(pp, sender_orderer)
     primary_orderer.process_commit(pp, sender_orderer)
     assert len(primary_orderer.pre_prepare_tss) == 0

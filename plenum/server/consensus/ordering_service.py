@@ -23,11 +23,11 @@ from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, Missing3pcMessage, CheckpointStabilized
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
-    MessageReq, OldViewPrePrepareRequest, OldViewPrePrepareReply
-from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
+    OldViewPrePrepareRequest, OldViewPrePrepareReply
+from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD
+from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
 from plenum.common.types import f
@@ -37,8 +37,7 @@ from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id, \
     get_original_viewno
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
-from plenum.server.consensus.msg_validator import ThreePCMsgValidator
-from plenum.server.models import Prepares, Commits
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
@@ -83,7 +82,7 @@ class OrderingService:
         # TODO: Change just to self._stasher = stasher
         self._stasher = stasher
         self._subscription = Subscription()
-        self._validator = ThreePCMsgValidator(self._data)
+        self._validator = OrderingServiceMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,
                                                      self._config.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL,
