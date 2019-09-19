@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
-    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, Missing3pcMessage, CheckpointStabilized
+    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -955,11 +955,11 @@ class OrderingService:
                                  msg_type: str,
                                  recipients: Optional[List[str]] = None,
                                  stash_data: Optional[Tuple[str, str, str]] = None):
-        self._bus.send(Missing3pcMessage(msg_type,
-                                         three_pc_key,
-                                         self._data.inst_id,
-                                         recipients,
-                                         stash_data))
+        self._bus.send(MissingMessage(msg_type,
+                                      three_pc_key,
+                                      self._data.inst_id,
+                                      recipients,
+                                      stash_data))
 
     def _request_pre_prepare(self, three_pc_key: Tuple[int, int],
                              stash_data: Optional[Tuple[str, str, str]] = None):
@@ -1106,6 +1106,7 @@ class OrderingService:
             # First PRE-PREPARE
             return True
         (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
+
         return pp_seq_no - last_pp_seq_no == 1
 
     def _apply_pre_prepare(self, pre_prepare: PrePrepare):

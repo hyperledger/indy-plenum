@@ -14,18 +14,12 @@ from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.quorums import Quorums
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_VIEW
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
-
-
-def view_change_digest(msg: ViewChange) -> str:
-    msg_as_dict = msg.__dict__
-    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
-    serialized = JsonSerializer().dumps(msg_as_dict)
-    return sha256(serialized).hexdigest()
 
 
 class ViewChangeService:
@@ -40,7 +34,6 @@ class ViewChangeService:
         self._bus = bus
         self._network = network
         self._router = stasher
-        self._votes = ViewChangeVotesForView(self._data.quorums)
         self._new_view = None  # type: Optional[NewView]
         self._resend_inst_change_timer = None
 
@@ -58,6 +51,10 @@ class ViewChangeService:
 
     def __repr__(self):
         return self._data.name
+
+    @property
+    def view_change_votes(self):
+        return self._data.view_change_votes
 
     def process_need_view_change(self, msg: NeedViewChange):
         # 1. calculate new viewno
@@ -84,7 +81,7 @@ class ViewChangeService:
 
         # 6. Send ViewChange msg to other nodes (via external bus)
         self._network.send(vc)
-        self._votes.add_view_change(vc, self._data.name)
+        self.view_change_votes.add_view_change(vc, self._data.name)
 
         # 6. Unstash messages for new view
         self._router.process_all_stashed(STASH_VIEW)
@@ -101,7 +98,7 @@ class ViewChangeService:
     def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
-        self._votes.clear()
+        self.view_change_votes.clear()
         self._new_view = None
 
     def _clear_old_batches(self, batches: Dict[int, Any]):
@@ -135,7 +132,7 @@ class ViewChangeService:
         if result != PROCESS:
             return result, None
 
-        self._votes.add_view_change(msg, frm)
+        self.view_change_votes.add_view_change(msg, frm)
 
         if self._data.is_primary:
             self._send_new_view_if_needed()
@@ -160,7 +157,7 @@ class ViewChangeService:
         if not self._data.is_primary:
             return PROCESS, None
 
-        self._votes.add_view_change_ack(msg, frm)
+        self.view_change_votes.add_view_change_ack(msg, frm)
         self._send_new_view_if_needed()
         return PROCESS, None
 
@@ -201,11 +198,11 @@ class ViewChangeService:
         return PROCESS
 
     def _send_new_view_if_needed(self):
-        confirmed_votes = self._votes.confirmed_votes
+        confirmed_votes = self.view_change_votes.confirmed_votes
         if not self._data.quorums.view_change.is_reached(len(confirmed_votes)):
             return
 
-        view_changes = [self._votes.get_view_change(*v) for v in confirmed_votes]
+        view_changes = [self.view_change_votes.get_view_change(*v) for v in confirmed_votes]
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None:
             return
@@ -230,7 +227,7 @@ class ViewChangeService:
 
         view_changes = []
         for name, vc_digest in self._new_view.viewChanges:
-            vc = self._votes.get_view_change(name, vc_digest)
+            vc = self.view_change_votes.get_view_change(name, vc_digest)
             # We don't have needed ViewChange, so we cannot validate NewView
             if vc is None:
                 return
@@ -407,106 +404,3 @@ class NewViewBuilder:
 
         null_batch_witnesses = sum(1 for vc in vcs if check(vc))
         return self._data.quorums.strong.is_reached(null_batch_witnesses)
-
-
-class ViewChangeVotesForNode:
-    """
-    Storage for view change vote from some node for some view + corresponding acks
-    """
-
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._view_change = None
-        self._digest = None
-        self._acks = defaultdict(set)  # Dict[str, Set[str]]
-
-    @property
-    def digest(self) -> Optional[str]:
-        """
-        Returns digest of received view change message
-        """
-        return self._digest
-
-    @property
-    def view_change(self) -> Optional[ViewChange]:
-        """
-        Returns received view change
-        """
-        return self._view_change
-
-    @property
-    def is_confirmed(self) -> bool:
-        """
-        Returns True if received view change message and enough corresponding acks
-        """
-        if self._digest is None:
-            return False
-
-        return self._quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
-
-    def add_view_change(self, msg: ViewChange) -> bool:
-        """
-        Adds view change vote and returns boolean indicating if it found node suspicios
-        """
-        if self._view_change is None:
-            self._view_change = msg
-            self._digest = view_change_digest(msg)
-            return self._validate_acks()
-
-        return self._digest == view_change_digest(msg)
-
-    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        self._acks[msg.digest].add(frm)
-        return self._validate_acks()
-
-    def _validate_acks(self) -> bool:
-        digests = [digest for digest, acks in self._acks.items()
-                   if self._quorums.weak.is_reached(len(acks))]
-
-        if len(digests) > 1:
-            return False
-
-        if len(digests) < 1 or self._digest is None:
-            return True
-
-        return self._digest == digests[0]
-
-
-class ViewChangeVotesForView:
-    """
-    Storage for view change votes for some view + corresponding acks
-    """
-
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._votes = defaultdict(partial(ViewChangeVotesForNode, quorums))
-
-    @property
-    def confirmed_votes(self) -> List[Tuple[str, str]]:
-        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
-                if node_votes.is_confirmed]
-
-    def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:
-        vc = self._votes[frm].view_change
-        if vc is not None and view_change_digest(vc) == digest:
-            return vc
-
-    def add_view_change(self, msg: ViewChange, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        frm = getNodeName(frm)
-        return self._votes[frm].add_view_change(msg)
-
-    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        frm = getNodeName(frm)
-        return self._votes[msg.name].add_view_change_ack(msg, frm)
-
-    def clear(self):
-        self._votes.clear()

@@ -5,8 +5,11 @@ from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
     NewViewCheckpointsApplied
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
+from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
-from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
+from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.checkpoints.helper import cp_digest

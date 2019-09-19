@@ -28,7 +28,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -394,10 +394,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requests.ordered_by_replica(key)
             self.requests.free(key)
             self._ordering_service.requestQueues[int(ledger_id)].discard(key)
-        master_last_ordered_3pc = self.node.master_replica.last_ordered_3pc
-        if compare_3PC_keys(master_last_ordered_3pc, self.last_ordered_3pc) < 0 \
-                and self.isPrimary is False:
-            self.last_ordered_3pc = master_last_ordered_3pc
+        self.last_ordered_3pc = (self.viewNo, 0)
+        self._ordering_service._lastPrePrepareSeqNo = 0
+        self._checkpointer.set_watermarks(0)
+        self._checkpointer._reset_checkpoints()
+        self._consensus_data.stable_checkpoint = 0
 
     def on_propagate_primary_done(self):
         if self.isMaster:
@@ -742,11 +743,11 @@ class Replica(HasActionQueue, MessageProcessor):
                                stasher=self.stasher,
                                metrics=self.metrics)
 
-    def _init_message_req_service(self) -> MessageReq3pcService:
-        return MessageReq3pcService(data=self._consensus_data,
-                                    bus=self.internal_bus,
-                                    network=self._external_bus,
-                                    metrics=self.metrics)
+    def _init_message_req_service(self) -> MessageReqService:
+        return MessageReqService(data=self._consensus_data,
+                                 bus=self.internal_bus,
+                                 network=self._external_bus,
+                                 metrics=self.metrics)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

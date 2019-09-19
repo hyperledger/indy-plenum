@@ -5,7 +5,7 @@ import pytest
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.messages.node_messages import ViewChange, Checkpoint
 from plenum.server.consensus.consensus_shared_data import BatchID
-from plenum.server.consensus.view_change_service import view_change_digest
+from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import create_view_change, create_batches
 
