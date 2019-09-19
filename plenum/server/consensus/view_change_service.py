@@ -12,7 +12,8 @@ from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewV
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.quorums import Quorums
@@ -112,7 +113,7 @@ class ViewChangeService:
     def _build_view_change_msg(self):
         for batch_id in self._data.prepared:
             self._old_prepared[batch_id.pp_seq_no] = batch_id
-        prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
+        prepared = sorted(list(self._old_prepared.values()))
 
         for new_bid in self._data.preprepared:
             pretenders = self._old_preprepared.get(new_bid.pp_seq_no, [])
@@ -120,7 +121,7 @@ class ViewChangeService:
                           if bid.pp_digest != new_bid.pp_digest]
             pretenders.append(new_bid)
             self._old_preprepared[new_bid.pp_seq_no] = pretenders
-        preprepared = sorted([tuple(bid) for bids in self._old_preprepared.values() for bid in bids])
+        preprepared = sorted([bid for bids in self._old_preprepared.values() for bid in bids])
 
         return ViewChange(
             viewNo=self._data.view_no,

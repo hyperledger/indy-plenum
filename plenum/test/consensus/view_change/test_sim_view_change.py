@@ -3,7 +3,7 @@ from functools import partial
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
-from plenum.server.consensus.view_change_service import BatchID
+from plenum.server.consensus.batch_id import BatchID
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom

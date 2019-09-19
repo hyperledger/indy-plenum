@@ -17,6 +17,7 @@ from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT, DIGEST_FIELD_LIMIT
+from plenum.server.consensus.batch_id import BatchID
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -710,11 +711,11 @@ class BatchIDField(FieldBase):
         if len(val) != 4:
             return 'should have size of 4'
 
-        view_no, pp_view_no, pp_seq_no, pp_digest = val
-        for validator, value in ((NonNegativeNumberField().validate, view_no),
-                                 (NonNegativeNumberField().validate, pp_view_no),
-                                 (NonNegativeNumberField().validate, pp_seq_no),
-                                 (NonEmptyStringField().validate, pp_digest)):
+        bid = BatchID(*val)
+        for validator, value in ((NonNegativeNumberField().validate, bid.view_no),
+                                 (NonNegativeNumberField().validate, bid.pp_view_no),
+                                 (NonNegativeNumberField().validate, bid.pp_seq_no),
+                                 (NonEmptyStringField().validate, bid.pp_digest)):
             err = validator(value)
             if err:
                 return err
