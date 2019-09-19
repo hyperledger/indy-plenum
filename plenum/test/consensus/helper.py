@@ -223,7 +223,7 @@ def create_view_change(initial_view_no, stable_cp=10, batches=None):
 
 def create_new_view_from_vc(vc, validators, checkpoint=None, batches=None):
     vc_digest = view_change_digest(vc)
-    vcs = [(node_name, vc_digest) for node_name in validators]
+    vcs = [[node_name, vc_digest] for node_name in validators]
     checkpoint = checkpoint or vc.checkpoints[0]
     batches = batches or vc.prepared
     return NewView(vc.viewNo,
