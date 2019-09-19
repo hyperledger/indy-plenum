@@ -39,7 +39,7 @@ MissingMessage = NamedTuple('MissingMessage',
                              ('stash_data', Optional[tuple])])
 
 # by default view_no for StartViewChange is None meaning that we move to the next view
-NeedViewChange = NamedTuple('StartViewChange',
+NeedViewChange = NamedTuple('NeedViewChange',
                             [('view_no', int)])
 NeedViewChange.__new__.__defaults__ = (None,) * len(NeedViewChange._fields)
 
