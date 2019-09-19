@@ -57,6 +57,8 @@ class ViewChangeService:
         return self._data.view_change_votes
 
     def process_need_view_change(self, msg: NeedViewChange):
+        self._logger.info("{} processing {}".format(self, msg))
+
         # 1. calculate new viewno
         view_no = msg.view_no
         if view_no is None:
@@ -77,6 +79,7 @@ class ViewChangeService:
         vc = self._build_view_change_msg()
 
         # 5. Send ViewChangeStarted via internal bus to update other services
+        self._logger.info("{} sending {}".format(self, vc))
         self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
 
         # 6. Send ViewChange msg to other nodes (via external bus)
@@ -128,6 +131,8 @@ class ViewChangeService:
         )
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -144,12 +149,15 @@ class ViewChangeService:
             digest=view_change_digest(msg)
         )
         primary_node_name = getNodeName(self._data.primary_name)
+        self._logger.info("{} sending {}".format(self, vca))
         self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
         return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -162,6 +170,8 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -181,6 +191,8 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
+        self._logger.info("{} processing {}".format(self, msg))
+
         self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
@@ -217,6 +229,7 @@ class ViewChangeService:
             checkpoint=cp,
             batches=batches
         )
+        self._logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
         self._new_view = nv
         self._finish_view_change()
