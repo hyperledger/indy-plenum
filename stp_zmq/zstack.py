@@ -487,6 +487,8 @@ class ZStack(NetworkInterface):
             self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
             decoded = msg.decode()
+            logger.debug("{} received a message from remote {}: {}", self,
+                         z85_to_friendly(ident), decoded)
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
             errstr = 'Message will be discarded due to {}'.format(ex)
             frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
@@ -541,6 +543,8 @@ class ZStack(NetworkInterface):
                         # Router probing sends empty message on connection
                         continue
                     i += 1
+                    logger.debug("{} received a message from remote {} by socket {} {}", self,
+                                 z85_to_friendly(ident), sock.FD, sock.underlying)
                     self._verifyAndAppend(msg, ident)
                 except zmq.Again as e:
                     logger.debug("Strange behaviour during node-to-node mesage receiving, experienced {}".format(e))
