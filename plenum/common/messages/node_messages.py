@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import TypeVar, NamedTuple, Dict
 
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
@@ -324,13 +325,11 @@ class NewView(MessageBase):
 
     def _asdict(self):
         result = super()._asdict()
-        chk = result[f.CHECKPOINT.nm]
+        chk = self.checkpoint
         if not isinstance(chk, dict):
             result[f.CHECKPOINT.nm] = chk._asdict()
-
         result[f.BATCHES.nm] = [tuple(bid)
-                                for bid in result[f.BATCHES.nm]
-                                if isinstance(bid, BatchID)]
+                                for bid in result[f.BATCHES.nm]]
         return result
 
 
