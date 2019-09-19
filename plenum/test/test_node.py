@@ -875,7 +875,7 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       nodes=nodes,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
-    assert all(not n.master_replica._consensus_data.waiting_for_new_view for n in nodes)
+    assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
 
     if check_primaries:
         for n in nodes[1:]:
