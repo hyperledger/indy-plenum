@@ -291,11 +291,9 @@ class ViewChange(MessageBase):
         if checkpoints:
             result[f.CHECKPOINTS.nm] = checkpoints
         result[f.PREPARED.nm] = [tuple(bid)
-                                 for bid in result[f.PREPARED.nm]
-                                 if isinstance(bid, BatchID)]
+                                 for bid in result[f.PREPARED.nm]]
         result[f.PREPREPARED.nm] = [tuple(bid)
-                                    for bid in result[f.PREPREPARED.nm]
-                                    if isinstance(bid, BatchID)]
+                                    for bid in result[f.PREPREPARED.nm]]
         return result
 
 
@@ -322,7 +320,7 @@ class NewView(MessageBase):
         super().__init__(*args, **kwargs)
         if isinstance(self.checkpoint, dict):
             self.checkpoint = Checkpoint(**self.checkpoint)
-        self.batches = [BatchID(**bid) for bid in self.batches]
+        self.batches = [BatchID(*bid) for bid in self.batches]
 
     def _asdict(self):
         result = super()._asdict()
