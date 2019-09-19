@@ -5,10 +5,13 @@ from logging import getLogger
 from typing import Any, Iterable
 
 from plenum.common.event_bus import ExternalBus
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
+from plenum.common.messages.node_messages import ViewChange
 from plenum.common.timer import TimerService
 from plenum.server.replica_helper import getNodeName
 from plenum.test.simulation.sim_random import SimRandom
+from stp_zmq.zstack import ZStack
 
 
 class SimNetwork:
@@ -68,6 +71,11 @@ class SimNetwork:
             peer = self._peers.get(name)
             assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
 
+            serialized_msg = json.dumps(MessageProcessor().toDict(msg))
+            new_msg = node_message_factory.get_instance(**ZStack.deserializeMsg(serialized_msg))
+            assert MessageProcessor().toDict(msg) == MessageProcessor().toDict(new_msg), \
+                "\n {} \n {}".format(MessageProcessor().toDict(msg), MessageProcessor().toDict(new_msg))
+            msg = new_msg
             if name in self._filters and type(msg) in self._filters[name]:
                 self._logger.debug("Discard {} for {} because it filtered by SimNetwork".format(msg, name))
                 return

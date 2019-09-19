@@ -3,7 +3,7 @@ from functools import partial
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
-from plenum.server.consensus.view_change_service import BatchID
+from plenum.server.consensus.batch_id import BatchID
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
@@ -60,7 +60,7 @@ def calc_committed(view_changes):
 
 # Increased count from 200 to 150 because of jenkin's failures.
 # After integration, need to get it back
-@pytest.mark.parametrize("seed", range(1))
+@pytest.mark.parametrize("seed", range(150))
 def test_view_change_completes_under_normal_conditions(seed):
     random = DefaultSimRandom(seed)
     check_view_change_completes_under_normal_conditions(random)

@@ -13,7 +13,8 @@ from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView
 from plenum.common.txn_util import get_type
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService

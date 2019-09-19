@@ -5,7 +5,7 @@ import pytest
 from plenum.common.messages.node_messages import ViewChange
 
 from plenum.common.messages.internal_messages import NeedViewChange
-from plenum.server.consensus.view_change_service import BatchID
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
@@ -64,7 +64,6 @@ def calc_committed(view_changes):
     return committed
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize("seed", range(200))
 def test_view_change_completes_under_normal_conditions(seed):
     random = DefaultSimRandom(seed)

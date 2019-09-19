@@ -5,7 +5,8 @@ import base58
 
 from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
+from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.batch_id import BatchID
 from plenum.test.consensus.helper import SimPool
 from plenum.test.simulation.sim_random import SimRandom
 

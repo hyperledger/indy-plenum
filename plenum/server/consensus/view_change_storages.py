@@ -95,7 +95,7 @@ class ViewChangeVotesForView:
 
     @property
     def confirmed_votes(self) -> List[Tuple[str, str]]:
-        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
+        return [[frm, node_votes.digest] for frm, node_votes in self._votes.items()
                 if node_votes.is_confirmed]
 
     def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:

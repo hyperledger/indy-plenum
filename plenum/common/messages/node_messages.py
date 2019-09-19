@@ -23,6 +23,7 @@ from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FI
 
 
 # TODO set of classes are not hashable but MessageBase expects that
+from plenum.server.consensus.batch_id import BatchID
 
 
 class Batch(MessageBase):
@@ -275,8 +276,10 @@ class ViewChange(MessageBase):
         for chk in self.checkpoints:
             if isinstance(chk, dict):
                 checkpoints.append(Checkpoint(**chk))
-        if len(checkpoints):
+        if checkpoints:
             self.checkpoints = checkpoints
+        self.prepared = [BatchID(*bid) for bid in self.prepared]
+        self.preprepared = [BatchID(*bid) for bid in self.preprepared]
 
     def _asdict(self):
         result = super()._asdict()
@@ -285,8 +288,14 @@ class ViewChange(MessageBase):
             if isinstance(chk, dict):
                 continue
             checkpoints.append(chk._asdict())
-        if len(checkpoints):
+        if checkpoints:
             result[f.CHECKPOINTS.nm] = checkpoints
+        result[f.PREPARED.nm] = [tuple(bid)
+                                 for bid in result[f.PREPARED.nm]
+                                 if isinstance(bid, BatchID)]
+        result[f.PREPREPARED.nm] = [tuple(bid)
+                                    for bid in result[f.PREPREPARED.nm]
+                                    if isinstance(bid, BatchID)]
         return result
 
 
@@ -308,6 +317,23 @@ class NewView(MessageBase):
         (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         # that should get into new view
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if isinstance(self.checkpoint, dict):
+            self.checkpoint = Checkpoint(**self.checkpoint)
+        self.batches = [BatchID(**bid) for bid in self.batches]
+
+    def _asdict(self):
+        result = super()._asdict()
+        chk = result[f.CHECKPOINT.nm]
+        if not isinstance(chk, dict):
+            result[f.CHECKPOINT.nm] = chk._asdict()
+
+        result[f.BATCHES.nm] = [tuple(bid)
+                                for bid in result[f.BATCHES.nm]
+                                if isinstance(bid, BatchID)]
+        return result
 
 
 class LedgerStatus(MessageBase):
