@@ -43,28 +43,8 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
     for n in pool.nodes:
         assert committed == n._data.preprepared[:len(committed)]
 
-
-def calc_committed(view_changes):
-    committed = []
-    for pp_seq_no in range(1, 50):
-        batch_id = None
-        for vc in view_changes:
-            # pp_seq_no must be present in all PrePrepares
-            for pp in vc.preprepared:
-                if pp[2] == pp_seq_no:
-                    if batch_id is None:
-                        batch_id = pp
-                    assert batch_id == pp
-                    break
-
-            # pp_seq_no must be present in all Prepares
-            if batch_id not in vc.prepared:
-                return committed
-        committed.append(BatchID(*batch_id))
-    return committed
-
-
-@pytest.mark.parametrize("seed", range(200))
-def test_view_change_completes_under_normal_conditions(seed):
+@pytest.mark.skip
+@pytest.mark.parametrize("seed", range(150))
+def test_view_change_with_delays(seed):
     random = DefaultSimRandom(seed)
     check_view_change_completes_under_normal_conditions(random)
