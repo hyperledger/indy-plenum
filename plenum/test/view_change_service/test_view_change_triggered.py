@@ -11,8 +11,9 @@ REQ_COUNT = 10
 
 def trigger_view_change(txnPoolNodeSet, proposed_view_no):
     for n in txnPoolNodeSet:
-        n.view_change_service.send(NeedViewChange(proposed_view_no))
-        assert n.view_change_service._data.waiting_for_new_view
+        replica = n.master_replica
+        replica.internal_bus.send(NeedViewChange(proposed_view_no))
+        assert replica._consensus_data.waiting_for_new_view
 
 
 def get_next_primary(txnPoolNodeSet, expected_view_no):
