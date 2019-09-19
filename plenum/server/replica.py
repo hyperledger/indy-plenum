@@ -148,7 +148,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.warned_no_primary = False
 
         self._consensus_data = ConsensusSharedData(self.name,
-                                                   self.node.get_validators(),
+                                                   self.node.poolManager.node_names_ordered_by_rank(),
                                                    self.instId,
                                                    self.isMaster)
         self._internal_bus = InternalBus()

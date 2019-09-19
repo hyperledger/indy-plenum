@@ -76,6 +76,10 @@ class ViewChangeService:
                                                                          validators=self._data.validators)
         self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
+        if not self._data.is_master:
+            self._data.waiting_for_new_view = False
+            return
+
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
 
@@ -132,11 +136,12 @@ class ViewChangeService:
         )
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
-        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
+
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         self.view_change_votes.add_view_change(msg, frm)
 
@@ -157,11 +162,12 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
-        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
+
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         if not self._data.is_primary:
             return PROCESS, None
@@ -171,11 +177,12 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
-        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
+
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         if frm != self._data.primary_name:
             self._logger.info(
@@ -192,12 +199,17 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
+        if not self._data.is_master:
+            return
+
         self._logger.info("{} processing {}".format(self, msg))
 
         self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
+        if not self._data.is_master:
+            return DISCARD
 
         if msg.viewNo < self._data.view_no:
             return DISCARD
