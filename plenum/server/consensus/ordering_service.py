@@ -34,8 +34,9 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id, \
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id, \
     get_original_viewno
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
@@ -73,6 +74,7 @@ class OrderingService:
         self._network = network
         self._write_manager = write_manager
         self._name = self._data.name
+        # TODO: We shouldn't use get_utc_epoch here, time needs to be under full control through TimerService
         self.get_time_for_3pc_batch = get_time_for_3pc_batch or get_utc_epoch
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False

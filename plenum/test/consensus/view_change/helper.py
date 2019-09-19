@@ -5,7 +5,8 @@ import base58
 
 from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
+from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.batch_id import BatchID
 from plenum.test.consensus.helper import SimPool
 from plenum.test.simulation.sim_random import SimRandom
 
@@ -19,6 +20,7 @@ def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoi
 def some_pool(random: SimRandom) -> (SimPool, List):
     pool_size = random.integer(4, 8)
     pool = SimPool(pool_size, random)
+    log_size = pool.nodes[0].config.LOG_SIZE
 
     # Create simulated history
     # TODO: Move into helper?
@@ -41,8 +43,9 @@ def some_pool(random: SimRandom) -> (SimPool, List):
 
     # Initialize consensus data
     for i, node in enumerate(pool.nodes):
-        node._data.preprepared = batches[:pp_count[i]]
-        node._data.prepared = batches[:p_count[i]]
+        high_watermark = stable_cp[i] + log_size
+        node._data.preprepared = batches[:min(high_watermark, pp_count[i])]
+        node._data.prepared = batches[:min(high_watermark, p_count[i])]
         node._data.checkpoints.update(checkpoints[:cp_count[i]])
         node._data.stable_checkpoint = stable_cp[i]
 

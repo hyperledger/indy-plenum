@@ -9,8 +9,8 @@ from plenum.server.replica_helper import getNodeName
 
 
 def view_change_digest(msg: ViewChange) -> str:
-    msg_as_dict = msg.__dict__
-    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
+    msg_as_dict = msg._asdict()
+#    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
     serialized = JsonSerializer().dumps(msg_as_dict)
     return sha256(serialized).hexdigest()
 
@@ -95,7 +95,7 @@ class ViewChangeVotesForView:
 
     @property
     def confirmed_votes(self) -> List[Tuple[str, str]]:
-        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
+        return [[frm, node_votes.digest] for frm, node_votes in self._votes.items()
                 if node_votes.is_confirmed]
 
     def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:

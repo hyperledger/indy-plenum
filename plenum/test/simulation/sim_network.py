@@ -1,20 +1,24 @@
-import json
 from collections import OrderedDict
 from functools import partial
 from logging import getLogger
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional, Callable
 
 from plenum.common.event_bus import ExternalBus
-from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.timer import TimerService
 from plenum.server.replica_helper import getNodeName
 from plenum.test.simulation.sim_random import SimRandom
 
 
 class SimNetwork:
-    def __init__(self, timer: TimerService, random: SimRandom):
+    def __init__(self,
+                 timer: TimerService,
+                 random: SimRandom,
+                 serialize_deserialize: Optional[Callable] = None):
         self._timer = timer
         self._random = random
+        self._serialize_deserialize = serialize_deserialize \
+            if serialize_deserialize is not None \
+            else lambda x: x
         self._min_latency = 1
         self._max_latency = 500
         self._filters = {}
@@ -62,11 +66,13 @@ class SimNetwork:
         else:
             assert False, "{} tried to send message {} to unsupported destination {}".format(frm, msg, dst)
 
-        for name in dst:
+        for name in sorted(dst):
             assert name != frm, "{} tried to send message {} to itself".format(frm, msg)
 
             peer = self._peers.get(name)
             assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
+
+            msg = self._serialize_deserialize(msg)
 
             if name in self._filters and type(msg) in self._filters[name]:
                 self._logger.debug("Discard {} for {} because it filtered by SimNetwork".format(msg, name))

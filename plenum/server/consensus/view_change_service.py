@@ -12,7 +12,8 @@ from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewV
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.quorums import Quorums
@@ -57,6 +58,8 @@ class ViewChangeService:
         return self._data.view_change_votes
 
     def process_need_view_change(self, msg: NeedViewChange):
+        self._logger.info("{} processing {}".format(self, msg))
+
         # 1. calculate new viewno
         view_no = msg.view_no
         if view_no is None:
@@ -77,6 +80,7 @@ class ViewChangeService:
         vc = self._build_view_change_msg()
 
         # 5. Send ViewChangeStarted via internal bus to update other services
+        self._logger.info("{} sending {}".format(self, vc))
         self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
 
         # 6. Send ViewChange msg to other nodes (via external bus)
@@ -109,7 +113,7 @@ class ViewChangeService:
     def _build_view_change_msg(self):
         for batch_id in self._data.prepared:
             self._old_prepared[batch_id.pp_seq_no] = batch_id
-        prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
+        prepared = sorted(list(self._old_prepared.values()))
 
         for new_bid in self._data.preprepared:
             pretenders = self._old_preprepared.get(new_bid.pp_seq_no, [])
@@ -117,7 +121,7 @@ class ViewChangeService:
                           if bid.pp_digest != new_bid.pp_digest]
             pretenders.append(new_bid)
             self._old_preprepared[new_bid.pp_seq_no] = pretenders
-        preprepared = sorted([tuple(bid) for bids in self._old_preprepared.values() for bid in bids])
+        preprepared = sorted([bid for bids in self._old_preprepared.values() for bid in bids])
 
         return ViewChange(
             viewNo=self._data.view_no,
@@ -128,6 +132,8 @@ class ViewChangeService:
         )
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -144,12 +150,15 @@ class ViewChangeService:
             digest=view_change_digest(msg)
         )
         primary_node_name = getNodeName(self._data.primary_name)
+        self._logger.info("{} sending {}".format(self, vca))
         self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
         return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -162,6 +171,8 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -181,6 +192,8 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
+        self._logger.info("{} processing {}".format(self, msg))
+
         self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
@@ -217,6 +230,7 @@ class ViewChangeService:
             checkpoint=cp,
             batches=batches
         )
+        self._logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
         self._new_view = nv
         self._finish_view_change()

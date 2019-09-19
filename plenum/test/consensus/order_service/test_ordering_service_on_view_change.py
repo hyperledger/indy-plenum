@@ -3,7 +3,8 @@ import pytest
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.util import updateNamedTuple
-from plenum.server.consensus.consensus_shared_data import BatchID, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import generateName
