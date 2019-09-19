@@ -41,6 +41,7 @@ def setup_pool(random, req_count):
     pool = create_pool(random)
 
     for node in pool.nodes:
+        # TODO: This propagates to global config and sometimes breaks other tests
         node._orderer._config.Max3PCBatchSize = MAX_BATCH_SIZE
         node._orderer._config.CHK_FREQ = 5
         node._orderer._config.LOG_SIZE = 3 * node._orderer._config.CHK_FREQ

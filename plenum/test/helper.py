@@ -1402,19 +1402,24 @@ class MockTimer(QueueTimer):
         """
         self.advance_until(self._ts.value + seconds)
 
-    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None):
+    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None, max_iterations: int = 500000):
         """
         Advance time in steps until condition is reached, running scheduled callbacks in process
         Throws TimeoutError if fail to reach condition (under required timeout if defined)
         """
+        counter = 0
         deadline = self._ts.value + timeout if timeout else None
-        while self._events and not condition():
+        while self._events and not condition() and counter < max_iterations:
             if deadline and self._next_timestamp() > deadline:
-                raise TimeoutError("Failed to reach condition in required time")
+                raise TimeoutError("Failed to reach condition in required time, {} iterations passed".format(counter))
             self.advance()
+            counter += 1
 
         if not condition():
-            raise TimeoutError("Condition will be never reached")
+            if not self._events:
+                raise TimeoutError("Condition will be never reached, {} iterations passed".format(counter))
+            else:
+                raise TimeoutError("Failed to reach condition in {} iterations".format(max_iterations))
 
     def run_to_completion(self):
         """

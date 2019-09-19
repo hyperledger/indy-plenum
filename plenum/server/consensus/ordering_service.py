@@ -75,6 +75,7 @@ class OrderingService:
         self._network = network
         self._write_manager = write_manager
         self._name = self._data.name
+        # TODO: We shouldn't use get_utc_epoch here, time needs to be under full control through TimerService
         self.get_time_for_3pc_batch = get_time_for_3pc_batch or get_utc_epoch
         # Flag which node set, when it have set new primaries and need to send batch
         self.primaries_batch_needed = False
