@@ -487,8 +487,6 @@ class ZStack(NetworkInterface):
             self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
             decoded = msg.decode()
-            logger.trace("{} received a message from remote {}: {}", self,
-                         z85_to_friendly(ident), decoded)
         except (UnicodeDecodeError, InvalidMessageExceedingSizeException) as ex:
             errstr = 'Message will be discarded due to {}'.format(ex)
             frm = self.remotesByKeys[ident].name if ident in self.remotesByKeys else ident
