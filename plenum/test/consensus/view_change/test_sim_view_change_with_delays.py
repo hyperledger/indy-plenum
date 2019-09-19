@@ -43,6 +43,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom):
     for n in pool.nodes:
         assert committed == n._data.preprepared[:len(committed)]
 
+
 @pytest.mark.skip
 @pytest.mark.parametrize("seed", range(150))
 def test_view_change_with_delays(seed):
