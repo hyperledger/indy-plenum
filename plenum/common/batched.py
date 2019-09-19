@@ -133,10 +133,8 @@ class Batched(MessageProcessor):
                                       serialized=True)
 
         for rid in removedRemotes:
-            logger.warning("{}{} has removed rid {}"
-                           .format(CONNECTION_PREFIX, self,
-                                   z85_to_friendly(rid)),
-                           extra={"cli": False})
+            logger.info("{}{} has removed rid {}".
+                        format(CONNECTION_PREFIX, self, z85_to_friendly(rid)), extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
                 self.discard(msgs,
