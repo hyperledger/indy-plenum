@@ -542,7 +542,8 @@ class ZStack(NetworkInterface):
                         continue
                     i += 1
                     self._verifyAndAppend(msg, ident)
-                except zmq.Again:
+                except zmq.Again as e:
+                    logger.debug("Strange behaviour during node-to-node mesage receiving, experienced {}".format(e))
                     break
             if i > 0:
                 logger.trace('{} got {} messages through remote {}'.
