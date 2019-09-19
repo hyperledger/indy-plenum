@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import TypeVar, NamedTuple, Dict
 
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
@@ -14,15 +15,16 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField
+    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField, FieldValidator
 from plenum.common.messages.message_base import \
-    MessageBase
+    MessageBase, MessageValidator
 from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
 # TODO set of classes are not hashable but MessageBase expects that
+from plenum.server.consensus.batch_id import BatchID
 
 
 class Batch(MessageBase):
@@ -244,6 +246,20 @@ class BackupInstanceFaulty(MessageBase):
         (f.REASON.nm, NonNegativeNumberField())
     )
 
+#
+# class CheckpointsList(IterableField):
+#
+#     def __init__(self, min_length=None, max_length=None, **kwargs):
+#         super().__init__(AnyField(), min_length, max_length, **kwargs)
+#
+#     def _specific_validation(self, val):
+#         result = super()._specific_validation(val)
+#         if result is not None:
+#             return result
+#         for chk in val:
+#             if not isinstance(chk, Checkpoint):
+#                 return "Checkpoints list contains not Checkpoint objects"
+
 
 class ViewChange(MessageBase):
     typename = VIEW_CHANGE
@@ -254,6 +270,32 @@ class ViewChange(MessageBase):
         (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        checkpoints = []
+        for chk in self.checkpoints:
+            if isinstance(chk, dict):
+                checkpoints.append(Checkpoint(**chk))
+        if checkpoints:
+            self.checkpoints = checkpoints
+        self.prepared = [BatchID(*bid) for bid in self.prepared]
+        self.preprepared = [BatchID(*bid) for bid in self.preprepared]
+
+    def _asdict(self):
+        result = super()._asdict()
+        checkpoints = []
+        for chk in result.get(f.CHECKPOINTS.nm, []):
+            if isinstance(chk, dict):
+                continue
+            checkpoints.append(chk._asdict())
+        if checkpoints:
+            result[f.CHECKPOINTS.nm] = checkpoints
+        result[f.PREPARED.nm] = [tuple(bid)
+                                 for bid in result[f.PREPARED.nm]]
+        result[f.PREPREPARED.nm] = [tuple(bid)
+                                    for bid in result[f.PREPREPARED.nm]]
+        return result
 
 
 class ViewChangeAck(MessageBase):
@@ -274,6 +316,21 @@ class NewView(MessageBase):
         (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         # that should get into new view
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if isinstance(self.checkpoint, dict):
+            self.checkpoint = Checkpoint(**self.checkpoint)
+        self.batches = [BatchID(*bid) for bid in self.batches]
+
+    def _asdict(self):
+        result = super()._asdict()
+        chk = self.checkpoint
+        if not isinstance(chk, dict):
+            result[f.CHECKPOINT.nm] = chk._asdict()
+        result[f.BATCHES.nm] = [tuple(bid)
+                                for bid in result[f.BATCHES.nm]]
+        return result
 
 
 class LedgerStatus(MessageBase):
