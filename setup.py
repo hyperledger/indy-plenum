@@ -51,7 +51,7 @@ setup(
                       'rlp==0.5.1', 'sha3==0.2.1', 'leveldb',
                       'ioflo==1.5.4', 'semver==2.7.9', 'base58==1.0.0', 'orderedset==2.0',
                       'sortedcontainers==1.5.7', 'psutil==5.4.3', 'pip<10.0.0',
-                      'portalocker==0.5.7', 'pyzmq==17.0.0', 'libnacl==1.6.1',
+                      'portalocker==0.5.7', 'pyzmq==18.1.0', 'libnacl==1.6.1',
                       'six==1.11.0', 'psutil==5.4.3', 'intervaltree==2.1.0',
                       'msgpack-python==0.4.6', 'indy-crypto==0.4.5',
                       'python-rocksdb==0.6.9', 'python-dateutil==2.6.1',
