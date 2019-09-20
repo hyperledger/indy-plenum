@@ -513,8 +513,11 @@ class ZStack(NetworkInterface):
                 incoming_size += len(msg)
                 i += 1
                 self._verifyAndAppend(msg, ident)
-            except zmq.Again:
+            except zmq.Again as e:
+                logger.debug("Strange behaviour during node-to-node message receiving, experienced {}".format(e))
                 break
+            except zmq.ZMQError as e:
+                logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
         if i > 0:
             logger.trace('{} got {} messages through listener'.
                          format(self, i))
@@ -541,10 +544,14 @@ class ZStack(NetworkInterface):
                         # Router probing sends empty message on connection
                         continue
                     i += 1
+                    logger.trace("{} received a message from remote {} by socket {} {}", self,
+                                 z85_to_friendly(ident), sock.FD, sock.underlying)
                     self._verifyAndAppend(msg, ident)
                 except zmq.Again as e:
-                    logger.debug("Strange behaviour during node-to-node mesage receiving, experienced {}".format(e))
+                    logger.debug("Strange behaviour during node-to-node message receiving, experienced {}".format(e))
                     break
+                except zmq.ZMQError as e:
+                    logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
             if i > 0:
                 logger.trace('{} got {} messages through remote {}'.
                              format(self, i, remote))
