@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 from functools import partial
 
->>>>>>> f3d12a8... INDY-2223: Improve tests
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
@@ -23,13 +20,6 @@ REQ_COUNT = 10
 
 
 @pytest.fixture(scope="module")
-<<<<<<< HEAD
-def txnPoolNodeSet(txnPoolNodeSet):
-    for n in txnPoolNodeSet:
-        for r in n.replicas.values():
-            r._ordering_service._validator = OrderingServiceMsgValidator(r._consensus_data)
-    return txnPoolNodeSet
-=======
 def tconf(tconf):
     old_new_view_timeout = tconf.NEW_VIEW_TIMEOUT
     tconf.NEW_VIEW_TIMEOUT = 5
@@ -40,6 +30,8 @@ def tconf(tconf):
 @pytest.fixture(scope="module")
 def txnPoolNodeSet(txnPoolNodeSet):
     for node in txnPoolNodeSet:
+        for replica in node.replicas.values():
+            replica._ordering_service._validator = OrderingServiceMsgValidator(replica._consensus_data)
         node._view_changer.start_view_change = partial(trigger_view_change_on_node, node)
     yield txnPoolNodeSet
 
@@ -49,7 +41,6 @@ def trigger_view_change_on_node(node, proposed_view_no):
         r.internal_bus.send(NeedViewChange(proposed_view_no))
         if r.isMaster:
             assert r._consensus_data.waiting_for_new_view
->>>>>>> f3d12a8... INDY-2223: Improve tests
 
 
 def trigger_view_change(txnPoolNodeSet, proposed_view_no):
@@ -80,7 +71,6 @@ def test_view_change_triggered_after_ordering(looper, txnPoolNodeSet, sdk_pool_h
 
 
 @pytest.mark.skip(reason="not working now")
-def test_stopping_next_primary(looper, txnPoolNodeSet):
 def test_view_change_with_next_primary_stopped(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     next_primary = get_next_primary_name(txnPoolNodeSet, old_view_no + 1)
