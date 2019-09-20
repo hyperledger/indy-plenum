@@ -863,6 +863,9 @@ def checkProtocolInstanceSetup(looper: Looper,
                                customTimeout: float = None,
                                instances: Sequence[int] = None,
                                check_primaries=True):
+    def check(nodes):
+        assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
+
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
@@ -875,7 +878,8 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       nodes=nodes,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
-    assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
+
+    looper.run(eventually(check, nodes))
 
     if check_primaries:
         for n in nodes[1:]:
