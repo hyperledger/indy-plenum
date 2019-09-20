@@ -251,6 +251,7 @@ class ViewChangeHandler(AbstractMessagesHandler):
         try:
             result = self._create(msg.msg, **params)
             self._validate_view_change(result, frm, params)
+            self.requested_messages.pop((params[f.NAME.nm], params[f.DIGEST.nm]))
             return result, params["name"]
         except TypeError:
             raise IncorrectMessageForHandlingException(msg, 'replied message has invalid structure',

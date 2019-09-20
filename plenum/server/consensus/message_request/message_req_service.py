@@ -43,6 +43,7 @@ class MessageReqService:
             COMMIT: CommitHandler(self._data),
             VIEW_CHANGE: ViewChangeHandler(self._data)
         }
+        self.three_pc_handlers = {PREPREPARE, PREPARE, COMMIT}
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REQ_TIME)
     def process_message_req(self, msg: MessageReq, frm):
@@ -108,15 +109,21 @@ class MessageReqService:
             }), dst=msg.dst)
 
     def process_ordered(self, msg: Ordered):
-        for handler in self.handlers.values():
+        for msg_type, handler in self.handlers.items():
+            if msg_type not in self.three_pc_handlers:
+                continue
             handler.requested_messages.pop((msg.viewNo, msg.ppSeqNo), None)
 
     def process_view_change_started(self, msg: ViewChangeStarted):
-        for handler in self.handlers.values():
+        for msg_type, handler in self.handlers.items():
+            if msg_type not in self.three_pc_handlers:
+                continue
             handler.requested_messages.clear()
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
-        for handler in self.handlers.values():
+        for msg_type, handler in self.handlers.items():
+            if msg_type not in self.three_pc_handlers:
+                continue
             for key in list(handler.requested_messages.keys()):
                 if compare_3PC_keys(key, msg.last_stable_3pc) >= 0:
                     handler.requested_messages.pop(key)

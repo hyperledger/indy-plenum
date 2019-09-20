@@ -285,7 +285,7 @@ class ViewChange(MessageBase):
     def _asdict(self):
         result = super()._asdict()
         checkpoints = []
-        for chk in result.get(f.CHECKPOINTS.nm, []):
+        for chk in self.checkpoints:
             if isinstance(chk, dict):
                 continue
             checkpoints.append(chk._asdict())
