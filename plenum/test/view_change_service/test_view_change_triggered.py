@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+from functools import partial
+
+>>>>>>> f3d12a8... INDY-2223: Improve tests
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
@@ -5,27 +10,51 @@ from plenum.common.util import getMaxFailures
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone
+
+from stp_core.common.log import Logger
+Logger().enableStdLogging()
+Logger().setLogLevel(0)
 
 
 REQ_COUNT = 10
 
 
 @pytest.fixture(scope="module")
+<<<<<<< HEAD
 def txnPoolNodeSet(txnPoolNodeSet):
     for n in txnPoolNodeSet:
         for r in n.replicas.values():
             r._ordering_service._validator = OrderingServiceMsgValidator(r._consensus_data)
     return txnPoolNodeSet
+=======
+def tconf(tconf):
+    old_new_view_timeout = tconf.NEW_VIEW_TIMEOUT
+    tconf.NEW_VIEW_TIMEOUT = 5
+    yield tconf
+    tconf.NEW_VIEW_TIMEOUT = old_new_view_timeout
+
+
+@pytest.fixture(scope="module")
+def txnPoolNodeSet(txnPoolNodeSet):
+    for node in txnPoolNodeSet:
+        node._view_changer.start_view_change = partial(trigger_view_change_on_node, node)
+    yield txnPoolNodeSet
+
+
+def trigger_view_change_on_node(node, proposed_view_no):
+    for r in node.replicas.values():
+        r.internal_bus.send(NeedViewChange(proposed_view_no))
+        if r.isMaster:
+            assert r._consensus_data.waiting_for_new_view
+>>>>>>> f3d12a8... INDY-2223: Improve tests
 
 
 def trigger_view_change(txnPoolNodeSet, proposed_view_no):
-    for n in txnPoolNodeSet:
-        for r in n.replicas.values():
-            r.internal_bus.send(NeedViewChange(proposed_view_no))
-            if r.isMaster:
-                assert r._consensus_data.waiting_for_new_view
+    for node in txnPoolNodeSet:
+        trigger_view_change_on_node(node, proposed_view_no)
 
 
 def get_next_primary_name(txnPoolNodeSet, expected_view_no):
@@ -35,10 +64,11 @@ def get_next_primary_name(txnPoolNodeSet, expected_view_no):
     return next_p_name
 
 
-def test_view_change_triggered(looper, txnPoolNodeSet):
+def test_view_change_triggered(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     current_view_no = checkViewNoForNodes(txnPoolNodeSet)
     trigger_view_change(txnPoolNodeSet, current_view_no + 1)
     ensureElectionsDone(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
 
 
 def test_view_change_triggered_after_ordering(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
@@ -46,14 +76,17 @@ def test_view_change_triggered_after_ordering(looper, txnPoolNodeSet, sdk_pool_h
     current_view_no = checkViewNoForNodes(txnPoolNodeSet)
     trigger_view_change(txnPoolNodeSet, current_view_no + 1)
     ensureElectionsDone(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
 
 
 @pytest.mark.skip(reason="not working now")
 def test_stopping_next_primary(looper, txnPoolNodeSet):
+def test_view_change_with_next_primary_stopped(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     next_primary = get_next_primary_name(txnPoolNodeSet, old_view_no + 1)
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, next_primary)
     trigger_view_change(txnPoolNodeSet, old_view_no + 1)
     ensureElectionsDone(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
     current_view_no = checkViewNoForNodes(txnPoolNodeSet)
     assert current_view_no == old_view_no + 2
