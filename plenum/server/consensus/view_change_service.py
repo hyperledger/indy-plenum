@@ -301,7 +301,10 @@ class ViewChangeService:
                                        batches=self._new_view.batches))
 
     def _propose_view_change(self, suspision_code):
-        msg = InstanceChange(self._data.view_no + 1, suspision_code)
+        proposed_view_no = self._data.view_no + 1
+        self._logger.info("{} proposing a view change to {} with code {}".
+                          format(self, proposed_view_no, suspision_code))
+        msg = InstanceChange(proposed_view_no, suspision_code)
         self._network.send(msg)
 
 
