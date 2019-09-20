@@ -36,7 +36,11 @@ class ViewChangeService:
         self._network = network
         self._router = stasher
         self._new_view = None  # type: Optional[NewView]
-        self._resend_inst_change_timer = None
+        self._resend_inst_change_timer = RepeatingTimer(self._timer,
+                                                        self._config.NEW_VIEW_TIMEOUT,
+                                                        partial(self._propose_view_change,
+                                                                Suspicions.INSTANCE_CHANGE_TIMEOUT.code),
+                                                        active=False)
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
         self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
@@ -94,14 +98,9 @@ class ViewChangeService:
         # 6. Unstash messages for new view
         self._router.process_all_stashed(STASH_VIEW)
 
-        # 7. Schedule New View after timeout
-        if self._resend_inst_change_timer is not None:
-            self._resend_inst_change_timer.stop()
-        self._resend_inst_change_timer = \
-            RepeatingTimer(self._timer,
-                           self._config.NEW_VIEW_TIMEOUT,
-                           partial(self._propose_view_change, Suspicions.INSTANCE_CHANGE_TIMEOUT.code),
-                           active=True)
+        # 7. Restart instance change timer
+        self._resend_inst_change_timer.stop()
+        self._resend_inst_change_timer.start()
 
     def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
@@ -290,9 +289,7 @@ class ViewChangeService:
         self._data.waiting_for_new_view = False
 
         # Cancel View Change timeout task
-        if self._resend_inst_change_timer is not None:
-            self._resend_inst_change_timer.stop()
-            self._resend_inst_change_timer = None
+        self._resend_inst_change_timer.stop()
 
         # send message to other services
         self._bus.send(NewViewAccepted(view_no=self._new_view.viewNo,
