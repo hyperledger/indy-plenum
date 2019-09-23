@@ -710,7 +710,13 @@ class BatchIDField(FieldBase):
     def _specific_validation(self, val):
         if len(val) != 4:
             return 'should have size of 4'
-        bid = BatchID(**val) if isinstance(val, dict) else BatchID(*val)
+        if isinstance(val, dict):
+            if any(key not in BatchID._fields for key in val.keys()):
+                return 'incorrect list of fields'
+            bid = BatchID(**val)
+        else:
+            bid = BatchID(*val)
+
         for validator, value in ((NonNegativeNumberField().validate, bid.view_no),
                                  (NonNegativeNumberField().validate, bid.pp_view_no),
                                  (NonNegativeNumberField().validate, bid.pp_seq_no),
