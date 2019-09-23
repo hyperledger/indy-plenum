@@ -301,5 +301,5 @@ testAndPublish(
         ledger: ledgerTestUbuntu,
         stp: stpTestUbuntu]
     ],
-    true, options, [ubuntu: buildDebUbuntuXenial, ubuntu: buildDebUbuntuBionic], 'plenum'
+    true, options, [ubuntu: buildDebUbuntuXenial], [ubuntu: buildDebUbuntuBionic], 'plenum'
 )
