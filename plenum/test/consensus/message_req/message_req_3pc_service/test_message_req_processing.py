@@ -26,7 +26,9 @@ def test_process_checkpoint_stabilized(message_req_service: MessageReqService, i
     view_no = 0
     msg = CheckpointStabilized(last_stable_3pc=(view_no, pp_seq_no))
     internal_bus.send(msg)
-    for handler in message_req_service.handlers.values():
+    for key, handler in message_req_service.handlers.items():
+        if key not in message_req_service.three_pc_handlers:
+            continue
         for requested_pp_seq_no in range(msg_count):
             if requested_pp_seq_no <= pp_seq_no:
                 assert (view_no, requested_pp_seq_no) not in handler.requested_messages
