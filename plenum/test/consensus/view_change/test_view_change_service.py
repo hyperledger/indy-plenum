@@ -5,8 +5,6 @@ from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
     NewViewCheckpointsApplied
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
-from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.server.consensus.view_change_service import ViewChangeService
@@ -15,8 +13,6 @@ from plenum.server.suspicion_codes import Suspicions
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
     create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
-
-from plenum.test.helper import MockNetwork
 
 
 @pytest.fixture
@@ -45,14 +41,14 @@ def view_change_service(view_change_service_builder, validators, some_item):
     return view_change_service_builder(some_item(validators))
 
 
-def test_updates_shared_data_on_need_view_change(internal_bus, view_change_service, initial_view_no):
+def test_updates_shared_data_on_need_view_change(internal_bus, view_change_service, initial_view_no, is_master):
     old_primary = view_change_service._data.primary_name
     old_primaries = view_change_service._data.primaries
     old_data = copy_shared_data(view_change_service._data)
     internal_bus.send(NeedViewChange())
 
     assert view_change_service._data.view_no == initial_view_no + 1
-    assert view_change_service._data.waiting_for_new_view
+    assert view_change_service._data.waiting_for_new_view == is_master
     assert view_change_service._data.primary_name != old_primary
     assert view_change_service._data.primaries != old_primaries
     new_data = copy_shared_data(view_change_service._data)
@@ -64,7 +60,7 @@ def test_updates_shared_data_on_need_view_change(internal_bus, view_change_servi
     internal_bus.send(NeedViewChange(view_no=initial_view_no + 3))
 
     assert view_change_service._data.view_no == initial_view_no + 3
-    assert view_change_service._data.waiting_for_new_view
+    assert view_change_service._data.waiting_for_new_view == is_master
     assert view_change_service._data.primary_name != old_primary
     assert view_change_service._data.primaries != old_primaries
     new_data = copy_shared_data(view_change_service._data)
@@ -84,7 +80,11 @@ def test_do_nothing_on_view_change_started(internal_bus, view_change_service):
     assert old_data == new_data
 
 
-def test_update_shared_data_on_new_view_accepted(internal_bus, view_change_service):
+def test_update_shared_data_on_new_view_accepted(internal_bus, view_change_service, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     view_change_service._data.waiting_for_new_view = False
     view_change_service._data.view_no = 1
     view_change_service._data.primary_name = "Alpha"
@@ -103,7 +103,11 @@ def test_update_shared_data_on_new_view_accepted(internal_bus, view_change_servi
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
 
-def test_update_shared_data_on_new_view_accepted_no_batches(internal_bus, view_change_service):
+def test_update_shared_data_on_new_view_accepted_no_batches(internal_bus, view_change_service, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     view_change_service._data.waiting_for_new_view = False
     view_change_service._data.view_no = 1
     view_change_service._data.primary_name = "Alpha"
@@ -139,7 +143,11 @@ def test_do_nothing_on_new_view_checkpoint_applied(internal_bus, view_change_ser
     assert old_data == new_data
 
 
-def test_start_view_change_sends_view_change_started(internal_bus, view_change_service, initial_view_no):
+def test_start_view_change_sends_view_change_started(internal_bus, view_change_service, initial_view_no, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     handler = Mock()
     internal_bus.subscribe(ViewChangeStarted, handler)
 
@@ -151,20 +159,27 @@ def test_start_view_change_sends_view_change_started(internal_bus, view_change_s
 
 
 def test_start_view_change_broadcasts_view_change_message(internal_bus, external_bus, view_change_service,
-                                                          initial_view_no):
+                                                          initial_view_no, is_master):
     internal_bus.send(NeedViewChange())
 
-    assert len(external_bus.sent_messages) == 1
-    msg, dst = external_bus.sent_messages[0]
-    assert dst is None  # message was broadcast
-    assert isinstance(msg, ViewChange)
-    assert msg.viewNo == initial_view_no + 1
-    assert msg.stableCheckpoint == view_change_service._data.stable_checkpoint
+    if is_master:
+        assert len(external_bus.sent_messages) == 1
+        msg, dst = external_bus.sent_messages[0]
+        assert dst is None  # message was broadcast
+        assert isinstance(msg, ViewChange)
+        assert msg.viewNo == initial_view_no + 1
+        assert msg.stableCheckpoint == view_change_service._data.stable_checkpoint
+    else:
+        assert len(external_bus.sent_messages) == 0
 
 
 def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new_primary(
         internal_bus, external_bus, some_item, other_item, validators, primary, view_change_service_builder,
-        initial_view_no):
+        initial_view_no, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     next_view_no = initial_view_no + 1
     non_primary_name = some_item(validators, exclude=[primary(next_view_no)])
     service = view_change_service_builder(non_primary_name)
@@ -187,7 +202,11 @@ def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new
 
 def test_primary_doesnt_respond_to_view_change_message(
         some_item, validators, primary, external_bus, view_change_service_builder, initial_view_no,
-        view_change_message):
+        view_change_message, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     name = primary(initial_view_no + 1)
     service = view_change_service_builder(name)
 
@@ -200,7 +219,11 @@ def test_primary_doesnt_respond_to_view_change_message(
 
 def test_new_view_message_is_sent_by_primary_when_view_change_certificate_is_reached(
         internal_bus, external_bus, validators, primary, view_change_service_builder, initial_view_no,
-        view_change_acks):
+        view_change_acks, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     primary_name = primary(initial_view_no + 1)
     service = view_change_service_builder(primary_name)
 
@@ -225,7 +248,12 @@ def test_new_view_message_is_sent_by_primary_when_view_change_certificate_is_rea
 
 
 def test_new_view_message_is_not_sent_by_non_primary_when_view_change_certificate_is_reached(
-        internal_bus, external_bus, validators, primary, view_change_service_builder, initial_view_no, some_item):
+        internal_bus, external_bus, validators, primary, view_change_service_builder, initial_view_no, some_item,
+        is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     next_view_no = initial_view_no + 1
     primary_name = primary(next_view_no)
     non_primary_name = some_item(validators, exclude=[primary_name])
@@ -251,7 +279,11 @@ def test_view_change_finished_is_sent_by_primary_once_view_change_certificate_is
                                                                                          validators,
                                                                                          primary,
                                                                                          view_change_service_builder,
-                                                                                         initial_view_no):
+                                                                                         initial_view_no, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     handler = Mock()
     internal_bus.subscribe(NewViewAccepted, handler)
 
@@ -288,7 +320,12 @@ def test_view_change_finished_is_sent_by_primary_once_view_change_certificate_is
 
 
 def test_view_change_finished_is_sent_by_non_primary_once_view_change_certificate_is_reached_and_new_view_from_primary(
-        internal_bus, external_bus, validators, primary, view_change_service_builder, initial_view_no, some_item):
+        internal_bus, external_bus, validators, primary, view_change_service_builder, initial_view_no, some_item,
+        is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     handler = Mock()
     internal_bus.subscribe(NewViewAccepted, handler)
 
@@ -340,7 +377,11 @@ def test_view_change_finished_is_sent_by_non_primary_once_view_change_certificat
 def test_send_instance_change_on_new_view_with_incorrect_checkpoint(internal_bus, external_bus, validators, primary,
                                                                     view_change_service_builder,
                                                                     initial_view_no,
-                                                                    some_item):
+                                                                    some_item, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     next_view_no = initial_view_no + 1
     primary_name = primary(next_view_no)
     non_primary_name = some_item(validators, exclude=[primary_name])
@@ -384,7 +425,11 @@ def test_send_instance_change_on_new_view_with_incorrect_checkpoint(internal_bus
 def test_send_instance_change_on_new_view_with_incorrect_batches(internal_bus, external_bus, validators, primary,
                                                                  view_change_service_builder,
                                                                  initial_view_no,
-                                                                 some_item):
+                                                                 some_item, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     next_view_no = initial_view_no + 1
     primary_name = primary(next_view_no)
     non_primary_name = some_item(validators, exclude=[primary_name])
@@ -426,7 +471,11 @@ def test_send_instance_change_on_new_view_with_incorrect_batches(internal_bus, e
 
 def test_send_instance_change_on_timeout_no_new_view_received(internal_bus, external_bus,
                                                               view_change_service, timer,
-                                                              initial_view_no):
+                                                              initial_view_no, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     internal_bus.send(NeedViewChange())
 
     init_network_msg_count = len(external_bus.sent_messages)
@@ -456,7 +505,12 @@ def test_send_instance_change_on_timeout_no_new_view_received(internal_bus, exte
 
 
 def test_send_instance_change_on_timeout_when_new_view_received_but_not_processed(internal_bus, external_bus, timer,
-                                                                                  view_change_service, initial_view_no):
+                                                                                  view_change_service, initial_view_no,
+                                                                                  is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     internal_bus.send(NeedViewChange())
     init_network_msg_count = len(external_bus.sent_messages)
     new_view = create_new_view(initial_view_no=0, stable_cp=200)
@@ -478,7 +532,12 @@ def test_do_not_send_instance_change_on_timeout_when_view_change_finished_on_tim
                                                                                   validators,
                                                                                   primary, view_change_service_builder,
                                                                                   timer,
-                                                                                  initial_view_no):
+                                                                                  initial_view_no,
+                                                                                  is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     primary_name = primary(initial_view_no + 1)
     service = view_change_service_builder(primary_name)
 
@@ -514,7 +573,12 @@ def test_do_not_send_instance_change_on_timeout_when_multiple_view_change_finish
                                                                                            primary,
                                                                                            view_change_service_builder,
                                                                                            timer,
-                                                                                           initial_view_no):
+                                                                                           initial_view_no,
+                                                                                           is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     primary_name = primary(initial_view_no + 2)
     service = view_change_service_builder(primary_name)
 

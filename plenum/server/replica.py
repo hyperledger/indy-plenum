@@ -30,6 +30,7 @@ from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest, TPCStat
@@ -147,7 +148,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.warned_no_primary = False
 
         self._consensus_data = ConsensusSharedData(self.name,
-                                                   self.node.get_validators(),
+                                                   self.node.poolManager.node_names_ordered_by_rank(),
                                                    self.instId,
                                                    self.isMaster)
         self._internal_bus = InternalBus()
@@ -160,6 +161,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._checkpointer = self._init_checkpoint_service()
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
+        self._view_change_service = self._init_view_change_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -748,6 +750,13 @@ class Replica(HasActionQueue, MessageProcessor):
                                  bus=self.internal_bus,
                                  network=self._external_bus,
                                  metrics=self.metrics)
+
+    def _init_view_change_service(self) -> ViewChangeService:
+        return ViewChangeService(data=self._consensus_data,
+                                 timer=self.node.timer,
+                                 bus=self.internal_bus,
+                                 network=self._external_bus,
+                                 stasher=self.stasher)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

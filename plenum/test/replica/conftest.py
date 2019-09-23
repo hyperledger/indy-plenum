@@ -21,9 +21,10 @@ from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_
 class ReplicaFakeNode(FakeSomething):
 
     def __init__(self, viewNo, quorums, ledger_ids):
+        node_names = ["Alpha", "Beta", "Gamma", "Delta"]
         node_stack = FakeSomething(
             name="fake stack",
-            connecteds={"Alpha", "Beta", "Gamma", "Delta"}
+            connecteds=set(node_names)
         )
         self.replicas = []
         self.viewNo = viewNo
@@ -48,7 +49,8 @@ class ReplicaFakeNode(FakeSomething):
             db_manager=db_manager,
             write_manager=FakeSomething(database_manager=db_manager,
                                         apply_request=lambda req, cons_time: None),
-            timer=QueueTimer()
+            timer=QueueTimer(),
+            poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names)
         )
 
     @property

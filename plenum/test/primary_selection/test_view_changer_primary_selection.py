@@ -42,20 +42,22 @@ class FakeNode:
     ledger_ids = [POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID]
 
     def __init__(self, tmpdir, config=None):
+        node_names = ['Node1', 'Node2', 'Node3', 'Node4']
         self.basedirpath = tmpdir
-        self.name = 'Node1'
+        self.name = node_names[0]
         self.db_manager = DatabaseManager()
         self.timer = QueueTimer()
         self.f = 1
         self.replicas = dict()
         self.requests = Requests()
         self.rank = None
-        self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
+        self.allNodeNames = node_names
         self.nodeReg = {
             name: HA("127.0.0.1", 0) for name in self.allNodeNames
         }
         self.nodeIds = []
         self.totalNodes = len(self.allNodeNames)
+        self.poolManager = FakeSomething(node_names_ordered_by_rank=lambda: node_names)
         self.mode = Mode.starting
         self.config = config or getConfigOnce()
         self.nodeStatusDB = None
