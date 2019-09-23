@@ -116,9 +116,7 @@ class MessageReqService:
 
     def process_view_change_started(self, msg: ViewChangeStarted):
         for msg_type, handler in self.handlers.items():
-            if msg_type not in self.three_pc_handlers:
-                continue
-            handler.requested_messages.clear()
+            handler.cleanup()
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         for msg_type, handler in self.handlers.items():

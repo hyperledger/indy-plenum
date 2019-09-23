@@ -70,6 +70,9 @@ class AbstractMessagesHandler(metaclass=ABCMeta):
 
         return self._get_reply(params)
 
+    def cleanup(self):
+        self.requested_messages.clear()
+
 
 class ThreePhaseMessagesHandler(AbstractMessagesHandler, metaclass=ABCMeta):
     fields = {
@@ -202,7 +205,7 @@ class ViewChangeHandler(AbstractMessagesHandler):
 
     def __init__(self, data: ConsensusSharedData):
         super().__init__(data)
-        self._received_vc = {}  # Dict[ViewChange, Set[str]]
+        self._received_vc = {}  # Dict[Tuple, Set[str]]
 
     def _create(self, msg: Dict, **kwargs):
         message = super()._create(msg)
@@ -259,3 +262,7 @@ class ViewChangeHandler(AbstractMessagesHandler):
         except MismatchedMessageReplyException:
             raise IncorrectMessageForHandlingException(msg, 'replied message does not satisfy query criteria',
                                                        self._logger.warning)
+
+    def cleanup(self):
+        super().cleanup()
+        self._received_vc.clear()
