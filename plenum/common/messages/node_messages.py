@@ -332,8 +332,10 @@ class NewView(MessageBase):
         chk = self.checkpoint
         if not isinstance(chk, dict):
             result[f.CHECKPOINT.nm] = chk._asdict()
+        if not self.batches or not isinstance(self.batches[0], BatchID):
+            return result
         result[f.BATCHES.nm] = [bid._asdict()
-                                for bid in result[f.BATCHES.nm]]
+                                for bid in self.batches]
         return result
 
 
