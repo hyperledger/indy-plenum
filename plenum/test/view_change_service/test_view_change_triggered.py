@@ -1,17 +1,21 @@
 from functools import partial
 
 import pytest
+from plenum.test.delayers import cDelay
 
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, assertExp
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import ensureElectionsDone
 
 from stp_core.common.log import Logger
+from stp_core.loop.eventually import eventually
+
 Logger().enableStdLogging()
 Logger().setLogLevel(0)
 
@@ -74,6 +78,29 @@ def test_view_change_triggered_after_ordering(looper, txnPoolNodeSet, sdk_pool_h
 def test_view_change_with_next_primary_stopped(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     next_primary = get_next_primary_name(txnPoolNodeSet, old_view_no + 1)
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, next_primary)
+    trigger_view_change(txnPoolNodeSet, old_view_no + 1)
+    ensureElectionsDone(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    current_view_no = checkViewNoForNodes(txnPoolNodeSet)
+    assert current_view_no == old_view_no + 2
+
+
+def test_view_change_with_next_primary_stopped_and_one_node_lost_commit(looper,
+                                                                        txnPoolNodeSet,
+                                                                        sdk_pool_handle,
+                                                                        sdk_wallet_client):
+    old_view_no = checkViewNoForNodes(txnPoolNodeSet)
+    next_primary = get_next_primary_name(txnPoolNodeSet, old_view_no + 1)
+    slow_node = txnPoolNodeSet[-1]
+    last_pp_seq_no = slow_node.master_last_ordered_3PC[1]
+
+    with delay_rules_without_processing(slow_node.nodeIbStasher, cDelay()):
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+        looper.run(eventually(lambda preprepared: assertExp(any(last_pp_seq_no + 1 == bid.pp_seq_no
+                                                                for bid in preprepared)),
+                              slow_node.master_replica._consensus_data.preprepared))
+
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, next_primary)
     trigger_view_change(txnPoolNodeSet, old_view_no + 1)
     ensureElectionsDone(looper, txnPoolNodeSet)
