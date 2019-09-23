@@ -10,7 +10,7 @@ from plenum.server.consensus.message_request.message_req_service import MessageR
 from plenum.test.helper import create_commit_no_bls_sig
 
 
-def test_process_message_req_commit(message_req_3pc_service: MessageReqService, external_bus, data, commit):
+def test_process_message_req_commit(message_req_service: MessageReqService, external_bus, data, commit):
     key = (commit.viewNo, commit.ppSeqNo)
     message_req = MessageReq(**{
         f.MSG_TYPE.nm: COMMIT,
@@ -19,7 +19,7 @@ def test_process_message_req_commit(message_req_3pc_service: MessageReqService, 
                       f.PP_SEQ_NO.nm: key[1]},
     })
     frm = "frm"
-    message_req_3pc_service.process_message_req(message_req, frm)
+    message_req_service.process_message_req(message_req, frm)
     assert len(external_bus.sent_messages) == 1
     assert external_bus.sent_messages[0] == (MessageRep(message_req.msg_type,
                                                         message_req.params,
@@ -27,7 +27,7 @@ def test_process_message_req_commit(message_req_3pc_service: MessageReqService, 
                                              [frm])
 
 
-def test_process_message_req_commit_without_commit(message_req_3pc_service: MessageReqService, external_bus, data, commit):
+def test_process_message_req_commit_without_commit(message_req_service: MessageReqService, external_bus, data, commit):
     key = (commit.viewNo, commit.ppSeqNo)
     other_node_name = "other_node"
     data.commits.clear()
@@ -42,11 +42,11 @@ def test_process_message_req_commit_without_commit(message_req_3pc_service: Mess
                       f.PP_SEQ_NO.nm: key[1]},
     })
     frm = "frm"
-    message_req_3pc_service.process_message_req(message_req, frm)
+    message_req_service.process_message_req(message_req, frm)
     assert len(external_bus.sent_messages) == 0
 
 
-def test_process_missing_message_commit(message_req_3pc_service: MessageReqService, external_bus, data):
+def test_process_missing_message_commit(message_req_service: MessageReqService, external_bus, data):
     frm = "frm"
     view_no = data.view_no
     pp_seq_no = data.last_ordered_3pc[1] + 1
@@ -55,7 +55,7 @@ def test_process_missing_message_commit(message_req_3pc_service: MessageReqServi
                                     inst_id=data.inst_id,
                                     dst=[frm],
                                     stash_data=None)
-    message_req_3pc_service.process_missing_message(missing_msg)
+    message_req_service.process_missing_message(missing_msg)
     assert len(external_bus.sent_messages) == 1
     assert external_bus.sent_messages[0] == (MessageReq(COMMIT,
                                                         {f.INST_ID.nm: data.inst_id,
@@ -64,9 +64,9 @@ def test_process_missing_message_commit(message_req_3pc_service: MessageReqServi
                                              [frm])
 
 
-def test_process_message_rep_commit(message_req_3pc_service: MessageReqService, external_bus, data, commit):
+def test_process_message_rep_commit(message_req_service: MessageReqService, external_bus, data, commit):
     key = (commit.viewNo, commit.ppSeqNo)
-    message_req_3pc_service.handlers[COMMIT].requested_messages[key] = None
+    message_req_service.handlers[COMMIT].requested_messages[key] = None
     message_rep = MessageRep(**{
         f.MSG_TYPE.nm: COMMIT,
         f.PARAMS.nm: {f.INST_ID.nm: data.inst_id,
@@ -77,5 +77,5 @@ def test_process_message_rep_commit(message_req_3pc_service: MessageReqService, 
     frm = "frm"
     network_handler = Mock()
     external_bus.subscribe(Commit, network_handler)
-    message_req_3pc_service.process_message_rep(message_rep, frm)
+    message_req_service.process_message_rep(message_rep, frm)
     network_handler.assert_called_once_with(commit, frm)
