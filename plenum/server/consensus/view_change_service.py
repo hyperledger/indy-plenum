@@ -135,7 +135,6 @@ class ViewChangeService:
         )
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
-
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -144,15 +143,17 @@ class ViewChangeService:
 
         self.view_change_votes.add_view_change(msg, frm)
 
-        if self._data.is_primary:
-            self._send_new_view_if_needed()
-            return PROCESS, None
-
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
             name=getNodeName(frm),
             digest=view_change_digest(msg)
         )
+        self.view_change_votes.add_view_change_ack(vca, getNodeName(self._data.name))
+
+        if self._data.is_primary:
+            self._send_new_view_if_needed()
+            return PROCESS, None
+
         primary_node_name = getNodeName(self._data.primary_name)
         self._logger.info("{} sending {}".format(self, vca))
         self._network.send(vca, [primary_node_name])
@@ -161,7 +162,6 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
-
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -176,7 +176,6 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
-
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
