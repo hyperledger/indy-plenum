@@ -1477,8 +1477,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             num_processed += 1
             if isinstance(message, (PrePrepare, Prepare, Commit, Checkpoint, MessageReq,
                                     OldViewPrePrepareRequest, OldViewPrePrepareReply,
-                                    ViewChange, ViewChangeAck, NewView)):
+                                    ViewChange, ViewChangeAck, NewView, InstanceChange)):
                 self.send(message)
+                # TODO: This is kind of hack, should be removed after moving instance change
+                #  logic out of legacy view change service
+                if isinstance(message, InstanceChange) and self.view_changer is not None:
+                    self.view_changer._on_verified_instance_change_msg(message, self.name)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
