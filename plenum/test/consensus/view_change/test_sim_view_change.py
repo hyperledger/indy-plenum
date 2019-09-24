@@ -66,6 +66,15 @@ def set_latency(pool_committed, request, tconf):
     pool_committed[0].network.set_latency(min, max)
 
 
+@pytest.fixture(params=[([ViewChange, NewView, ViewChangeAck], 0.02),
+                        ([ViewChange], 1)])
+def set_filter(request, pool_committed):
+    pool, committed = pool_committed
+    pool.network.set_filter([getNodeName(pool.nodes[-1].name)],
+                            request.param[0],
+                            request.param[1])
+
+
 @pytest.fixture(params=range(200))
 def new_random(request):
     seed = request.param
@@ -75,12 +84,10 @@ def new_random(request):
 @pytest.fixture()
 def pool_committed(new_random):
     pool, committed = some_pool(new_random)
-    # pool.network.set_filter([getNodeName(pool.nodes[-1].name)],
-    #                         [ViewChange, NewView, ViewChangeAck])
     return pool, committed
 
 
-def test_view_change_completes_under_normal_conditions(new_random, pool_committed, set_latency):
+def test_view_change_completes_under_normal_conditions(new_random, pool_committed, set_latency, set_filter):
     check_view_change_completes_under_normal_conditions(new_random, pool_committed)
 
 

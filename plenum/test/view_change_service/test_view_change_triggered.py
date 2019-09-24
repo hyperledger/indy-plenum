@@ -106,5 +106,25 @@ def test_view_change_with_next_primary_stopped_and_one_node_lost_commit(looper,
     trigger_view_change(txnPoolNodeSet, old_view_no + 1)
     ensureElectionsDone(looper, txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+
+
+def test_view_change_with_next_primary_stopped_and_one_node_lost_commit(looper, txnPoolNodeSet,
+                                                                        sdk_pool_handle, sdk_wallet_client,
+                                                                        limitTestRunningTime):
     current_view_no = checkViewNoForNodes(txnPoolNodeSet)
-    assert current_view_no == old_view_no + 2
+    next_primary = get_next_primary_name(txnPoolNodeSet, current_view_no + 1)
+    # delayed_node = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet) if r.node.name != next_primary][0]
+    delayed_node = txnPoolNodeSet[-1]
+    other_nodes = [n for n in txnPoolNodeSet if n.name != next_primary]
+
+    with delay_rules_without_processing(delayed_node.nodeIbStasher, cDelay()):
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+
+        disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, next_primary)
+        trigger_view_change(txnPoolNodeSet, current_view_no + 1)
+
+    ensureElectionsDone(looper, other_nodes,
+                        instances_list=range(2), customTimeout=15)
+    sdk_ensure_pool_functional(looper, other_nodes, sdk_wallet_client, sdk_pool_handle)
+    ensure_all_nodes_have_same_data(looper, other_nodes)
