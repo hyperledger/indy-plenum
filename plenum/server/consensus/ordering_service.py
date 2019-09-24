@@ -2255,6 +2255,8 @@ class OrderingService:
         if result != PROCESS:
             return result, reason
 
+        self._logger.info("{} processing {}".format(self, msg))
+
         # apply PrePrepares from NewView that we have
         # request missing PrePrepares from NewView
         missing_batches = []
