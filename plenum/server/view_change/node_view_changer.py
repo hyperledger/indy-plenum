@@ -113,7 +113,7 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         return self._node.master_replica.viewNo
 
     def view_change_in_progress(self):
-        return self._node.master_replica._data.waiting_for_new_view
+        return self._node.master_replica._consensus_data.waiting_for_new_view
 
 
 def create_view_changer(node, vchCls=ViewChanger):

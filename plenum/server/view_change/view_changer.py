@@ -179,7 +179,6 @@ class ViewChanger():
         # between.
         self._next_view_indications = {}
 
-        self._view_change_in_progress = False
         self.pre_view_change_in_progress = False
 
         self.previous_view_no = None
@@ -234,13 +233,7 @@ class ViewChanger():
 
     @property
     def view_change_in_progress(self) -> bool:
-        return self._view_change_in_progress
-        # return self.provider.view_change_in_progress()
-
-    @view_change_in_progress.setter
-    def view_change_in_progress(self, value: bool):
-        self._view_change_in_progress = value
-        self.provider.set_view_change_status(value)
+        return self.provider.view_change_in_progress()
 
     @property
     def quorum(self) -> int:
@@ -650,17 +643,17 @@ class ViewChanger():
 
         self.provider.select_primaries()
 
-        if self.view_change_in_progress:
-            self.view_change_in_progress = False
-            self.provider.notify_view_change_complete()
-            # when we had INSTANCE_CHANGE message, they added into instanceChanges
-            # by msg.view_no. When view change was occured and view_no is changed,
-            # then we should delete all INSTANCE_CHANGE messages with current (already changed)
-            # view_no (which used in corresponded INSTANCE_CHANGE messages)
-            # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
-            self.instance_changes.remove_view(self.view_no)
-            self.previous_view_no = None
-            self.previous_master_primary = None
+        # if self.view_change_in_progress:
+        #     self.view_change_in_progress = False
+        #     self.provider.notify_view_change_complete()
+        #     # when we had INSTANCE_CHANGE message, they added into instanceChanges
+        #     # by msg.view_no. When view change was occured and view_no is changed,
+        #     # then we should delete all INSTANCE_CHANGE messages with current (already changed)
+        #     # view_no (which used in corresponded INSTANCE_CHANGE messages)
+        #     # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
+        #     self.instance_changes.remove_view(self.view_no)
+        #     self.previous_view_no = None
+        #     self.previous_master_primary = None
 
     def set_defaults(self):
         # Tracks view change done message
