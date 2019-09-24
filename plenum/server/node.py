@@ -558,7 +558,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # TODO not sure that this should be allowed
     @viewNo.setter
     def viewNo(self, value):
-        self.view_changer.view_no = value
+        for replica in self.replicas.values():
+            replica._consensus_data.view_no = value
 
     @property
     def view_change_in_progress(self):
