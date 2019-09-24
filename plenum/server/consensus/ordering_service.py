@@ -38,7 +38,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, p
     get_original_viewno
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
-from plenum.server.consensus.msg_validator import ThreePCMsgValidator
+from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.models import Prepares, Commits
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
@@ -85,7 +85,7 @@ class OrderingService:
         # TODO: Change just to self._stasher = stasher
         self._stasher = stasher
         self._subscription = Subscription()
-        self._validator = ThreePCMsgValidator(self._data)
+        self._validator = OrderingServiceMsgValidator(self._data)
         self.get_current_time = get_current_time or self._timer.get_current_time
         self._out_of_order_repeater = RepeatingTimer(self._timer,
                                                      self._config.PROCESS_STASHED_OUT_OF_ORDER_COMMITS_INTERVAL,
