@@ -6,8 +6,9 @@ from typing import List, Optional, Union, Dict, Any, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
+from plenum.common.constants import VIEW_CHANGE
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted
+from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
@@ -254,6 +255,7 @@ class ViewChangeService:
             vc = self.view_change_votes.get_view_change(name, vc_digest)
             # We don't have needed ViewChange, so we cannot validate NewView
             if vc is None:
+                self._request_view_change_message((name, vc_digest))
                 return
             view_changes.append(vc)
 
@@ -302,6 +304,13 @@ class ViewChangeService:
                           format(self, proposed_view_no, suspision_code))
         msg = InstanceChange(proposed_view_no, suspision_code)
         self._network.send(msg)
+
+    def _request_view_change_message(self, key):
+        self._bus.send(MissingMessage(msg_type=VIEW_CHANGE,
+                                      key=key,
+                                      inst_id=self._data.inst_id,
+                                      dst=None,
+                                      stash_data=None))
 
 
 class NewViewBuilder:
