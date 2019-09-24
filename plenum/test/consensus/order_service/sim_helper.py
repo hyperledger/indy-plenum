@@ -1,6 +1,7 @@
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import ReqKey
 from plenum.common.startable import Mode
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.helper import SimPool
 from plenum.test.helper import sdk_random_request_objects
@@ -46,7 +47,6 @@ def setup_pool(random, req_count):
         node._orderer._config.CHK_FREQ = 5
         node._orderer._config.LOG_SIZE = 3 * node._orderer._config.CHK_FREQ
         setup_consensus_data(node._data)
-        node._write_manager.future_primary_handler = FakeSomething(get_last_primaries=lambda: node._data.primaries)
         node._orderer._network._connecteds = list(set(node._data.validators) - {getNodeName(node._data.name)})
 
     sim_send_requests(pool, req_count)

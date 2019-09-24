@@ -6,10 +6,13 @@ from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.test.delayers import cDelay
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.test_node import ensureElectionsDone
+from plenum.test.stasher import delay_rules_without_processing
+from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 
 from stp_core.common.log import Logger
 Logger().enableStdLogging()
@@ -22,8 +25,11 @@ REQ_COUNT = 10
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_new_view_timeout = tconf.NEW_VIEW_TIMEOUT
+    old_batch_size = tconf.Max3PCBatchSize
     tconf.NEW_VIEW_TIMEOUT = 5
+    tconf.Max3PCBatchSize = 1
     yield tconf
+    tconf.Max3PCBatchSize = old_batch_size
     tconf.NEW_VIEW_TIMEOUT = old_new_view_timeout
 
 
@@ -80,3 +86,18 @@ def test_view_change_with_next_primary_stopped(looper, txnPoolNodeSet, sdk_pool_
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
     current_view_no = checkViewNoForNodes(txnPoolNodeSet)
     assert current_view_no == old_view_no + 2
+
+
+def test_delay_commits_for_one_node(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, limitTestRunningTime):
+    current_view_no = checkViewNoForNodes(txnPoolNodeSet)
+    next_primary = get_next_primary_name(txnPoolNodeSet, current_view_no + 1)
+    delayed_node = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet) if r.node.name != next_primary][0]
+
+    with delay_rules_without_processing(delayed_node.nodeIbStasher, cDelay()):
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+
+        trigger_view_change(txnPoolNodeSet, current_view_no + 1)
+
+    ensureElectionsDone(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

@@ -871,6 +871,9 @@ class OrderingService:
         else:
             self._add_to_pre_prepares(pre_prepare)
 
+        if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
+            self._write_manager.future_primary_handler.set_node_state()
+
         return None
 
     def _apply_and_validate_applied_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
@@ -1692,6 +1695,9 @@ class OrderingService:
         return self.commits.hasCommitFrom(ThreePhaseKey(
             request.viewNo, request.ppSeqNo), self.name)
 
+    def _is_the_last_old_preprepare(self, pp_seq_no):
+        return self._data.prev_view_prepare_cert == pp_seq_no
+
     def post_batch_creation(self, three_pc_batch: ThreePcBatch):
         """
         A batch of requests has been created and has been applied but
@@ -1702,16 +1708,12 @@ class OrderingService:
         """
         ledger_id = three_pc_batch.ledger_id
         if ledger_id != POOL_LEDGER_ID and \
-                not three_pc_batch.primaries and \
-                not self._is_pp_from_old_view(three_pc_batch):
+                not three_pc_batch.primaries:
             three_pc_batch.primaries = self._write_manager.future_primary_handler.get_last_primaries() or self._data.primaries
         if self._write_manager.is_valid_ledger_id(ledger_id):
             self._write_manager.post_apply_batch(three_pc_batch)
         else:
             self._logger.debug('{} did not know how to handle for ledger {}'.format(self, ledger_id))
-
-    def _is_pp_from_old_view(self, three_pc_batch: ThreePcBatch):
-        return three_pc_batch.original_view_no != three_pc_batch.view_no
 
     def post_batch_rejection(self, ledger_id):
         """

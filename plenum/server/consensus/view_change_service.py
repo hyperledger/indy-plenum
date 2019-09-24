@@ -52,7 +52,6 @@ class ViewChangeService:
 
         self._subscription = Subscription()
         self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
-        self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
 
     def __repr__(self):
         return self._data.name
@@ -197,14 +196,6 @@ class ViewChangeService:
         self._finish_view_change_if_needed()
         return PROCESS, None
 
-    def process_new_view_accepted(self, msg: NewViewAccepted):
-        if not self._data.is_master:
-            return
-
-        self._logger.info("{} processing {}".format(self, msg))
-
-        self._data.prev_view_prepare_cert = msg.batches[-1].pp_seq_no if msg.batches else None
-
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
         if not self._data.is_master:
@@ -287,6 +278,7 @@ class ViewChangeService:
     def _finish_view_change(self):
         # Update shared data
         self._data.waiting_for_new_view = False
+        self._data.prev_view_prepare_cert = self._new_view.batches[-1].pp_seq_no if self._new_view.batches else None
 
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
