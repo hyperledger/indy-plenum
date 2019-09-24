@@ -136,7 +136,6 @@ class ViewChangeService:
         )
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
-
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -164,7 +163,6 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
-
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
@@ -179,7 +177,6 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
-
         result = self._validate(msg, frm)
         if result != PROCESS:
             return result, None
