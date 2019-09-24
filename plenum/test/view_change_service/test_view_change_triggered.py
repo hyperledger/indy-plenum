@@ -5,10 +5,14 @@ from plenum.test.delayers import cDelay
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.test.delayers import cDelay
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, assertExp
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.test_node import ensureElectionsDone
+from plenum.test.stasher import delay_rules_without_processing
+from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 
 from stp_core.common.log import Logger
 from stp_core.loop.eventually import eventually
@@ -20,8 +24,11 @@ REQ_COUNT = 10
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_new_view_timeout = tconf.NEW_VIEW_TIMEOUT
+    old_batch_size = tconf.Max3PCBatchSize
     tconf.NEW_VIEW_TIMEOUT = 5
+    tconf.Max3PCBatchSize = 1
     yield tconf
+    tconf.Max3PCBatchSize = old_batch_size
     tconf.NEW_VIEW_TIMEOUT = old_new_view_timeout
 
 

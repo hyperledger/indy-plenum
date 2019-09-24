@@ -2,6 +2,7 @@ from typing import List
 from orderedset._orderedset import OrderedSet
 
 from plenum.common.constants import TXN_TYPE
+from plenum.common.util import getMaxFailures
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -57,6 +58,11 @@ class ReplicaService:
         self._data.checkpoints.append(
             Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0,
                        digest='4F7BsTMVPKFshM1MwLf6y23cid6fL3xMpazVoF9krzUw'))
+
+        # ToDo: it should be done in Zero-view stage.
+        self._data.primaries = self._view_changer._primaries_selector.select_primaries(self._data.view_no,
+                                                                                       getMaxFailures(len(validators)) + 1,
+                                                                                       validators)
 
     def ready_for_3pc(self, req_key):
         fin_req = self._data.requests[req_key.digest].finalised

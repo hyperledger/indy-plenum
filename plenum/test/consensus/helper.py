@@ -24,6 +24,7 @@ from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
 from plenum.server.replica_helper import generateName
@@ -141,14 +142,24 @@ class SimPool:
             # TODO: emulate it the same way as in Replica, that is sender must have 'node_name:inst_id' form
             replica_name = generateName(name, 0)
             handler = partial(self.network._send_message, replica_name)
+            write_manager = create_test_write_req_manager(name, genesis_txns)
             replica = ReplicaService(replica_name,
                                      validators,
                                      primary_name,
                                      self._timer,
                                      InternalBus(),
                                      self.network.create_peer(name, handler),
-                                     write_manager=create_test_write_req_manager(name, genesis_txns),
+                                     write_manager=write_manager,
                                      bls_bft_replica=MockBlsBftReplica())
+            # ToDo: For now, future_primary_handler is depended from the node.
+            # And for now we need to patching set_node_state functionality
+            future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
+                                                                   FakeSomething(nodeReg={},
+                                                                                 nodeIds=[]))
+            future_primaries_handler._get_primaries = lambda *args, **kwargs: replica._data.primaries
+            write_manager.register_batch_handler(future_primaries_handler)
+            # ToDo: also, it should be done at the zero-view stage.
+            write_manager.future_primary_handler.set_node_state()
             replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)
 
