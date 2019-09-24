@@ -11,7 +11,7 @@ from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, a
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules_without_processing
-from plenum.test.test_node import ensureElectionsDone
+from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 
 from stp_core.common.log import Logger
 from stp_core.loop.eventually import eventually
@@ -92,7 +92,7 @@ def test_view_change_with_next_primary_stopped_and_one_node_lost_commit(looper,
                                                                         sdk_wallet_client):
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     next_primary = get_next_primary_name(txnPoolNodeSet, old_view_no + 1)
-    slow_node = txnPoolNodeSet[-1]
+    slow_node = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet) if r.node.name != next_primary][0]
     last_pp_seq_no = slow_node.master_last_ordered_3PC[1]
 
     with delay_rules_without_processing(slow_node.nodeIbStasher, cDelay()):
