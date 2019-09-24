@@ -1777,6 +1777,8 @@ class OrderingService:
             return False
         if not self._data.is_participating:
             return False
+        if self._data.waiting_for_new_view:
+            return False
         if self._data.prev_view_prepare_cert is not None and self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
