@@ -149,6 +149,10 @@ class ViewChangerDataProvider(ABC):
     def view_no(self):
         pass
 
+    @abstractmethod
+    def view_change_in_progress(self):
+        pass
+
 
 class ViewChanger():
 
@@ -231,6 +235,7 @@ class ViewChanger():
     @property
     def view_change_in_progress(self) -> bool:
         return self._view_change_in_progress
+        # return self.provider.view_change_in_progress()
 
     @view_change_in_progress.setter
     def view_change_in_progress(self, value: bool):
