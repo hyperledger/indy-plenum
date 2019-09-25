@@ -6,19 +6,9 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.conftest import CHK_FREQ
 from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
-
-CHK_FREQ = 2
-
-
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    old_chk_freq = tconf.CHK_FREQ
-    tconf.CHK_FREQ = CHK_FREQ
-    tconf.LOG_SIZE = CHK_FREQ * 3
-    yield tconf
-    tconf.CHK_FREQ = old_chk_freq
 
 
 def test_lag_less_then_catchup(looper,

@@ -99,8 +99,22 @@ def test_update_shared_data_on_new_view_accepted(internal_bus, view_change_servi
                                       batches=new_view.batches))
 
     new_data = copy_shared_data(view_change_service._data)
-    assert view_change_service._data.prev_view_prepare_cert == new_view.batches[-1].pp_seq_no
+    # For now prev_view_prepare_cert is set on finish_view_change stage
+    assert view_change_service._data.prev_view_prepare_cert == 1
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
+
+
+def test_setup_prev_view_prepare_cert_on_vc_finished(internal_bus, view_change_service, is_master):
+    if not is_master:
+        return
+
+    view_change_service._data.waiting_for_new_view = True
+    view_change_service._data.prev_view_prepare_cert = 1
+    new_view = create_new_view(initial_view_no=3, stable_cp=200)
+    view_change_service._new_view = new_view
+    view_change_service._finish_view_change()
+    assert view_change_service._data.prev_view_prepare_cert == new_view.batches[-1].pp_seq_no
+    assert not view_change_service._data.waiting_for_new_view
 
 
 def test_update_shared_data_on_new_view_accepted_no_batches(internal_bus, view_change_service, is_master):
@@ -122,7 +136,8 @@ def test_update_shared_data_on_new_view_accepted_no_batches(internal_bus, view_c
                                       batches=new_view.batches))
 
     new_data = copy_shared_data(view_change_service._data)
-    assert view_change_service._data.prev_view_prepare_cert is None
+    # For now prev_view_prepare_cert is set on finish_view_change stage
+    assert view_change_service._data.prev_view_prepare_cert == 1
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
 
