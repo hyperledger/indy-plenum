@@ -567,28 +567,13 @@ class ViewChanger():
 
         :param proposed_view_no: the new view number after view change.
         """
-        self.provider.start_view_change(proposed_view_no)
+        self.previous_view_no = self.view_no
+        self.pre_view_change_in_progress = False
+        self.previous_master_primary = self.provider.current_primary_name()
+        self.set_defaults()
 
-        # TODO: consider moving this to pool manager
-        # TODO: view change is a special case, which can have different
-        # implementations - we need to make this logic pluggable
-        # if self.pre_vc_strategy and (not continue_vc):
-        #     self.pre_view_change_in_progress = True
-        #     self.pre_vc_strategy.prepare_view_change(proposed_view_no)
-        #     return
-        # elif self.pre_vc_strategy:
-        #     self.pre_vc_strategy.on_strategy_complete()
-        #
-        # self.previous_view_no = self.view_no
-        # self.view_no = proposed_view_no
-        # self.pre_view_change_in_progress = False
-        # self.view_change_in_progress = True
-        # self.previous_master_primary = self.provider.current_primary_name()
-        # self.set_defaults()
-        # self._process_vcd_for_future_view()
-        #
-        # self.provider.notify_view_change_start()
-        # self.provider.start_catchup()
+        self.provider.notify_view_change_start()
+        self.provider.start_view_change(proposed_view_no)
 
     def _process_vcd_for_future_view(self):
         # make sure that all received VCD messages for future view
