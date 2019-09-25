@@ -279,22 +279,39 @@ class ViewChange(MessageBase):
                 checkpoints.append(Checkpoint(**chk))
         if checkpoints:
             self.checkpoints = checkpoints
-        self.prepared = [BatchID(*bid) for bid in self.prepared]
-        self.preprepared = [BatchID(*bid) for bid in self.preprepared]
+
+        # The field `prepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of dicts then we need to deserialize it.
+        if self.prepared and isinstance(self.prepared[0], dict):
+            self.prepared = [BatchID(**bid)
+                             for bid in self.prepared
+                             if isinstance(bid, dict)]
+        # The field `preprepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of dicts then we need to deserialize it.
+        if self.preprepared and isinstance(self.preprepared[0], dict):
+            self.preprepared = [BatchID(**bid)
+                                for bid in self.preprepared
+                                if isinstance(bid, dict)]
 
     def _asdict(self):
         result = super()._asdict()
         checkpoints = []
-        for chk in result.get(f.CHECKPOINTS.nm, []):
+        for chk in self.checkpoints:
             if isinstance(chk, dict):
                 continue
             checkpoints.append(chk._asdict())
         if checkpoints:
             result[f.CHECKPOINTS.nm] = checkpoints
-        result[f.PREPARED.nm] = [tuple(bid)
-                                 for bid in result[f.PREPARED.nm]]
-        result[f.PREPREPARED.nm] = [tuple(bid)
-                                    for bid in result[f.PREPREPARED.nm]]
+        # The field `prepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of BatchID then we need to serialize it.
+        if self.prepared and isinstance(self.prepared[0], BatchID):
+            result[f.PREPARED.nm] = [bid._asdict()
+                                     for bid in self.prepared]
+        # The field `preprepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of BatchID then we need to serialize it.
+        if self.preprepared and isinstance(self.preprepared[0], BatchID):
+            result[f.PREPREPARED.nm] = [bid._asdict()
+                                        for bid in self.preprepared]
         return result
 
 
@@ -321,15 +338,25 @@ class NewView(MessageBase):
         super().__init__(*args, **kwargs)
         if isinstance(self.checkpoint, dict):
             self.checkpoint = Checkpoint(**self.checkpoint)
-        self.batches = [BatchID(*bid) for bid in self.batches]
+        # The field `batches` can to be a list of BatchIDs or of dicts.
+        # If it's not a list of dicts then we don't need to deserialize it.
+        if not self.batches or not isinstance(self.batches[0], dict):
+            return
+        self.batches = [BatchID(**bid)
+                        for bid in self.batches
+                        if isinstance(bid, dict)]
 
     def _asdict(self):
         result = super()._asdict()
         chk = self.checkpoint
         if not isinstance(chk, dict):
             result[f.CHECKPOINT.nm] = chk._asdict()
-        result[f.BATCHES.nm] = [tuple(bid)
-                                for bid in result[f.BATCHES.nm]]
+        # The field `batches` can to be a list of BatchIDs or of dicts.
+        # If its a list of dicts then we don't need to serialize it.
+        if not self.batches or not isinstance(self.batches[0], BatchID):
+            return result
+        result[f.BATCHES.nm] = [bid._asdict()
+                                for bid in self.batches]
         return result
 
 

@@ -10,7 +10,7 @@ def data(consensus_data):
 
 
 @pytest.fixture
-def message_req_3pc_service(data, internal_bus, external_bus):
+def message_req_service(data, internal_bus, external_bus):
     req_service = MessageReqService(data=data,
                                     bus=internal_bus,
                                     network=external_bus)
