@@ -89,7 +89,10 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
     def create_node_state_from_current_node(self):
         return NodeState(list(self.node.nodeReg.keys()),
                          copy.deepcopy(self.node.nodeIds),
-                         copy.deepcopy(self.node.primaries))
+                         copy.deepcopy(self._get_primaries()))
+
+    def _get_primaries(self):
+        return self.node.primaries
 
     def set_node_state(self):
         self.node_states = []
