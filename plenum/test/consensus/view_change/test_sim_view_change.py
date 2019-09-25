@@ -62,8 +62,8 @@ def calc_committed(view_changes):
 
 @pytest.fixture(params=[(0, 0.6), (1, 2)])
 def set_latency(pool_committed, request, tconf):
-    min, max = tuple(int(param * tconf.NEW_VIEW_TIMEOUT) for param in request.param)
-    pool_committed[0].network.set_latency(min, max)
+    min_latency, max_latency = tuple(int(param * tconf.NEW_VIEW_TIMEOUT) for param in request.param)
+    pool_committed[0].network.set_latency(min_latency, max_latency)
 
 
 @pytest.fixture(params=[

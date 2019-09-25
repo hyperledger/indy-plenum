@@ -154,7 +154,8 @@ def bls_bft_replica():
 
 @pytest.fixture()
 def db_manager():
-    audit_ledger = FakeSomething(size=0)
+    audit_ledger = FakeSomething(size=0,
+                                 get_last_committed_txn=lambda: None)
     dbm = DatabaseManager()
     dbm.register_new_database(AUDIT_LEDGER_ID, audit_ledger)
     return dbm
