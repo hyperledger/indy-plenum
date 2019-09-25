@@ -66,8 +66,9 @@ def set_latency(pool_committed, request, tconf):
     pool_committed[0].network.set_latency(min, max)
 
 
-@pytest.fixture(params=[([ViewChange, NewView, ViewChangeAck], 0.02),
-                        ([ViewChange], 1)])
+@pytest.fixture(params=[
+    # ([ViewChange, NewView, ViewChangeAck], 0.02),
+    ([ViewChange], 1)])
 def set_filter(request, pool_committed):
     pool, committed = pool_committed
     pool.network.set_filter([getNodeName(pool.nodes[-1].name)],
