@@ -29,7 +29,7 @@ from plenum.common.request import Request
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no
+from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
@@ -2139,6 +2139,8 @@ class OrderingService:
                 i += 1
             else:
                 break
+        last_txn = self.db_manager.get_ledger(AUDIT_LEDGER_ID).get_last_committed_txn()
+        self.last_accepted_pre_prepare_time = None if last_txn is None else get_txn_time(last_txn)
         self._logger.info('{} reverted {} batches before starting catch up'.format(self, i))
         return i
 

@@ -2,16 +2,19 @@ from functools import partial
 
 import pytest
 
+from plenum.common.config_util import getConfig
 from plenum.common.messages.internal_messages import NeedViewChange
+from plenum.common.messages.node_messages import ViewChange, NewView, ViewChangeAck
 from plenum.server.consensus.batch_id import BatchID
+from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 
 
-def check_view_change_completes_under_normal_conditions(random: SimRandom):
+def check_view_change_completes_under_normal_conditions(random: SimRandom, pool_committed=None):
     # Create random pool with random initial state
-    pool, committed = some_pool(random)
+    pool, committed = some_pool(random) if pool_committed is None else pool_committed
 
     # Schedule view change at different time on all nodes
     for node in pool.nodes:
@@ -57,10 +60,36 @@ def calc_committed(view_changes):
     return committed
 
 
-@pytest.mark.parametrize("seed", range(200))
-def test_view_change_completes_under_normal_conditions(seed):
-    random = DefaultSimRandom(seed)
-    check_view_change_completes_under_normal_conditions(random)
+@pytest.fixture(params=[(0, 0.6), (1, 2)])
+def set_latency(pool_committed, request, tconf):
+    min_latency, max_latency = tuple(int(param * tconf.NEW_VIEW_TIMEOUT) for param in request.param)
+    pool_committed[0].network.set_latency(min_latency, max_latency)
+
+
+@pytest.fixture(params=[
+    # ([ViewChange, NewView, ViewChangeAck], 0.02),
+    ([ViewChange], 1)])
+def set_filter(request, pool_committed):
+    pool, committed = pool_committed
+    pool.network.set_filter([getNodeName(pool.nodes[-1].name)],
+                            request.param[0],
+                            request.param[1])
+
+
+@pytest.fixture(params=range(200))
+def new_random(request):
+    seed = request.param
+    return DefaultSimRandom(seed)
+
+
+@pytest.fixture()
+def pool_committed(new_random):
+    pool, committed = some_pool(new_random)
+    return pool, committed
+
+
+def test_view_change_completes_under_normal_conditions(new_random, pool_committed, set_latency, set_filter):
+    check_view_change_completes_under_normal_conditions(new_random, pool_committed)
 
 
 def test_new_view_combinations(random):
