@@ -21,6 +21,8 @@ from stp_core.loop.eventually import eventually
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change_service.helper import trigger_view_change, \
     get_next_primary_name
+
+
 REQ_COUNT = 10
 
 
