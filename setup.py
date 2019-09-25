@@ -62,6 +62,7 @@ class DevelopCommand(develop):
         develop.run_command(self, command='pyzmq')
         develop.run(self)
 
+
 setup(
     cmdclass={
         'install': InstallCommand,
