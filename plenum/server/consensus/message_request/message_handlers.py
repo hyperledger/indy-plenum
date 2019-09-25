@@ -222,8 +222,11 @@ class ViewChangeHandler(AbstractMessagesHandler):
                 f.DIGEST.nm: key[1]}
 
     def _get_reply(self, params: Dict[str, Any]):
-        return self._data.view_change_votes.get_view_change(params[f.NAME.nm],
-                                                            params[f.DIGEST.nm])
+        result = self._data.view_change_votes.get_view_change(params[f.NAME.nm],
+                                                              params[f.DIGEST.nm])
+        if result:
+            result = result._asdict()
+        return result
 
     def _validate_view_change(self, msg: ViewChange, frm: str, params):
         if msg is None:
