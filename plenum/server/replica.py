@@ -17,7 +17,8 @@ from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
+from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion, \
+    NewViewAccepted
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import Ordered, \
     PrePrepare, Prepare, Commit, ThreePhaseKey
@@ -220,11 +221,15 @@ class Replica(HasActionQueue, MessageProcessor):
         # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
 
+    def _process_new_view_accepted(self, msg: NewViewAccepted):
+        self.clear_requests_and_fix_last_ordered()
+
     def _subscribe_to_internal_msgs(self):
         self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
+        self._subscription.subscribe(self.internal_bus, NewViewAccepted, self._process_new_view_accepted)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -384,9 +389,9 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service._clear_all_3pc_msgs()
 
     def clear_requests_and_fix_last_ordered(self):
-        self._clear_all_3pc_msgs()
         if self.isMaster:
             return
+        self._clear_all_3pc_msgs()
         reqs_for_remove = []
         for req in self.requests.values():
             ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)

@@ -2220,6 +2220,7 @@ class OrderingService:
     def _clear_all_3pc_msgs(self):
 
         # Clear the 3PC log
+        self.batches.clear()
         self.prePrepares.clear()
         self.prepares.clear()
         self.commits.clear()
