@@ -50,11 +50,19 @@ class SimNetwork:
             for msg_type in messages_types:
                 self._filters[name].pop(msg_type, None)
 
-    def set_filter(self, names: Iterable, messages_types: Iterable):
+    def set_filter(self, names: Iterable, messages_types: Iterable, probability: float = 1):
+        '''
+        Set filter for sending messages
+        :param names: A list of nodes names whose input messages must be discarded.
+        :param messages_types: Types of discarded messages.
+        :param probability: The probability that messages will be discarded.
+        [0, 1] where 0 - will not be discarded; 1 - will be always discarded
+        :return:
+        '''
         if messages_types:
             for name in names:
-                self._filters.setdefault(name, set())
-                self._filters[name].update(messages_types)
+                self._filters.setdefault(name, dict())
+                self._filters[name].update({msg_type: probability for msg_type in messages_types})
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
@@ -80,3 +88,11 @@ class SimNetwork:
 
             self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
                                  partial(peer.process_incoming, msg, frm))
+
+    def _is_filtered(self, msg, name):
+        message_type = type(msg)
+        if name in self._filters and \
+                self._filters[name].get(message_type, 0) * 100 >= self._random.integer(0, 100):
+            self._logger.debug("Discard {} for {} because it filtered by SimNetwork".format(msg, name))
+            return True
+        return False

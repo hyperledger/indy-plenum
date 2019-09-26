@@ -44,7 +44,7 @@ def test_process_message_req_view_change(message_req_service: MessageReqService,
 
     assert external_bus.sent_messages[0] == (MessageRep(message_req.msg_type,
                                                         message_req.params,
-                                                        view_change_message),
+                                                        view_change_message._asdict()),
                                              [frm])
 
 

@@ -1,7 +1,11 @@
 import os
 import sys
+import subprocess
 
+import distutils.cmd
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+from setuptools.command.develop import develop
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -25,7 +29,45 @@ with open(metadata['__file__'], 'r') as f:
 
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.11.0-dev-1282', 'pytest-asyncio==0.8.0']
 
+
+class PyZMQCommand(distutils.cmd.Command):
+    description = 'pyzmq install target'
+
+    version = 'pyzmq==18.1.0'
+    options = '--install-option=--zmq=bundled'
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        command = ['pip', 'install', self.version, self.options]
+        subprocess.check_call(command)
+
+
+class InstallCommand(install):
+    description = 'install target'
+
+    def run(self):
+        install.run_command(self, command='pyzmq')
+        install.run(self)
+
+
+class DevelopCommand(develop):
+    description = 'develop target'
+
+    def run(self):
+        develop.run_command(self, command='pyzmq')
+        develop.run(self)
+
 setup(
+    cmdclass={
+        'install': InstallCommand,
+        'develop': DevelopCommand,
+        'pyzmq': PyZMQCommand,
+    },
     name=metadata['__title__'],
     version=metadata['__version__'],
     author=metadata['__author__'],
@@ -46,16 +88,33 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
-    install_requires=['jsonpickle==0.9.6', 'ujson==1.33',
-                      'prompt_toolkit==0.57', 'pygments==2.2.0',
-                      'rlp==0.5.1', 'sha3==0.2.1', 'leveldb',
-                      'ioflo==1.5.4', 'semver==2.7.9', 'base58==1.0.0', 'orderedset==2.0',
-                      'sortedcontainers==1.5.7', 'psutil==5.4.3', 'pip<10.0.0',
-                      'portalocker==0.5.7', 'pyzmq==17.0.0', 'libnacl==1.6.1',
-                      'six==1.11.0', 'psutil==5.4.3', 'intervaltree==2.1.0',
-                      'msgpack-python==0.4.6', 'indy-crypto==0.4.5',
-                      'python-rocksdb==0.6.9', 'python-dateutil==2.6.1',
-                      'pympler==0.5', 'packaging==19.0'],
+    install_requires=[
+                        'jsonpickle==0.9.6',
+                        'ujson==1.33',
+                        'prompt_toolkit==0.57',
+                        'pygments==2.2.0',
+                        'rlp==0.5.1',
+                        'sha3==0.2.1',
+                        'leveldb',
+                        'ioflo==1.5.4',
+                        'semver==2.7.9',
+                        'base58==1.0.0',
+                        'orderedset==2.0',
+                        'sortedcontainers==1.5.7',
+                        'psutil==5.4.3',
+                        'pip<10.0.0',
+                        'portalocker==0.5.7',
+                        'libnacl==1.6.1',
+                        'six==1.11.0',
+                        'psutil==5.4.3',
+                        'intervaltree==2.1.0',
+                        'msgpack-python==0.4.6',
+                        'indy-crypto==0.4.5',
+                        'python-rocksdb==0.6.9',
+                        'python-dateutil==2.6.1',
+                        'pympler==0.5',
+                        'packaging==19.0',
+                      ],
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,

@@ -47,8 +47,7 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
 
     def chk(key, nodes, present):
         for node in nodes:
-            assert (
-                           key in node.master_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == present
+            assert (key in node.master_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == present
 
     for req in reqs:
         chk(req.digest, fast_nodes, False)
