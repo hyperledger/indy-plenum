@@ -64,10 +64,11 @@ def test_set_H_greater_then_last_ppseqno(looper,
     for r in new_node.replicas.values():
         assert r.stasher.stash_size(STASH_WATERMARKS) == 0
 
-    """Force view change and check, that all backup replicas will reset watermarks"""
+    """Force view change and check, that all backup replicas will not reset watermarks"""
+    h_before = new_node.replicas[1].h
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
     for r in new_node.replicas.values():
         if not r.isMaster:
-            assert r.h == 0
-            assert r.H == LOG_SIZE
+            assert r.h == h_before
+            assert r.H == h_before + LOG_SIZE

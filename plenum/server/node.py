@@ -569,7 +569,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def primaries(self):
-        return self._primaries
+        return self.master_replica._consensus_data.primaries
 
     @primaries.setter
     def primaries(self, ps):

@@ -2273,6 +2273,9 @@ class OrderingService:
             else:
                 self._process_pre_prepare_from_old_view(pp)
 
+        if not msg.batches:
+            self._write_manager.future_primary_handler.set_node_state()
+
         if missing_batches:
             self._request_old_view_pre_prepares(missing_batches)
 
