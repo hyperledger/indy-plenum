@@ -357,8 +357,8 @@ class ViewChanger():
     def on_catchup_complete(self):
         if not self.provider.is_node_synced():
             raise LogicError('on_catchup_complete can be called only after catchup completed')
-        if not self.provider.is_primary() is None:
-            raise LogicError('Primary on master replica cannot be elected yet')
+        # if not self.provider.is_primary() is None:
+        #     raise LogicError('Primary on master replica cannot be elected yet')
         self._send_view_change_done_message()
         self._start_selection()
 
