@@ -82,6 +82,10 @@ class ViewChangeService:
 
         if not self._data.is_master:
             self._data.waiting_for_new_view = False
+            self._bus.send(NewViewAccepted(view_no=view_no,
+                                           view_changes=None,
+                                           checkpoint=None,
+                                           batches=None))
             return
 
         # 4. Build ViewChange message
