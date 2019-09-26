@@ -2246,8 +2246,6 @@ class OrderingService:
         # 4. clear all 3pc messages
         self._clear_all_3pc_msgs()
 
-        self.batches.clear()
-
         # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None

@@ -149,8 +149,6 @@ def test_ordered_request_freed_on_replica_removal(looper,
     node = txnPoolNodeSet[0]
     # Stabilize checkpoint
     # Send one more request to stabilize checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
-                              1)
     old_stable_checkpoint = node.master_replica._consensus_data.stable_checkpoint
 
     with delay_rules(node.nodeIbStasher, cDelay(), msg_rep_delay(types_to_delay=[COMMIT])):
