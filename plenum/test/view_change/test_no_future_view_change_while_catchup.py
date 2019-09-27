@@ -33,6 +33,7 @@ def check_no_view_change(looper, node):
     check_future_vcd_count(node, 3)
 
 
+@pytest.mark.skip(reason="we don't use FutureViewChangeDone msg anymore")
 def test_no_propagated_future_view_change_until_synced(txnPoolNodeSet, looper, mode):
     # the last node is a lagging one, which will receive ViewChangeDone messages for future view
     viewNo = checkViewNoForNodes(txnPoolNodeSet)

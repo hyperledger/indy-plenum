@@ -19,6 +19,7 @@ def tconf(tconf):
         yield tconf
 
 
+@pytest.mark.skip(reason="With new view change we don't clear requests")
 def test_replica_clear_collections_after_view_change(looper,
                                                      txnPoolNodeSet,
                                                      sdk_pool_handle,

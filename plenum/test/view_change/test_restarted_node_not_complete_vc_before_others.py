@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.delayers import vcd_delay
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone
@@ -12,12 +14,14 @@ def complete_propagate_primary(node, expected_view_no):
     # assert node.view_changer._is_propagated_view_change_completed
 
 
+# ToDo: should we add a last_completed_view_no for consensus_shared_data?
 def get_last_completed_view_no(nodes):
-    completed_view_nos = set([node.view_changer.last_completed_view_no for node in nodes])
+    completed_view_nos = set([node.master_replica._consensus_data.view_no for node in nodes])
     assert len(completed_view_nos) == 1
     return completed_view_nos.pop()
 
 
+@pytest.mark.skip(reason="for now we don't have delayers for ViewChangeDone msgs")
 def test_restarted_node_complete_vc_by_current_state(looper,
                                                      txnPoolNodeSet,
                                                      tconf,

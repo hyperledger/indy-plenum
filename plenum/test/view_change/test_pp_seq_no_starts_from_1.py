@@ -19,7 +19,7 @@ def tconf(tconf, request):
 
 
 def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
-                                                 sdk_pool_handle, sdk_wallet_client):
+                                              sdk_pool_handle, sdk_wallet_client):
     # This test fails since last ordered pre-prepare sequence number is
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
 
@@ -36,7 +36,6 @@ def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
 
     new_view_no = ensure_view_change(looper, txnPoolNodeSet)
     assert new_view_no > old_view_no
-    batches_count += 1
     chk(batches_count)  # After view_change, master primary must initiate 3pc batch
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
