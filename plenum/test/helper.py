@@ -501,8 +501,9 @@ def check_last_ordered_3pc(node1, node2):
     master_replica_1 = node1.master_replica
     master_replica_2 = node2.master_replica
     assert master_replica_1.last_ordered_3pc == master_replica_2.last_ordered_3pc, \
-        "{} != {}".format(master_replica_1.last_ordered_3pc,
-                          master_replica_2.last_ordered_3pc)
+        "{} != {} Node1: {}, Node2: {}".format(master_replica_1.last_ordered_3pc,
+                                               master_replica_2.last_ordered_3pc,
+                                               node1, node2)
     return master_replica_1.last_ordered_3pc
 
 
