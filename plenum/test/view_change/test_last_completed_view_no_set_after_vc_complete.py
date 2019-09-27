@@ -1,8 +1,11 @@
+import pytest
+
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
 
+@pytest.mark.skip(reason="we don't set last_completed_view_no yet")
 def test_set_last_completed_view_no_after_vc_complete(txnPoolNodeSet, looper):
     """
     Check that view change is done when no txns in the ldegr

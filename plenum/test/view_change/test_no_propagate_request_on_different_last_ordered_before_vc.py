@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from plenum.server.node import Node
 from plenum.test.delayers import cDelay, pDelay, ppDelay, icDelay
 from plenum.test.helper import sdk_send_random_and_check, \
@@ -8,15 +10,17 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change
+from plenum.test.waits import expectedTransactionExecutionTime
 from stp_core.loop.eventually import eventually
 
 
+@pytest.mark.skip(reason="For now all of delayed requests will be reordered")
 def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(looper, txnPoolNodeSet,
                                                                             sdk_pool_handle, sdk_wallet_client):
     '''
     1. Send random request
     2. Make 3 node on backup instance slow in getting commits
-    3. Send random reuest
+    3. Send random request
     4. do view change
     5. reset delays
     => we expect that all nodes and all instances have the same last ordered
@@ -71,6 +75,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
                for node in txnPoolNodeSet)
 
 
+@pytest.mark.skip(reason="For now all of delayed requests will be reordered")
 def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, txnPoolNodeSet,
                                                                         sdk_pool_handle, sdk_wallet_client):
     '''
