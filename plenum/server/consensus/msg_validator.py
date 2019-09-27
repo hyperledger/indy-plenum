@@ -95,7 +95,7 @@ class CheckpointMsgValidator:
         # 4. Check if from future view
         if view_no > self._data.view_no:
             return STASH_VIEW, FUTURE_VIEW
-        if view_no == self._data.view_no and self._data.legacy_vc_in_progress:
+        if view_no == self._data.view_no and self._data.waiting_for_new_view:
             return STASH_VIEW, FUTURE_VIEW
 
         # 3. Check if Participating
