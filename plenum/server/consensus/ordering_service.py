@@ -2262,6 +2262,8 @@ class OrderingService:
 
         self._logger.info("{} processing {}".format(self, msg))
 
+        self.primaries_batch_needed = True
+
         # apply PrePrepares from NewView that we have
         # request missing PrePrepares from NewView
         missing_batches = []
