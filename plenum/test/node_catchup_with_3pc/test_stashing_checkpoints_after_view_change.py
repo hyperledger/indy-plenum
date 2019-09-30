@@ -73,7 +73,7 @@ def test_checkpoints_after_view_change(tconf,
                                       num_reqs)
             looper.run(
                 eventually(check_last_ordered_3pc_on_master, rest_nodes,
-                           (1, num_reqs))
+                           (1, num_reqs + 1))
             )
             looper.run(
                 eventually(check_last_ordered_3pc_on_backup, rest_nodes,
@@ -100,7 +100,7 @@ def test_checkpoints_after_view_change(tconf,
     # check that last_ordered is set
     looper.run(
         eventually(check_last_ordered_3pc_on_master, [lagging_node],
-                   (1, num_reqs))
+                   (1, num_reqs + 1))
     )
     looper.run(
         eventually(check_last_ordered_3pc_on_backup, [lagging_node],
