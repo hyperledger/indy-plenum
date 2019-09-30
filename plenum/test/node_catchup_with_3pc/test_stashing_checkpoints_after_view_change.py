@@ -108,7 +108,7 @@ def test_checkpoints_after_view_change(tconf,
     )
 
     # check that checkpoint is stabilized for master
-    looper.run(eventually(check_for_instance, txnPoolNodeSet[:2], 0, check_stable_checkpoint, 10))
+    looper.run(eventually(check_for_instance, [lagging_node], 0, check_stable_checkpoint, 10))
 
     # check that the catch-up didn't happen
     assert lagging_node.mode == Mode.participating
