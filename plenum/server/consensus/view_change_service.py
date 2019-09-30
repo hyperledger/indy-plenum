@@ -86,6 +86,7 @@ class ViewChangeService:
                                            view_changes=None,
                                            checkpoint=None,
                                            batches=None))
+            self._router.process_all_stashed(STASH_WAITING_NEW_VIEW)
             return
 
         # 4. Build ViewChange message
