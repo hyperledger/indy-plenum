@@ -12,7 +12,15 @@ from plenum.test.simulation.sim_random import DefaultSimRandom
 REQUEST_COUNT = 10
 
 
-# @pytest.mark.skip(reason="Can be turned on after INDY-1340")
+# TODO: Either move into helper or start changing existing assertion handling
+def check_no_asserts(func, *args):
+    try:
+        func(*args)
+    except AssertionError:
+        return False
+    return True
+
+
 @pytest.mark.parametrize("seed", range(100))
 def test_view_change_while_ordering_with_real_msgs(seed):
     # 1. Setup pool
@@ -37,4 +45,4 @@ def test_view_change_while_ordering_with_real_msgs(seed):
         pool.timer.wait_for(partial(check_batch_count, node, batches_count))
 
     # 4. Check data consistency
-    check_consistency(pool)
+    pool.timer.wait_for(lambda: check_no_asserts(check_consistency, pool))

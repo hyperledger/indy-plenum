@@ -9,7 +9,8 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW, STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP, \
-    ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER
+    ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER, \
+    INCORRECT_PP_SEQ_NO
 
 
 class OrderingServiceMsgValidator:
@@ -98,6 +99,9 @@ class OrderingServiceMsgValidator:
         view_no = getattr(msg, f.VIEW_NO.nm, None)
 
         # DISCARD CHECKS first
+        # pp_seq_no cannot be 0
+        if pp_seq_no == 0:
+            return DISCARD, INCORRECT_PP_SEQ_NO
 
         # Check if below lower watermark (meaning it's already ordered)
         if pp_seq_no <= self._data.low_watermark:

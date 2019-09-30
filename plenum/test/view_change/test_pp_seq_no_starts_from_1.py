@@ -19,7 +19,7 @@ def tconf(tconf, request):
 
 
 def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
-                                                 sdk_pool_handle, sdk_wallet_client):
+                                              sdk_pool_handle, sdk_wallet_client):
     # This test fails since last ordered pre-prepare sequence number is
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
 

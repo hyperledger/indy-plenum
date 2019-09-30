@@ -36,13 +36,12 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     )
     node.view_changer = node.newViewChanger()
     node.view_changer.pre_vc_strategy = VCStartMsgStrategy(node.view_changer, node)
-    node.view_changer.view_no = 0
+    node.master_replica._consensus_data.view_no = 0
     node.master_replica.primaryName = 'Alpha'
     """Initiate view_change procedure"""
     node.view_changer.start_view_change(1)
-    assert len(node.nodeInBox) == 1
-    m = node.nodeInBox[0]
-    assert isinstance(m[0], ViewChangeStartMessage)
+    # We don't use a view_change_strategy anymore
+    assert len(node.nodeInBox) == 0
     """
     Imitate that nodestack.service was called and 
     those of next messages are put into nodeInBox queue
@@ -58,8 +57,8 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     all of 3PC messages must be moved to replica's inBox queue
     """
     looper.run(node.processNodeInBox())
-    """3 3PC msgs and 1 is ViewChangeContinuedMessage"""
-    assert len(node.master_replica.inBox) == 4
+    """3 3PC msgs"""
+    assert len(node.master_replica.inBox) == 3
     """Check the order of msgs"""
     m = node.master_replica.inBox.popleft()
     assert isinstance(m[0], PrePrepare)
@@ -67,5 +66,3 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     assert isinstance(m[0], Prepare)
     m = node.master_replica.inBox.popleft()
     assert isinstance(m[0], Commit)
-    m = node.master_replica.inBox.popleft()
-    assert isinstance(m, ViewChangeContinueMessage)

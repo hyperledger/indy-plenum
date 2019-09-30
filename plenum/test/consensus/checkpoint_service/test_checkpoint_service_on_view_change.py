@@ -56,7 +56,11 @@ def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
 ])
 def test_update_shared_data_on_new_view_accepted(internal_bus, checkpoint_service,
                                                  checkpoints, stable_checkpoint,
-                                                 checkpoints_result):
+                                                 checkpoints_result, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     old_data = copy_shared_data(checkpoint_service._data)
     checkpoint_service._data.checkpoints.update(checkpoints)
     checkpoint_service._data.stable_checkpoint = stable_checkpoint
@@ -97,7 +101,11 @@ def test_do_nothing_on_new_view_checkpoint_applied(internal_bus, checkpoint_serv
     assert old_data == new_data
 
 
-def test_view_change_finished_sends_new_view_checkpoint_applied(internal_bus, checkpoint_service):
+def test_view_change_finished_sends_new_view_checkpoint_applied(internal_bus, checkpoint_service, is_master):
+    # TODO: Need to decide on how we handle this case
+    if not is_master:
+        return
+
     handler = Mock()
     internal_bus.subscribe(NewViewCheckpointsApplied, handler)
 

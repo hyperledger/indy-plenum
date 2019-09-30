@@ -71,12 +71,14 @@ def pre_vc_strategy(view_changer, fake_node):
     return strategy
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_set_is_preparing_on_first_prepare_view_change_call(pre_vc_strategy):
     pre_vc_strategy.is_preparing = False
     pre_vc_strategy.prepare_view_change(1)
     assert pre_vc_strategy.is_preparing
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_set_req_handlers_on_first_prepare_view_change_call(pre_vc_strategy):
     pre_vc_strategy.is_preparing = False
     pre_vc_strategy.prepare_view_change(1)
@@ -93,6 +95,7 @@ def test_set_req_handlers_on_first_prepare_view_change_call(pre_vc_strategy):
     assert VCStartMsgStrategy.on_view_change_continued.__name__ in str(req_handler)
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_add_vc_start_msg(pre_vc_strategy):
     pre_vc_strategy.is_preparing = False
     pre_vc_strategy.prepare_view_change(1)
@@ -105,18 +108,21 @@ def test_add_vc_start_msg(pre_vc_strategy):
     assert isinstance(m[0], ViewChangeStartMessage)
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_do_not_add_vcs_msg_if_is_preparing_true(pre_vc_strategy):
     pre_vc_strategy.is_preparing = True
     pre_vc_strategy.prepare_view_change(1)
     assert len(pre_vc_strategy.node.nodeInBox) == 0
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_do_not_set_req_handlers_if_is_preparing_true(pre_vc_strategy):
     pre_vc_strategy.is_preparing = True
     pre_vc_strategy.prepare_view_change(1)
     assert len(pre_vc_strategy.node.nodeMsgRouter.routes) == 0
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_not_continue_vc_with_proposed_view_no_less_then_current(pre_vc_strategy, looper):
     pre_vc_strategy.view_changer.view_no = 2
     looper.run(pre_vc_strategy.on_view_change_started(pre_vc_strategy.node,
@@ -125,6 +131,7 @@ def test_not_continue_vc_with_proposed_view_no_less_then_current(pre_vc_strategy
     assert len(pre_vc_strategy.replica.inBox) == 0
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_add_vc_continued_msg_on_view_change_started(pre_vc_strategy, looper):
     pre_vc_strategy.view_changer.view_no = 1
     looper.run(pre_vc_strategy.on_view_change_started(pre_vc_strategy.node,
@@ -135,6 +142,7 @@ def test_add_vc_continued_msg_on_view_change_started(pre_vc_strategy, looper):
     assert isinstance(m, ViewChangeContinueMessage)
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_stash_not_3PC_msgs(pre_vc_strategy, looper):
     node = pre_vc_strategy.node
     pre_vc_strategy.view_changer.view_no = 1
@@ -152,6 +160,7 @@ def test_stash_not_3PC_msgs(pre_vc_strategy, looper):
     assert pre_vc_strategy.stashedNodeInBox.popleft() == m2
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_the_same_order_as_in_NodeInBox_after_vc_continued(pre_vc_strategy):
     replica = pre_vc_strategy.replica
     pre_vc_strategy.view_changer.view_no = 1
@@ -166,6 +175,7 @@ def test_the_same_order_as_in_NodeInBox_after_vc_continued(pre_vc_strategy):
     assert pre_vc_strategy.node.nodeInBox.popleft() == m2
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_is_preparing_to_False_after_vc_continue(pre_vc_strategy):
     replica = pre_vc_strategy.replica
     pre_vc_strategy.is_preparing = True
@@ -173,6 +183,7 @@ def test_is_preparing_to_False_after_vc_continue(pre_vc_strategy):
     assert pre_vc_strategy.is_preparing == False
 
 
+@pytest.mark.skip(reason="we don't use strategy now")
 def test_get_msgs_from_rxMsgs_queue(create_node_and_not_start, looper):
     node = create_node_and_not_start
     node.view_changer = create_view_changer(node)
