@@ -30,7 +30,7 @@ from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP, STASH_WAITING_NEW_VIEW
 from plenum.server.request_handlers.utils import VALUE
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
@@ -2679,7 +2679,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_MASTER,
                                self.master_replica.stasher.stash_size(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_MASTER,
-                               self.master_replica.stasher.stash_size(STASH_VIEW))
+                               self.master_replica.stasher.stash_size(STASH_WAITING_NEW_VIEW))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_MASTER,
                                self.master_replica.stasher.stash_size(STASH_WATERMARKS))
 
@@ -2756,7 +2756,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_BACKUP,
                                sum_stashed_for_backups(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_BACKUP,
-                               sum_stashed_for_backups(STASH_VIEW))
+                               sum_stashed_for_backups(STASH_WAITING_NEW_VIEW))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_BACKUP,
                                sum_stashed_for_backups(STASH_WATERMARKS))
 

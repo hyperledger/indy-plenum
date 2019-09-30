@@ -132,7 +132,7 @@ class OrderingServiceMsgValidator:
 
         # Check if from future view
         if view_no > self._data.view_no:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_WAITING_NEW_VIEW, FUTURE_VIEW
 
         # Check if catchup is in progress
         if not self._data.is_participating:

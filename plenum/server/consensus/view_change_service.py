@@ -19,7 +19,7 @@ from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.quorums import Quorums
 from plenum.server.replica_helper import generateName, getNodeName
-from plenum.server.replica_validator_enums import STASH_VIEW
+from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WAITING_NEW_VIEW
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
@@ -100,7 +100,7 @@ class ViewChangeService:
         self.view_change_votes.add_view_change(vc, self._data.name)
 
         # 6. Unstash messages for new view
-        self._router.process_all_stashed(STASH_VIEW)
+        self._router.process_all_stashed(STASH_WAITING_NEW_VIEW)
 
         # 7. Restart instance change timer
         self._resend_inst_change_timer.stop()
@@ -287,7 +287,8 @@ class ViewChangeService:
 
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
-
+        # Unstash messages for new view
+        self._router.process_all_stashed(STASH_WAITING_NEW_VIEW)
         # send message to other services
         self._bus.send(NewViewAccepted(view_no=self._new_view.viewNo,
                                        view_changes=self._new_view.viewChanges,
