@@ -2,6 +2,7 @@ import pytest
 
 from plenum.test.helper import perf_monitor_disabled
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.view_change_with_delays.helper import do_view_change_with_pending_request_and_one_fast_node
 
 # This is needed only with current view change implementation to give enough time
@@ -29,3 +30,4 @@ def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
                                                           looper, sdk_pool_handle, sdk_wallet_client)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    # sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

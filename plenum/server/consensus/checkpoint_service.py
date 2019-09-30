@@ -309,6 +309,8 @@ class CheckpointService:
         return audit_ledger.hashToStr(root_hash)
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
+        if not self.is_master:
+            return
         # 1. update shared data
         cp = msg.checkpoint
         if cp not in self._data.checkpoints:

@@ -22,7 +22,7 @@ def test_view_change_with_next_primary_stopped_and_one_node_lost_commit(looper, 
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
 
         disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, next_primary)
-        trigger_view_change(other_nodes, current_view_no + 1)
+        trigger_view_change(other_nodes)
 
     ensureElectionsDone(looper, other_nodes,
                         instances_list=range(2), customTimeout=15)

@@ -18,8 +18,18 @@ from stp_core.loop.eventually import eventually
 logger = getlogger()
 
 
+def check_master_pp_seq_nos_are_equal(node1, node2):
+    assert node1.master_replica.last_ordered_3pc[1] == node2.master_replica.last_ordered_3pc[1]
+
+
+def check_backup_pp_seq_nos_are_equal(node1, node2):
+    for r_id, replica1 in node1.replicas.items:
+        assert replica1.last_ordered_3pc[1] == node2.replicas[r_id].last_ordered_3pc[1]
+
+
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
+
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: TestNode,
                              exclude_from_check=None,
@@ -35,12 +45,12 @@ def checkNodeDataForEquality(node: TestNode,
     check_audit_ledger = not exclude_from_check or ('check_audit' not in exclude_from_check)
     for n in otherNodes:
         if not exclude_from_check or 'check_last_ordered_3pc' not in exclude_from_check:
-            check_last_ordered_3pc(node, n)
+            check_master_pp_seq_nos_are_equal(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc check")
 
         if include_in_check and 'check_last_ordered_3pc_backup' in include_in_check:
-            check_last_ordered_3pc_backup(node, n)
+            check_backup_pp_seq_nos_are_equal(node, n)
         else:
             logger.debug("Excluding check_last_ordered_3pc_backup check")
 

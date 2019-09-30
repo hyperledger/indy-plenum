@@ -1,6 +1,7 @@
 import logging
 from typing import Tuple, List, Set
 
+from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
 from plenum.server.quorums import Quorums
@@ -103,6 +104,16 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
 
     def schedule_resend_inst_chng(self):
         self._node.schedule_view_change_completion_check(self._node.config.INSTANCE_CHANGE_RESEND_TIMEOUT)
+
+    def start_view_change(self, proposed_view_no: int):
+        for replica in self._node.replicas.values():
+            replica.internal_bus.send(NeedViewChange(view_no=proposed_view_no))
+
+    def view_no(self):
+        return self._node.master_replica.viewNo
+
+    def view_change_in_progress(self):
+        return self._node.master_replica._consensus_data.waiting_for_new_view
 
 
 def create_view_changer(node, vchCls=ViewChanger):

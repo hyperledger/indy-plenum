@@ -38,9 +38,10 @@ def test_delay_commits_for_one_node(looper,
     with delay_rules_without_processing(delayed_node.nodeIbStasher, cDelay()):
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
 
-        trigger_view_change(txnPoolNodeSet, excepted_view_no)
+        trigger_view_change(txnPoolNodeSet)
         if vc_counts == 'twice':
-            trigger_view_change(txnPoolNodeSet, excepted_view_no)
+            for node in txnPoolNodeSet:
+                node.view_changer.start_view_change(current_view_no + 2)
 
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

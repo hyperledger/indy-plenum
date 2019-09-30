@@ -28,7 +28,7 @@ def test_lag_less_then_catchup(looper,
 
         # Send another txn. This txn will be reordered after view_change
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
-        trigger_view_change(txnPoolNodeSet, current_view_no + 1)
+        trigger_view_change(txnPoolNodeSet)
         ensureElectionsDone(looper, txnPoolNodeSet)
 
         assert delayed_node.master_replica.last_ordered_3pc == last_ordered_before

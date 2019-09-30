@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification
+    RequestPropagates, PreSigVerification, NewViewAccepted
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -558,7 +558,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # TODO not sure that this should be allowed
     @viewNo.setter
     def viewNo(self, value):
-        self.view_changer.view_no = value
+        for replica in self.replicas.values():
+            replica._consensus_data.view_no = value
 
     @property
     def view_change_in_progress(self):
@@ -568,7 +569,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def primaries(self):
-        return self._primaries
+        return self.master_replica._consensus_data.primaries
 
     @primaries.setter
     def primaries(self, ps):
@@ -658,7 +659,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.processStashedMsgsForView(self.viewNo)
 
         self.backup_instance_faulty_processor.restore_replicas()
-        self.drop_primaries()
+        # self.drop_primaries()
 
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.logNodeInfo()
@@ -3554,10 +3555,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
+    def _process_new_view_accerted(self, msg: NewViewAccepted):
+        for i in self.replicas.keys():
+            self.primary_selected(i)
+
     def _subscribe_to_internal_msgs(self):
         self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)
         self.replicas.subscribe_to_internal_bus(NeedMasterCatchup,
                                                 self._process_start_master_catchup_msg,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(NewViewAccepted,
+                                                self._process_new_view_accerted,
                                                 self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):

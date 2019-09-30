@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.skip(reason="we don't use INSTANCE_CHANGE msgs anymore")
 def test_instance_change_from_known(fake_view_changer):
     current_view = fake_view_changer.node.viewNo
     proposed_view = current_view + 1
@@ -9,6 +13,7 @@ def test_instance_change_from_known(fake_view_changer):
     assert fake_view_changer.instance_changes.has_inst_chng_from(proposed_view, frm)
 
 
+@pytest.mark.skip(reason="we don't use INSTANCE_CHANGE msgs anymore")
 def test_instance_change_from_unknown(fake_view_changer):
     current_view = fake_view_changer.node.viewNo
     proposed_view = current_view + 1

@@ -21,7 +21,7 @@ def last_prepared_certificate(nodes):
     """
 
     def patched_last_prepared_certificate(n):
-        result = n.master_replica.last_prepared_certificate_in_view()
+        result = n.master_replica._ordering_service.l_last_prepared_certificate_in_view()
         if result is None:
             result = (n.master_replica.viewNo, 0)
         return result
@@ -33,7 +33,8 @@ def check_last_prepared_certificate_on_quorum(nodes, num):
     # Check that last_prepared_certificate reaches some 3PC key on N-f nodes
     n = len(nodes)
     f = getMaxFailures(n)
-    assert sum(1 for n in nodes if n.master_replica.last_prepared_certificate_in_view() == num) >= n - f
+    assert sum(1 for n in nodes
+               if n.master_replica._ordering_service.l_last_prepared_certificate_in_view() == num) >= n - f
 
 
 def check_last_prepared_certificate(nodes, num):

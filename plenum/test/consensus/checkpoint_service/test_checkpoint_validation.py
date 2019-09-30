@@ -118,11 +118,3 @@ def test_check_future_view(validator):
                      inst_id=validator._data.inst_id,
                      pp_seq_no=10)
     assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
-
-
-def test_check_view_chnange(validator):
-    validator._data.legacy_vc_in_progress = True
-    msg = checkpoint(view_no=validator._data.view_no,
-                     inst_id=validator._data.inst_id,
-                     pp_seq_no=10)
-    assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
