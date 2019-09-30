@@ -1,5 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN, MULTI_SIGNATURE, AUDIT_LEDGER_ID, \
-    AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD
+    AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, STATE_PROOF
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.messages.node_messages import RequestNack, Reply
 from plenum.common.request import Request
@@ -51,7 +51,8 @@ class GetTxnHandler(ReadRequestHandler):
             if state_root is not None:
                 multi_sig = self.database_manager.bls_store.get(state_root)
                 if multi_sig:
-                    txn.result[MULTI_SIGNATURE] = multi_sig.as_dict()
+                    txn.result[STATE_PROOF] = {}
+                    txn.result[STATE_PROOF][MULTI_SIGNATURE] = multi_sig.as_dict()
         except KeyError:
             txn = None
 
