@@ -19,7 +19,8 @@ logger = getlogger()
 
 
 def check_master_pp_seq_nos_are_equal(node1, node2):
-    assert node1.master_replica.last_ordered_3pc[1] == node2.master_replica.last_ordered_3pc[1]
+    assert node1.master_replica.last_ordered_3pc[1] == node2.master_replica.last_ordered_3pc[1], \
+        "{} != {}".format(node1.master_replica.last_ordered_3pc, node2.master_replica.last_ordered_3pc)
 
 
 def check_backup_pp_seq_nos_are_equal(node1, node2):
