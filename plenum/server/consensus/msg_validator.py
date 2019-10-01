@@ -4,7 +4,7 @@ from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, STASH_VIEW_3PC, \
+from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, \
     FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, STASH_WATERMARKS, \
     OUTSIDE_WATERMARKS, INCORRECT_INSTANCE, ALREADY_STABLE, STASH_VIEW_3PC
 

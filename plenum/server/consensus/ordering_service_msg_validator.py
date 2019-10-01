@@ -8,7 +8,7 @@ from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, \
+from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, \
     ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER, \
     INCORRECT_PP_SEQ_NO
 

@@ -30,7 +30,7 @@ from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, STASH_VIEW_3PC
+from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_CATCH_UP, STASH_VIEW_3PC
 from plenum.server.request_handlers.utils import VALUE
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager

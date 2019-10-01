@@ -17,9 +17,8 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
-from plenum.server.quorums import Quorums
 from plenum.server.replica_helper import generateName, getNodeName
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
