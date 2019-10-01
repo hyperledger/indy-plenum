@@ -8,7 +8,7 @@ from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW, STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP, \
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, \
     ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER, \
     INCORRECT_PP_SEQ_NO
 
@@ -85,7 +85,7 @@ class OrderingServiceMsgValidator:
 
         # Check if waiting for new view
         if self._data.waiting_for_new_view:
-            return STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW
+            return STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW
 
         # Check if catchup is in progress
         if not self._data.is_participating:
@@ -116,7 +116,7 @@ class OrderingServiceMsgValidator:
 
         # Check if waiting for new view
         if self._data.waiting_for_new_view:
-            return STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW
+            return STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW
 
         # Check if above high watermarks
         if pp_seq_no is not None and pp_seq_no > self._data.high_watermark:
@@ -136,7 +136,7 @@ class OrderingServiceMsgValidator:
 
         # Check if from future view
         if view_no > self._data.view_no:
-            return STASH_WAITING_NEW_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
 
         # Check if catchup is in progress
         if not self._data.is_participating:

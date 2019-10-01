@@ -4,9 +4,9 @@ from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, STASH_VIEW, \
+from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, STASH_VIEW_3PC, \
     FUTURE_VIEW, OLD_VIEW, GREATER_PREP_CERT, STASH_CATCH_UP, CATCHING_UP, STASH_WATERMARKS, \
-    OUTSIDE_WATERMARKS, INCORRECT_INSTANCE, ALREADY_STABLE, STASH_WAITING_NEW_VIEW
+    OUTSIDE_WATERMARKS, INCORRECT_INSTANCE, ALREADY_STABLE, STASH_VIEW_3PC
 
 
 class ThreePCMsgValidator:
@@ -40,7 +40,7 @@ class ThreePCMsgValidator:
 
         # 4. Check viewNo
         if view_no > self._data.view_no:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
         if view_no < self._data.view_no - 1:
             return DISCARD, OLD_VIEW
         if view_no == self._data.view_no - 1:
@@ -53,7 +53,7 @@ class ThreePCMsgValidator:
             if compare_3PC_keys((view_no, pp_seq_no), self._data.legacy_last_prepared_before_view_change) < 0:
                 return DISCARD, GREATER_PREP_CERT
         if view_no == self._data.view_no and self._data.legacy_vc_in_progress:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
 
         # ToDo: we assume, that only is_participating needs checking orderability
         # If Catchup in View Change finished then process Commit messages
@@ -94,9 +94,9 @@ class CheckpointMsgValidator:
 
         # 4. Check if from future view
         if view_no > self._data.view_no:
-            return STASH_WAITING_NEW_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
         if view_no == self._data.view_no and self._data.waiting_for_new_view:
-            return STASH_WAITING_NEW_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
 
         # 3. Check if Participating
         if not self._data.is_participating:

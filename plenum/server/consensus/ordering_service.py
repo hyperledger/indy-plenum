@@ -47,7 +47,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -2281,7 +2281,7 @@ class OrderingService:
             self._request_old_view_pre_prepares(missing_batches)
 
         # unstash waiting for New View messages
-        self._stasher.process_all_stashed(STASH_WAITING_NEW_VIEW)
+        self._stasher.process_all_stashed(STASH_VIEW_3PC)
 
         return PROCESS, None
 

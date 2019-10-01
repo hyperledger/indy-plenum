@@ -6,7 +6,7 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
-from plenum.server.replica_validator_enums import STASH_VIEW, STASH_WAITING_NEW_VIEW
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_VIEW_3PC
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint, check_for_instance
 from plenum.test.delayers import lsDelay, vcd_delay, nv_delay
@@ -120,4 +120,4 @@ def test_checkpoints_after_view_change(tconf,
 
 def get_stashed_checkpoints(node):
     return sum(
-        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_WAITING_NEW_VIEW] if isinstance(stashed, Checkpoint))
+        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_VIEW_3PC] if isinstance(stashed, Checkpoint))

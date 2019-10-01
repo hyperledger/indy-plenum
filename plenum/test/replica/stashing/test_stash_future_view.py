@@ -2,7 +2,7 @@ import pytest as pytest
 
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
 from plenum.common.startable import Mode
-from plenum.server.replica_validator_enums import STASH_VIEW
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.test.delayers import vcd_delay, msg_rep_delay
 from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -33,7 +33,7 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
     view_no = slow_node.viewNo
-    old_stashed = {inst_id: r.stasher.stash_size(STASH_VIEW)
+    old_stashed = {inst_id: r.stasher.stash_size(STASH_VIEW_3PC)
                    for inst_id, r in slow_node.replicas.items()}
     last_ordered = {inst_id: r.last_ordered_3pc
                     for inst_id, r in slow_node.replicas.items()}
@@ -59,8 +59,8 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
             # (len(txnPoolNodeSet) - 1) - commit msgs
             stashed_master_messages = 2 * (1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1))
             stashed_backup_messages = 2 * (1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1))
-            assert slow_node.master_replica.stasher.stash_size(STASH_VIEW) == old_stashed[0] + stashed_master_messages
-            assert all(r.stasher.stash_size(STASH_VIEW) == old_stashed[inst_id] + stashed_backup_messages
+            assert slow_node.master_replica.stasher.stash_size(STASH_VIEW_3PC) == old_stashed[0] + stashed_master_messages
+            assert all(r.stasher.stash_size(STASH_VIEW_3PC) == old_stashed[inst_id] + stashed_backup_messages
                        for inst_id, r in slow_node.replicas.items() if inst_id != 0)
             assert all(r.last_ordered_3pc == last_ordered[inst_id]
                        for inst_id, r in slow_node.replicas.items())
@@ -71,7 +71,7 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
                     assert r.last_ordered_3pc == (view_no + 1, 2)
                 else:
                     assert r.last_ordered_3pc == (view_no + 1, 2)
-                assert r.stasher.stash_size(STASH_VIEW) == old_stashed[inst_id]
+                assert r.stasher.stash_size(STASH_VIEW_3PC) == old_stashed[inst_id]
 
         looper.run(eventually(chk))
         waitNodeDataEquality(looper, slow_node, *fast_nodes)
