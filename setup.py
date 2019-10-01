@@ -29,7 +29,6 @@ with open(metadata['__file__'], 'r') as f:
 
 tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.11.0-dev-1282', 'pytest-asyncio==0.8.0']
 
-
 class PyZMQCommand(distutils.cmd.Command):
     description = 'pyzmq install target'
 
