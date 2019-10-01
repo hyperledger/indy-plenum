@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.util import SortedDict
-from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.messages.node_messages import PrePrepare, Commit
 
 # from plenum.test.replica.conftest import *
 from plenum.server.replica_helper import generateName
@@ -128,11 +128,12 @@ def test_ts_is_set_for_stahed_pp(primary_orderer, ts_now, sender, pp, sender_ord
     assert primary_orderer.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp, sender_orderer] == ts_now
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_ts_is_not_set_for_non_pp(primary_orderer, ts_now, sender, pp, sender_orderer):
-    pp = FakeSomethingHashable(**pp.__dict__)
     primary_orderer.process_prepare(pp, sender_orderer)
-    primary_orderer.process_commit(pp, sender_orderer)
+    primary_orderer.process_commit(Commit(pp.instId,
+                                          pp.viewNo,
+                                          pp.ppSeqNo),
+                                   sender_orderer)
     assert len(primary_orderer.pre_prepare_tss) == 0
 
 

@@ -21,7 +21,8 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
-    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized
+    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
+    ReOrderedInNewView
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     MessageReq, OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -2282,6 +2283,7 @@ class OrderingService:
 
         # unstash waiting for New View messages
         self._stasher.process_all_stashed(STASH_VIEW_3PC)
+        self._bus.send(ReOrderedInNewView())
 
         return PROCESS, None
 
