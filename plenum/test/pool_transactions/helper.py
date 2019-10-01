@@ -317,7 +317,8 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                          client_ip, client_port,
                          services=[VALIDATOR],
                          bls_key=None,
-                         key_proof=None):
+                         key_proof=None,
+                         pool_refresh=True):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
     node_request = looper.loop.run_until_complete(
@@ -338,7 +339,8 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
 
     # waitng for replies
     reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    if pool_refresh:
+        sdk_pool_refresh(looper, sdk_pool_handle)
     return reply
 
 
