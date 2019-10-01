@@ -34,7 +34,7 @@ def test_lag_less_then_catchup(looper,
         assert delayed_node.master_replica.last_ordered_3pc == last_ordered_before
 
     # Send txns for stabilize checkpoint on other nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ - 1)
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ - 1)
 
     pool_pp_seq_no = get_pp_seq_no(other_nodes)
     looper.run(eventually(lambda: assertExp(delayed_node.master_replica.last_ordered_3pc[1] == pool_pp_seq_no)))

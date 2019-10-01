@@ -311,10 +311,14 @@ class CheckpointService:
     def process_new_view_accepted(self, msg: NewViewAccepted):
         if not self.is_master:
             return
-        # 1. update shared data
+        # do not update stable checkpoints if the node doesn't have this checkpoint
+        # the node is lagging behind in this case and will start catchup after receiving one more quorum of checkpoints
+        # from other nodes
         cp = msg.checkpoint
         if cp not in self._data.checkpoints:
-            self._data.checkpoints.append(cp)
+            return PROCESS, None
+
+        # 1. update shared data
         self._mark_checkpoint_stable(cp.seqNoEnd)
         self.set_watermarks(low_watermark=cp.seqNoEnd)
 

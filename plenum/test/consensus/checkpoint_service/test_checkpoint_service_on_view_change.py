@@ -22,27 +22,32 @@ def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
     assert old_data == new_data
 
 
-@pytest.mark.parametrize('checkpoints, stable_checkpoint, checkpoints_result', [
+@pytest.mark.parametrize('checkpoints, stable_checkpoint, checkpoints_result, stable_cp_result', [
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
+     200),
 
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))],
      0,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))],
+     0),
 
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100))],
      0,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100))],
+     0),
 
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100))],
+     100),
 
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100)),
       Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
      100,
-     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))]),
+     [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))],
+     200),
 
     ([Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=100, digest=cp_digest(100)),
       Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200)),
@@ -51,17 +56,19 @@ def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
      100,
      [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200)),
       Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=300, digest=cp_digest(300)),
-      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest=cp_digest(400))]),
+      Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=400, digest=cp_digest(400))],
+     200),
 
 ])
 def test_update_shared_data_on_new_view_accepted(internal_bus, checkpoint_service,
                                                  checkpoints, stable_checkpoint,
-                                                 checkpoints_result, is_master):
+                                                 checkpoints_result, stable_cp_result, is_master):
     # TODO: Need to decide on how we handle this case
     if not is_master:
         return
 
     old_data = copy_shared_data(checkpoint_service._data)
+    checkpoint_service._data.checkpoints.clear()
     checkpoint_service._data.checkpoints.update(checkpoints)
     checkpoint_service._data.stable_checkpoint = stable_checkpoint
     checkpoint_service._data.low_watermark = stable_checkpoint
@@ -78,8 +85,8 @@ def test_update_shared_data_on_new_view_accepted(internal_bus, checkpoint_servic
     check_service_changed_only_owned_fields_in_shared_data(CheckpointService, old_data, new_data)
 
     assert list(checkpoint_service._data.checkpoints) == checkpoints_result
-    assert checkpoint_service._data.stable_checkpoint == 200
-    assert checkpoint_service._data.low_watermark == 200
+    assert checkpoint_service._data.stable_checkpoint == stable_cp_result
+    assert checkpoint_service._data.low_watermark == stable_cp_result
     assert checkpoint_service._data.high_watermark == checkpoint_service._data.low_watermark + 300
 
 
