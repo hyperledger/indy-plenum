@@ -117,6 +117,9 @@ def test_view_change_finished_sends_new_view_checkpoint_applied(internal_bus, ch
     internal_bus.subscribe(NewViewCheckpointsApplied, handler)
 
     initial_view_no = 3
+    checkpoint_service._data.checkpoints.clear()
+    checkpoint_service._data.checkpoints.update(
+        [Checkpoint(instId=0, viewNo=3, seqNoStart=0, seqNoEnd=200, digest=cp_digest(200))])
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200)
     internal_bus.send(NewViewAccepted(view_no=initial_view_no + 1,
                                       view_changes=new_view.viewChanges,
