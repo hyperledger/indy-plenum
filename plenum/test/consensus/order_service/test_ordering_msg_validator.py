@@ -6,8 +6,8 @@ from plenum.common.startable import Mode
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import generateName
-from plenum.server.replica_validator_enums import PROCESS, DISCARD, STASH_VIEW, STASH_CATCH_UP, STASH_WATERMARKS, \
-    STASH_WAITING_NEW_VIEW, OLD_VIEW, OUTSIDE_WATERMARKS, ALREADY_ORDERED, CATCHING_UP, FUTURE_VIEW, \
+from plenum.server.replica_validator_enums import PROCESS, DISCARD, STASH_VIEW_3PC, STASH_CATCH_UP, STASH_WATERMARKS, \
+    STASH_VIEW_3PC, OLD_VIEW, OUTSIDE_WATERMARKS, ALREADY_ORDERED, CATCHING_UP, FUTURE_VIEW, \
     WAITING_FOR_NEW_VIEW, NON_MASTER
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.greek import genNodeNames
@@ -187,28 +187,28 @@ def test_stash_while_catchup(validator, view_no, mode, result):
 
 
 def test_stash_future_view(validator, view_no):
-    assert validator.validate_pre_prepare(pre_prepare(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_prepare(prepare(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_commit(commit(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_new_view(new_view(view_no + 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_pre_prepare(pre_prepare(view_no + 1, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_prepare(prepare(view_no + 1, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_commit(commit(view_no + 1, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_new_view(new_view(view_no + 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
 
-    assert validator.validate_pre_prepare(pre_prepare(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_prepare(prepare(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_commit(commit(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_new_view(new_view(view_no + 2)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_pre_prepare(pre_prepare(view_no + 2, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_prepare(prepare(view_no + 2, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_commit(commit(view_no + 2, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_new_view(new_view(view_no + 2)) == (STASH_VIEW_3PC, FUTURE_VIEW)
 
 
 def test_stash_waiting_for_new_view_3pc(validator, view_no):
     validator._data.waiting_for_new_view = True
-    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
-    assert validator.validate_prepare(prepare(view_no, 1)) == (STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
-    assert validator.validate_commit(commit(view_no, 1)) == (STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_prepare(prepare(view_no, 1)) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_commit(commit(view_no, 1)) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
 
 
 def test_stash_waiting_for_new_view_old_view_pp_rep(validator, view_no):
     validator._data.waiting_for_new_view = True
     assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (
-        STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
+        STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
 
 
 def test_process_waiting_for_new_view_old_view_pp_req(validator, view_no):
