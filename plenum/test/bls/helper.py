@@ -124,7 +124,8 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                        add_wrong=False,
                        new_bls=None,
                        new_key_proof=None,
-                       check_functional=True):
+                       check_functional=True,
+                       pool_refresh=True):
     if add_wrong:
         _, new_blspk, key_proof = create_default_bls_crypto_factory().generate_bls_keys()
     else:
@@ -139,11 +140,13 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
                          None, None,
                          bls_key=key_in_txn,
                          services=None,
-                         key_proof=bls_key_proof)
+                         key_proof=bls_key_proof,
+                         pool_refresh=pool_refresh)
     poolSetExceptOne = list(txnPoolNodeSet)
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    if pool_refresh:
+        sdk_pool_refresh(looper, sdk_pool_handle)
     if check_functional:
         sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
@@ -173,7 +176,8 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
                          sdk_wallet_stewards,
                          sdk_wallet_client,
                          sdk_pool_handle,
-                         add_wrong=False):
+                         add_wrong=False,
+                         pool_refresh=True):
     # 1. Change BLS key for a specified NODE
     node = txnPoolNodeSet[node_num]
     sdk_wallet_steward = sdk_wallet_stewards[node_num]
@@ -181,7 +185,8 @@ def check_update_bls_key(node_num, saved_multi_sigs_count,
                                    node,
                                    sdk_pool_handle,
                                    sdk_wallet_steward,
-                                   add_wrong)
+                                   add_wrong,
+                                   pool_refresh=pool_refresh)
 
     # 2. Check that all Nodes see the new BLS key value
     check_bls_key(new_blspk, node, txnPoolNodeSet, add_wrong)

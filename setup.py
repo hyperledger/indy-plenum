@@ -27,7 +27,7 @@ metadata = {'__file__': os.path.join(here, 'plenum', '__metadata__.py')}
 with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
-tests_require = ['pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.11.0-dev-1282', 'pytest-asyncio==0.8.0']
+tests_require = ['attrs==19.1.0', 'pytest==3.3.1', 'pytest-xdist==1.22.1', 'python3-indy==1.11.1-dev-1343', 'pytest-asyncio==0.8.0']
 
 
 class PyZMQCommand(distutils.cmd.Command):
