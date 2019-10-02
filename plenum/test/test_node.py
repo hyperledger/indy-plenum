@@ -373,10 +373,8 @@ class TestNode(TestNodeCore, Node):
 
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
-    ViewChanger._do_view_change_by_future_vcd,
     ViewChanger.process_instance_change_msg,
-    ViewChanger.start_view_change,
-    ViewChanger.process_future_view_vchd_msg
+    ViewChanger.start_view_change
 ]
 
 

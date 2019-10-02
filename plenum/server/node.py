@@ -73,9 +73,9 @@ from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Batch, \
     RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
-    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    ConsistencyProof, CatchupReq, CatchupRep, \
     MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone, BackupInstanceFaulty, OldViewPrePrepareRequest, OldViewPrePrepareReply, \
+    ObservedData, BackupInstanceFaulty, OldViewPrePrepareRequest, OldViewPrePrepareReply, \
     ViewChange, ViewChangeAck, NewView
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
@@ -423,7 +423,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # signature verification
         self.authnWhitelist = (
             Batch,
-            ViewChangeDone,
             PrePrepare,
             Prepare,
             Checkpoint,
@@ -449,7 +448,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
             (InstanceChange, self.sendToViewChanger),
-            (ViewChangeDone, self.sendToViewChanger),
             (MessageReq, self.route_message_req),
             (MessageRep, self.route_message_rep),
             (PrePrepare, self.sendToReplica),
@@ -1417,10 +1415,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, (InstanceChange, ViewChangeDone)):
-            self.sendToViewChanger(msg, frm)
-            return True
-        elif isinstance(msg, ThreePhaseType):
+        if isinstance(msg, ThreePhaseType):
             self.sendToReplica(msg, frm)
             return True
         else:
@@ -1516,7 +1511,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.view_changer.outBox and (not limit or msgCount < limit):
             msgCount += 1
             msg = self.view_changer.outBox.popleft()
-            if isinstance(msg, (InstanceChange, ViewChangeDone)):
+            if isinstance(msg, InstanceChange):
                 self.send(msg)
             else:
                 logger.error("Received msg {} and don't know how to handle it".
@@ -1611,17 +1606,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(view_no), logMethod=logger.warning)
-        if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
-            self.discard(msg, "Proposed viewNo {} less, then current {}"
-                         .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or self._is_initial_view_change_now():
+        if (view_no > self.viewNo) or self._is_initial_view_change_now():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
-            if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg)
-                self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
         return False
@@ -2040,11 +2029,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
 
             self.no_more_catchups_needed()
-
-            if self.view_change_in_progress:
-                self.view_changer.on_catchup_complete()
-            else:
-                self.select_primaries_on_catchup_complete()
+            self.select_primaries_on_catchup_complete()
 
     def select_primaries_on_catchup_complete(self):
         # Select primaries after usual catchup (not view change)
@@ -2622,9 +2607,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_NEXT_VIEW_INDICATIONS,
-                               len(self.view_changer._next_view_indications))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_VIEW_CHANGE_DONE, len(self.view_changer._view_change_done))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))

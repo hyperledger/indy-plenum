@@ -20,7 +20,6 @@ from plenum.test.testing_utils import FakeSomething
 from stp_core.types import HA
 
 from plenum.common.startable import Mode
-from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
@@ -259,78 +258,3 @@ def test_has_view_change_quorum_must_contain_primary(tconf, tdir):
     declare('Node2')
     assert node.view_changer._hasViewChangeQuorum
     assert node.view_changer.has_view_change_from_primary
-
-
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
-def test_process_view_change_done(tdir, tconf):
-    ledgerInfo = (
-        # ledger id, ledger length, merkle root
-        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
-        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
-    )
-    msg = ViewChangeDone(viewNo=0,
-                         name='Node2',
-                         ledgerInfo=ledgerInfo)
-    node = FakeNode(str(tdir), tconf)
-    quorum = node.view_changer.quorum
-    for i in range(quorum):
-        node.view_changer.process_vchd_msg(msg, 'Node2')
-    assert node.view_changer._view_change_done
-    assert not node.is_primary_found()
-
-    node.view_changer.process_vchd_msg(msg, 'Node1')
-    assert node.view_changer._view_change_done
-    assert not node.is_primary_found()
-
-    node.view_changer.process_vchd_msg(msg, 'Node3')
-    assert node.view_changer._verify_primary(msg.name, msg.ledgerInfo)
-    node.view_changer._start_selection()
-    assert node.view_changer._view_change_done
-    # Since the FakeNode does not have setting of mode
-    # assert node.is_primary_found()
-    node.view_changer.pre_vc_strategy = None
-    node.view_changer.start_view_change(1)
-    assert not node.view_changer._view_change_done
-
-
-def test_get_msgs_for_lagged_nodes(tconf, tdir):
-    ledgerInfo = (
-        #  ledger id, ledger length, merkle root
-        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
-        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3'),
-    )
-    messages = [
-        (ViewChangeDone(
-            viewNo=0,
-            name='Node2',
-            ledgerInfo=ledgerInfo),
-         'Node1'),
-        (ViewChangeDone(
-            viewNo=0,
-            name='Node3',
-            ledgerInfo=ledgerInfo),
-         'Node2')]
-    node = FakeNode(str(tdir), tconf)
-    for message in messages:
-        node.view_changer.process_vchd_msg(*message)
-
-    messages_for_lagged = node.view_changer.get_msgs_for_lagged_nodes()
-    assert {m for m in messages_for_lagged} == {
-        m[0] for m in messages if m[1] == node.name}
-
-
-def test_send_view_change_done_message(tdir, tconf):
-    node = FakeNode(str(tdir), tconf)
-    node.view_changer._send_view_change_done_message()
-
-    ledgerInfo = [
-        #  ledger id, ledger length, merkle root
-        (0, 10, '4F7BsTMVPKFshM1MwLf6y23cid6fL3xMpazVoF9krzUw'),
-        (1, 5, '4K2V1kpVycZ6qSFsNdz2FtpNxnJs17eBNzf9rdCMcKoe'),
-    ]
-    messages = [
-        ViewChangeDone(viewNo=0, name='Node2', ledgerInfo=ledgerInfo)
-    ]
-
-    assert len(node.view_changer.outBox) == 1
-    assert list(node.view_changer.outBox) == messages
