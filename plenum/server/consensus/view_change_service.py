@@ -330,7 +330,7 @@ class NewViewBuilder:
 
                 # Don't add checkpoint to pretending ones if not enough nodes have it
                 have_checkpoint = [vc for vc in vcs if cur_cp in vc.checkpoints]
-                if not self._data.quorums.weak.is_reached(len(have_checkpoint)):
+                if not self._data.quorums.strong.is_reached(len(have_checkpoint)):
                     continue
 
                 # All checks passed, this is a valid candidate checkpoint

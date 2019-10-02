@@ -46,6 +46,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         high_watermark = stable_cp[i] + log_size
         node._data.preprepared = batches[:min(high_watermark, pp_count[i])]
         node._data.prepared = batches[:min(high_watermark, p_count[i])]
+        node._data.checkpoints.clear()
         node._data.checkpoints.update(checkpoints[:cp_count[i]])
         node._data.stable_checkpoint = stable_cp[i]
 

@@ -1,3 +1,4 @@
+from collections import Counter
 from functools import partial
 
 import pytest
@@ -15,6 +16,8 @@ from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 def check_view_change_completes_under_normal_conditions(random: SimRandom, pool_committed=None):
     # Create random pool with random initial state
     pool, committed = some_pool(random) if pool_committed is None else pool_committed
+    N = pool.size
+    F = (N - 1) // 3
 
     # Schedule view change at different time on all nodes
     for node in pool.nodes:
@@ -26,18 +29,21 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom, pool_
                                     and node._data.view_no > 0
                                     for node in pool.nodes))
 
+    # check that equal stable checkpoint is set on at least N-F nodes
+    stable_checkpoints = [n._data.stable_checkpoint for n in pool.nodes]
+    most_freq_stable_ckeckpoint = Counter(stable_checkpoints).most_common(1)
+    assert most_freq_stable_ckeckpoint[0][1] >= N-F
+
     # Make sure all nodes end up in same state
     for node_a, node_b in zip(pool.nodes, pool.nodes[1:]):
         assert node_a._data.view_no == node_b._data.view_no
         assert node_a._data.primary_name == node_b._data.primary_name
-        assert node_a._data.stable_checkpoint == node_b._data.stable_checkpoint
         assert node_a._data.preprepared == node_b._data.preprepared
 
     # Make sure that all committed reqs are ordered with the same ppSeqNo in the new view:
-    stable_checkpoint = pool.nodes[0]._data.stable_checkpoint
-    committed = [c for c in committed if c.pp_seq_no > stable_checkpoint]
+    committed_above_cp = [c for c in committed if c.pp_seq_no > most_freq_stable_ckeckpoint[0][0]]
     for n in pool.nodes:
-        assert committed == n._data.preprepared[:len(committed)]
+        assert committed_above_cp == n._data.preprepared[:len(committed_above_cp)]
 
 
 def calc_committed(view_changes):

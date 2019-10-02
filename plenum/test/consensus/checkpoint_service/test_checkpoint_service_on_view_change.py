@@ -10,6 +10,7 @@ from plenum.test.consensus.helper import copy_shared_data, check_service_changed
 
 
 def test_do_nothing_on_view_change_started(internal_bus, checkpoint_service):
+    checkpoint_service._data.checkpoints.clear()
     checkpoint_service._data.checkpoints.update(create_checkpoints(view_no=0))
     checkpoint_service._data.stable_checkpoint = 200
     checkpoint_service._data.low_watermark = 200
@@ -91,6 +92,7 @@ def test_update_shared_data_on_new_view_accepted(internal_bus, checkpoint_servic
 
 
 def test_do_nothing_on_new_view_checkpoint_applied(internal_bus, checkpoint_service):
+    checkpoint_service._data.checkpoints.clear()
     checkpoint_service._data.checkpoints.update(create_checkpoints(view_no=0))
     checkpoint_service._data.stable_checkpoint = 100
     checkpoint_service._data.low_watermark = 100

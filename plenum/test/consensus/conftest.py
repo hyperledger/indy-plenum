@@ -54,6 +54,7 @@ def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is
     def _data(name):
         data = ConsensusSharedData(generateName(name, 0), validators, 0, is_master)
         data.view_no = initial_view_no
+        data.checkpoints.clear()
         data.checkpoints.update(initial_checkpoints)
         return data
 
