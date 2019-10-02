@@ -6,7 +6,7 @@ from plenum.common.messages.node_messages import PrePrepare, Commit
 # from plenum.test.replica.conftest import *
 from plenum.server.replica_helper import generateName
 from plenum.test.consensus.order_service.conftest import primary_orderer as _primary_orderer
-from plenum.test.helper import MockTimestamp
+from plenum.test.helper import MockTimestamp, create_prepare, generate_state_root, create_commit_no_bls_sig
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -129,11 +129,8 @@ def test_ts_is_set_for_stahed_pp(primary_orderer, ts_now, sender, pp, sender_ord
 
 
 def test_ts_is_not_set_for_non_pp(primary_orderer, ts_now, sender, pp, sender_orderer):
-    primary_orderer.process_prepare(pp, sender_orderer)
-    primary_orderer.process_commit(Commit(pp.instId,
-                                          pp.viewNo,
-                                          pp.ppSeqNo),
-                                   sender_orderer)
+    primary_orderer.process_prepare(create_prepare(req_key=(0, 1), state_root=generate_state_root()), sender_orderer)
+    primary_orderer.process_commit(create_commit_no_bls_sig(req_key=(0, 1)), sender_orderer)
     assert len(primary_orderer.pre_prepare_tss) == 0
 
 

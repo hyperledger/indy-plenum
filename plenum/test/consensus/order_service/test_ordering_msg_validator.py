@@ -42,6 +42,7 @@ def validator(view_no):
     cd.pp_seq_no = 1
     cd.view_no = view_no
     cd.node_mode = Mode.participating
+    cd.prev_view_prepare_cert = 1
     return OrderingServiceMsgValidator(data=cd)
 
 
