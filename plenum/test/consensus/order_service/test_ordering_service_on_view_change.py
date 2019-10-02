@@ -205,9 +205,11 @@ def test_process_preprepare_on_new_view_checkpoint_applied(internal_bus, externa
                                                            pre_prepares, stored_old_view_pre_prepares):
     # !!!SETUP!!!
     orderer._data.view_no = initial_view_no + 1
+    batches = create_batches_from_preprepares(pre_prepares)
+    orderer._data.prev_view_prepare_cert = batches[-1]
 
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
-                               batches=create_batches_from_preprepares(pre_prepares))
+                               batches=batches)
 
     # emulate that we received all PrePrepares before View Change
     orderer._update_old_view_preprepares(stored_old_view_pre_prepares)
