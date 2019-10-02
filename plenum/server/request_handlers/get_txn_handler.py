@@ -1,5 +1,3 @@
-import logging
-
 from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN, MULTI_SIGNATURE, AUDIT_LEDGER_ID, \
     AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, STATE_PROOF
 from plenum.common.exceptions import InvalidClientRequest
@@ -12,8 +10,6 @@ from plenum.server.request_handlers.handler_interfaces.read_request_handler impo
 from stp_core.common.log import getlogger
 
 logger = getlogger()
-
-logging.basicConfig(level=0)
 
 
 class GetTxnHandler(ReadRequestHandler):
