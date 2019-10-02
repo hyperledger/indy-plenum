@@ -38,7 +38,7 @@ def test_get_txn_after_bls_key_rotation(looper, txnPoolNodeSet,
                          sdk_pool_handle=sdk_pool_handle,
                          pool_refresh=False)
 
-    # Stop receiving of commits in a circle, so no nodes will have the equal set of multi signatures
+    # Stop receiving of commits in a circle, so all nodes will have different sets of multi signatures
     with delay_rules_without_processing(txnPoolNodeSet[0].nodeIbStasher, cDelay(delay=1200, sender_filter=txnPoolNodeSet[3].name)):
         with delay_rules_without_processing(txnPoolNodeSet[1].nodeIbStasher, cDelay(delay=1200, sender_filter=txnPoolNodeSet[0].name)):
             with delay_rules_without_processing(txnPoolNodeSet[2].nodeIbStasher, cDelay(delay=1200, sender_filter=txnPoolNodeSet[1].name)):
