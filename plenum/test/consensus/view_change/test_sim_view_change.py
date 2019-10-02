@@ -91,19 +91,19 @@ def set_filter(request, pool_committed):
 
 
 @pytest.fixture(params=range(200))
-def new_random(request):
+def default_random(request):
     seed = request.param
     return DefaultSimRandom(seed)
 
 
 @pytest.fixture()
-def pool_committed(new_random):
-    pool, committed = some_pool(new_random)
+def pool_committed(default_random):
+    pool, committed = some_pool(default_random)
     return pool, committed
 
 
-def test_view_change_completes_under_normal_conditions(new_random, pool_committed, set_latency, set_filter):
-    check_view_change_completes_under_normal_conditions(new_random, pool_committed)
+def test_view_change_completes_under_normal_conditions(default_random, pool_committed, set_latency, set_filter):
+    check_view_change_completes_under_normal_conditions(default_random, pool_committed)
 
 
 def test_new_view_combinations(random):
