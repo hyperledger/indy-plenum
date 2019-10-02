@@ -39,7 +39,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     # Checkpoints
     cp_count = [1 + random.integer(0, min(max_p, p)) // seq_no_per_cp for p in pp_count]
     max_stable_cp_indx = sorted(cp_count)[faulty] - 1
-    stable_cp = [checkpoints[random.integer(0, min(max_stable_cp_indx, cp))].seqNoEnd for cp in cp_count]
+    stable_cp = [checkpoints[random.integer(0, min(max_stable_cp_indx, cp) - 1)].seqNoEnd for cp in cp_count]
 
     # Initialize consensus data
     for i, node in enumerate(pool.nodes):

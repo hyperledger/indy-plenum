@@ -29,21 +29,29 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom, pool_
                                     and node._data.view_no > 0
                                     for node in pool.nodes))
 
-    # check that equal stable checkpoint is set on at least N-F nodes
+    # check that equal stable checkpoint is set on at least N-F nodes (F nodes may lag behind and will catchup)
     stable_checkpoints = [n._data.stable_checkpoint for n in pool.nodes]
     most_freq_stable_ckeckpoint = Counter(stable_checkpoints).most_common(1)
-    assert most_freq_stable_ckeckpoint[0][1] >= N-F
+    stable_checkpoint = most_freq_stable_ckeckpoint[0][0]
+    assert most_freq_stable_ckeckpoint[0][1] >= N - F
 
-    # Make sure all nodes end up in same state
+    # check that equal preprepares is set on all node with the found stable checkpoint
+    preprepares = set()
+    for n in pool.nodes:
+        if n._data.stable_checkpoint >= stable_checkpoint:
+            preprepares.add(tuple(n._data.preprepared))
+    assert len(preprepares) == 1
+
+    # Make sure all nodes end up in same view
     for node_a, node_b in zip(pool.nodes, pool.nodes[1:]):
         assert node_a._data.view_no == node_b._data.view_no
         assert node_a._data.primary_name == node_b._data.primary_name
-        assert node_a._data.preprepared == node_b._data.preprepared
 
     # Make sure that all committed reqs are ordered with the same ppSeqNo in the new view:
-    committed_above_cp = [c for c in committed if c.pp_seq_no > most_freq_stable_ckeckpoint[0][0]]
+    committed_above_cp = [c for c in committed if c.pp_seq_no > stable_checkpoint]
     for n in pool.nodes:
-        assert committed_above_cp == n._data.preprepared[:len(committed_above_cp)]
+        if n._data.stable_checkpoint >= stable_checkpoint:
+            assert committed_above_cp == n._data.preprepared[:len(committed_above_cp)]
 
 
 def calc_committed(view_changes):
