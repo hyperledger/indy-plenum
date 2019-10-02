@@ -16,7 +16,6 @@ from plenum.test.batching_3pc.conftest import tconf
 TestRunningTimeLimitSec = 200
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
                                      sdk_wallet_client, sdk_pool_handle):
     """
