@@ -42,7 +42,7 @@ def validator(view_no):
     cd.pp_seq_no = 1
     cd.view_no = view_no
     cd.node_mode = Mode.participating
-    cd.prev_view_prepare_cert = 1
+    cd.prev_view_prepare_cert = cd.last_ordered_3pc[1]
     return OrderingServiceMsgValidator(data=cd)
 
 
@@ -160,12 +160,14 @@ def test_discard_below_watermark_3pc_no_stash(validator, view_no, mode, waiting_
 @pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
 def test_process_ordered_pre_prepare(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 @pytest.mark.parametrize('pp_seq_no', [1, 5, 9, 10])
 def test_discard_ordered_pre_prepare_no_stash(validator, view_no, pp_seq_no, mode, waiting_for_new_view):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
@@ -242,12 +244,14 @@ def test_process_waiting_for_new_view_new_view(validator, view_no):
 @pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
 def test_process_ordered_pre_prepare(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 @pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
 def test_process_ordered_prepare_commit(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == (PROCESS, None)
     assert validator.validate_commit(commit(view_no, pp_seq_no)) == (PROCESS, None)
 

@@ -7,6 +7,7 @@ from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import generateName
 from plenum.test.consensus.helper import copy_shared_data, create_batches, \
     check_service_changed_only_owned_fields_in_shared_data, create_new_view, \
@@ -15,6 +16,7 @@ from plenum.test.consensus.order_service.helper import check_prepares_sent, chec
     check_reply_old_view_preprepares_sent
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, create_prepare, create_commit_no_bls_sig
 from plenum.test.consensus.order_service.conftest import orderer as _orderer
+from plenum.test.testing_utils import FakeSomething
 
 applied_pre_prepares = 0
 
@@ -25,7 +27,16 @@ def is_primary(request):
 
 
 @pytest.fixture()
-def orderer(_orderer, is_primary):
+def orderer(_orderer, is_primary, ):
+    # ToDo: For now, future_primary_handler is depended from the node.
+    # And for now we need to patching set_node_state functionality
+    write_manager = _orderer._write_manager
+    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
+                                                           FakeSomething(nodeReg={},
+                                                                         nodeIds=[]))
+    future_primaries_handler._get_primaries = lambda *args, **kwargs: _orderer._data.primaries
+    write_manager.register_batch_handler(future_primaries_handler)
+
     _orderer._validator = OrderingServiceMsgValidator(_orderer._data)
     _orderer.name = 'Alpha:0'
     _orderer._data.primary_name = 'some_node:0' if not is_primary else orderer.name
@@ -206,7 +217,7 @@ def test_process_preprepare_on_new_view_checkpoint_applied(internal_bus, externa
     # !!!SETUP!!!
     orderer._data.view_no = initial_view_no + 1
     batches = create_batches_from_preprepares(pre_prepares)
-    orderer._data.prev_view_prepare_cert = batches[-1]
+    orderer._data.prev_view_prepare_cert = batches[-1].pp_seq_no
 
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
                                batches=batches)
