@@ -25,7 +25,6 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     slow_node.nodeIbStasher.delay(vcd_delay(delay_vcd))
 
     def chk(node):
-        assert node.view_changer._primary_verified
         assert node.isParticipating
         assert None not in {r.isPrimary for r in node.replicas.values()}
 

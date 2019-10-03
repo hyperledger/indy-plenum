@@ -38,27 +38,7 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def has_pool_ledger(self) -> bool:
-        pass
-
-    @abstractmethod
-    def ledger_summary(self) -> List[Tuple[int, int, str]]:
-        pass
-
-    @abstractmethod
-    def node_registry(self, size):
-        pass
-
-    @abstractmethod
-    def is_node_synced(self) -> bool:
-        pass
-
-    @abstractmethod
     def node_mode(self) -> Mode:
-        pass
-
-    @abstractmethod
-    def next_primary_name(self) -> str:
         pass
 
     @abstractmethod
@@ -171,8 +151,6 @@ class ViewChanger():
 
         self.previous_view_no = None
         self.previous_master_primary = None
-
-        self.set_defaults()
 
         # Action for _schedule instanceChange messages
         self.instance_change_action = None
@@ -409,9 +387,6 @@ class ViewChanger():
             logger.info(whyNot)
         return can
 
-    def _quorum_is_reached(self, count):
-        return self.quorums.view_change_done.is_reached(count)
-
     def _canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
         Return whether there's quorum for view change for the proposed view
@@ -436,7 +411,6 @@ class ViewChanger():
         self.previous_view_no = self.view_no
         self.pre_view_change_in_progress = False
         self.previous_master_primary = self.provider.current_primary_name()
-        self.set_defaults()
 
         self.provider.notify_view_change_start()
         self.provider.start_view_change(proposed_view_no)
@@ -445,30 +419,6 @@ class ViewChanger():
     #  - self.provider.select_primaries()
     #  - self.provider.notify_view_change_complete()
     #  - self.instance_changes.remove_view(self.view_no)
-
-    def set_defaults(self):
-        # Set when an appropriate view change quorum is found which has
-        # sufficient same ViewChangeDone messages
-        self._primary_verified = False
-
-        self._accepted_view_change_done_message = None
-
-    def _verify_primary(self, new_primary, ledger_info):
-        """
-        This method is called when sufficient number of ViewChangeDone
-        received and makes steps to switch to the new primary
-        """
-        expected_primary = self.provider.next_primary_name()
-        if new_primary != expected_primary:
-            logger.error("{}{} expected next primary to be {}, but majority "
-                         "declared {} instead for view {}"
-                         .format(PRIMARY_SELECTION_PREFIX, self.name,
-                                 expected_primary, new_primary, self.view_no))
-            return False
-
-        self._primary_verified = True
-        return True
-        # TODO: check if ledger status is expected
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
         proposed_view_no = self.view_no

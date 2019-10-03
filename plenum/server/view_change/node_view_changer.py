@@ -23,23 +23,8 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def quorums(self) -> Quorums:
         return self._node.quorums
 
-    def has_pool_ledger(self) -> bool:
-        return self._node.poolLedger is not None
-
-    def ledger_summary(self) -> List[Tuple[int, int, str]]:
-        return self._node.ledger_summary
-
-    def node_registry(self, size):
-        return self._node.poolManager.getNodeRegistry(size)
-
-    def is_node_synced(self) -> bool:
-        return self._node.is_synced
-
     def node_mode(self) -> Mode:
         return self._node.mode
-
-    def next_primary_name(self) -> str:
-        return self._node.get_primaries_for_current_view()[0]
 
     def current_primary_name(self) -> str:
         return self._node.master_primary_name

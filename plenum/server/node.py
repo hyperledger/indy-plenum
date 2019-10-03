@@ -2046,7 +2046,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.view_changer.previous_view_no = self.viewNo
             self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
             self.view_changer.previous_master_primary = self.master_primary_name
-            self.view_changer.set_defaults()
 
             self.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.primaries):
