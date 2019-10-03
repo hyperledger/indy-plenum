@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import List, Optional, Tuple, Set
+from typing import Optional, Set
 from functools import partial
 
 from plenum.common.startable import Mode
@@ -11,8 +11,7 @@ from plenum.server.view_change.instance_change_provider import InstanceChangePro
 from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
 
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
-    VIEW_CHANGE_PREFIX, MONITORING_PREFIX
+from plenum.common.constants import VIEW_CHANGE_PREFIX, MONITORING_PREFIX
 from plenum.common.messages.node_messages import InstanceChange
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
@@ -39,10 +38,6 @@ class ViewChangerDataProvider(ABC):
 
     @abstractmethod
     def node_mode(self) -> Mode:
-        pass
-
-    @abstractmethod
-    def current_primary_name(self) -> str:
         pass
 
     @abstractmethod
@@ -136,7 +131,6 @@ class ViewChanger():
     def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
         self.provider = provider
         self._timer = timer
-        self.pre_vc_strategy = None
 
         self.inBox = deque()
         self.outBox = deque()
@@ -147,10 +141,7 @@ class ViewChanger():
         self.instance_changes = InstanceChangeProvider(self.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
                                                        node_status_db=self.provider.node_status_db)
 
-        self.pre_view_change_in_progress = False
-
         self.previous_view_no = None
-        self.previous_master_primary = None
 
         # Action for _schedule instanceChange messages
         self.instance_change_action = None
@@ -409,8 +400,6 @@ class ViewChanger():
         :param proposed_view_no: the new view number after view change.
         """
         self.previous_view_no = self.view_no
-        self.pre_view_change_in_progress = False
-        self.previous_master_primary = self.provider.current_primary_name()
 
         self.provider.notify_view_change_start()
         self.provider.start_view_change(proposed_view_no)

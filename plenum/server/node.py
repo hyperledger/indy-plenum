@@ -575,12 +575,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for r in self.replicas.values():
             r.set_primaries(ps)
 
-    @property
-    def pre_view_change_in_progress(self):
-        if self.view_changer is None:
-            return False
-        return self.view_changer.pre_view_change_in_progress
-
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
             CONFIG_LEDGER_ID,
@@ -2045,7 +2039,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Emulate view change start
             self.view_changer.previous_view_no = self.viewNo
             self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
-            self.view_changer.previous_master_primary = self.master_primary_name
 
             self.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.primaries):
