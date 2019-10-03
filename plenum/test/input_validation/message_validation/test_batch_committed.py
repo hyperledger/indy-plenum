@@ -21,7 +21,8 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("seqNoStart", NonNegativeNumberField),
     ("seqNoEnd", NonNegativeNumberField),
     ("auditTxnRootHash", MerkleRootField),
-    ("primaries", IterableField)
+    ("primaries", IterableField),
+    ("originalViewNo", NonNegativeNumberField),
 ])
 
 
@@ -31,7 +32,7 @@ def create_valid_batch_committed():
     return BatchCommitted(reqs,
                           DOMAIN_LEDGER_ID,
                           0,
-                          0,
+                          1,
                           1,
                           get_utc_epoch(),
                           generate_state_root(),
@@ -39,14 +40,15 @@ def create_valid_batch_committed():
                           1,
                           2,
                           generate_state_root(),
-                          ['Alpha', 'Beta'])
+                          ['Alpha', 'Beta'],
+                          0)
 
 
 def create_invalid_batch_committed():
     return BatchCommitted(["aaaa", "bbbb"],
                           DOMAIN_LEDGER_ID,
                           0,
-                          0,
+                          1,
                           1,
                           get_utc_epoch(),
                           generate_state_root(),
@@ -54,7 +56,8 @@ def create_invalid_batch_committed():
                           1,
                           2,
                           generate_state_root(),
-                          ['Alpha', 'Beta'])
+                          ['Alpha', 'Beta'],
+                          0)
 
 
 def create_valid_batch_committed_as_dict():

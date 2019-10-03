@@ -1,8 +1,9 @@
 import pytest
 
 from plenum.common.startable import Mode
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.server.consensus.ordering_service import ThreePCMsgValidator
-from plenum.server.replica_validator_enums import PROCESS, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
+from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
     STASH_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, GREATER_PREP_CERT
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig
@@ -47,7 +48,7 @@ def create_3pc_msgs(view_no, pp_seq_no, inst_id):
 
 def test_check_all_correct(validator, inst_id):
     validator._data.node_mode = Mode.participating
-    for msg in create_3pc_msgs(view_no=validator.view_no,
+    for msg in create_3pc_msgs(view_no=validator._data.view_no,
                                pp_seq_no=1,
                                inst_id=inst_id):
         assert validator.validate(msg) == (PROCESS, None)
@@ -63,14 +64,14 @@ def test_check_all_correct(validator, inst_id):
 ])
 def test_check_participating(validator, mode, result, inst_id):
     validator._data.node_mode = mode
-    for msg in create_3pc_msgs(view_no=validator.view_no,
+    for msg in create_3pc_msgs(view_no=validator._data.view_no,
                                pp_seq_no=1,
                                inst_id=inst_id):
         assert validator.validate(msg) == result
 
 
 def test_check_current_view(validator, inst_id):
-    for msg in create_3pc_msgs(view_no=validator.view_no,
+    for msg in create_3pc_msgs(view_no=validator._data.view_no,
                                pp_seq_no=1,
                                inst_id=inst_id):
         assert validator.validate(msg) == (PROCESS, None)
@@ -87,7 +88,7 @@ def test_check_old_view(validator, inst_id, view_no):
 
 
 def test_check_future_view(validator, inst_id):
-    for msg in create_3pc_msgs(view_no=validator.view_no + 1,
+    for msg in create_3pc_msgs(view_no=validator._data.view_no + 1,
                                pp_seq_no=1,
                                inst_id=inst_id):
         assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
@@ -279,9 +280,9 @@ def test_check_zero_pp_seq_no(validator, view_no, inst_id):
     (100, (STASH_CATCH_UP, CATCHING_UP)),
 ])
 def test_check_ordered_not_participating(validator, pp_seq_no, result, inst_id):
-    validator._data.last_ordered_3pc = (validator.view_no, 10)
+    validator._data.last_ordered_3pc = (validator._data.view_no, 10)
     validator._data.node_mode = Mode.syncing
-    for msg in create_3pc_msgs(view_no=validator.view_no,
+    for msg in create_3pc_msgs(view_no=validator._data.view_no,
                                pp_seq_no=pp_seq_no,
                                inst_id=inst_id):
         assert validator.validate(msg) == result

@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Set
 from functools import partial
 
 from common.exceptions import LogicError
+from plenum.common.event_bus import InternalBus
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
@@ -136,6 +137,10 @@ class ViewChangerDataProvider(ABC):
     def schedule_resend_inst_chng(self):
         pass
 
+    @abstractmethod
+    def set_view_change_status(self, value: bool):
+        pass
+
 
 class ViewChanger():
 
@@ -230,6 +235,7 @@ class ViewChanger():
     @view_change_in_progress.setter
     def view_change_in_progress(self, value: bool):
         self._view_change_in_progress = value
+        self.provider.set_view_change_status(value)
 
     @property
     def quorum(self) -> int:

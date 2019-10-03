@@ -42,6 +42,7 @@ class f:  # provides a namespace for reusable field constants
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
     VIEW_NO = Field('viewNo', int)
+    ORIGINAL_VIEW_NO = Field('originalViewNo', int)
     LEDGER_INFO = Field("ledgerInfo", List[tuple])
     INST_ID = Field('instId', int)
     IS_STABLE = Field('isStable', bool)
@@ -62,7 +63,9 @@ class f:  # provides a namespace for reusable field constants
     AUDIT_TXN_ROOT_HASH = Field("auditTxnRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     BLS_SIG = Field("blsSig", str)
+    BLS_SIGS = Field("blsSigs", Dict[int, str])
     BLS_MULTI_SIG = Field("blsMultiSig", str)
+    BLS_MULTI_SIGS = Field("blsMultiSigs", str)
     BLS_MULTI_SIG_STATE_ROOT = Field("blsMultiSigStateRoot", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
@@ -96,11 +99,13 @@ class f:  # provides a namespace for reusable field constants
     TAA_ACCEPTANCE_TIME = Field("time", float)
     # View change
     STABLE_CHECKPOINT = Field("stableCheckpoint", int)
-    PREPARED = Field("prepared", List[Tuple[int, int, str]])         # view_no, pp_seq_no, pp_digest
-    PREPREPARED = Field("preprepared", List[Tuple[int, int, str]])   # view_no, pp_seq_no, pp_digest
-    CHECKPOINTS = Field("checkpoints", List[Any])                    # Any ==Checkpoint
+    PREPARED = Field("prepared", List[Tuple[int, int, int, str]])         # view_no, pp_view_no, pp_seq_no, pp_digest
+    PREPREPARED = Field("preprepared", List[Tuple[int, int, int, str]])   # view_no, pp_view_no, pp_seq_no, pp_digest
+    BATCH_IDS = Field("batch_ids", List[Tuple[int, int, int, str]])  # view_no, pp_view_no, pp_seq_no, pp_digest
+    PREPREPARES = Field("preprepares", Any)                          # Any == PrePrepare
+    CHECKPOINTS = Field("checkpoints", List[Any])                    # Any == Checkpoint
     VIEW_CHANGES = Field("viewChanges", List[Tuple[str, str]])       # name, vc_digest
-    CHECKPOINT = Field("checkpoint", Any)                            # Any ==Checkpoint
+    CHECKPOINT = Field("checkpoint", Any)                            # Any == Checkpoint
     BATCHES = Field("batches", List[Tuple[int, int, str]])           # view_no, pp_seq_no, pp_digest
 
 

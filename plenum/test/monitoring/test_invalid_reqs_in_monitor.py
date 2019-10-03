@@ -32,7 +32,8 @@ def test_invalid_reqs(looper,
                               sdk_wallet_steward,
                               COUNT_VALID_REQS)
     for node in txnPoolNodeSet:
-        node.doDynamicValidation = functools.partial(randomDynamicValidation, node)
+        node.master_replica._ordering_service._do_dynamic_validation = \
+            functools.partial(randomDynamicValidation, node)
     with pytest.raises(RequestRejectedException, match='not valid req'):
         sdk_send_random_and_check(looper,
                                   txnPoolNodeSet,

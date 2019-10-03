@@ -1,80 +1,39 @@
 import pytest
-from unittest.mock import Mock
 from orderedset._orderedset import OrderedSet
 
-from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, POOL_LEDGER_ID
-from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import RequestPropagates
+from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, POOL_LEDGER_ID, \
+    LAST_SENT_PP_STORE_LABEL
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
 from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
-from plenum.server.database_manager import DatabaseManager
-from plenum.server.request_managers.write_request_manager import WriteRequestManager
-from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
+from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
+from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 from plenum.test.testing_utils import FakeSomething
 
 
-@pytest.fixture(params=[True, False])
-def is_master(request):
-    return request.param
-
 @pytest.fixture()
-def internal_bus():
-    def rp_handler(ib, msg):
-        ib.msgs.setdefault(type(msg), []).append(msg)
-
-    ib = InternalBus()
-    ib.msgs = {}
-    ib.subscribe(RequestPropagates, rp_handler)
-    return InternalBus()
-
-@pytest.fixture()
-def external_bus():
-    send_handler = Mock()
-    return ExternalBus(send_handler=send_handler)
-
-@pytest.fixture()
-def bls_bft_replica():
-    return FakeSomething(gc=lambda *args, **kwargs: True,
-                         validate_pre_prepare=lambda *args, **kwargs: None,
-                         update_prepare=lambda params, lid: params,
-                         process_prepare=lambda *args, **kwargs: None,
-                         process_pre_prepare=lambda *args, **kwargs: None,
-                         validate_prepare=lambda *args, **kwargs: None,
-                         update_commit=lambda params, pre_prepare: params,
-                         process_commit=lambda *args, **kwargs: None)
-
-@pytest.fixture()
-def db_manager():
-    dbm = DatabaseManager()
-    return dbm
-
-@pytest.fixture()
-def write_manager(db_manager):
-    return WriteRequestManager(database_manager=db_manager)
-
-@pytest.fixture()
-def name():
-    return "OrderingService"
-
-@pytest.fixture()
-def orderer(consensus_data, internal_bus, external_bus, name, write_manager, txn_roots, state_roots, bls_bft_replica):
+def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
+            txn_roots, state_roots, bls_bft_replica, tconf, stasher):
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,
                               network=external_bus,
                               write_manager=write_manager,
                               bls_bft_replica=bls_bft_replica,
-                              is_master=is_master)
+                              freshness_checker=FreshnessChecker(
+                                  freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL),
+                              stasher=stasher)
     orderer._data.node_mode = Mode.participating
-    orderer.primary_name = "Alpha:0"
-    orderer.l_txnRootHash = lambda ledger, to_str=False: txn_roots[ledger]
-    orderer.l_stateRootHash = lambda ledger, to_str=False: state_roots[ledger]
+    orderer._data.primary_name = "Alpha:0"
+    orderer.get_txn_root_hash = lambda ledger, to_str=False: txn_roots[ledger]
+    orderer.get_state_root_hash = lambda ledger, to_str=False: state_roots[ledger]
     orderer.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
-    orderer.l_revert = lambda *args, **kwargs: None
+    orderer._revert = lambda *args, **kwargs: None
+    orderer.db_manager.stores[LAST_SENT_PP_STORE_LABEL] = \
+        FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
     return orderer
 
 
@@ -132,7 +91,7 @@ def fake_requests():
 
 @pytest.fixture(scope='function')
 def orderer_with_requests(orderer, fake_requests):
-    orderer.l_apply_pre_prepare = lambda a: (fake_requests, [], [], False)
+    orderer._apply_pre_prepare = lambda a: (fake_requests, [], [], False)
     for req in fake_requests:
         orderer.requestQueues[DOMAIN_LEDGER_ID].add(req.key)
         orderer._requests.add(req)
@@ -150,3 +109,8 @@ def validator(consensus_data):
 def primary_orderer(orderer):
     orderer.name = orderer.primary_name
     return orderer
+
+
+@pytest.fixture()
+def name():
+    return "OrderingService"

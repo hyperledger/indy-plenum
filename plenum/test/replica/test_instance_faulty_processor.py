@@ -6,8 +6,7 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.primary_selection.test_primary_selector import FakeNode
-from plenum.test.testing_utils import FakeSomething
+from plenum.test.primary_selection.test_view_changer_primary_selection import FakeNode
 
 
 class FakeReplicas:
@@ -28,6 +27,10 @@ class FakeReplicas:
         self.add_replica_calls.append(inst_id)
         self._replicas.update(inst_id=Replica(node=self._node, instId=inst_id))
 
+    def subscribe_to_internal_bus(self, message_type, handler, inst_id: int=None):
+        pass
+
+
     def __getitem__(self, item):
         return self._replicas[item]
 
@@ -44,6 +47,7 @@ def backup_instance_faulty_processor(tdir, tconf):
     node.name = node.allNodeNames[0]
     node.replicas = FakeReplicas(node, node.replicas)
     node.backup_instance_faulty_processor = BackupInstanceFaultyProcessor(node)
+    node.request_propagates = lambda: True
     return node.backup_instance_faulty_processor
 
 

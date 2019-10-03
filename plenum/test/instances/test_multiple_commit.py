@@ -37,7 +37,7 @@ def setup(txnPoolNodeSet):
         def do_nothing(self, commit):
             pass
 
-        r.doOrder = types.MethodType(do_nothing, r)
+        r._ordering_service._do_order = types.MethodType(do_nothing, r)
 
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps,
                  faultyRep=faultyRep)

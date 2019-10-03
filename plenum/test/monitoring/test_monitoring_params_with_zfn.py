@@ -30,7 +30,7 @@ def testThroughputThreshold(looper, txnPoolNodeSet, tconf, requests):
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)
         for r in node.replicas.values():
-            print("{} stats: {}".format(r, repr(r.stats)))
+            print("{} stats: {}".format(r, repr(r._ordering_service.stats)))
         assert masterThroughput / avgBackupThroughput >= node.monitor.Delta
 
 

@@ -1,3 +1,4 @@
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.loop.eventually import eventually
 
@@ -82,7 +83,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
 
     def chk2():
         # slow_node stashed commits
-        assert slow_node.master_replica.stasher.num_stashed_catchup == \
+        assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == \
                sent_batches * (len(txnPoolNodeSet) - 1)
 
     looper.run(eventually(chk2, retryWait=1))
@@ -98,7 +99,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
 
     def chk3():
         # slow_node processed stashed messages successfully
-        assert slow_node.master_replica.stasher.num_stashed_catchup == 0
+        assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == 0
 
     looper.run(eventually(chk3, retryWait=1))
 

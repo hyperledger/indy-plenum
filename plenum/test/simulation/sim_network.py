@@ -4,6 +4,7 @@ from typing import Any, Iterable
 
 from plenum.common.event_bus import ExternalBus
 from plenum.common.timer import TimerService
+from plenum.server.replica_helper import getNodeName
 from plenum.test.simulation.sim_random import SimRandom
 
 
@@ -15,11 +16,12 @@ class SimNetwork:
         self._max_latency = 500
         self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
 
-    def create_peer(self, name: str) -> ExternalBus:
+    def create_peer(self, name: str, handler=None) -> ExternalBus:
         if name in self._peers:
             raise ValueError("Peer with name '{}' already exists".format(name))
 
-        bus = ExternalBus(partial(self._send_message, name))
+        handler = handler or partial(self._send_message, name)
+        bus = ExternalBus(handler)
         self._peers[name] = bus
         return bus
 
@@ -29,7 +31,7 @@ class SimNetwork:
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
-            dst = [name for name in self._peers if name != frm]
+            dst = [name for name in self._peers if name != getNodeName(frm)]
         elif isinstance(dst, str):
             dst = [dst]
         elif isinstance(dst, Iterable):

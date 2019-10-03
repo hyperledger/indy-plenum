@@ -6,7 +6,7 @@ from indy.did import create_and_store_my_did
 from indy.ledger import build_nym_request
 
 from plenum.common.constants import NYM, STEWARD, ROLE, VERKEY
-from plenum.common.exceptions import UnauthorizedClientRequest, RequestNackedException
+from plenum.common.exceptions import UnauthorizedClientRequest, RequestNackedException, CouldNotAuthenticate
 from plenum.common.txn_util import get_request_data
 from plenum.common.util import randomString
 from plenum.server.request_handlers.utils import get_nym_details
@@ -70,7 +70,7 @@ def test_create_did_without_endorser_empty_verkey(looper, nym_txn_data, sdk_wall
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
 
-    with pytest.raises(RequestNackedException, match='Can not find verkey for {}'.format(sender_did)):
+    with pytest.raises(RequestNackedException, match=CouldNotAuthenticate.reason.format(sender_did)):
         sdk_get_and_check_replies(looper, [request_couple])
 
 
@@ -83,5 +83,5 @@ def test_create_did_without_endorser_different_dest(looper, nym_txn_data, sdk_wa
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
 
-    with pytest.raises(RequestNackedException, match='Can not find verkey for {}'.format(sender_did)):
+    with pytest.raises(RequestNackedException, match=CouldNotAuthenticate.reason.format(sender_did)):
         sdk_get_and_check_replies(looper, [request_couple])

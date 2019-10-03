@@ -69,7 +69,7 @@ def check_catchup_with_skipped_commits_received_before_catchup(catchup_state,
         looper.run(eventually(check_lagging_node_catchup_state, catchup_state))
 
         # Emulate scheduled action
-        lagging_node.master_replica.process_stashed_out_of_order_commits()
+        lagging_node.master_replica._ordering_service._process_stashed_out_of_order_commits()
 
     # Ensure that audit ledger is caught up by lagging node
     looper.run(eventually(check_lagging_node_catchup_state, NodeLeecherService.State.Idle))

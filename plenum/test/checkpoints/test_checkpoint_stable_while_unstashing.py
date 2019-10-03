@@ -1,4 +1,4 @@
-from plenum.test.checkpoints.helper import chkChkpoints, check_stashed_chekpoints
+from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint, check_received_checkpoint_votes
 from plenum.test.delayers import ppDelay, msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -31,27 +31,27 @@ def test_stabilize_checkpoint_while_unstashing_when_missing_pre_prepare(looper,
                                       sdk_wallet_client, 1)
 
             # all good nodes stabilized checkpoint
-            looper.run(eventually(chkChkpoints, rest_nodes, 1, 0))
+            looper.run(eventually(check_for_nodes, rest_nodes, check_stable_checkpoint, 5))
 
             # bad node received checkpoints from all nodes but didn't stabilize it
-            looper.run(eventually(check_stashed_chekpoints, lagging_node, len(rest_nodes)))
-            looper.run(eventually(chkChkpoints, [lagging_node], 1, None))
+            looper.run(eventually(check_for_nodes, [lagging_node], check_stable_checkpoint, 0))
+            looper.run(eventually(check_for_nodes, [lagging_node], check_received_checkpoint_votes, 5, len(rest_nodes)))
 
             # bad node has all commits and prepares for the last request stashed
             looper.run(eventually(
                 lambda: assertExp(
-                    (0, CHK_FREQ) in lagging_master_replcia.preparesWaitingForPrePrepare and
-                    len(lagging_master_replcia.preparesWaitingForPrePrepare[(0, CHK_FREQ)]) == len(rest_nodes) - 1
+                    (0, CHK_FREQ) in lagging_master_replcia._ordering_service.preparesWaitingForPrePrepare and
+                    len(lagging_master_replcia._ordering_service.preparesWaitingForPrePrepare[(0, CHK_FREQ)]) == len(rest_nodes) - 1
                 )
             ))
             looper.run(eventually(
                 lambda: assertExp(
-                    (0, CHK_FREQ) in lagging_master_replcia.commitsWaitingForPrepare and
-                    len(lagging_master_replcia.commitsWaitingForPrepare[(0, CHK_FREQ)]) == len(rest_nodes)
+                    (0, CHK_FREQ) in lagging_master_replcia._ordering_service.commitsWaitingForPrepare and
+                    len(lagging_master_replcia._ordering_service.commitsWaitingForPrepare[(0, CHK_FREQ)]) == len(rest_nodes)
                 )
             ))
 
     # 3. the delayed PrePrepare is processed, and stashed prepares and commits are unstashed
     # checkpoint will be stabilized during unstashing, and the request will be ordered
-    looper.run(eventually(chkChkpoints, [lagging_node], 1, 0))
+    looper.run(eventually(check_for_nodes, [lagging_node], check_stable_checkpoint, 5))
     waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)

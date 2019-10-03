@@ -35,9 +35,6 @@ def node_doesnt_propagate(txnPoolNodeSet):
 
     node.propagate = types.MethodType(evilPropagateRequest, node)
 
-    # we don't want `node` being a primary (another test?)
-    # nodes.Alpha.delaySelfNomination(100)
-
     return node
 
 

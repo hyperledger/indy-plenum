@@ -259,7 +259,7 @@ options.setBuiltPkgs([
     'python3-semver': '2.7.9',
     'python3-pygments': '2.2.0',
     'python3-psutil': '5.4.3',
-    'python3-pyzmq': '17.0.0',
+    'python3-pyzmq': '18.1.0',
     'python3-intervaltree': '2.1.0',
     'python3-jsonpickle': '0.9.6',
     'python3-rocksdb': '0.6.9',

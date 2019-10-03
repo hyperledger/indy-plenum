@@ -3,6 +3,7 @@ from logging import getLogger
 import sys
 
 from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.stashing_router import DISCARD
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -72,24 +73,17 @@ def break_backup_replica(txnPoolNodeSet):
     node = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1].node
     broken_replica = node.replicas[inst_id]
     non_broken_replica = node.replicas[0]
+    broken_replica._ordering_service.old_validate = broken_replica._ordering_service._validate
 
-    def fakeProcessPrePrepare(pre_prepare, sender):
+    def fakeProcessPrePrepare(pre_prepare):
         logger.warning(
             "{} is broken. 'processPrePrepare' does nothing".format(broken_replica.name))
+        return DISCARD, None
 
-    broken_replica.threePhaseRouter.extend(
-        (
-            (PrePrepare, fakeProcessPrePrepare),
-        )
-    )
-
+    broken_replica._ordering_service._validate = fakeProcessPrePrepare
     return broken_replica, non_broken_replica
 
 
 def repair_broken_replica(replica):
-    replica.threePhaseRouter.extend(
-        (
-            (PrePrepare, replica.processPrePrepare),
-        )
-    )
+    replica._ordering_service._validate = replica._ordering_service.old_validate
     return replica

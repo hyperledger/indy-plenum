@@ -23,13 +23,13 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, txnPoolNodeSet, delay_co
                                                 preprepared1):
     def sendPrepareFromPrimary(instId):
         primary = getPrimaryReplica(txnPoolNodeSet, instId)
-        viewNo, ppSeqNo = next(iter(primary.sentPrePrepares.keys()))
-        ppReq = primary.sentPrePrepares[viewNo, ppSeqNo]
-        primary.doPrepare(ppReq)
+        viewNo, ppSeqNo = next(iter(primary._ordering_service.sent_preprepares.keys()))
+        ppReq = primary._ordering_service.sent_preprepares[viewNo, ppSeqNo]
+        primary._ordering_service._do_prepare(ppReq)
 
         def chk():
             for r in getNonPrimaryReplicas(txnPoolNodeSet, instId):
-                l = len([param for param in getAllArgs(r, r.processPrepare)
+                l = len([param for param in getAllArgs(r._ordering_service, r._ordering_service.process_prepare)
                          if param['sender'] == primary.name])
                 assert l == 1
 

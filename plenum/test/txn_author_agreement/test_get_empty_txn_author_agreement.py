@@ -1,7 +1,8 @@
 import pytest
+from indy.error import CommonInvalidParam3
 
 from plenum.common.constants import REPLY, CONFIG_LEDGER_ID
-from plenum.common.exceptions import RequestNackedException
+from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
 from plenum.common.util import get_utc_epoch
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
@@ -17,7 +18,7 @@ def nodeSetWithoutTaaAlwaysResponding(txnPoolNodeSet, looper):
     global TIMESTAMP_NONE
 
     # Simulate freshness update
-    txnPoolNodeSet[0].master_replica._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
+    txnPoolNodeSet[0].master_replica._ordering_service._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
 
     looper.runFor(1)  # Make sure we have long enough gap between updates
     TIMESTAMP_NONE = get_utc_epoch()
@@ -59,7 +60,5 @@ def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper
 ])
 def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, nodeSetWithoutTaa,
                                                                       sdk_pool_handle, sdk_wallet_client):
-    with pytest.raises(RequestNackedException) as e:
+    with pytest.raises(CommonInvalidParam3) as e:
         sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)
-    assert e.match("GET_TXN_AUTHOR_AGREEMENT request can have at most one "
-                   "of the following parameters: version, digest, timestamp")

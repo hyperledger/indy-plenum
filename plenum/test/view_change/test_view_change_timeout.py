@@ -60,9 +60,10 @@ def check_watchdog_called_expected_times(nodes, stats, times):
         raise AssertionError("Watchdog expected to be called {} times, actual counts:\n{}".format(times, actual))
 
 
-def stop_next_primary(nodes):
-    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master(
-        nodes[0].nodeReg, nodes[0].nodeIds)
+def stop_master_primary(nodes, view_no):
+    m_next_primary_name = nodes[0].primaries_selector.select_primaries(view_no,
+                                                                       nodes[0].requiredNumberOfInstances,
+                                                                       nodes[0].poolManager.node_names_ordered_by_rank())[0]
     next(node for node in nodes if node.name == m_next_primary_name).stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes
@@ -162,8 +163,7 @@ def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
     _, initial_view_no, timeout_callback_stats = setup
 
     start_view_change(txnPoolNodeSet, initial_view_no + 1)
-
-    alive_nodes = stop_next_primary(txnPoolNodeSet)
+    alive_nodes = stop_master_primary(txnPoolNodeSet, initial_view_no + 1)
 
     ensureElectionsDone(looper=looper, nodes=alive_nodes, instances_list=range(3))
 

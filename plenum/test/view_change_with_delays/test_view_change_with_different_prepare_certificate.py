@@ -33,6 +33,6 @@ def test_view_change_with_different_prepare_certificate(looper, txnPoolNodeSet,
 
             for n in txnPoolNodeSet:
                 n.view_changer.on_master_degradation()
-            assert slow_node.master_replica.last_prepared_certificate_in_view() == \
+            assert slow_node.master_replica._ordering_service.l_last_prepared_certificate_in_view() == \
                    (0, last_ordered[1])
             ensureElectionsDone(looper, txnPoolNodeSet)

@@ -1,5 +1,8 @@
 from plenum.common.constants import COMMIT, CHECKPOINT
 from plenum.test import waits
+from plenum.test.checkpoints.helper import check_last_checkpoint, check_num_received_checkpoints, \
+    check_last_received_checkpoint, check_received_checkpoint_votes, check_stable_checkpoint, \
+    check_num_unstable_checkpoints
 from plenum.test.delayers import cDelay, chk_delay
 from plenum.test.helper import sdk_send_random_and_check
 from stp_core.loop.eventually import eventually
@@ -36,29 +39,21 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
     looper.runFor(stabilization_timeout)
 
     for inst_id, replica in epsilon.replicas.items():
-        assert len(replica.checkpoints) == 1
-        assert (1, 5) in replica.checkpoints
-        assert replica.checkpoints[(1, 5)].seqNo == 4
-        assert replica.checkpoints[(1, 5)].digest is None
-        assert replica.checkpoints[(1, 5)].isStable is False
-
-        assert len(replica.stashedRecvdCheckpoints) == 1
-        assert 0 in replica.stashedRecvdCheckpoints
-        assert len(replica.stashedRecvdCheckpoints[0]) == 1
-        assert (1, 5) in replica.stashedRecvdCheckpoints[0]
-        assert len(replica.stashedRecvdCheckpoints[0][(1, 5)]) == 2
+        check_stable_checkpoint(replica, 0)
+        check_num_unstable_checkpoints(replica, 0)
+        check_num_received_checkpoints(replica, 1)
+        check_received_checkpoint_votes(replica, pp_seq_no=5, num_votes=2)
 
     epsilon.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
     def check():
         for inst_id, replica in epsilon.replicas.items():
-            assert len(replica.checkpoints) == 1
-            assert (1, 5) in replica.checkpoints
-            assert replica.checkpoints[(1, 5)].seqNo == 5
-            assert replica.checkpoints[(1, 5)].digest is not None
-            assert replica.checkpoints[(1, 5)].isStable is False
+            check_stable_checkpoint(replica, 0)
+            check_num_unstable_checkpoints(replica, 1)
+            check_last_checkpoint(replica, 5)
 
-            assert len(replica.stashedRecvdCheckpoints) == 0
+            check_num_received_checkpoints(replica, 1)
+            check_last_received_checkpoint(replica, 5)
 
     looper.run(eventually(check, timeout=waits.expectedOrderingTime(
         len(txnPoolNodeSet))))
@@ -70,10 +65,6 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
     looper.runFor(stabilization_timeout)
 
     for inst_id, replica in epsilon.replicas.items():
-        assert len(replica.checkpoints) == 1
-        assert (1, 5) in replica.checkpoints
-        assert replica.checkpoints[(1, 5)].seqNo == 5
-        assert replica.checkpoints[(1, 5)].digest is not None
-        assert replica.checkpoints[(1, 5)].isStable is True
-
-        assert len(replica.stashedRecvdCheckpoints) == 0
+        check_stable_checkpoint(replica, 5)
+        check_num_unstable_checkpoints(replica, 0)
+        check_num_received_checkpoints(replica, 0)

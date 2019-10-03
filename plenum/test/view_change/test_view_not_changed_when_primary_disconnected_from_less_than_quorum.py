@@ -27,7 +27,6 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         if node != partitioned_node and node != pr_node}
 
     view_no = checkViewNoForNodes(txnPoolNodeSet)
-    orig_retry_meth = partitioned_node.nodestack.retryDisconnected
 
     def wont_retry(self, exclude=None):
         # Do not attempt to retry connection
@@ -63,15 +62,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
     # Send some requests and make sure the request execute
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
-    # Repair the connection so the node is no longer partitioned
-    partitioned_node.nodestack.retryDisconnected = types.MethodType(
-        orig_retry_meth, partitioned_node.nodestack)
-
-    # Send some requests and make sure the request execute
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
-
-    # Partitioned node should have the same ledger and state as others
-    # eventually
+    # Partitioned node should have the same ledger and state as others as it gets reqs from all nodes
     waitNodeDataEquality(looper, partitioned_node,
                          *[n for n in txnPoolNodeSet if n != partitioned_node],
                          exclude_from_check=['check_last_ordered_3pc_backup'])
