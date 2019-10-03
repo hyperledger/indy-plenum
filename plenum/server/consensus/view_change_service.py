@@ -329,6 +329,11 @@ class NewViewBuilder:
                     continue
 
                 # Don't add checkpoint to pretending ones if not enough nodes have it
+                # TODO: PBFT paper (for example Fig.4 in https://www.microsoft.com/en-us/research/wp-content/uploads/2017/01/p398-castro-bft-tocs.pdf)
+                # assumes a weak certificate here.
+                # But they also assume a need of catch-up before processing NewView if a Replica doesn't have the calculated checkpoint yet
+                # It looks like using a strong certificate eliminates a need for cathcup (although re-ordering may be slower)
+                # Once https://jira.hyperledger.org/browse/INDY-2237 is done, we may come back to weak certificate here
                 have_checkpoint = [vc for vc in vcs if cur_cp in vc.checkpoints]
                 if not self._data.quorums.strong.is_reached(len(have_checkpoint)):
                     continue
