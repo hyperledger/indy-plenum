@@ -14,7 +14,6 @@ from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_batches_of_random_and_check
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
                                     sdk_wallet_client, sdk_pool_handle,
                                     teardown,

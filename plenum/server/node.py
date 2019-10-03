@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -3555,7 +3555,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
+    def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
+        self.monitor.reset()
+
     def _process_new_view_accerted(self, msg: NewViewAccepted):
+        self.view_changer.instance_changes.remove_view(self.viewNo)
+        self.monitor.reset()
         for i in self.replicas.keys():
             self.primary_selected(i)
 
@@ -3566,6 +3571,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
                                                 self._process_new_view_accerted,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
+                                                self._process_re_ordered_in_new_view,
                                                 self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):

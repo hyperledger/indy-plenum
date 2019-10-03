@@ -155,6 +155,7 @@ def test_node_info_section(info, node):
     assert "Uncommitted_state_root_hashes" in info['Node_info']
     assert info['Node_info']['View_change_status']
     assert 'IC_queue'       in info['Node_info']['View_change_status']
+    assert 'VCDone_queue' in info['Node_info']['View_change_status']
     assert 'VC_in_progress' in info['Node_info']['View_change_status']
     assert 'View_No'        in info['Node_info']['View_change_status']
     assert 'Last_complete_view_no' in info['Node_info']['View_change_status']
