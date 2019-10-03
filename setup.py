@@ -80,6 +80,9 @@ setup(
     long_description=metadata['__long_description__'],
     download_url=metadata['__download_url__'],
     license=metadata['__license__'],
+    classifiers=[
+        "Programming Language :: Python :: 3"
+    ],
 
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*', 'simulation']) + [
