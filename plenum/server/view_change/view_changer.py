@@ -4,8 +4,6 @@ from collections import deque
 from typing import List, Optional, Tuple, Set
 from functools import partial
 
-from common.exceptions import LogicError
-from plenum.common.event_bus import InternalBus
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
@@ -248,28 +246,6 @@ class ViewChanger():
         return True
 
     @property
-    def has_view_change_from_primary(self) -> bool:
-        if not self._has_view_change_from_primary:
-            next_primary_name = self.provider.next_primary_name()
-
-            if next_primary_name not in self._view_change_done:
-                logger.info("{} has not received ViewChangeDone from the next "
-                            "primary {} (view_no: {}, totalNodes: {})".
-                            format(self.name, next_primary_name, self.view_no, self.quorums.n))
-            else:
-                logger.info('{} received ViewChangeDone from primary {}'.format(self, next_primary_name))
-                self._has_view_change_from_primary = True
-
-        return self._has_view_change_from_primary
-
-    @property
-    def has_acceptable_view_change_quorum(self):
-        if not self._has_acceptable_view_change_quorum:
-            self._has_acceptable_view_change_quorum = \
-                (self._hasViewChangeQuorum and self.has_view_change_from_primary)
-        return self._has_acceptable_view_change_quorum
-
-    @property
     def is_behind_for_view(self) -> bool:
         # Checks if the node is currently behind the accepted state for this
         # view, only makes sense to call when the node has an acceptable
@@ -497,53 +473,15 @@ class ViewChanger():
         self.provider.notify_view_change_start()
         self.provider.start_view_change(proposed_view_no)
 
-    def _start_selection(self):
-
-        error = None
-
-        if not self.provider.is_node_synced():
-            error = "mode is {}".format(self.provider.node_mode())
-        elif not self.has_acceptable_view_change_quorum:
-            error = "has no view change quorum or no message from next primary"
-        else:
-            rv = self.get_sufficient_same_view_change_done_messages()
-            if rv is None:
-                error = "there are not sufficient same ViewChangeDone messages"
-            elif not self._verify_primary(*rv):
-                error = "failed to verify primary"
-
-        if error is not None:
-            logger.info('{} cannot start primary selection because {}'.format(self, error))
-            return
-
-        if self.is_behind_for_view:
-            logger.info('{} is synced and has an acceptable view change quorum '
-                        'but is behind the accepted state'.format(self))
-            self.provider.start_catchup()
-            return
-
-        self.provider.select_primaries()
-
-        # if self.view_change_in_progress:
-        #     self.view_change_in_progress = False
-        #     self.provider.notify_view_change_complete()
-        #     # when we had INSTANCE_CHANGE message, they added into instanceChanges
-        #     # by msg.view_no. When view change was occured and view_no is changed,
-        #     # then we should delete all INSTANCE_CHANGE messages with current (already changed)
-        #     # view_no (which used in corresponded INSTANCE_CHANGE messages)
-        #     # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
-        #     self.instance_changes.remove_view(self.view_no)
-        #     self.previous_view_no = None
-        #     self.previous_master_primary = None
+    # TODO: Check whether these still need to be called somewhere after view change:
+    #  - self.provider.select_primaries()
+    #  - self.provider.notify_view_change_complete()
+    #  - self.instance_changes.remove_view(self.view_no)
 
     def set_defaults(self):
         # Set when an appropriate view change quorum is found which has
         # sufficient same ViewChangeDone messages
         self._primary_verified = False
-
-        self._has_view_change_from_primary = False
-
-        self._has_acceptable_view_change_quorum = False
 
         self._accepted_view_change_done_message = None
 

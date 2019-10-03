@@ -1,10 +1,8 @@
 from typing import Optional
 
 import base58
-import pytest
 
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
-from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
@@ -26,6 +24,8 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.config_util import getConfigOnce
 
 whitelist = ['but majority declared']
+
+# TODO: Move these helper classes to some common place - there were used not only in this test
 
 
 class FakeLedger:
@@ -175,86 +175,3 @@ class FakeNode:
         # This is used only for getting name of next primary, so
         # it just returns a constant
         return ['Node2', 'Node3']
-
-
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
-def test_has_view_change_quorum_number(tconf, tdir):
-    """
-    Checks method _hasViewChangeQuorum of SimpleSelector
-    It must have n-f ViewChangeDone
-
-    Check it for a case of view change (view_change_in_progress = True, propagate_primary = False)
-    """
-
-    ledgerInfo = (
-        # ledger id, ledger length, merkle root
-        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
-        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
-    )
-
-    node = FakeNode(str(tdir), tconf)
-    node.view_changer.view_change_in_progress = True
-    node.view_changer.propagate_primary = False
-
-    assert not node.view_changer._hasViewChangeQuorum
-
-    # Accessing _view_change_done directly to avoid influence of methods
-    node.view_changer._view_change_done = {}
-
-    def declare(replica_name):
-        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
-
-    # Declare the Primary first and check that n-f are required
-    declare('Node2')
-    assert node.view_changer.has_view_change_from_primary
-    assert not node.view_changer._hasViewChangeQuorum
-    declare('Node1')
-    assert node.view_changer.has_view_change_from_primary
-    assert not node.view_changer._hasViewChangeQuorum
-    declare('Node3')
-    assert node.view_changer.has_view_change_from_primary
-    assert node.view_changer._hasViewChangeQuorum
-
-
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
-def test_has_view_change_quorum_must_contain_primary(tconf, tdir):
-    """
-    Checks method _hasViewChangeQuorum of SimpleSelector
-    It must have n-f ViewChangeDone including a VCD from the next Primary
-
-    Check it for a case of view change (view_change_in_progress = True, propagate_primary = False)
-    """
-
-    ledgerInfo = (
-        # ledger id, ledger length, merkle root
-        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
-        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
-    )
-
-    node = FakeNode(str(tdir), tconf)
-    node.view_changer.view_change_in_progress = True
-    node.view_changer.propagate_primary = False
-
-    assert not node.view_changer._hasViewChangeQuorum
-
-    # Accessing _view_change_done directly to avoid influence of methods
-    node.view_changer._view_change_done = {}
-
-    def declare(replica_name):
-        node.view_changer._view_change_done[replica_name] = ('Node2', ledgerInfo)
-
-    declare('Node1')
-    assert not node.view_changer._hasViewChangeQuorum
-    assert not node.view_changer.has_view_change_from_primary
-    declare('Node3')
-    assert not node.view_changer._hasViewChangeQuorum
-    assert not node.view_changer.has_view_change_from_primary
-    declare('Node4')
-    assert node.view_changer._hasViewChangeQuorum
-    assert not node.view_changer.has_view_change_from_primary
-
-    # Three nodes is enough for quorum, but there is no Node2:0 which is
-    # expected to be next primary, so no quorum should be achieved
-    declare('Node2')
-    assert node.view_changer._hasViewChangeQuorum
-    assert node.view_changer.has_view_change_from_primary

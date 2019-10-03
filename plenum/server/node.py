@@ -1415,7 +1415,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, ThreePhaseType):
+        if isinstance(msg, InstanceChange):
+            self.sendToViewChanger(msg, frm)
+            return True
+        elif isinstance(msg, ThreePhaseType):
             self.sendToReplica(msg, frm)
             return True
         else:
