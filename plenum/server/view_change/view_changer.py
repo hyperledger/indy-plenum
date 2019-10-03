@@ -14,7 +14,6 @@ from stp_core.common.log import getlogger
 from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
     VIEW_CHANGE_PREFIX, MONITORING_PREFIX
 from plenum.common.messages.node_messages import InstanceChange
-from plenum.common.util import mostCommonElement
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
 
@@ -227,37 +226,6 @@ class ViewChanger():
     @property
     def quorum(self) -> int:
         return self.quorums.view_change_done.value
-
-    @property
-    def _hasViewChangeQuorum(self):
-        # This method should just be present for master instance.
-        """
-        Checks whether n-f nodes completed view change and whether one
-        of them is the next primary
-        """
-        num_of_ready_nodes = len(self._view_change_done)
-        diff = self.quorum - num_of_ready_nodes
-        if diff > 0:
-            logger.info('{} needs {} ViewChangeDone messages'.format(self, diff))
-            return False
-
-        logger.info("{} got view change quorum ({} >= {})".
-                    format(self.name, num_of_ready_nodes, self.quorum))
-        return True
-
-    @property
-    def is_behind_for_view(self) -> bool:
-        # Checks if the node is currently behind the accepted state for this
-        # view, only makes sense to call when the node has an acceptable
-        # view change quorum
-        _, accepted_ledger_summary = self.get_sufficient_same_view_change_done_messages()
-        for (ledgerId, own_ledger_size, _), (_, accepted_ledger_size, _) in \
-                zip(self.provider.ledger_summary(), accepted_ledger_summary):
-            if own_ledger_size < accepted_ledger_size:
-                logger.info("{} ledger {} sizes are differ: own {} accepted {}".
-                            format(self, ledgerId, own_ledger_size, accepted_ledger_size))
-                return True
-        return False
 
     # __ PROPERTIES __
 
@@ -484,25 +452,6 @@ class ViewChanger():
         self._primary_verified = False
 
         self._accepted_view_change_done_message = None
-
-    def get_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
-        # Returns whether has a quorum of ViewChangeDone messages that are same
-        # TODO: Does not look like optimal implementation.
-        if self._accepted_view_change_done_message is None and \
-                self._view_change_done:
-            votes = self._view_change_done.values()
-            votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
-            (new_primary, ledger_info), vote_count = mostCommonElement(votes)
-            if vote_count >= self.quorum:
-                logger.info('{} found acceptable primary {} and ledger info {}'.
-                            format(self, new_primary, ledger_info))
-                self._accepted_view_change_done_message = (new_primary,
-                                                           ledger_info)
-            else:
-                logger.info('{} does not have acceptable primary, only {} votes for {}'.
-                            format(self, vote_count, (new_primary, ledger_info)))
-
-        return self._accepted_view_change_done_message
 
     def _verify_primary(self, new_primary, ledger_info):
         """

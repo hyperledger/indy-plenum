@@ -2088,61 +2088,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return last_txn_prim_value
 
     def is_catchup_needed(self) -> bool:
-        # More than one catchup may be needed during the current ViewChange protocol
-        if self.view_change_in_progress:
-            return self.is_catchup_needed_during_view_change()
-
         # If we already have audit ledger we don't need any more catch-ups
         if self.auditLedger.size > 0:
             return False
 
         # Do a catchup until there are no more new transactions
         return self.num_txns_caught_up_in_last_catchup() > 0
-
-    def is_catchup_needed_during_view_change(self) -> bool:
-        """
-        Check if received a quorum of view change done messages and if yes
-        check if caught up till the
-        Check if all requests ordered till last prepared certificate
-        Check if last catchup resulted in no txns
-        """
-        if self.caught_up_for_current_view():
-            logger.info('{} is caught up for the current view {}'.format(self, self.viewNo))
-            return False
-        logger.info('{} is not caught up for the current view {}'.format(self, self.viewNo))
-
-        if self.num_txns_caught_up_in_last_catchup() == 0:
-            if self.has_ordered_till_last_prepared_certificate():
-                logger.info('{} ordered till last prepared certificate'.format(self))
-                return False
-
-        if self.is_catch_up_limit(self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
-            # No more 3PC messages will be processed since maximum catchup
-            # rounds have been done
-            self.master_replica.last_prepared_before_view_change = None
-            return False
-
-        return True
-
-    def caught_up_for_current_view(self) -> bool:
-        if not self.view_changer._hasViewChangeQuorum:
-            logger.info('{} does not have view change quorum for view {}'.format(self, self.viewNo))
-            return False
-        vc = self.view_changer.get_sufficient_same_view_change_done_messages()
-        if not vc:
-            logger.info('{} does not have acceptable ViewChangeDone for view {}'.format(self, self.viewNo))
-            return False
-        ledger_info = vc[1]
-        for lid, size, root_hash in ledger_info:
-            ledger = self.ledgerManager.ledgerRegistry[lid].ledger
-            if size == 0:
-                continue
-            if ledger.size < size:
-                return False
-            if ledger.hashToStr(
-                    ledger.tree.merkle_tree_hash(0, size)) != root_hash:
-                return False
-        return True
 
     def has_ordered_till_last_prepared_certificate(self) -> bool:
         lst = self.master_replica.last_prepared_before_view_change
