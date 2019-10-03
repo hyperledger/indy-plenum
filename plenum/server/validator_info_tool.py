@@ -586,8 +586,7 @@ class ValidatorNodeInfoTool:
                         self._node.view_changer.last_completed_view_no),
                     "IC_queue": self._prepare_for_json(
                         self._get_ic_queue()),
-                    "VCDone_queue": self._prepare_for_json(
-                        self._node.view_changer._view_change_done)
+                    "VCDone_queue": self._prepare_for_json({})
                 },
                 "Catchup_status": {
                     "Ledger_statuses": self._prepare_for_json(

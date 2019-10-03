@@ -40,7 +40,6 @@ class ReplicaFakeNode(FakeSomething):
             utc_epoch=lambda *args: get_utc_epoch(),
             mode=Mode.participating,
             view_change_in_progress=False,
-            pre_view_change_in_progress=False,
             requests=Requests(),
             onBatchCreated=lambda self, *args, **kwargs: True,
             applyReq=lambda self, *args, **kwargs: True,

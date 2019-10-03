@@ -1,8 +1,6 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.messages.node_messages import Prepare, Commit, PrePrepare, ViewChangeStartMessage, \
-    ViewChangeContinueMessage
+from plenum.common.messages.node_messages import Prepare, Commit, PrePrepare
 from plenum.common.util import get_utc_epoch
-from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
 
 
 def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
@@ -35,7 +33,6 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
         1
     )
     node.view_changer = node.newViewChanger()
-    node.view_changer.pre_vc_strategy = VCStartMsgStrategy(node.view_changer, node)
     node.master_replica._consensus_data.view_no = 0
     node.master_replica.primaryName = 'Alpha'
     """Initiate view_change procedure"""

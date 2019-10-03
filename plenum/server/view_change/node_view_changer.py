@@ -1,11 +1,9 @@
 import logging
-from typing import Tuple, List, Set
+from typing import Set
 
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.startable import Mode
-from plenum.common.timer import QueueTimer
 from plenum.server.quorums import Quorums
-from plenum.server.view_change.pre_view_change_strategies import preVCStrategies
 from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
 from storage.kv_store import KeyValueStorage
 
@@ -23,26 +21,8 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def quorums(self) -> Quorums:
         return self._node.quorums
 
-    def has_pool_ledger(self) -> bool:
-        return self._node.poolLedger is not None
-
-    def ledger_summary(self) -> List[Tuple[int, int, str]]:
-        return self._node.ledger_summary
-
-    def node_registry(self, size):
-        return self._node.poolManager.getNodeRegistry(size)
-
-    def is_node_synced(self) -> bool:
-        return self._node.is_synced
-
     def node_mode(self) -> Mode:
         return self._node.mode
-
-    def next_primary_name(self) -> str:
-        return self._node.get_primaries_for_current_view()[0]
-
-    def current_primary_name(self) -> str:
-        return self._node.master_primary_name
 
     def has_primary(self) -> bool:
         return self._node.master_replica.hasPrimary
@@ -117,9 +97,4 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
 
 
 def create_view_changer(node, vchCls=ViewChanger):
-    vc = vchCls(ViewChangerNodeDataProvider(node), node.timer)
-
-    if hasattr(node.config, 'PRE_VC_STRATEGY'):
-        vc.pre_vc_strategy = preVCStrategies.get(node.config.PRE_VC_STRATEGY)(vc, node)
-
-    return vc
+    return vchCls(ViewChangerNodeDataProvider(node), node.timer)
