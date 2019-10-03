@@ -45,13 +45,17 @@ NeedViewChange.__new__.__defaults__ = (None,) * len(NeedViewChange._fields)
 
 ViewChangeStarted = NamedTuple('ViewChangeStarted',
                                [('view_no', int)])
+
 NewViewAccepted = NamedTuple('NewViewAccepted',
                              [('view_no', int),
                               ('view_changes', list),
                               ('checkpoint', object),
                               ('batches', list)])
+
 NewViewCheckpointsApplied = NamedTuple('NewViewCheckpointsApplied',
                                        [('view_no', int),
                                         ('view_changes', list),
                                         ('checkpoint', object),
                                         ('batches', list)])
+
+ReOrderedInNewView = NamedTuple('ReOrderedInNewView', [])

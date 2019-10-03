@@ -288,7 +288,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node._do_start_catchup,
                  Node.is_catchup_needed,
                  Node.no_more_catchups_needed,
-                 Node.caught_up_for_current_view,
                  Node._check_view_change_completed,
                  Node.primary_selected,
                  Node.num_txns_caught_up_in_last_catchup,
@@ -373,10 +372,8 @@ class TestNode(TestNodeCore, Node):
 
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
-    ViewChanger._do_view_change_by_future_vcd,
     ViewChanger.process_instance_change_msg,
-    ViewChanger.start_view_change,
-    ViewChanger.process_future_view_vchd_msg
+    ViewChanger.start_view_change
 ]
 
 

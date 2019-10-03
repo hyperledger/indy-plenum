@@ -46,7 +46,7 @@ def not_processing_view_change_done(node):
     node.processNodeInBox = functools.partial(processNodeInBoxWithoutVCDone, node)
 
 
-@pytest.mark.skip(reason="we don't have a delayers for new view_change messages")
+@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_complete_with_delayed_view_change(looper,
                                            txnPoolNodeSet,
                                            sdk_wallet_steward,

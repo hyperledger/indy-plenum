@@ -5,13 +5,15 @@ from plenum.test.pool_transactions.helper import sdk_add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 
-def check_accepted_view_change_sent(node, nodes):
-    for other_node in nodes:
-        if node == other_node:
-            continue
-        if other_node.name in node.view_changer._view_change_done:
-            assert node.view_changer._view_change_done[other_node.name] == \
-                   node.view_changer._accepted_view_change_done_message
+# TODO: Should we delete this whole test?
+
+# def check_accepted_view_change_sent(node, nodes):
+#     for other_node in nodes:
+#         if node == other_node:
+#             continue
+#         if other_node.name in node.view_changer._view_change_done:
+#             assert node.view_changer._view_change_done[other_node.name] == \
+#                    node.view_changer._accepted_view_change_done_message
 
 
 def test_primary_selection_non_genesis_node(sdk_one_node_added, looper,

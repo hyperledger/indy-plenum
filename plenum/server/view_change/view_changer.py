@@ -1,11 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import List, Optional, Tuple, Set
+from typing import Optional, Set
 from functools import partial
 
-from common.exceptions import LogicError
-from plenum.common.event_bus import InternalBus
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
@@ -13,10 +11,8 @@ from plenum.server.view_change.instance_change_provider import InstanceChangePro
 from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
 
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX, \
-    VIEW_CHANGE_PREFIX, MONITORING_PREFIX
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone, FutureViewChangeDone
-from plenum.common.util import mostCommonElement
+from plenum.common.constants import VIEW_CHANGE_PREFIX, MONITORING_PREFIX
+from plenum.common.messages.node_messages import InstanceChange
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.router import Router
 
@@ -41,31 +37,7 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def has_pool_ledger(self) -> bool:
-        pass
-
-    @abstractmethod
-    def ledger_summary(self) -> List[Tuple[int, int, str]]:
-        pass
-
-    @abstractmethod
-    def node_registry(self, size):
-        pass
-
-    @abstractmethod
-    def is_node_synced(self) -> bool:
-        pass
-
-    @abstractmethod
     def node_mode(self) -> Mode:
-        pass
-
-    @abstractmethod
-    def next_primary_name(self) -> str:
-        pass
-
-    @abstractmethod
-    def current_primary_name(self) -> str:
         pass
 
     @abstractmethod
@@ -159,32 +131,17 @@ class ViewChanger():
     def __init__(self, provider: ViewChangerDataProvider, timer: TimerService):
         self.provider = provider
         self._timer = timer
-        self.pre_vc_strategy = None
 
         self.inBox = deque()
         self.outBox = deque()
         self.inBoxRouter = Router(
-            (InstanceChange, self.process_instance_change_msg),
-            (ViewChangeDone, self.process_vchd_msg),
-            (FutureViewChangeDone, self.process_future_view_vchd_msg)
+            (InstanceChange, self.process_instance_change_msg)
         )
 
         self.instance_changes = InstanceChangeProvider(self.config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
                                                        node_status_db=self.provider.node_status_db)
 
-        # Tracks if other nodes are indicating that this node is in lower view
-        # than others. Keeps a map of view no to senders
-        # TODO: Consider if sufficient ViewChangeDone for 2 different (and
-        # higher views) are received, should one view change be interrupted in
-        # between.
-        self._next_view_indications = {}
-
-        self.pre_view_change_in_progress = False
-
         self.previous_view_no = None
-        self.previous_master_primary = None
-
-        self.set_defaults()
 
         # Action for _schedule instanceChange messages
         self.instance_change_action = None
@@ -238,59 +195,6 @@ class ViewChanger():
     @property
     def quorum(self) -> int:
         return self.quorums.view_change_done.value
-
-    @property
-    def _hasViewChangeQuorum(self):
-        # This method should just be present for master instance.
-        """
-        Checks whether n-f nodes completed view change and whether one
-        of them is the next primary
-        """
-        num_of_ready_nodes = len(self._view_change_done)
-        diff = self.quorum - num_of_ready_nodes
-        if diff > 0:
-            logger.info('{} needs {} ViewChangeDone messages'.format(self, diff))
-            return False
-
-        logger.info("{} got view change quorum ({} >= {})".
-                    format(self.name, num_of_ready_nodes, self.quorum))
-        return True
-
-    @property
-    def has_view_change_from_primary(self) -> bool:
-        if not self._has_view_change_from_primary:
-            next_primary_name = self.provider.next_primary_name()
-
-            if next_primary_name not in self._view_change_done:
-                logger.info("{} has not received ViewChangeDone from the next "
-                            "primary {} (view_no: {}, totalNodes: {})".
-                            format(self.name, next_primary_name, self.view_no, self.quorums.n))
-            else:
-                logger.info('{} received ViewChangeDone from primary {}'.format(self, next_primary_name))
-                self._has_view_change_from_primary = True
-
-        return self._has_view_change_from_primary
-
-    @property
-    def has_acceptable_view_change_quorum(self):
-        if not self._has_acceptable_view_change_quorum:
-            self._has_acceptable_view_change_quorum = \
-                (self._hasViewChangeQuorum and self.has_view_change_from_primary)
-        return self._has_acceptable_view_change_quorum
-
-    @property
-    def is_behind_for_view(self) -> bool:
-        # Checks if the node is currently behind the accepted state for this
-        # view, only makes sense to call when the node has an acceptable
-        # view change quorum
-        _, accepted_ledger_summary = self.get_sufficient_same_view_change_done_messages()
-        for (ledgerId, own_ledger_size, _), (_, accepted_ledger_size, _) in \
-                zip(self.provider.ledger_summary(), accepted_ledger_summary):
-            if own_ledger_size < accepted_ledger_size:
-                logger.info("{} ledger {} sizes are differ: own {} accepted {}".
-                            format(self, ledgerId, own_ledger_size, accepted_ledger_size))
-                return True
-        return False
 
     # __ PROPERTIES __
 
@@ -354,30 +258,6 @@ class ViewChanger():
     def on_replicas_count_changed(self):
         self.propose_view_change(Suspicions.REPLICAS_COUNT_CHANGED)
 
-    def on_catchup_complete(self):
-        if not self.provider.is_node_synced():
-            raise LogicError('on_catchup_complete can be called only after catchup completed')
-        # if not self.provider.is_primary() is None:
-        #     raise LogicError('Primary on master replica cannot be elected yet')
-        self._send_view_change_done_message()
-        self._start_selection()
-
-    def process_future_view_vchd_msg(self, future_vcd_msg: FutureViewChangeDone, frm):
-        # if we already started a view change then do not decide on a new one
-        if self.view_change_in_progress:
-            return
-
-        view_no = future_vcd_msg.vcd_msg.viewNo
-        # ToDo maybe we should compare with last_completed_view_no instead of viewNo.
-        if view_no <= self.view_no:
-            # it means we already processed this future View Change Done
-            return
-
-        if view_no not in self._next_view_indications:
-            self._next_view_indications[view_no] = {}
-        self._next_view_indications[view_no][frm] = future_vcd_msg.vcd_msg
-        self._do_view_change_by_future_vcd(view_no)
-
     # __ EXTERNAL EVENTS __
 
     def process_instance_change_msg(self, instChg: InstanceChange, frm: str) -> None:
@@ -424,42 +304,6 @@ class ViewChanger():
                 logger.display("{}{} found master degraded after receiving instance change"
                                " message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
                 self.sendInstanceChange(instChg.viewNo)
-
-    def process_vchd_msg(self, msg: ViewChangeDone, sender: str) -> bool:
-        """
-        Processes ViewChangeDone messages. Once n-f messages have been
-        received, decides on a primary for specific replica.
-
-        :param msg: ViewChangeDone message
-        :param sender: the name of the node from which this message was sent
-        """
-        logger.info("{}'s primary selector started processing of ViewChangeDone msg from {} : {}".
-                    format(self.name, sender, msg))
-        view_no = msg.viewNo
-        if self.view_no != view_no:
-            self.provider.discard(msg, '{} got Primary from {} for view no {} '
-                                       'whereas current view no is {}'.
-                                  format(self, sender, view_no, self.view_no),
-                                  logMethod=logger.info)
-            return False
-
-        new_primary_name = msg.name
-        if new_primary_name == self.previous_master_primary:
-            self.provider.discard(msg, '{} got Primary from {} for {} who was primary of '
-                                       'master in previous view too'.
-                                  format(self, sender, new_primary_name),
-                                  logMethod=logger.info)
-            return False
-
-        # Since a node can send ViewChangeDone more than one time
-        self._on_verified_view_change_done_msg(msg, sender)
-        # TODO why do we check that after the message tracking
-        if self.provider.has_primary():
-            self.provider.discard(msg, "it already decided primary which is {}".
-                                  format(self.provider.current_primary_name()), logger.info)
-            return False
-
-        self._start_selection()
 
     def send(self, msg):
         """
@@ -534,18 +378,6 @@ class ViewChanger():
             logger.info(whyNot)
         return can
 
-    def _quorum_is_reached(self, count):
-        return self.quorums.view_change_done.is_reached(count)
-
-    def _do_view_change_by_future_vcd(self, view_no) -> bool:
-        ind_count = len(self._next_view_indications[view_no])
-        if self._quorum_is_reached(ind_count):
-            logger.display('{}{} starting view change for {} after {} view change '
-                           'indications from other nodes'.format(VIEW_CHANGE_PREFIX, self, view_no, ind_count))
-            self.start_view_change(view_no)
-            return True
-        return False
-
     def _canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
         Return whether there's quorum for view change for the proposed view
@@ -568,165 +400,14 @@ class ViewChanger():
         :param proposed_view_no: the new view number after view change.
         """
         self.previous_view_no = self.view_no
-        self.pre_view_change_in_progress = False
-        self.previous_master_primary = self.provider.current_primary_name()
-        self.set_defaults()
 
         self.provider.notify_view_change_start()
         self.provider.start_view_change(proposed_view_no)
 
-    def _process_vcd_for_future_view(self):
-        # make sure that all received VCD messages for future view
-        # (including the current view) are stored, as they will be needed for a quorum
-        # to finish the View Change and start selection.
-        # This is especially critical for Propagate Primary mode (on receiving CURRENT_STATE by a new node).
-        if self.view_no in self._next_view_indications:
-            for frm, vcd in self._next_view_indications[self.view_no].items():
-                # we call _on_verified_view_change_done_msg, not process_vchd_msg,
-                # since we may be in propagate primary mode where some of validation inside process_vchd_msg
-                # is not correct (for example, checking that the new primary differs from the current one)
-                self._on_verified_view_change_done_msg(vcd, frm)
-
-        # remove all for previous views
-        for view_no in tuple(self._next_view_indications.keys()):
-            if view_no <= self.view_no:
-                del self._next_view_indications[view_no]
-
-    def _on_verified_view_change_done_msg(self, msg, frm):
-        new_primary_name = msg.name
-        ledger_summary = msg.ledgerInfo
-
-        # TODO what is the case when node sends several different
-        # view change done messages
-        data = (new_primary_name, ledger_summary)
-        self._view_change_done[frm] = data
-
-    def _start_selection(self):
-
-        error = None
-
-        if not self.provider.is_node_synced():
-            error = "mode is {}".format(self.provider.node_mode())
-        elif not self.has_acceptable_view_change_quorum:
-            error = "has no view change quorum or no message from next primary"
-        else:
-            rv = self.get_sufficient_same_view_change_done_messages()
-            if rv is None:
-                error = "there are not sufficient same ViewChangeDone messages"
-            elif not self._verify_primary(*rv):
-                error = "failed to verify primary"
-
-        if error is not None:
-            logger.info('{} cannot start primary selection because {}'.format(self, error))
-            return
-
-        if self.is_behind_for_view:
-            logger.info('{} is synced and has an acceptable view change quorum '
-                        'but is behind the accepted state'.format(self))
-            self.provider.start_catchup()
-            return
-
-        self.provider.select_primaries()
-
-        # if self.view_change_in_progress:
-        #     self.view_change_in_progress = False
-        #     self.provider.notify_view_change_complete()
-        #     # when we had INSTANCE_CHANGE message, they added into instanceChanges
-        #     # by msg.view_no. When view change was occured and view_no is changed,
-        #     # then we should delete all INSTANCE_CHANGE messages with current (already changed)
-        #     # view_no (which used in corresponded INSTANCE_CHANGE messages)
-        #     # Therefore we delete all INSTANCE_CHANGE messages from previous and current view number
-        #     self.instance_changes.remove_view(self.view_no)
-        #     self.previous_view_no = None
-        #     self.previous_master_primary = None
-
-    def set_defaults(self):
-        # Tracks view change done message
-        self._view_change_done = {}  # replica name -> data
-
-        # Set when an appropriate view change quorum is found which has
-        # sufficient same ViewChangeDone messages
-        self._primary_verified = False
-
-        self._has_view_change_from_primary = False
-
-        self._has_acceptable_view_change_quorum = False
-
-        self._accepted_view_change_done_message = None
-
-    def get_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
-        # Returns whether has a quorum of ViewChangeDone messages that are same
-        # TODO: Does not look like optimal implementation.
-        if self._accepted_view_change_done_message is None and \
-                self._view_change_done:
-            votes = self._view_change_done.values()
-            votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
-            (new_primary, ledger_info), vote_count = mostCommonElement(votes)
-            if vote_count >= self.quorum:
-                logger.info('{} found acceptable primary {} and ledger info {}'.
-                            format(self, new_primary, ledger_info))
-                self._accepted_view_change_done_message = (new_primary,
-                                                           ledger_info)
-            else:
-                logger.info('{} does not have acceptable primary, only {} votes for {}'.
-                            format(self, vote_count, (new_primary, ledger_info)))
-
-        return self._accepted_view_change_done_message
-
-    def _verify_primary(self, new_primary, ledger_info):
-        """
-        This method is called when sufficient number of ViewChangeDone
-        received and makes steps to switch to the new primary
-        """
-        expected_primary = self.provider.next_primary_name()
-        if new_primary != expected_primary:
-            logger.error("{}{} expected next primary to be {}, but majority "
-                         "declared {} instead for view {}"
-                         .format(PRIMARY_SELECTION_PREFIX, self.name,
-                                 expected_primary, new_primary, self.view_no))
-            return False
-
-        self._primary_verified = True
-        return True
-        # TODO: check if ledger status is expected
-
-    def _send_view_change_done_message(self):
-        """
-        Sends ViewChangeDone message to other protocol participants
-        """
-        new_primary_name = self.provider.next_primary_name()
-        ledger_summary = self.provider.ledger_summary()
-        message = ViewChangeDone(self.view_no,
-                                 new_primary_name,
-                                 ledger_summary)
-
-        logger.info("{} is sending ViewChangeDone msg to all : {}".format(self, message))
-
-        self.send(message)
-        self._on_verified_view_change_done_msg(message, self.name)
-
-    # overridden method of PrimaryDecider
-    def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
-        # Should not return a list, only done for compatibility with interface
-        """
-        Returns the last accepted `ViewChangeDone` message.
-        If no view change has happened returns ViewChangeDone
-        with view no 0 to a newly joined node
-        """
-        # TODO: Consider a case where more than one node joins immediately,
-        # then one of the node might not have an accepted
-        # ViewChangeDone message
-        messages = []
-        accepted = self._accepted_view_change_done_message
-        if accepted:
-            messages.append(ViewChangeDone(self.last_completed_view_no, *accepted))
-        elif self.name in self._view_change_done:
-            messages.append(ViewChangeDone(self.last_completed_view_no,
-                                           *self._view_change_done[self.name]))
-        else:
-            logger.info('{} has no ViewChangeDone message to send for view {}'.
-                        format(self, self.view_no))
-        return messages
+    # TODO: Check whether these still need to be called somewhere after view change:
+    #  - self.provider.select_primaries()
+    #  - self.provider.notify_view_change_complete()
+    #  - self.instance_changes.remove_view(self.view_no)
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
         proposed_view_no = self.view_no

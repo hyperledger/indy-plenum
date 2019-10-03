@@ -6,7 +6,7 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
-from plenum.server.replica_validator_enums import STASH_VIEW
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_VIEW_3PC
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint, check_for_instance
 from plenum.test.delayers import lsDelay, vcd_delay, nv_delay
@@ -31,7 +31,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_checkpoints_after_view_change(tconf,
                                        looper,
                                        chkFreqPatched,
@@ -78,7 +77,7 @@ def test_checkpoints_after_view_change(tconf,
             )
             looper.run(
                 eventually(check_last_ordered_3pc_on_backup, rest_nodes,
-                           (1, num_reqs + 1))
+                           (1, num_reqs))
             )
 
             # all good nodes stabilized checkpoint
@@ -105,20 +104,20 @@ def test_checkpoints_after_view_change(tconf,
     )
     looper.run(
         eventually(check_last_ordered_3pc_on_backup, [lagging_node],
-                   (1, num_reqs + 1))
+                   (1, num_reqs))
     )
 
     # check that checkpoint is stabilized for master
     looper.run(eventually(check_for_instance, [lagging_node], 0, check_stable_checkpoint, 10))
 
-    # check that the catch-up is finished
+    # check that the catch-up didn't happen
     assert lagging_node.mode == Mode.participating
-    assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up + 1
-    assert lagging_node.spylog.count(Node.start_catchup) == initial_start_catchup + 1
+    assert lagging_node.spylog.count(Node.allLedgersCaughtUp) == initial_all_ledgers_caught_up
+    assert lagging_node.spylog.count(Node.start_catchup) == initial_start_catchup
 
     waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5)
 
 
 def get_stashed_checkpoints(node):
     return sum(
-        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_VIEW] if isinstance(stashed, Checkpoint))
+        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_VIEW_3PC] if isinstance(stashed, Checkpoint))

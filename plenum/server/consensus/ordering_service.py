@@ -21,7 +21,8 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
-    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized
+    RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
+    ReOrderedInNewView
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     MessageReq, OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
@@ -47,7 +48,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_WAITING_NEW_VIEW
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -2262,8 +2263,6 @@ class OrderingService:
 
         self._logger.info("{} processing {}".format(self, msg))
 
-        self.primaries_batch_needed = True
-
         # apply PrePrepares from NewView that we have
         # request missing PrePrepares from NewView
         missing_batches = []
@@ -2274,6 +2273,8 @@ class OrderingService:
             else:
                 self._process_pre_prepare_from_old_view(pp)
 
+        self.primaries_batch_needed = True
+
         if not msg.batches:
             self._write_manager.future_primary_handler.set_node_state()
 
@@ -2281,7 +2282,8 @@ class OrderingService:
             self._request_old_view_pre_prepares(missing_batches)
 
         # unstash waiting for New View messages
-        self._stasher.process_all_stashed(STASH_WAITING_NEW_VIEW)
+        self._stasher.process_all_stashed(STASH_VIEW_3PC)
+        self._bus.send(ReOrderedInNewView())
 
         return PROCESS, None
 

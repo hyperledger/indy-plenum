@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -30,7 +30,7 @@ from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
-from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_CATCH_UP, STASH_VIEW_3PC
 from plenum.server.request_handlers.utils import VALUE
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
@@ -73,9 +73,9 @@ from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Batch, \
     RequestAck, RequestNack, Reject, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, Checkpoint, Reply, InstanceChange, LedgerStatus, \
-    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, \
+    ConsistencyProof, CatchupReq, CatchupRep, \
     MessageReq, MessageRep, ThreePhaseType, BatchCommitted, \
-    ObservedData, FutureViewChangeDone, BackupInstanceFaulty, OldViewPrePrepareRequest, OldViewPrePrepareReply, \
+    ObservedData, BackupInstanceFaulty, OldViewPrePrepareRequest, OldViewPrePrepareReply, \
     ViewChange, ViewChangeAck, NewView
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
@@ -423,7 +423,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # signature verification
         self.authnWhitelist = (
             Batch,
-            ViewChangeDone,
             PrePrepare,
             Prepare,
             Checkpoint,
@@ -449,7 +448,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
             (InstanceChange, self.sendToViewChanger),
-            (ViewChangeDone, self.sendToViewChanger),
             (MessageReq, self.route_message_req),
             (MessageRep, self.route_message_rep),
             (PrePrepare, self.sendToReplica),
@@ -576,12 +574,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primaries = ps
         for r in self.replicas.values():
             r.set_primaries(ps)
-
-    @property
-    def pre_view_change_in_progress(self):
-        if self.view_changer is None:
-            return False
-        return self.view_changer.pre_view_change_in_progress
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -1417,7 +1409,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, (InstanceChange, ViewChangeDone)):
+        if isinstance(msg, InstanceChange):
             self.sendToViewChanger(msg, frm)
             return True
         elif isinstance(msg, ThreePhaseType):
@@ -1516,7 +1508,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.view_changer.outBox and (not limit or msgCount < limit):
             msgCount += 1
             msg = self.view_changer.outBox.popleft()
-            if isinstance(msg, (InstanceChange, ViewChangeDone)):
+            if isinstance(msg, InstanceChange):
                 self.send(msg)
             else:
                 logger.error("Received msg {} and don't know how to handle it".
@@ -1611,17 +1603,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(view_no), logMethod=logger.warning)
-        if isinstance(msg, ViewChangeDone) and view_no < self.viewNo:
-            self.discard(msg, "Proposed viewNo {} less, then current {}"
-                         .format(view_no, self.viewNo), logMethod=logger.warning)
-        elif (view_no > self.viewNo) or self._is_initial_view_change_now():
+        if (view_no > self.viewNo) or self._is_initial_view_change_now():
             if view_no not in self.msgsForFutureViews:
                 self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.format(self, msg))
             self.msgsForFutureViews[view_no].append((msg, frm))
-            if isinstance(msg, ViewChangeDone):
-                future_vcd_msg = FutureViewChangeDone(vcd_msg=msg)
-                self.msgsToViewChanger.append((future_vcd_msg, frm))
         else:
             return True
         return False
@@ -2040,11 +2026,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         extra={'cli': True})
 
             self.no_more_catchups_needed()
-
-            if self.view_change_in_progress:
-                self.view_changer.on_catchup_complete()
-            else:
-                self.select_primaries_on_catchup_complete()
+            self.select_primaries_on_catchup_complete()
 
     def select_primaries_on_catchup_complete(self):
         # Select primaries after usual catchup (not view change)
@@ -2057,8 +2039,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Emulate view change start
             self.view_changer.previous_view_no = self.viewNo
             self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
-            self.view_changer.previous_master_primary = self.master_primary_name
-            self.view_changer.set_defaults()
 
             self.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.primaries):
@@ -2100,61 +2080,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return last_txn_prim_value
 
     def is_catchup_needed(self) -> bool:
-        # More than one catchup may be needed during the current ViewChange protocol
-        if self.view_change_in_progress:
-            return self.is_catchup_needed_during_view_change()
-
         # If we already have audit ledger we don't need any more catch-ups
         if self.auditLedger.size > 0:
             return False
 
         # Do a catchup until there are no more new transactions
         return self.num_txns_caught_up_in_last_catchup() > 0
-
-    def is_catchup_needed_during_view_change(self) -> bool:
-        """
-        Check if received a quorum of view change done messages and if yes
-        check if caught up till the
-        Check if all requests ordered till last prepared certificate
-        Check if last catchup resulted in no txns
-        """
-        if self.caught_up_for_current_view():
-            logger.info('{} is caught up for the current view {}'.format(self, self.viewNo))
-            return False
-        logger.info('{} is not caught up for the current view {}'.format(self, self.viewNo))
-
-        if self.num_txns_caught_up_in_last_catchup() == 0:
-            if self.has_ordered_till_last_prepared_certificate():
-                logger.info('{} ordered till last prepared certificate'.format(self))
-                return False
-
-        if self.is_catch_up_limit(self.config.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE):
-            # No more 3PC messages will be processed since maximum catchup
-            # rounds have been done
-            self.master_replica.last_prepared_before_view_change = None
-            return False
-
-        return True
-
-    def caught_up_for_current_view(self) -> bool:
-        if not self.view_changer._hasViewChangeQuorum:
-            logger.info('{} does not have view change quorum for view {}'.format(self, self.viewNo))
-            return False
-        vc = self.view_changer.get_sufficient_same_view_change_done_messages()
-        if not vc:
-            logger.info('{} does not have acceptable ViewChangeDone for view {}'.format(self, self.viewNo))
-            return False
-        ledger_info = vc[1]
-        for lid, size, root_hash in ledger_info:
-            ledger = self.ledgerManager.ledgerRegistry[lid].ledger
-            if size == 0:
-                continue
-            if ledger.size < size:
-                return False
-            if ledger.hashToStr(
-                    ledger.tree.merkle_tree_hash(0, size)) != root_hash:
-                return False
-        return True
 
     def has_ordered_till_last_prepared_certificate(self) -> bool:
         lst = self.master_replica.last_prepared_before_view_change
@@ -2622,9 +2553,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
         self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_NEXT_VIEW_INDICATIONS,
-                               len(self.view_changer._next_view_indications))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_VIEW_CHANGE_DONE, len(self.view_changer._view_change_done))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
         self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
@@ -2679,7 +2607,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_MASTER,
                                self.master_replica.stasher.stash_size(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_MASTER,
-                               self.master_replica.stasher.stash_size(STASH_VIEW))
+                               self.master_replica.stasher.stash_size(STASH_VIEW_3PC))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_MASTER,
                                self.master_replica.stasher.stash_size(STASH_WATERMARKS))
 
@@ -2756,7 +2684,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_STASHED_CATCHUP_BACKUP,
                                sum_stashed_for_backups(STASH_CATCH_UP))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_FUTURE_VIEW_BACKUP,
-                               sum_stashed_for_backups(STASH_VIEW))
+                               sum_stashed_for_backups(STASH_VIEW_3PC))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_WATERMARKS_BACKUP,
                                sum_stashed_for_backups(STASH_WATERMARKS))
 
@@ -3555,7 +3483,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
+    def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
+        self.monitor.reset()
+
     def _process_new_view_accerted(self, msg: NewViewAccepted):
+        self.view_changer.instance_changes.remove_view(self.viewNo)
+        self.monitor.reset()
         for i in self.replicas.keys():
             self.primary_selected(i)
 
@@ -3566,6 +3499,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
                                                 self._process_new_view_accerted,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
+                                                self._process_re_ordered_in_new_view,
                                                 self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):

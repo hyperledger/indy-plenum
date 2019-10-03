@@ -36,7 +36,7 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest, TPCStat
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
 from plenum.server.router import Router
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
@@ -383,7 +383,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_view_change_done(self):
         if self.isMaster:
             self.last_prepared_before_view_change = None
-        self.stasher.process_all_stashed(STASH_VIEW)
+        self.stasher.process_all_stashed(STASH_VIEW_3PC)
 
     def _clear_all_3pc_msgs(self):
         self._ordering_service._clear_all_3pc_msgs()

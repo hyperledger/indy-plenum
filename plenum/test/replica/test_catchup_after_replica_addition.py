@@ -70,7 +70,7 @@ def test_catchup_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    looper.run(eventually(lambda: assertExp(n.viewNo == view_no for n in txnPoolNodeSet)))
+    looper.run(eventually(lambda: assertExp(n.viewNo == view_no + 1 for n in txnPoolNodeSet)))
     waitNodeDataEquality(looper, *txnPoolNodeSet)
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 1)

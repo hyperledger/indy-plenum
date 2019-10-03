@@ -1,9 +1,7 @@
-import types
-
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import lsDelay, cpDelay, cDelay
+from plenum.test.delayers import lsDelay, cDelay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
@@ -75,9 +73,9 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
                                         bad_node.has_ordered_till_last_prepared_certificate,
                                         compare_val_to=True))
 
-        old_count_1 = is_catchup_needed_count()
-        old_count_2 = has_ordered_till_last_prepared_certificate_count()
-        old_count_3 = is_catchup_not_needed_count()
+        old_is_catchup_needed_count = is_catchup_needed_count()
+        old_is_catchup_not_needed_count = is_catchup_not_needed_count()
+        old_has_ordered_till_last_prepared_certificate_count = has_ordered_till_last_prepared_certificate_count()
         ensure_view_change(looper, txnPoolNodeSet)
         checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
         ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
@@ -85,10 +83,10 @@ def test_caught_up_for_current_view_check(looper, txnPoolNodeSet, sdk_pool_handl
                                                             'check_audit',
                                                             'check_last_ordered_3pc_backup'])
 
-        assert is_catchup_needed_count() > old_count_1
-        assert is_catchup_not_needed_count() > old_count_3
+        assert is_catchup_needed_count() == old_is_catchup_needed_count
+        assert is_catchup_not_needed_count() > old_is_catchup_not_needed_count
         # The bad_node caught up due to ordering till last prepared certificate
-        assert has_ordered_till_last_prepared_certificate_count() > old_count_2
+        assert has_ordered_till_last_prepared_certificate_count() > old_has_ordered_till_last_prepared_certificate_count
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet,
                                     exclude_from_check=['check_last_ordered_3pc_backup'])
