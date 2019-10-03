@@ -4,8 +4,7 @@ from typing import Iterable, List, Optional
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.request import Request
 
-from plenum.common.messages.node_messages import Nomination, Reelection, Primary, \
-    Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
+from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
     ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState
 from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
@@ -80,24 +79,6 @@ def delayerMethod(method, delay):
             return delay
 
     return inner
-
-
-def nom_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
-    # Delayer of NOMINATE requests
-    return delayerMsgTuple(
-        delay, Nomination, instFilter=inst_id, senderFilter=sender_filter)
-
-
-def prim_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
-    # Delayer of PRIMARY requests
-    return delayerMsgTuple(
-        delay, Primary, instFilter=inst_id, senderFilter=sender_filter)
-
-
-def rel_delay(delay: float = DEFAULT_DELAY, inst_id=None, sender_filter: str = None):
-    # Delayer of REELECTION requests
-    return delayerMsgTuple(
-        delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
 
 def ppgDelay(delay: float = DEFAULT_DELAY, sender_filter: str = None):
@@ -230,9 +211,7 @@ def delayNonPrimaries(txnPoolNodeSet, instId, delay):
 
 def delay_messages(typ, nodes, inst_id, delay=None,
                    min_delay=None, max_delay=None):
-    if typ == 'election':
-        delay_meths = (nom_delay, prim_delay, rel_delay)
-    elif typ == '3pc':
+    if typ == '3pc':
         delay_meths = (ppDelay, pDelay, cDelay)
     else:
         RuntimeError('Unknown type')

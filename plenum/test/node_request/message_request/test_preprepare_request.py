@@ -13,14 +13,15 @@ from plenum.test.helper import sdk_send_batches_of_random_and_check
 def count_requested_preprepare_resp(node):
     # Returns the number of times PRE-PREPARE was requested
     sr = node.master_replica
-    return len(getAllReturnVals(sr, sr._request_pre_prepare_for_prepare,
+    return len(getAllReturnVals(sr._ordering_service,
+                                sr._ordering_service._request_pre_prepare_for_prepare,
                                 compare_val_to=True))
 
 
 def count_requested_preprepare_req(node):
     # Returns the number of times an attempt was made to request PRE-PREPARE
     sr = node.master_replica
-    return get_count(sr, sr._request_pre_prepare_for_prepare)
+    return get_count(sr._ordering_service, sr._ordering_service._request_pre_prepare_for_prepare)
 
 
 def test_node_request_preprepare(looper, txnPoolNodeSet,
@@ -54,7 +55,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
         assert count_requested_preprepare_resp(
             slow_node) - old_count_resp == (1 if increase else 0)
 
-    for pp in primary_node.master_replica.sentPrePrepares.values():
+    for pp in primary_node.master_replica._ordering_service.sent_preprepares.values():
         for rep in [n.master_replica for n in other_primary_nodes]:
             prepare = Prepare(rep.instId,
                               pp.viewNo,

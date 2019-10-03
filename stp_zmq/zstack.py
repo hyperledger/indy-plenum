@@ -1,7 +1,6 @@
 import inspect
 
 from plenum.common.metrics_collector import NullMetricsCollector
-from plenum.common.timer import QueueTimer
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
@@ -17,7 +16,7 @@ import shutil
 import sys
 import time
 from binascii import hexlify, unhexlify
-from collections import deque, OrderedDict
+from collections import deque
 from typing import Mapping, Tuple, Any, Union, Optional, NamedTuple
 
 from common.exceptions import PlenumTypeError, PlenumValueError
@@ -374,13 +373,15 @@ class ZStack(NetworkInterface):
         self.listener.curve_publickey = public
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
-        logger.debug(
+        logger.info(
             '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_size(self.listener, self.queue_size)
         # Cycle to deal with "Address already in use" in case of immediate stack restart.
         bound = False
-        bind_retries = 0
+
+        sleep_between_bind_retries = 0.2
+        bind_retry_time = 0
         while not bound:
             try:
                 self.listener.bind(
@@ -389,10 +390,14 @@ class ZStack(NetworkInterface):
                 )
                 bound = True
             except zmq.error.ZMQError as zmq_err:
-                bind_retries += 1
-                if bind_retries == 50:
+                logger.warning("{} can not bind to {}:{}. Will try in {} secs.".
+                               format(self, self.ha[0], self.ha[1], sleep_between_bind_retries))
+                bind_retry_time += sleep_between_bind_retries
+                if bind_retry_time > self.config.MAX_WAIT_FOR_BIND_SUCCESS:
+                    logger.warning("{} can not bind to {}:{} for {} secs. Going to restart the service.".
+                                   format(self, self.ha[0], self.ha[1], self.config.MAX_WAIT_FOR_BIND_SUCCESS))
                     raise zmq_err
-                time.sleep(0.2)
+                time.sleep(sleep_between_bind_retries)
 
     def close(self):
         if self.listener_monitor is not None:

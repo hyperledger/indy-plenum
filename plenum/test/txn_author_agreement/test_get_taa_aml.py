@@ -46,7 +46,7 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, looper, sdk_pool_handle,
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     # Force signing empty config state
-    txnPoolNodeSet[0].master_replica._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
+    txnPoolNodeSet[0].master_replica._ordering_service._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
     reply = send_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle, version=V1, aml=json.dumps(AML1),

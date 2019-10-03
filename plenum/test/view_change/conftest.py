@@ -3,13 +3,14 @@ from collections import deque
 
 import pytest
 
+from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.test.conftest import getValueFromModule
-from plenum.test.primary_selection.test_primary_selector import FakeNode
+from plenum.test.primary_selection.test_view_changer_primary_selection import FakeNode
 from plenum.test.test_node import getRequiredInstances
 from plenum.test.testing_utils import FakeSomething
 

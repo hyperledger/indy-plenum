@@ -16,13 +16,14 @@ from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
-from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT
+from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT, DIGEST_FIELD_LIMIT
 
 
 class FieldValidator(metaclass=ABCMeta):
     """"
     Interface for field validators
     """
+
     # TODO INDY-2072 test optional
     def __init__(self, optional: bool = False):
         self.optional = optional
@@ -125,7 +126,7 @@ class NonEmptyStringField(FieldBase):
 
 
 class LimitedLengthStringField(FieldBase):
-    _base_types = (str, )
+    _base_types = (str,)
 
     def __init__(self, max_length: int, can_be_empty=False, **kwargs):
         if not max_length > 0:
@@ -146,7 +147,7 @@ class DatetimeStringField(FieldBase):
     _base_types = (str,)
     _exceptional_values = []
 
-    def __init__(self, exceptional_values: Iterable[str]=[], **kwargs):
+    def __init__(self, exceptional_values: Iterable[str] = [], **kwargs):
         super().__init__(**kwargs)
         if exceptional_values is not None:
             self._exceptional_values = exceptional_values
@@ -163,7 +164,7 @@ class DatetimeStringField(FieldBase):
 
 
 class FixedLengthField(FieldBase):
-    _base_types = (str, )
+    _base_types = (str,)
 
     def __init__(self, length: int, **kwargs):
         if not isinstance(length, int):
@@ -200,8 +201,7 @@ class RoleField(FieldBase):
 
 
 class NonNegativeNumberField(FieldBase):
-
-    _base_types = (int, )
+    _base_types = (int,)
 
     def _specific_validation(self, val):
         if val < 0:
@@ -475,7 +475,7 @@ class VerkeyField(FieldBase):
         err_fl = self._b58full.validate(val)
         if err_ab and err_fl:
             return 'Neither a full verkey nor an abbreviated one. One of ' \
-                   'these errors should be resolved:\n {}\n{}'.\
+                   'these errors should be resolved:\n {}\n{}'. \
                 format(err_ab, err_fl)
 
 
@@ -701,3 +701,35 @@ class ProtocolVersionField(FieldBase):
                    'Make sure that the latest LibIndy is used ' \
                    'and `set_protocol_version({})` is called' \
                 .format(val, CURRENT_PROTOCOL_VERSION)
+
+
+class BatchIDField(FieldBase):
+    _base_types = (list, tuple)
+
+    def _specific_validation(self, val):
+        if len(val) != 4:
+            return 'should have size of 4'
+
+        view_no, pp_view_no, pp_seq_no, pp_digest = val
+        for validator, value in ((NonNegativeNumberField().validate, view_no),
+                                 (NonNegativeNumberField().validate, pp_view_no),
+                                 (NonNegativeNumberField().validate, pp_seq_no),
+                                 (NonEmptyStringField().validate, pp_digest)):
+            err = validator(value)
+            if err:
+                return err
+
+
+class ViewChangeField(FieldBase):
+    _base_types = (list, tuple)
+
+    def _specific_validation(self, val):
+        if len(val) != 2:
+            return 'should have size of 2'
+
+        frm, digest = val
+        for validator, value in ((NonEmptyStringField().validate, frm),
+                                 (LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT).validate, digest)):
+            err = validator(value)
+            if err:
+                return err

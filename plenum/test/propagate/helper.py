@@ -1,4 +1,5 @@
 from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, Commit
+from plenum.common.stashing_router import StashingRouter
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode
 from plenum.server.replica import Replica
@@ -24,15 +25,15 @@ def forwardedRequest(node: TestNode):
                       TestNode.forward)
 
 def recvdPrePrepareForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId], Replica.process_three_phase_msg)
-    return [p for p in params if isinstance(p['msg'], PrePrepare)]
+    params = getAllArgs(node.replicas[instId].stasher, StashingRouter._process)
+    return [p for p in params if isinstance(p['message'], PrePrepare)]
 
 
 def recvdPrepareForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId], Replica.process_three_phase_msg)
-    return [p for p in params if isinstance(p['msg'], Prepare)]
+    params = getAllArgs(node.replicas[instId].stasher, StashingRouter._process)
+    return [p for p in params if isinstance(p['message'], Prepare)]
 
 
 def recvdCommitForInstId(node: TestNode, instId: int):
-    params = getAllArgs(node.replicas[instId], Replica.process_three_phase_msg)
-    return [p for p in params if isinstance(p['msg'], Commit)]
+    params = getAllArgs(node.replicas[instId].stasher, StashingRouter._process)
+    return [p for p in params if isinstance(p['message'], Commit)]

@@ -1,6 +1,7 @@
 from logging import getLogger
 
 from plenum.common.startable import Mode
+from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
@@ -53,7 +54,6 @@ def test_catchup_not_triggered_if_another_in_progress(
         "and after that starts catchup")
 
     repaired_node = repair_broken_node(broken_node)
-
     initial_do_start_catchup_times = repaired_node.spylog.count(Node._do_start_catchup)
     initial_all_ledgers_caught_up = repaired_node.spylog.count(Node.allLedgersCaughtUp)
 
@@ -77,7 +77,8 @@ def test_catchup_not_triggered_if_another_in_progress(
             "enough to start a new catchup but the node does not start it because "
             "the former is in progress")
 
-        process_checkpoint_times_before = repaired_node.master_replica.spylog.count(Replica.process_checkpoint)
+        process_checkpoint_times_before = \
+            repaired_node.master_replica._checkpointer.spylog.count(CheckpointService.process_checkpoint)
 
         send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                                sdk_pool_handle,
@@ -87,10 +88,11 @@ def test_catchup_not_triggered_if_another_in_progress(
 
         # Wait until the node receives the new checkpoints from all the other nodes
         looper.run(
-            eventually(lambda: assertExp(repaired_node.master_replica.spylog.count(Replica.process_checkpoint) -
-                                         process_checkpoint_times_before ==
-                                         (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
-                                         (len(txnPoolNodeSet) - 1)),
+            eventually(lambda: assertExp(
+                repaired_node.master_replica._checkpointer.spylog.count(CheckpointService.process_checkpoint) -
+                process_checkpoint_times_before ==
+                (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
+                (len(txnPoolNodeSet) - 1)),
                        timeout=waits.expectedPoolInterconnectionTime(len(txnPoolNodeSet))))
 
         # New catchup is not started when another one is in progress

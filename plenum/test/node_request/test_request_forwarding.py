@@ -1,6 +1,6 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
-from plenum.test.delayers import nom_delay, delay_3pc_messages
+from plenum.test.delayers import delay_3pc_messages
 from plenum.test.batching_3pc.conftest import tconf
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -31,12 +31,12 @@ def test_all_replicas_hold_request_keys(
         for node in txnPoolNodeSet:
             for r in node.replicas.values():
                 if r.isPrimary is False:
-                    assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == count
+                    assert len(r._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == count
                     for i in range(count):
-                        k = r.requestQueues[DOMAIN_LEDGER_ID][i]
+                        k = r._ordering_service.requestQueues[DOMAIN_LEDGER_ID][i]
                         assert r.requests[k].finalised
                 elif r.isPrimary is True:
-                    assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == 0
+                    assert len(r._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == 0
 
     reqs = sdk_signed_random_requests(looper,
                                       sdk_wallet_client,
@@ -52,9 +52,6 @@ def test_all_replicas_hold_request_keys(
     # have processed it.
 
     delay = 1
-    for node in txnPoolNodeSet:
-        node.nodeIbStasher.delay(nom_delay(delay))
-
     ensure_view_change(looper, txnPoolNodeSet)
     reqs = sdk_signed_random_requests(looper,
                                       sdk_wallet_client,

@@ -1,56 +1,19 @@
+from functools import partial
 from typing import Optional, List
 
-from plenum.common.event_bus import InternalBus
+import base58
+
+from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
-from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService, BatchID
-from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer
-from plenum.test.simulation.sim_network import SimNetwork
-from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
-
-
-class SimPool:
-    def __init__(self, node_count: int = 4, random: Optional[SimRandom] = None):
-        self._random = random if random else DefaultSimRandom()
-        self._timer = MockTimer()
-        self._network = SimNetwork(self._timer, self._random)
-        validators = genNodeNames(node_count)
-        primary_name = validators[0]
-        self._nodes = [ReplicaService(name, validators, primary_name,
-                                      self._timer, InternalBus(), self.network.create_peer(name))
-                       for name in validators]
-
-    @property
-    def timer(self) -> MockTimer:
-        return self._timer
-
-    @property
-    def network(self) -> SimNetwork:
-        return self._network
-
-    @property
-    def nodes(self) -> List[ReplicaService]:
-        return self._nodes
-
-
-def some_preprepare(view_no: int, pp_seq_no: int, digest: str) -> PrePrepare:
-    return PrePrepare(
-        instId=0, viewNo=view_no, ppSeqNo=pp_seq_no, ppTime=1499906903,
-        reqIdr=[], discarded="", digest=digest,
-        ledgerId=1, stateRootHash=None, txnRootHash=None,
-        sub_seq_no=0, final=True
-    )
-
-
-def some_random_preprepare(random: SimRandom, view_no: int, pp_seq_no: int) -> PrePrepare:
-    return some_preprepare(view_no, pp_seq_no, random.string(40))
+from plenum.test.consensus.helper import SimPool
+from plenum.test.simulation.sim_random import SimRandom
 
 
 def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoint:
     return Checkpoint(
-        instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no, digest=random.string(40)
-    )
+        instId=0, viewNo=view_no, seqNoStart=pp_seq_no, seqNoEnd=pp_seq_no,
+        digest=base58.b58encode(random.string(32)).decode())
 
 
 def some_pool(random: SimRandom) -> (SimPool, List):
@@ -62,7 +25,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     faulty = (pool_size - 1) // 3
     seq_no_per_cp = 10
     max_batches = 50
-    batches = [some_random_preprepare(random, 0, n) for n in range(1, max_batches)]
+    batches = [BatchID(0, 0, n, random.string(40)) for n in range(1, max_batches)]
     checkpoints = [some_checkpoint(random, 0, n) for n in range(0, max_batches, seq_no_per_cp)]
 
     # Preprepares
@@ -80,32 +43,40 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     for i, node in enumerate(pool.nodes):
         node._data.preprepared = batches[:pp_count[i]]
         node._data.prepared = batches[:p_count[i]]
-        node._data.checkpoints = checkpoints[:cp_count[i]]
+        node._data.checkpoints.update(checkpoints[:cp_count[i]])
         node._data.stable_checkpoint = stable_cp[i]
+
+    # Mock Ordering service to update preprepares for new view
+    for node in pool.nodes:
+        def update_shared_data(node, msg: NewViewCheckpointsApplied):
+            x = [
+                BatchID(view_no=msg.view_no, pp_view_no=batch_id.pp_view_no, pp_seq_no=batch_id.pp_seq_no,
+                        pp_digest=batch_id.pp_digest)
+                for batch_id in msg.batches
+            ]
+            node._orderer._data.preprepared = x
+
+        node._orderer._subscription.subscribe(node._orderer._stasher, NewViewCheckpointsApplied, partial(update_shared_data, node))
 
     committed = []
     for i in range(1, max_batches):
         prepare_count = sum(1 for node in pool.nodes if i <= len(node._data.prepared))
         has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
-            committed.append(ViewChangeService.batch_id(batches[i - 1]))
+            batch_id = batches[i - 1]
+            committed.append(BatchID(1, 0, batch_id.pp_seq_no, batch_id.pp_digest))
 
     return pool, committed
 
 
 def calc_committed(view_changes, max_pp_seq_no, n, f) -> List[BatchID]:
-    def check_in_batch(batch_id, some_batch_id, check_view_no=False):
-        if check_view_no and (batch_id[0] != some_batch_id[0]):
-            return False
-        return batch_id[1] == some_batch_id[1] and batch_id[2] == some_batch_id[2]
-
     def check_prepared_in_vc(vc, batch_id):
-        # check that (pp_seq_no, digest) is present in VC's prepared and preprepared
+        # check that batch_id is present in VC's prepared and preprepared
         for p_batch_id in vc.prepared:
-            if not check_in_batch(batch_id, p_batch_id, check_view_no=True):
+            if batch_id != p_batch_id:
                 continue
             for pp_batch_id in vc.preprepared:
-                if check_in_batch(batch_id, pp_batch_id, check_view_no=True):
+                if batch_id == pp_batch_id:
                     return True
 
         return False
@@ -113,7 +84,7 @@ def calc_committed(view_changes, max_pp_seq_no, n, f) -> List[BatchID]:
     def find_batch_id(pp_seq_no):
         for vc in view_changes:
             for batch_id in vc.prepared:
-                if batch_id[1] != pp_seq_no:
+                if batch_id[2] != pp_seq_no:
                     continue
                 prepared_count = sum(1 for vc in view_changes if check_prepared_in_vc(vc, batch_id))
                 if prepared_count < n - f:

@@ -51,7 +51,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
                               request1.key,
                               primaryRepl.viewNo,
                               retryWait=1))
-    prePrepareReq = primaryRepl.sentPrePrepares[primaryRepl.viewNo,
+    prePrepareReq = primaryRepl._ordering_service.sent_preprepares[primaryRepl.viewNo,
                                                 primaryRepl.lastPrePrepareSeqNo]
     looper.run(eventually(checkPrePrepareReqRecvd,
                           nonPrimaryReplicas,
@@ -62,7 +62,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     # orig_method = primaryRepl.sendPrePrepare
 
     # def patched(self, ppReq):
-    #     self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+    #     self._ordering_service.sent_preprepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
     #     ppReq = updateNamedTuple(ppReq, **{f.PP_SEQ_NO.nm: 1})
     #     self.send(ppReq, TPCStat.PrePrepareSent)
     #
@@ -70,7 +70,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     logger.debug(
         "Decrementing the primary replica's pre-prepare sequence number by "
         "one...")
-    primaryRepl._lastPrePrepareSeqNo -= 1
+    primaryRepl._ordering_service._lastPrePrepareSeqNo -= 1
     view_no = primaryRepl.viewNo
     request2 = sdk_json_to_request_object(
         sdk_send_random_requests(looper,
@@ -96,8 +96,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         init_discarded(),
         primaryRepl.batchDigest([request2]),
         DOMAIN_LEDGER_ID,
-        primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
-        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
+        primaryRepl._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
+        primaryRepl._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
         0,
         True
     )

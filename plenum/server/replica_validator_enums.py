@@ -1,9 +1,12 @@
 # ReplicaValidationResult
-PROCESS = 0
-DISCARD = 1
+from plenum.common import stashing_router
+
+PROCESS = stashing_router.PROCESS
+DISCARD = stashing_router.DISCARD
 STASH_VIEW = 2
 STASH_WATERMARKS = 3
 STASH_CATCH_UP = 4
+STASH_WAITING_NEW_VIEW = 5
 
 # ReplicaValidationReasons
 INCORRECT_INSTANCE = "Incorrect instance"
@@ -15,3 +18,5 @@ CATCHING_UP = "Catching-up"
 GREATER_PREP_CERT = "Greater than last prepared certificate"
 ALREADY_ORDERED = "Already ordered"
 ALREADY_STABLE = "Already stable checkpoint"
+WAITING_FOR_NEW_VIEW = "View change in progress; waiting for New View from a new Primary"
+NON_MASTER = "Not Master"

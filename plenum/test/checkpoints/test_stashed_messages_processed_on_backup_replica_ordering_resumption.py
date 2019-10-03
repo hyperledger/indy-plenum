@@ -1,17 +1,23 @@
+import sys
 import pytest
 
+from plenum.common.constants import COMMIT
 from plenum.server.replica import Replica
+from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test import waits
-from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_requests, assertExp, incoming_3pc_msgs_count
+from plenum.test.checkpoints.helper import check_num_quorumed_received_checkpoints
+from plenum.test.delayers import cDelay, chk_delay, msg_rep_delay
+from plenum.test.helper import sdk_send_random_requests, assertExp, incoming_3pc_msgs_count, get_pp_seq_no
 from stp_core.loop.eventually import eventually
 
 nodeCount = 4
 
-CHK_FREQ = 5
+CHK_FREQ = 6
 
 # LOG_SIZE in checkpoints corresponds to the catch-up lag in checkpoints
 LOG_SIZE = 2 * CHK_FREQ
+
+first_run = True
 
 
 @pytest.fixture(scope="module")
@@ -37,15 +43,16 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     Please note that to verify this case the config is set up so that
     LOG_SIZE == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ
     """
-
     slow_replica, other_replicas = one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
+    batches_count = other_replicas[0].last_ordered_3pc[1]
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    batches_count += 1
 
     looper.run(
-        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, 2)),
+        eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc == (view_no, batches_count)),
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
@@ -55,6 +62,9 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
         cDelay(instId=1, sender_filter=other_replicas[0].node.name))
     slow_replica.node.nodeIbStasher.delay(
         cDelay(instId=1, sender_filter=other_replicas[1].node.name))
+    slow_replica.node.nodeIbStasher.delay(
+        msg_rep_delay(types_to_delay=[COMMIT])
+    )
 
     # Send a request for which the replica will not be able to order the batch
     # due to an insufficient count of Commits
@@ -67,9 +77,10 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
+    reqs_until_checkpoints = reqs_for_checkpoint - other_replicas[0].last_ordered_3pc[1]
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
-                             reqs_for_checkpoint - 3)
+                             reqs_until_checkpoints)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Don't receive Checkpoints
@@ -82,7 +93,7 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that there are no 3PC-messages stashed
     # as laying outside of the watermarks
-    assert slow_replica.stasher.num_stashed_watermarks == 0
+    assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == 0
 
     # Send a request for which the batch will be outside of the watermarks
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
@@ -90,26 +101,27 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
 
     # Ensure that the replica has not ordered any batches
     # after the very first one
-    assert slow_replica.last_ordered_3pc == (view_no, 2)
+    assert slow_replica.last_ordered_3pc == (view_no, batches_count)
 
     # Ensure that the watermarks have not been shifted since the view start
     assert slow_replica.h == 0
     assert slow_replica.H == LOG_SIZE
 
     # Ensure that there are some quorumed stashed checkpoints
-    assert slow_replica.stashed_checkpoints_with_quorum()
+    check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Ensure that now there are 3PC-messages stashed
     # as laying outside of the watermarks
-    assert slow_replica.stasher.num_stashed_watermarks == incoming_3pc_msgs_count(len(txnPoolNodeSet))
+    assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == incoming_3pc_msgs_count(len(txnPoolNodeSet))
 
     # Receive belated Checkpoints
     slow_replica.node.nodeIbStasher.reset_delays_and_process_delayeds()
+    batches_count = other_replicas[0].last_ordered_3pc[1]
 
     # Ensure that the replica has ordered the batch for the last sent request
     looper.run(
         eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc ==
-                                     (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 1)),
+                                     (view_no, batches_count)),
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))
@@ -120,18 +132,19 @@ def test_stashed_messages_processed_on_backup_replica_ordering_resumption(
     assert slow_replica.H == (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + LOG_SIZE
 
     # Ensure that now there are no quorumed stashed checkpoints
-    assert not slow_replica.stashed_checkpoints_with_quorum()
+    check_num_quorumed_received_checkpoints(slow_replica, 0)
 
     # Ensure that now there are no 3PC-messages stashed
     # as laying outside of the watermarks
-    assert slow_replica.stasher.num_stashed_watermarks == 0
+    assert slow_replica.stasher.stash_size(STASH_WATERMARKS) == 0
 
     # Send a request and ensure that the replica orders the batch for it
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    batches_count += 1
 
     looper.run(
         eventually(lambda *args: assertExp(slow_replica.last_ordered_3pc ==
-                                     (view_no, (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) * CHK_FREQ + 2)),
+                                           (view_no, batches_count)),
                    slow_replica,
                    retryWait=1,
                    timeout=waits.expectedTransactionExecutionTime(nodeCount)))

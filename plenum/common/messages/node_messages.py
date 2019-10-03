@@ -8,13 +8,13 @@ from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
     CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
     MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
     BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE, VIEW_CHANGE, VIEW_CHANGE_ACK, \
-    NEW_VIEW
+    NEW_VIEW, OLD_VIEW_PREPREPARE_REQ, OLD_VIEW_PREPREPARE_REP
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField
+    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField
 from plenum.common.messages.message_base import \
     MessageBase
 from plenum.common.types import f
@@ -24,16 +24,6 @@ from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FI
 
 # TODO set of classes are not hashable but MessageBase expects that
 
-class Nomination(MessageBase):
-    typename = NOMINATE
-
-    schema = (
-        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
-    )
-
 
 class Batch(MessageBase):
     typename = BATCH
@@ -41,28 +31,6 @@ class Batch(MessageBase):
     schema = (
         (f.MSGS.nm, IterableField(SerializedValueField())),
         (f.SIG.nm, SignatureField(max_length=SIGNATURE_FIELD_LIMIT)),
-    )
-
-
-class Reelection(MessageBase):
-    typename = REELECTION
-
-    schema = (
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.ROUND.nm, NonNegativeNumberField()),
-        (f.TIE_AMONG.nm, IterableField(TieAmongField(max_length=TIE_IDR_FIELD_LIMIT))),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-    )
-
-
-class Primary(MessageBase):
-    typename = PRIMARY
-
-    schema = (
-        (f.NAME.nm, LimitedLengthStringField(max_length=NAME_FIELD_LIMIT)),
-        (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
     )
 
 
@@ -129,6 +97,7 @@ class Ordered(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -164,6 +133,10 @@ class PrePrepare(MessageBase):
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
+        (f.BLS_MULTI_SIGS.nm, IterableField(optional=True,
+                                            inner_field_type=BlsMultiSignatureField(optional=True, nullable=True))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField(optional=True,
+                                                       nullable=True)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
     typename = PREPREPARE
@@ -176,7 +149,31 @@ class PrePrepare(MessageBase):
         if bls is not None:
             input_as_dict[f.BLS_MULTI_SIG.nm] = (bls[0], tuple(bls[1]), tuple(bls[2]))
 
+        bls_sigs = input_as_dict.get(f.BLS_MULTI_SIGS.nm, None)
+        if bls_sigs is not None:
+            sub = []
+            for sig in bls_sigs:
+                sub.append((sig[0], tuple(sig[1]), tuple(sig[2])))
+            input_as_dict[f.BLS_MULTI_SIGS.nm] = tuple(sub)
+
         return input_as_dict
+
+
+# TODO: use generic MessageReq mechanism once it's separated into an independent service
+class OldViewPrePrepareRequest(MessageBase):
+    typename = OLD_VIEW_PREPREPARE_REQ
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.BATCH_IDS.nm, IterableField(BatchIDField())),
+    )
+
+
+class OldViewPrePrepareReply(MessageBase):
+    typename = OLD_VIEW_PREPREPARE_REP
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.PREPREPARES.nm, IterableField(AnyField())),
+    )
 
 
 class Prepare(MessageBase):
@@ -203,9 +200,12 @@ class Commit(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.BLS_SIG.nm, LimitedLengthStringField(max_length=BLS_SIG_LIMIT,
                                                 optional=True)),
+        (f.BLS_SIGS.nm, MapField(optional=True,
+                                 key_field=StringifiedNonNegativeNumberField(),
+                                 value_field=LimitedLengthStringField(max_length=BLS_SIG_LIMIT))),
         # PLUGIN_FIELDS is not used in Commit as of now but adding for
         # consistency
-        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
+        (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True)),
     )
 
 
@@ -213,23 +213,10 @@ class Checkpoint(MessageBase):
     typename = CHECKPOINT
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),  # This will no longer be used soon
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),  # This is no longer used and must always be 0
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        # TODO: Should this be root of audit ledger instead of pre-prepare digest?
-        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
-    )
-
-
-# TODO implement actual rules
-class CheckpointState(MessageBase):
-    typename = CHECKPOINT_STATE
-    schema = (
-        (f.SEQ_NO.nm, AnyValueField()),
-        (f.DIGESTS.nm, AnyValueField()),
-        (f.DIGEST.nm, AnyValueField()),
-        (f.RECEIVED_DIGESTS.nm, AnyValueField()),
-        (f.IS_STABLE.nm, AnyValueField())
+        (f.DIGEST.nm, MerkleRootField(nullable=True)),  # This is actually audit ledger merkle root
     )
 
 
@@ -263,9 +250,9 @@ class ViewChange(MessageBase):
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.STABLE_CHECKPOINT.nm, NonNegativeNumberField()),
-        (f.PREPARED.nm, IterableField(AnyField())),           # list of tuples (view_no, pp_seq_no, pp_digest)
-        (f.PREPREPARED.nm, IterableField(AnyField())),        # list of tuples (view_no, pp_seq_no, pp_digest)
-        (f.CHECKPOINTS.nm, IterableField(AnyField()))         # list of Checkpoints TODO: should we change to tuples?
+        (f.PREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
+        (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
+        (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
 
 
@@ -282,10 +269,10 @@ class NewView(MessageBase):
     typename = NEW_VIEW
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.VIEW_CHANGES.nm, IterableField(AnyField())),       # list of tuples (node_name, view_change_digest)
-        (f.CHECKPOINT.nm, AnyField()),                        # Checkpoint to be selected as stable (TODO: or tuple?)
-        (f.BATCHES.nm, IterableField(AnyField()))             # list of tuples (view_no, pp_seq_no, pp_digest)
-                                                              # that should get into new view
+        (f.VIEW_CHANGES.nm, IterableField(ViewChangeField())),  # list of tuples (node_name, view_change_digest)
+        (f.CHECKPOINT.nm, AnyField()),  # Checkpoint to be selected as stable (TODO: or tuple?)
+        (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
+        # that should get into new view
     )
 
 
@@ -413,9 +400,6 @@ class MessageRep(MessageBase):
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
 
-ElectionType = (Nomination, Primary, Reelection)
-ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
-
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
     f.VIEW_NO,
     f.PP_SEQ_NO
@@ -444,6 +428,7 @@ class BatchCommitted(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
     )
 
 

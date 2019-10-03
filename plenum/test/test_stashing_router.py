@@ -6,14 +6,13 @@ from plenum.test.test_event_bus import SomeMessage, OtherMessage, create_some_me
 
 
 def test_stashing_router_correctly_routes_messages():
-    some_handler = Mock(return_value=PROCESS)
-    other_handler = Mock(return_value=DISCARD)
+    some_handler = Mock(return_value=(PROCESS, ""))
+    other_handler = Mock(return_value=(DISCARD, ""))
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, some_handler)
     router.subscribe(OtherMessage, other_handler)
-    router.subscribe_to(bus)
 
     some_handler.assert_not_called()
     other_handler.assert_not_called()
@@ -30,12 +29,11 @@ def test_stashing_router_correctly_routes_messages():
 
 
 def test_stashing_router_correctly_handles_multiple_arguments():
-    handler = Mock(return_value=PROCESS)
+    handler = Mock(return_value=(PROCESS, ""))
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     message = create_some_message()
     bus.send(message, 'hello')
@@ -43,12 +41,11 @@ def test_stashing_router_correctly_handles_multiple_arguments():
 
 
 def test_process_all_stashed_doesnt_do_anything_when_there_are_no_items_in_stash():
-    handler = Mock(return_value=PROCESS)
+    handler = Mock(return_value=(PROCESS, ""))
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     router.process_all_stashed()
     handler.assert_not_called()
@@ -62,12 +59,11 @@ def test_process_all_stashed_doesnt_do_anything_when_there_are_no_items_in_stash
 
 
 def test_process_stashed_until_restash_doesnt_do_anything_when_there_are_no_items_in_stash():
-    handler = Mock(return_value=PROCESS)
+    handler = Mock(return_value=(PROCESS, ""))
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     router.process_stashed_until_first_restash()
     handler.assert_not_called()
@@ -89,12 +85,13 @@ def test_stashing_router_can_stash_messages():
         calls.append(msg)
         if stash_count > 0:
             stash_count -= 1
-            return STASH
+            return STASH, "reason"
+        else:
+            return None, None
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     msg_a = create_some_message()
     msg_b = create_some_message()
@@ -125,12 +122,13 @@ def test_stashing_router_can_stash_messages_with_metadata():
         calls.append((msg, frm))
         if stash_count > 0:
             stash_count -= 1
-            return STASH
+            return STASH, "reason"
+        else:
+            return None, None
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     msg_a = create_some_message()
     msg_b = create_some_message()
@@ -158,14 +156,13 @@ def test_stashing_router_can_stash_messages_with_different_reasons():
     def handler(message: SomeMessage):
         calls.append(message)
         if message.int_field % 2 == 0:
-            return STASH + 0
+            return STASH + 0, "reason"
         else:
-            return STASH + 1
+            return STASH + 1, "reason"
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     messages = [create_some_message() for _ in range(10)]
     for msg in messages:
@@ -198,16 +195,15 @@ def test_stashing_router_can_stash_and_sort_messages():
 
     def handler(message: SomeMessage):
         calls.append(message)
-        return STASH
+        return STASH, "reason"
 
     def sort_key(message: SomeMessage):
         return message.int_field
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.set_sorted_stasher(STASH, key=sort_key)
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     messages = [create_some_message() for _ in range(10)]
     for msg in messages:
@@ -226,12 +222,13 @@ def test_stashing_router_can_process_stashed_until_first_restash():
     def handler(msg):
         calls.append(msg)
         if len(calls) % 2 != 0:
-            return STASH
+            return STASH, "reason"
+        else:
+            return None, None
 
     bus = InternalBus()
-    router = StashingRouter(10)
+    router = StashingRouter(10, buses=[bus])
     router.subscribe(SomeMessage, handler)
-    router.subscribe_to(bus)
 
     msg_a = create_some_message()
     msg_b = create_some_message()

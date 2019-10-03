@@ -86,16 +86,19 @@ class NaclAuthNr(ClientAuthNr):
 
     def authenticate_multi(self, msg: Dict, signatures: Dict[str, str],
                            threshold: Optional[int] = None, verifier: Verifier = DidVerifier):
+
         num_sigs = len(signatures)
         if threshold is not None:
             if num_sigs < threshold:
                 raise InsufficientSignatures(num_sigs, threshold)
         else:
             threshold = num_sigs
+
         correct_sigs_from = []
+        incorrect_signatures = {}
         for idr, sig in signatures.items():
             try:
-                sig = base58.b58decode(sig)
+                sig_decoded = base58.b58decode(sig)
             except Exception as ex:
                 raise InvalidSignatureFormat from ex
 
@@ -103,17 +106,18 @@ class NaclAuthNr(ClientAuthNr):
 
             verkey = self.getVerkey(idr, msg)
             if verkey is None:
-                raise CouldNotAuthenticate(
-                    'Can not find verkey for {}'.format(idr))
+                raise CouldNotAuthenticate(idr)
 
             vr = verifier(verkey, identifier=idr)
-            if vr.verify(sig, ser):
+            if vr.verify(sig_decoded, ser):
                 correct_sigs_from.append(idr)
                 if len(correct_sigs_from) == threshold:
                     break
+            else:
+                incorrect_signatures[idr] = sig
         else:
-            raise InsufficientCorrectSignatures(len(correct_sigs_from),
-                                                threshold)
+            raise InsufficientCorrectSignatures(threshold, len(correct_sigs_from), incorrect_signatures)
+
         return correct_sigs_from
 
     @abstractmethod

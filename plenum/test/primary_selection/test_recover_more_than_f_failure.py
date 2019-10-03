@@ -1,3 +1,4 @@
+from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint
 from stp_core.common.log import getlogger
 
 from plenum.test.helper import waitForViewChange, \
@@ -7,6 +8,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import start_stopped_node
+from stp_core.loop.eventually import eventually
 
 logger = getlogger()
 
@@ -25,6 +27,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     active_nodes = list(txnPoolNodeSet)
     assert 4 == len(active_nodes)
     initial_view_no = active_nodes[0].viewNo
+    checkpoint_freq = tconf.CHK_FREQ
 
     logger.info("Stop first node (current Primary)")
     _, active_nodes = stop_primary(looper, active_nodes)
@@ -38,7 +41,9 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     logger.info("send at least one checkpoint")
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 2 * checkpoint_size - 1)
-    assert nodes_have_checkpoints(*active_nodes)
+    # TODO: When stable checkpoint is not deleted it makes sense to check just our last checkpoint
+    #  and remove eventually. Also for some reason 2 checkpoints generated here
+    looper.run(eventually(check_for_nodes, active_nodes, check_stable_checkpoint, 2 * checkpoint_freq))
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("Stop second node (current Primary) so the primary looses his state")
@@ -46,8 +51,10 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
 
     logger.info("Restart the primary node")
     restarted_node = start_stopped_node(stopped_node, looper, tconf, tdir, allPluginsPath)
-    assert nodes_do_not_have_checkpoints(restarted_node)
-    assert nodes_have_checkpoints(*active_nodes)
+    # TODO: Actually I'm not sure that this is a correct behavior. Can we restore stable
+    #  checkpoint just from audit ledger or node status db?
+    check_for_nodes([restarted_node], check_stable_checkpoint, 0)
+    check_for_nodes(active_nodes, check_stable_checkpoint, 2 * checkpoint_freq)
     active_nodes = active_nodes + [restarted_node]
 
     logger.info("Check that primary selected")
@@ -62,7 +69,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
                               sdk_wallet_steward, 10 * checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes,
                                     exclude_from_check=['check_last_ordered_3pc_backup'])
-    assert nodes_have_checkpoints(*active_nodes)
+    looper.run(eventually(check_for_nodes, active_nodes, check_stable_checkpoint, 12 * checkpoint_freq))
 
 
 def stop_primary(looper, active_nodes):
@@ -81,11 +88,3 @@ def primary_replicas_iter(*nodes):
         for replica in node.replicas.values():
             if replica.isPrimary:
                 yield replica
-
-
-def nodes_have_checkpoints(*nodes):
-    return all(replica.checkpoints for replica in primary_replicas_iter(*nodes))
-
-
-def nodes_do_not_have_checkpoints(*nodes):
-    return all(not replica.checkpoints for replica in primary_replicas_iter(*nodes))

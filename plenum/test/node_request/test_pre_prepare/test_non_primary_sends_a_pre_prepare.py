@@ -32,7 +32,7 @@ def setup(txnPoolNodeSet):
 
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
     evilMethod = types.MethodType(dontSendPrePrepareRequest, pr)
-    pr.sendPrePrepare = evilMethod
+    pr._ordering_service.send_pre_prepare = evilMethod
 
 
 def testNonPrimarySendsAPrePrepare(looper, txnPoolNodeSet, setup, propagated1):
@@ -41,9 +41,9 @@ def testNonPrimarySendsAPrePrepare(looper, txnPoolNodeSet, setup, propagated1):
     remainingNpr = nonPrimaryReplicas[1:]
 
     def sendPrePrepareFromNonPrimary():
-        firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
-        ppReq = firstNpr.create_3pc_batch(DOMAIN_LEDGER_ID)
-        firstNpr.sendPrePrepare(ppReq)
+        firstNpr._ordering_service.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
+        ppReq = firstNpr._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+        firstNpr._ordering_service.send_pre_prepare(ppReq)
         return ppReq
 
     ppr = sendPrePrepareFromNonPrimary()

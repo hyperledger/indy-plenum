@@ -53,7 +53,7 @@ def testKitZStacksCommunication(registry, tdir, looper):
     def pr():
         for stack in stacks:
             for r in stack.remotes.values():
-                print(r._lastSocketEvents())
+                print(r._get_monitor_events())
 
     for _ in range(100):
         # send_recv()
