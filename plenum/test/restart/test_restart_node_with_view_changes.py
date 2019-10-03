@@ -1,13 +1,7 @@
 from functools import partial
-from unittest.mock import patch
 
-from plenum.common.constants import VIEW_CHANGE_DONE
 from plenum.common.messages.node_messages import ViewChangeStartMessage
-from plenum.common.types import f
-from plenum.server.view_change.pre_view_change_strategies import VCStartMsgStrategy
 
-from plenum.server.node import Node
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp, waitForViewChange
 
@@ -104,9 +98,6 @@ def test_restart_node_with_view_changes(tdir, tconf,
             lambda: assertExp(lagging_node.viewNo == start_view_no)))
 
     # Unpatch ViewChangeStartMessages processing and process delayed messages
-    processor = partial(VCStartMsgStrategy.on_view_change_started,
-                        lagging_node)
-    lagging_node.nodeMsgRouter.add((ViewChangeStartMessage, processor))
     for msg in view_change_started_messages:
         lagging_node.view_changer.node.nodeInBox.append((msg[1],
                                                          lagging_node.view_changer.node.name))

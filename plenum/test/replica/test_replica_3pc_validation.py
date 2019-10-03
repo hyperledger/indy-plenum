@@ -305,12 +305,6 @@ def test_can_send_3pc_batch_not_participating(primary_validator, mode):
     assert result == (mode == Mode.participating)
 
 
-def test_can_send_3pc_batch_pre_view_change(primary_validator, mode):
-    primary_validator.replica.node.pre_view_change_in_progress = True
-    primary_validator.replica.node.mode = mode
-    assert not primary_validator.can_send_3pc_batch()
-
-
 def test_can_send_3pc_batch_old_view(primary_validator, mode):
     primary_validator.replica.last_ordered_3pc = (primary_validator.replica.viewNo + 1, 0)
     primary_validator.replica.node.mode = mode

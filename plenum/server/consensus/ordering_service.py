@@ -2263,8 +2263,6 @@ class OrderingService:
 
         self._logger.info("{} processing {}".format(self, msg))
 
-        self.primaries_batch_needed = True
-
         # apply PrePrepares from NewView that we have
         # request missing PrePrepares from NewView
         missing_batches = []
@@ -2274,6 +2272,8 @@ class OrderingService:
                 missing_batches.append(batch_id)
             else:
                 self._process_pre_prepare_from_old_view(pp)
+
+        self.primaries_batch_needed = True
 
         if not msg.batches:
             self._write_manager.future_primary_handler.set_node_state()
