@@ -3465,6 +3465,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
+        logger.info("Node {} process {}".format(self, msg))
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():

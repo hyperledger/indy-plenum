@@ -1,10 +1,7 @@
-from _sha256 import sha256
-from collections import defaultdict
 from functools import partial
 from operator import itemgetter
-from typing import List, Optional, Union, Dict, Any, Tuple
+from typing import List, Optional, Union, Dict, Any
 
-from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
 from plenum.common.constants import VIEW_CHANGE
 from plenum.common.event_bus import InternalBus, ExternalBus
@@ -18,7 +15,7 @@ from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.replica_helper import generateName, getNodeName
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE
+from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 

@@ -6,12 +6,12 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_VIEW_3PC
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint, check_for_instance
-from plenum.test.delayers import lsDelay, vcd_delay, nv_delay
+from plenum.test.delayers import lsDelay, nv_delay
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
-    check_last_ordered_3pc_on_all_replicas, check_last_ordered_3pc_on_master, check_last_ordered_3pc_on_backup
+    check_last_ordered_3pc_on_master, check_last_ordered_3pc_on_backup
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
@@ -77,7 +77,7 @@ def test_checkpoints_after_view_change(tconf,
             )
             looper.run(
                 eventually(check_last_ordered_3pc_on_backup, rest_nodes,
-                           (1, num_reqs))
+                           (1, num_reqs + 1))
             )
 
             # all good nodes stabilized checkpoint
@@ -104,7 +104,7 @@ def test_checkpoints_after_view_change(tconf,
     )
     looper.run(
         eventually(check_last_ordered_3pc_on_backup, [lagging_node],
-                   (1, num_reqs))
+                   (1, num_reqs + 1))
     )
 
     # check that checkpoint is stabilized for master
