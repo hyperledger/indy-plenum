@@ -57,30 +57,15 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def notify_view_change_complete(self):
         self._node.on_view_change_complete()
 
-    def start_catchup(self):
-        self._node.start_catchup()
-
-    def restore_backup_replicas(self):
-        self._node.backup_instance_faulty_processor.restore_replicas()
-
     def select_primaries(self):
         self._node.select_primaries()
-
-    def ensure_primaries_dropped(self):
-        self._node.ensure_primaries_dropped()
 
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
 
-    def set_view_change_status(self, value: bool):
-        self._node.set_view_change_status(value)
-
     @property
     def node_status_db(self) -> KeyValueStorage:
         return self._node.nodeStatusDB
-
-    def view_setting_handler(self, view_no):
-        self._node.set_view_for_replicas(view_no)
 
     def schedule_resend_inst_chng(self):
         self._node.schedule_view_change_completion_check(self._node.config.INSTANCE_CHANGE_RESEND_TIMEOUT)
