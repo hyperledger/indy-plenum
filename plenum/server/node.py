@@ -658,6 +658,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{}{} changed to view {}, will start catchup now'.
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
+        self._cancel(self._check_view_change_completed)
+        self.schedule_view_change_completion_check(self._view_change_timeout)
+
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
@@ -3465,7 +3468,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
-        logger.info("Node {} process {}".format(self, msg))
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
