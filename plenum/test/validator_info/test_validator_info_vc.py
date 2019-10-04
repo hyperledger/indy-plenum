@@ -21,7 +21,6 @@ def tconf(tconf):
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_number_txns_in_catchup_and_vc_queue_valid(looper,
                                                    txnPoolNodeSet,
                                                    tconf,
