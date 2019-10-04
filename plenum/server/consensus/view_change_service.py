@@ -80,12 +80,6 @@ class ViewChangeService:
         self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         if not self._data.is_master:
-            self._data.waiting_for_new_view = False
-            self._bus.send(NewViewAccepted(view_no=view_no,
-                                           view_changes=None,
-                                           checkpoint=None,
-                                           batches=None))
-            self._router.process_all_stashed(STASH_VIEW_3PC)
             return
 
         # 4. Build ViewChange message

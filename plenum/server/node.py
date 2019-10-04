@@ -660,9 +660,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{}{} changed to view {}, will start catchup now'.
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
-        self._cancel(self._check_view_change_completed)
-        self.schedule_view_change_completion_check(self._view_change_timeout)
-
         # Set to 0 even when set to 0 in `on_view_change_complete` since
         # catchup might be started due to several reasons.
         self.catchup_rounds_without_txns = 0
@@ -3482,11 +3479,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
-    def _process_new_view_accerted(self, msg: NewViewAccepted):
+    def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
             self.primary_selected(i)
+
+            if i != 0:
+                self.replicas.send_to_internal_bus(msg, i)
 
     def _subscribe_to_internal_msgs(self):
         self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)
@@ -3494,7 +3494,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self._process_start_master_catchup_msg,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
-                                                self._process_new_view_accerted,
+                                                self._process_new_view_accepted,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,

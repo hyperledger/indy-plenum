@@ -391,6 +391,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def clear_requests_and_fix_last_ordered(self):
         if self.isMaster:
             return
+
         self._clear_all_3pc_msgs()
         reqs_for_remove = []
         for req in self.requests.values():
@@ -403,6 +404,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self._ordering_service.requestQueues[int(ledger_id)].discard(key)
         self.last_ordered_3pc = (self.viewNo, 0)
         self._ordering_service._lastPrePrepareSeqNo = 0
+        # TODO: Probably this needs to be removed since it is already done in CheckpointService
         self._checkpointer.set_watermarks(0)
         self._checkpointer._reset_checkpoints()
         self._consensus_data.stable_checkpoint = 0

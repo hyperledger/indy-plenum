@@ -309,18 +309,22 @@ class CheckpointService:
         return audit_ledger.hashToStr(root_hash)
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
-        if not self.is_master:
-            return
-        # 1. update shared data
-        cp = msg.checkpoint
-        if cp not in self._data.checkpoints:
-            self._data.checkpoints.append(cp)
-        self._mark_checkpoint_stable(cp.seqNoEnd)
-        self.set_watermarks(low_watermark=cp.seqNoEnd)
+        if self.is_master:
+            cp = msg.checkpoint
+            if cp not in self._data.checkpoints:
+                self._data.checkpoints.append(cp)
+            self._mark_checkpoint_stable(cp.seqNoEnd)
+            self.set_watermarks(low_watermark=cp.seqNoEnd)
+        else:
+            # TODO: This is kind of hackery, but proper way would require introducing more
+            #  messages specifically for backup replicas. Hope we can live with it for now.
+            self._data.waiting_for_new_view = False
+            self._data.pp_seq_no = 0
+            self.set_watermarks(low_watermark=0)
+            self._reset_checkpoints()
+            self._data.stable_checkpoint = 0
 
-        # 2. send NewViewCheckpointsApplied
         self._bus.send(NewViewCheckpointsApplied(view_no=msg.view_no,
                                                  view_changes=msg.view_changes,
                                                  checkpoint=msg.checkpoint,
                                                  batches=msg.batches))
-        return PROCESS, None
