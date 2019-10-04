@@ -402,9 +402,9 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requests.ordered_by_replica(key)
             self.requests.free(key)
             self._ordering_service.requestQueues[int(ledger_id)].discard(key)
+        # TODO: Probably this needs to be removed since it is already done in CheckpointService
         self.last_ordered_3pc = (self.viewNo, 0)
         self._ordering_service._lastPrePrepareSeqNo = 0
-        # TODO: Probably this needs to be removed since it is already done in CheckpointService
         self._checkpointer.set_watermarks(0)
         self._checkpointer._reset_checkpoints()
         self._consensus_data.stable_checkpoint = 0

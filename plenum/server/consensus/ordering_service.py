@@ -2263,10 +2263,10 @@ class OrderingService:
 
         self._logger.info("{} processing {}".format(self, msg))
 
-        # apply PrePrepares from NewView that we have
-        # request missing PrePrepares from NewView
-        missing_batches = []
         if self.is_master:
+            # apply PrePrepares from NewView that we have
+            # request missing PrePrepares from NewView
+            missing_batches = []
             for batch_id in msg.batches:
                 pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
                 if pp is None:
@@ -2274,13 +2274,13 @@ class OrderingService:
                 else:
                     self._process_pre_prepare_from_old_view(pp)
 
+                if not msg.batches:
+                    self._write_manager.future_primary_handler.set_node_state()
+
+                if missing_batches:
+                    self._request_old_view_pre_prepares(missing_batches)
+
         self.primaries_batch_needed = True
-
-        if self.is_master and not msg.batches:
-            self._write_manager.future_primary_handler.set_node_state()
-
-        if missing_batches:
-            self._request_old_view_pre_prepares(missing_batches)
 
         # unstash waiting for New View messages
         self._stasher.process_all_stashed(STASH_VIEW_3PC)
