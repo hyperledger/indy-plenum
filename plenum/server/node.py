@@ -3471,10 +3471,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
-            self.primary_selected(i)
-
             if i != 0:
                 self.replicas.send_to_internal_bus(msg, i)
+            self.primary_selected(i)
 
     def _subscribe_to_internal_msgs(self):
         self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)
