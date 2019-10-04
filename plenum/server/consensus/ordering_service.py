@@ -760,6 +760,9 @@ class OrderingService:
             self.pre_prepares_stashed_for_incorrect_time,
         )
         for request_key in tpcKeys:
+            pp = self.get_preprepare(*request_key)
+            if pp:
+                self._clear_batch(self.get_preprepare(*request_key))
             for coll in to_clean_up:
                 coll.pop(request_key, None)
 

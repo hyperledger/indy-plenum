@@ -27,7 +27,6 @@ def tconf(tconf):
     tconf.CHK_FREQ = old_chk_freq
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_set_H_greater_then_last_ppseqno(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
@@ -65,11 +64,10 @@ def test_set_H_greater_then_last_ppseqno(looper,
     for r in new_node.replicas.values():
         assert r.stasher.stash_size(STASH_WATERMARKS) == 0
 
-    """Force view change and check, that all backup replicas will not reset watermarks"""
-    h_before = new_node.replicas[1].h
+    """Force view change and check, that all backup replicas will reset watermarks"""
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
     for r in new_node.replicas.values():
         if not r.isMaster:
-            assert r.h == h_before
-            assert r.H == h_before + LOG_SIZE
+            assert r.h == 0
+            assert r.H == LOG_SIZE
