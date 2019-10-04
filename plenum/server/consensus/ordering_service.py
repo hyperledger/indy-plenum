@@ -861,6 +861,9 @@ class OrderingService:
         self._timer.schedule(delay, func)
 
     def _process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
+        if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
+            self._write_manager.future_primary_handler.set_node_state()
+
         why_not_applied = None
         # apply and validate applied PrePrepare if it's not odered yet
         if not self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
@@ -874,9 +877,6 @@ class OrderingService:
             self._add_to_sent_pre_prepares(pre_prepare)
         else:
             self._add_to_pre_prepares(pre_prepare)
-
-        if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
-            self._write_manager.future_primary_handler.set_node_state()
 
         return None
 
@@ -2278,14 +2278,16 @@ class OrderingService:
 
         self.primaries_batch_needed = True
 
-        if not msg.batches:
+        if not msg.batches or self.last_ordered_3pc[1] >= self._data.prev_view_prepare_cert:
             self._write_manager.future_primary_handler.set_node_state()
 
         if missing_batches:
             self._request_old_view_pre_prepares(missing_batches)
+        else:
+            self._write_manager.future_primary_handler.set_node_state()
+            # unstash waiting for New View messages
+            self._stasher.process_all_stashed(STASH_VIEW_3PC)
 
-        # unstash waiting for New View messages
-        self._stasher.process_all_stashed(STASH_VIEW_3PC)
         self._bus.send(ReOrderedInNewView())
 
         return PROCESS, None
@@ -2316,6 +2318,8 @@ class OrderingService:
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
+        # unstash waiting for New View messages
+        self._stasher.process_all_stashed(STASH_VIEW_3PC)
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
