@@ -330,8 +330,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
 
-        # Number of rounds of catchup done during a view change.
-        self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
 
@@ -660,9 +658,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{}{} changed to view {}, will start catchup now'.
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
-        # Set to 0 even when set to 0 in `on_view_change_complete` since
-        # catchup might be started due to several reasons.
-        self.catchup_rounds_without_txns = 0
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
@@ -1987,8 +1982,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
-        if self.num_txns_caught_up_in_last_catchup() == 0:
-            self.catchup_rounds_without_txns += 1
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
             data = get_payload_data(last_txn)
@@ -2089,14 +2082,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if lst is None:
             return True
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
-
-    def is_catch_up_limit(self, timeout: float):
-        ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if ts_since_catch_up_start >= timeout:
-            logger.info('{} has completed {} catchup rounds for {} seconds'.
-                        format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
-            return True
-        return False
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
         count = self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()

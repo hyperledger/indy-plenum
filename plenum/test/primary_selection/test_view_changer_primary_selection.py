@@ -83,7 +83,6 @@ class FakeNode:
         self.metrics = NullMetricsCollector()
 
         # For catchup testing
-        self.catchup_rounds_without_txns = 0
         self.view_change_in_progress = False
         self.ledgerManager.last_caught_up_3PC = (0, 0)
         self.master_last_ordered_3PC = (0, 0)
