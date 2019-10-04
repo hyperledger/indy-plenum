@@ -104,10 +104,7 @@ class OrderingServiceMsgValidator:
             return DISCARD, INCORRECT_PP_SEQ_NO
 
         # Check if below lower watermark (meaning it's already ordered)
-        if self._data.prev_view_prepare_cert is None:
-            if self.has_already_ordered(view_no, pp_seq_no):
-                return DISCARD, ALREADY_ORDERED
-        elif pp_seq_no <= self._data.low_watermark:
+        if pp_seq_no <= self._data.low_watermark:
                 return DISCARD, ALREADY_ORDERED
 
         # Default checks next
@@ -124,6 +121,14 @@ class OrderingServiceMsgValidator:
         # Check if above high watermarks
         if pp_seq_no is not None and pp_seq_no > self._data.high_watermark:
             return STASH_WATERMARKS, OUTSIDE_WATERMARKS
+
+        # Allow re-order already ordered if we are re-ordering in new view
+        # (below prepared certificate from the previous view).
+        if self.has_already_ordered(view_no, pp_seq_no):
+            if self._data.prev_view_prepare_cert is None:
+                return DISCARD, ALREADY_ORDERED
+            if pp_seq_no > self._data.prev_view_prepare_cert:
+                return DISCARD, ALREADY_ORDERED
 
         # PROCESS
         return PROCESS, None

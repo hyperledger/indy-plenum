@@ -111,8 +111,6 @@ class ReplicaValidator:
             return False
         if not self.replica.node.isParticipating:
             return False
-        if self.replica.node.pre_view_change_in_progress:
-            return False
         if self.replica.viewNo < self.replica.last_ordered_3pc[0]:
             return False
         if self.replica.viewNo == self.replica.last_ordered_3pc[0]:
