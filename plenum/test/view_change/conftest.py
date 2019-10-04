@@ -61,7 +61,10 @@ def fake_view_changer(request, tconf):
         discard=lambda a, b, c, d: print(b),
         primaries_disconnection_times=[None] * getRequiredInstances(node_count),
         master_primary_name='Alpha',
-        master_replica=FakeSomething(instId=0, viewNo=request.param),
+        master_replica=FakeSomething(instId=0,
+                                     viewNo=request.param,
+                                     _consensus_data=FakeSomething(view_no=request.param,
+                                                                   waiting_for_new_view=False)),
         nodeStatusDB=None
     )
     view_changer = create_view_changer(node)
@@ -78,7 +81,7 @@ def fake_node(tdir, tconf, request):
     node.msgsForFutureViews = {}
     node.msgsToViewChanger = deque()
     node.set_view_for_replicas = lambda a: None
-    node.view_changer.view_no = request.param
+    node.master_replica._consensus_data.view_no = request.param
     node.view_changer.last_completed_view_no = request.param
     node.view_changer.pre_vc_strategy = None
     return node

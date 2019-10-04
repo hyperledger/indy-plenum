@@ -4,7 +4,7 @@ from collections import deque
 import pytest
 
 from plenum.common.constants import PreVCStrategies
-from plenum.common.messages.node_messages import ViewChangeDone, InstanceChange
+from plenum.common.messages.node_messages import ViewChangeDone, InstanceChange, NewView
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import TestNode, ensureElectionsDone
@@ -34,9 +34,9 @@ def not_processing_view_change_done(node):
             m = self.nodeInBox.popleft()
             if isinstance(m, tuple) and len(
                     m) == 2 and not hasattr(m, '_field_types') and \
-                    isinstance(m[0], (ViewChangeDone, InstanceChange)) and \
+                    isinstance(m[0], (NewView, InstanceChange)) and \
                     m[0].viewNo > self.viewNo:
-                if isinstance(m[0], ViewChangeDone):
+                if isinstance(m[0], NewView):
                     stashed_vc_done_msgs.append(m)
                 else:
                     stashed_ic_msgs.append(m)
@@ -46,13 +46,13 @@ def not_processing_view_change_done(node):
     node.processNodeInBox = functools.partial(processNodeInBoxWithoutVCDone, node)
 
 
-@pytest.mark.skip(reason="we don't have a delayers for new view_change messages")
 def test_complete_with_delayed_view_change(looper,
                                            txnPoolNodeSet,
                                            sdk_wallet_steward,
                                            sdk_pool_handle):
     def chk_len_stashed_msgs():
-        assert len(stashed_vc_done_msgs) >= slow_node.quorums.view_change_done.value - 1
+        # We are waiting for one message from selected primary
+        assert len(stashed_vc_done_msgs) == 1
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, REQ_COUNT)
     slow_node = txnPoolNodeSet[-1]

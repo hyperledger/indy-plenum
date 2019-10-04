@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import vcd_delay
+from plenum.test.delayers import vcd_delay, nv_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.helper import waitForViewChange, perf_monitor_disabled, view_change_timeout
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -82,7 +82,6 @@ def setup(txnPoolNodeSet, looper):
     return m_primary_node, initial_view_no, timeout_callback_stats
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_view_change_retry_by_timeout(
         txnPoolNodeSet, looper, tconf, setup, sdk_pool_handle, sdk_wallet_client):
     """
@@ -91,7 +90,7 @@ def test_view_change_retry_by_timeout(
     m_primary_node, initial_view_no, timeout_callback_stats = setup
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
-    with delay_rules(stashers, vcd_delay()):
+    with delay_rules(stashers, nv_delay()):
         start_view_change(txnPoolNodeSet, initial_view_no + 1)
 
         # First view change should fail, because of delayed ViewChangeDone
@@ -119,7 +118,6 @@ def test_view_change_retry_by_timeout(
                                sdk_pool_handle)
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_multiple_view_change_retries_by_timeouts(
         txnPoolNodeSet, looper, tconf, setup,
         sdk_pool_handle, sdk_wallet_client):
@@ -130,7 +128,7 @@ def test_multiple_view_change_retries_by_timeouts(
     _, initial_view_no, timeout_callback_stats = setup
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
-    with delay_rules(stashers, vcd_delay()):
+    with delay_rules(stashers, nv_delay()):
         start_view_change(txnPoolNodeSet, initial_view_no + 1)
 
         # Wait until timeout callback is called 3 times
@@ -156,7 +154,7 @@ def test_multiple_view_change_retries_by_timeouts(
                                sdk_pool_handle)
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
+@pytest.mark.skip(reason="INDY-2140 will be fixed in the scope clean-up work")
 def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
         txnPoolNodeSet, looper, tconf, setup):
     """
@@ -165,8 +163,8 @@ def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
     """
     _, initial_view_no, timeout_callback_stats = setup
 
-    start_view_change(txnPoolNodeSet, initial_view_no + 1)
     alive_nodes = stop_master_primary(txnPoolNodeSet, initial_view_no + 1)
+    start_view_change(alive_nodes, initial_view_no + 1)
 
     ensureElectionsDone(looper=looper, nodes=alive_nodes, instances_list=range(3))
 
