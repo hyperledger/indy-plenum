@@ -117,6 +117,8 @@ class ZStack(NetworkInterface):
 
         self.remotesByKeys = {}
 
+        self.remote_ping_stats = {}
+
         # Indicates if this stack will maintain any remotes or will
         # communicate simply to listeners. Used in ClientZStack
         self.onlyListener = onlyListener
@@ -589,6 +591,9 @@ class ZStack(NetworkInterface):
             if self.handlePingPong(msg, frm, ident):
                 continue
 
+            # We have received non-ping-pong message from some remote, we can clean this counter
+            self.remote_ping_stats[z85_to_friendly(frm)] = 0
+
             if not self.onlyListener and ident not in self.remotesByKeys:
                 logger.warning('{} received message from unknown remote {}'
                                .format(self, z85_to_friendly(ident)))
@@ -730,8 +735,16 @@ class ZStack(NetworkInterface):
 
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
+            nodeName = z85_to_friendly(frm)
             if msg == self.pingMessage:
-                logger.trace('{} got ping from {}'.format(self, z85_to_friendly(frm)))
+                logger.trace('{} got ping from {}'.format(self, nodeName))
+                if self.remote_ping_stats.get(nodeName):
+                    self.remote_ping_stats[nodeName] += 1
+                else:
+                    self.remote_ping_stats[nodeName] = 1
+                if self.remote_ping_stats[nodeName] > self.config.PINGS_BEFORE_SOCKET_RECONNECTION:
+                    self.remote_ping_stats[nodeName] = 0
+                    self.reconnectRemoteWithName(nodeName)
                 self.sendPingPong(frm, is_ping=False)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:

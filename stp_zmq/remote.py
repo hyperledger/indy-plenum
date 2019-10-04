@@ -162,4 +162,5 @@ class Remote:
                 events.append(message['event'])
             except zmq.Again:
                 break
+            logger.trace("Event: {}".format(message))
         return events
