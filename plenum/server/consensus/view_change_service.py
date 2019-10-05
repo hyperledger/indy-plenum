@@ -283,7 +283,7 @@ class ViewChangeService:
     def _finish_view_change(self):
         # Update shared data
         self._data.waiting_for_new_view = False
-        self._data.prev_view_prepare_cert = self._new_view.batches[-1].pp_seq_no if self._new_view.batches else None
+        self._data.prev_view_prepare_cert = self._new_view.batches[-1].pp_seq_no if self._new_view.batches else 0
 
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
