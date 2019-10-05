@@ -3476,10 +3476,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.poolManager.node_ids_ordered_by_rank(
             self.nodeReg, self.poolManager.get_node_ids())
 
-    def set_view_for_replicas(self, view_no):
-        for r in self.replicas.values():
-            r.set_view_no(view_no)
-
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
@@ -3488,6 +3484,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _process_new_view_accerted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
+        self.view_changer.last_completed_view_no = self.viewNo
         self.monitor.reset()
         for i in self.replicas.keys():
             self.primary_selected(i)

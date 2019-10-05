@@ -168,9 +168,6 @@ class FakeNode:
     def get_validators(self):
         return []
 
-    def set_view_for_replicas(self, a):
-        pass
-
     def get_primaries_for_current_view(self):
         # This is used only for getting name of next primary, so
         # it just returns a constant

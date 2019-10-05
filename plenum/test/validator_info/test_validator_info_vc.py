@@ -21,7 +21,6 @@ def tconf(tconf):
     tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_number_txns_in_catchup_and_vc_queue_valid(looper,
                                                    txnPoolNodeSet,
                                                    tconf,
@@ -34,7 +33,6 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     master_node_index = txnPoolNodeSet.index(master_node)
     other_nodes = txnPoolNodeSet.copy()
     other_nodes.remove(master_node)
-    print(other_nodes)
     old_view = master_node.viewNo
     expected_view_no = old_view + 1
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, master_node, stopNode=True)
@@ -86,6 +84,7 @@ def test_instance_change_before_vc(looper,
     def is_inst_chngs_cleared():
         for node in txnPoolNodeSet:
             latest_info = node._info_tool.info
-            assert latest_info['Node_info']['View_change_status']['IC_queue'] == {}
+            for view_no in list(range(expected_view_no + 1)):
+                assert view_no not in latest_info['Node_info']['View_change_status']['IC_queue']
 
     looper.run(eventually(is_inst_chngs_cleared))
