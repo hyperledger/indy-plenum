@@ -243,8 +243,10 @@ CHK_FREQ = 100
 ])
 def test_caught_up_till_3pc_stabilizes_checkpoint(checkpoint_service,
                                                   tconf, chkFreqPatched,
-                                                  is_master, caughtup_view_no,
+                                                  is_master, initial_view_no, caughtup_view_no,
                                                   caughtup_pp_seq_no, expected_stable_checkpoint):
+    checkpoint_service._get_view_no_from_audit = lambda x: initial_view_no
+    checkpoint_service._get_digest_from_audit = lambda x, y: cp_digest(9999)
     data = checkpoint_service._data
     last_ordered = (caughtup_view_no, caughtup_pp_seq_no)
 
@@ -258,5 +260,8 @@ def test_caught_up_till_3pc_stabilizes_checkpoint(checkpoint_service,
     # stable checkpoint must be updated
     assert data.stable_checkpoint == expected_stable_checkpoint
     assert data.last_checkpoint.seqNoEnd == data.stable_checkpoint
-    assert data.last_checkpoint.viewNo == data.view_no
+    expected_view_no = initial_view_no if caughtup_pp_seq_no >= 100 else 0
+    assert data.last_checkpoint.viewNo == expected_view_no
+    expected_digest = cp_digest(9999) if caughtup_pp_seq_no >= 100 else None
+    assert data.last_checkpoint.digest == expected_digest
     assert len(data.checkpoints) == 1

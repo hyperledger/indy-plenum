@@ -203,14 +203,20 @@ class CheckpointService:
         audit_ledger = self._db_manager.get_ledger(AUDIT_LEDGER_ID)
         audit_txn, audit_txn_seq_no = self._audit_txn_by_pp_seq_no(audit_ledger, pp_seq_no)
         # TODO: What should we do if txn not found or audit ledger is empty?
-        view_no = self.view_no if audit_txn is None else get_payload_data(audit_txn)[AUDIT_TXN_VIEW_NO]
-        digest = None if audit_txn_seq_no is None else audit_ledger.hashToStr(
-            audit_ledger.tree.merkle_tree_hash(0, audit_txn_seq_no))
+        view_no = self._get_view_no_from_audit(audit_txn)
+        digest = self._get_digest_from_audit(audit_ledger, audit_txn_seq_no)
         return Checkpoint(instId=self._data.inst_id,
                           viewNo=view_no,
                           seqNoStart=0,
                           seqNoEnd=pp_seq_no,
                           digest=digest)
+
+    def _get_view_no_from_audit(self, audit_txn):
+        return self.view_no if audit_txn is None else get_payload_data(audit_txn)[AUDIT_TXN_VIEW_NO]
+
+    def _get_digest_from_audit(self, audit_ledger, audit_txn_seq_no):
+        return None if not audit_txn_seq_no else audit_ledger.hashToStr(
+            audit_ledger.tree.merkle_tree_hash(0, audit_txn_seq_no))
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark

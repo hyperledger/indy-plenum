@@ -45,17 +45,10 @@ def primary(validators):
 
 
 @pytest.fixture
-def initial_checkpoints(initial_view_no):
-    return [Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))]
-
-
-@pytest.fixture
-def consensus_data(validators, primary, initial_view_no, initial_checkpoints, is_master):
+def consensus_data(validators, primary, initial_view_no, is_master):
     def _data(name):
         data = ConsensusSharedData(generateName(name, 0), validators, 0, is_master)
         data.view_no = initial_view_no
-        data.checkpoints.clear()
-        data.checkpoints.update(initial_checkpoints)
         return data
 
     return _data
