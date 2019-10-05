@@ -1780,7 +1780,7 @@ class OrderingService:
             return False
         if self._data.waiting_for_new_view:
             return False
-        if self._data.prev_view_prepare_cert is not None and self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
+        if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
         # ToDo: is pre_view_change_in_progress needed?

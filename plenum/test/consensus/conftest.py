@@ -15,6 +15,7 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
@@ -172,10 +173,18 @@ def replica_service(validators, primary, timer,
         node_names=validators,
         crypto_factory=create_default_bls_crypto_factory(),
         get_free_port=lambda: 8090)['txns']
-    return ReplicaService("Alpha:0",
-                          validators, primary,
-                          timer,
-                          internal_bus,
-                          external_bus,
-                          write_manager=create_test_write_req_manager("Alpha", genesis_txns),
-                          bls_bft_replica=FakeSomething(gc=lambda key: None))
+    replica = ReplicaService("Alpha:0",
+                             validators, primary,
+                             timer,
+                             internal_bus,
+                             external_bus,
+                             write_manager=create_test_write_req_manager("Alpha", genesis_txns),
+                             bls_bft_replica=FakeSomething(gc=lambda key: None))
+
+    future_primaries_handler = FuturePrimariesBatchHandler(replica._write_manager.database_manager,
+                                                           FakeSomething(nodeReg={},
+                                                                         nodeIds=[]))
+    future_primaries_handler._get_primaries = lambda *args, **kwargs: replica._data.primaries
+    replica._write_manager.register_batch_handler(future_primaries_handler)
+
+    return replica
