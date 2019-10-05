@@ -2275,7 +2275,7 @@ class OrderingService:
 
         self.primaries_batch_needed = True
 
-        if not msg.batches:
+        if not msg.batches or self.last_ordered_3pc[1] >= self._data.prev_view_prepare_cert:
             self._write_manager.future_primary_handler.set_node_state()
 
         if missing_batches:
