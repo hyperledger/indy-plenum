@@ -292,7 +292,7 @@ class ViewChangeService:
                                        view_changes=self._new_view.viewChanges,
                                        checkpoint=self._new_view.checkpoint,
                                        batches=self._new_view.batches))
-        self._data.last_completed_view_no = self._new_view.viewNo
+        self._data.last_completed_view_no = self._data.view_no
 
     def _propose_view_change(self, suspision_code):
         proposed_view_no = self._data.view_no + 1

@@ -29,7 +29,6 @@ def tconf(tconf):
     tconf.Max3PCBatchSize = old_b_size
 
 
-# @pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
         looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle, tconf):
     """
