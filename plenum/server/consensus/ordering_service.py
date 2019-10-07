@@ -861,9 +861,6 @@ class OrderingService:
         self._timer.schedule(delay, func)
 
     def _process_valid_preprepare(self, pre_prepare: PrePrepare, sender: str):
-        if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
-            self._write_manager.future_primary_handler.set_node_state()
-
         why_not_applied = None
         # apply and validate applied PrePrepare if it's not odered yet
         if not self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
@@ -877,6 +874,10 @@ class OrderingService:
             self._add_to_sent_pre_prepares(pre_prepare)
         else:
             self._add_to_pre_prepares(pre_prepare)
+
+        if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
+            self._write_manager.future_primary_handler.set_node_state()
+
 
         return None
 
