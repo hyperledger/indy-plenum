@@ -720,7 +720,7 @@ class ZStack(NetworkInterface):
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
         if r[0] is True:
-            logger.info('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
+            logger.trace('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
             logger.debug('{} failed to {} {} {}'
                          .format(self.name, action, z85_to_friendly(name), r[1]),
@@ -739,7 +739,7 @@ class ZStack(NetworkInterface):
         if msg in (self.pingMessage, self.pongMessage):
             nodeName = z85_to_friendly(frm)
             if msg == self.pingMessage:
-                logger.info('{} got ping from {}'.format(self, nodeName))
+                logger.trace('{} got ping from {}'.format(self, nodeName))
                 if not self.config.ENABLE_HEARTBEATS and self.config.PING_RECONNECT_ENABLED:
                     if self.remote_ping_stats.get(nodeName):
                         self.remote_ping_stats[nodeName] += 1
