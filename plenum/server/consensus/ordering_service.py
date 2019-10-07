@@ -1783,7 +1783,7 @@ class OrderingService:
             return False
         if self._data.waiting_for_new_view:
             return False
-        if self._data.prev_view_prepare_cert is not None and self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
+        if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
         # ToDo: is pre_view_change_in_progress needed?
@@ -2278,7 +2278,7 @@ class OrderingService:
 
         self.primaries_batch_needed = True
 
-        if not msg.batches:
+        if not msg.batches or self.last_ordered_3pc[1] >= self._data.prev_view_prepare_cert:
             self._write_manager.future_primary_handler.set_node_state()
 
         if missing_batches:

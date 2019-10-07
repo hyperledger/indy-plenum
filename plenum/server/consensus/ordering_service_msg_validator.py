@@ -125,8 +125,6 @@ class OrderingServiceMsgValidator:
         # Allow re-order already ordered if we are re-ordering in new view
         # (below prepared certificate from the previous view).
         if self.has_already_ordered(view_no, pp_seq_no):
-            if self._data.prev_view_prepare_cert is None:
-                return DISCARD, ALREADY_ORDERED
             if pp_seq_no > self._data.prev_view_prepare_cert:
                 return DISCARD, ALREADY_ORDERED
 
