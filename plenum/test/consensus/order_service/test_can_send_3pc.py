@@ -83,7 +83,7 @@ def test_cannot_send_3pc_batch_below_prev_view_prep_cert(primary_orderer, last_p
 
 @pytest.mark.parametrize('last_pp_seqno', [0, 9, 10])
 def test_can_send_3pc_batch_None_prev_view_prep_cert(primary_orderer, last_pp_seqno):
-    primary_orderer._data.prev_view_prepare_cert = None
+    primary_orderer._data.prev_view_prepare_cert = 0
     primary_orderer._lastPrePrepareSeqNo = last_pp_seqno
     primary_orderer.last_ordered_3pc = (primary_orderer.view_no, last_pp_seqno)
     assert primary_orderer.can_send_3pc_batch()
