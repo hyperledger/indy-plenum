@@ -720,7 +720,7 @@ class ZStack(NetworkInterface):
         name = remote if isinstance(remote, (str, bytes)) else remote.name
         r = self.send(msg, name)
         if r[0] is True:
-            logger.trace('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
+            logger.debug('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
             logger.debug('{} failed to {} {} {}'
                          .format(self.name, action, z85_to_friendly(name), r[1]),
