@@ -878,7 +878,6 @@ class OrderingService:
         if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
             self._write_manager.future_primary_handler.set_node_state()
 
-
         return None
 
     def _apply_and_validate_applied_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
