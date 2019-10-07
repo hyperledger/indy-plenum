@@ -70,7 +70,7 @@ def test_re_order_pre_prepares_no_pre_prepares(looper, txnPoolNodeSet,
 
         # 4. Make sure that the nodes 1-3 (that already ordered the requests) sent Prepares and Commits so that
         # the request was eventually ordered on Node4 as well
-        waitNodeDataEquality(looper, lagging_node, *other_nodes)
+        waitNodeDataEquality(looper, lagging_node, *other_nodes, customTimeout=60)
         assert lagging_node.master_last_ordered_3PC == (0, 4)
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
