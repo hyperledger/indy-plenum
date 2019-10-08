@@ -875,9 +875,6 @@ class OrderingService:
         else:
             self._add_to_pre_prepares(pre_prepare)
 
-        if self._is_the_last_old_preprepare(pre_prepare.ppSeqNo):
-            self._write_manager.future_primary_handler.set_node_state()
-
         return None
 
     def _apply_and_validate_applied_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
@@ -1711,9 +1708,6 @@ class OrderingService:
         :return:
         """
         ledger_id = three_pc_batch.ledger_id
-        if ledger_id != POOL_LEDGER_ID and \
-                not three_pc_batch.primaries:
-            three_pc_batch.primaries = self._write_manager.future_primary_handler.get_last_primaries() or self._data.primaries
         if self._write_manager.is_valid_ledger_id(ledger_id):
             self._write_manager.post_apply_batch(three_pc_batch)
         else:
@@ -2278,13 +2272,9 @@ class OrderingService:
 
         self.primaries_batch_needed = True
 
-        if not msg.batches or self.last_ordered_3pc[1] >= self._data.prev_view_prepare_cert:
-            self._write_manager.future_primary_handler.set_node_state()
-
         if missing_batches:
             self._request_old_view_pre_prepares(missing_batches)
         else:
-            self._write_manager.future_primary_handler.set_node_state()
             # unstash waiting for New View messages
             self._stasher.process_all_stashed(STASH_VIEW_3PC)
 

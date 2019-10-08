@@ -99,11 +99,12 @@ class NodeBootstrap(LedgersBootstrap):
                                                 ledger_sync_order=ledger_sync_order,
                                                 metrics=self.node.metrics)
 
-    def _register_pool_batch_handlers(self):
-        super()._register_pool_batch_handlers()
+    def _register_audit_batch_handlers(self):
         # TODO: This should be moved into LedgersBootstrap somehow
         future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self.node)
-        self.write_manager.register_batch_handler(future_primaries_handler)
+        for lid in self.ledger_ids:
+            self.write_manager.register_batch_handler(future_primaries_handler, ledger_id=lid)
+        super()._register_audit_batch_handlers()
 
     def register_ts_store_batch_handlers(self):
         ts_store_b_h = TsStoreBatchHandler(self.node.db_manager)

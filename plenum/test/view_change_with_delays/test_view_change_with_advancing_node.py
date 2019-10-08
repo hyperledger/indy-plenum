@@ -15,7 +15,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason="INDY-1303")
 def test_delay_commits(txnPoolNodeSet, looper,
                        sdk_pool_handle,
                        sdk_wallet_client,

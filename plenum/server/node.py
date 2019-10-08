@@ -674,8 +674,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         the last ppSeqNo and state and txn root for previous view
         """
 
-        self.write_manager.future_primary_handler.set_node_state()
-
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
                 "{} Not all replicas have "
@@ -707,7 +705,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqNo and state and txn root for previous view
         """
-        self.write_manager.future_primary_handler.set_node_state()
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
@@ -3066,8 +3063,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         ledger_id = three_pc_batch.ledger_id
-        if ledger_id != POOL_LEDGER_ID and not three_pc_batch.primaries:
-            three_pc_batch.primaries = self.write_manager.future_primary_handler.get_last_primaries() or self.primaries
         if self.write_manager.is_valid_ledger_id(ledger_id):
             self.write_manager.post_apply_batch(three_pc_batch)
         else:
