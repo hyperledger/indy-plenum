@@ -13,25 +13,11 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 logger = getlogger()
 
 
-class TestViewChangerWithAdjustedViewNo(TestViewChanger):
-    def __init__(self, *args, **kwargs):
-        self.__view_no = 3
-        super().__init__(*args, **kwargs)
-
-    @property
-    def view_no(self):
-        return self.__view_no
-
-    @view_no.setter
-    def view_no(self, value):
-        if value != 0:
-            self.__view_no = value
-            self.provider.view_setting_handler(value)
-
-
 class TestNodeWithAdjustedViewNo(TestNode):
-    def newViewChanger(self):
-        return create_view_changer(self, TestViewChangerWithAdjustedViewNo)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for r in self.replicas.values():
+            r._consensus_data.view_no = 3
 
 
 @pytest.fixture(scope="module")
@@ -64,3 +50,20 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_steward,
         node.monitor.isMasterDegraded = lambda: False
 
     return txnPoolNodeSet
+
+
+def test_new_node_accepts_chosen_primary(
+        txnPoolNodeSet, sdk_node_set_with_node_added_after_some_txns):
+    looper, new_node, sdk_pool_handle, new_steward_wallet_handle = sdk_node_set_with_node_added_after_some_txns
+
+    logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
+
+    logger.debug("Send requests to ensure that pool is working properly, "
+                 "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              new_steward_wallet_handle, 3)
+
+    logger.debug("Ensure nodes data equality".format(txnPoolNodeSet[0].viewNo))
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])

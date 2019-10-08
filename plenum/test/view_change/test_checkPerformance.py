@@ -28,7 +28,6 @@ def fake_node(fake_node):
     return fake_node
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_not_send_IC_during_view_change(fake_node,
                                         testNodeClass,
                                         fake_monitor):
@@ -38,7 +37,6 @@ def test_not_send_IC_during_view_change(fake_node,
     assert fake_node.checkPerformance() == None
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_send_IC_if_master_degraded(fake_node,
                                     testNodeClass):
     fake_node.isParticipating = True
@@ -56,7 +54,6 @@ def test_send_IC_if_master_degraded(fake_node,
     assert fake_node.checkPerformance() == False
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_not_send_IC_if_not_isParticipating(fake_node,
                                             testNodeClass):
     fake_node.isParticipating = False
@@ -64,7 +61,6 @@ def test_not_send_IC_if_not_isParticipating(fake_node,
     assert fake_node.checkPerformance() == None
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_not_send_if_not_new_ordered_reqs(fake_node,
                                           testNodeClass):
     fake_node.isParticipating = True
@@ -74,7 +70,6 @@ def test_not_send_if_not_new_ordered_reqs(fake_node,
     assert fake_node.checkPerformance() == None
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_not_send_if_master_Id_is_None(fake_node,
                                        testNodeClass):
     fake_node.isParticipating = True

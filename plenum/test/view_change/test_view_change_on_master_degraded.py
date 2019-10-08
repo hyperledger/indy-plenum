@@ -55,8 +55,9 @@ def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
     """
     old_primary_node = get_master_primary_node(list(txnPoolNodeSet))
 
-    simulate_slow_master(looper, txnPoolNodeSet, sdk_pool_handle,
-                         sdk_wallet_steward)
+    for n in txnPoolNodeSet:
+        n.view_changer.on_master_degradation()
+
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo + 1)
 
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -96,6 +97,10 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 4)
+
+    for n in txnPoolNodeSet:
+        n.checkPerformance()
+
     # Check that view change happened for all nodes
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo + 1)
 
