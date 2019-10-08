@@ -592,10 +592,6 @@ class ZStack(NetworkInterface):
             if self.handlePingPong(msg, frm, ident):
                 continue
 
-            # We have received non-ping-pong message from some remote, we can clean this counter
-            if OP_FIELD_NAME not in msg or msg[OP_FIELD_NAME] != BATCH:
-                self.remote_ping_stats[z85_to_friendly(frm)] = 0
-
             if not self.onlyListener and ident not in self.remotesByKeys:
                 logger.warning('{} received message from unknown remote {}'
                                .format(self, z85_to_friendly(ident)))
@@ -607,6 +603,9 @@ class ZStack(NetworkInterface):
                 logger.error('Error {} while converting message {} '
                              'to JSON from {}'.format(e, msg, z85_to_friendly(ident)))
                 continue
+            # We have received non-ping-pong message from some remote, we can clean this counter
+            if OP_FIELD_NAME not in msg or msg[OP_FIELD_NAME] != BATCH:
+                self.remote_ping_stats[z85_to_friendly(frm)] = 0
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
                 self.msgHandler((msg, frm))
@@ -737,18 +736,19 @@ class ZStack(NetworkInterface):
 
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
-            nodeName = z85_to_friendly(frm)
             if msg == self.pingMessage:
+                nodeName = z85_to_friendly(frm)
                 logger.trace('{} got ping from {}'.format(self, nodeName))
-                if not self.config.ENABLE_HEARTBEATS and self.config.PING_RECONNECT_ENABLED:
+                self.sendPingPong(frm, is_ping=False)
+                if not self.config.ENABLE_HEARTBEATS and self.config.PING_RECONNECT_ENABLED and nodeName in self.connecteds:
                     if self.remote_ping_stats.get(nodeName):
                         self.remote_ping_stats[nodeName] += 1
                     else:
                         self.remote_ping_stats[nodeName] = 1
                     if self.remote_ping_stats[nodeName] > self.config.PINGS_BEFORE_SOCKET_RECONNECTION:
+                        logger.info("Reconnecting {} due to numerous consecutive pings".format(nodeName))
                         self.remote_ping_stats[nodeName] = 0
                         self.reconnectRemoteWithName(nodeName)
-                self.sendPingPong(frm, is_ping=False)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
