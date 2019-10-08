@@ -14,7 +14,6 @@ from plenum.test.waits import expectedTransactionExecutionTime
 from stp_core.loop.eventually import eventually
 
 
-@pytest.mark.skip(reason="For now all of delayed requests will be reordered")
 def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(looper, txnPoolNodeSet,
                                                                             sdk_pool_handle, sdk_wallet_client):
     '''
@@ -57,12 +56,12 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, 1)))
+                          (old_view_no + 1, 0)))
 
-    # Backup primary replica set new_view and seq_no == 1, because of primary batch
+    # Backup primary replica set new_view and seq_no == 0, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, 1)))
+                          (old_view_no + 1, 0)))
 
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
@@ -75,7 +74,6 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
                for node in txnPoolNodeSet)
 
 
-@pytest.mark.skip(reason="For now all of delayed requests will be reordered")
 def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, txnPoolNodeSet,
                                                                         sdk_pool_handle, sdk_wallet_client):
     '''
@@ -119,17 +117,17 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, 1)))
+                          (old_view_no + 1, 0)))
 
     # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, 1)))
+                          (old_view_no + 1, 0)))
 
-    # +2 because 2 batches will be reordered after view_change
+    # 2 batches will be reordered after view_change and another one is from primaries batch
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
-                          (old_last_ordered[0] + 1, batches_count + 2)))
+                          (old_last_ordered[0] + 1, batches_count + 3)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
@@ -138,12 +136,11 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
         eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance,
-                   (txnPoolNodeSet[0].viewNo, 2)))
+                   (txnPoolNodeSet[0].viewNo, 1)))
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(looper, txnPoolNodeSet,
                                                                             sdk_pool_handle, sdk_wallet_client):
     ''' Send random request and do view change then fast_nodes (1, 4 - without

@@ -105,7 +105,7 @@ class OrderingServiceMsgValidator:
 
         # Check if below lower watermark (meaning it's already ordered)
         if pp_seq_no <= self._data.low_watermark:
-                return DISCARD, ALREADY_ORDERED
+            return DISCARD, ALREADY_ORDERED
 
         # Default checks next
         res, reason = self._validate_base(msg, view_no)
