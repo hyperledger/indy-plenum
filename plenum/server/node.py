@@ -3484,7 +3484,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _process_new_view_accerted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
-        self.view_changer.last_completed_view_no = self.viewNo
         self.monitor.reset()
         for i in self.replicas.keys():
             self.primary_selected(i)
