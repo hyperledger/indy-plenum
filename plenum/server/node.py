@@ -1985,6 +1985,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
+        logger.info('{} caught up to {} txns in the last catchup'.
+                    format(self, self.num_txns_caught_up_in_last_catchup()))
+
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
             data = get_payload_data(last_txn)
@@ -2087,9 +2090,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
 
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
-        logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
-        return count
+        return self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
 
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
