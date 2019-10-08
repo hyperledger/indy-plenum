@@ -759,6 +759,9 @@ class OrderingService:
             self.pre_prepares_stashed_for_incorrect_time,
         )
         for request_key in tpcKeys:
+            pp = self.get_preprepare(*request_key)
+            if pp:
+                self._clear_batch(self.get_preprepare(*request_key))
             for coll in to_clean_up:
                 coll.pop(request_key, None)
 
@@ -1779,7 +1782,7 @@ class OrderingService:
             return False
         if self._data.waiting_for_new_view:
             return False
-        if self._data.prev_view_prepare_cert is not None and self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
+        if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
         # ToDo: is pre_view_change_in_progress needed?
@@ -2273,7 +2276,7 @@ class OrderingService:
                 else:
                     self._process_pre_prepare_from_old_view(pp)
 
-                if not msg.batches:
+                if not msg.batches or self.last_ordered_3pc[1] >= self._data.prev_view_prepare_cert:
                     self._write_manager.future_primary_handler.set_node_state()
 
                 if missing_batches:

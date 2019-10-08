@@ -408,6 +408,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._checkpointer.set_watermarks(0)
         self._checkpointer._reset_checkpoints()
         self._consensus_data.stable_checkpoint = 0
+        self._checkpointer._remove_received_checkpoints(till_3pc_key=(self.viewNo, 0))
 
     def on_propagate_primary_done(self):
         if self.isMaster:
@@ -586,7 +587,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # ToDo: Need to send a cmd like ViewChangeStart into internal bus
         # self._gc(self.last_ordered_3pc)
         self._ordering_service.gc(self.last_ordered_3pc)
-        self._checkpointer.gc_before_new_view()
         # ToDo: get rid of directly calling
         self._ordering_service._clear_prev_view_pre_prepares()
         # self._clear_prev_view_pre_prepares()

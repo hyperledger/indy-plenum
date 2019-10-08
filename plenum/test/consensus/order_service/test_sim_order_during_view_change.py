@@ -1,4 +1,5 @@
 from functools import partial
+from random import Random
 
 import pytest
 
@@ -8,21 +9,20 @@ from plenum.test.consensus.order_service.sim_helper import MAX_BATCH_SIZE, setup
     check_consistency, check_batch_count
 from plenum.test.simulation.sim_random import DefaultSimRandom
 
-
 REQUEST_COUNT = 10
 
 
-# TODO: Either move into helper or start changing existing assertion handling
-def check_no_asserts(func, *args):
-    try:
-        func(*args)
-    except AssertionError:
-        return False
-    return True
-
-
 @pytest.mark.parametrize("seed", range(100))
-def test_view_change_while_ordering_with_real_msgs(seed):
+def test_view_change_while_ordering_with_real_msgs_default_seed(seed):
+    do_test(seed)
+
+
+@pytest.mark.parametrize("seed", Random().sample(range(1000000), 100))
+def test_view_change_while_ordering_with_real_msgs_random_seed(seed):
+    do_test(seed)
+
+
+def do_test(seed):
     # 1. Setup pool
     requests_count = REQUEST_COUNT
     batches_count = requests_count // MAX_BATCH_SIZE
@@ -46,3 +46,12 @@ def test_view_change_while_ordering_with_real_msgs(seed):
 
     # 4. Check data consistency
     pool.timer.wait_for(lambda: check_no_asserts(check_consistency, pool))
+
+
+# TODO: Either move into helper or start changing existing assertion handling
+def check_no_asserts(func, *args):
+    try:
+        func(*args)
+    except AssertionError:
+        return False
+    return True

@@ -33,7 +33,7 @@ class CheckpointService:
 
     def __init__(self, data: ConsensusSharedData, bus: InternalBus, network: ExternalBus,
                  stasher: StashingRouter, db_manager: DatabaseManager,
-                 metrics: MetricsCollector = NullMetricsCollector(),):
+                 metrics: MetricsCollector = NullMetricsCollector(), ):
         self._data = data
         self._bus = bus
         self._network = network
@@ -139,13 +139,7 @@ class CheckpointService:
                                              caught_up_till_3pc=key_3pc))
             self.caught_up_till_3pc(key_3pc)
 
-    def gc_before_new_view(self):
-        self._reset_checkpoints()
-        # ToDo: till_3pc_key should be None?
-        self._remove_received_checkpoints(till_3pc_key=(self.view_no, 0))
-
     def caught_up_till_3pc(self, caught_up_till_3pc):
-        # TODO: Add checkpoint using audit ledger
         cp_seq_no = caught_up_till_3pc[1] // self._config.CHK_FREQ * self._config.CHK_FREQ
         self._mark_checkpoint_stable(cp_seq_no)
 
@@ -190,13 +184,8 @@ class CheckpointService:
 
         stable_checkpoints = self._data.checkpoints.irange_key(min_key=pp_seq_no, max_key=pp_seq_no)
         if len(list(stable_checkpoints)) == 0:
-            # TODO: Is it okay to get view_no like this?
-            view_no = self._data.last_ordered_3pc[0]
-            checkpoint = Checkpoint(instId=self._data.inst_id,
-                                    viewNo=view_no,
-                                    seqNoStart=0,
-                                    seqNoEnd=pp_seq_no,
-                                    digest=self._audit_txn_root_hash(view_no, pp_seq_no))
+            checkpoint = self._create_checkpoint_from_audit_ledger(pp_seq_no)
+            self._logger.info("{} adding a stable checkpoint {}".format(self, checkpoint))
             self._data.checkpoints.add(checkpoint)
 
         for cp in self._data.checkpoints.copy():
@@ -209,6 +198,25 @@ class CheckpointService:
         self._remove_received_checkpoints(till_3pc_key=(self.view_no, pp_seq_no))
         self._bus.send(CheckpointStabilized((self.view_no, pp_seq_no)))  # call OrderingService.gc()
         self._logger.info("{} marked stable checkpoint {}".format(self, pp_seq_no))
+
+    def _create_checkpoint_from_audit_ledger(self, pp_seq_no):
+        audit_ledger = self._db_manager.get_ledger(AUDIT_LEDGER_ID)
+        audit_txn, audit_txn_seq_no = self._audit_txn_by_pp_seq_no(audit_ledger, pp_seq_no)
+        # TODO: What should we do if txn not found or audit ledger is empty?
+        view_no = self._get_view_no_from_audit(audit_txn)
+        digest = self._get_digest_from_audit(audit_ledger, audit_txn_seq_no)
+        return Checkpoint(instId=self._data.inst_id,
+                          viewNo=view_no,
+                          seqNoStart=0,
+                          seqNoEnd=pp_seq_no,
+                          digest=digest)
+
+    def _get_view_no_from_audit(self, audit_txn):
+        return self.view_no if audit_txn is None else get_payload_data(audit_txn)[AUDIT_TXN_VIEW_NO]
+
+    def _get_digest_from_audit(self, audit_ledger, audit_txn_seq_no):
+        return None if not audit_txn_seq_no else audit_ledger.hashToStr(
+            audit_ledger.tree.merkle_tree_hash(0, audit_txn_seq_no))
 
     def set_watermarks(self, low_watermark: int, high_watermark: int = None):
         self._data.low_watermark = low_watermark
@@ -285,34 +293,27 @@ class CheckpointService:
         )
 
     @staticmethod
-    def _audit_seq_no_from_3pc_key(audit_ledger: Ledger, view_no: int, pp_seq_no: int) -> int:
+    def _audit_txn_by_pp_seq_no(audit_ledger: Ledger, pp_seq_no: int) -> (dict, int):
         # TODO: Should we put it into some common code?
         seq_no = audit_ledger.size
+        txn = None
         while seq_no > 0:
             txn = audit_ledger.getBySeqNo(seq_no)
             txn_data = get_payload_data(txn)
-            audit_view_no = txn_data[AUDIT_TXN_VIEW_NO]
             audit_pp_seq_no = txn_data[AUDIT_TXN_PP_SEQ_NO]
-            if audit_view_no == view_no and audit_pp_seq_no == pp_seq_no:
+            if audit_pp_seq_no == pp_seq_no:
                 break
             seq_no -= 1
-        return seq_no
-
-    def _audit_txn_root_hash(self, view_no: int, pp_seq_no: int) -> Optional[str]:
-        audit_ledger = self._db_manager.get_ledger(AUDIT_LEDGER_ID)
-        # TODO: Should we remove view_no at some point?
-        seq_no = self._audit_seq_no_from_3pc_key(audit_ledger, view_no, pp_seq_no)
-        # TODO: What should we do if txn not found or audit ledger is empty?
-        if seq_no == 0:
-            return None
-        root_hash = audit_ledger.tree.merkle_tree_hash(0, seq_no)
-        return audit_ledger.hashToStr(root_hash)
+        return txn, seq_no
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
         if self.is_master:
             cp = msg.checkpoint
+            # do not update stable checkpoints if the node doesn't have this checkpoint
+            # the node is lagging behind in this case and will start catchup after receiving
+            # one more quorum of checkpoints from other nodes
             if cp not in self._data.checkpoints:
-                self._data.checkpoints.append(cp)
+                return
             self._mark_checkpoint_stable(cp.seqNoEnd)
             self.set_watermarks(low_watermark=cp.seqNoEnd)
         else:
