@@ -95,8 +95,6 @@ class ConsensusSharedData:
         # Cleared in `gc`
         self.requested_pre_prepares = {}
 
-        self.last_completed_view_no = self.view_no
-
     @property
     def name(self) -> str:
         return self._name

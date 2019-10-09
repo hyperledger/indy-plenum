@@ -345,6 +345,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._subscribe_to_internal_msgs()
 
     @property
+    def last_completed_view_no(self):
+        return self.master_replica._view_change_service.last_completed_view_no
+
+    @property
     def mode(self):
         return self._mode
 
@@ -686,7 +690,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         for replica in self.replicas.values():
             replica.on_view_change_done()
-        self.view_changer.last_completed_view_no = self.view_changer.view_no
+        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
         # Remove already ordered requests from requests list after view change
         # If view change happen when one half of nodes ordered on master
         # instance and backup but other only on master then we need to clear
@@ -718,7 +722,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         for replica in self.replicas.values():
             replica.on_view_change_done()
-        self.view_changer.last_completed_view_no = self.view_changer.view_no
+        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
         self.monitor.reset()
 
     def drop_primaries(self):
@@ -3484,7 +3488,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _process_new_view_accerted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
-        self.view_changer.last_completed_view_no = self.viewNo
         self.monitor.reset()
         for i in self.replicas.keys():
             self.primary_selected(i)

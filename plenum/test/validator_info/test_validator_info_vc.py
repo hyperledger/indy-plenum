@@ -84,7 +84,6 @@ def test_instance_change_before_vc(looper,
     def is_inst_chngs_cleared():
         for node in txnPoolNodeSet:
             latest_info = node._info_tool.info
-            for view_no in list(range(expected_view_no + 1)):
-                assert view_no not in latest_info['Node_info']['View_change_status']['IC_queue']
+            assert latest_info['Node_info']['View_change_status']['IC_queue'] == {}
 
     looper.run(eventually(is_inst_chngs_cleared))

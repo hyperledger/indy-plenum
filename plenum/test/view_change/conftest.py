@@ -82,5 +82,5 @@ def fake_node(tdir, tconf, request):
     node.msgsToViewChanger = deque()
     node.set_view_for_replicas = lambda a: None
     node.master_replica._consensus_data.view_no = request.param
-    node.view_changer.last_completed_view_no = request.param
+    node.last_completed_view_no = request.param
     return node
