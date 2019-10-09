@@ -230,6 +230,9 @@ class ViewChangeService:
         if batches is None:
             return
 
+        if self._data.stable_checkpoint < cp.seqNoEnd:
+            return
+
         nv = NewView(
             viewNo=self._data.view_no,
             viewChanges=sorted(confirmed_votes, key=itemgetter(0)),
