@@ -7,6 +7,10 @@ ARG venv=venv
 
 RUN echo "To invalidate cache"
 
+
+ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
+ RUN add-apt-repository "deb https://repo.sovrin.org/ursa/deb xenial master"
+
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
     cmake \
@@ -20,22 +24,10 @@ RUN apt-get update -y && apt-get install -y \
     zlib1g-dev \
     liblz4-dev \
     libsnappy-dev \
+    ursa \
     rocksdb=5.8.8
 
 
-ENV RUST_VERSION=${RUST_VERSION:-1.34.0}
-
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain $RUST_VERSION \
-    && chmod -R a+w $RUSTUP_HOME $CARGO_HOME \
-    && rustup --version \
-    && cargo --version \
-    && rustc --version
-
-WORKDIR /home/
 
 RUN curl -fsSL https://github.com/jedisct1/libsodium/releases/download/1.0.14/libsodium-1.0.14.tar.gz | tar -xz
 
@@ -48,17 +40,3 @@ ENV SODIUM_LIB_DIR=/usr/local/lib \
 
 WORKDIR /home/
 
-RUN git clone https://github.com/hyperledger/ursa.git
-
-WORKDIR /home/ursa/
-
-RUN  cargo build --release
-
-RUN cp /home/ursa/target/release/libursa.so /usr/lib/.
-
-RUN indy_ci_add_user $uid $user $venv
-
-RUN indy_image_clean
-
-USER $user
-WORKDIR /home/$user
