@@ -54,7 +54,6 @@ def test_catchup_not_triggered_if_another_in_progress(
         "and after that starts catchup")
 
     repaired_node = repair_broken_node(broken_node)
-
     initial_do_start_catchup_times = repaired_node.spylog.count(Node._do_start_catchup)
     initial_all_ledgers_caught_up = repaired_node.spylog.count(Node.allLedgersCaughtUp)
 

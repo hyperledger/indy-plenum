@@ -25,10 +25,12 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
     old_count_pp = get_count(slow_node.master_replica,
-                             slow_node.master_replica.processPrePrepare)
-    old_count_mrq = {n.name: get_count(n, n.process_message_req)
+                             slow_node.master_replica._ordering_service.process_preprepare)
+    old_count_mrq = {n.name: get_count(n.master_replica._message_req_service,
+                                       n.master_replica._message_req_service.process_message_req)
                      for n in other_nodes}
-    old_count_mrp = get_count(slow_node, slow_node.process_message_rep)
+    old_count_mrp = get_count(slow_node.master_replica._message_req_service,
+                              slow_node.master_replica._message_req_service.process_message_rep)
 
     sdk_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
@@ -39,25 +41,28 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
 
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
-    assert not slow_node.master_replica.requested_pre_prepares
+    assert not slow_node.master_replica._consensus_data.requested_pre_prepares
 
     # `slow_node` processed PRE-PREPARE
-    assert get_count(slow_node.master_replica,
-                     slow_node.master_replica.processPrePrepare) > old_count_pp
+    # assert get_count(slow_node.master_replica,
+    #                  slow_node.master_replica._ordering_service.process_preprepare) > old_count_pp
 
     # `slow_node` did receive `MessageRep`
-    assert get_count(slow_node, slow_node.process_message_rep) > old_count_mrp
+    assert get_count(slow_node.master_replica._message_req_service,
+                     slow_node.master_replica._message_req_service.process_message_rep) > old_count_mrp
 
     # Primary node should received `MessageReq` and other nodes shouldn't
     recv_reqs = set()
     for n in other_non_primary_nodes:
-        if get_count(n, n.process_message_req) > old_count_mrq[n.name]:
+        if get_count(n.master_replica._message_req_service,
+                     n.master_replica._message_req_service.process_message_req) > old_count_mrq[n.name]:
             recv_reqs.add(n.name)
 
-    assert get_count(primary_node, primary_node.process_message_req) > \
+    assert get_count(primary_node.master_replica._message_req_service,
+                     primary_node.master_replica._message_req_service.process_message_req) > \
            old_count_mrq[primary_node.name]
     assert len(recv_reqs) == 0
 
     # All nodes including the `slow_node` ordered the same requests
-    assert check_if_all_equal_in_list([n.master_replica.ordered
+    assert check_if_all_equal_in_list([n.master_replica._ordering_service.ordered
                                        for n in txnPoolNodeSet])

@@ -1,6 +1,7 @@
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.common.types import f
+from plenum.server.consensus.consensus_shared_data import get_original_viewno
 
 
 class ThreePcBatch:
@@ -11,7 +12,8 @@ class ThreePcBatch:
                  state_root, txn_root,
                  primaries,
                  valid_digests,
-                 has_audit_txn=True) -> None:
+                 has_audit_txn=True,
+                 original_view_no=None) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
         self.view_no = view_no
@@ -22,6 +24,7 @@ class ThreePcBatch:
         self.primaries = primaries
         self.valid_digests = valid_digests
         self.has_audit_txn = has_audit_txn
+        self.original_view_no = original_view_no
 
     def __repr__(self) -> str:
         return str(self.__dict__)
@@ -38,7 +41,8 @@ class ThreePcBatch:
                             txn_root=txn_root,
                             primaries=primaries,
                             valid_digests=valid_digests,
-                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None)
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None,
+                            original_view_no=get_original_viewno(pre_prepare))
 
     @staticmethod
     def from_ordered(ordered):
@@ -51,7 +55,8 @@ class ThreePcBatch:
                             txn_root=Ledger.strToHash(ordered.txnRootHash),
                             primaries=ordered.primaries,
                             valid_digests=ordered.valid_reqIdr,
-                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None)
+                            has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None,
+                            original_view_no=ordered.originalViewNo)
 
     @staticmethod
     def from_batch_committed_dict(batch_comitted):
@@ -66,4 +71,5 @@ class ThreePcBatch:
                             primaries=batch_comitted[f.PRIMARIES.nm],
                             valid_digests=valid_req_keys,
                             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
-                                f.AUDIT_TXN_ROOT_HASH.nm] is not None)
+                                f.AUDIT_TXN_ROOT_HASH.nm] is not None,
+                            original_view_no=batch_comitted[f.ORIGINAL_VIEW_NO.nm] if f.ORIGINAL_VIEW_NO.nm in batch_comitted else None)

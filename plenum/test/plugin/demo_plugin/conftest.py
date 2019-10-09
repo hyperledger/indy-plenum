@@ -16,6 +16,8 @@ def do_plugin_initialisation_for_tests():
     import plenum.common
 
     importlib.reload(plenum.server.replica)
+    importlib.reload(plenum.server.consensus.ordering_service)
+    importlib.reload(plenum.server.consensus.ordering_service_msg_validator)
     importlib.reload(plenum.server.node)
     importlib.reload(plenum.server.catchup.utils)
     importlib.reload(plenum.server.catchup.catchup_rep_service)

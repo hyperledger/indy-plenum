@@ -37,10 +37,6 @@ def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
     new_node = sdk_one_node_added
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, retryWait=1,
                           timeout=10))
-    assert len(getAllReturnVals(new_node.view_changer,
-                                new_node.view_changer._do_view_change_by_future_vcd,
-                                compare_val_to=True)) == 0
-    assert not new_node.view_changer._next_view_indications
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 2)
 
@@ -84,10 +80,6 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
     txnPoolNodeSet = remaining_nodes + [restarted_node]
     looper.run(eventually(checkViewNoForNodes,
                           txnPoolNodeSet, old_view_no + 1, timeout=30))
-    assert len(getAllReturnVals(restarted_node.view_changer,
-                                restarted_node.view_changer._do_view_change_by_future_vcd,
-                                compare_val_to=True)) == 0
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
-    assert not restarted_node.view_changer._next_view_indications

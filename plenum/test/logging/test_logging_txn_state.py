@@ -34,7 +34,7 @@ def testLoggingTxnStateForValidRequest(
         sdk_pool_handle, sdk_wallet_client):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
-    logsOrdered, _ = logsearch(files=['replica.py'], funcs=['order_3pc_key'], msgs=['ordered batch request'])
+    logsOrdered, _ = logsearch(files=['ordering_service.py'], funcs=['_order_3pc_key'], msgs=['ordered batch request'])
     logsCommited, _ = logsearch(files=['node.py'], funcs=['executeBatch'], msgs=['committed batch request'])
 
     reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -51,7 +51,7 @@ def testLoggingTxnStateForInvalidRequest(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, logsearch):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
-    logsReject, _ = logsearch(files=['replica.py'], funcs=['consume_req_queue_for_pre_prepare'],
+    logsReject, _ = logsearch(files=['ordering_service.py'], funcs=['_consume_req_queue_for_pre_prepare'],
                               msgs=['encountered exception.*while processing.*will reject'])
 
     seed = randomString(32)
@@ -79,7 +79,7 @@ def testLoggingTxnStateWhenCommitFails(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, logsearch):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
-    logsOrdered, _ = logsearch(files=['replica.py'], funcs=['order_3pc_key'], msgs=['ordered batch request'])
+    logsOrdered, _ = logsearch(files=['ordering_service.py'], funcs=['_order_3pc_key'], msgs=['ordered batch request'])
     logsCommitFail, _ = logsearch(files=['node.py'], funcs=['executeBatch'],
                                   msgs=['commit failed for batch request'])
 

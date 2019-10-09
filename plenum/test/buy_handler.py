@@ -39,3 +39,6 @@ class BuyHandler(WriteRequestHandler):
     @staticmethod
     def prepare_buy_key(identifier, req_id):
         return sha256('{}{}:buy'.format(identifier, req_id).encode()).digest()
+
+    def __repr__(self):
+        return "TestHandler"

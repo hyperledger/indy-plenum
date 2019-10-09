@@ -6,6 +6,7 @@ from typing import Union
 
 from orderedset import OrderedSet
 from plenum.common.constants import PROPAGATE, THREE_PC_PREFIX
+from plenum.common.messages.internal_messages import RequestPropagates
 from plenum.common.messages.node_messages import Propagate
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, MetricsName
 from plenum.common.request import Request, ReqKey
@@ -280,7 +281,7 @@ class Propagator:
         num_replicas = self.replicas.num_replicas
         logger.debug('{} forwarding request {} to {} replicas'
                      .format(self, key, num_replicas))
-        self.replicas.pass_message(ReqKey(key))
+        self.replicas.send_to_internal_bus(ReqKey(key))
         self.monitor.requestUnOrdered(key)
         self.requests.mark_as_forwarded(request, num_replicas)
 
@@ -312,7 +313,7 @@ class Propagator:
             logger.trace("{} not forwarding request {} to its replicas "
                          "since {}".format(self, request, cannot_reason_msg))
 
-    def request_propagates(self, req_keys):
+    def request_propagates(self, request_list: RequestPropagates):
         """
         Request PROPAGATEs for the given request keys. Since replicas can
         request PROPAGATEs independently of each other, check if it has
@@ -320,6 +321,7 @@ class Propagator:
         :param req_keys:
         :return:
         """
+        req_keys = request_list.bad_requests
         i = 0
         for digest in req_keys:
             if digest not in self.requested_propagates_for:

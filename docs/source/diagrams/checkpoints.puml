@@ -217,7 +217,7 @@ note right of Node4
     <b>Garbage collection</b> removes messages up to
     (current view_no, stabilized checkpoint seq_no_end) from following replica's
     collections:
-        - sentPrePrepares,
+        - sent_preprepares,
         - prePrepares,
         - prepares,
         - commits,

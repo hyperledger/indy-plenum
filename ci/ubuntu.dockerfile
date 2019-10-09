@@ -13,12 +13,13 @@ RUN echo "To invalidate cache"
 
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
+
     cmake \
     autoconf \
     libtool \
     pkg-config \
     libssl-dev \
-    libindy=1.10.1~1220 \
+    libindy=1.11.1~1343 \
 # rocksdb python wrapper
     libbz2-dev \
     zlib1g-dev \

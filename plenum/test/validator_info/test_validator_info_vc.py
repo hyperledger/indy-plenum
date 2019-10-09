@@ -33,7 +33,6 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     master_node_index = txnPoolNodeSet.index(master_node)
     other_nodes = txnPoolNodeSet.copy()
     other_nodes.remove(master_node)
-    print(other_nodes)
     old_view = master_node.viewNo
     expected_view_no = old_view + 1
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, master_node, stopNode=True)
@@ -51,12 +50,7 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     latest_info = master_node._info_tool.info
     assert latest_info['Node_info']['Catchup_status']['Number_txns_in_catchup'][1] == num_txns
     assert latest_info['Node_info']['View_change_status']['View_No'] == expected_view_no
-    node_names = [n.name for n in other_nodes]
     for n in other_nodes:
-        for node_name in node_names:
-            assert n._info_tool.info['Node_info']['View_change_status']['VCDone_queue'][node_name][
-                       0] == master_node.master_primary_name
-            assert n._info_tool.info['Node_info']['View_change_status']['VCDone_queue'][node_name][1]
         assert n._info_tool.info['Node_info']['View_change_status']['Last_complete_view_no'] == expected_view_no
 
 

@@ -88,6 +88,8 @@ class Suspicions:
                                                  "incorrect audit ledger transaction root hash")
 
     REPLICAS_COUNT_CHANGED = Suspicion(46, "Replica's count changed")
+    NEW_VIEW_INVALID_CHECKPOINTS = Suspicion(47, "New View's Primary sent NewView with invalid checkpoints")
+    NEW_VIEW_INVALID_BATCHES = Suspicion(48, "New View's Primary sent NewView with invalid batches")
 
     @classmethod
     def get_list(cls):

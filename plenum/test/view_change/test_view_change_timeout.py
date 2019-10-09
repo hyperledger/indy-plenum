@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import vcd_delay
+from plenum.test.delayers import vcd_delay, nv_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.helper import waitForViewChange, perf_monitor_disabled, view_change_timeout
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -60,9 +60,10 @@ def check_watchdog_called_expected_times(nodes, stats, times):
         raise AssertionError("Watchdog expected to be called {} times, actual counts:\n{}".format(times, actual))
 
 
-def stop_next_primary(nodes):
-    m_next_primary_name = nodes[0]._elector._next_primary_node_name_for_master(
-        nodes[0].nodeReg, nodes[0].nodeIds)
+def stop_master_primary(nodes, view_no):
+    m_next_primary_name = nodes[0].primaries_selector.select_primaries(view_no,
+                                                                       nodes[0].requiredNumberOfInstances,
+                                                                       nodes[0].poolManager.node_names_ordered_by_rank())[0]
     next(node for node in nodes if node.name == m_next_primary_name).stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes
@@ -89,7 +90,7 @@ def test_view_change_retry_by_timeout(
     m_primary_node, initial_view_no, timeout_callback_stats = setup
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
-    with delay_rules(stashers, vcd_delay()):
+    with delay_rules(stashers, nv_delay()):
         start_view_change(txnPoolNodeSet, initial_view_no + 1)
 
         # First view change should fail, because of delayed ViewChangeDone
@@ -127,7 +128,7 @@ def test_multiple_view_change_retries_by_timeouts(
     _, initial_view_no, timeout_callback_stats = setup
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
-    with delay_rules(stashers, vcd_delay()):
+    with delay_rules(stashers, nv_delay()):
         start_view_change(txnPoolNodeSet, initial_view_no + 1)
 
         # Wait until timeout callback is called 3 times
@@ -153,6 +154,7 @@ def test_multiple_view_change_retries_by_timeouts(
                                sdk_pool_handle)
 
 
+@pytest.mark.skip(reason="INDY-2140 will be fixed in the scope clean-up work")
 def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
         txnPoolNodeSet, looper, tconf, setup):
     """
@@ -161,9 +163,8 @@ def test_view_change_restarted_by_timeout_if_next_primary_disconnected(
     """
     _, initial_view_no, timeout_callback_stats = setup
 
-    start_view_change(txnPoolNodeSet, initial_view_no + 1)
-
-    alive_nodes = stop_next_primary(txnPoolNodeSet)
+    alive_nodes = stop_master_primary(txnPoolNodeSet, initial_view_no + 1)
+    start_view_change(alive_nodes, initial_view_no + 1)
 
     ensureElectionsDone(looper=looper, nodes=alive_nodes, instances_list=range(3))
 

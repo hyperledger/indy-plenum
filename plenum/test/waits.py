@@ -74,11 +74,11 @@ def expectedPoolInterconnectionTime(nodeCount):
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
     # TODO check actual state
-    # multiply by 2 because we need to re-create connections which can be done on a second re-try only
+    # multiply by MAX_RECONNECT_RETRY_ON_SAME_SOCKET because we need to re-create connections which can be done on a re-try only
     # (we may send pings on some of the re-tries)
     return min(0.8 * config.TestRunningTimeLimitSec,
                interconnectionCount * nodeConnectionTimeout +
-               2 * config.RETRY_TIMEOUT_RESTRICTED + 2)
+               10 * (config.MAX_RECONNECT_RETRY_ON_SAME_SOCKET * config.RETRY_TIMEOUT_RESTRICTED) + 2)
 
 
 def expectedPoolDisconnectionTime(nodeCount):
@@ -232,11 +232,6 @@ def expectedClientToPoolConnectionTimeout(nodeCount):
     From: the Client is not connected to the Pool
     To: the Client is connected to the Pool
     """
-    # '+KITZStack.RETRY_TIMEOUT_RESTRICTED' is a workaround for
-    # bug (`'str' object has no attribute 'keys'`) which supposed to be
-    # fixed in the 3pcbatch feature
-    # https://evernym.atlassian.net/browse/SOV-995
-    # TODO check actual state
     config = getConfig()
     return config.ExpectedConnectTime * nodeCount + \
            config.RETRY_TIMEOUT_RESTRICTED

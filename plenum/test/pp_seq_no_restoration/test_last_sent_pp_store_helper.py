@@ -35,19 +35,19 @@ def setup(txnPoolNodeSet):
             node.nodeStatusDB.remove(LAST_SENT_PRE_PREPARE)
         for replica in node.replicas.values():
             replica._checkpointer.set_watermarks(low_watermark=0)
-            replica._lastPrePrepareSeqNo = 0
+            replica._ordering_service._lastPrePrepareSeqNo = 0
             replica.last_ordered_3pc = (replica.viewNo, 0)
 
 
 @pytest.fixture(scope="function")
 def replica_with_unknown_primary_status(txnPoolNodeSet, setup):
     replica = txnPoolNodeSet[0].replicas[1]
-    old_primary_name = replica._primaryName
-    replica._primaryName = None
+    old_primary_name = replica.primaryName
+    replica.primaryName = None
 
     yield replica
 
-    replica._primaryName = old_primary_name
+    replica.primaryName = old_primary_name
 
 
 def test_store_last_sent_pp_seq_no_if_some_stored(
@@ -165,7 +165,7 @@ def test_cannot_restore_last_sent_pp_seq_no_if_another_view(
     can = node.last_sent_pp_store_helper._can_restore_last_sent_pp_seq_no(
         1, [1, 5])
 
-    assert can is False
+    assert can is True
 
 
 def test_cannot_restore_last_sent_pp_seq_no_if_replica_absent(

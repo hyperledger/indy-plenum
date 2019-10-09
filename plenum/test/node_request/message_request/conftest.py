@@ -18,7 +18,7 @@ def teardown(request, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
         # Check each node has ordered all requests (no catchup)
-        assert check_if_all_equal_in_list([n.master_replica.ordered
+        assert check_if_all_equal_in_list([n.master_replica._ordering_service.ordered
                                            for n in txnPoolNodeSet])
 
         # Check the network is functional since all nodes reply

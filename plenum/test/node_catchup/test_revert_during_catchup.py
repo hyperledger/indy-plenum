@@ -3,6 +3,7 @@ from itertools import combinations
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, COMMIT
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
 from plenum.test.delayers import cDelay, cr_delay, lsDelay
 from plenum.test.helper import check_last_ordered_3pc, \
@@ -33,6 +34,7 @@ def tconf(tconf):
     tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
+@pytest.mark.skip(reason="We don't make a catchup during new view_change")
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
                                                           txnPoolNodeSet,
                                                           sdk_pool_handle,
@@ -93,24 +95,24 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     assert slow_master_replica.last_prepared_before_view_change == old_last_ordered
 
-    old_pc_count = slow_master_replica.spylog.count(
-        slow_master_replica.process_three_phase_msg)
+    old_pc_count = slow_master_replica._ordering_service.spylog.count(
+        slow_master_replica._ordering_service._validate)
 
-    assert slow_node.master_replica.stasher.num_stashed_catchup == 0
+    assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == 0
 
     # Repair the network so COMMITs are received, processed and stashed
     slow_node.reset_delays_and_process_delayeds(COMMIT)
 
     def chk2():
         # COMMITs are processed for prepared messages
-        assert slow_master_replica.spylog.count(
-            slow_master_replica.process_three_phase_msg) > old_pc_count
+        assert slow_master_replica._ordering_service.spylog.count(
+            slow_master_replica._ordering_service._validate) > old_pc_count
 
     looper.run(eventually(chk2, retryWait=1, timeout=5))
 
     def chk3():
         # (delay_batches * Max3PCBatchSize * commits_count_in_phase) COMMITs are stashed
-        assert slow_node.master_replica.stasher.num_stashed_catchup == \
+        assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == \
                delay_batches * Max3PCBatchSize * (len(txnPoolNodeSet) - 1)
 
     looper.run(eventually(chk3, retryWait=1, timeout=15))
@@ -121,7 +123,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     def chk4():
         # Some COMMITs were received but stashed and
         # they will processed after catchup
-        assert slow_node.master_replica.stasher.num_stashed_catchup == 0
+        assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == 0
 
     looper.run(eventually(chk4, retryWait=1, timeout=catchup_rep_delay + 50))
 

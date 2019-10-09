@@ -14,7 +14,6 @@ from plenum.common.util import updateNamedTuple
 
 from plenum.server.node import Node
 from stp_core.common.log import getlogger
-from plenum.server.replica import TPCStat
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
 from plenum.test.delayers import ppDelay, cDelay
@@ -115,8 +114,8 @@ def sendDuplicate3PhaseMsg(
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))
-        self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
-        sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
+        self._ordering_service.sent_preprepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
+        sendDup(self, ppReq, count)
 
     def evilSendPrepare(self, ppReq: PrePrepare):
         prepare = Prepare(self.instId,
@@ -129,8 +128,8 @@ def sendDuplicate3PhaseMsg(
                           ppReq.auditTxnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self.addToPrepares(prepare, self.name)
-        sendDup(self, prepare, TPCStat.PrepareSent, count)
+        self._ordering_service._add_to_prepares(prepare, self.name)
+        sendDup(self, prepare, count)
 
     def evilSendCommit(self, request):
         commit = Commit(self.instId,
@@ -138,12 +137,12 @@ def sendDuplicate3PhaseMsg(
                         request.ppSeqNo)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
-        self.addToCommits(commit, self.name)
-        sendDup(self, commit, TPCStat.CommitSent, count)
+        self._ordering_service._add_to_commits(commit, self.name)
+        sendDup(self, commit, count)
 
-    def sendDup(sender, msg, stat, count: int):
+    def sendDup(sender, msg, count: int):
         for i in range(count):
-            sender.send(msg, stat)
+            sender.send(msg)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,
@@ -163,11 +162,11 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     evilMethod = types.MethodType(evilMethod, replica)
 
     if msgType == PrePrepare:
-        replica.sendPrePrepare = evilMethod
+        replica._ordering_service.send_pre_prepare = evilMethod
     elif msgType == Prepare:
-        replica.doPrepare = evilMethod
+        replica._ordering_service._do_prepare = evilMethod
     elif msgType == Commit:
-        replica.doCommit = evilMethod
+        replica._ordering_service._do_commit = evilMethod
     else:
         common.error.error("Not a 3 phase message")
 
@@ -188,8 +187,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
         ppReq = updateNamedTuple(ppReq, digest=ppReq.digest + 'random')
-        self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
-        self.send(ppReq, TPCStat.PrePrepareSent)
+        self._ordering_service.sent_preprepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
+        self.send(ppReq)
 
     def evilSendPrepare(self, ppReq):
         digest = "random"
@@ -202,8 +201,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                           ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
-        self.addToPrepares(prepare, self.name)
-        self.send(prepare, TPCStat.PrepareSent)
+        self._ordering_service._add_to_prepares(prepare, self.name)
+        self.send(prepare)
 
     def evilSendCommit(self, request):
         commit = Commit(self.instId,
@@ -211,8 +210,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                         request.ppSeqNo)
         logger.debug("EVIL: Creating commit message for request {}: {}".
                      format(request, commit))
-        self.send(commit, TPCStat.CommitSent)
-        self.addToCommits(commit, self.name)
+        self.send(commit)
+        self._ordering_service._add_to_commits(commit, self.name)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,

@@ -8,13 +8,13 @@ nodeCount = 4
 
 
 def test_create_3pc_batch_with_empty_requests(replica):
-    pp = replica.create_3pc_batch(0)
+    pp = replica._ordering_service.create_3pc_batch(0)
     assert pp is not None
     assert pp.reqIdr == tuple()
 
 
 def test_create_3pc_batch(replica_with_requests, fake_requests, txn_roots, state_roots):
-    replica_with_requests.consume_req_queue_for_pre_prepare = \
+    replica_with_requests._ordering_service._consume_req_queue_for_pre_prepare = \
         lambda ledger, tm, view_no, pp_seq_no: (fake_requests, [], [])
 
     for (ledger_id, pp_seq_no, has_bls) in [
@@ -22,7 +22,7 @@ def test_create_3pc_batch(replica_with_requests, fake_requests, txn_roots, state
         (DOMAIN_LEDGER_ID, 2, True),
         (CONFIG_LEDGER_ID, 3, True)
     ]:
-        pre_prepare_msg = replica_with_requests.create_3pc_batch(ledger_id)
+        pre_prepare_msg = replica_with_requests._ordering_service.create_3pc_batch(ledger_id)
 
         assert pre_prepare_msg.poolStateRootHash == state_roots[POOL_LEDGER_ID]
         assert pre_prepare_msg.stateRootHash == state_roots[ledger_id]
@@ -42,9 +42,10 @@ def test_reqidr_ordered_regardless_validation_result(replica_with_requests, fake
                                                 req.reqId,
                                                 "not valid req")
 
-    replica_with_requests.node.doDynamicValidation = functools.partial(randomDynamicValidation,
-                                                                       replica_with_requests.node)
-    pre_prepare_msg = replica_with_requests.create_3pc_batch(DOMAIN_LEDGER_ID)
+    replica_with_requests._ordering_service._do_dynamic_validation = \
+        functools.partial(randomDynamicValidation,
+                          replica_with_requests._ordering_service)
+    pre_prepare_msg = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
     invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare_msg.discarded)
     assert len(invalid_from_pp) == len(fake_requests) / 2
     assert pre_prepare_msg.reqIdr == tuple(res.key for res in fake_requests)

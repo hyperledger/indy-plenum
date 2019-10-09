@@ -5,10 +5,11 @@ from plenum.common.messages.node_messages import CatchupRep
 from plenum.test.delayers import delay_3pc_messages, pDelay, cDelay, ppDelay, \
     cr_delay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \
-    check_last_ordered_3pc, sdk_json_couples_to_request_list
+    check_last_ordered_3pc, sdk_json_couples_to_request_list, assertExp
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
+from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope='module', params=['some', 'all'])
@@ -47,8 +48,7 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
 
     def chk(key, nodes, present):
         for node in nodes:
-            assert (
-                           key in node.master_replica.requestQueues[DOMAIN_LEDGER_ID]) == present
+            assert (key in node.master_replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == present
 
     for req in reqs:
         chk(req.digest, fast_nodes, False)
@@ -57,13 +57,10 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
     # Reset catchup reply delay so that  catchup can complete
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CatchupRep.typename)
 
-    old_last_ordered = fast_nodes[0].master_replica.last_ordered_3pc
-
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
-    ensure_all_nodes_have_same_data(looper, fast_nodes)
-    assert slow_node.master_replica.last_ordered_3pc == old_last_ordered
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
     for req in reqs:
         chk(req.digest, txnPoolNodeSet, False)

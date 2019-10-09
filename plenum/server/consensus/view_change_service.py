@@ -1,129 +1,31 @@
 from _sha256 import sha256
 from collections import defaultdict
 from functools import partial
+from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.config_util import getConfig
+from plenum.common.constants import VIEW_CHANGE
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
-from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD, STASH
-from plenum.common.timer import TimerService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID
-from plenum.server.quorums import Quorums
+from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
+from plenum.common.router import Subscription
+from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
+from plenum.common.timer import TimerService, RepeatingTimer
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.batch_id import BatchID
+from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.view_change_storages import view_change_digest
+from plenum.server.replica_helper import generateName, getNodeName
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE
+from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 
 
-def view_change_digest(msg: ViewChange) -> str:
-    msg_as_dict = msg.__dict__
-    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
-    serialized = JsonSerializer().dumps(msg_as_dict)
-    return sha256(serialized).hexdigest()
-
-
-class ViewChangeVotesForNode:
-    """
-    Storage for view change vote from some node for some view + corresponding acks
-    """
-
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._view_change = None
-        self._digest = None
-        self._acks = defaultdict(set)  # Dict[str, Set[str]]
-
-    @property
-    def digest(self) -> Optional[str]:
-        """
-        Returns digest of received view change message
-        """
-        return self._digest
-
-    @property
-    def view_change(self) -> Optional[ViewChange]:
-        """
-        Returns received view change
-        """
-        return self._view_change
-
-    @property
-    def is_confirmed(self) -> bool:
-        """
-        Returns True if received view change message and enough corresponding acks
-        """
-        if self._digest is None:
-            return False
-
-        return self._quorums.view_change_ack.is_reached(len(self._acks[self._digest]))
-
-    def add_view_change(self, msg: ViewChange) -> bool:
-        """
-        Adds view change vote and returns boolean indicating if it found node suspicios
-        """
-        if self._view_change is None:
-            self._view_change = msg
-            self._digest = view_change_digest(msg)
-            return self._validate_acks()
-
-        return self._digest == view_change_digest(msg)
-
-    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        self._acks[msg.digest].add(frm)
-        return self._validate_acks()
-
-    def _validate_acks(self) -> bool:
-        digests = [digest for digest, acks in self._acks.items()
-                   if self._quorums.weak.is_reached(len(acks))]
-
-        if len(digests) > 1:
-            return False
-
-        if len(digests) < 1 or self._digest is None:
-            return True
-
-        return self._digest == digests[0]
-
-
-class ViewChangeVotesForView:
-    """
-    Storage for view change votes for some view + corresponding acks
-    """
-
-    def __init__(self, quorums: Quorums):
-        self._quorums = quorums
-        self._votes = defaultdict(partial(ViewChangeVotesForNode, quorums))
-
-    @property
-    def confirmed_votes(self) -> List[Tuple[str, str]]:
-        return [(frm, node_votes.digest) for frm, node_votes in self._votes.items()
-                if node_votes.is_confirmed]
-
-    def get_view_change(self, frm: str, digest: str) -> Optional[ViewChange]:
-        vc = self._votes[frm].view_change
-        if vc is not None and view_change_digest(vc) == digest:
-            return vc
-
-    def add_view_change(self, msg: ViewChange, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        return self._votes[frm].add_view_change(msg)
-
-    def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
-        """
-        Adds view change ack and returns boolean indicating if it found node suspicios
-        """
-        return self._votes[msg.name].add_view_change_ack(msg, frm)
-
-    def clear(self):
-        self._votes.clear()
-
-
 class ViewChangeService:
-    def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus):
+    def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus,
+                 stasher: StashingRouter):
         self._config = getConfig()
         self._logger = getlogger()
 
@@ -132,31 +34,99 @@ class ViewChangeService:
         self._timer = timer
         self._bus = bus
         self._network = network
-        self._router = StashingRouter(self._config.VIEW_CHANGE_SERVICE_STASH_LIMIT)
-        self._votes = ViewChangeVotesForView(self._data.quorums)
+        self._router = stasher
         self._new_view = None  # type: Optional[NewView]
+
+        # Last successful viewNo.
+        # In some cases view_change process can be uncompleted in time.
+        # In that case we want to know, which viewNo was successful (last completed view_change)
+        self.last_completed_view_no = self._data.view_no
+
+        self._resend_inst_change_timer = RepeatingTimer(self._timer,
+                                                        self._config.NEW_VIEW_TIMEOUT,
+                                                        partial(self._propose_view_change,
+                                                                Suspicions.INSTANCE_CHANGE_TIMEOUT.code),
+                                                        active=False)
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
         self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
         self._router.subscribe(NewView, self.process_new_view_message)
-        self._router.subscribe_to(network)
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
+        self._primaries_selector = RoundRobinPrimariesSelector()
+
+        self._subscription = Subscription()
+        self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
 
     def __repr__(self):
         return self._data.name
 
-    def start_view_change(self, view_no: Optional[int] = None):
+    @property
+    def view_change_votes(self):
+        return self._data.view_change_votes
+
+    def process_need_view_change(self, msg: NeedViewChange):
+        self._logger.info("{} processing {}".format(self, msg))
+
+        # 1. calculate new viewno
+        view_no = msg.view_no
         if view_no is None:
             view_no = self._data.view_no + 1
 
+        # 2. Do cleanup before new view change starts
+        self._clean_on_view_change_start()
+
+        # 3. Update shared data
+        self._data.view_no = view_no
+        self._data.waiting_for_new_view = True
+        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
+                                                                         instance_count=self._data.quorums.f + 1,
+                                                                         validators=self._data.validators)
+        self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
+
+        if not self._data.is_master:
+            self._data.waiting_for_new_view = False
+            self._bus.send(NewViewAccepted(view_no=view_no,
+                                           view_changes=None,
+                                           checkpoint=None,
+                                           batches=None))
+            self._router.process_all_stashed(STASH_VIEW_3PC)
+            return
+
+        # 4. Build ViewChange message
+        vc = self._build_view_change_msg()
+
+        # 5. Send ViewChangeStarted via internal bus to update other services
+        self._logger.info("{} sending {}".format(self, vc))
+        self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
+
+        # 6. Send ViewChange msg to other nodes (via external bus)
+        self._network.send(vc)
+        self.view_change_votes.add_view_change(vc, self._data.name)
+
+        # 7. Unstash messages for view change
+        self._router.process_all_stashed(STASH_WAITING_VIEW_CHANGE)
+
+        # 8. Restart instance change timer
+        self._resend_inst_change_timer.stop()
+        self._resend_inst_change_timer.start()
+
+    def _clean_on_view_change_start(self):
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
+        self.view_change_votes.clear()
+        self._new_view = None
 
+    def _clear_old_batches(self, batches: Dict[int, Any]):
+        for pp_seq_no in list(batches.keys()):
+            if pp_seq_no <= self._data.stable_checkpoint:
+                del batches[pp_seq_no]
+
+    def _build_view_change_msg(self):
         for batch_id in self._data.prepared:
             self._old_prepared[batch_id.pp_seq_no] = batch_id
-        prepared = sorted([tuple(bid) for bid in self._old_prepared.values()])
+        prepared = sorted(list(self._old_prepared.values()))
 
         for new_bid in self._data.preprepared:
             pretenders = self._old_preprepared.get(new_bid.pp_seq_no, [])
@@ -164,74 +134,82 @@ class ViewChangeService:
                           if bid.pp_digest != new_bid.pp_digest]
             pretenders.append(new_bid)
             self._old_preprepared[new_bid.pp_seq_no] = pretenders
-        preprepared = sorted([tuple(bid) for bids in self._old_preprepared.values() for bid in bids])
+        preprepared = sorted([bid for bids in self._old_preprepared.values() for bid in bids])
 
-        self._data.view_no = view_no
-        self._data.waiting_for_new_view = True
-        self._data.primary_name = self._find_primary(self._data.validators, self._data.view_no)
-        self._data.preprepared.clear()
-        self._data.prepared.clear()
-        self._votes.clear()
-        self._new_view = None
-
-        vc = ViewChange(
+        return ViewChange(
             viewNo=self._data.view_no,
             stableCheckpoint=self._data.stable_checkpoint,
             prepared=prepared,
             preprepared=preprepared,
             checkpoints=list(self._data.checkpoints)
         )
-        self._network.send(vc)
-        self._votes.add_view_change(vc, self._data.name)
-
-        self._router.process_all_stashed()
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
-            return result
+            return result, None
 
-        self._votes.add_view_change(msg, frm)
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
-        if self._data.is_primary:
-            self._send_new_view_if_needed()
-            return
+        self.view_change_votes.add_view_change(msg, frm)
 
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
-            name=frm,
+            name=getNodeName(frm),
             digest=view_change_digest(msg)
         )
-        self._network.send(vca, self._data.primary_name)
+        self.view_change_votes.add_view_change_ack(vca, getNodeName(self._data.name))
+
+        if self._data.is_primary:
+            self._send_new_view_if_needed()
+            return PROCESS, None
+
+        primary_node_name = getNodeName(self._data.primary_name)
+        self._logger.info("{} sending {}".format(self, vca))
+        self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
+        return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
-            return result
+            return result, None
+
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
 
         if not self._data.is_primary:
-            return
+            return PROCESS, None
 
-        self._votes.add_view_change_ack(msg, frm)
+        self.view_change_votes.add_view_change_ack(msg, frm)
         self._send_new_view_if_needed()
+        return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
         result = self._validate(msg, frm)
         if result != PROCESS:
-            return result
+            return result, None
+
+        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+
+        if frm != self._data.primary_name:
+            self._logger.info(
+                "{} Received NewView {} for view {} from non-primary {}; expected primary {}".format(self._data.name,
+                                                                                                     msg,
+                                                                                                     self._data.view_no,
+                                                                                                     frm,
+                                                                                                     self._data.primary_name)
+            )
+            return DISCARD, "New View from non-Primary"
 
         self._new_view = msg
-
         self._finish_view_change_if_needed()
-
-    @staticmethod
-    def _find_primary(validators: List[str], view_no: int) -> str:
-        return validators[view_no % len(validators)]
+        return PROCESS, None
 
     def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
         # TODO: Proper validation
+        if not self._data.is_master:
+            return DISCARD
 
         if msg.viewNo < self._data.view_no:
             return DISCARD
@@ -240,16 +218,16 @@ class ViewChangeService:
             return DISCARD
 
         if msg.viewNo > self._data.view_no:
-            return STASH
+            return STASH_WAITING_VIEW_CHANGE
 
         return PROCESS
 
     def _send_new_view_if_needed(self):
-        confirmed_votes = self._votes.confirmed_votes
+        confirmed_votes = self.view_change_votes.confirmed_votes
         if not self._data.quorums.view_change.is_reached(len(confirmed_votes)):
             return
 
-        view_changes = [self._votes.get_view_change(*v) for v in confirmed_votes]
+        view_changes = [self.view_change_votes.get_view_change(*v) for v in confirmed_votes]
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None:
             return
@@ -260,13 +238,14 @@ class ViewChangeService:
 
         nv = NewView(
             viewNo=self._data.view_no,
-            viewChanges=confirmed_votes,
+            viewChanges=sorted(confirmed_votes, key=itemgetter(0)),
             checkpoint=cp,
             batches=batches
         )
+        self._logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
         self._new_view = nv
-        self._finish_view_change(cp, batches)
+        self._finish_view_change()
 
     def _finish_view_change_if_needed(self):
         if self._new_view is None:
@@ -274,46 +253,66 @@ class ViewChangeService:
 
         view_changes = []
         for name, vc_digest in self._new_view.viewChanges:
-            vc = self._votes.get_view_change(name, vc_digest)
+            vc = self.view_change_votes.get_view_change(name, vc_digest)
             # We don't have needed ViewChange, so we cannot validate NewView
             if vc is None:
+                self._request_view_change_message((name, vc_digest))
                 return
             view_changes.append(vc)
 
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None or cp != self._new_view.checkpoint:
             # New primary is malicious
-            self.start_view_change()
-            assert False  # TODO: Test debugging purpose
+            self._logger.info(
+                "{} Received invalid NewView {} for view {}: expected checkpoint {}".format(self._data.name,
+                                                                                            self._new_view,
+                                                                                            self._data.view_no,
+                                                                                            cp)
+            )
+            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_CHECKPOINTS.code)
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches != self._new_view.batches:
             # New primary is malicious
-            self.start_view_change()
-            assert False  # TODO: Test debugging purpose
+            self._logger.info(
+                "{} Received invalid NewView {} for view {}: expected batches {}".format(self._data.name,
+                                                                                         self._new_view,
+                                                                                         self._data.view_no,
+                                                                                         batches)
+            )
+            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_BATCHES.code)
             return
 
-        self._finish_view_change(cp, batches)
+        self._finish_view_change()
 
-    def _finish_view_change(self, cp: Checkpoint, batches: List[BatchID]):
-        # Update checkpoint
-        # TODO: change to self._bus.send(FinishViewChange(cp)) in scope of the task INDY-2179
-        self._data.stable_checkpoint = cp.seqNoEnd
-        self._data.checkpoints = [old_cp for old_cp in self._data.checkpoints if old_cp.seqNoEnd > cp.seqNoEnd]
-        self._data.checkpoints.append(cp)
-
-        # Update batches
-        # TODO: Actually we'll need to retrieve preprepares by ID from somewhere
-        self._data.preprepared = batches
-
-        # We finished a view change!
+    def _finish_view_change(self):
+        # Update shared data
         self._data.waiting_for_new_view = False
+        self._data.prev_view_prepare_cert = self._new_view.batches[-1].pp_seq_no if self._new_view.batches else 0
 
-    def _clear_old_batches(self, batches: Dict[int, Any]):
-        for pp_seq_no in list(batches.keys()):
-            if pp_seq_no <= self._data.stable_checkpoint:
-                del batches[pp_seq_no]
+        # Cancel View Change timeout task
+        self._resend_inst_change_timer.stop()
+        # send message to other services
+        self._bus.send(NewViewAccepted(view_no=self._new_view.viewNo,
+                                       view_changes=self._new_view.viewChanges,
+                                       checkpoint=self._new_view.checkpoint,
+                                       batches=self._new_view.batches))
+        self.last_completed_view_no = self._data.view_no
+
+    def _propose_view_change(self, suspision_code):
+        proposed_view_no = self._data.view_no + 1
+        self._logger.info("{} proposing a view change to {} with code {}".
+                          format(self, proposed_view_no, suspision_code))
+        msg = InstanceChange(proposed_view_no, suspision_code)
+        self._network.send(msg)
+
+    def _request_view_change_message(self, key):
+        self._bus.send(MissingMessage(msg_type=VIEW_CHANGE,
+                                      key=key,
+                                      inst_id=self._data.inst_id,
+                                      dst=None,
+                                      stash_data=None))
 
 
 class NewViewBuilder:
@@ -336,8 +335,13 @@ class NewViewBuilder:
                     continue
 
                 # Don't add checkpoint to pretending ones if not enough nodes have it
+                # TODO: PBFT paper (for example Fig.4 in https://www.microsoft.com/en-us/research/wp-content/uploads/2017/01/p398-castro-bft-tocs.pdf)
+                # assumes a weak certificate here.
+                # But they also assume a need of catch-up before processing NewView if a Replica doesn't have the calculated checkpoint yet
+                # It looks like using a strong certificate eliminates a need for cathcup (although re-ordering may be slower)
+                # Once https://jira.hyperledger.org/browse/INDY-2237 is done, we may come back to weak certificate here
                 have_checkpoint = [vc for vc in vcs if cur_cp in vc.checkpoints]
-                if not self._data.quorums.weak.is_reached(len(have_checkpoint)):
+                if not self._data.quorums.strong.is_reached(len(have_checkpoint)):
                     continue
 
                 # All checks passed, this is a valid candidate checkpoint
@@ -396,11 +400,15 @@ class NewViewBuilder:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
                     continue
-                # not ( (v' < v) OR (v'==v and d'==d) )
+
+                # not ( (v' < v) OR (v'==v and d'==d and pp_view_no'==pp_view_no) )
                 if some_bid.view_no > bid.view_no:
                     return False
                 if some_bid.view_no >= bid.view_no and some_bid.pp_digest != bid.pp_digest:
                     return False
+                if some_bid.view_no >= bid.view_no and some_bid.pp_view_no != bid.pp_view_no:
+                    return False
+
             return True
 
         prepared_witnesses = sum(1 for vc in vcs if check(vc))
@@ -411,6 +419,8 @@ class NewViewBuilder:
             for _some_bid in vc.preprepared:
                 some_bid = BatchID(*_some_bid)
                 if some_bid.pp_seq_no != bid.pp_seq_no:
+                    continue
+                if some_bid.pp_view_no != bid.pp_view_no:
                     continue
                 if some_bid.pp_digest != bid.pp_digest:
                     continue

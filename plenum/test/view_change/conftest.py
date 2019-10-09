@@ -3,13 +3,14 @@ from collections import deque
 
 import pytest
 
+from plenum.common.event_bus import InternalBus
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.test.conftest import getValueFromModule
-from plenum.test.primary_selection.test_primary_selector import FakeNode
+from plenum.test.primary_selection.test_view_changer_primary_selection import FakeNode
 from plenum.test.test_node import getRequiredInstances
 from plenum.test.testing_utils import FakeSomething
 
@@ -60,7 +61,10 @@ def fake_view_changer(request, tconf):
         discard=lambda a, b, c, d: print(b),
         primaries_disconnection_times=[None] * getRequiredInstances(node_count),
         master_primary_name='Alpha',
-        master_replica=FakeSomething(instId=0),
+        master_replica=FakeSomething(instId=0,
+                                     viewNo=request.param,
+                                     _consensus_data=FakeSomething(view_no=request.param,
+                                                                   waiting_for_new_view=False)),
         nodeStatusDB=None
     )
     view_changer = create_view_changer(node)
@@ -77,7 +81,6 @@ def fake_node(tdir, tconf, request):
     node.msgsForFutureViews = {}
     node.msgsToViewChanger = deque()
     node.set_view_for_replicas = lambda a: None
-    node.view_changer.view_no = request.param
-    node.view_changer.last_completed_view_no = request.param
-    node.view_changer.pre_vc_strategy = None
+    node.master_replica._consensus_data.view_no = request.param
+    node.last_completed_view_no = request.param
     return node

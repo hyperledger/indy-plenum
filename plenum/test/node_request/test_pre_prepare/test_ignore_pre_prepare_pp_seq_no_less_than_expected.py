@@ -24,5 +24,5 @@ def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               count=1)
-    assert len(replica.prePreparesPendingPrevPP) == 0, \
+    assert len(replica._ordering_service.prePreparesPendingPrevPP) == 0, \
         "the pending request buffer is empty"

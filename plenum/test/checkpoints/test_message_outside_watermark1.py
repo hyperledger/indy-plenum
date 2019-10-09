@@ -1,6 +1,5 @@
 import math
 
-from plenum.server.replica import TPCStat
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
@@ -35,7 +34,7 @@ def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFr
 
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
-    orderedCount = pr.stats.get(TPCStat.OrderSent)
+    orderedCount = pr._ordering_service.spylog.count(pr._ordering_service._order_3pc_key)
 
     for r in npr:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
@@ -46,7 +45,7 @@ def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFr
     total_timeout = (tm_exec_1_batch + delay) * batch_count
 
     def chk():
-        assert orderedCount + batch_count == pr.stats.get(TPCStat.OrderSent)
+        assert orderedCount + batch_count == pr._ordering_service.spylog.count(pr._ordering_service._order_3pc_key)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_to_send)
     looper.run(eventually(chk, retryWait=1, timeout=total_timeout))

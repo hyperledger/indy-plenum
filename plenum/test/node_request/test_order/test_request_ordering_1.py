@@ -29,7 +29,7 @@ def testOrderingCase1(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
     replica.processRequest = patchedMethod
 
     def chk(n):
-        assert replica.spylog.count(replica.doOrder.__name__) == n
+        assert replica._ordering_service.spylog.count(replica._ordering_service._do_order.__name__) == n
 
     sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
     timeout = delay - 5

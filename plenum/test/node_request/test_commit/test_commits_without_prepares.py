@@ -22,10 +22,10 @@ def test_primary_receives_delayed_prepares(looper, txnPoolNodeSet,
                               count=10)
 
     for node in other_nodes:
-        assert node.master_replica.prePrepares
-        assert node.master_replica.prepares
-        assert node.master_replica.commits
+        assert node.master_replica._ordering_service.prePrepares
+        assert node.master_replica._ordering_service.prepares
+        assert node.master_replica._ordering_service.commits
 
-    assert primary_node.master_replica.sentPrePrepares
-    assert not primary_node.master_replica.prepares
-    assert primary_node.master_replica.commits
+    assert primary_node.master_replica._ordering_service.sent_preprepares
+    assert not primary_node.master_replica._ordering_service.prepares
+    assert primary_node.master_replica._ordering_service.commits

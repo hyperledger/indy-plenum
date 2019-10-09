@@ -1,7 +1,7 @@
 import inspect
 
+from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
-from plenum.common.timer import QueueTimer
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
@@ -17,7 +17,7 @@ import shutil
 import sys
 import time
 from binascii import hexlify, unhexlify
-from collections import deque, OrderedDict
+from collections import deque
 from typing import Mapping, Tuple, Any, Union, Optional, NamedTuple
 
 from common.exceptions import PlenumTypeError, PlenumValueError
@@ -117,6 +117,8 @@ class ZStack(NetworkInterface):
         self._remotes = {}  # type: Dict[str, Remote]
 
         self.remotesByKeys = {}
+
+        self.remote_ping_stats = {}
 
         # Indicates if this stack will maintain any remotes or will
         # communicate simply to listeners. Used in ClientZStack
@@ -374,13 +376,15 @@ class ZStack(NetworkInterface):
         self.listener.curve_publickey = public
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
-        logger.debug(
+        logger.info(
             '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         set_keepalive(self.listener, self.config)
         set_zmq_internal_queue_size(self.listener, self.queue_size)
         # Cycle to deal with "Address already in use" in case of immediate stack restart.
         bound = False
-        bind_retries = 0
+
+        sleep_between_bind_retries = 0.2
+        bind_retry_time = 0
         while not bound:
             try:
                 self.listener.bind(
@@ -389,10 +393,14 @@ class ZStack(NetworkInterface):
                 )
                 bound = True
             except zmq.error.ZMQError as zmq_err:
-                bind_retries += 1
-                if bind_retries == 50:
+                logger.warning("{} can not bind to {}:{}. Will try in {} secs.".
+                               format(self, self.ha[0], self.ha[1], sleep_between_bind_retries))
+                bind_retry_time += sleep_between_bind_retries
+                if bind_retry_time > self.config.MAX_WAIT_FOR_BIND_SUCCESS:
+                    logger.warning("{} can not bind to {}:{} for {} secs. Going to restart the service.".
+                                   format(self, self.ha[0], self.ha[1], self.config.MAX_WAIT_FOR_BIND_SUCCESS))
                     raise zmq_err
-                time.sleep(0.2)
+                time.sleep(sleep_between_bind_retries)
 
     def close(self):
         if self.listener_monitor is not None:
@@ -473,6 +481,12 @@ class ZStack(NetworkInterface):
 
     def _verifyAndAppend(self, msg, ident):
         try:
+            ident.decode()
+        except ValueError:
+            logger.error("Identifier {} is not decoded into UTF-8 string. "
+                         "Request will not be processed".format(ident))
+            return False
+        try:
             self.metrics.add_event(self.mt_incoming_size, len(msg))
             self.msgLenVal.validate(msg)
             decoded = msg.decode()
@@ -502,8 +516,10 @@ class ZStack(NetworkInterface):
                 incoming_size += len(msg)
                 i += 1
                 self._verifyAndAppend(msg, ident)
-            except zmq.Again:
+            except zmq.Again as e:
                 break
+            except zmq.ZMQError as e:
+                logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
         if i > 0:
             logger.trace('{} got {} messages through listener'.
                          format(self, i))
@@ -530,9 +546,13 @@ class ZStack(NetworkInterface):
                         # Router probing sends empty message on connection
                         continue
                     i += 1
+                    logger.trace("{} received a message from remote {} by socket {} {}", self,
+                                 z85_to_friendly(ident), sock.FD, sock.underlying)
                     self._verifyAndAppend(msg, ident)
-                except zmq.Again:
+                except zmq.Again as e:
                     break
+                except zmq.ZMQError as e:
+                    logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
             if i > 0:
                 logger.trace('{} got {} messages through remote {}'.
                              format(self, i, remote))
@@ -583,6 +603,9 @@ class ZStack(NetworkInterface):
                 logger.error('Error {} while converting message {} '
                              'to JSON from {}'.format(e, msg, z85_to_friendly(ident)))
                 continue
+            # We have received non-ping-pong message from some remote, we can clean this counter
+            if OP_FIELD_NAME not in msg or msg[OP_FIELD_NAME] != BATCH:
+                self.remote_ping_stats[z85_to_friendly(frm)] = 0
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
                 self.msgHandler((msg, frm))
@@ -714,8 +737,18 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.trace('{} got ping from {}'.format(self, z85_to_friendly(frm)))
+                nodeName = z85_to_friendly(frm)
+                logger.trace('{} got ping from {}'.format(self, nodeName))
                 self.sendPingPong(frm, is_ping=False)
+                if not self.config.ENABLE_HEARTBEATS and self.config.PING_RECONNECT_ENABLED and nodeName in self.connecteds:
+                    if self.remote_ping_stats.get(nodeName):
+                        self.remote_ping_stats[nodeName] += 1
+                    else:
+                        self.remote_ping_stats[nodeName] = 1
+                    if self.remote_ping_stats[nodeName] > self.config.PINGS_BEFORE_SOCKET_RECONNECTION:
+                        logger.info("Reconnecting {} due to numerous consecutive pings".format(nodeName))
+                        self.remote_ping_stats[nodeName] = 0
+                        self.reconnectRemoteWithName(nodeName)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()

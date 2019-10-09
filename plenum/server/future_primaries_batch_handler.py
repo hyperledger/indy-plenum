@@ -7,6 +7,7 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, ALIAS, SERVICES,
 from plenum.common.util import getMaxFailures
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.server.pool_manager import TxnPoolManager
 
 
 class NodeState:
@@ -66,9 +67,11 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
                 count = self.get_required_number_of_instances(len(last_state.node_reg))
                 if last_state.number_of_inst != count:
                     last_state.number_of_inst = count
-                    last_state.primaries = self.node.elector.process_selection(
-                        last_state.number_of_inst,
-                        last_state.node_reg, last_state.node_ids)
+                    new_validators = TxnPoolManager.calc_node_names_ordered_by_rank(last_state.node_reg,
+                                                                                    last_state.node_ids)
+                    last_state.primaries = self.node.primaries_selector.select_primaries(view_no=self.node.viewNo,
+                                                                                         instance_count=last_state.number_of_inst,
+                                                                                         validators=new_validators)
 
         # We will save node state at every pool batch, so we could revert it correctly
         self.node_states.append(last_state)
@@ -86,7 +89,10 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
     def create_node_state_from_current_node(self):
         return NodeState(list(self.node.nodeReg.keys()),
                          copy.deepcopy(self.node.nodeIds),
-                         copy.deepcopy(self.node.primaries))
+                         copy.deepcopy(self._get_primaries()))
+
+    def _get_primaries(self):
+        return self.node.primaries
 
     def set_node_state(self):
         self.node_states = []

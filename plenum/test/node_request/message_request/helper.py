@@ -1,3 +1,4 @@
+from plenum.common.util import compare_3PC_keys
 from plenum.test.test_node import get_master_primary_node, getNonPrimaryReplicas
 
 
@@ -20,16 +21,15 @@ def split_nodes(nodes):
     return slow_node, other_nodes, primary_node, other_non_primary_nodes
 
 
-def check_pp_out_of_sync(alive_nodes, disconnected_nodes):
+def check_pp_out_of_sync(alive_nodes, disconnected_nodes, last_ordered_key):
+    def get_last_pp_key(node):
+        last_pp = node.master_replica._ordering_service.last_preprepare
+        if last_pp is None:
+            return node.master_replica._ordering_service.last_ordered_3pc
+        return last_pp.viewNo, last_pp.ppSeqNo
 
-    def get_last_pp(node):
-        return node.master_replica.lastPrePrepare
+    for node in alive_nodes:
+        assert compare_3PC_keys(last_ordered_key, get_last_pp_key(node)) > 0
 
-    last_3pc_key_alive = get_last_pp(alive_nodes[0])
-    for node in alive_nodes[1:]:
-        assert get_last_pp(node) == last_3pc_key_alive
-
-    last_3pc_key_diconnected = get_last_pp(disconnected_nodes[0])
-    assert last_3pc_key_diconnected != last_3pc_key_alive
-    for node in disconnected_nodes[1:]:
-        assert get_last_pp(node) == last_3pc_key_diconnected
+    for node in disconnected_nodes:
+        assert get_last_pp_key(node) == last_ordered_key

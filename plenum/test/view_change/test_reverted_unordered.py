@@ -1,3 +1,4 @@
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.loop.eventually import eventually
 
@@ -53,11 +54,6 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     # Slow nodes have different last ordered than fast nodes
     assert last_ordered[0] != slow_node.master_last_ordered_3PC
 
-    # Delay LEDGER_STATUS so catchup starts late
-    slow_node.nodeIbStasher.delay(lsDelay(100))
-    slow_node.nodeIbStasher.delay(msg_rep_delay(100))
-    slow_node.nodeIbStasher.delay(cr_delay(100))
-
     # slow_node has not reverted batches
     assert sent_batches not in getAllReturnVals(
         slow_node.master_replica,
@@ -69,7 +65,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
         # slow_node reverted all batches
         rv = getAllReturnVals(slow_node.master_replica,
                               slow_node.master_replica.revert_unordered_batches)
-        assert sent_batches in rv
+        assert rv == [0]
 
     looper.run(eventually(chk1, retryWait=1))
 
@@ -80,27 +76,15 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     # Deliver COMMITs
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
-    def chk2():
-        # slow_node stashed commits
-        assert slow_node.master_replica.stasher.num_stashed_catchup == \
-               sent_batches * (len(txnPoolNodeSet) - 1)
-
-    looper.run(eventually(chk2, retryWait=1))
-
-    # Deliver LEDGER_STATUS so catchup can complete
-    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(LEDGER_STATUS)
-    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(MESSAGE_RESPONSE)
-    slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CATCHUP_REP)
-
     # Ensure all nodes have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
-    def chk3():
+    def chk2():
         # slow_node processed stashed messages successfully
-        assert slow_node.master_replica.stasher.num_stashed_catchup == 0
+        assert slow_node.master_replica.stasher.stash_size(STASH_CATCH_UP) == 0
 
-    looper.run(eventually(chk3, retryWait=1))
+    looper.run(eventually(chk2, retryWait=1))
 
     # Ensure pool is functional
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,

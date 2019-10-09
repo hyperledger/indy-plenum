@@ -432,8 +432,9 @@ class ValidatorNodeInfoTool:
             replica_stat["Watermarks"] = "{}:{}".format(replica.h, replica.H)
             replica_stat["Last_ordered_3PC"] = self._prepare_for_json(replica.last_ordered_3pc)
             stashed_txns = {}
-            stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(len(replica._checkpointer._stashed_recvd_checkpoints))
-            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(len(replica.prePreparesPendingPrevPP))
+            # TODO: Rename? Remove?
+            stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(len(replica._checkpointer._received_checkpoints))
+            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(len(replica._ordering_service.prePreparesPendingPrevPP))
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res
@@ -582,11 +583,10 @@ class ValidatorNodeInfoTool:
                     "Last_view_change_started_at": self._prepare_for_json(
                         self.__get_start_vc_ts()),
                     "Last_complete_view_no": self._prepare_for_json(
-                        self._node.view_changer.last_completed_view_no),
+                        self._node.last_completed_view_no),
                     "IC_queue": self._prepare_for_json(
                         self._get_ic_queue()),
-                    "VCDone_queue": self._prepare_for_json(
-                        self._node.view_changer._view_change_done)
+                    "VCDone_queue": self._prepare_for_json({})
                 },
                 "Catchup_status": {
                     "Ledger_statuses": self._prepare_for_json(

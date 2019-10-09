@@ -1,9 +1,10 @@
 import pytest
 
 from plenum.common.startable import Mode
-from plenum.server.consensus.ordering_service import ThreePCMsgValidator
-from plenum.server.replica_validator_enums import PROCESS, DISCARD, INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
-    STASH_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, GREATER_PREP_CERT
+from plenum.common.stashing_router import PROCESS, DISCARD
+from plenum.server.consensus.msg_validator import ThreePCMsgValidator
+from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, ALREADY_ORDERED, FUTURE_VIEW, \
+    STASH_VIEW_3PC, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, OUTSIDE_WATERMARKS, STASH_WATERMARKS, GREATER_PREP_CERT
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig
 
@@ -90,7 +91,7 @@ def test_check_future_view(validator, inst_id):
     for msg in create_3pc_msgs(view_no=validator._data.view_no + 1,
                                pp_seq_no=1,
                                inst_id=inst_id):
-        assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
+        assert validator.validate(msg) == (STASH_VIEW_3PC, FUTURE_VIEW)
 
 
 def test_check_previous_view_no_view_change(validator, inst_id, view_no):
@@ -187,12 +188,12 @@ def test_check_previous_view_view_change_prep_cert_non_commit(validator, pp_seq_
 
 @pytest.mark.parametrize('pp_seq_no, result', [
     (0, (DISCARD, INCORRECT_PP_SEQ_NO)),
-    (1, (STASH_VIEW, FUTURE_VIEW)),
-    (9, (STASH_VIEW, FUTURE_VIEW)),
-    (10, (STASH_VIEW, FUTURE_VIEW)),
-    (11, (STASH_VIEW, FUTURE_VIEW)),
-    (12, (STASH_VIEW, FUTURE_VIEW)),
-    (100, (STASH_VIEW, FUTURE_VIEW)),
+    (1, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (9, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (10, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (11, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (12, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (100, (STASH_VIEW_3PC, FUTURE_VIEW)),
 ])
 def test_check_current_view_view_change_prep_cert(validator, pp_seq_no, result, inst_id, view_no):
     validator._data.legacy_vc_in_progress = True

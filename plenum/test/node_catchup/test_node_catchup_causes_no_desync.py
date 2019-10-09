@@ -60,7 +60,7 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
 
     # Make master replica lagging by hiding all messages sent to it
     make_master_replica_lag(lagging_node)
-    monkeypatch.setattr(lagging_node.master_replica,
+    monkeypatch.setattr(lagging_node.master_replica._ordering_service,
                         '_request_missing_three_phase_messages',
                         lambda *x, **y: None)
 

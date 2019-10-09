@@ -26,6 +26,7 @@ def test_node(tdirWithPoolTxns,
         pluginPaths=allPluginsPath)
     node.view_changer = FakeSomething(view_change_in_progress=False,
                                       view_no=0)
+    node.bootstrapper.upload_states()
     yield node
     node.onStopping()
 

@@ -42,19 +42,36 @@ function build_from_pypi {
     sed -i 's/{package_name}/python3-'${PACKAGE_NAME_TMP}'/' ${POSTINST_TMP}
     sed -i 's/{package_name}/python3-'${PACKAGE_NAME_TMP}'/' ${PREREM_TMP}
 
-    fpm --input-type "python" \
-        --output-type "deb" \
-        --architecture "amd64" \
-        --verbose \
-        --python-package-name-prefix "python3"\
-        --python-bin "/usr/bin/python3" \
-        --exclude "*.pyc" \
-        --exclude "*.pyo" \
-        --maintainer "Hyperledger <hyperledger-indy@lists.hyperledger.org>" \
-        --after-install ${POSTINST_TMP} \
-        --before-remove ${PREREM_TMP} \
-        --package ${OUTPUT_PATH} \
-        ${PACKAGE_NAME}${PACKAGE_VERSION}
+    if [ -z $3 ]; then
+        fpm --input-type "python" \
+            --output-type "deb" \
+            --architecture "amd64" \
+            --verbose \
+            --python-package-name-prefix "python3"\
+            --python-bin "/usr/bin/python3" \
+            --exclude "*.pyc" \
+            --exclude "*.pyo" \
+            --maintainer "Hyperledger <hyperledger-indy@lists.hyperledger.org>" \
+            --after-install ${POSTINST_TMP} \
+            --before-remove ${PREREM_TMP} \
+            --package ${OUTPUT_PATH} \
+            ${PACKAGE_NAME}${PACKAGE_VERSION}
+    else
+        fpm --input-type "python" \
+            --output-type "deb" \
+            --architecture "amd64" \
+            --python-setup-py-arguments "--zmq=bundled" \
+            --verbose \
+            --python-package-name-prefix "python3"\
+            --python-bin "/usr/bin/python3" \
+            --exclude "*.pyc" \
+            --exclude "*.pyo" \
+            --maintainer "Hyperledger <hyperledger-indy@lists.hyperledger.org>" \
+            --after-install ${POSTINST_TMP} \
+            --before-remove ${PREREM_TMP} \
+            --package ${OUTPUT_PATH} \
+            ${PACKAGE_NAME}${PACKAGE_VERSION}
+    fi
 
     rm ${POSTINST_TMP}
     rm ${PREREM_TMP}
@@ -80,7 +97,7 @@ build_from_pypi python-dateutil 2.6.1
 build_from_pypi semver 2.7.9
 build_from_pypi pygments 2.2.0
 build_from_pypi psutil 5.4.3
-build_from_pypi pyzmq 17.0.0
+build_from_pypi pyzmq 18.1.0 bundled
 build_from_pypi intervaltree 2.1.0
 build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package

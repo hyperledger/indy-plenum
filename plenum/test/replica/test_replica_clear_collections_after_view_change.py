@@ -19,6 +19,7 @@ def tconf(tconf):
         yield tconf
 
 
+@pytest.mark.skip(reason="With new view change we don't clear requests")
 def test_replica_clear_collections_after_view_change(looper,
                                                      txnPoolNodeSet,
                                                      sdk_pool_handle,
@@ -49,15 +50,16 @@ def test_replica_clear_collections_after_view_change(looper,
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
                           customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
 
+    # + 1 because of lastPrePrepareSeqNo was not dropped after view_change
     sdk_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,
-                                         num_reqs=reqs_for_checkpoint)
+                                         num_reqs=reqs_for_checkpoint + 1)
 
     def check_request_queues():
         assert len(txnPoolNodeSet[0].requests) == 1
         for n in txnPoolNodeSet:
-            assert len(n.replicas[1].requestQueues[DOMAIN_LEDGER_ID]) == 0
+            assert len(n.replicas[1]._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == 0
 
     looper.run(eventually(check_request_queues))

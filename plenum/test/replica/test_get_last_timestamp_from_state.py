@@ -57,7 +57,7 @@ def test_choose_ts_from_state(looper,
     req_handler = primary_node.write_manager.request_handlers[NYM][0]
     req_handler.database_manager.ts_store.set(excpected_ts,
                                               req_handler.state.headHash)
-    primary_node.master_replica.last_accepted_pre_prepare_time = None
+    primary_node.master_replica._ordering_service.last_accepted_pre_prepare_time = None
     reply = sdk_send_random_and_check(looper,
                                       txnPoolNodeSet,
                                       sdk_pool_handle,

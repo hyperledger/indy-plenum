@@ -4,6 +4,7 @@ from re import compile
 #  - review the list and remove obsolete ones
 #  - refactor hierarchy of exceptions taking into account ones
 #    from common/exceptions.py
+from typing import Any, Callable
 
 from common.exceptions import LogicError
 
@@ -49,10 +50,14 @@ class SigningException(BaseExc):
 
 class CouldNotAuthenticate(SigningException, ReqInfo):
     code = 110
-    reason = 'could not authenticate'
+    reason = 'could not authenticate, verkey for {} cannot be found'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, identifier, *args, **kwargs):
+        self.reason = self.reason.format(identifier)
         ReqInfo.__init__(self, *args, **kwargs)
+
+    def __str__(self):
+        return self.reason
 
 
 class MissingSignature(SigningException):
@@ -92,14 +97,24 @@ class InsufficientSignatures(SigningException, ReqInfo):
         self.reason = self.reason.format(provided, required)
         ReqInfo.__init__(self, *args, **kwargs)
 
+    def __str__(self):
+        return self.reason
+
 
 class InsufficientCorrectSignatures(SigningException, ReqInfo):
     code = 127
-    reason = 'insufficient correct signatures, {} correct but {} required'
+    reason = (
+        'insufficient number of valid signatures, {} is required but {} valid and {} invalid have been provided. '
+        'The following signatures are invalid: {}'
+    )
 
-    def __init__(self, valid, required, *args, **kwargs):
-        self.reason = self.reason.format(valid, required)
+    def __init__(self, required_sig_cnt, valid_sig_cnt, invalid_sigs, *args, **kwargs):
+        invalid_sigs_str = '; '.join('did={}, signature={}'.format(k, v) for k, v in invalid_sigs.items())
+        self.reason = self.reason.format(required_sig_cnt, valid_sig_cnt, len(invalid_sigs), invalid_sigs_str)
         ReqInfo.__init__(self, *args, **kwargs)
+
+    def __str__(self):
+        return self.reason
 
 
 class MissingIdentifier(SigningException):
@@ -188,6 +203,15 @@ class InvalidNodeMsg(InvalidNodeMessageException):
 
 class MismatchedMessageReplyException(InvalidNodeMsg):
     pass
+
+
+class IncorrectMessageForHandlingException(InvalidNodeMsg):
+    def __init__(self, msg: Any, reason: str, log_method: Callable, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.log_method = log_method
+        self.msg = msg
+        self.reason = reason
+        self.args = args
 
 
 class MissingNodeOp(InvalidNodeMsg):

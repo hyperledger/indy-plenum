@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
 from functools import wraps
+from logging import getLogger
 from typing import Callable, NamedTuple
 
 import time
 
 from sortedcontainers import SortedListWithKey
+
+logger = getLogger()
 
 
 class TimerService(ABC):
@@ -64,14 +67,16 @@ class RepeatingTimer:
             self._timer.schedule(self._interval, self._callback)
 
         self._timer = timer
-        self._interval = interval
+        self._interval = None
+        self.update_interval(interval)
         self._callback = wrapped_callback
         self._active = False
+        # TODO: Make timer always inactive and require calling start to activate
         if active:
             self.start()
 
     def start(self):
-        if self._active:
+        if self._active or not self._interval:
             return
         self._active = True
         self._timer.schedule(self._interval, self._callback)
@@ -81,3 +86,9 @@ class RepeatingTimer:
             return
         self._active = False
         self._timer.cancel(self._callback)
+
+    def update_interval(self, interval):
+        if interval <= 0:
+            logger.debug("RepeatingTimer - incorrect interval {}".format(interval))
+            return
+        self._interval = interval

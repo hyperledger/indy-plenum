@@ -1,13 +1,13 @@
-from logging import getLogger
-
 import pytest
+from plenum.common.constants import LEDGER_STATUS
 
 from plenum.common.messages.node_messages import Checkpoint, LedgerStatus
 from plenum.common.startable import Mode
 from plenum.server.node import Node
 from plenum.server.replica import Replica
+from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
-from plenum.test.checkpoints.helper import chkChkpoints
+from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint
 from plenum.test.delayers import cs_delay, lsDelay, \
     ppDelay, pDelay, cDelay, msg_rep_delay, cr_delay
 from plenum.test.pool_transactions.helper import \
@@ -21,8 +21,6 @@ from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 
 from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
-
-logger = getLogger()
 
 CHK_FREQ = 5
 
@@ -87,7 +85,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
     lagging_node.nodeIbStasher.delay(pDelay())
     lagging_node.nodeIbStasher.delay(cDelay())
 
-    with delay_rules(lagging_node.nodeIbStasher, lsDelay(), cr_delay()):
+    with delay_rules(lagging_node.nodeIbStasher, lsDelay(), cr_delay(), msg_rep_delay(types_to_delay=[LEDGER_STATUS])):
         looper.add(lagging_node)
         txnPoolNodeSet[-1] = lagging_node
         looper.run(checkNodesConnected(txnPoolNodeSet))
@@ -113,7 +111,7 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         )
 
         # all good nodes stabilized checkpoint
-        looper.run(eventually(chkChkpoints, rest_nodes, 2, 0))
+        looper.run(eventually(check_for_nodes, rest_nodes, check_stable_checkpoint, 10))
 
         assert lagging_node.mode != Mode.participating
         # lagging node is catching up and stashing all checkpoints
@@ -148,4 +146,4 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
 
 def get_stashed_checkpoints(node):
     return sum(
-        1 for (stashed, sender) in node.master_replica.stasher._stashed_catch_up if isinstance(stashed, Checkpoint))
+        1 for (stashed, sender) in node.master_replica.stasher._queues[STASH_CATCH_UP] if isinstance(stashed, Checkpoint))

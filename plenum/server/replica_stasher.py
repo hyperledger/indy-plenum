@@ -1,7 +1,7 @@
 from collections import deque
 
 from common.exceptions import LogicError
-from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMARKS, STASH_VIEW
+from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMARKS, STASH_VIEW_3PC
 from stp_core.common.log import getlogger
 
 
@@ -40,7 +40,7 @@ class ReplicaStasher:
                           "with reason {}".format(self.replica, msg, reason))
         if reason == STASH_CATCH_UP:
             self._stashed_catch_up.append(msg)
-        elif reason == STASH_VIEW:
+        elif reason == STASH_VIEW_3PC:
             self._stashed_future_view.append(msg)
         elif reason == STASH_WATERMARKS:
             self._stashed_watermarks.append(msg)

@@ -94,14 +94,6 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             unexpected_events.add(MetricsName.BACKUP_CREATE_3PC_BATCH_TIME)
             unexpected_events.add(MetricsName.BLS_UPDATE_PREPREPARE_TIME)
 
-        if not node.primaryDecider:
-            unexpected_events.add(MetricsName.PRIMARY_DECIDER_ACTION_QUEUE)
-            unexpected_events.add(MetricsName.PRIMARY_DECIDER_AQ_STASH)
-            unexpected_events.add(MetricsName.PRIMARY_DECIDER_REPEATING_ACTIONS)
-            unexpected_events.add(MetricsName.PRIMARY_DECIDER_SCHEDULED)
-            unexpected_events.add(MetricsName.PRIMARY_DECIDER_INBOX)
-            unexpected_events.add(MetricsName.PRIMARY_DECIDER_OUTBOX)
-
         # Check that all event types happened during test
         metric_names = {ev.name for ev in events}
         for t in MetricsName:
