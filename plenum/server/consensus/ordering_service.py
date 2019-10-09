@@ -2265,10 +2265,10 @@ class OrderingService:
 
         self._logger.info("{} processing {}".format(self, msg))
 
+        missing_batches = []
         if self.is_master:
             # apply PrePrepares from NewView that we have
             # request missing PrePrepares from NewView
-            missing_batches = []
             for batch_id in msg.batches:
                 pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
                 if pp is None:
@@ -2281,11 +2281,14 @@ class OrderingService:
 
             if missing_batches:
                 self._request_old_view_pre_prepares(missing_batches)
+            else:
+                self._write_manager.future_primary_handler.set_node_state()
 
         self.primaries_batch_needed = True
 
-        # unstash waiting for New View messages
-        self._stasher.process_all_stashed(STASH_VIEW_3PC)
+        if not missing_batches:
+            self._stasher.process_all_stashed(STASH_VIEW_3PC)
+
         self._bus.send(ReOrderedInNewView())
 
     def process_old_view_preprepare_request(self, msg: OldViewPrePrepareRequest, sender):
@@ -2314,6 +2317,9 @@ class OrderingService:
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
+
+        # unstash waiting for New View messages
+        self._stasher.process_all_stashed(STASH_VIEW_3PC)
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)

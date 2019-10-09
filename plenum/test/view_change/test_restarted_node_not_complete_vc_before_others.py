@@ -10,7 +10,7 @@ nodeCount = 6
 
 
 def complete_propagate_primary(node, expected_view_no):
-    assert node.view_changer.last_completed_view_no == expected_view_no
+    assert node.last_completed_view_no == expected_view_no
     # assert node.view_changer._is_propagated_view_change_completed
 
 
@@ -33,11 +33,13 @@ def test_restarted_node_complete_vc_by_current_state(looper,
                                             stopNode=True)
     looper.removeProdable(node_to_restart)
     old_completed_view_no = get_last_completed_view_no(txnPoolNodeSet[:-1])
+    print(old_completed_view_no)
     ensure_view_change(looper,
                        txnPoolNodeSet[:-1])
     ensureElectionsDone(looper, txnPoolNodeSet[:-1], customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
     current_completed_view_no = get_last_completed_view_no(txnPoolNodeSet[:-1])
     assert current_completed_view_no > old_completed_view_no
+    print(current_completed_view_no)
 
     # Delay VIEW_CHANGE_DONE messages for all nodes
     for node in txnPoolNodeSet[:-1]:
