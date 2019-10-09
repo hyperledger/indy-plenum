@@ -132,11 +132,6 @@ class ViewChanger():
         # Time for view_change_starting
         self.start_view_change_ts = 0
 
-        # Last successful viewNo.
-        # In some cases view_change process can be uncompleted in time.
-        # In that case we want to know, which viewNo was successful (last completed view_change)
-        self.last_completed_view_no = 0
-
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq
         if force_view_change_freq > 0:

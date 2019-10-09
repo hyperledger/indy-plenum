@@ -36,6 +36,12 @@ class ViewChangeService:
         self._network = network
         self._router = stasher
         self._new_view = None  # type: Optional[NewView]
+
+        # Last successful viewNo.
+        # In some cases view_change process can be uncompleted in time.
+        # In that case we want to know, which viewNo was successful (last completed view_change)
+        self.last_completed_view_no = self._data.view_no
+
         self._resend_inst_change_timer = RepeatingTimer(self._timer,
                                                         self._config.NEW_VIEW_TIMEOUT,
                                                         partial(self._propose_view_change,
@@ -292,7 +298,7 @@ class ViewChangeService:
                                        view_changes=self._new_view.viewChanges,
                                        checkpoint=self._new_view.checkpoint,
                                        batches=self._new_view.batches))
-        self._data.last_completed_view_no = self._data.view_no
+        self.last_completed_view_no = self._data.view_no
 
     def _propose_view_change(self, suspision_code):
         proposed_view_no = self._data.view_no + 1
