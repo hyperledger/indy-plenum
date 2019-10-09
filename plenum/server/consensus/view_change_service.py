@@ -36,6 +36,12 @@ class ViewChangeService:
         self._network = network
         self._router = stasher
         self._new_view = None  # type: Optional[NewView]
+
+        # Last successful viewNo.
+        # In some cases view_change process can be uncompleted in time.
+        # In that case we want to know, which viewNo was successful (last completed view_change)
+        self.last_completed_view_no = self._data.view_no
+
         self._resend_inst_change_timer = RepeatingTimer(self._timer,
                                                         self._config.NEW_VIEW_TIMEOUT,
                                                         partial(self._propose_view_change,
@@ -283,7 +289,7 @@ class ViewChangeService:
     def _finish_view_change(self):
         # Update shared data
         self._data.waiting_for_new_view = False
-        self._data.prev_view_prepare_cert = self._new_view.batches[-1].pp_seq_no if self._new_view.batches else None
+        self._data.prev_view_prepare_cert = self._new_view.batches[-1].pp_seq_no if self._new_view.batches else 0
 
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
@@ -292,6 +298,7 @@ class ViewChangeService:
                                        view_changes=self._new_view.viewChanges,
                                        checkpoint=self._new_view.checkpoint,
                                        batches=self._new_view.batches))
+        self.last_completed_view_no = self._data.view_no
 
     def _propose_view_change(self, suspision_code):
         proposed_view_no = self._data.view_no + 1
@@ -328,8 +335,13 @@ class NewViewBuilder:
                     continue
 
                 # Don't add checkpoint to pretending ones if not enough nodes have it
+                # TODO: PBFT paper (for example Fig.4 in https://www.microsoft.com/en-us/research/wp-content/uploads/2017/01/p398-castro-bft-tocs.pdf)
+                # assumes a weak certificate here.
+                # But they also assume a need of catch-up before processing NewView if a Replica doesn't have the calculated checkpoint yet
+                # It looks like using a strong certificate eliminates a need for cathcup (although re-ordering may be slower)
+                # Once https://jira.hyperledger.org/browse/INDY-2237 is done, we may come back to weak certificate here
                 have_checkpoint = [vc for vc in vcs if cur_cp in vc.checkpoints]
-                if not self._data.quorums.weak.is_reached(len(have_checkpoint)):
+                if not self._data.quorums.strong.is_reached(len(have_checkpoint)):
                     continue
 
                 # All checks passed, this is a valid candidate checkpoint

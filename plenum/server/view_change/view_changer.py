@@ -77,19 +77,7 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def start_catchup(self):
-        pass
-
-    @abstractmethod
-    def restore_backup_replicas(self):
-        pass
-
-    @abstractmethod
     def select_primaries(self):
-        pass
-
-    @abstractmethod
-    def ensure_primaries_dropped(self):
         pass
 
     @abstractmethod
@@ -102,15 +90,7 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def view_setting_handler(self, view_no):
-        pass
-
-    @abstractmethod
     def schedule_resend_inst_chng(self):
-        pass
-
-    @abstractmethod
-    def set_view_change_status(self, value: bool):
         pass
 
     @abstractmethod
@@ -151,11 +131,6 @@ class ViewChanger():
 
         # Time for view_change_starting
         self.start_view_change_ts = 0
-
-        # Last successful viewNo.
-        # In some cases view_change process can be uncompleted in time.
-        # In that case we want to know, which viewNo was successful (last completed view_change)
-        self.last_completed_view_no = 0
 
         # Force periodic view change if enabled in config
         force_view_change_freq = self.config.ForceViewChangeFreq

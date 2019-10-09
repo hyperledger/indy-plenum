@@ -225,8 +225,10 @@ def test_calc_batches_respects_checkpoint(builder):
 
     cp = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(10))
     vc = ViewChange(viewNo=2, stableCheckpoint=0,
-                    prepared=[BatchID(0, 0, 10, "digest10"), BatchID(0, 0, 11, "digest11"), BatchID(1, 0, 12, "digest12")],
-                    preprepared=[BatchID(0, 0, 10, "digest10"), BatchID(0, 0, 11, "digest11"), BatchID(1, 0, 12, "digest12")],
+                    prepared=[BatchID(0, 0, 10, "digest10"), BatchID(0, 0, 11, "digest11"),
+                              BatchID(1, 0, 12, "digest12")],
+                    preprepared=[BatchID(0, 0, 10, "digest10"), BatchID(0, 0, 11, "digest11"),
+                                 BatchID(1, 0, 12, "digest12")],
                     checkpoints=[cp])
 
     vcs = [vc, vc, vc, vc]
@@ -432,7 +434,7 @@ def test_calc_checkpoints_quorum(builder):
     vc2 = ViewChange(viewNo=2, stableCheckpoint=0,
                      prepared=[BatchID(1, 1, 1, "digest1")],
                      preprepared=[BatchID(1, 1, 1, "digest1")],
-                     checkpoints=[cp2])
+                     checkpoints=[cp1, cp2])
     vc2_stable = ViewChange(viewNo=2, stableCheckpoint=10,
                             prepared=[BatchID(1, 1, 1, "digest1")],
                             preprepared=[BatchID(1, 1, 1, "digest1")],
@@ -451,7 +453,7 @@ def test_calc_checkpoints_quorum(builder):
     assert builder.calc_checkpoint(vcs) == cp1
 
     vcs = [vc2, vc2, vc1, vc1]
-    assert builder.calc_checkpoint(vcs) == cp2
+    assert builder.calc_checkpoint(vcs) == cp1
 
     vcs = [vc2, vc2, vc2, vc1]
     assert builder.calc_checkpoint(vcs) == cp2
@@ -460,7 +462,7 @@ def test_calc_checkpoints_quorum(builder):
     assert builder.calc_checkpoint(vcs) == cp1
 
     vcs = [vc2_stable, vc2_stable, vc1, vc1]
-    assert builder.calc_checkpoint(vcs) == cp2
+    assert builder.calc_checkpoint(vcs) is None
 
     vcs = [vc2_stable, vc2_stable, vc2_stable, vc1]
     assert builder.calc_checkpoint(vcs) == cp2
@@ -475,7 +477,7 @@ def test_calc_checkpoints_quorum(builder):
     assert builder.calc_checkpoint(vcs) == cp2
 
 
-def test_calc_checkpoints_selects_max(builder):
+def test_calc_checkpoints_selects_max_with_strong_quorum(builder):
     cp1 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0, digest=cp_digest(0))
     cp2 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=10, digest=cp_digest(10))
     cp3 = Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=20, digest=cp_digest(20))
@@ -488,48 +490,77 @@ def test_calc_checkpoints_selects_max(builder):
     vc2_not_stable = ViewChange(viewNo=2, stableCheckpoint=0,
                                 prepared=[BatchID(1, 1, 1, "digest1")],
                                 preprepared=[BatchID(1, 1, 1, "digest1")],
-                                checkpoints=[cp2])
+                                checkpoints=[cp1, cp2])
 
     vc2_stable = ViewChange(viewNo=2, stableCheckpoint=10,
                             prepared=[BatchID(1, 1, 1, "digest1")],
                             preprepared=[BatchID(1, 1, 1, "digest1")],
                             checkpoints=[cp2])
 
-    vc3_not_stable = ViewChange(viewNo=2, stableCheckpoint=10,
+    vc3_not_stable = ViewChange(viewNo=2, stableCheckpoint=0,
                                 prepared=[BatchID(1, 1, 1, "digest1")],
                                 preprepared=[BatchID(1, 1, 1, "digest1")],
-                                checkpoints=[cp3])
+                                checkpoints=[cp1, cp2, cp3])
 
     vc3_stable = ViewChange(viewNo=2, stableCheckpoint=10,
                             prepared=[BatchID(1, 1, 1, "digest1")],
                             preprepared=[BatchID(1, 1, 1, "digest1")],
                             checkpoints=[cp3])
 
+    vcs = [vc1, vc2_not_stable, vc3_not_stable, vc3_not_stable]
+    assert builder.calc_checkpoint(vcs) == cp2
+    vcs = [vc1, vc2_stable, vc3_not_stable, vc3_not_stable]
+    assert builder.calc_checkpoint(vcs) == cp2
+
+    vcs = [vc1, vc2_not_stable, vc3_not_stable, vc3_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc2_stable, vc3_not_stable, vc3_stable]
+    assert builder.calc_checkpoint(vcs) is None
+
+    vcs = [vc1, vc2_not_stable, vc3_stable, vc3_stable]
+    assert builder.calc_checkpoint(vcs) is None
+    vcs = [vc1, vc2_stable, vc3_stable, vc3_stable]
+    assert builder.calc_checkpoint(vcs) is None
+
+    for vc3 in (vc3_not_stable, vc3_stable):
+        vcs = [vc1, vc3, vc3, vc3]
+        assert builder.calc_checkpoint(vcs) == cp3
+
     for vc3 in (vc3_not_stable, vc3_stable):
         for vc2 in (vc2_not_stable, vc2_stable):
-            vcs = [vc1, vc2, vc3, vc3]
-            assert builder.calc_checkpoint(vcs) == cp3
-
-            vcs = [vc1, vc3, vc3, vc3]
-            assert builder.calc_checkpoint(vcs) == cp3
-
             vcs = [vc2, vc3, vc3, vc3]
             assert builder.calc_checkpoint(vcs) == cp3
 
-            vcs = [vc2, vc2, vc3, vc3]
-            assert builder.calc_checkpoint(vcs) == cp3
+    for vc2 in (vc2_not_stable, vc2_stable):
+        vcs = [vc2, vc2, vc3_not_stable, vc3_not_stable]
+        assert builder.calc_checkpoint(vcs) == cp2
+        vcs = [vc2, vc2, vc3_not_stable, vc3_stable]
+        assert builder.calc_checkpoint(vcs) == cp2
+        vcs = [vc2, vc2, vc3_stable, vc3_stable]
+        assert builder.calc_checkpoint(vcs) is None
 
-            vcs = [vc1, vc1, vc3, vc3]
-            assert builder.calc_checkpoint(vcs) == cp3
+    vcs = [vc1, vc1, vc3_not_stable, vc3_not_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc1, vc3_not_stable, vc3_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc1, vc3_stable, vc3_stable]
+    assert builder.calc_checkpoint(vcs) is None
 
-            vcs = [vc1, vc1, vc1, vc3]
-            assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc1, vc1, vc3_not_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc1, vc1, vc3_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
 
-            vcs = [vc1, vc1, vc2, vc2]
-            assert builder.calc_checkpoint(vcs) == cp2
+    vcs = [vc1, vc1, vc2_not_stable, vc2_not_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc1, vc2_not_stable, vc2_stable]
+    assert builder.calc_checkpoint(vcs) == cp1
+    vcs = [vc1, vc1, vc2_stable, vc2_stable]
+    assert builder.calc_checkpoint(vcs) is None
 
-            vcs = [vc2, vc2, vc2, vc3]
-            assert builder.calc_checkpoint(vcs) == cp2
+    for vc2 in (vc2_not_stable, vc2_stable):
+        vcs = [vc2, vc2, vc2, vc3]
+        assert builder.calc_checkpoint(vcs) == cp2
 
 
 def test_calc_checkpoints_digest(builder):
@@ -547,26 +578,46 @@ def test_calc_checkpoints_digest(builder):
     vc2_d2 = ViewChange(viewNo=2, stableCheckpoint=0,
                         prepared=[BatchID(1, 1, 1, "digest1")],
                         preprepared=[BatchID(1, 1, 1, "digest1")],
-                        checkpoints=[cp2_d2])
+                        checkpoints=[cp1_d1, cp2_d2])
     vc2_d1 = ViewChange(viewNo=2, stableCheckpoint=0,
                         prepared=[BatchID(1, 1, 1, "digest1")],
                         preprepared=[BatchID(1, 1, 1, "digest1")],
-                        checkpoints=[cp2_d1])
+                        checkpoints=[cp1_d1, cp2_d1])
 
     vcs = [vc1_d1, vc1_d1, vc2_d1, vc2_d2]
     assert builder.calc_checkpoint(vcs) == cp1_d1
 
     vcs = [vc1_d1, vc2_d1, vc2_d2, vc2_d2]
-    assert builder.calc_checkpoint(vcs) == cp2_d2
+    assert builder.calc_checkpoint(vcs) == cp1_d1
 
     vcs = [vc1_d1, vc2_d2, vc2_d1, vc2_d1]
+    assert builder.calc_checkpoint(vcs) == cp1_d1
+
+    vcs = [vc1_d1, vc1_d1, vc2_d1, vc2_d1]
+    assert builder.calc_checkpoint(vcs) == cp1_d1
+
+    vcs = [vc1_d1, vc1_d1, vc2_d2, vc2_d2]
+    assert builder.calc_checkpoint(vcs) == cp1_d1
+
+    vcs = [vc1_d1, vc1_d1, vc2_d1, vc2_d2]
+    assert builder.calc_checkpoint(vcs) == cp1_d1
+
+    vcs = [vc2_d1, vc2_d1, vc2_d2, vc2_d2]
+    assert builder.calc_checkpoint(vcs) == cp1_d1
+
+    vcs = [vc2_d2, vc2_d2, vc2_d1, vc2_d1]
+    assert builder.calc_checkpoint(vcs) == cp1_d1
+
+    vcs = [vc2_d1, vc2_d2, vc2_d2, vc2_d2]
+    assert builder.calc_checkpoint(vcs) == cp2_d2
+
+    vcs = [vc2_d2, vc2_d1, vc2_d1, vc2_d1]
     assert builder.calc_checkpoint(vcs) == cp2_d1
 
-    # Here we have 2 nodes malicious (f=1), but calc_checkpoint returns a value depending on the order
-    # Is it OK, or calc_checkpoint should return None (indicating that there is no valid quorum)?
-    vcs = [vc2_d1, vc2_d1, vc2_d2, vc2_d2]
+    vcs = [vc1_d1, vc2_d1, vc2_d1, vc2_d1]
     assert builder.calc_checkpoint(vcs) == cp2_d1
-    vcs = [vc2_d2, vc2_d2, vc2_d1, vc2_d1]
+
+    vcs = [vc1_d1, vc2_d2, vc2_d2, vc2_d2]
     assert builder.calc_checkpoint(vcs) == cp2_d2
 
 

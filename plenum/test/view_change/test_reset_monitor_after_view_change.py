@@ -10,7 +10,6 @@ def test_reset_monitor_after_view_change(create_node_and_not_start):
     node.replicas._replicas[0].primaryName = "Alpha:0"
     node.replicas._replicas[1].primaryName = "Beta:1"
     node.view_changer = FakeSomething(propagate_primary=False,
-                                      last_completed_view_no=0,
                                       view_no=1)
     node.on_view_change_complete()
     # After reset throughput must be 0 or None

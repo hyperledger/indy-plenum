@@ -8,7 +8,7 @@ from plenum.common.constants import PreVCStrategies
 from plenum.common.messages.node_messages import Prepare, Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.test.delayers import vcd_delay
+from plenum.test.delayers import vcd_delay, nv_delay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import TestNode
 from plenum.test.view_change.helper import ensure_view_change
@@ -61,7 +61,6 @@ def not_processing_prepare(node):
     node.processNodeInBox = functools.partial(processNodeInBoxWithoutPrepare, node)
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_prepare_in_queue_before_vc(looper,
                                     txnPoolNodeSet,
                                     sdk_wallet_steward,
@@ -102,13 +101,13 @@ def test_prepare_in_queue_before_vc(looper,
     """Get last ordered 3pc key (should be (0, REQ_COUNT))"""
     ordered_lpc = slow_node.master_replica.last_ordered_3pc
     """Delay view_change_done messages"""
-    slow_node.nodeIbStasher.delay(vcd_delay(100))
+    slow_node.nodeIbStasher.delay(nv_delay(100))
     """Patch on_view_change_start method for reverting processNodeInBox method"""
     slow_node.view_changer.start_view_change = functools.partial(patched_start_view_change, slow_node.view_changer)
     """Initiate view change"""
     ensure_view_change(looper, txnPoolNodeSet)
     """Last prepared certificate should take into account Prepares in nodeInBox queue too"""
     expected_lpc = slow_node.master_replica.last_prepared_before_view_change
-    assert expected_lpc == (0, 11)
+    assert expected_lpc == (0, REQ_COUNT)
     """Last ordered key should be equal to last_prepared_before_view_change because we reorder reqs"""
     assert compare_3PC_keys(ordered_lpc, expected_lpc) == 0
