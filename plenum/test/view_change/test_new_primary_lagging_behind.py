@@ -2,6 +2,7 @@ import pytest
 
 from plenum.test.delayers import pDelay, cDelay
 from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -44,3 +45,4 @@ def test_new_primary_lagging_behind(looper,
 
     assert next_primary_name != expected_primary_name
     assert checkViewNoForNodes(txnPoolNodeSet) == initial_view_no + 2
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

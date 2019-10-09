@@ -15,10 +15,14 @@ from plenum.test.consensus.helper import copy_shared_data, check_service_changed
     create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
 
 
+DEFAULT_STABLE_CHKP = 10
+
+
 @pytest.fixture
 def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher):
     def _service(name):
         data = consensus_data(name)
+        data.stable_checkpoint = DEFAULT_STABLE_CHKP
         service = ViewChangeService(data, timer, internal_bus, external_bus, stasher)
         return service
 

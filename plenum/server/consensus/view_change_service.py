@@ -230,7 +230,7 @@ class ViewChangeService:
         if batches is None:
             return
 
-        if self._data.stable_checkpoint < cp.seqNoEnd:
+        if cp not in self._data.checkpoints:
             return
 
         nv = NewView(
