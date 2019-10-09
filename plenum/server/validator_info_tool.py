@@ -583,7 +583,7 @@ class ValidatorNodeInfoTool:
                     "Last_view_change_started_at": self._prepare_for_json(
                         self.__get_start_vc_ts()),
                     "Last_complete_view_no": self._prepare_for_json(
-                        self._node.view_changer.last_completed_view_no),
+                        self._node.master_replica._consensus_data.last_completed_view_no),
                     "IC_queue": self._prepare_for_json(
                         self._get_ic_queue()),
                     "VCDone_queue": self._prepare_for_json({})
