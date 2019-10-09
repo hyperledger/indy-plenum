@@ -5,7 +5,6 @@ from collections import defaultdict, OrderedDict, deque
 from functools import partial
 from typing import Tuple, List, Set, Optional, Dict, Iterable
 
-import math
 from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
 
@@ -28,7 +27,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Re
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import PROCESS
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
@@ -2287,9 +2286,7 @@ class OrderingService:
         self.primaries_batch_needed = True
 
         if not missing_batches:
-            self._stasher.process_all_stashed(STASH_VIEW_3PC)
-
-        self._bus.send(ReOrderedInNewView())
+            self._reordered_in_new_view()
 
     def process_old_view_preprepare_request(self, msg: OldViewPrePrepareRequest, sender):
         result, reason = self._validate(msg)
@@ -2310,6 +2307,9 @@ class OrderingService:
         if result != PROCESS:
             return result, reason
 
+        if sender != self._data.primary_name:
+            return DISCARD, "OldViewPrePrepareReply from non-primary"
+
         for pp_dict in msg.preprepares:
             try:
                 pp = PrePrepare(**pp_dict)
@@ -2318,8 +2318,7 @@ class OrderingService:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
 
-        # unstash waiting for New View messages
-        self._stasher.process_all_stashed(STASH_VIEW_3PC)
+        self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
@@ -2333,6 +2332,11 @@ class OrderingService:
         self.process_preprepare(new_pp, sender)
 
         return PROCESS, None
+
+    def _reordered_in_new_view(self):
+        self._stasher.process_all_stashed(STASH_VIEW_3PC)
+        # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
+        self._bus.send(ReOrderedInNewView())
 
     def _cleanup_process(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)

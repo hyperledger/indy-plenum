@@ -324,6 +324,7 @@ class CheckpointService:
             self.set_watermarks(low_watermark=0)
             self._reset_checkpoints()
             self._data.stable_checkpoint = 0
+            self._remove_received_checkpoints()
 
         self._bus.send(NewViewCheckpointsApplied(view_no=msg.view_no,
                                                  view_changes=msg.view_changes,
