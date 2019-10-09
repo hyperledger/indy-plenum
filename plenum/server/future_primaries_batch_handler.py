@@ -48,7 +48,7 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
         number_of_inst = count
         new_validators = TxnPoolManager.calc_node_names_ordered_by_rank(node_reg,
                                                                         node_ids)
-        view_no = self.node.viewNo if three_pc_batch is None else three_pc_batch.original_view_no
+        view_no = self.node.viewNo if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
         three_pc_batch.primaries = self.node.primaries_selector.select_primaries(view_no=view_no,
                                                                                  instance_count=number_of_inst,
                                                                                  validators=new_validators)

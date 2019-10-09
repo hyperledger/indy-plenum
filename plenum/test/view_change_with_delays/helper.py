@@ -3,7 +3,7 @@ from typing import Iterable
 from plenum.common.util import max_3PC_key, getNoInstances, getMaxFailures
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.delayers import vcd_delay, icDelay, cDelay, pDelay
+from plenum.test.delayers import icDelay, cDelay, pDelay, nv_delay
 from plenum.test.helper import sdk_send_random_request, sdk_get_reply, \
     waitForViewChange
 from plenum.test.stasher import delay_rules
@@ -46,14 +46,14 @@ def check_last_prepared_certificate(nodes, num):
 def check_last_prepared_certificate_after_view_change_start(nodes, num):
     # Check that last_prepared_certificate reaches some 3PC key on all nodestest_slow_node_reverts_unordered_state_during_catchup
     for n in nodes:
-        assert n.master_replica.last_prepared_before_view_change == num
+        assert n.master_replica._consensus_data.prev_view_prepare_cert == num
 
 
 def check_view_change_done(nodes, view_no):
     # Check that view change is done and view_no is not less than target
     for n in nodes:
         assert n.master_replica.viewNo >= view_no
-        assert n.master_replica.last_prepared_before_view_change is None
+        assert not n.master_replica._consensus_data.waiting_for_new_view
 
 
 def wait_for_elections_done_on_given_nodes(looper: Looper,
@@ -165,7 +165,7 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
     # Get pool current view no
     view_no = lpc[0]
 
-    with delay_rules(slow_stasher, vcd_delay()):
+    with delay_rules(slow_stasher, nv_delay()):
         with delay_rules(slow_stasher, icDelay()):
             with delay_rules(stashers, cDelay()):
                 # Send request
@@ -223,7 +223,7 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
     view_no = lpc[0]
 
     with delay_rules(slow_stasher, icDelay()):
-        with delay_rules(slow_stasher, vcd_delay()):
+        with delay_rules(slow_stasher, nv_delay()):
             with delay_rules(stashers, cDelay()):
                 # Send request
                 request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)

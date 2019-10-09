@@ -16,7 +16,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason="INDY-1303, case 1, also it can hurt jenkins!")
 def test_view_change_with_unaligned_prepare_certificates_on_half_nodes(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """
