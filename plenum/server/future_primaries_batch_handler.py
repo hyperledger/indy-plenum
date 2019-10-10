@@ -21,9 +21,10 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
         node_reg = list(self.node.nodeReg.keys())
         number_of_inst = getMaxFailures(len(node_reg)) + 1
         view_no = self.node.viewNo if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
+        validators = TxnPoolManager.calc_node_names_ordered_by_rank(node_reg, copy.deepcopy(self.node.nodeIds))
         three_pc_batch.primaries = self.node.primaries_selector.select_primaries(view_no=view_no,
                                                                                  instance_count=number_of_inst,
-                                                                                 validators=node_reg)
+                                                                                 validators=validators)
         return three_pc_batch.primaries
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
