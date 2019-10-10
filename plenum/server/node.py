@@ -117,7 +117,7 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
-from plenum.server.replicas import Replicas
+from plenum.server.replicas import Replicas, MASTER_REPLICA_INDEX
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
@@ -3476,7 +3476,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
-            if i != 0:
+            if i != MASTER_REPLICA_INDEX:
                 self.replicas.send_to_internal_bus(msg, i)
             self.primary_selected(i)
 
