@@ -236,6 +236,9 @@ class ViewChangeService:
         if batches is None:
             return
 
+        if cp not in self._data.checkpoints:
+            return
+
         nv = NewView(
             viewNo=self._data.view_no,
             viewChanges=sorted(confirmed_votes, key=itemgetter(0)),
