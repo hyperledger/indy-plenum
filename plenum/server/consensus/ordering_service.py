@@ -2307,9 +2307,6 @@ class OrderingService:
         if result != PROCESS:
             return result, reason
 
-        if sender != self._data.primary_name:
-            return DISCARD, "OldViewPrePrepareReply from non-primary"
-
         for pp_dict in msg.preprepares:
             try:
                 pp = PrePrepare(**pp_dict)
