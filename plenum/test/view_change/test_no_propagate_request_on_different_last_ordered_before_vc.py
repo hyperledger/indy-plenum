@@ -1,16 +1,11 @@
-import sys
-
-import pytest
-
 from plenum.server.node import Node
-from plenum.test.delayers import cDelay, pDelay, ppDelay, icDelay
+from plenum.test.delayers import cDelay, pDelay, ppDelay
 from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, sdk_check_reply, check_last_ordered_3pc_on_master
+    sdk_send_random_requests, sdk_get_replies, sdk_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.waits import expectedTransactionExecutionTime
 from stp_core.loop.eventually import eventually
 
 
@@ -30,46 +25,46 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
     slow_nodes = txnPoolNodeSet[1:4]
     fast_nodes = [n for n in txnPoolNodeSet if n not in slow_nodes]
     nodes_stashers = [n.nodeIbStasher for n in slow_nodes]
-    old_last_ordered = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc
-    batches_count = old_last_ordered[1]
+    last_view_no = txnPoolNodeSet[0].viewNo
+    master_pp_seq_no = txnPoolNodeSet[0].master_replica.last_ordered_3pc[1]
+    backup_last_pp_seq_no = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc[1]
     with delay_rules(nodes_stashers, cDelay(instId=slow_instance)):
         # send one request
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, 1)
-        batches_count += 1
-        old_view_no = txnPoolNodeSet[0].viewNo
+        master_pp_seq_no += 1
         looper.run(
             eventually(check_last_ordered,
                        fast_nodes,
                        slow_instance,
-                       (old_view_no, old_last_ordered[1] + 1)))
-        check_last_ordered(slow_nodes, slow_instance, old_last_ordered)
+                       (last_view_no, backup_last_pp_seq_no + 1)))
+        check_last_ordered(slow_nodes, slow_instance, (last_view_no, backup_last_pp_seq_no))
 
         # trigger view change on all nodes
         ensure_view_change(looper, txnPoolNodeSet)
         # wait for view change done on all nodes
         ensureElectionsDone(looper, txnPoolNodeSet)
-        batches_count += 1
+        master_pp_seq_no += 1
 
     primary = getPrimaryReplica(txnPoolNodeSet, slow_instance).node
     non_primaries = [n for n in txnPoolNodeSet if n is not primary]
 
+    # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (last_view_no + 1, 1)))
 
-    # Backup primary replica set new_view and seq_no == 0, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (last_view_no + 1, 1)))
 
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
-                          (old_last_ordered[0] + 1, batches_count)))
+                          (last_view_no + 1, master_pp_seq_no)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
-    batches_count += 1
+    master_pp_seq_no += 1
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
@@ -90,53 +85,51 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
     slow_nodes = txnPoolNodeSet[1:3]
     fast_nodes = [n for n in txnPoolNodeSet if n not in slow_nodes]
     nodes_stashers = [n.nodeIbStasher for n in slow_nodes]
-    old_last_ordered = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc
-    batches_count = old_last_ordered[1]
-
+    last_view_no = txnPoolNodeSet[0].viewNo
+    master_pp_seq_no = txnPoolNodeSet[0].master_replica.last_ordered_3pc[1]
+    backup_last_pp_seq_no = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc[1]
     with delay_rules(nodes_stashers, pDelay(instId=slow_instance)):
         with delay_rules(nodes_stashers, ppDelay(instId=slow_instance)):
             # send one request
             sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                       sdk_wallet_client, 1)
-            batches_count += 1
-            old_view_no = txnPoolNodeSet[0].viewNo
+            master_pp_seq_no += 1
             looper.run(
                 eventually(is_prepared,
                            fast_nodes,
-                           batches_count,
+                           backup_last_pp_seq_no + 1,
                            slow_instance))
 
             # trigger view change on all nodes
             ensure_view_change(looper, txnPoolNodeSet)
             # wait for view change done on all nodes
             ensureElectionsDone(looper, txnPoolNodeSet)
-            batches_count += 1
+            master_pp_seq_no += 1
 
     primary = getPrimaryReplica(txnPoolNodeSet, slow_instance).node
     non_primaries = [n for n in txnPoolNodeSet if n is not primary]
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (last_view_no + 1, 1)))
 
-    # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (last_view_no + 1, 1)))
 
     # 2 batches will be reordered after view_change and another one is from primaries batch
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
-                          (old_last_ordered[0] + 1, batches_count + 3)))
+                          (last_view_no + 1, master_pp_seq_no)))
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
-    batches_count += 1
+    master_pp_seq_no += 1
     looper.run(
         eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance,
-                   (txnPoolNodeSet[0].viewNo, 1)))
+                   (txnPoolNodeSet[0].viewNo, 2)))
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 

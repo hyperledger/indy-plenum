@@ -54,7 +54,7 @@ def test_updates_shared_data_on_need_view_change(internal_bus, view_change_servi
     internal_bus.send(NeedViewChange())
 
     assert view_change_service._data.view_no == initial_view_no + 1
-    assert view_change_service._data.waiting_for_new_view == is_master
+    assert view_change_service._data.waiting_for_new_view
     assert view_change_service._data.primary_name != old_primary
     assert view_change_service._data.primaries != old_primaries
     new_data = copy_shared_data(view_change_service._data)
@@ -66,7 +66,7 @@ def test_updates_shared_data_on_need_view_change(internal_bus, view_change_servi
     internal_bus.send(NeedViewChange(view_no=initial_view_no + 3))
 
     assert view_change_service._data.view_no == initial_view_no + 3
-    assert view_change_service._data.waiting_for_new_view == is_master
+    assert view_change_service._data.waiting_for_new_view
     assert view_change_service._data.primary_name != old_primary
     assert view_change_service._data.primaries != old_primaries
     new_data = copy_shared_data(view_change_service._data)

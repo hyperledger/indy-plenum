@@ -111,7 +111,6 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                             nodes=txnPoolNodeSet)
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
         assert get_pp_seq_no(txnPoolNodeSet) == batches_count
-        assert slow_node.catchup_rounds_without_txns == 1
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

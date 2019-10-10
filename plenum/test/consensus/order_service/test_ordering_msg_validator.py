@@ -268,7 +268,7 @@ def test_discard_non_master_old_view_pp_rep(validator):
     assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (DISCARD, NON_MASTER)
 
 
-def test_discard_non_master_new_view(validator, view_no):
+def test_process_non_master_new_view(validator, view_no):
     validator._data.is_master = False
     validator._data.inst_id = 1
-    assert validator.validate_new_view(new_view(view_no)) == (DISCARD, NON_MASTER)
+    assert validator.validate_new_view(new_view(view_no)) == (PROCESS, None)
