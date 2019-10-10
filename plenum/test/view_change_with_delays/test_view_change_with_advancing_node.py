@@ -5,6 +5,8 @@ from plenum.server.node import Node
 from plenum.test.delayers import cDelay
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_replies, perf_monitor_disabled
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
@@ -80,6 +82,8 @@ def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_
         looper.run(eventually(view_change_done, nodes, new_view_no))
 
     sdk_get_replies(looper, requests2)
+    ensure_all_nodes_have_same_data(looper, nodes)
+    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
 
 
 def last_prepared_certificate(nodes, num):

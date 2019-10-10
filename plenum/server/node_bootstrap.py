@@ -100,6 +100,9 @@ class NodeBootstrap(LedgersBootstrap):
                                                 metrics=self.node.metrics)
 
     def _register_audit_batch_handlers(self):
+        # FuturePrimariesBatchHandler is needed to select the list of primaries nodes
+        # before recording a 3pc patch to the ledger into the audit. It means that this batch handler
+        # should be executed before AuditBatchHandler
         # TODO: This should be moved into LedgersBootstrap somehow
         future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self.node)
         for lid in self.ledger_ids:

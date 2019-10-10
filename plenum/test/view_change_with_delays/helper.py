@@ -6,6 +6,8 @@ from plenum.test import waits
 from plenum.test.delayers import icDelay, cDelay, pDelay, nv_delay
 from plenum.test.helper import sdk_send_random_request, sdk_get_reply, \
     waitForViewChange
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import getRequiredInstances
 from stp_core.loop.eventually import eventually, eventuallyAll
@@ -73,6 +75,7 @@ def wait_for_elections_done_on_given_nodes(looper: Looper,
         for node in nodes:
             for inst_id, replica in node.replicas.items():
                 assert replica.hasPrimary
+                assert not replica._consensus_data.waiting_for_new_view
 
     looper.run(eventuallyAll(check_num_of_replicas,
                              verify_each_replica_knows_its_primary,
@@ -151,6 +154,9 @@ def do_view_change_with_unaligned_prepare_certificates(
     # Finish request gracefully
     sdk_get_reply(looper, request)
 
+    ensure_all_nodes_have_same_data(looper, nodes)
+    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
+
 
 def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                                           sdk_pool_handle, sdk_wallet_client):
@@ -198,7 +204,7 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                           expectedViewNo=view_no + 1,
                           customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
 
-    # Now slow node receives ViewChangeDones
+    # Now slow node receives NewView
     wait_for_elections_done_on_given_nodes(looper,
                                            [slow_node],
                                            getRequiredInstances(len(nodes)),
@@ -249,15 +255,15 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
             # The slow node will accept Commits and order the 3PC-batch in the old view
             looper.runFor(waits.expectedOrderingTime(getNoInstances(len(nodes))))
 
-        # Now slow node receives ViewChangeDones
-        waitForViewChange(looper,
-                          [slow_node],
-                          expectedViewNo=view_no + 1,
-                          customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
-        wait_for_elections_done_on_given_nodes(looper,
-                                               [slow_node],
-                                               getRequiredInstances(len(nodes)),
-                                               timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+    # Now slow node receives NewView
+    waitForViewChange(looper,
+                      [slow_node],
+                      expectedViewNo=view_no + 1,
+                      customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
+    wait_for_elections_done_on_given_nodes(looper,
+                                           [slow_node],
+                                           getRequiredInstances(len(nodes)),
+                                           timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
     # Now slow node receives InstanceChanges but discards them because already
     # started propagate primary to the same view.
