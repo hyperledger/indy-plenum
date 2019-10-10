@@ -1,16 +1,11 @@
-import sys
-
-import pytest
-
 from plenum.server.node import Node
-from plenum.test.delayers import cDelay, pDelay, ppDelay, icDelay
+from plenum.test.delayers import cDelay, pDelay, ppDelay
 from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, sdk_check_reply, check_last_ordered_3pc_on_master
+    sdk_send_random_requests, sdk_get_replies, sdk_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.waits import expectedTransactionExecutionTime
 from stp_core.loop.eventually import eventually
 
 
@@ -56,12 +51,12 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (old_view_no + 1, 1)))
 
     # Backup primary replica set new_view and seq_no == 0, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (old_view_no + 1, 1)))
 
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
@@ -117,12 +112,12 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (old_view_no + 1, 1)))
 
     # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (old_view_no + 1, 0)))
+                          (old_view_no + 1, 1)))
 
     # 2 batches will be reordered after view_change and another one is from primaries batch
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
