@@ -394,7 +394,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self._internal_bus.send(CheckpointStabilized(self.last_ordered_3pc))
         self._ordering_service._lastPrePrepareSeqNo = 0
-        self.last_ordered_3pc = (self.viewNo, 0)
+        self._ordering_service.last_ordered_3pc = (self.viewNo, 0)
         self._clear_all_3pc_msgs()
 
     def on_propagate_primary_done(self):

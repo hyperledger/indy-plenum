@@ -765,6 +765,7 @@ class OrderingService:
                 coll.pop(request_key, None)
 
         for request_key in reqKeys:
+            self._requests.ordered_by_replica(request_key)
             self._requests.free(request_key)
             for ledger_id, keys in self.requestQueues.items():
                 if request_key in keys:

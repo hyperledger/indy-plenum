@@ -52,11 +52,11 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
     # Backup primary replica set new_view and seq_no == 1, because of primary batch
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (last_view_no + 1, 1)))
+                          (last_view_no + 1, 2)))
 
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (last_view_no + 1, 1)))
+                          (last_view_no + 1, 2)))
 
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
                           txnPoolNodeSet[0].master_replica.instId,
@@ -111,11 +111,11 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
 
     looper.run(eventually(check_last_ordered, non_primaries,
                           slow_instance,
-                          (last_view_no + 1, 1)))
+                          (last_view_no + 1, 2)))
 
     looper.run(eventually(check_last_ordered, [primary],
                           slow_instance,
-                          (last_view_no + 1, 1)))
+                          (last_view_no + 1, 2)))
 
     # 2 batches will be reordered after view_change and another one is from primaries batch
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,
@@ -129,7 +129,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
         eventually(check_last_ordered,
                    txnPoolNodeSet,
                    slow_instance,
-                   (txnPoolNodeSet[0].viewNo, 2)))
+                   (txnPoolNodeSet[0].viewNo, 3)))
     assert all(0 == node.spylog.count(node.request_propagates)
                for node in txnPoolNodeSet)
 
