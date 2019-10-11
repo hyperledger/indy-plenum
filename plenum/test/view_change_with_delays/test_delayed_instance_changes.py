@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
-from plenum.test.delayers import icDelay, vcd_delay
+from plenum.test.delayers import icDelay, vcd_delay, nv_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
@@ -17,14 +17,12 @@ def check_vcd_msgs(node, expected_count, expected_view_no):
     assert expected_count == vcd_count
 
 
-def check_no_ic_msgs(node, expected_view_no):
-    if expected_view_no not in node.msgsForFutureViews:
-        raise AssertionError('no messages for expected view')
-    ic_count = sum(1 for msg in node.msgsForFutureViews[expected_view_no] if isinstance(msg[0], InstanceChange))
-    assert ic_count == 0
+def check_no_ic_msgs(node, expected_view_no, nodes):
+    assert node.view_changer.instance_changes.has_view(expected_view_no)
+    for n in nodes:
+        assert not node.view_changer.instance_changes.has_inst_chng_from(expected_view_no, n)
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet):
     '''
     A node is doing view change to view=1, while the other nodes already finished view change to view=2.
@@ -41,7 +39,7 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
     # 1. DO FIRST VIEW CHANGE
 
     # delay VCD for the first ViewChange
-    with delay_rules(slow_stasher, vcd_delay()):
+    with delay_rules(slow_stasher, nv_delay()):
         # Trigger view change
         for n in nodes:
             n.view_changer.on_master_degradation()
@@ -74,8 +72,8 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
 
         # make sure that the slow node receives VCD msgs for view=2
         # and didn't receive IS msgs for view=2
-        check_vcd_msgs(slow_node, expected_view_no=2, expected_count=len(fast_nodes), )
-        check_no_ic_msgs(slow_node, expected_view_no=2)
+        # check_vcd_msgs(slow_node, expected_view_no=2, expected_count=len(fast_nodes), )
+        check_no_ic_msgs(slow_node, 2, fast_nodes)
 
     # 3. RESET DELAYS AND CHECK
 

@@ -14,8 +14,8 @@ def replica_service(replica_service):
     write_manager = replica_service._write_manager
     future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
                                                            FakeSomething(nodeReg={},
-                                                                         nodeIds=[]))
-    future_primaries_handler._get_primaries = lambda *args, **kwargs: replica_service._data.primaries
+                                                                         nodeIds=[],
+                                                                         primaries=replica_service._data.primaries))
     write_manager.register_batch_handler(future_primaries_handler)
     return replica_service
 
