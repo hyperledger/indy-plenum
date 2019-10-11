@@ -33,8 +33,8 @@ def orderer(_orderer, is_primary, ):
     write_manager = _orderer._write_manager
     future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
                                                            FakeSomething(nodeReg={},
-                                                                         nodeIds=[]))
-    future_primaries_handler._get_primaries = lambda *args, **kwargs: _orderer._data.primaries
+                                                                         nodeIds=[],
+                                                                         primaries=_orderer._data.primaries))
     write_manager.register_batch_handler(future_primaries_handler)
 
     _orderer._validator = OrderingServiceMsgValidator(_orderer._data)

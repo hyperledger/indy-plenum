@@ -155,11 +155,9 @@ class SimPool:
             # And for now we need to patching set_node_state functionality
             future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
                                                                    FakeSomething(nodeReg={},
-                                                                                 nodeIds=[]))
-            future_primaries_handler._get_primaries = lambda *args, **kwargs: replica._data.primaries
+                                                                                 nodeIds=[],
+                                                                                 primaries=replica._data.primaries))
             write_manager.register_batch_handler(future_primaries_handler)
-            # ToDo: also, it should be done at the zero-view stage.
-            write_manager.future_primary_handler.set_node_state()
             replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)
 

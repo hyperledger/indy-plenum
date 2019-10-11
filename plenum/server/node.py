@@ -664,7 +664,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqNo and state and txn root for previous view
         """
-        self.write_manager.future_primary_handler.set_node_state()
 
         if not self.replicas.all_instances_have_primary:
             raise LogicError(
@@ -1987,15 +1986,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             self.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.primaries):
-                logger.error('Audit ledger has inconsistent number of nodes. '
-                             'Node primaries = {}'.format(self.primaries))
+                logger.warning('Audit ledger has inconsistent number of nodes. '
+                               'Node primaries = {}'.format(self.primaries))
             if any(p not in self.nodeReg for p in self.primaries):
                 logger.error('Audit ledger has inconsistent names of primaries. '
                              'Node primaries = {}'.format(self.primaries))
             # Similar functionality to select_primaries
-            for instance_id, replica in self.replicas.items():
+            for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
                     self.start_participating()
+                if instance_id >= len(self.primaries):
+                    self.replicas.remove_replica(instance_id)
+                    continue
                 replica.primaryChanged(
                     Replica.generateName(self.primaries[instance_id], instance_id))
                 self.primary_selected(instance_id)
@@ -3001,8 +3003,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         ledger_id = three_pc_batch.ledger_id
-        if ledger_id != POOL_LEDGER_ID and not three_pc_batch.primaries:
-            three_pc_batch.primaries = self.write_manager.future_primary_handler.get_last_primaries() or self.primaries
         if self.write_manager.is_valid_ledger_id(ledger_id):
             self.write_manager.post_apply_batch(three_pc_batch)
         else:
