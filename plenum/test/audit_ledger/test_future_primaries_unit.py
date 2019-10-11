@@ -22,6 +22,7 @@ def node():
     n.nodeReg = {'n1': 1, 'n2': 1, 'n3': 1,
                  'n4': 1, 'n5': 1, 'n6': 1}
     n.primaries = ['n1', 'n2']
+    n.nodeIds = n.nodeReg
     n.primaries_selector = FakeSomething()
     n.primaries_selector.select_primaries = lambda view_no, instance_count, validators: ['n1', 'n2']
     n.viewNo = 0

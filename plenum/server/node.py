@@ -2043,15 +2043,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             self.primaries = self._get_last_audited_primaries()
             if len(self.replicas) != len(self.primaries):
-                logger.error('Audit ledger has inconsistent number of nodes. '
+                logger.warning('Audit ledger has inconsistent number of nodes. '
                              'Node primaries = {}'.format(self.primaries))
             if any(p not in self.nodeReg for p in self.primaries):
                 logger.error('Audit ledger has inconsistent names of primaries. '
                              'Node primaries = {}'.format(self.primaries))
             # Similar functionality to select_primaries
-            for instance_id, replica in self.replicas.items():
+            for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
                     self.start_participating()
+                if instance_id >= len(self.primaries):
+                    self.replicas.remove_replica(instance_id)
+                    continue
                 replica.primaryChanged(
                     Replica.generateName(self.primaries[instance_id], instance_id))
                 self.primary_selected(instance_id)
