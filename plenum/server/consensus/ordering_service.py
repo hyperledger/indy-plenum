@@ -5,7 +5,6 @@ from collections import defaultdict, OrderedDict, deque
 from functools import partial
 from typing import Tuple, List, Set, Optional, Dict, Iterable
 
-import math
 from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
 
@@ -24,11 +23,11 @@ from plenum.common.messages.internal_messages import RequestPropagates, BackupSe
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
     ReOrderedInNewView
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
-    MessageReq, OldViewPrePrepareRequest, OldViewPrePrepareReply
-from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector, measure_time
+    OldViewPrePrepareRequest, OldViewPrePrepareReply
+from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import StashingRouter, PROCESS, DISCARD
+from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
@@ -40,7 +39,6 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, p
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
-from plenum.server.models import Prepares, Commits
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
@@ -2260,27 +2258,24 @@ class OrderingService:
 
         self._logger.info("{} processing {}".format(self, msg))
 
-        # apply PrePrepares from NewView that we have
-        # request missing PrePrepares from NewView
         missing_batches = []
-        for batch_id in msg.batches:
-            pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
-            if pp is None:
-                missing_batches.append(batch_id)
-            else:
-                self._process_pre_prepare_from_old_view(pp)
-
-        self.primaries_batch_needed = True
+        if self.is_master:
+            # apply PrePrepares from NewView that we have
+            # request missing PrePrepares from NewView
+            for batch_id in msg.batches:
+                pp = self.old_view_preprepares.get((batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
+                if pp is None:
+                    missing_batches.append(batch_id)
+                else:
+                    self._process_pre_prepare_from_old_view(pp)
 
         if missing_batches:
             self._request_old_view_pre_prepares(missing_batches)
-        else:
-            # unstash waiting for New View messages
-            self._stasher.process_all_stashed(STASH_VIEW_3PC)
 
-        self._bus.send(ReOrderedInNewView())
+        self.primaries_batch_needed = True
 
-        return PROCESS, None
+        if not missing_batches:
+            self._reordered_in_new_view()
 
     def process_old_view_preprepare_request(self, msg: OldViewPrePrepareRequest, sender):
         result, reason = self._validate(msg)
@@ -2308,8 +2303,8 @@ class OrderingService:
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
-        # unstash waiting for New View messages
-        self._stasher.process_all_stashed(STASH_VIEW_3PC)
+
+        self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
@@ -2323,6 +2318,11 @@ class OrderingService:
         self.process_preprepare(new_pp, sender)
 
         return PROCESS, None
+
+    def _reordered_in_new_view(self):
+        self._stasher.process_all_stashed(STASH_VIEW_3PC)
+        # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
+        self._bus.send(ReOrderedInNewView())
 
     def _cleanup_process(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)

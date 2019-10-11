@@ -58,7 +58,7 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
 
         def chk():
             for inst_id, r in slow_node.replicas.items():
-                assert r.last_ordered_3pc[1] == (2 if r.isMaster else 1)
+                assert r.last_ordered_3pc[1] == 2
                 assert r.stasher.stash_size(STASH_VIEW_3PC) == 0
 
         looper.run(eventually(chk))

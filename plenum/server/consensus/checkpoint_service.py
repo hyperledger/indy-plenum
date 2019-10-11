@@ -307,22 +307,26 @@ class CheckpointService:
         return txn, seq_no
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
-        if not self.is_master:
-            return
-        # do not update stable checkpoints if the node doesn't have this checkpoint
-        # the node is lagging behind in this case and will start catchup after receiving one more quorum of checkpoints
-        # from other nodes
-        cp = msg.checkpoint
-        if cp not in self._data.checkpoints:
-            return PROCESS, None
+        if self.is_master:
+            cp = msg.checkpoint
+            # do not update stable checkpoints if the node doesn't have this checkpoint
+            # the node is lagging behind in this case and will start catchup after receiving
+            # one more quorum of checkpoints from other nodes
+            if cp not in self._data.checkpoints:
+                return
+            self._mark_checkpoint_stable(cp.seqNoEnd)
+            self.set_watermarks(low_watermark=cp.seqNoEnd)
+        else:
+            # TODO: This is kind of hackery, but proper way would require introducing more
+            #  messages specifically for backup replicas. Hope we can live with it for now.
+            self._data.waiting_for_new_view = False
+            self._data.pp_seq_no = 0
+            self.set_watermarks(low_watermark=0)
+            self._reset_checkpoints()
+            self._data.stable_checkpoint = 0
+            self._remove_received_checkpoints()
 
-        # 1. update shared data
-        self._mark_checkpoint_stable(cp.seqNoEnd)
-        self.set_watermarks(low_watermark=cp.seqNoEnd)
-
-        # 2. send NewViewCheckpointsApplied
         self._bus.send(NewViewCheckpointsApplied(view_no=msg.view_no,
                                                  view_changes=msg.view_changes,
                                                  checkpoint=msg.checkpoint,
                                                  batches=msg.batches))
-        return PROCESS, None

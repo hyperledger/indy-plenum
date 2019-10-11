@@ -62,10 +62,6 @@ class OrderingServiceMsgValidator:
     def validate_new_view(self, msg: NewViewCheckpointsApplied) -> Tuple[int, Optional[str]]:
         # View Change service has already validated NewView
         # so basic validation here is sufficient
-
-        if not self._data.is_master:
-            return DISCARD, NON_MASTER
-
         return self._validate_base(msg, msg.view_no)
 
     def validate_old_view_prep_prepare_req(self, msg: OldViewPrePrepareRequest):

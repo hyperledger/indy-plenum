@@ -15,10 +15,16 @@ from plenum.test.consensus.helper import copy_shared_data, check_service_changed
     create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
 
 
+DEFAULT_STABLE_CHKP = 10
+
+
 @pytest.fixture
-def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher):
+def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher, initial_view_no):
     def _service(name):
         data = consensus_data(name)
+        digest = cp_digest(DEFAULT_STABLE_CHKP)
+        cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=DEFAULT_STABLE_CHKP, digest=digest)
+        data.checkpoints.append(cp)
         service = ViewChangeService(data, timer, internal_bus, external_bus, stasher)
         return service
 
@@ -48,7 +54,7 @@ def test_updates_shared_data_on_need_view_change(internal_bus, view_change_servi
     internal_bus.send(NeedViewChange())
 
     assert view_change_service._data.view_no == initial_view_no + 1
-    assert view_change_service._data.waiting_for_new_view == is_master
+    assert view_change_service._data.waiting_for_new_view
     assert view_change_service._data.primary_name != old_primary
     assert view_change_service._data.primaries != old_primaries
     new_data = copy_shared_data(view_change_service._data)
@@ -60,7 +66,7 @@ def test_updates_shared_data_on_need_view_change(internal_bus, view_change_servi
     internal_bus.send(NeedViewChange(view_no=initial_view_no + 3))
 
     assert view_change_service._data.view_no == initial_view_no + 3
-    assert view_change_service._data.waiting_for_new_view == is_master
+    assert view_change_service._data.waiting_for_new_view
     assert view_change_service._data.primary_name != old_primary
     assert view_change_service._data.primaries != old_primaries
     new_data = copy_shared_data(view_change_service._data)
@@ -249,6 +255,7 @@ def test_new_view_message_is_sent_by_primary_when_view_change_certificate_is_rea
     # receive quorum of ViewChanges and ViewChangeAcks
     non_primaries = [item for item in validators if item != primary_name]
     vc = create_view_change(initial_view_no)
+
     for vc_frm in non_primaries:
         external_bus.process_incoming(vc, generateName(vc_frm, service._data.inst_id))
         for ack, ack_frm in view_change_acks(vc, vc_frm, primary_name, len(validators) - 2):
@@ -607,6 +614,11 @@ def test_do_not_send_instance_change_on_timeout_when_multiple_view_change_finish
     # receive quorum of ViewChanges and ViewChangeAcks
     non_primaries = [item for item in validators if item != primary_name]
     vc = create_view_change(initial_view_no + 1)
+    service._data.checkpoints.append(Checkpoint(instId=0,
+                                                viewNo=initial_view_no + 1,
+                                                seqNoStart=0,
+                                                seqNoEnd=DEFAULT_STABLE_CHKP,
+                                                digest=cp_digest(DEFAULT_STABLE_CHKP)))
     for vc_frm in non_primaries:
         external_bus.process_incoming(vc, generateName(vc_frm, service._data.inst_id))
         for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):

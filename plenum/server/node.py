@@ -117,7 +117,7 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import TxnPoolManager
 from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
-from plenum.server.replicas import Replicas
+from plenum.server.replicas import Replicas, MASTER_REPLICA_INDEX
 from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
@@ -330,8 +330,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._wallet = None
 
-        # Number of rounds of catchup done during a view change.
-        self.catchup_rounds_without_txns = 0
         # The start time of the catch-up during view change
         self._catch_up_start_ts = 0
 
@@ -667,9 +665,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._cancel(self._check_view_change_completed)
         self.schedule_view_change_completion_check(self._view_change_timeout)
 
-        # Set to 0 even when set to 0 in `on_view_change_complete` since
-        # catchup might be started due to several reasons.
-        self.catchup_rounds_without_txns = 0
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
     def on_view_change_complete(self):
@@ -1991,8 +1986,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
-        if self.num_txns_caught_up_in_last_catchup() == 0:
-            self.catchup_rounds_without_txns += 1
+        logger.info('{} caught up to {} txns in the last catchup'.
+                    format(self, self.num_txns_caught_up_in_last_catchup()))
+
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
             data = get_payload_data(last_txn)
@@ -2097,18 +2093,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return True
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
 
-    def is_catch_up_limit(self, timeout: float):
-        ts_since_catch_up_start = time.perf_counter() - self._catch_up_start_ts
-        if ts_since_catch_up_start >= timeout:
-            logger.info('{} has completed {} catchup rounds for {} seconds'.
-                        format(self, self.catchup_rounds_without_txns, ts_since_catch_up_start))
-            return True
-        return False
-
     def num_txns_caught_up_in_last_catchup(self) -> int:
-        count = self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
-        logger.info('{} caught up to {} txns in the last catchup'.format(self, count))
-        return count
+        return self.ledgerManager._node_leecher.num_txns_caught_up_in_last_catchup()
 
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
@@ -3484,10 +3470,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
-    def _process_new_view_accerted(self, msg: NewViewAccepted):
+    def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
+            if i != MASTER_REPLICA_INDEX:
+                self.replicas.send_to_internal_bus(msg, i)
             self.primary_selected(i)
 
     def _subscribe_to_internal_msgs(self):
@@ -3496,7 +3484,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self._process_start_master_catchup_msg,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
-                                                self._process_new_view_accerted,
+                                                self._process_new_view_accepted,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,
