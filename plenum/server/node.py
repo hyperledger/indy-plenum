@@ -657,44 +657,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{}{} changed to view {}, will start catchup now'.
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
-        self._cancel(self._check_view_change_completed)
-        self.schedule_view_change_completion_check(self._view_change_timeout)
-
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
-
-    def on_view_change_complete(self):
-        """
-        View change completes for a replica when it has been decided which was
-        the last ppSeqNo and state and txn root for previous view
-        """
-
-        self.write_manager.future_primary_handler.set_node_state()
-
-        if not self.replicas.all_instances_have_primary:
-            raise LogicError(
-                "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
-            )
-
-        self._cancel(self._check_view_change_completed)
-
-        for replica in self.replicas.values():
-            replica.on_view_change_done()
-        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
-        # Remove already ordered requests from requests list after view change
-        # If view change happen when one half of nodes ordered on master
-        # instance and backup but other only on master then we need to clear
-        # requests list.  We do this to stop transactions ordering  on backup
-        # replicas that have already been ordered on master.
-        # Test for this case in plenum/test/view_change/
-        # test_no_propagate_request_on_different_last_ordered_before_vc.py
-        for replica in self.replicas.values():
-            replica.clear_requests_and_fix_last_ordered()
-        self.monitor.reset()
-
-    def schedule_view_change_completion_check(self, timeout):
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=timeout)
 
     def on_view_propagated(self):
         """
@@ -1438,19 +1401,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              logMethod=logger.warning)
             i += 1
         logger.info("{} processed {} stashed msgs for view no {}".format(self, i, view_no))
-
-    def _check_view_change_completed(self):
-        """
-        This thing checks whether new primary was elected.
-        If it was not - starts view change again
-        """
-        logger.info('{} running the scheduled check for view change completion'.format(self))
-        if not self.view_changer.view_change_in_progress:
-            logger.info('{} already completion view change'.format(self))
-            return False
-
-        self.view_changer.on_view_change_not_completed_in_time()
-        return True
 
     @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
     def service_replicas_outbox(self, limit: int = None) -> int:

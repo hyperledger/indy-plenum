@@ -73,10 +73,6 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def notify_view_change_complete(self):
-        pass
-
-    @abstractmethod
     def select_primaries(self):
         pass
 
@@ -87,10 +83,6 @@ class ViewChangerDataProvider(ABC):
     @property
     @abstractmethod
     def node_status_db(self) -> Optional[KeyValueStorage]:
-        pass
-
-    @abstractmethod
-    def schedule_resend_inst_chng(self):
         pass
 
     @abstractmethod
@@ -381,7 +373,6 @@ class ViewChanger():
 
     # TODO: Check whether these still need to be called somewhere after view change:
     #  - self.provider.select_primaries()
-    #  - self.provider.notify_view_change_complete()
     #  - self.instance_changes.remove_view(self.view_no)
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):

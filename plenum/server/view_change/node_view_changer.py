@@ -54,9 +54,6 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def notify_view_change_start(self):
         self._node.on_view_change_start()
 
-    def notify_view_change_complete(self):
-        self._node.on_view_change_complete()
-
     def select_primaries(self):
         self._node.select_primaries()
 
@@ -66,9 +63,6 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     @property
     def node_status_db(self) -> KeyValueStorage:
         return self._node.nodeStatusDB
-
-    def schedule_resend_inst_chng(self):
-        self._node.schedule_view_change_completion_check(self._node.config.INSTANCE_CHANGE_RESEND_TIMEOUT)
 
     def start_view_change(self, proposed_view_no: int):
         for replica in self._node.replicas.values():
