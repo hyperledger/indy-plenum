@@ -264,15 +264,19 @@ def test_process_ordered_prepare_commit(validator, view_no, pp_seq_no):
 
 
 def test_discard_non_master_old_view_pp_req(validator):
+    old_view_pp_req_msg = old_view_pp_req()
     validator._data.is_master = False
     validator._data.inst_id = 1
-    assert validator.validate_old_view_prep_prepare_req(old_view_pp_req()) == (DISCARD, NON_MASTER)
+    old_view_pp_req_msg.instId = validator._data.inst_id
+    assert validator.validate_old_view_prep_prepare_req(old_view_pp_req_msg) == (DISCARD, NON_MASTER)
 
 
 def test_discard_non_master_old_view_pp_rep(validator):
+    old_view_pp_rep_msg = old_view_pp_rep()
     validator._data.is_master = False
     validator._data.inst_id = 1
-    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (DISCARD, NON_MASTER)
+    old_view_pp_rep_msg.instId = validator._data.inst_id
+    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep_msg) == (DISCARD, NON_MASTER)
 
 
 def test_discard_old_view_pp_req_with_incorrect_inst_id(validator):
