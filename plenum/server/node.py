@@ -1562,25 +1562,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Accessing Replica directly should be prohibited
         return self.replicas._master_replica
 
-    def msgHasAcceptableInstId(self, msg, frm) -> bool:
+    def stash_replica_msg_if_needed(self, msg, frm, inst_id):
         """
-        Return true if the instance id of message corresponds to a correct
-        replica.
+        Check the instance id of message and stash it to msgsForFutureReplicas
+        when inst_id more then requiredNumberOfInstances
 
-        :param msg: the node message to validate
+        :param msg: the node message to stash
+               frm: msg sender
+               inst_id: replica receiver id
         :return:
         """
-        # TODO: refactor this! this should not do anything except checking!
-        instId = getattr(msg, f.INST_ID.nm, None)
-        if not (isinstance(instId, int) and instId >= 0):
-            return False
-        if instId >= self.requiredNumberOfInstances:
-            if instId not in self.msgsForFutureReplicas:
-                self.msgsForFutureReplicas[instId] = deque()
-            self.msgsForFutureReplicas[instId].append((msg, frm))
-            logger.debug("{} queueing message {} for future protocol instance {}".format(self, msg, instId))
-            return False
-        return True
+        if not (isinstance(inst_id, int) and inst_id >= 0):
+            return
+        if inst_id >= self.requiredNumberOfInstances:
+            if inst_id not in self.msgsForFutureReplicas:
+                self.msgsForFutureReplicas[inst_id] = deque()
+            self.msgsForFutureReplicas[inst_id].append((msg, frm))
+            logger.debug("{} queueing message {} for future protocol instance {}".format(self, msg, inst_id))
 
     def _is_initial_view_change_now(self):
         return (self.viewNo == 0) and (self.master_primary_name is None)
@@ -1616,10 +1614,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if inst_id is None and self.msgHasAcceptableInstId(msg, frm):
-            inst_id = getattr(msg, f.INST_ID.nm, None)
         if inst_id is None:
+            inst_id = getattr(msg, f.INST_ID.nm, None)
+        if inst_id is not None and inst_id not in self.replicas:
+            self.stash_replica_msg_if_needed(msg, frm, inst_id)
             self.discard(msg, "Invalid node msg", logger.debug)
+            return
         self.replicas.pass_message((msg, frm), inst_id)
 
     def sendToViewChanger(self, msg, frm):
