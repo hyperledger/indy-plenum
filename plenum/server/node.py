@@ -1623,6 +1623,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             inst_id = getattr(msg, f.INST_ID.nm, None)
         if inst_id is None:
             self.discard(msg, "Invalid node msg", logger.debug)
+            return
         self.replicas.pass_message((msg, frm), inst_id)
 
     def sendToViewChanger(self, msg, frm):

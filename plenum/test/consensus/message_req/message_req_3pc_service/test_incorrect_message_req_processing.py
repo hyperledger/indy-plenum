@@ -102,6 +102,24 @@ def test_process_message_rep_invalid_preprepare(message_req_service: MessageReqS
     network_handler.assert_not_called()
 
 
+def test_process_message_rep_invalid_inst_id(message_req_service: MessageReqService, external_bus, data, pp):
+    key = (pp.viewNo, pp.ppSeqNo)
+    msg_type = PREPREPARE
+    message_req_service.handlers[PREPREPARE].requested_messages[key] = None
+    message_rep = MessageRep(**{
+        f.MSG_TYPE.nm: msg_type,
+        f.PARAMS.nm: {f.INST_ID.nm: data.inst_id + 1,
+                      f.VIEW_NO.nm: key[0],
+                      f.PP_SEQ_NO.nm: key[1]},
+        f.MSG.nm: dict(pp.items())
+    })
+    frm = "frm"
+    network_handler = Mock()
+    external_bus.subscribe(PrePrepare, network_handler)
+    message_req_service.process_message_rep(message_rep, frm)
+    network_handler.assert_not_called()
+
+
 def test_process_message_rep_with_incorrect_type(message_req_service: MessageReqService, external_bus, data, pp):
     key = (pp.viewNo, pp.ppSeqNo)
     message_rep = MessageRep(**{
