@@ -97,10 +97,10 @@ def test_send_message_to_incorrect_replica(test_node):
         assert (msg, frm) not in r.inBox
 
 
-def test_send_incorrect_message_without_inst_id(test_node):
+def test_send_message_for_all_without_inst_id(test_node):
     frm = "frm"
     msg = FakeSomething()
     test_node.sendToReplica(msg, frm)
     assert len(test_node.replicas) > 1
     for r in test_node.replicas.values():
-        assert (msg, frm) not in r.inBox
+        assert (msg, frm) in r.inBox
