@@ -92,11 +92,11 @@ class CheckpointMsgValidator:
         if view_no < self._data.view_no:
             return DISCARD, OLD_VIEW
 
-        # 4. Check if from future view
-        if view_no > self._data.view_no:
-            return STASH_VIEW_3PC, FUTURE_VIEW
-        if view_no == self._data.view_no and self._data.waiting_for_new_view:
-            return STASH_VIEW_3PC, FUTURE_VIEW
+        # # 4. Check if from future view
+        # if view_no > self._data.view_no:
+        #     return STASH_VIEW_3PC, FUTURE_VIEW
+        # if view_no == self._data.view_no and self._data.waiting_for_new_view:
+        #     return STASH_VIEW_3PC, FUTURE_VIEW
 
         # 3. Check if Participating
         if not self._data.is_participating:

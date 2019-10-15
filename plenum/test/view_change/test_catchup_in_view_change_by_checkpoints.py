@@ -23,9 +23,9 @@ def test_catchup_in_view_change_by_checkpoints(txnPoolNodeSet, looper,
     '''
     slow_node = txnPoolNodeSet[-1]
     fast_nodes = txnPoolNodeSet[:-1]
-
-    sdk_send_random_requests(looper, sdk_pool_handle,
-                             sdk_wallet_steward, 1)
+    #
+    # sdk_send_random_requests(looper, sdk_pool_handle,
+    #                          sdk_wallet_steward, 1)
 
     with delay_rules_without_processing(slow_node.nodeIbStasher, nv_delay()):
         # trigger view change on all nodes
@@ -41,8 +41,8 @@ def test_catchup_in_view_change_by_checkpoints(txnPoolNodeSet, looper,
 
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_steward,
-                                         num_reqs=CHK_FREQ * 2 - 2,
-                                         num_batches=CHK_FREQ * 2 - 2)
+                                         num_reqs=CHK_FREQ * 3,
+                                         num_batches=CHK_FREQ * 3)
 
     # wait for view change done on all nodes
     ensureElectionsDone(looper, txnPoolNodeSet)

@@ -419,6 +419,7 @@ class Replica(HasActionQueue, MessageProcessor):
         elif not self.isPrimary:
             self._checkpointer.set_watermarks(low_watermark=0,
                                               high_watermark=sys.maxsize)
+        self._consensus_data.waiting_for_new_view = False
 
     def get_lowest_probable_prepared_certificate_in_view(
             self, view_no) -> Optional[int]:
