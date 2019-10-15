@@ -392,23 +392,10 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.isMaster:
             return
 
-        self._clear_all_3pc_msgs()
-        reqs_for_remove = []
-        for req in self.requests.values():
-            ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)
-            if seq_no is not None:
-                reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
-        for key, ledger_id, seq_no in reqs_for_remove:
-            self.requests.ordered_by_replica(key)
-            self.requests.free(key)
-            self._ordering_service.requestQueues[int(ledger_id)].discard(key)
-        # TODO: Probably this needs to be removed since it is already done in CheckpointService
-        self.last_ordered_3pc = (self.viewNo, 0)
+        self._internal_bus.send(CheckpointStabilized(self.last_ordered_3pc))
         self._ordering_service._lastPrePrepareSeqNo = 0
-        self._checkpointer.set_watermarks(0)
-        self._checkpointer._reset_checkpoints()
-        self._consensus_data.stable_checkpoint = 0
-        self._checkpointer._remove_received_checkpoints(till_3pc_key=(self.viewNo, 0))
+        self._ordering_service.last_ordered_3pc = (self.viewNo, 0)
+        self._clear_all_3pc_msgs()
 
     def on_propagate_primary_done(self):
         if self.isMaster:
