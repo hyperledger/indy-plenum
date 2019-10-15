@@ -3,7 +3,7 @@ from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any
 
 from plenum.common.config_util import getConfig
-from plenum.common.constants import VIEW_CHANGE
+from plenum.common.constants import VIEW_CHANGE, PRIMARY_SELECTION_PREFIX
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
@@ -80,6 +80,12 @@ class ViewChangeService:
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
                                                                          instance_count=self._data.quorums.f + 1,
                                                                          validators=self._data.validators)
+        for i, primary_name in enumerate(self._data.primaries):
+            self._logger.display("{} selected primary {} for instance {} (view {})"
+                                 .format(PRIMARY_SELECTION_PREFIX,
+                                         primary_name, i, self._data.view_no),
+                                 extra={"cli": "ANNOUNCE",
+                                        "tags": ["node-election"]})
         self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         if not self._data.is_master:

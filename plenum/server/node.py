@@ -2856,6 +2856,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ensure_primaries_dropped()
 
         self.primaries = self.get_primaries_for_current_view()
+        for i, primary_name in enumerate(self.primaries):
+            logger.display("{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_SELECTION_PREFIX,
+                                   primary_name, i, self.viewNo),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
         pc = len(self.primaries)
         rc = len(self.replicas)
         if pc != rc:
