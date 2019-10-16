@@ -35,11 +35,6 @@ class RoundRobinPrimariesSelector(PrimariesSelector):
                 primary_name = self._next_primary_node_name_for_backup(master_primary, validators, primaries)
 
             primaries.append(primary_name)
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX,
-                                   primary_name, i, view_no),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
         if len(primaries) != instance_count:
             raise LogicError('instances inconsistency')
 
