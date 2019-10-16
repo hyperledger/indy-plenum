@@ -670,7 +670,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "{} Not all replicas have "
                 "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
             )
-        self._cancel(self._check_view_change_completed)
 
         for replica in self.replicas.values():
             replica.on_view_change_done()
