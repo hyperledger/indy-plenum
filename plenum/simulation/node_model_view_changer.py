@@ -1,10 +1,8 @@
 import logging
-from typing import Optional, List, Tuple, Set
+from typing import Optional, Set
 
-from base58 import b58encode
 
 from plenum.common.config_util import getConfig
-from plenum.common.startable import Mode
 from plenum.server.quorums import Quorums
 from plenum.server.view_change.view_changer import ViewChangerDataProvider, ViewChanger
 from stp_core.common.log import getlogger
