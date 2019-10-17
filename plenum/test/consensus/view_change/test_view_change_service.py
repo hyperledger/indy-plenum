@@ -117,7 +117,7 @@ def test_setup_prev_view_prepare_cert_on_vc_finished(internal_bus, view_change_s
     view_change_service._data.waiting_for_new_view = True
     view_change_service._data.prev_view_prepare_cert = 1
     new_view = create_new_view(initial_view_no=3, stable_cp=200)
-    view_change_service._new_view = new_view
+    view_change_service._data.new_view = new_view
     view_change_service._finish_view_change()
     assert view_change_service._data.prev_view_prepare_cert == new_view.batches[-1].pp_seq_no
     assert not view_change_service._data.waiting_for_new_view

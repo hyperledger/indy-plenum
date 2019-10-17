@@ -5,7 +5,7 @@ from random import Random
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
-from plenum.common.messages.node_messages import ViewChange
+from plenum.common.messages.node_messages import ViewChange, NewView
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.view_change.helper import some_pool
@@ -21,7 +21,9 @@ def latency(request, tconf):
 
 @pytest.fixture(params=[
     # ([ViewChange, NewView, ViewChangeAck], 0.02),
-    ([ViewChange], 1)])
+    ([ViewChange], 1),
+    ([NewView], 1),
+    ])
 def filter(request):
     return request.param[0], request.param[1]
 
