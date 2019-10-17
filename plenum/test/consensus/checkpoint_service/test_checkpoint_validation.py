@@ -117,4 +117,4 @@ def test_check_future_view(validator):
     msg = checkpoint(view_no=validator._data.view_no + 1,
                      inst_id=validator._data.inst_id,
                      pp_seq_no=10)
-    assert validator.validate(msg) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate(msg) == (PROCESS, None)
