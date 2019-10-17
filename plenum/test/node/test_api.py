@@ -8,12 +8,6 @@ from plenum.common.request import Request
 from plenum.test.testing_utils import FakeSomething
 
 
-def test_on_view_change_complete_fails(test_node):
-    with pytest.raises(LogicError) as excinfo:
-       test_node.on_view_change_complete()
-    assert "Not all replicas have primaries" in str(excinfo.value)
-
-
 def test_ledger_id_for_request_fails(test_node):
     for r in (Request(operation={}), Request(operation={TXN_TYPE: None})):
         with pytest.raises(ValueError) as excinfo:
