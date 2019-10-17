@@ -35,8 +35,8 @@ def new_view_message(data):
 
 
 def test_process_message_req_new_view(message_req_service: MessageReqService,
-                                         external_bus, data: ConsensusSharedData,
-                                         new_view_message: NewView):
+                                      external_bus, data: ConsensusSharedData,
+                                      new_view_message: NewView):
     frm = "frm"
     data.primary_name = data.name
     data.new_view = new_view_message
@@ -55,8 +55,8 @@ def test_process_message_req_new_view(message_req_service: MessageReqService,
 
 
 def test_process_message_req_new_view_by_non_primary(message_req_service: MessageReqService,
-                                         external_bus, data: ConsensusSharedData,
-                                         new_view_message: NewView):
+                                                     external_bus, data: ConsensusSharedData,
+                                                     new_view_message: NewView):
     frm = "frm"
     data.primary_name = "a" + data.name
     data.new_view = new_view_message
@@ -70,7 +70,7 @@ def test_process_message_req_new_view_by_non_primary(message_req_service: Messag
 
 
 def test_process_missing_message_new_view(message_req_service: MessageReqService, external_bus, data,
-                                             internal_bus, new_view_message: NewView):
+                                          internal_bus, new_view_message: NewView):
     primary = data.primary_name
     inst_id = data.inst_id
     missing_msg = MissingMessage(msg_type=NEW_VIEW,
@@ -104,8 +104,8 @@ def test_process_message_rep_new_view_from_primary(message_req_service: MessageR
 
 
 def test_process_message_rep_incorrect_new_view(message_req_service: MessageReqService,
-                                                             external_bus, data,
-                                                   new_view_message: NewView):
+                                                external_bus, data,
+                                                new_view_message: NewView):
     frm = data.primary_name
     inst_id = data.inst_id
     message_req_service.handlers[NEW_VIEW].requested_messages[data.view_no] = None

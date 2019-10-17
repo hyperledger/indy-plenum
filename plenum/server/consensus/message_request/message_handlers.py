@@ -292,9 +292,7 @@ class NewViewHandler(AbstractMessagesHandler):
         return message
 
     def _validate_message_req(self, **kwargs) -> bool:
-        return kwargs['inst_id'] == self._data.inst_id and \
-               kwargs['view_no'] == self._data.view_no and \
-               self._data.is_primary
+        return kwargs['inst_id'] == self._data.inst_id and kwargs['view_no'] == self._data.view_no and self._data.is_primary
 
     def _create_params(self, key) -> Dict[str, Any]:
         return {f.INST_ID.nm: self._data.inst_id,
@@ -325,4 +323,3 @@ class NewViewHandler(AbstractMessagesHandler):
                                                        reason='View change for view {} is already '
                                                               'finished'.format(self, msg.viewNo),
                                                        log_method=self._logger.debug)
-
