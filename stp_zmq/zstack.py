@@ -787,6 +787,7 @@ class ZStack(NetworkInterface):
             return self._client_message_provider.transmit_through_listener(msg,
                                                                            remoteName)
         else:
+            is_batch = isinstance(msg, Mapping) and msg.get(OP_FIELD_NAME) == BATCH
             if remoteName is None:
                 r = []
                 e = []
@@ -799,16 +800,16 @@ class ZStack(NetworkInterface):
                     logger.warning(err_str)
                     return False, err_str
                 for uid in self.remotes:
-                    res, err = self.transmit(msg, uid, serialized=True)
+                    res, err = self.transmit(msg, uid, serialized=True, is_batch=is_batch)
                     r.append(res)
                     e.append(err)
                 e = list(filter(lambda x: x is not None, e))
                 ret_err = None if len(e) == 0 else "\n".join(e)
                 return all(r), ret_err
             else:
-                return self.transmit(msg, remoteName)
+                return self.transmit(msg, remoteName, is_batch=is_batch)
 
-    def transmit(self, msg, uid, timeout=None, serialized=False):
+    def transmit(self, msg, uid, timeout=None, serialized=False, is_batch=False):
         remote = self.remotes.get(uid)
         err_str = None
         if not remote:
@@ -833,9 +834,13 @@ class ZStack(NetworkInterface):
                 logger.warning('Remote {} is not connected - message will not be sent immediately.'
                                'If this problem does not resolve itself - check your firewall settings'
                                .format(z85_to_friendly(uid)))
-                self._stashed_to_disconnected \
-                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
-                    .append(msg)
+                # We should not stash ping/pongs as this may lead to incorrect reconnection logic
+                # (replying by old pongs for new connection and masking connection issues)
+                # TODO: since we can not remove ping/pongs from Batches at this phase, just do not stash Batches at all
+                if not is_batch:
+                    self._stashed_to_disconnected \
+                        .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
+                        .append(msg)
 
             return True, err_str
         except zmq.Again:
