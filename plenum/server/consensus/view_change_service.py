@@ -301,7 +301,11 @@ class ViewChangeService:
         self.last_completed_view_no = self._data.view_no
 
     def _propose_view_change(self, suspision_code):
-        proposed_view_no = self._data.view_no + 1
+        proposed_view_no = self._data.view_no
+        # TODO: For some reason not incrementing view_no in most cases leads to lots of failing/flaky tests
+        # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
+        if suspision_code != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self._data.waiting_for_new_view:
+            proposed_view_no += 1
         self._logger.info("{} proposing a view change to {} with code {}".
                           format(self, proposed_view_no, suspision_code))
         msg = InstanceChange(proposed_view_no, suspision_code)

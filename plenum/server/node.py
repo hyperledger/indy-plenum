@@ -10,7 +10,6 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 import gc
 import psutil
 
-from plenum.common.event_bus import InternalBus
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
@@ -28,10 +27,8 @@ from plenum.common.timer import QueueTimer
 from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyProcessor
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
-from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
 from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_CATCH_UP, STASH_VIEW_3PC
-from plenum.server.request_handlers.utils import VALUE
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
@@ -50,21 +47,20 @@ from ledger.hash_stores.hash_store import HashStore
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     CLIENT_BLACKLISTER_SUFFIX, CONFIG_LEDGER_ID, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, \
+    NODE_BLACKLISTER_SUFFIX, \
     TXN_TYPE, LEDGER_STATUS, \
-    CLIENT_STACK_SUFFIX, PRIMARY_SELECTION_PREFIX, VIEW_CHANGE_PREFIX, \
+    CLIENT_STACK_SUFFIX, VIEW_CHANGE_PREFIX, \
     OP_FIELD_NAME, CATCH_UP_PREFIX, NYM, \
     GET_TXN, DATA, VERKEY, \
     TARGET_NYM, ROLE, STEWARD, TRUSTEE, ALIAS, \
     NODE_IP, BLS_PREFIX, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    TXN_AUTHOR_AGREEMENT_VERSION, AML, TXN_AUTHOR_AGREEMENT_TEXT, TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, MULTI_SIGNATURE
+    TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, PRIMARY_SELECTION_PREFIX
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, SuspiciousPrePrepare, \
-    TaaAmlNotSetError, InvalidClientTaaAcceptanceError, UnauthorizedClientRequest
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
@@ -87,15 +83,14 @@ from plenum.common.startable import Status, Mode
 from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_seq_no, get_type, get_payload_data, \
     get_txn_time, get_digest, TxnUtilConfig, get_payload_digest
-from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
-    OPERATION, f
+from plenum.common.types import OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
 from plenum.common.config_helper import PNodeConfigHelper
 
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
-from plenum.persistence.storage import Storage, initStorage
+from plenum.persistence.storage import Storage
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.recorder.recorder import add_start_time, add_stop_time
 
@@ -662,42 +657,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{}{} changed to view {}, will start catchup now'.
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
-        self._cancel(self._check_view_change_completed)
-        self.schedule_view_change_completion_check(self._view_change_timeout)
-
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
-
-    def on_view_change_complete(self):
-        """
-        View change completes for a replica when it has been decided which was
-        the last ppSeqNo and state and txn root for previous view
-        """
-
-        if not self.replicas.all_instances_have_primary:
-            raise LogicError(
-                "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
-            )
-
-        self._cancel(self._check_view_change_completed)
-
-        for replica in self.replicas.values():
-            replica.on_view_change_done()
-        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
-        # Remove already ordered requests from requests list after view change
-        # If view change happen when one half of nodes ordered on master
-        # instance and backup but other only on master then we need to clear
-        # requests list.  We do this to stop transactions ordering  on backup
-        # replicas that have already been ordered on master.
-        # Test for this case in plenum/test/view_change/
-        # test_no_propagate_request_on_different_last_ordered_before_vc.py
-        for replica in self.replicas.values():
-            replica.clear_requests_and_fix_last_ordered()
-        self.monitor.reset()
-
-    def schedule_view_change_completion_check(self, timeout):
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=timeout)
 
     def on_view_propagated(self):
         """
@@ -710,7 +670,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 "{} Not all replicas have "
                 "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
             )
-        self._cancel(self._check_view_change_completed)
 
         for replica in self.replicas.values():
             replica.on_view_change_done()
@@ -1440,19 +1399,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              logMethod=logger.warning)
             i += 1
         logger.info("{} processed {} stashed msgs for view no {}".format(self, i, view_no))
-
-    def _check_view_change_completed(self):
-        """
-        This thing checks whether new primary was elected.
-        If it was not - starts view change again
-        """
-        logger.info('{} running the scheduled check for view change completion'.format(self))
-        if not self.view_changer.view_change_in_progress:
-            logger.info('{} already completion view change'.format(self))
-            return False
-
-        self.view_changer.on_view_change_not_completed_in_time()
-        return True
 
     @measure_time(MetricsName.SERVICE_REPLICAS_OUTBOX_TIME)
     def service_replicas_outbox(self, limit: int = None) -> int:

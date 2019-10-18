@@ -15,6 +15,7 @@ from plenum.server.client_authn import CoreAuthNr
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
@@ -288,7 +289,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node._do_start_catchup,
                  Node.is_catchup_needed,
                  Node.no_more_catchups_needed,
-                 Node._check_view_change_completed,
                  Node.primary_selected,
                  Node.num_txns_caught_up_in_last_catchup,
                  Node.process_message_req,
@@ -435,6 +435,13 @@ class TestReplica(replica.Replica):
                                    stasher=self.stasher,
                                    metrics=self.metrics)
 
+    def _init_view_change_service(self) -> ViewChangeService:
+        return TestViewChangeService(data=self._consensus_data,
+                                     timer=self.node.timer,
+                                     bus=self.internal_bus,
+                                     network=self._external_bus,
+                                     stasher=self.stasher)
+
     def _init_message_req_service(self) -> MessageReqService:
         return TestMessageReqService(data=self._consensus_data,
                                      bus=self.internal_bus,
@@ -499,6 +506,16 @@ ordering_service_spyables = [
 
 @spyable(methods=ordering_service_spyables)
 class TestOrderingService(OrderingService):
+    pass
+
+
+view_change_service_spyables = [
+    ViewChangeService._finish_view_change
+]
+
+
+@spyable(methods=view_change_service_spyables)
+class TestViewChangeService(ViewChangeService):
     pass
 
 

@@ -1,10 +1,8 @@
-import pytest
-
 from common.serializers.serialization import node_status_db_serializer
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 from plenum.test import waits
 from plenum.test.checkpoints.conftest import chkFreqPatched
-from plenum.test.helper import sdk_send_batches_of_random, assertExp, get_pp_seq_no
+from plenum.test.helper import sdk_send_batches_of_random, assertExp
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica, \
@@ -22,7 +20,6 @@ backup_inst_id = 1
 num_batches = 7
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_backup_primary_restores_pp_seq_no_if_view_is_same(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
         tconf, tdir, allPluginsPath, chkFreqPatched, view_no):
