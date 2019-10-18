@@ -459,7 +459,7 @@ class MessageReq(MessageBase):
     Purpose: ask node for any message
     """
     allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE, PREPARE,
-                     COMMIT, PROPAGATE, VIEW_CHANGE}
+                     COMMIT, PROPAGATE, VIEW_CHANGE, NEW_VIEW}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
