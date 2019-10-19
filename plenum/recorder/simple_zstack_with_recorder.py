@@ -31,8 +31,8 @@ class SimpleZStackWithRecorder(SimpleZStack):
             logger.trace('{} recording incoming {} from {}'.format(self, msg, ident))
             self.recorder.add_incoming(msg, ident)
 
-    def transmit(self, msg, uid, timeout=None, serialized=False):
-        status, err = super().transmit(msg, uid, timeout=timeout, serialized=serialized)
+    def transmit(self, msg, uid, timeout=None, serialized=False, is_batch=False):
+        status, err = super().transmit(msg, uid, timeout=timeout, serialized=serialized, is_batch=is_batch)
         if status:
             self.recorder.add_outgoing(msg, uid)
         return status, err
