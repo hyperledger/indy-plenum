@@ -188,8 +188,8 @@ class Requests(OrderedDict):
         return reqKey in self and self[reqKey].finalised
 
     def digest(self, reqKey: str) -> str:
-        if reqKey in self and self[reqKey].finalised:
-            return self[reqKey].finalised.digest
+        if reqKey in self:
+            return self[reqKey].request.digest
 
 
 class Propagator:

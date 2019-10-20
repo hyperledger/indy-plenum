@@ -1130,7 +1130,7 @@ class OrderingService:
 
         # 1. apply each request
         for req_key in pre_prepare.reqIdr:
-            req = self._requests[req_key].finalised
+            req = self._requests[req_key].request
             try:
                 self._process_req_during_batch(req,
                                                pre_prepare.ppTime)
