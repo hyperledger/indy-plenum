@@ -1104,7 +1104,9 @@ class OrderingService:
         Check if there are any requests which are not finalised, i.e for
         which there are not enough PROPAGATEs
         """
-        return {key for key in reqKeys if not self._requests.is_finalised(key)}
+        # TODO: fix comment, write tests
+        return {key for key in reqKeys if key not in self._requests}
+        # return {key for key in reqKeys if not self._requests.is_finalised(key)}
 
     """Method from legacy code"""
     def _is_next_pre_prepare(self, view_no: int, pp_seq_no: int):
@@ -1128,7 +1130,7 @@ class OrderingService:
 
         # 1. apply each request
         for req_key in pre_prepare.reqIdr:
-            req = self._requests[req_key].finalised
+            req = self._requests[req_key].request
             try:
                 self._process_req_during_batch(req,
                                                pre_prepare.ppTime)

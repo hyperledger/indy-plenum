@@ -2115,7 +2115,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         requests = []
         for req_key in request_ids:
             if req_key in self.requests:
-                req = self.requests[req_key].finalised
+                req = self.requests[req_key].request
             else:
                 logger.warning("Could not apply stashed requests due to non-existent requests")
                 return

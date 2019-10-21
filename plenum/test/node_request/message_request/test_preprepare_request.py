@@ -1,6 +1,6 @@
 from plenum.common.constants import PROPAGATE
 from plenum.common.messages.node_messages import Prepare
-from plenum.test.delayers import ppDelay, pDelay, ppgDelay, msg_rep_delay
+from plenum.test.delayers import ppDelay, pDelay, ppgDelay, msg_rep_delay, req_delay
 from plenum.test.node_catchup.helper import checkNodeDataForInequality, \
     waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
@@ -96,8 +96,9 @@ def test_no_preprepare_requested(looper, txnPoolNodeSet,
     PRE-PREPARE but does not request PRE-PREPARE on receiving PREPARE
     """
     slow_node, other_nodes, _, _ = split_nodes(txnPoolNodeSet)
-    slow_node.nodeIbStasher.delay(ppgDelay(20))
-    slow_node.nodeIbStasher.delay(msg_rep_delay(20, [PROPAGATE, ]))
+    slow_node.nodeIbStasher.delay(ppgDelay())
+    slow_node.clientIbStasher.delay(req_delay())
+    slow_node.nodeIbStasher.delay(msg_rep_delay(1000, [PROPAGATE, ]))
 
     old_count_resp = count_requested_preprepare_resp(slow_node)
 
