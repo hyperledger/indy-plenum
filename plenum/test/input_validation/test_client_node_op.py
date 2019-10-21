@@ -69,4 +69,4 @@ def test_empty_bls_fails():
             ALIAS: 'aNode'
         })
     assert 'validation error [ClientNodeOperationData]: b58 decoded ' \
-           'value length 0 should be one of [128] (blskey=)' in ex_info.value.args[0]
+           'value length 0 should be 128 (blskey=)' in ex_info.value.args[0]
