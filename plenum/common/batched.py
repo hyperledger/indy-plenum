@@ -32,6 +32,7 @@ class Batched(MessageProcessor):
         self.stp_config = config or getConfig()
         self.msg_len_val = MessageLenValidator(self.stp_config.MSG_LEN_LIMIT)
         self.metrics = metrics
+        self.enabled = self.stp_config.TRANSPORT_BATCH_ENABLED
 
     def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
@@ -202,4 +203,4 @@ class Batched(MessageProcessor):
         return msg_bytes
 
     def _should_batch(self, msgs):
-        return len(msgs) > 1
+        return self.enabled and len(msgs) > 1
