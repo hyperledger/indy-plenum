@@ -602,8 +602,9 @@ class OrderingService:
             # present and sufficient PREPAREs and PRE-PREPARE are present,
             # then the digest can be compared but this is expensive as the
             # PREPARE and PRE-PREPARE contain a combined digest
-            self._schedule(partial(self._request_propagates_if_needed, bad_reqs, pre_prepare),
-                           self._config.PROPAGATE_REQUEST_DELAY)
+            if self._config.PROPAGATE_REQUEST_ENABLED:
+                self._schedule(partial(self._request_propagates_if_needed, bad_reqs, pre_prepare),
+                               self._config.PROPAGATE_REQUEST_DELAY)
         elif why_not == PP_CHECK_NOT_NEXT:
             pp_view_no = pre_prepare.viewNo
             pp_seq_no = pre_prepare.ppSeqNo
@@ -972,6 +973,8 @@ class OrderingService:
         """
         Request preprepare
         """
+        if not self._config.PRE_PREPARE_REQUEST_ENABLED:
+            return
         recipients = [getNodeName(self.primary_name)]
         self._request_three_phase_msg(three_pc_key,
                                       PREPREPARE,
@@ -984,6 +987,8 @@ class OrderingService:
         """
         Request preprepare
         """
+        if not self._config.PREPARE_REQUEST_ENABLED:
+            return
         if recipients is None:
             recipients = self._network.connecteds.copy()
             primary_node_name = getNodeName(self.primary_name)
@@ -996,6 +1001,8 @@ class OrderingService:
         """
         Request commit
         """
+        if not self._config.COMMIT_REQUEST_ENABLED:
+            return
         if recipients is None:
             recipients = self._network.connecteds.copy()
         self._request_three_phase_msg(three_pc_key, COMMIT, recipients)
