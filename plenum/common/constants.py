@@ -120,7 +120,7 @@ AUDIT_TXN_LEDGERS_SIZE = "ledgerSize"
 AUDIT_TXN_LEDGER_ROOT = "ledgerRoot"
 AUDIT_TXN_STATE_ROOT = "stateRoot"
 AUDIT_TXN_PRIMARIES = "primaries"
-
+AUDIT_TNX_DIGEST = "digest"
 
 # State proof fields
 STATE_PROOF = 'state_proof'

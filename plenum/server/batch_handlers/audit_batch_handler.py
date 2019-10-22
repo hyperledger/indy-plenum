@@ -3,7 +3,7 @@ from collections import Iterable
 from common.exceptions import LogicError
 from ledger.ledger import Ledger
 from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
-    AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PRIMARIES
+    AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PRIMARIES, AUDIT_TNX_DIGEST
 from plenum.common.ledger_uncommitted_tracker import LedgerUncommittedTracker
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
@@ -88,7 +88,8 @@ class AuditBatchHandler(BatchRequestHandler):
             AUDIT_TXN_LEDGERS_SIZE: {},
             AUDIT_TXN_LEDGER_ROOT: {},
             AUDIT_TXN_STATE_ROOT: {},
-            AUDIT_TXN_PRIMARIES: None
+            AUDIT_TXN_PRIMARIES: None,
+            AUDIT_TNX_DIGEST: three_pc_batch.digest  # TODO: Nemanja fix <-- this!
         }
 
         for lid, ledger in self.database_manager.ledgers.items():

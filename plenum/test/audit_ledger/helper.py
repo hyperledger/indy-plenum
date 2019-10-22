@@ -50,7 +50,8 @@ def check_audit_txn(txn,
                 "ppSeqNo": pp_seq_no,
                 "ledgerSize": ledger_size,
                 "stateRoot": state_roots,
-                "primaries": primaries
+                "primaries": primaries,
+                "digest": None  # TODO: Nemanja fix <-- this (do not use dummy value, pass a real one)!!
 
             },
             "metadata": {

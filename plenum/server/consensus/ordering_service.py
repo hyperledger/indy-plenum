@@ -1161,7 +1161,9 @@ class OrderingService:
                                                                                            to_str=False),
                                                            primaries=[],
                                                            valid_digests=self._get_valid_req_ids_from_all_requests(
-                                                               reqs, invalid_indices))
+                                                               reqs, invalid_indices),
+                                                           digest=self.replica_batch_digest(reqs)
+                                                           )
             self.post_batch_creation(three_pc_batch)
 
         return reqs, invalid_indices, rejects, suspicious
@@ -2001,6 +2003,8 @@ class OrderingService:
 
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
+        digest = self.replica_batch_digest(reqs)
+
         if self.is_master:
             three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
                                           inst_id=self._data.inst_id,
@@ -2012,14 +2016,15 @@ class OrderingService:
                                           primaries=[],
                                           valid_digests=self._get_valid_req_ids_from_all_requests(
                                               reqs, invalid_indices),
-                                          original_view_no=self.view_no)
+                                          digest=digest,
+                                          original_view_no=self.view_no,
+                                          )
             self.post_batch_creation(three_pc_batch)
 
-        digest = self.replica_batch_digest(reqs)
         state_root_hash = self.get_state_root_hash(ledger_id)
         audit_txn_root_hash = self.get_txn_root_hash(AUDIT_LEDGER_ID)
 
-        """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
+        # TODO: for now default value for fields sub_seq_no is 0 and for final is True
         params = [
             self._data.inst_id,
             self.view_no,
@@ -2165,6 +2170,25 @@ class OrderingService:
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
+
+        # Get all pre-prepares and prepares since the latest stable checkpoint
+        ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
+
+        to = ledger.get_last_txn()['txn']['data']['ppSeqNo']
+        frm = to - to % self._config.CHK_FREQ
+
+        batch_ids = [
+            BatchID(
+                view_no=self.view_no,  # TODO: Nemanja test passes if I put `txn['txn']['data']['viewNo']` instead of `self.view_no`. Why?
+                pp_view_no=txn['txn']['data']['viewNo'],
+                pp_seq_no=txn['txn']['data']['ppSeqNo'],
+                pp_digest=txn['txn']['data']['digest']
+            )
+            for _, txn in ledger.getAllTxn(frm=frm, to=to)
+        ]
+
+        self._data.preprepared = batch_ids[:]
+        self._data.prepared = batch_ids[:]
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
