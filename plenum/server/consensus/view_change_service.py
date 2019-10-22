@@ -40,8 +40,7 @@ class ViewChangeService:
 
         self._resend_inst_change_timer = RepeatingTimer(self._timer,
                                                         self._config.NEW_VIEW_TIMEOUT,
-                                                        partial(self._propose_view_change,
-                                                                Suspicions.INSTANCE_CHANGE_TIMEOUT.code),
+                                                        partial(self._propose_view_change_not_complete_in_time),
                                                         active=False)
 
         self._router.subscribe(ViewChange, self.process_view_change_message)
@@ -85,10 +84,20 @@ class ViewChangeService:
                                          primary_name, i, self._data.view_no),
                                  extra={"cli": "ANNOUNCE",
                                         "tags": ["node-election"]})
+
+        old_primary = self._data.primary_name
         self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         if not self._data.is_master:
             return
+
+        if old_primary and self._data.primary_name == old_primary:
+            self._logger.info("Selected master primary is the same with the "
+                              "current master primary (new_view {}). "
+                              "Propose a new view {}".format(self._data.inst_id,
+                                                             self._data.view_no,
+                                                             self._data.view_no + 1))
+            self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY.code)
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
@@ -300,14 +309,17 @@ class ViewChangeService:
                                        batches=self._data.new_view.batches))
         self.last_completed_view_no = self._data.view_no
 
+    def _propose_view_change_not_complete_in_time(self):
+        self._propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT.code)
+        if self._data.new_view is None:
+            self._request_new_view_message(self._data.view_no)
+
     def _propose_view_change(self, suspision_code):
         proposed_view_no = self._data.view_no + 1
         self._logger.info("{} proposing a view change to {} with code {}".
                           format(self, proposed_view_no, suspision_code))
         msg = InstanceChange(proposed_view_no, suspision_code)
         self._network.send(msg)
-        if self._data.new_view is None:
-            self._request_new_view_message(self._data.view_no)
 
     def _request_new_view_message(self, view_no):
         self._bus.send(MissingMessage(msg_type=NEW_VIEW,

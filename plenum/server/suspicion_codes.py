@@ -90,6 +90,8 @@ class Suspicions:
     REPLICAS_COUNT_CHANGED = Suspicion(46, "Replica's count changed")
     NEW_VIEW_INVALID_CHECKPOINTS = Suspicion(47, "New View's Primary sent NewView with invalid checkpoints")
     NEW_VIEW_INVALID_BATCHES = Suspicion(48, "New View's Primary sent NewView with invalid batches")
+    INCORRECT_NEW_PRIMARY = Suspicion(49, "In view change selected master primary is the same with the "
+                                          "current master primary")
 
     @classmethod
     def get_list(cls):
