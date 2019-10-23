@@ -2327,8 +2327,15 @@ class OrderingService:
         # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
         self._bus.send(ReOrderedInNewView())
 
+    def _remove_primaries_until(self, view_no):
+        for vn in list(self._write_manager.future_primary_handler.primaries.keys()):
+            if vn < view_no:
+                del self._write_manager.future_primary_handler.primaries[vn]
+
     def _cleanup_process(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
+        if self.is_master:
+            self._remove_primaries_until(self.view_no)
 
     def _preprepare_batch(self, pp: PrePrepare):
         """
