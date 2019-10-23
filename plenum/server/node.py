@@ -571,6 +571,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primaries = ps
         for r in self.replicas.values():
             r.set_primaries(ps)
+        self.write_manager.future_primary_handler.set_primaries(self.viewNo, ps)
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -3421,6 +3422,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
+        self.write_manager.future_primary_handler.set_primaries(self.viewNo, self.primaries)
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)

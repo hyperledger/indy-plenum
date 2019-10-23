@@ -1769,6 +1769,8 @@ class OrderingService:
             self._do_dynamic_validation(req, cons_time)
             self._write_manager.apply_request(req, cons_time)
 
+    # ToDo: Maybe we should remove this,
+    #  because we have the same one in replica's validator
     def can_send_3pc_batch(self):
         if not self._data.is_primary:
             return False

@@ -14,10 +14,11 @@ def _set_ppseqno(nodes, new_ppsn):
         for repl in node.replicas.values():
             repl._ordering_service.lastPrePrepareSeqNo = new_ppsn
             repl._checkpointer.set_watermarks(low_watermark=new_ppsn)
+            repl._consensus_data.stable_checkpoint = new_ppsn - new_ppsn % 100
             repl.last_ordered_3pc = (repl.viewNo, new_ppsn)
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
+# @pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 @pytest.mark.parametrize('do_view_change', [0, 1])
 def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, sdk_pool_handle,
                                                         sdk_wallet_steward, tdir, allPluginsPath):
@@ -31,21 +32,23 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
 
     ensure_several_view_change(looper, txnPoolNodeSet, do_view_change, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
 
-    big_ppseqno = tconf.LOG_SIZE * 2 + 2345
-    big_ppseqno += get_pp_seq_no(txnPoolNodeSet)
     cur_ppseqno = get_pp_seq_no(txnPoolNodeSet)
+    big_ppseqno = cur_ppseqno + tconf.LOG_SIZE * 2 + 2300
+    big_ppseqno += get_pp_seq_no(txnPoolNodeSet)
     assert (big_ppseqno > cur_ppseqno)
 
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 3)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_steward,
+                               sdk_pool_handle)
     assert (cur_ppseqno < get_pp_seq_no(txnPoolNodeSet))
 
     _set_ppseqno(txnPoolNodeSet, big_ppseqno)
     cur_ppseqno = get_pp_seq_no(txnPoolNodeSet)
     assert (big_ppseqno == cur_ppseqno)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 3)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_steward,
+                               sdk_pool_handle)
 
     assert (cur_ppseqno < get_pp_seq_no(txnPoolNodeSet))
 
@@ -58,15 +61,13 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               sdk_wallet_steward,
-                               sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
                                new_steward_wallet_handle,
                                sdk_pool_handle)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 3)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
+                               sdk_wallet_steward,
+                               sdk_pool_handle)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
