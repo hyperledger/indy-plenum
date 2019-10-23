@@ -94,8 +94,7 @@ class ViewChangeService:
         if old_primary and self._data.primary_name == old_primary:
             self._logger.info("Selected master primary is the same with the "
                               "current master primary (new_view {}). "
-                              "Propose a new view {}".format(self._data.inst_id,
-                                                             self._data.view_no,
+                              "Propose a new view {}".format(self._data.view_no,
                                                              self._data.view_no + 1))
             self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY.code)
 
