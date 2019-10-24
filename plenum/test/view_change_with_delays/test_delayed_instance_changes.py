@@ -23,6 +23,7 @@ def check_no_ic_msgs(node, expected_view_no, nodes):
         assert not node.view_changer.instance_changes.has_inst_chng_from(expected_view_no, n)
 
 
+@pytest.mark.skip(reason="INDY-2262. Need to select the same primaries for all nodes")
 def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet):
     '''
     A node is doing view change to view=1, while the other nodes already finished view change to view=2.
