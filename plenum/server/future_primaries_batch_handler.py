@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 from common.exceptions import LogicError
-from plenum.common.constants import  POOL_LEDGER_ID, \
+from plenum.common.constants import POOL_LEDGER_ID, \
     AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, AUDIT_TXN_VIEW_NO
 from plenum.common.ledger import Ledger
 from plenum.common.txn_util import get_payload_data
