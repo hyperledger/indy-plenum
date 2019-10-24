@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.util import randomString
 from plenum.test.helper import sdk_send_random_and_check, get_pp_seq_no
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -14,7 +15,9 @@ def _set_ppseqno(nodes, new_ppsn):
         for repl in node.replicas.values():
             repl._ordering_service.lastPrePrepareSeqNo = new_ppsn
             repl._checkpointer.set_watermarks(low_watermark=new_ppsn)
-            repl._consensus_data.stable_checkpoint = new_ppsn - new_ppsn % 100
+            st_chk = new_ppsn - new_ppsn % 100
+            repl._consensus_data.stable_checkpoint = st_chk
+            repl._consensus_data.checkpoints.append(Checkpoint(0, repl.viewNo, st_chk - 100, st_chk, None))
             repl.last_ordered_3pc = (repl.viewNo, new_ppsn)
 
 
@@ -34,7 +37,6 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
 
     cur_ppseqno = get_pp_seq_no(txnPoolNodeSet)
     big_ppseqno = cur_ppseqno + tconf.LOG_SIZE * 2 + 2300
-    big_ppseqno += get_pp_seq_no(txnPoolNodeSet)
     assert (big_ppseqno > cur_ppseqno)
 
     # ensure pool is working properly

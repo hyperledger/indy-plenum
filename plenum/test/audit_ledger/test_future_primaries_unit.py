@@ -40,17 +40,21 @@ def future_primaries(node, audit_ledger):
     return fp
 
 
-@pytest.fixture()
-def ordered_batches():
-    return [(0, 1, ['A', 'B']),
-            (0, 2, 1),
-            (0, 3, 2),
-            (1, 4, ['B', 'G']),
-            (1, 5, 1),
-            (2, 6, ['G', 'D']),
-            (2, 7, 1),
-            (3, 8, ['D', 'A']),
-            (3, 9, 1)]
+@pytest.fixture(params=[[(0, 1, ['A', 'B']),
+                         (0, 2, 1),
+                         (0, 3, 2),
+                         (1, 4, ['B', 'G']),
+                         (1, 5, 1),
+                         (2, 6, ['G', 'D']),
+                         (2, 7, 1),
+                         (3, 8, ['D', 'A']),
+                         (3, 9, 1)],
+                        [(0, 1, ['A', 'B']),
+                         (1, 2, ['B', 'G']),
+                         (2, 3, ['G', 'D']),
+                         (3, 4, ['D', 'A'])]])
+def ordered_batches(request):
+    return request.param
 
 
 @pytest.fixture(scope='function', params=['all_uncommitted', 'all_committed', 'mixed'])
