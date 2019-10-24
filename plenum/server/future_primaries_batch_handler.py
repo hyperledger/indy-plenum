@@ -1,15 +1,12 @@
-import copy
-from collections import OrderedDict
-from typing import Tuple, Dict, List
+from typing import Dict, List
 
 from common.exceptions import LogicError
-from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, ALIAS, SERVICES, VALIDATOR, DATA, POOL_LEDGER_ID, \
+from plenum.common.constants import  POOL_LEDGER_ID, \
     AUDIT_LEDGER_ID, AUDIT_TXN_PRIMARIES, AUDIT_TXN_VIEW_NO
-from plenum.common.txn_util import get_payload_data, get_seq_no
-from plenum.common.util import getMaxFailures
+from plenum.common.ledger import Ledger
+from plenum.common.txn_util import get_payload_data
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.pool_manager import TxnPoolManager
 
 
 class FuturePrimariesBatchHandler(BatchRequestHandler):
@@ -25,27 +22,43 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
     def set_primaries(self, view_no, ps):
         self.primaries[view_no] = ps
 
-    def _get_previous_primaries(self, audit, seq_no_end, view_no):
+    def _inspect_audit_txn(self, txn, view_no) -> int:
+        # Return delta of next primary's record
+        p_view_no = get_payload_data(txn)[AUDIT_TXN_VIEW_NO]
+        p_primaries = get_payload_data(txn)[AUDIT_TXN_PRIMARIES]
+        if p_view_no != view_no:
+            if isinstance(p_primaries, int):
+                return p_primaries
+            return 1
+        else:
+            if isinstance(p_primaries, int):
+                return p_primaries
+            return p_primaries
+
+    def _find_in_uncommitted(self, audit: Ledger, view_no, last_ind=1):
+        if len(audit.uncommittedTxns) == 0 or last_ind > len(audit.uncommittedTxns):
+            return None
+        last_txn = audit.uncommittedTxns[-last_ind]
+        primaries = self._inspect_audit_txn(last_txn, view_no)
+        if isinstance(primaries, list):
+            return primaries
+        return self._find_in_uncommitted(audit, view_no, last_ind + primaries)
+
+    def _get_previous_primaries(self, audit, view_no, seq_no_end):
         if seq_no_end == 0:
             return None
         previous_txn = audit.getBySeqNo(seq_no_end)
-        p_view_no = get_payload_data(previous_txn)[AUDIT_TXN_VIEW_NO]
-        p_primaries = get_payload_data(previous_txn)[AUDIT_TXN_PRIMARIES]
-        if p_view_no != view_no:
-            if isinstance(p_primaries, int):
-                # primaries is a delta
-                return self._get_previous_primaries(audit, seq_no_end - p_primaries, view_no)
-            # primaries is a list
-            return self._get_previous_primaries(audit, seq_no_end - 1, view_no)
-        else:
-            if isinstance(p_primaries, int):
-                p_txn = audit.getBySeqNo(seq_no_end - p_primaries)
-                return get_payload_data(p_txn)[AUDIT_TXN_PRIMARIES]
-            return p_primaries
+        primaries = self._inspect_audit_txn(previous_txn, view_no)
+        if isinstance(primaries, list):
+            return primaries
+        return self._get_previous_primaries(audit, view_no, seq_no_end - primaries)
 
     def get_primaries_from_audit(self, view_no):
         audit_ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
-        return self._get_previous_primaries(audit_ledger, audit_ledger.size, view_no)
+        p_uncommited = self._find_in_uncommitted(audit_ledger, view_no)
+        if p_uncommited:
+            return p_uncommited
+        return self._get_previous_primaries(audit_ledger, view_no, audit_ledger.size)
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         view_no = self.node.viewNo if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no

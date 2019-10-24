@@ -2329,7 +2329,8 @@ class OrderingService:
 
     def _remove_primaries_until(self, view_no):
         for vn in list(self._write_manager.future_primary_handler.primaries.keys()):
-            if vn < view_no:
+            # view_no == 0 it's an edge case with view_change from 0 view and not ordered any txns in 0 view
+            if vn < view_no and vn != 0:
                 del self._write_manager.future_primary_handler.primaries[vn]
 
     def _cleanup_process(self, msg: CheckpointStabilized):
