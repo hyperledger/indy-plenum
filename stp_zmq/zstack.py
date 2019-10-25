@@ -1,5 +1,7 @@
 import inspect
 
+from zmq.auth import Authenticator
+
 from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.common.util import z85_to_friendly
@@ -341,7 +343,7 @@ class ZStack(NetworkInterface):
 
     def start(self, restricted=None, reSetupAuth=True):
         # self.ctx = test.asyncio.Context.instance()
-        self.ctx = zmq.Context.instance()
+        self.ctx = zmq.Context() #zmq.Context.instance()
         if self.config.MAX_SOCKETS:
             self.ctx.MAX_SOCKETS = self.config.MAX_SOCKETS
         restricted = self.restricted if restricted is None else restricted
@@ -355,7 +357,7 @@ class ZStack(NetworkInterface):
         if self.opened:
             logger.display('stack {} closing its listener'.format(self), extra={"cli": False, "demo": False})
             self.close()
-        self.teardownAuth()
+        #self.teardownAuth()
         logger.display("stack {} stopped".format(self), extra={"cli": False, "demo": False})
 
     @property
@@ -403,25 +405,31 @@ class ZStack(NetworkInterface):
                 time.sleep(sleep_between_bind_retries)
 
     def close(self):
-        if self.listener_monitor is not None:
-            self.listener.disable_monitor()
-            self.listener_monitor = None
-        self.listener.unbind(self.listener.LAST_ENDPOINT)
-        self.listener.close(linger=0)
+        self.ctx.destroy(linger=0)
         self.listener = None
-        logger.debug('{} starting to disconnect remotes'.format(self))
-        for r in self.remotes.values():
-            r.disconnect()
-            self.remotesByKeys.pop(r.publicKey, None)
-
         self._remotes = {}
-        if self.remotesByKeys:
-            logger.debug('{} found remotes that were only in remotesByKeys and '
-                         'not in remotes. This is suspicious')
-            for r in self.remotesByKeys.values():
-                r.disconnect()
-            self.remotesByKeys = {}
+        self.remotesByKeys = {}
         self._conns = set()
+
+        # if self.listener_monitor is not None:
+        #     self.listener.disable_monitor()
+        #     self.listener_monitor = None
+        # self.listener.unbind(self.listener.LAST_ENDPOINT)
+        # self.listener.close(linger=0)
+        # self.listener = None
+        # logger.debug('{} starting to disconnect remotes'.format(self))
+        # for r in self.remotes.values():
+        #     r.disconnect()
+        #     self.remotesByKeys.pop(r.publicKey, None)
+        #
+        # self._remotes = {}
+        # if self.remotesByKeys:
+        #     logger.debug('{} found remotes that were only in remotesByKeys and '
+        #                  'not in remotes. This is suspicious')
+        #     for r in self.remotesByKeys.values():
+        #         r.disconnect()
+        #     self.remotesByKeys = {}
+        # self._conns = set()
 
     @property
     def selfEncKeys(self):
@@ -588,6 +596,9 @@ class ZStack(NetworkInterface):
             msg, ident = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
+
+            if ident in self.remotesByKeys:
+                self.remotesByKeys[ident].setConnected()
 
             if self.handlePingPong(msg, frm, ident):
                 continue
