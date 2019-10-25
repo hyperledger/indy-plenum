@@ -12,7 +12,7 @@ def check_apply_audit_txn(alh,
                           pool_size, domain_size, config_size,
                           last_pool_seqno, last_domain_seqno, last_config_seqno,
                           primaries, other_sizes={},
-                          original_view_no=None):
+                          original_view_no=None, digest=''):
     db_manager = alh.database_manager
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
@@ -20,7 +20,7 @@ def check_apply_audit_txn(alh,
     do_apply_audit_txn(alh,
                        txns_count=txns_count, ledger_id=ledger_ids[0],
                        view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time,
-                       original_view_no=original_view_no)
+                       original_view_no=original_view_no, digest=digest)
 
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before
@@ -41,7 +41,8 @@ def check_apply_audit_txn(alh,
                     last_domain_seqno=last_domain_seqno,
                     last_config_seqno=last_config_seqno,
                     primaries=primaries,
-                    other_sizes=other_sizes)
+                    other_sizes=other_sizes,
+                    digest=digest)
 
 
 def test_apply_audit_ledger_txn_pool_ledger(alh,
@@ -367,7 +368,8 @@ def test_apply_audit_ledger_txn_new_ledger(alh, node,
                           pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=1, last_config_seqno=None,
-                          primaries=1)
+                          primaries=1,
+                          digest='dummy test digest 1')
 
     integrate_plugin_in_node(node)
 
@@ -377,4 +379,4 @@ def test_apply_audit_ledger_txn_new_ledger(alh, node,
                           pool_size=initial_pool_size+10, domain_size=initial_domain_size + 15,
                           config_size=initial_config_size,
                           last_pool_seqno=2, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=2, other_sizes={AUCTION_LEDGER_ID: 0})
+                          primaries=2, digest='dummy test digest 2', other_sizes={AUCTION_LEDGER_ID: 0})
