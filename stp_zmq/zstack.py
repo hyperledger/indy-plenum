@@ -717,7 +717,9 @@ class ZStack(NetworkInterface):
         msg = self.pingMessage if is_ping else self.pongMessage
         action = 'ping' if is_ping else 'pong'
         name = remote if isinstance(remote, (str, bytes)) else remote.name
-        r = self.send(msg, name)
+        # Do not use Batches for sending health messages
+        r = self.transmit(msg, name, is_batch=False)
+        # r = self.send(msg, name)
         if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
