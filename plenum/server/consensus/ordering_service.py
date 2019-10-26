@@ -2192,8 +2192,8 @@ class OrderingService:
                 for _, txn in ledger.getAllTxn(frm=frm, to=to)
             ]
 
-            self._data.preprepared[:0] = batch_ids
-            self._data.prepared[:0] = batch_ids
+            self._data.preprepared.extend(batch_ids)
+            self._data.prepared.extend(batch_ids)
 
         except KeyError as e:
             self._logger.warning(

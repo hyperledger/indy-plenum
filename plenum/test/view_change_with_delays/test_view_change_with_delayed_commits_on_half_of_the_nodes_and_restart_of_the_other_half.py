@@ -13,10 +13,10 @@ def tconf(tconf):
         yield tconf
 
 
-def test_view_change_with_delayed_commits_on_multiple_nodes_and_restarts_of_other_nodes(txnPoolNodeSet, looper,
-                                                                                        sdk_pool_handle,
-                                                                                        sdk_wallet_client, tconf, tdir,
-                                                                                        allPluginsPath):
+def test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_the_other_half(txnPoolNodeSet, looper,
+                                                                                             sdk_pool_handle,
+                                                                                             sdk_wallet_client, tconf,
+                                                                                             tdir, allPluginsPath):
     """
     Order transactions on half of the pool
     Restart that half

@@ -13,31 +13,13 @@ def tconf(tconf):
         yield tconf
 
 
-"""
-Not sure what is happening with this test. Locally it is almost always green (saw it fail just a couple of times).
-On Jenkins it fails regularly with the following error:
-def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
-        viewNos = set()
-        for node in nodes:
-            logger.debug("{}'s view no is {}".format(node, node.master_replica.viewNo))
-            viewNos.add(node.master_replica.viewNo)
-        assert len(viewNos) == 1, 'Expected 1, but got {}. ' \
->                                 'ViewNos: {}'.format(len(viewNos), [(n.name, n.master_replica.viewNo) for n in nodes])
-E       AssertionError: Expected 1, but got 2. ViewNos: [('Alpha', 1), ('Beta', 1), ('Gamma', 0), ('Delta', 0)]
-
-expectedViewNo = 1
-node       = Delta
-nodes      = [Alpha, Beta, Gamma, Delta]
-viewNos    = {0, 1}
-"""
-@pytest.mark.skip(reason="Maybe will be fixed by: INDY-2238 (Persist 3PC messages during Ordering)")
-def test_view_change_with_delayed_commits_on_multiple_nodes_and_restarts_of_those_nodes(txnPoolNodeSet, looper,
+def test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_that_half(txnPoolNodeSet, looper,
                                                                                         sdk_pool_handle,
                                                                                         sdk_wallet_client, tconf, tdir,
                                                                                         allPluginsPath):
     """
-    Delay transaction on half of the pool
-    Restart that half
+    Order transactions on half of the pool
+    Restart the other half
     Trigger View Change
     Check that everything is ok
     """
@@ -57,4 +39,5 @@ def test_view_change_with_delayed_commits_on_multiple_nodes_and_restarts_of_thos
         tconf=tconf,
         tdir=tdir,
         all_plugins_path=allPluginsPath,
+        wait_for_catchup=True
     )
