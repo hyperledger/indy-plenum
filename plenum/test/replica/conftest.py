@@ -4,7 +4,8 @@ from orderedset._orderedset import OrderedSet
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
-from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
+    TXN_PAYLOAD, TXN_PAYLOAD_DATA, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_DIGEST
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.database_manager import DatabaseManager
@@ -28,7 +29,7 @@ class ReplicaFakeNode(FakeSomething):
         )
         self.replicas = []
         self.viewNo = viewNo
-        audit_ledger = FakeSomething(size=0)
+        audit_ledger = FakeSomething(size=0, get_last_txn=lambda *args: None, getAllTxn=lambda *args, **kwargs: [])
         db_manager = DatabaseManager()
         db_manager.register_new_database(AUDIT_LEDGER_ID, audit_ledger)
         super().__init__(

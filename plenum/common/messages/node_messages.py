@@ -100,6 +100,7 @@ class Ordered(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -513,6 +514,7 @@ class BatchCommitted(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 

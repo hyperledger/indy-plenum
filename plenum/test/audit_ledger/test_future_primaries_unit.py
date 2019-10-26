@@ -38,7 +38,7 @@ def future_primaries(node):
 @pytest.fixture(scope='function')
 def three_pc_batch():
     fp = ThreePcBatch(0, 0, 0, 3, 1, 'state', 'txn',
-                      ['a', 'b', 'c'], ['a'])
+                      ['a', 'b', 'c'], ['a'], pp_digest='')
     return fp
 
 

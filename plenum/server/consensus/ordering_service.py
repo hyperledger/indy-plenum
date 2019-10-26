@@ -13,8 +13,8 @@ from common.serializers.serialization import state_roots_serializer, invalid_ind
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, PREPREPARE, PREPARE, COMMIT, \
-    DOMAIN_LEDGER_ID, TS_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST,\
+    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
@@ -1154,14 +1154,13 @@ class OrderingService:
 
         # 2. call callback for the applied batch
         if self.is_master:
-            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
-                                                           state_root=self.get_state_root_hash(pre_prepare.ledgerId,
-                                                                                               to_str=False),
-                                                           txn_root=self.get_txn_root_hash(pre_prepare.ledgerId,
-                                                                                           to_str=False),
-                                                           primaries=[],
-                                                           valid_digests=self._get_valid_req_ids_from_all_requests(
-                                                               reqs, invalid_indices))
+            three_pc_batch = ThreePcBatch.from_pre_prepare(
+                pre_prepare,
+                state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
+                txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
+                primaries=[],
+                valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
+            )
             self.post_batch_creation(three_pc_batch)
 
         return reqs, invalid_indices, rejects, suspicious
@@ -1491,18 +1490,21 @@ class OrderingService:
             self._requests.ordered_by_replica(reqIdr)
 
         original_view_no = get_original_viewno(pp)
-        ordered = Ordered(self._data.inst_id,
-                          pp.viewNo,
-                          valid_reqIdr,
-                          invalid_reqIdr,
-                          pp.ppSeqNo,
-                          pp.ppTime,
-                          pp.ledgerId,
-                          pp.stateRootHash,
-                          pp.txnRootHash,
-                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self._get_primaries_for_ordered(pp),
-                          original_view_no)
+        ordered = Ordered(
+            self._data.inst_id,
+            pp.viewNo,
+            valid_reqIdr,
+            invalid_reqIdr,
+            pp.ppSeqNo,
+            pp.ppTime,
+            pp.ledgerId,
+            pp.stateRootHash,
+            pp.txnRootHash,
+            pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
+            self._get_primaries_for_ordered(pp),
+            original_view_no,
+            pp.digest,
+        )
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
@@ -2001,25 +2003,28 @@ class OrderingService:
 
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
+        digest = self.replica_batch_digest(reqs)
+
         if self.is_master:
-            three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
-                                          inst_id=self._data.inst_id,
-                                          view_no=self.view_no,
-                                          pp_seq_no=pp_seq_no,
-                                          pp_time=tm,
-                                          state_root=self.get_state_root_hash(ledger_id, to_str=False),
-                                          txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
-                                          primaries=[],
-                                          valid_digests=self._get_valid_req_ids_from_all_requests(
-                                              reqs, invalid_indices),
-                                          original_view_no=self.view_no)
+            three_pc_batch = ThreePcBatch(
+                ledger_id=ledger_id,
+                inst_id=self._data.inst_id,
+                view_no=self.view_no,
+                pp_seq_no=pp_seq_no,
+                pp_time=tm,
+                state_root=self.get_state_root_hash(ledger_id, to_str=False),
+                txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
+                primaries=[],
+                valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices),
+                pp_digest=digest,
+                original_view_no=self.view_no,
+            )
             self.post_batch_creation(three_pc_batch)
 
-        digest = self.replica_batch_digest(reqs)
         state_root_hash = self.get_state_root_hash(ledger_id)
         audit_txn_root_hash = self.get_txn_root_hash(AUDIT_LEDGER_ID)
 
-        """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
+        # TODO: for now default value for fields sub_seq_no is 0 and for final is True
         params = [
             self._data.inst_id,
             self.view_no,
@@ -2165,6 +2170,35 @@ class OrderingService:
     def _caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
+
+        # Get all pre-prepares and prepares since the latest stable checkpoint
+        ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
+        last_txn = ledger.get_last_txn()
+
+        if not last_txn:
+            return
+
+        to = get_payload_data(last_txn)[AUDIT_TXN_PP_SEQ_NO]
+        frm = to - to % self._config.CHK_FREQ + 1
+
+        try:
+            batch_ids = [
+                BatchID(
+                    view_no=get_payload_data(txn)[AUDIT_TXN_VIEW_NO],
+                    pp_view_no=get_payload_data(txn)[AUDIT_TXN_VIEW_NO],
+                    pp_seq_no=get_payload_data(txn)[AUDIT_TXN_PP_SEQ_NO],
+                    pp_digest=get_payload_data(txn)[AUDIT_TXN_DIGEST]
+                )
+                for _, txn in ledger.getAllTxn(frm=frm, to=to)
+            ]
+
+            self._data.preprepared[:0] = batch_ids
+            self._data.prepared[:0] = batch_ids
+
+        except KeyError as e:
+            self._logger.warning(
+                'Pre-Prepared/Prepared not restored as Audit TXN is missing needed fields: {}'.format(e)
+            )
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
