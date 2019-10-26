@@ -42,6 +42,7 @@ KEEPALIVE_INTVL = 1  # seconds
 KEEPALIVE_IDLE = 20  # seconds
 KEEPALIVE_CNT = 10
 MAX_SOCKETS = 16384 if sys.platform != 'win32' else None
+ROUTER_HANDOVER = 1
 ENABLE_HEARTBEATS = False
 HEARTBEAT_FREQ = 5  # seconds
 ZMQ_CLIENT_QUEUE_SIZE = 100  # messages (0 - no limit)

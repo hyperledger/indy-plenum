@@ -367,6 +367,7 @@ class ZStack(NetworkInterface):
         self.listener = self.ctx.socket(zmq.ROUTER)
         self._client_message_provider.listener = self.listener
         self.listener.setsockopt(zmq.ROUTER_MANDATORY, 1)
+        self.listener.setsockopt(zmq.ROUTER_HANDOVER, self.config.ROUTER_HANDOVER)
         if self.create_listener_monitor:
             self.listener_monitor = self.listener.get_monitor_socket()
         # noinspection PyUnresolvedReferences
