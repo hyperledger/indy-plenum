@@ -281,7 +281,8 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
 def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes, nodes_to_restart,
                                                           old_view_no, old_last_ordered,
                                                           looper, sdk_pool_handle, sdk_wallet_client,
-                                                          tconf, tdir, all_plugins_path):
+                                                          tconf, tdir, all_plugins_path,
+                                                          wait_for_catchup=False):
     """
     Delays commits without processing on `slow_nodes`, restarts `nodes_to_restart`, triggers view change, and confirms
     that view changed completed successfully and that the ledgers are consistent and in sync.
@@ -291,6 +292,7 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     :param nodes_to_restart: Nodes that will be restarted
     :param old_view_no: View that we started from
     :param old_last_ordered: Last ordered 3pc txn before we did any requests
+    :param wait_for_catchup: Should we wait for restarted nodes to finish catchup
     """
 
     nodes = fast_nodes + slow_nodes
@@ -300,7 +302,7 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     # Delay commits on `slow_nodes`
     with delay_rules_without_processing(slow_stashers, cDelay()):
 
-        sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+        request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
         # Check that all of the nodes except the slows one ordered the request
         looper.run(eventually(check_last_ordered, fast_nodes, (old_view_no, old_last_ordered[1] + 1)))
@@ -324,6 +326,9 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     looper.runFor(waits.expectedNodeStartUpTimeout())
     looper.run(checkNodesConnected(nodes))
 
+    if wait_for_catchup:
+        ensure_all_nodes_have_same_data(looper, nodes)
+
     # Trigger view change on all nodes
     for node in nodes:
         node.view_changer.on_master_degradation()
@@ -339,4 +344,5 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     )
     ensureElectionsDone(looper=looper, nodes=nodes)
     ensure_all_nodes_have_same_data(looper, nodes)
+    sdk_get_reply(looper, request)
     sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)

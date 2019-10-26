@@ -13,18 +13,11 @@ def tconf(tconf):
         yield tconf
 
 
-"""
-    This tests exhibits weird behaviour that should be investigated.
-    Namely it fails at an attempt to read from RocksDB:
-        def get(self, key):
-            key = self.to_byte_repr(key)
-    >       vv = self._db.get(key)
-    E       AttributeError: 'NoneType' object has no attribute 'get'
-"""
 @pytest.mark.skip(reason="Should be fixed by: INDY-2238 (Persist 3PC messages during Ordering)")
-def test_view_change_with_tnx_ordered_on_only_one_node_and_restart_of_others(txnPoolNodeSet, looper, sdk_pool_handle,
-                                                                             sdk_wallet_client, tconf, tdir,
-                                                                             allPluginsPath):
+def test_view_change_with_delayed_commits_on_all_but_one_node_and_restart_of_those_nodes(txnPoolNodeSet, looper,
+                                                                                         sdk_pool_handle,
+                                                                                         sdk_wallet_client, tconf, tdir,
+                                                                                         allPluginsPath):
     """
     Order transactions on only one node
     Restart all of the other nodes
