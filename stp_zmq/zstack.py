@@ -717,7 +717,9 @@ class ZStack(NetworkInterface):
         msg = self.pingMessage if is_ping else self.pongMessage
         action = 'ping' if is_ping else 'pong'
         name = remote if isinstance(remote, (str, bytes)) else remote.name
-        r = self.send(msg, name)
+        # Do not use Batches for sending health messages
+        r = self.transmit(msg, name, is_batch=False)
+        # r = self.send(msg, name)
         if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
@@ -834,13 +836,9 @@ class ZStack(NetworkInterface):
                 logger.warning('Remote {} is not connected - message will not be sent immediately.'
                                'If this problem does not resolve itself - check your firewall settings'
                                .format(z85_to_friendly(uid)))
-                # We should not stash ping/pongs as this may lead to incorrect reconnection logic
-                # (replying by old pongs for new connection and masking connection issues)
-                # TODO: since we can not remove ping/pongs from Batches at this phase, just do not stash Batches at all
-                if not is_batch:
-                    self._stashed_to_disconnected \
-                        .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
-                        .append(msg)
+                self._stashed_to_disconnected \
+                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
+                    .append(msg)
 
             return True, err_str
         except zmq.Again:
