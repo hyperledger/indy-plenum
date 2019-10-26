@@ -1241,9 +1241,9 @@ def create_pre_prepare_params(state_root,
               txn_root or '1' * 32,
               0,
               True,
+              [],
               pool_state_root or generate_state_root(),
-              audit_txn_root or generate_state_root(),
-              []]
+              audit_txn_root or generate_state_root()]
     if bls_multi_sig:
         params.append(bls_multi_sig.as_list())
     if bls_multi_sigs is not None:

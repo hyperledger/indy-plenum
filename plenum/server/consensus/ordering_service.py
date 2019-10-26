@@ -2050,9 +2050,9 @@ class OrderingService:
             self.get_txn_root_hash(ledger_id),
             0,
             True,
+            primaries_for_batch,
             pool_state_root_hash,
             audit_txn_root_hash,
-            primaries_for_batch
         ]
 
         # BLS multi-sig:
