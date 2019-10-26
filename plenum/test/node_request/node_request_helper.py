@@ -92,7 +92,8 @@ def checkPrePrepared(looper,
                 0,
                 True,
                 primary._ordering_service.get_state_root_hash(POOL_LEDGER_ID),
-                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID)
+                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID),
+                primary.node.primaries
             )
 
             passes = 0

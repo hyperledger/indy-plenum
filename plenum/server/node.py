@@ -3425,7 +3425,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
-        self.write_manager.future_primary_handler.set_primaries(self.viewNo, self.primaries)
         self.monitor.reset()
         for i in self.replicas.keys():
             if i != MASTER_REPLICA_INDEX:

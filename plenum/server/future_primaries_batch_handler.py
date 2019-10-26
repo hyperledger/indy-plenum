@@ -60,16 +60,28 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
             return p_uncommited
         return self._get_previous_primaries(audit_ledger, view_no, audit_ledger.size)
 
-    def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
-        view_no = self.node.viewNo if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
+    def get_primaries(self, view_no):
         if view_no not in self.primaries:
             ps = self.get_primaries_from_audit(view_no)
             if not ps:
-                raise LogicError("Cannot restore primaries from Audit Ledger")
-            self.primaries[view_no] = ps
-        primaries = self.primaries.get(view_no)
-        three_pc_batch.primaries = primaries
+                return None
+            self.set_primaries(view_no, ps)
+        return self.primaries.get(view_no)
 
+    def check_primaries(self, view_no, primaries_to_check):
+        ps = self.get_primaries(view_no)
+        if ps:
+            return ps == primaries_to_check
+        return False
+
+    def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        view_no = self.node.viewNo if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
+        primaries = self.get_primaries(view_no)
+        if primaries is None:
+            primaries = three_pc_batch.primaries
+            self.set_primaries(view_no, primaries)
+
+        three_pc_batch.primaries = primaries
         return three_pc_batch.primaries
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):

@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView
+    ReOrderedInNewView, NewViewAccepted
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -202,6 +202,7 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, OldViewPrePrepareReply, self.process_old_view_preprepare_reply)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
         self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
@@ -487,6 +488,9 @@ class OrderingService:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
 
+    def _validate_primaries(self, pre_prepare: PrePrepare):
+        return PROCESS, None
+
     @measure_consensus_time(MetricsName.PROCESS_PREPREPARE_TIME,
                             MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
     def process_preprepare(self, pre_prepare: PrePrepare, sender: str):
@@ -499,12 +503,16 @@ class OrderingService:
         """
         pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         # the same PrePrepare might come here multiple times
-        if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and (pre_prepare.digest, sender) not in self.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key][pre_prepare, sender] = self.get_time_for_3pc_batch()
+            self.pre_prepare_tss[pp_key][pre_prepare.digest, sender] = self.get_time_for_3pc_batch()
 
         result, reason = self._validate(pre_prepare)
+        if result != PROCESS:
+            return result, reason
+
+        result, reason = self._validate_primaries(pre_prepare)
         if result != PROCESS:
             return result, reason
 
@@ -1069,11 +1077,11 @@ class OrderingService:
                 pp.ppTime < self.last_accepted_pre_prepare_time):
             return False
         elif ((tpcKey not in self.pre_prepare_tss) or
-                ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
+                ((pp.digest, sender) not in self.pre_prepare_tss[tpcKey])):
             return False
         else:
             return (
-                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp.digest, sender]) <=
                 self._config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
             )
 
@@ -1150,7 +1158,7 @@ class OrderingService:
                                                                                                to_str=False),
                                                            txn_root=self.get_txn_root_hash(pre_prepare.ledgerId,
                                                                                            to_str=False),
-                                                           primaries=[],
+                                                           primaries=pre_prepare.primaries,
                                                            valid_digests=self._get_valid_req_ids_from_all_requests(
                                                                reqs, invalid_indices))
             self.post_batch_creation(three_pc_batch)
@@ -1994,6 +2002,7 @@ class OrderingService:
 
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
+        primaries_for_batch = self._write_manager.future_primary_handler.get_primaries(self.view_no)
         if self.is_master:
             three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
                                           inst_id=self._data.inst_id,
@@ -2002,7 +2011,7 @@ class OrderingService:
                                           pp_time=tm,
                                           state_root=self.get_state_root_hash(ledger_id, to_str=False),
                                           txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
-                                          primaries=[],
+                                          primaries=primaries_for_batch,
                                           valid_digests=self._get_valid_req_ids_from_all_requests(
                                               reqs, invalid_indices),
                                           original_view_no=self.view_no)
@@ -2027,7 +2036,8 @@ class OrderingService:
             0,
             True,
             pool_state_root_hash,
-            audit_txn_root_hash
+            audit_txn_root_hash,
+            primaries_for_batch
         ]
 
         # BLS multi-sig:
@@ -2248,6 +2258,9 @@ class OrderingService:
         # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
+
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:

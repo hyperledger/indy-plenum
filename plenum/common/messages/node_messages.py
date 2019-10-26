@@ -132,6 +132,7 @@ class PrePrepare(MessageBase):
                                                     nullable=True)),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
                                                    nullable=True)),
+        (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(max_length=NAME_FIELD_LIMIT))),
         # TODO: support multiple multi-sigs for multiple previous batches
         (f.BLS_MULTI_SIG.nm, BlsMultiSignatureField(optional=True,
                                                     nullable=True)),
