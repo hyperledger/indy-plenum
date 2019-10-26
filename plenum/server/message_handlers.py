@@ -158,9 +158,9 @@ class PropagateHandler(BaseHandler):
 
     def requestor(self, params: Dict[str, Any]) -> Optional[Propagate]:
         req_key = params[f.DIGEST.nm]
-        if req_key in self.node.requests and self.node.requests[req_key].finalised:
+        if req_key in self.node.requests:
             sender_client = self.node.requestSender.get(req_key)
-            req = self.node.requests[req_key].finalised
+            req = self.node.requests[req_key].request
             return self.node.createPropagate(req, sender_client)
         return None
 

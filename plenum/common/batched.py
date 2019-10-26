@@ -32,6 +32,7 @@ class Batched(MessageProcessor):
         self.stp_config = config or getConfig()
         self.msg_len_val = MessageLenValidator(self.stp_config.MSG_LEN_LIMIT)
         self.metrics = metrics
+        self.enabled = self.stp_config.TRANSPORT_BATCH_ENABLED
 
     def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
@@ -119,7 +120,9 @@ class Batched(MessageProcessor):
                                 batch,
                                 rid,
                                 timeout=self.messageTimeout,
-                                serialized=True)
+                                serialized=True,
+                                is_batch=True
+                            )
                     else:
                         logger.error("{} cannot create batch(es) for {}".format(self, dest))
                 else:
@@ -130,7 +133,7 @@ class Batched(MessageProcessor):
                         self.metrics.add_event(MetricsName.TRANSPORT_BATCH_SIZE, 1)
                         # Setting timeout to never expire
                         self.transmit(msg, rid, timeout=self.messageTimeout,
-                                      serialized=True)
+                                      serialized=True, is_batch=False)
 
         for rid in removedRemotes:
             logger.info("{}{} has removed rid {}".
@@ -200,4 +203,4 @@ class Batched(MessageProcessor):
         return msg_bytes
 
     def _should_batch(self, msgs):
-        return len(msgs) > 1
+        return self.enabled and len(msgs) > 1

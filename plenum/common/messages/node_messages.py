@@ -100,6 +100,7 @@ class Ordered(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -460,7 +461,7 @@ class MessageReq(MessageBase):
     Purpose: ask node for any message
     """
     allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE, PREPARE,
-                     COMMIT, PROPAGATE, VIEW_CHANGE}
+                     COMMIT, PROPAGATE, VIEW_CHANGE, NEW_VIEW}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
@@ -514,6 +515,7 @@ class BatchCommitted(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 

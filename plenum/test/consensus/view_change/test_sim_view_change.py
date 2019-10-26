@@ -5,7 +5,7 @@ from random import Random
 import pytest
 
 from plenum.common.messages.internal_messages import NeedViewChange
-from plenum.common.messages.node_messages import ViewChange
+from plenum.common.messages.node_messages import ViewChange, NewView
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.view_change.helper import some_pool
@@ -21,7 +21,9 @@ def latency(request, tconf):
 
 @pytest.fixture(params=[
     # ([ViewChange, NewView, ViewChangeAck], 0.02),
-    ([ViewChange], 1)])
+    ([ViewChange], 1),
+    ([NewView], 1),
+    ])
 def filter(request):
     return request.param[0], request.param[1]
 
@@ -36,7 +38,7 @@ def default_random(request):
 def random_random(request):
     seed = request.param
     # TODO: Remove after starting processing INSTANCE_CHANGE messages in simulation tests
-    if seed in {290370, 749952}:
+    if seed in {290370, 749952, 348636, 919685}:
         return DefaultSimRandom(0)
     return DefaultSimRandom(seed)
 

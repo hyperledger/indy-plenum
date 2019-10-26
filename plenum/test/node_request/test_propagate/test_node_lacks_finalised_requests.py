@@ -64,21 +64,22 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
                               sent_reqs)
     looper.runFor(tconf.PROPAGATE_REQUEST_DELAY)
 
-    assert get_count(
-        faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
     if recv_client_requests:
         assert get_count(
             faulty_node, faulty_node.processRequest) > old_count_recv_req
+        assert get_count(faulty_node, faulty_node.processPropagate) == old_count_recv_ppg
+        assert sum_of_request_propagates(faulty_node) == old_count_request_propagates
     else:
         assert get_count(
+            faulty_node, faulty_node.processPropagate) > old_count_recv_ppg
+        assert get_count(
             faulty_node, faulty_node.processRequest) == old_count_recv_req
-
-    # Attempt to request PROPAGATEs was made as many number of times as the
-    # number of sent batches in both replicas since both replicas
-    # independently request PROPAGATEs
-    assert sum_of_request_propagates(faulty_node) - \
-           old_count_request_propagates == (sum_of_sent_batches() -
-                                            old_sum_of_sent_batches)
+        # Attempt to request PROPAGATEs was made as many number of times as the
+        # number of sent batches in both replicas since both replicas
+        # independently request PROPAGATEs
+        assert sum_of_request_propagates(faulty_node) - \
+               old_count_request_propagates == (sum_of_sent_batches() -
+                                                old_sum_of_sent_batches)
 
     faulty_node.nodeIbStasher.reset_delays_and_process_delayeds()
     sdk_ensure_pool_functional(looper,

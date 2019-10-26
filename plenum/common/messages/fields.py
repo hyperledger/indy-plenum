@@ -371,8 +371,10 @@ class Base58Field(FieldBase):
             # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
-                return 'b58 decoded value length {} should be one of {}' \
-                    .format(b58len, list(self.byte_lengths))
+                expected_length = list(self.byte_lengths)[0] if len(self.byte_lengths) == 1 \
+                    else 'one of {}'.format(list(self.byte_lengths))
+                return 'b58 decoded value length {} should be {}' \
+                    .format(b58len, expected_length)
 
 
 class IdentifierField(Base58Field):

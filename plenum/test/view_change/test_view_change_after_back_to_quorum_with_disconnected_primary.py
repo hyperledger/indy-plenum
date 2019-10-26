@@ -14,7 +14,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason="INDY-2235: restoring batchId from audit")
 def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeSet, looper,
                                                                     sdk_pool_handle,
                                                                     sdk_wallet_client,

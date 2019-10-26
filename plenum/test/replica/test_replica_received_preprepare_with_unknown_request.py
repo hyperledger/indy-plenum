@@ -49,15 +49,20 @@ def test_replica_received_preprepare_with_unknown_request(looper,
                                                           tconf):
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 1)
-    replica = txnPoolNodeSet[1].master_replica
-    start_request_propagate_count = sum_of_request_propagates(txnPoolNodeSet[1])
-    with delay_rules(txnPoolNodeSet[1].nodeIbStasher, ppgDelay(delay=10)):
+    slow_nodes = txnPoolNodeSet[2:]
+    nodes_stashers = [n.nodeIbStasher for n in slow_nodes]
+    slow_replica_1 = txnPoolNodeSet[2].master_replica
+    slow_replica_2 = txnPoolNodeSet[3].master_replica
+    with delay_rules(nodes_stashers, ppgDelay()):
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 1)
 
-    params = replica._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
-    pp = params["pre_prepare"]
-    sender = params["sender"]
+    params1 = slow_replica_1._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
+    pp1 = params1["pre_prepare"]
+    sender1 = params1["sender"]
+    params2 = slow_replica_2._ordering_service.spylog.getLastParams(OrderingService.process_preprepare)
+    pp2 = params2["pre_prepare"]
+    sender2 = params2["sender"]
     looper.runFor(tconf.PROPAGATE_REQUEST_DELAY)
-    assert (pp, sender, set(pp.reqIdr)) not in replica._ordering_service.prePreparesPendingFinReqs
-    assert 1 == sum_of_request_propagates(txnPoolNodeSet[1]) - start_request_propagate_count
+    assert (pp1, sender1, set(pp1.reqIdr)) not in slow_replica_1._ordering_service.prePreparesPendingFinReqs
+    assert (pp2, sender2, set(pp2.reqIdr)) not in slow_replica_2._ordering_service.prePreparesPendingFinReqs

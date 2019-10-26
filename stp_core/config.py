@@ -23,12 +23,15 @@ MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 3
 # Enables/disables debug mode for Looper class
 LOOPER_DEBUG = False
 
+# All messages exceeding the limit will be rejected without processing
+MSG_LEN_LIMIT = 128 * 1024
+
 # Quotas configuration
 ENABLE_DYNAMIC_QUOTAS = False
 MAX_REQUEST_QUEUE_SIZE = 1000
 NODE_TO_NODE_STACK_QUOTA = 1000
 CLIENT_TO_NODE_STACK_QUOTA = 100
-NODE_TO_NODE_STACK_SIZE = 1024 * 1024
+NODE_TO_NODE_STACK_SIZE = MSG_LEN_LIMIT * 50
 CLIENT_TO_NODE_STACK_SIZE = 1024 * 1024
 
 # Zeromq configuration
@@ -50,8 +53,5 @@ RESEND_CLIENT_MSG_TIMEOUT = 30
 REMOVE_CLIENT_MSG_TIMEOUT = 60 * 5
 PINGS_BEFORE_SOCKET_RECONNECTION = 3
 PING_RECONNECT_ENABLED = True
-
-# All messages exceeding the limit will be rejected without processing
-MSG_LEN_LIMIT = 128 * 1024
 
 MAX_WAIT_FOR_BIND_SUCCESS = 120  # seconds
