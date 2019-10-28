@@ -96,7 +96,7 @@ def test_reconnect_long(looper, connected_stacks, connection_timeout,
     """
     Check that if a stack is kept disconnected for a long time, it is able to reconnect
     """
-    check_disconnected_for(4 * 60,
+    check_disconnected_for(5 * 60,
                            looper, connected_stacks, connection_timeout,
                            disconnect_first_stack)
 
