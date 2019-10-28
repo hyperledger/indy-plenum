@@ -40,9 +40,6 @@ def drop_pings(stack):
     stack.drop_ping = True
 
 
-
-
-
 def check_ping_received(looper, stack, frm):
     def do_check_ping():
         assert frm in stack.has_ping
