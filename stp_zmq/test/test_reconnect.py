@@ -78,7 +78,7 @@ def check_disconnected_for(disconnect_time, looper, connected_stacks,
     # CONNECT
     connect(looper, disconnect_first_stack)
     looper.run(eventually(
-        checkStacksConnected, stacks, retryWait=1, timeout=60))
+        checkStacksConnected, stacks, retryWait=1, timeout=2 * connection_timeout))
 
 
 def test_reconnect_short(looper, connected_stacks, connection_timeout,

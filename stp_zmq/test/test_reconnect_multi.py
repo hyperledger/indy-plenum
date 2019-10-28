@@ -14,9 +14,9 @@ from stp_zmq.test.helper import genKeys
 @pytest.fixture()
 def tconf(tconf):
     old_timeout = tconf.RETRY_TIMEOUT_RESTRICTED
-    #tconf.RETRY_TIMEOUT_RESTRICTED = 1
+    tconf.RETRY_TIMEOUT_RESTRICTED = 1
     yield tconf
-    #tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout
+    tconf.RETRY_TIMEOUT_RESTRICTED = old_timeout
 
 
 REGISTRY = {
