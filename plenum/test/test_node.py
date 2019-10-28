@@ -813,8 +813,8 @@ def checkIfSameReplicaIsPrimary(looper: Looper,
     def checkPrisAreSame():
         pris = {r.primaryName for r in replicas}
         assert len(pris) == 1, "Primary should be same for all, but were {} " \
-                               "for protocol no {}" \
-            .format(pris, replicas[0].instId)
+                               "for protocol no {}, Replicas: {}" \
+            .format(pris, replicas[0].instId, [{r.name: r.primaryName} for r in replicas])
 
     looper.run(
         eventuallyAll(checkElectionDone, checkPrisAreOne, checkPrisAreSame,
@@ -995,7 +995,7 @@ def instances(nodes: Sequence[Node],
     instances = (range(getRequiredInstances(len(nodes)))
                  if instances is None else instances)
     for n in nodes:
-        assert len(n.replicas) == len(instances)
+        assert len(n.replicas) == len(instances), "Node: {}".format(n)
     return {i: [n.replicas[i] for n in nodes] for i in instances}
 
 

@@ -666,12 +666,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         the last ppSeqNo and state and txn root for previous view
         """
 
-        if not self.replicas.all_instances_have_primary:
-            raise LogicError(
-                "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
-            )
-
         for replica in self.replicas.values():
             replica.on_view_change_done()
         self.master_replica._view_change_service.last_completed_view_no = self.viewNo
@@ -1995,12 +1989,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
                     self.start_participating()
-                if instance_id >= len(self.primaries):
-                    self.replicas.remove_replica(instance_id)
-                    continue
-                replica.primaryChanged(
-                    Replica.generateName(self.primaries[instance_id], instance_id))
-                self.primary_selected(instance_id)
+                if instance_id < len(self.primaries):
+                    replica.primaryChanged(
+                        Replica.generateName(self.primaries[instance_id], instance_id))
+                    self.primary_selected(instance_id)
 
         # Primary propagation
         last_sent_pp_seq_no_restored = False
