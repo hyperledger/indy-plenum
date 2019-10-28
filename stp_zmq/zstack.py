@@ -345,7 +345,7 @@ class ZStack(NetworkInterface):
         if self.config.NEW_CTXT_INSTANCE:
             self.ctx = zmq.Context()
         else:
-            self.ctx = zmq.Context()
+            self.ctx = self.ctx = zmq.Context.instance()
         if self.config.MAX_SOCKETS:
             self.ctx.MAX_SOCKETS = self.config.MAX_SOCKETS
         restricted = self.restricted if restricted is None else restricted
