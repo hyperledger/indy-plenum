@@ -35,19 +35,10 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
                 return p_primaries
             return p_primaries
 
-    def _find_in_uncommitted(self, audit: Ledger, view_no, last_ind=1):
-        if len(audit.uncommittedTxns) == 0 or last_ind > len(audit.uncommittedTxns):
-            return None
-        last_txn = audit.uncommittedTxns[-last_ind]
-        primaries = self._inspect_audit_txn(last_txn, view_no)
-        if isinstance(primaries, list):
-            return primaries
-        return self._find_in_uncommitted(audit, view_no, last_ind + primaries)
-
     def _get_previous_primaries(self, audit, view_no, seq_no_end):
         if seq_no_end == 0:
             return None
-        previous_txn = audit.getBySeqNo(seq_no_end)
+        previous_txn = audit.getBySeqNo(seq_no_end) if seq_no_end <= audit.size else audit.get_by_seq_no_uncommitted(seq_no_end)
         primaries = self._inspect_audit_txn(previous_txn, view_no)
         if isinstance(primaries, list):
             return primaries
@@ -55,10 +46,7 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
 
     def get_primaries_from_audit(self, view_no):
         audit_ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
-        p_uncommited = self._find_in_uncommitted(audit_ledger, view_no)
-        if p_uncommited:
-            return p_uncommited
-        return self._get_previous_primaries(audit_ledger, view_no, audit_ledger.size)
+        return self._get_previous_primaries(audit_ledger, view_no, audit_ledger.uncommitted_size)
 
     def get_primaries(self, view_no):
         if view_no not in self.primaries:
