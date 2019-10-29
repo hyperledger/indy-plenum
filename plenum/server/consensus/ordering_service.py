@@ -43,7 +43,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC
@@ -489,7 +489,10 @@ class OrderingService:
         self.commitsWaitingForPrepare[key].append((request, sender))
 
     def _validate_primaries(self, pre_prepare: PrePrepare):
-        return PROCESS, None
+        view_no = get_original_viewno(pre_prepare)
+        prs_from_pp = pre_prepare.primaries
+        prs_from_audit = self._write_manager.future_primary_handler.get_primaries(view_no)
+        return PROCESS if prs_from_pp == prs_from_audit else DISCARD
 
     @measure_consensus_time(MetricsName.PROCESS_PREPREPARE_TIME,
                             MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
@@ -509,10 +512,6 @@ class OrderingService:
             self.pre_prepare_tss[pp_key][pre_prepare.auditTxnRootHash, sender] = self.get_time_for_3pc_batch()
 
         result, reason = self._validate(pre_prepare)
-        if result != PROCESS:
-            return result, reason
-
-        result, reason = self._validate_primaries(pre_prepare)
         if result != PROCESS:
             return result, reason
 
@@ -552,6 +551,8 @@ class OrderingService:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
                 elif why_not_applied == PP_REQUEST_ALREADY_ORDERED:
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+                elif why_not_applied == PP_WRONG_PRIMARIES:
+                    report_suspicious(Suspicions.PPR_WITH_WRONG_PRIMARIES)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1180,6 +1181,10 @@ class OrderingService:
                                       reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
+
+        result = self._validate_primaries(pre_prepare)
+        if result != PROCESS:
+            return PP_WRONG_PRIMARIES
 
         digest = self.replica_batch_digest(reqs)
         if digest != pre_prepare.digest:
