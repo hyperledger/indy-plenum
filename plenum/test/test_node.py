@@ -12,9 +12,10 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
@@ -288,8 +289,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node._do_start_catchup,
                  Node.is_catchup_needed,
                  Node.no_more_catchups_needed,
-                 Node.caught_up_for_current_view,
-                 Node._check_view_change_completed,
                  Node.primary_selected,
                  Node.num_txns_caught_up_in_last_catchup,
                  Node.process_message_req,
@@ -373,10 +372,8 @@ class TestNode(TestNodeCore, Node):
 
 view_changer_spyables = [
     ViewChanger.sendInstanceChange,
-    ViewChanger._do_view_change_by_future_vcd,
     ViewChanger.process_instance_change_msg,
-    ViewChanger.start_view_change,
-    ViewChanger.process_future_view_vchd_msg
+    ViewChanger.start_view_change
 ]
 
 
@@ -438,22 +435,29 @@ class TestReplica(replica.Replica):
                                    stasher=self.stasher,
                                    metrics=self.metrics)
 
-    def _init_message_req_service(self) -> MessageReq3pcService:
-        return TestMessageReq3pcService(data=self._consensus_data,
-                                        bus=self.internal_bus,
-                                        network=self._external_bus,
-                                        metrics=self.metrics)
+    def _init_view_change_service(self) -> ViewChangeService:
+        return TestViewChangeService(data=self._consensus_data,
+                                     timer=self.node.timer,
+                                     bus=self.internal_bus,
+                                     network=self._external_bus,
+                                     stasher=self.stasher)
+
+    def _init_message_req_service(self) -> MessageReqService:
+        return TestMessageReqService(data=self._consensus_data,
+                                     bus=self.internal_bus,
+                                     network=self._external_bus,
+                                     metrics=self.metrics)
 
 
 message_req_spyables = [
-    MessageReq3pcService.process_message_req,
-    MessageReq3pcService.process_message_rep,
-    MessageReq3pcService.process_missing_message,
+    MessageReqService.process_message_req,
+    MessageReqService.process_message_rep,
+    MessageReqService.process_missing_message,
 ]
 
 
 @spyable(methods=message_req_spyables)
-class TestMessageReq3pcService(MessageReq3pcService):
+class TestMessageReqService(MessageReqService):
     pass
 
 
@@ -502,6 +506,16 @@ ordering_service_spyables = [
 
 @spyable(methods=ordering_service_spyables)
 class TestOrderingService(OrderingService):
+    pass
+
+
+view_change_service_spyables = [
+    ViewChangeService._finish_view_change
+]
+
+
+@spyable(methods=view_change_service_spyables)
+class TestViewChangeService(ViewChangeService):
     pass
 
 
@@ -875,6 +889,10 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       nodes=nodes,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
+
+    def check_not_in_view_change():
+        assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
+    looper.run(eventually(check_not_in_view_change, retryWait=retryWait, timeout=customTimeout))
 
     if check_primaries:
         for n in nodes[1:]:

@@ -220,7 +220,7 @@ class Replicas:
                 str_commits = ', '.join(commits)
 
             # get txn content
-            content = replica.requests[reqId].finalised.as_dict \
+            content = replica.requests[reqId].request.as_dict \
                 if reqId in replica.requests else 'no content saved'
 
             logger.warning('Consensus for digest {} was not achieved within {} seconds. '

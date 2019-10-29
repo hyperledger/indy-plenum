@@ -44,6 +44,9 @@ def test_heartbeats_only_one_stack(tdir, looper, tconf, setup):
     alpha.config.ENABLE_HEARTBEATS = True
     alpha.config.HEARTBEAT_FREQ = heartbeat_freq
 
+    beta.config.PING_RECONNECT_ENABLED = False
+    gamma.config.PING_RECONNECT_ENABLED = False
+
     for s in (alpha, beta, gamma):
         add_counters_to_ping_pong(s)
 

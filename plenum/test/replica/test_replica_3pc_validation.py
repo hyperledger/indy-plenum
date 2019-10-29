@@ -4,7 +4,7 @@ from plenum.common.startable import Mode
 from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, ALREADY_ORDERED, FUTURE_VIEW, \
-    GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, STASH_VIEW, STASH_WATERMARKS, \
+    GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, STASH_VIEW_3PC, STASH_WATERMARKS, \
     STASH_CATCH_UP
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, create_commit_no_bls_sig, create_prepare
 
@@ -104,7 +104,7 @@ def test_check_future_view(validator):
     for msg in create_3pc_msgs(view_no=validator.view_no + 1,
                                pp_seq_no=1,
                                inst_id=validator.inst_id):
-        assert validator.validate_3pc_msg(msg) == (STASH_VIEW, FUTURE_VIEW)
+        assert validator.validate_3pc_msg(msg) == (STASH_VIEW_3PC, FUTURE_VIEW)
 
 
 def test_check_previous_view_no_view_change(validator):
@@ -195,12 +195,12 @@ def test_check_previous_view_view_change_prep_cert_non_commit(validator, pp_seq_
 
 @pytest.mark.parametrize('pp_seq_no, result', [
     (0, (DISCARD, INCORRECT_PP_SEQ_NO)),
-    (1, (STASH_VIEW, FUTURE_VIEW)),
-    (9, (STASH_VIEW, FUTURE_VIEW)),
-    (10, (STASH_VIEW, FUTURE_VIEW)),
-    (11, (STASH_VIEW, FUTURE_VIEW)),
-    (12, (STASH_VIEW, FUTURE_VIEW)),
-    (100, (STASH_VIEW, FUTURE_VIEW)),
+    (1, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (9, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (10, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (11, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (12, (STASH_VIEW_3PC, FUTURE_VIEW)),
+    (100, (STASH_VIEW_3PC, FUTURE_VIEW)),
 ])
 def test_check_current_view_view_change_prep_cert(validator, pp_seq_no, result):
     validator.replica.node.view_change_in_progress = True
@@ -303,12 +303,6 @@ def test_can_send_3pc_batch_not_participating(primary_validator, mode):
     primary_validator.replica.node.mode = mode
     result = primary_validator.can_send_3pc_batch()
     assert result == (mode == Mode.participating)
-
-
-def test_can_send_3pc_batch_pre_view_change(primary_validator, mode):
-    primary_validator.replica.node.pre_view_change_in_progress = True
-    primary_validator.replica.node.mode = mode
-    assert not primary_validator.can_send_3pc_batch()
 
 
 def test_can_send_3pc_batch_old_view(primary_validator, mode):

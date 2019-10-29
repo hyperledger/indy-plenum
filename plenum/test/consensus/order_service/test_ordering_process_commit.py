@@ -41,6 +41,7 @@ def pre_prepare(o, _pre_prepare):
 def test_process_ordered_commit(o, pre_prepare, prepare, commit):
     o._validator = OrderingServiceMsgValidator(o._data)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
+    o._data.prev_view_prepare_cert = 1
     o.last_ordered_3pc = (commit.viewNo, commit.ppSeqNo + 1)
     for i in range(o._data.quorums.prepare.value):
         if o._data.validators[i] + ":0" != o.name:

@@ -1,4 +1,5 @@
 from functools import partial
+from random import Random
 
 import pytest
 
@@ -7,12 +8,20 @@ from plenum.test.consensus.order_service.sim_helper import MAX_BATCH_SIZE, setup
     check_batch_count, check_consistency
 from plenum.test.simulation.sim_random import DefaultSimRandom
 
-
 REQUEST_COUNT = 10
 
 
-@pytest.mark.parametrize("seed", range(10))
-def test_ordering_with_real_msgs(seed):
+@pytest.mark.parametrize("seed", range(100))
+def test_ordering_with_real_msgs_default_seed(seed):
+    do_test(seed)
+
+
+@pytest.mark.parametrize("seed", Random().sample(range(1000000), 100))
+def test_ordering_with_real_msgs_random_seed(seed):
+    do_test(seed)
+
+
+def do_test(seed):
     # 1. Setup pool
     requests_count = REQUEST_COUNT
     batches_count = requests_count // MAX_BATCH_SIZE

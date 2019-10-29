@@ -15,6 +15,7 @@ def tconf(tconf):
     del tconf.PRE_VC_STRATEGY
 
 
+@pytest.mark.skip(reason="we don't use this message more")
 def test_add_vc_start_msg_during_start_view_change(txnPoolNodeSet,
                                                    looper):
     delayed_node = txnPoolNodeSet[-1]

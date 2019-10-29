@@ -23,12 +23,15 @@ MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 3
 # Enables/disables debug mode for Looper class
 LOOPER_DEBUG = False
 
+# All messages exceeding the limit will be rejected without processing
+MSG_LEN_LIMIT = 128 * 1024
+
 # Quotas configuration
 ENABLE_DYNAMIC_QUOTAS = False
 MAX_REQUEST_QUEUE_SIZE = 1000
 NODE_TO_NODE_STACK_QUOTA = 1000
 CLIENT_TO_NODE_STACK_QUOTA = 100
-NODE_TO_NODE_STACK_SIZE = 1024 * 1024
+NODE_TO_NODE_STACK_SIZE = MSG_LEN_LIMIT * 50
 CLIENT_TO_NODE_STACK_SIZE = 1024 * 1024
 
 # Zeromq configuration
@@ -39,6 +42,7 @@ KEEPALIVE_INTVL = 1  # seconds
 KEEPALIVE_IDLE = 20  # seconds
 KEEPALIVE_CNT = 10
 MAX_SOCKETS = 16384 if sys.platform != 'win32' else None
+ROUTER_HANDOVER = 1
 ENABLE_HEARTBEATS = False
 HEARTBEAT_FREQ = 5  # seconds
 ZMQ_CLIENT_QUEUE_SIZE = 100  # messages (0 - no limit)
@@ -48,8 +52,7 @@ PENDING_CLIENT_LIMIT = 100
 PENDING_MESSAGES_FOR_ONE_CLIENT_LIMIT = 100
 RESEND_CLIENT_MSG_TIMEOUT = 30
 REMOVE_CLIENT_MSG_TIMEOUT = 60 * 5
-
-# All messages exceeding the limit will be rejected without processing
-MSG_LEN_LIMIT = 128 * 1024
+PINGS_BEFORE_SOCKET_RECONNECTION = 3
+PING_RECONNECT_ENABLED = True
 
 MAX_WAIT_FOR_BIND_SUCCESS = 120  # seconds

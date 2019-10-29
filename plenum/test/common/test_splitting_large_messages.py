@@ -11,7 +11,7 @@ def message_size_limit():
 
 @pytest.fixture()
 def batched(message_size_limit):
-    b = Batched(FakeSomething(MSG_LEN_LIMIT=message_size_limit))
+    b = Batched(FakeSomething(MSG_LEN_LIMIT=message_size_limit, TRANSPORT_BATCH_ENABLED=True))
     b.sign_and_serialize = lambda msg, signer: msg
     return b
 

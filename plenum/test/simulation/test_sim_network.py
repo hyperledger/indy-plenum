@@ -159,10 +159,10 @@ def test_sim_network_respects_latencies(random, test_nodes, mock_timer, initial_
         assert all(min_ts <= ts <= max_ts for ts in node.receive_timestamps)
 
 
-def test_sim_network_broadcast_preserves_order(mock_timer, sim_network, test_nodes, some_node):
+def test_sim_network_broadcast_in_lexicographic_order(mock_timer, sim_network, test_nodes, some_node):
     latency = 10
     sim_network.set_latency(latency, latency)
-    should_receive = [node for node in test_nodes if node != some_node]
+    should_receive = sorted([node for node in test_nodes if node != some_node], key=lambda n: n.name)
 
     message = create_some_message()
     some_node.network.send(message)

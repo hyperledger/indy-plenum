@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import TypeVar, NamedTuple, Dict
 
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
@@ -14,15 +15,16 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField
+    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField, FieldValidator
 from plenum.common.messages.message_base import \
-    MessageBase
+    MessageBase, MessageValidator
 from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
 # TODO set of classes are not hashable but MessageBase expects that
+from plenum.server.consensus.batch_id import BatchID
 
 
 class Batch(MessageBase):
@@ -98,6 +100,7 @@ class Ordered(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -244,6 +247,20 @@ class BackupInstanceFaulty(MessageBase):
         (f.REASON.nm, NonNegativeNumberField())
     )
 
+#
+# class CheckpointsList(IterableField):
+#
+#     def __init__(self, min_length=None, max_length=None, **kwargs):
+#         super().__init__(AnyField(), min_length, max_length, **kwargs)
+#
+#     def _specific_validation(self, val):
+#         result = super()._specific_validation(val)
+#         if result is not None:
+#             return result
+#         for chk in val:
+#             if not isinstance(chk, Checkpoint):
+#                 return "Checkpoints list contains not Checkpoint objects"
+
 
 class ViewChange(MessageBase):
     typename = VIEW_CHANGE
@@ -254,6 +271,49 @@ class ViewChange(MessageBase):
         (f.PREPREPARED.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         (f.CHECKPOINTS.nm, IterableField(AnyField()))  # list of Checkpoints TODO: should we change to tuples?
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        checkpoints = []
+        for chk in self.checkpoints:
+            if isinstance(chk, dict):
+                checkpoints.append(Checkpoint(**chk))
+        if checkpoints:
+            self.checkpoints = checkpoints
+
+        # The field `prepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of dicts then we need to deserialize it.
+        if self.prepared and isinstance(self.prepared[0], dict):
+            self.prepared = [BatchID(**bid)
+                             for bid in self.prepared
+                             if isinstance(bid, dict)]
+        # The field `preprepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of dicts then we need to deserialize it.
+        if self.preprepared and isinstance(self.preprepared[0], dict):
+            self.preprepared = [BatchID(**bid)
+                                for bid in self.preprepared
+                                if isinstance(bid, dict)]
+
+    def _asdict(self):
+        result = super()._asdict()
+        checkpoints = []
+        for chk in self.checkpoints:
+            if isinstance(chk, dict):
+                continue
+            checkpoints.append(chk._asdict())
+        if checkpoints:
+            result[f.CHECKPOINTS.nm] = checkpoints
+        # The field `prepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of BatchID then we need to serialize it.
+        if self.prepared and isinstance(self.prepared[0], BatchID):
+            result[f.PREPARED.nm] = [bid._asdict()
+                                     for bid in self.prepared]
+        # The field `preprepared` can to be a list of BatchIDs or of dicts.
+        # If its a list of BatchID then we need to serialize it.
+        if self.preprepared and isinstance(self.preprepared[0], BatchID):
+            result[f.PREPREPARED.nm] = [bid._asdict()
+                                        for bid in self.preprepared]
+        return result
 
 
 class ViewChangeAck(MessageBase):
@@ -274,6 +334,31 @@ class NewView(MessageBase):
         (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
         # that should get into new view
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if isinstance(self.checkpoint, dict):
+            self.checkpoint = Checkpoint(**self.checkpoint)
+        # The field `batches` can to be a list of BatchIDs or of dicts.
+        # If it's not a list of dicts then we don't need to deserialize it.
+        if not self.batches or not isinstance(self.batches[0], dict):
+            return
+        self.batches = [BatchID(**bid)
+                        for bid in self.batches
+                        if isinstance(bid, dict)]
+
+    def _asdict(self):
+        result = super()._asdict()
+        chk = self.checkpoint
+        if not isinstance(chk, dict):
+            result[f.CHECKPOINT.nm] = chk._asdict()
+        # The field `batches` can to be a list of BatchIDs or of dicts.
+        # If its a list of dicts then we don't need to serialize it.
+        if not self.batches or not isinstance(self.batches[0], BatchID):
+            return result
+        result[f.BATCHES.nm] = [bid._asdict()
+                                for bid in self.batches]
+        return result
 
 
 class LedgerStatus(MessageBase):
@@ -375,7 +460,7 @@ class MessageReq(MessageBase):
     Purpose: ask node for any message
     """
     allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE, PREPARE,
-                     COMMIT, PROPAGATE}
+                     COMMIT, PROPAGATE, VIEW_CHANGE, NEW_VIEW}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
@@ -429,6 +514,7 @@ class BatchCommitted(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 

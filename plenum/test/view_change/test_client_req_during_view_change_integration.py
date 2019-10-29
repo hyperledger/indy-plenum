@@ -17,7 +17,7 @@ def test_client_write_request_discard_in_view_change_integration(txnPoolNodeSet,
                               sdk_wallet_client, 4)
 
     for node in txnPoolNodeSet:
-        node.view_changer.view_change_in_progress = True
+        node.master_replica._consensus_data.waiting_for_new_view = True
     discard_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
                                             sdk_wallet_client, 1)
     with pytest.raises(PoolLedgerTimeoutException) as e:
@@ -32,7 +32,7 @@ def test_client_get_request_not_discard_in_view_change_integration(txnPoolNodeSe
     Check that client requests sent in view change will discard.
     '''
     for node in txnPoolNodeSet:
-        node.view_changer.view_change_in_progress = True
+        node.master_replica._consensus_data.waiting_for_new_view = True
     _, steward_did = sdk_wallet_client
     request = sdk_build_get_txn_request(looper, steward_did, 1)
 

@@ -137,7 +137,7 @@ def test_commit_works_after_catchup(alh, db_manager,
                     primaries=2 * (caughtup_txns + 1))
 
 
-def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp_seq_no, pp_time):
+def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp_seq_no, pp_time, digest=''):
     db_manager = alh.database_manager
     for i in range(count):
         add_txns(db_manager, ledger_id, txns_per_batch, pp_time)
@@ -149,6 +149,7 @@ def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp
                                       state_root=db_manager.get_state(ledger_id).headHash,
                                       txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
                                       primaries=DEFAULT_PRIMARIES,
-                                      valid_digests=[])
+                                      valid_digests=[],
+                                      pp_digest=digest)
         alh._add_to_ledger(three_pc_batch)
     alh.ledger.commitTxns(count)

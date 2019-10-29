@@ -31,27 +31,31 @@ RaisedSuspicion = NamedTuple('RaisedSuspicion',
 PreSigVerification = NamedTuple('PreSigVerification',
                                 [('cmsg', Any)])
 
-Missing3pcMessage = NamedTuple('Missing3pcMessage',
-                               [('msg_type', str),
-                                ('three_pc_key', tuple),
-                                ('inst_id', int),
-                                ('dst', List[str]),
-                                ('stash_data', Optional[tuple])])
+MissingMessage = NamedTuple('MissingMessage',
+                            [('msg_type', str),
+                             ('key', tuple),
+                             ('inst_id', int),
+                             ('dst', List[str]),
+                             ('stash_data', Optional[tuple])])
 
 # by default view_no for StartViewChange is None meaning that we move to the next view
-NeedViewChange = NamedTuple('StartViewChange',
+NeedViewChange = NamedTuple('NeedViewChange',
                             [('view_no', int)])
 NeedViewChange.__new__.__defaults__ = (None,) * len(NeedViewChange._fields)
 
 ViewChangeStarted = NamedTuple('ViewChangeStarted',
                                [('view_no', int)])
+
 NewViewAccepted = NamedTuple('NewViewAccepted',
                              [('view_no', int),
                               ('view_changes', list),
                               ('checkpoint', object),
                               ('batches', list)])
+
 NewViewCheckpointsApplied = NamedTuple('NewViewCheckpointsApplied',
                                        [('view_no', int),
                                         ('view_changes', list),
                                         ('checkpoint', object),
                                         ('batches', list)])
+
+ReOrderedInNewView = NamedTuple('ReOrderedInNewView', [])

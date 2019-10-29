@@ -6,7 +6,7 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, ALREADY_ORDERED, FUTURE_VIEW, \
     GREATER_PREP_CERT, OLD_VIEW, CATCHING_UP, OUTSIDE_WATERMARKS, INCORRECT_PP_SEQ_NO, ALREADY_STABLE, STASH_WATERMARKS, \
-    STASH_CATCH_UP, STASH_VIEW
+    STASH_CATCH_UP, STASH_VIEW_3PC
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -48,7 +48,7 @@ class ReplicaValidator:
 
         # 4. Check viewNo
         if view_no > self.replica.viewNo:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
         if view_no < self.replica.viewNo - 1:
             return DISCARD, OLD_VIEW
         if view_no == self.replica.viewNo - 1:
@@ -61,7 +61,7 @@ class ReplicaValidator:
             if compare_3PC_keys((view_no, pp_seq_no), self.replica.last_prepared_before_view_change) < 0:
                 return DISCARD, GREATER_PREP_CERT
         if view_no == self.replica.viewNo and node.view_change_in_progress:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
 
         # If Catchup in View Change finished then process Commit messages
         if node.is_synced and node.view_change_in_progress:
@@ -96,9 +96,9 @@ class ReplicaValidator:
 
         # 4. Check if from future view
         if view_no > self.replica.viewNo:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
         if view_no == self.replica.viewNo and self.replica.node.view_change_in_progress:
-            return STASH_VIEW, FUTURE_VIEW
+            return STASH_VIEW_3PC, FUTURE_VIEW
 
         # 3. Check if Participating
         if not node.isParticipating:
@@ -110,8 +110,6 @@ class ReplicaValidator:
         if not self.replica.isPrimary:
             return False
         if not self.replica.node.isParticipating:
-            return False
-        if self.replica.node.pre_view_change_in_progress:
             return False
         if self.replica.viewNo < self.replica.last_ordered_3pc[0]:
             return False

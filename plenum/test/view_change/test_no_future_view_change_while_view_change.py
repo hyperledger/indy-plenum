@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.delayers import icDelay
 from plenum.test.helper import checkViewNoForNodes
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -6,6 +8,7 @@ from plenum.test.test_node import checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
 
 
+@pytest.mark.skip(reason="we don't use FutureViewChangeDone messages anymore")
 def test_no_propagated_future_view_change_while_view_change(txnPoolNodeSet, looper):
     # the last node is a lagging one, which will receive ViewChangeDone messages for future view
     viewNo = checkViewNoForNodes(txnPoolNodeSet)
@@ -13,7 +16,7 @@ def test_no_propagated_future_view_change_while_view_change(txnPoolNodeSet, loop
     other_nodes = list(set(txnPoolNodeSet) - {lagged_node})
 
     # emulate view change in progress
-    lagged_node.view_changer.view_change_in_progress = True
+    lagged_node.master_replica._consensus_data.waiting_for_new_view = True
     old_view_no = checkViewNoForNodes([lagged_node])
 
     initial_vhdc = \

@@ -71,6 +71,7 @@ class RepeatingTimer:
         self.update_interval(interval)
         self._callback = wrapped_callback
         self._active = False
+        # TODO: Make timer always inactive and require calling start to activate
         if active:
             self.start()
 

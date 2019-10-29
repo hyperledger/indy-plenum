@@ -1,4 +1,6 @@
-from plenum.test.delayers import delay_3pc_messages, vcd_delay
+import pytest
+
+from plenum.test.delayers import delay_3pc_messages, vcd_delay, nv_delay
 from plenum.test.helper import sdk_send_batches_of_random_and_check, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensure_all_nodes_have_same_data
@@ -19,11 +21,9 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     delay_3pc = 10
     delay_vcd = 25
     delay_3pc_messages([slow_node], 0, delay_3pc)
-    slow_node.nodeIbStasher.delay(vcd_delay(delay_vcd))
+    slow_node.nodeIbStasher.delay(nv_delay(delay_vcd))
 
     def chk(node):
-        assert node.view_changer.has_acceptable_view_change_quorum
-        assert node.view_changer._primary_verified
         assert node.isParticipating
         assert None not in {r.isPrimary for r in node.replicas.values()}
 
