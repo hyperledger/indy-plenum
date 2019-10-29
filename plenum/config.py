@@ -255,7 +255,7 @@ REMOTES_MESSAGE_QUOTA = 100
 # Max batch size for 3 phase commit
 Max3PCBatchSize = 1000
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 1
+Max3PCBatchWait = 3
 # Max allowed number of 3PC batches in flight (or None to disable limit)
 Max3PCBatchesInFlight = 4
 

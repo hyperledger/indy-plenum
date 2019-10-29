@@ -25,13 +25,9 @@ nodeCount = 4
 @pytest.fixture(scope="module")
 def tconf(tconf):
     oldMax3PCBatchSize = tconf.Max3PCBatchSize
-    oldMax3PCBatchWait = tconf.Max3PCBatchWait
     tconf.Max3PCBatchSize = 5
-    tconf.Max3PCBatchWait = 2
     yield tconf
-
     tconf.Max3PCBatchSize = oldMax3PCBatchSize
-    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 def test_node_requests_missing_preprepares_prepares_and_commits(
