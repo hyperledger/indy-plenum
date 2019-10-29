@@ -82,23 +82,23 @@ def pp(primary_replica, ts_now):
 
 def test_pp_obsolete_if_older_than_last_accepted(primary_replica, ts_now, sender, pp, sender_replica):
     primary_replica._ordering_service.last_accepted_pre_prepare_time = ts_now
-    pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS, digest="abcdef")
+    pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS, auditTxnRootHash="abcdef")
 
-    primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.digest, sender_replica] = \
+    primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.auditTxnRootHash, sender_replica] = \
         primary_replica._ordering_service.last_accepted_pre_prepare_time
 
     assert not primary_replica._ordering_service._is_pre_prepare_time_correct(pp, sender)
 
 
 def test_pp_obsolete_if_unknown(primary_replica, pp):
-    pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS, digest="abcdef")
+    pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS, auditTxnRootHash="abcdef")
     assert not primary_replica._ordering_service._is_pre_prepare_time_correct(pp, '')
 
 
 def test_pp_obsolete_if_older_than_threshold(primary_replica, ts_now, pp, sender_replica):
-    pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS, digest="abcdef")
+    pp = FakeSomethingHashable(viewNo=0, ppSeqNo=1, ppTime=OBSOLETE_PP_TS, auditTxnRootHash="abcdef")
 
-    primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.digest, sender_replica] = ts_now
+    primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.auditTxnRootHash, sender_replica] = ts_now
 
     assert not primary_replica._ordering_service._is_pre_prepare_time_correct(pp, sender_replica)
 
@@ -106,24 +106,24 @@ def test_pp_obsolete_if_older_than_threshold(primary_replica, ts_now, pp, sender
 def test_ts_is_set_for_obsolete_pp(primary_replica, ts_now, pp, sender_replica):
     pp.ppTime = OBSOLETE_PP_TS
     primary_replica._external_bus.process_incoming(pp, sender_replica)
-    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.digest, sender_replica] == ts_now
+    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.auditTxnRootHash, sender_replica] == ts_now
 
 
 def test_ts_is_set_for_passed_pp(primary_replica, ts_now, pp, sender_replica):
     primary_replica._external_bus.process_incoming(pp, sender_replica)
-    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.digest, sender_replica] == ts_now
+    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.auditTxnRootHash, sender_replica] == ts_now
 
 
 def test_ts_is_set_for_discarded_pp(primary_replica, ts_now, pp, sender_replica):
     pp.instId +=1
     primary_replica._external_bus.process_incoming(pp, sender_replica)
-    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.digest, sender_replica] == ts_now
+    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.auditTxnRootHash, sender_replica] == ts_now
 
 
 def test_ts_is_set_for_stahed_pp(primary_replica, ts_now, pp, sender_replica):
     pp.viewNo +=1
     primary_replica._external_bus.process_incoming(pp, sender_replica)
-    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.digest, sender_replica] == ts_now
+    assert primary_replica._ordering_service.pre_prepare_tss[pp.viewNo, pp.ppSeqNo][pp.auditTxnRootHash, sender_replica] == ts_now
 
 
 def test_ts_is_not_set_for_non_pp(primary_replica, ts_now, pp, sender_replica):

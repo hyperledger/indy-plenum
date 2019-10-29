@@ -503,10 +503,10 @@ class OrderingService:
         """
         pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         # the same PrePrepare might come here multiple times
-        if (pp_key and (pre_prepare.digest, sender) not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and (pre_prepare.auditTxnRootHash, sender) not in self.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key][pre_prepare.digest, sender] = self.get_time_for_3pc_batch()
+            self.pre_prepare_tss[pp_key][pre_prepare.auditTxnRootHash, sender] = self.get_time_for_3pc_batch()
 
         result, reason = self._validate(pre_prepare)
         if result != PROCESS:
@@ -1084,11 +1084,11 @@ class OrderingService:
                 pp.ppTime < self.last_accepted_pre_prepare_time):
             return False
         elif ((tpcKey not in self.pre_prepare_tss) or
-                ((pp.digest, sender) not in self.pre_prepare_tss[tpcKey])):
+                ((pp.auditTxnRootHash, sender) not in self.pre_prepare_tss[tpcKey])):
             return False
         else:
             return (
-                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp.digest, sender]) <=
+                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp.auditTxnRootHash, sender]) <=
                 self._config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
             )
 

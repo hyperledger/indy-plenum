@@ -98,7 +98,8 @@ def test_update_shared_data_on_view_change_started(internal_bus, orderer):
 
 def test_clear_data_on_view_change_started(internal_bus, orderer):
     pp = create_pre_prepare_no_bls(generate_state_root(),
-                                   view_no=0, pp_seq_no=10, inst_id=0)
+                                   view_no=0, pp_seq_no=10, inst_id=0,
+                                   audit_txn_root="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4")
     prepare = create_prepare(req_key=(0, 10),
                              state_root=generate_state_root(), inst_id=0)
     commit = create_commit_no_bls_sig(req_key=(0, 10), inst_id=0)
@@ -107,7 +108,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     orderer.prePrepares[key] = pp
     orderer.prepares[key] = prepare
     orderer.commits[key] = commit
-    orderer.pre_prepare_tss[key][pp.digest, "Node1"] = 1234
+    orderer.pre_prepare_tss[key][pp.auditTxnRootHash, "Node1"] = 1234
     orderer.prePreparesPendingFinReqs.append(pp)
     orderer.prePreparesPendingPrevPP[key] = pp
     orderer.sent_preprepares[key] = pp
