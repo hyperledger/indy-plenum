@@ -17,13 +17,9 @@ from plenum.test.helper import sdk_send_random_and_check
 @pytest.fixture(scope="module")
 def tconf(tconf):
     oldMax3PCBatchSize = tconf.Max3PCBatchSize
-    oldMax3PCBatchWait = tconf.Max3PCBatchWait
     tconf.Max3PCBatchSize = 2
-    tconf.Max3PCBatchWait = 2
     yield tconf
-
     tconf.Max3PCBatchSize = oldMax3PCBatchSize
-    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
