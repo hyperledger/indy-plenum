@@ -6,9 +6,9 @@ from plenum.common.startable import Mode
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import generateName
-from plenum.server.replica_validator_enums import PROCESS, DISCARD, STASH_VIEW, STASH_CATCH_UP, STASH_WATERMARKS, \
-    STASH_WAITING_NEW_VIEW, OLD_VIEW, OUTSIDE_WATERMARKS, ALREADY_ORDERED, CATCHING_UP, FUTURE_VIEW, \
-    WAITING_FOR_NEW_VIEW, NON_MASTER
+from plenum.server.replica_validator_enums import PROCESS, DISCARD, STASH_VIEW_3PC, STASH_CATCH_UP, STASH_WATERMARKS, \
+    STASH_VIEW_3PC, OLD_VIEW, OUTSIDE_WATERMARKS, ALREADY_ORDERED, CATCHING_UP, FUTURE_VIEW, \
+    WAITING_FOR_NEW_VIEW, NON_MASTER, INCORRECT_INSTANCE
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig
@@ -42,25 +42,26 @@ def validator(view_no):
     cd.pp_seq_no = 1
     cd.view_no = view_no
     cd.node_mode = Mode.participating
+    cd.prev_view_prepare_cert = cd.last_ordered_3pc[1]
     return OrderingServiceMsgValidator(data=cd)
 
 
-def pre_prepare(view_no, pp_seq_no):
+def pre_prepare(view_no, pp_seq_no, inst_id=0):
     return create_pre_prepare_no_bls(generate_state_root(),
                                      view_no=view_no,
                                      pp_seq_no=pp_seq_no,
-                                     inst_id=0)
+                                     inst_id=inst_id)
 
 
-def prepare(view_no, pp_seq_no):
+def prepare(view_no, pp_seq_no, inst_id=0):
     return create_prepare(req_key=(view_no, pp_seq_no),
                           state_root=generate_state_root(),
-                          inst_id=0)
+                          inst_id=inst_id)
 
 
-def commit(view_no, pp_seq_no):
+def commit(view_no, pp_seq_no, inst_id=0):
     return create_commit_no_bls_sig(req_key=(view_no, pp_seq_no),
-                                    inst_id=0)
+                                    inst_id=inst_id)
 
 
 def new_view(view_no):
@@ -156,15 +157,24 @@ def test_discard_below_watermark_3pc_no_stash(validator, view_no, mode, waiting_
     assert validator.validate_commit(commit(view_no, 99)) == (DISCARD, ALREADY_ORDERED)
 
 
+def test_discard_incorrect_inst_id(validator, view_no):
+    inst_id = validator._data.inst_id + 1
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1, inst_id)) == (DISCARD, INCORRECT_INSTANCE)
+    assert validator.validate_prepare(prepare(view_no, 1, inst_id)) == (DISCARD, INCORRECT_INSTANCE)
+    assert validator.validate_commit(commit(view_no, 1, inst_id)) == (DISCARD, INCORRECT_INSTANCE)
+
+
 @pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
 def test_process_ordered_pre_prepare(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 @pytest.mark.parametrize('pp_seq_no', [1, 5, 9, 10])
 def test_discard_ordered_pre_prepare_no_stash(validator, view_no, pp_seq_no, mode, waiting_for_new_view):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
@@ -187,28 +197,28 @@ def test_stash_while_catchup(validator, view_no, mode, result):
 
 
 def test_stash_future_view(validator, view_no):
-    assert validator.validate_pre_prepare(pre_prepare(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_prepare(prepare(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_commit(commit(view_no + 1, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_new_view(new_view(view_no + 1)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_pre_prepare(pre_prepare(view_no + 1, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_prepare(prepare(view_no + 1, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_commit(commit(view_no + 1, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_new_view(new_view(view_no + 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
 
-    assert validator.validate_pre_prepare(pre_prepare(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_prepare(prepare(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_commit(commit(view_no + 2, 1)) == (STASH_VIEW, FUTURE_VIEW)
-    assert validator.validate_new_view(new_view(view_no + 2)) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate_pre_prepare(pre_prepare(view_no + 2, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_prepare(prepare(view_no + 2, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_commit(commit(view_no + 2, 1)) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate_new_view(new_view(view_no + 2)) == (STASH_VIEW_3PC, FUTURE_VIEW)
 
 
 def test_stash_waiting_for_new_view_3pc(validator, view_no):
     validator._data.waiting_for_new_view = True
-    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
-    assert validator.validate_prepare(prepare(view_no, 1)) == (STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
-    assert validator.validate_commit(commit(view_no, 1)) == (STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_prepare(prepare(view_no, 1)) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
+    assert validator.validate_commit(commit(view_no, 1)) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
 
 
 def test_stash_waiting_for_new_view_old_view_pp_rep(validator, view_no):
     validator._data.waiting_for_new_view = True
     assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (
-        STASH_WAITING_NEW_VIEW, WAITING_FOR_NEW_VIEW)
+        STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
 
 
 def test_process_waiting_for_new_view_old_view_pp_req(validator, view_no):
@@ -241,29 +251,47 @@ def test_process_waiting_for_new_view_new_view(validator, view_no):
 @pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
 def test_process_ordered_pre_prepare(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 @pytest.mark.parametrize('pp_seq_no', [1, 9, 10, 11, 12, 100])
 def test_process_ordered_prepare_commit(validator, view_no, pp_seq_no):
     validator._data.last_ordered_3pc = (view_no, 10)
+    validator._data.prev_view_prepare_cert = 10
     assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == (PROCESS, None)
     assert validator.validate_commit(commit(view_no, pp_seq_no)) == (PROCESS, None)
 
 
 def test_discard_non_master_old_view_pp_req(validator):
+    old_view_pp_req_msg = old_view_pp_req()
     validator._data.is_master = False
     validator._data.inst_id = 1
-    assert validator.validate_old_view_prep_prepare_req(old_view_pp_req()) == (DISCARD, NON_MASTER)
+    old_view_pp_req_msg.instId = validator._data.inst_id
+    assert validator.validate_old_view_prep_prepare_req(old_view_pp_req_msg) == (DISCARD, NON_MASTER)
 
 
 def test_discard_non_master_old_view_pp_rep(validator):
+    old_view_pp_rep_msg = old_view_pp_rep()
     validator._data.is_master = False
     validator._data.inst_id = 1
-    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (DISCARD, NON_MASTER)
+    old_view_pp_rep_msg.instId = validator._data.inst_id
+    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep_msg) == (DISCARD, NON_MASTER)
 
 
-def test_discard_non_master_new_view(validator, view_no):
+def test_discard_old_view_pp_req_with_incorrect_inst_id(validator):
+    old_view_pp_req_msg = old_view_pp_req()
+    old_view_pp_req_msg.instId = validator._data.inst_id + 1
+    assert validator.validate_old_view_prep_prepare_req(old_view_pp_req_msg) == (DISCARD, INCORRECT_INSTANCE)
+
+
+def test_discard_old_view_pp_rep_with_incorrect_inst_id(validator):
+    old_view_pp_rep_msg = old_view_pp_rep()
+    old_view_pp_rep_msg.instId = validator._data.inst_id + 1
+    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep_msg) == (DISCARD, INCORRECT_INSTANCE)
+
+
+def test_process_non_master_new_view(validator, view_no):
     validator._data.is_master = False
     validator._data.inst_id = 1
-    assert validator.validate_new_view(new_view(view_no)) == (DISCARD, NON_MASTER)
+    assert validator.validate_new_view(new_view(view_no)) == (PROCESS, None)

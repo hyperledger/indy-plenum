@@ -74,7 +74,7 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
                                        tdir, allPluginsPath,
                                        delay_instance_change_msgs=False,
                                        start=False)
-    # 5. delay catchup on Delat for more that INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT,
+    # 5. delay catchup on Delta for more that INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT,
     # so that Delta proposes INSTANCE_CHANGE from view=0 to view=1
     # (it doesn't yet know that the current view is 1, since it hasn't yet finished catchup)
     with delay_rules(restartedNode.nodeIbStasher, msg_rep_delay(types_to_delay=[LEDGER_STATUS])):

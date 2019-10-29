@@ -18,7 +18,7 @@ def test_odd_length_verkey_fails():
             TARGET_NYM: TEST_TARGET_NYM,
             VERKEY: 'F' * 45
         })
-    ex_info.match(r'b58 decoded value length 33 should be one of \[32\]')
+    ex_info.match(r'b58 decoded value length 33 should be 32')
 
 
 def test_short_length_verkeys():
@@ -34,7 +34,7 @@ def test_short_length_verkeys():
             TARGET_NYM: TEST_TARGET_NYM,
             VERKEY: b58_by_len(16)
         })
-    ex_info.match(r'b58 decoded value length 16 should be one of \[32\]')
+    ex_info.match(r'b58 decoded value length 16 should be 32')
 
     with pytest.raises(TypeError) as ex_info:
         op_nym.validate({
@@ -42,7 +42,7 @@ def test_short_length_verkeys():
             TARGET_NYM: TEST_TARGET_NYM,
             VERKEY: '~' + b58_by_len(32)
         })
-    ex_info.match(r'b58 decoded value length 32 should be one of \[16\]')
+    ex_info.match(r'b58 decoded value length 32 should be 16')
 
 
 def test_long_length_verkey_passes():

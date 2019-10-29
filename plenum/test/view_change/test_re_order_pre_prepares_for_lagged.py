@@ -58,18 +58,19 @@ def test_re_order_pre_prepares_no_pre_prepares(looper, txnPoolNodeSet,
         # 3. Simulate View Change finish to re-order the same PrePrepare
         assert lagging_node.master_last_ordered_3PC == (0, 0)
         new_master = txnPoolNodeSet[1]
-        batches = [preprepare_to_batch_id(pp) for _, pp in
-                   new_master.master_replica._ordering_service.old_view_preprepares.items()]
+        batches = sorted([preprepare_to_batch_id(pp) for _, pp in
+                         new_master.master_replica._ordering_service.old_view_preprepares.items()])
         new_view_msg = NewViewCheckpointsApplied(view_no=0,
                                                  view_changes=[],
                                                  checkpoint=None,
                                                  batches=batches)
         for n in txnPoolNodeSet:
+            n.master_replica._consensus_data.prev_view_prepare_cert = batches[-1].pp_seq_no
             n.master_replica._ordering_service._bus.send(new_view_msg)
 
         # 4. Make sure that the nodes 1-3 (that already ordered the requests) sent Prepares and Commits so that
         # the request was eventually ordered on Node4 as well
-        waitNodeDataEquality(looper, lagging_node, *other_nodes)
-        assert lagging_node.master_last_ordered_3PC == (0, 3)
+        waitNodeDataEquality(looper, lagging_node, *other_nodes, customTimeout=60)
+        assert lagging_node.master_last_ordered_3PC == (0, 4)
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

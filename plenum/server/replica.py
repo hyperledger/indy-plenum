@@ -11,16 +11,13 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
-    AUDIT_TXN_PRIMARIES, TS_LABEL
+from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion
-from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import Ordered, \
-    PrePrepare, Prepare, Commit, ThreePhaseKey
+from plenum.common.messages.internal_messages import NeedBackupCatchup, RaisedSuspicion, NewViewAccepted, \
+    CheckpointStabilized
+from plenum.common.messages.node_messages import Ordered, Commit
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
@@ -28,13 +25,14 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.server.replica_helper import replica_batch_digest, TPCStat
+from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
 from plenum.server.router import Router
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
@@ -147,7 +145,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.warned_no_primary = False
 
         self._consensus_data = ConsensusSharedData(self.name,
-                                                   self.node.get_validators(),
+                                                   self.node.poolManager.node_names_ordered_by_rank(),
                                                    self.instId,
                                                    self.isMaster)
         self._internal_bus = InternalBus()
@@ -160,6 +158,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._checkpointer = self._init_checkpoint_service()
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
+        self._view_change_service = self._init_view_change_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -218,11 +217,15 @@ class Replica(HasActionQueue, MessageProcessor):
         # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
 
+    def _process_new_view_accepted(self, msg: NewViewAccepted):
+        self.clear_requests_and_fix_last_ordered()
+
     def _subscribe_to_internal_msgs(self):
         self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
+        self._subscription.subscribe(self.internal_bus, NewViewAccepted, self._process_new_view_accepted)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -376,29 +379,19 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_view_change_done(self):
         if self.isMaster:
             self.last_prepared_before_view_change = None
-        self.stasher.process_all_stashed(STASH_VIEW)
+        self.stasher.process_all_stashed(STASH_VIEW_3PC)
 
     def _clear_all_3pc_msgs(self):
         self._ordering_service._clear_all_3pc_msgs()
 
     def clear_requests_and_fix_last_ordered(self):
-        self._clear_all_3pc_msgs()
         if self.isMaster:
             return
-        reqs_for_remove = []
-        for req in self.requests.values():
-            ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)
-            if seq_no is not None:
-                reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
-        for key, ledger_id, seq_no in reqs_for_remove:
-            self.requests.ordered_by_replica(key)
-            self.requests.free(key)
-            self._ordering_service.requestQueues[int(ledger_id)].discard(key)
-        self.last_ordered_3pc = (self.viewNo, 0)
+
+        self._internal_bus.send(CheckpointStabilized(self.last_ordered_3pc))
         self._ordering_service._lastPrePrepareSeqNo = 0
-        self._checkpointer.set_watermarks(0)
-        self._checkpointer._reset_checkpoints()
-        self._consensus_data.stable_checkpoint = 0
+        self._ordering_service.last_ordered_3pc = (self.viewNo, 0)
+        self._clear_all_3pc_msgs()
 
     def on_propagate_primary_done(self):
         if self.isMaster:
@@ -577,7 +570,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # ToDo: Need to send a cmd like ViewChangeStart into internal bus
         # self._gc(self.last_ordered_3pc)
         self._ordering_service.gc(self.last_ordered_3pc)
-        self._checkpointer.gc_before_new_view()
         # ToDo: get rid of directly calling
         self._ordering_service._clear_prev_view_pre_prepares()
         # self._clear_prev_view_pre_prepares()
@@ -743,11 +735,18 @@ class Replica(HasActionQueue, MessageProcessor):
                                stasher=self.stasher,
                                metrics=self.metrics)
 
-    def _init_message_req_service(self) -> MessageReq3pcService:
-        return MessageReq3pcService(data=self._consensus_data,
-                                    bus=self.internal_bus,
-                                    network=self._external_bus,
-                                    metrics=self.metrics)
+    def _init_message_req_service(self) -> MessageReqService:
+        return MessageReqService(data=self._consensus_data,
+                                 bus=self.internal_bus,
+                                 network=self._external_bus,
+                                 metrics=self.metrics)
+
+    def _init_view_change_service(self) -> ViewChangeService:
+        return ViewChangeService(data=self._consensus_data,
+                                 timer=self.node.timer,
+                                 bus=self.internal_bus,
+                                 network=self._external_bus,
+                                 stasher=self.stasher)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

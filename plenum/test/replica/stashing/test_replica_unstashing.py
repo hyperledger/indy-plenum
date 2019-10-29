@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMARKS, STASH_VIEW
+from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMARKS, STASH_VIEW_3PC
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
 
 
@@ -23,10 +23,10 @@ def test_unstash_catchup(replica, msg):
 
 def test_unstash_future_view(replica, msg):
     pre_prepare, _ = msg
-    replica.stasher._stash(STASH_VIEW, "reason", *msg)
-    assert replica.stasher.stash_size(STASH_VIEW) > 0
+    replica.stasher._stash(STASH_VIEW_3PC, "reason", *msg)
+    assert replica.stasher.stash_size(STASH_VIEW_3PC) > 0
     replica.on_view_change_done()
-    assert replica.stasher.stash_size(STASH_VIEW) == 0
+    assert replica.stasher.stash_size(STASH_VIEW_3PC) == 0
 
 
 def test_unstash_watermarks(replica, msg, looper):

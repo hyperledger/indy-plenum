@@ -1,3 +1,5 @@
+import pytest
+
 from stp_core.loop.eventually import eventually
 
 from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \

@@ -43,7 +43,7 @@ def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, loop
             waitForViewChange(looper,
                               other_nodes,
                               expectedViewNo=initial_view_no + 2,
-                              customTimeout=30)
+                              customTimeout=40)
             checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, instances=range(3))
             ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 

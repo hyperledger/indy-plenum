@@ -68,7 +68,9 @@ def three_pc_batch():
     return ThreePcBatch(DOMAIN_LEDGER_ID, 0, 0, 1, time.time(),
                         randomString(),
                         randomString(),
-                        ['a', 'b', 'c'], ['d1', 'd2', 'd3'])
+                        ['a', 'b', 'c'],
+                        ['d1', 'd2', 'd3'],
+                        'pp_digest')
 
 
 def test_write_request_manager_fails_to_handle(write_req_manager: WriteRequestManager,

@@ -19,8 +19,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason='INDY-1303. Case 4 (simplified): the slow node gets '
-                         'a different merkle tree root hash')
 def test_view_change_with_delay_on_one_node(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """

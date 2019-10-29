@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.test.helper import sdk_send_random_and_check, perf_monitor_disabled
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change_with_delays.helper import \
     do_view_change_with_propagate_primary_on_one_delayed_node
 
@@ -18,8 +19,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason='INDY-1303. Case 5: the second view change '
-                         'is not completed')
 def test_two_view_changes_with_propagate_primary_on_one_delayed_node(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """
@@ -37,3 +36,4 @@ def test_two_view_changes_with_propagate_primary_on_one_delayed_node(
         txnPoolNodeSet[0], txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

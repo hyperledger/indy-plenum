@@ -18,8 +18,8 @@ class SimpleZStackWithSilencer(SimpleZStack):
         self._RemoteClass = Remote_
         SimpleZStack.__init__(self, *args, **kwargs)
 
-    def transmit(self, msg, uid, timeout=None, serialized=False):
-        self.silencer.transmit(msg, uid, timeout=timeout, serialized=serialized)
+    def transmit(self, msg, uid, timeout=None, serialized=False, is_batch=False):
+        self.silencer.transmit(msg, uid, timeout=timeout, serialized=serialized, is_batch=is_batch)
 
     def transmitThroughListener(self, msg, ident) -> Tuple[bool, Optional[str]]:
         return self.silencer.transmitThroughListener(msg, ident)

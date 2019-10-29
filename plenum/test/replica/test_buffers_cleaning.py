@@ -22,7 +22,8 @@ def test_ordered_cleaning(tconf):
         mode=Mode.participating,
         timer=QueueTimer(),
         quorums=Quorums(4),
-        write_manager=None
+        write_manager=None,
+        poolManager=FakeSomething(node_names_ordered_by_rank=lambda: [])
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -59,7 +60,8 @@ def test_primary_names_cleaning(tconf):
         mode=Mode.participating,
         timer=QueueTimer(),
         quorums=Quorums(4),
-        write_manager=None
+        write_manager=None,
+        poolManager=FakeSomething(node_names_ordered_by_rank=lambda: [])
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,

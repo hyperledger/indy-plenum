@@ -2,7 +2,7 @@ import pytest
 
 from common.exceptions import LogicError
 from plenum.server.replica_stasher import ReplicaStasher
-from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMARKS, STASH_VIEW
+from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_WATERMARKS, STASH_VIEW_3PC
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig, generate_state_root
 
 
@@ -40,7 +40,7 @@ def stash_all(replica_stasher):
     for msg in msgs_watermarks:
         replica_stasher.stash(msg, STASH_WATERMARKS)
     for msg in msgs_view:
-        replica_stasher.stash(msg, STASH_VIEW)
+        replica_stasher.stash(msg, STASH_VIEW_3PC)
 
     return msgs_catchup, msgs_watermarks, msgs_view
 
@@ -55,7 +55,7 @@ def test_stash_catch_up_msgs(replica_stasher, three_pc_msgs):
 def test_stash_future_view_msgs(replica_stasher, three_pc_msgs):
     assert replica_stasher.num_stashed_future_view == 0
     for msg in three_pc_msgs:
-        replica_stasher.stash(msg, STASH_VIEW)
+        replica_stasher.stash(msg, STASH_VIEW_3PC)
     assert replica_stasher.num_stashed_future_view == 3
 
 
