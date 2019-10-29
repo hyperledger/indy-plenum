@@ -124,11 +124,13 @@ def recordSuccess(fname, timeout, param, remain):
 async def eventually(coroFunc: FlexFunc,
                      *args,
                      retryWait: float=0.1,
-                     timeout: float=5,
-                     ratchetSteps: Optional[int]=None,
+                     timeout: Optional[float] = None,
+                     ratchetSteps: Optional[int] = None,
                      acceptableExceptions=None,
                      verbose=True,
                      override_timeout_limit=False) -> T:
+    if timeout is None:
+        timeout = 5
     if not timeout > 0:
         raise PlenumValueError('timeout', timeout, '> 0')
     if not override_timeout_limit:

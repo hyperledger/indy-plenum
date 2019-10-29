@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional
+from typing import List, Optional
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
@@ -6,20 +6,12 @@ from sortedcontainers import SortedListWithKey
 
 from plenum.common.startable import Mode
 from plenum.common.util import SortedDict
+from plenum.server.consensus.batch_id import BatchID
+from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
 from plenum.server.models import Prepares, Commits
 from plenum.common.types import f
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
-
-# `view_no` is a view no is the current view_no, but `pp_view_no` is a view no when the given PrePrepare has been
-# initially created and applied
-
-# it's critical to keep the original view no to correctly create audit ledger transaction
-# (since PrePrepare's view no is present there)
-
-# An example when `view_no` != `pp_view_no`, is when view change didn't finish at first round
-# (next primary is unavailable for example)
-BatchID = NamedTuple('BatchID', [('view_no', int), ('pp_view_no', int), ('pp_seq_no', int), ('pp_digest', str)])
 
 
 def get_original_viewno(pp):
@@ -67,6 +59,8 @@ class ConsensusSharedData:
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self.quorums = None
+        self.new_view = None  # type: Optional[NewView]
+        self.view_change_votes = ViewChangeVotesForView(Quorums(len(validators)))
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
         self.low_watermark = 0
@@ -78,7 +72,7 @@ class ConsensusSharedData:
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.legacy_last_prepared_before_view_change = None
-        self.prev_view_prepare_cert = None
+        self.prev_view_prepare_cert = 0
 
         # Dictionary of sent PRE-PREPARE that are stored by primary replica
         # which it has broadcasted to all other non primary replicas
@@ -109,6 +103,7 @@ class ConsensusSharedData:
     def set_validators(self, validators: List[str]):
         self._validators = validators
         self.quorums = Quorums(len(validators))
+        self.view_change_votes.update_quorums(self.quorums)
 
     @property
     def validators(self) -> List[str]:

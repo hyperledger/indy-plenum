@@ -368,10 +368,10 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
 
     viewNos = set()
     for node in nodes:
-        logger.debug("{}'s view no is {}".format(node, node.viewNo))
-        viewNos.add(node.viewNo)
+        logger.debug("{}'s view no is {}".format(node, node.master_replica.viewNo))
+        viewNos.add(node.master_replica.viewNo)
     assert len(viewNos) == 1, 'Expected 1, but got {}. ' \
-                              'ViewNos: {}'.format(len(viewNos), [(n.name, n.viewNo) for n in nodes])
+                              'ViewNos: {}'.format(len(viewNos), [(n.name, n.master_replica.viewNo) for n in nodes])
     vNo, = viewNos
     if expectedViewNo is not None:
         assert vNo >= expectedViewNo, \
@@ -501,8 +501,9 @@ def check_last_ordered_3pc(node1, node2):
     master_replica_1 = node1.master_replica
     master_replica_2 = node2.master_replica
     assert master_replica_1.last_ordered_3pc == master_replica_2.last_ordered_3pc, \
-        "{} != {}".format(master_replica_1.last_ordered_3pc,
-                          master_replica_2.last_ordered_3pc)
+        "{} != {} Node1: {}, Node2: {}".format(master_replica_1.last_ordered_3pc,
+                                               master_replica_2.last_ordered_3pc,
+                                               node1, node2)
     return master_replica_1.last_ordered_3pc
 
 
@@ -517,8 +518,8 @@ def check_last_ordered_3pc_backup(node1, node2):
 
 
 def check_view_no(node1, node2):
-    assert node1.viewNo == node2.viewNo, \
-        "{} != {}".format(node1.viewNo, node2.viewNo)
+    assert node1.master_replica.viewNo == node2.master_replica.viewNo, \
+        "{} != {}".format(node1.master_replica.viewNo, node2.master_replica.node2.viewNo)
 
 
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
@@ -1402,19 +1403,24 @@ class MockTimer(QueueTimer):
         """
         self.advance_until(self._ts.value + seconds)
 
-    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None):
+    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None, max_iterations: int = 500000):
         """
         Advance time in steps until condition is reached, running scheduled callbacks in process
         Throws TimeoutError if fail to reach condition (under required timeout if defined)
         """
+        counter = 0
         deadline = self._ts.value + timeout if timeout else None
-        while self._events and not condition():
+        while self._events and not condition() and counter < max_iterations:
             if deadline and self._next_timestamp() > deadline:
-                raise TimeoutError("Failed to reach condition in required time")
+                raise TimeoutError("Failed to reach condition in required time, {} iterations passed".format(counter))
             self.advance()
+            counter += 1
 
         if not condition():
-            raise TimeoutError("Condition will be never reached")
+            if not self._events:
+                raise TimeoutError("Condition will be never reached, {} iterations passed".format(counter))
+            else:
+                raise TimeoutError("Failed to reach condition in {} iterations".format(max_iterations))
 
     def run_to_completion(self):
         """

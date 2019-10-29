@@ -4,8 +4,9 @@ from typing import Iterable, List, Optional
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.request import Request
 
-from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, LedgerStatus, \
-    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState
+from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, \
+    LedgerStatus, \
+    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState, NewView
 from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
 from plenum.common.util import getCallableName
@@ -112,6 +113,11 @@ def icDelay(delay: float = DEFAULT_DELAY, viewNo: int = None):
 def vcd_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
     # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, ViewChangeDone, viewFilter=viewNo)
+
+
+def nv_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
+    # Delayer of VIEW_CHANGE_DONE requests
+    return delayerMsgTuple(delay, NewView, viewFilter=viewNo)
 
 
 def cs_delay(delay: float = DEFAULT_DELAY):

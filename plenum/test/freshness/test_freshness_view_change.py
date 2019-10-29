@@ -66,7 +66,7 @@ def test_view_changer_state_is_not_fresh_in_view_change(tconf, txnPoolNodeSet, m
                         lambda: OrderedDict([(0, 5), (2, 10), (1, 15)]))
     monkeypatch.setattr(node.view_changer.provider, 'node_mode',
                         lambda: Mode.starting)
-    node.view_changer.view_change_in_progress = True
+    node.master_replica._consensus_data.waiting_for_new_view = True
 
     assert not node.view_changer.is_state_fresh_enough()
-    node.view_changer.in_progress = False
+    node.master_replica._consensus_data.waiting_for_new_view = False

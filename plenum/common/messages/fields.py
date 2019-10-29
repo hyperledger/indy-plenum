@@ -17,6 +17,7 @@ from plenum import PLUGIN_LEDGER_IDS
 from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT, DIGEST_FIELD_LIMIT
+from plenum.server.consensus.batch_id import BatchID
 
 
 class FieldValidator(metaclass=ABCMeta):
@@ -370,8 +371,10 @@ class Base58Field(FieldBase):
             # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
-                return 'b58 decoded value length {} should be one of {}' \
-                    .format(b58len, list(self.byte_lengths))
+                expected_length = list(self.byte_lengths)[0] if len(self.byte_lengths) == 1 \
+                    else 'one of {}'.format(list(self.byte_lengths))
+                return 'b58 decoded value length {} should be {}' \
+                    .format(b58len, expected_length)
 
 
 class IdentifierField(Base58Field):
@@ -704,17 +707,22 @@ class ProtocolVersionField(FieldBase):
 
 
 class BatchIDField(FieldBase):
-    _base_types = (list, tuple)
+    _base_types = (list, tuple, dict)
 
     def _specific_validation(self, val):
         if len(val) != 4:
             return 'should have size of 4'
+        if isinstance(val, dict):
+            if any(key not in BatchID._fields for key in val.keys()):
+                return 'incorrect list of fields'
+            bid = BatchID(**val)
+        else:
+            bid = BatchID(*val)
 
-        view_no, pp_view_no, pp_seq_no, pp_digest = val
-        for validator, value in ((NonNegativeNumberField().validate, view_no),
-                                 (NonNegativeNumberField().validate, pp_view_no),
-                                 (NonNegativeNumberField().validate, pp_seq_no),
-                                 (NonEmptyStringField().validate, pp_digest)):
+        for validator, value in ((NonNegativeNumberField().validate, bid.view_no),
+                                 (NonNegativeNumberField().validate, bid.pp_view_no),
+                                 (NonNegativeNumberField().validate, bid.pp_seq_no),
+                                 (NonEmptyStringField().validate, bid.pp_digest)):
             err = validator(value)
             if err:
                 return err

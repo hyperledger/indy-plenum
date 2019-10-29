@@ -6,7 +6,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
-from plenum.server.consensus.ordering_service import OrderingService, ThreePCMsgValidator
+from plenum.server.consensus.msg_validator import ThreePCMsgValidator
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params

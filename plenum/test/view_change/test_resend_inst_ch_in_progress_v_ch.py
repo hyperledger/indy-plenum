@@ -16,14 +16,14 @@ nodeCount = 7
 @pytest.fixture(scope='module')
 def tconf(tconf):
     old_value_v_ch = tconf.VIEW_CHANGE_TIMEOUT
-    old_value_i_ch = tconf.INSTANCE_CHANGE_RESEND_TIMEOUT
+    old_value_i_ch = tconf.INSTANCE_CHANGE_TIMEOUT
     old_value_freshness = tconf.STATE_FRESHNESS_UPDATE_INTERVAL
     tconf.VIEW_CHANGE_TIMEOUT = 10
-    tconf.INSTANCE_CHANGE_RESEND_TIMEOUT = 10
+    tconf.INSTANCE_CHANGE_TIMEOUT = 10
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = 10
     yield tconf
     tconf.VIEW_CHANGE_TIMEOUT = old_value_v_ch
-    tconf.INSTANCE_CHANGE_RESEND_TIMEOUT = old_value_i_ch
+    tconf.INSTANCE_CHANGE_TIMEOUT = old_value_i_ch
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_value_freshness
 
 
@@ -48,6 +48,6 @@ def test_resend_inst_ch_in_progress_v_ch(txnPoolNodeSet, looper, sdk_pool_handle
         assert all(not node.view_change_in_progress for node in txnPoolNodeSet)
         assert all(node.viewNo == old_view + 2 for node in txnPoolNodeSet)
 
-    looper.run(eventually(checks, timeout=tconf.INSTANCE_CHANGE_RESEND_TIMEOUT * 1.5, retryWait=1))
+    looper.run(eventually(checks, timeout=tconf.INSTANCE_CHANGE_TIMEOUT * 2.5, retryWait=1))
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

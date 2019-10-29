@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_instance_change_from_known(fake_view_changer):
     current_view = fake_view_changer.node.viewNo
     proposed_view = current_view + 1

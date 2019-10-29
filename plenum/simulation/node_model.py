@@ -93,9 +93,6 @@ class NodeModel:
         if self.name == node:
             self._check_performance_timer.stop()
 
-    def schedule_finish_catchup(self):
-        self._send(CatchupDoneEvent(node=self.name), delay=10)
-
     def process(self, draw, event: SimEvent):
         self._ts = event.timestamp
         self._timer.process(draw, event)

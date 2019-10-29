@@ -1,5 +1,6 @@
 import inspect
 
+from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
@@ -116,6 +117,8 @@ class ZStack(NetworkInterface):
         self._remotes = {}  # type: Dict[str, Remote]
 
         self.remotesByKeys = {}
+
+        self.remote_ping_stats = {}
 
         # Indicates if this stack will maintain any remotes or will
         # communicate simply to listeners. Used in ClientZStack
@@ -364,6 +367,7 @@ class ZStack(NetworkInterface):
         self.listener = self.ctx.socket(zmq.ROUTER)
         self._client_message_provider.listener = self.listener
         self.listener.setsockopt(zmq.ROUTER_MANDATORY, 1)
+        self.listener.setsockopt(zmq.ROUTER_HANDOVER, self.config.ROUTER_HANDOVER)
         if self.create_listener_monitor:
             self.listener_monitor = self.listener.get_monitor_socket()
         # noinspection PyUnresolvedReferences
@@ -513,8 +517,10 @@ class ZStack(NetworkInterface):
                 incoming_size += len(msg)
                 i += 1
                 self._verifyAndAppend(msg, ident)
-            except zmq.Again:
+            except zmq.Again as e:
                 break
+            except zmq.ZMQError as e:
+                logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
         if i > 0:
             logger.trace('{} got {} messages through listener'.
                          format(self, i))
@@ -541,9 +547,13 @@ class ZStack(NetworkInterface):
                         # Router probing sends empty message on connection
                         continue
                     i += 1
+                    logger.trace("{} received a message from remote {} by socket {} {}", self,
+                                 z85_to_friendly(ident), sock.FD, sock.underlying)
                     self._verifyAndAppend(msg, ident)
-                except zmq.Again:
+                except zmq.Again as e:
                     break
+                except zmq.ZMQError as e:
+                    logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
             if i > 0:
                 logger.trace('{} got {} messages through remote {}'.
                              format(self, i, remote))
@@ -594,6 +604,9 @@ class ZStack(NetworkInterface):
                 logger.error('Error {} while converting message {} '
                              'to JSON from {}'.format(e, msg, z85_to_friendly(ident)))
                 continue
+            # We have received non-ping-pong message from some remote, we can clean this counter
+            if OP_FIELD_NAME not in msg or msg[OP_FIELD_NAME] != BATCH:
+                self.remote_ping_stats[z85_to_friendly(frm)] = 0
             msg = self.doProcessReceived(msg, frm, ident)
             if msg:
                 self.msgHandler((msg, frm))
@@ -705,7 +718,9 @@ class ZStack(NetworkInterface):
         msg = self.pingMessage if is_ping else self.pongMessage
         action = 'ping' if is_ping else 'pong'
         name = remote if isinstance(remote, (str, bytes)) else remote.name
-        r = self.send(msg, name)
+        # Do not use Batches for sending health messages
+        r = self.transmit(msg, name, is_batch=False)
+        # r = self.send(msg, name)
         if r[0] is True:
             logger.debug('{} {}ed {}'.format(self.name, action, z85_to_friendly(name)))
         elif r[0] is False:
@@ -725,8 +740,18 @@ class ZStack(NetworkInterface):
     def handlePingPong(self, msg, frm, ident):
         if msg in (self.pingMessage, self.pongMessage):
             if msg == self.pingMessage:
-                logger.trace('{} got ping from {}'.format(self, z85_to_friendly(frm)))
+                nodeName = z85_to_friendly(frm)
+                logger.trace('{} got ping from {}'.format(self, nodeName))
                 self.sendPingPong(frm, is_ping=False)
+                if not self.config.ENABLE_HEARTBEATS and self.config.PING_RECONNECT_ENABLED and nodeName in self.connecteds:
+                    if self.remote_ping_stats.get(nodeName):
+                        self.remote_ping_stats[nodeName] += 1
+                    else:
+                        self.remote_ping_stats[nodeName] = 1
+                    if self.remote_ping_stats[nodeName] > self.config.PINGS_BEFORE_SOCKET_RECONNECTION:
+                        logger.info("Reconnecting {} due to numerous consecutive pings".format(nodeName))
+                        self.remote_ping_stats[nodeName] = 0
+                        self.reconnectRemoteWithName(nodeName)
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
@@ -765,6 +790,7 @@ class ZStack(NetworkInterface):
             return self._client_message_provider.transmit_through_listener(msg,
                                                                            remoteName)
         else:
+            is_batch = isinstance(msg, Mapping) and msg.get(OP_FIELD_NAME) == BATCH
             if remoteName is None:
                 r = []
                 e = []
@@ -777,16 +803,16 @@ class ZStack(NetworkInterface):
                     logger.warning(err_str)
                     return False, err_str
                 for uid in self.remotes:
-                    res, err = self.transmit(msg, uid, serialized=True)
+                    res, err = self.transmit(msg, uid, serialized=True, is_batch=is_batch)
                     r.append(res)
                     e.append(err)
                 e = list(filter(lambda x: x is not None, e))
                 ret_err = None if len(e) == 0 else "\n".join(e)
                 return all(r), ret_err
             else:
-                return self.transmit(msg, remoteName)
+                return self.transmit(msg, remoteName, is_batch=is_batch)
 
-    def transmit(self, msg, uid, timeout=None, serialized=False):
+    def transmit(self, msg, uid, timeout=None, serialized=False, is_batch=False):
         remote = self.remotes.get(uid)
         err_str = None
         if not remote:

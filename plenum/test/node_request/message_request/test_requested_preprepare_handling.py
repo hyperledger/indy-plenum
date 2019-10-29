@@ -1,5 +1,7 @@
 import types
 
+import pytest
+
 from plenum.common.constants import PREPREPARE
 from plenum.common.messages.node_messages import MessageRep
 from plenum.common.types import f
@@ -60,8 +62,6 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     }), names=[slow_node.name, ])
 
     def chk():
-        # `process_requested_pre_prepare` is called but
-        # `processThreePhaseMsg` is not called
         assert get_count(
             slow_master_replica._message_req_service,
             slow_master_replica._message_req_service.process_message_rep) > count_pr_req

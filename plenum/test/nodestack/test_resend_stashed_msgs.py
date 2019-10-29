@@ -44,6 +44,7 @@ def func_create_stacks(tdir, registry):
     yield create_stack
 
 
+@pytest.mark.skip("INDY-2253: we don't stasj ping/pongs anymore")
 def test_use_send_from_zstack_on_resend(func_create_stacks, looper):
     aStack, bStack = func_create_stacks(2)
     connectStack(aStack, bStack)

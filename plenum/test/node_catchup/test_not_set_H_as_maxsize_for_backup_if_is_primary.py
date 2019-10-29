@@ -1,3 +1,4 @@
+import sys
 import pytest
 
 from plenum.test.helper import sdk_send_random_and_check
@@ -26,7 +27,7 @@ def tconf(tconf):
 
 
 
-def test_not_set_H_as_maxsize_for_backup_if_is_primary(looper,
+def test_set_H_as_maxsize_for_backup_if_is_primary(looper,
                                                        txnPoolNodeSet,
                                                        sdk_pool_handle,
                                                        sdk_wallet_steward,
