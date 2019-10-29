@@ -6,10 +6,10 @@ from common.exceptions import LogicError
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import CheckpointStabilized, NeedBackupCatchup, NeedMasterCatchup
 from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare
-from plenum.common.stashing_router import DISCARD
-from plenum.common.util import updateNamedTuple, getMaxFailures
+from plenum.common.util import getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.test.checkpoints.conftest import chkFreqPatched
 from plenum.test.checkpoints.helper import cp_digest, cp_key
 from plenum.test.helper import create_pre_prepare_params
 
@@ -38,7 +38,8 @@ def ordered(pre_prepare):
         pre_prepare.txnRootHash,
         pre_prepare.auditTxnRootHash,
         ["Alpha", "Beta"],
-        pre_prepare.viewNo
+        pre_prepare.viewNo,
+        pre_prepare.digest
     ]
     return Ordered(*ord_args)
 
@@ -51,6 +52,7 @@ def checkpoint(ordered, tconf):
                       seqNoStart=0,
                       seqNoEnd=start + tconf.CHK_FREQ - 1,
                       digest=cp_digest(start + tconf.CHK_FREQ - 1))
+
 
 # TODO: Add test checking that our checkpoint is stabilized only if we receive
 #  quorum of checkpoints with expected digest
@@ -219,3 +221,48 @@ def test_remove_stashed_checkpoints_doesnt_crash_when_current_view_no_is_greater
     checkpoint_service._data.view_no = 2
     checkpoint_service._remove_received_checkpoints(till_3pc_key)
     assert not checkpoint_service._received_checkpoints
+
+
+@pytest.fixture(params=["current_view", "future_view"])
+def caughtup_view_no(request, initial_view_no):
+    if request.param == "current_view":
+        return initial_view_no
+    return initial_view_no + 1
+
+
+CHK_FREQ = 100
+
+
+@pytest.mark.parametrize('caughtup_pp_seq_no, expected_stable_checkpoint', [
+    (1, 0),
+    (99, 0),
+    (100, 100),
+    (101, 100),
+    (199, 100),
+    (200, 200),
+    (1001, 1000)
+])
+def test_caught_up_till_3pc_stabilizes_checkpoint(checkpoint_service,
+                                                  tconf, chkFreqPatched,
+                                                  is_master, initial_view_no, caughtup_view_no,
+                                                  caughtup_pp_seq_no, expected_stable_checkpoint):
+    checkpoint_service._get_view_no_from_audit = lambda x: initial_view_no
+    checkpoint_service._get_digest_from_audit = lambda x, y: cp_digest(9999)
+    data = checkpoint_service._data
+    last_ordered = (caughtup_view_no, caughtup_pp_seq_no)
+
+    # emulate finish of catchup
+    data.last_ordered_3pc = last_ordered
+    data.view_no = last_ordered[0]
+
+    # call caught_up_till_3pc
+    checkpoint_service.caught_up_till_3pc(last_ordered)
+
+    # stable checkpoint must be updated
+    assert data.stable_checkpoint == expected_stable_checkpoint
+    assert data.last_checkpoint.seqNoEnd == data.stable_checkpoint
+    expected_view_no = initial_view_no if caughtup_pp_seq_no >= 100 else 0
+    assert data.last_checkpoint.viewNo == expected_view_no
+    expected_digest = cp_digest(9999) if caughtup_pp_seq_no >= 100 else None
+    assert data.last_checkpoint.digest == expected_digest
+    assert len(data.checkpoints) == 1

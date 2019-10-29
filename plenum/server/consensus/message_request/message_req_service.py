@@ -2,21 +2,22 @@ import logging
 from typing import Dict, List
 
 from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
-    PROPAGATE, PREPARE, COMMIT
+    PROPAGATE, PREPARE, COMMIT, VIEW_CHANGE, NEW_VIEW
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import IncorrectMessageForHandlingException
-from plenum.common.messages.internal_messages import Missing3pcMessage, CheckpointStabilized, ViewChangeStarted
+from plenum.common.messages.internal_messages import MissingMessage, CheckpointStabilized, ViewChangeStarted
 from plenum.common.messages.node_messages import MessageReq, MessageRep, Ordered
 from plenum.common.metrics_collector import measure_time, MetricsName, NullMetricsCollector
 from plenum.common.router import Subscription
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler
+from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler, \
+    ViewChangeHandler, NewViewHandler
 from stp_core.common.log import getlogger
 
 
-class MessageReq3pcService:
+class MessageReqService:
     def __init__(self,
                  data: ConsensusSharedData,
                  bus: InternalBus,
@@ -26,7 +27,7 @@ class MessageReq3pcService:
         self._data = data
         self._bus = bus
         self._subscription = Subscription()
-        self._subscription.subscribe(bus, Missing3pcMessage, self.process_missing_message)
+        self._subscription.subscribe(bus, MissingMessage, self.process_missing_message)
         self._subscription.subscribe(bus, Ordered, self.process_ordered)
         self._subscription.subscribe(bus, ViewChangeStarted, self.process_view_change_started)
         self._subscription.subscribe(bus, CheckpointStabilized, self.process_checkpoint_stabilized)
@@ -40,7 +41,10 @@ class MessageReq3pcService:
             PREPREPARE: PreprepareHandler(self._data),
             PREPARE: PrepareHandler(self._data),
             COMMIT: CommitHandler(self._data),
+            VIEW_CHANGE: ViewChangeHandler(self._data),
+            NEW_VIEW: NewViewHandler(self._data)
         }
+        self.three_pc_handlers = {PREPREPARE, PREPARE, COMMIT}
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REQ_TIME)
     def process_message_req(self, msg: MessageReq, frm):
@@ -80,22 +84,22 @@ class MessageReq3pcService:
             return
         handler = self.handlers[msg_type]
         try:
-            validated_msg = handler.get_3pc_message(msg, frm)
+            validated_msg, frm = handler.extract_message(msg, frm)
             self._network.process_incoming(validated_msg, frm)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)
 
     @measure_time(MetricsName.SEND_MESSAGE_REQ_TIME)
-    def process_missing_message(self, msg: Missing3pcMessage):
+    def process_missing_message(self, msg: MissingMessage):
         if msg.inst_id != self._data.inst_id:
             return
         # TODO: Using a timer to retry would be a better thing to do
         self._logger.trace('{} requesting {} for {} from {}'.format(
-            self, msg.msg_type, msg.three_pc_key, msg.dst))
+            self, msg.msg_type, msg.key, msg.dst))
         handler = self.handlers[msg.msg_type]
 
         try:
-            params = handler.prepare_msg_to_request(msg.three_pc_key, msg.stash_data)
+            params = handler.prepare_msg_to_request(msg.key, msg.stash_data)
         except IncorrectMessageForHandlingException as e:
             self.discard(e.msg, e.reason, e.log_method)
             return
@@ -106,15 +110,19 @@ class MessageReq3pcService:
             }), dst=msg.dst)
 
     def process_ordered(self, msg: Ordered):
-        for handler in self.handlers.values():
+        for msg_type, handler in self.handlers.items():
+            if msg_type not in self.three_pc_handlers:
+                continue
             handler.requested_messages.pop((msg.viewNo, msg.ppSeqNo), None)
 
     def process_view_change_started(self, msg: ViewChangeStarted):
-        for handler in self.handlers.values():
-            handler.requested_messages.clear()
+        for msg_type, handler in self.handlers.items():
+            handler.cleanup()
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
-        for handler in self.handlers.values():
+        for msg_type, handler in self.handlers.items():
+            if msg_type not in self.three_pc_handlers:
+                continue
             for key in list(handler.requested_messages.keys()):
                 if compare_3PC_keys(key, msg.last_stable_3pc) >= 0:
                     handler.requested_messages.pop(key)

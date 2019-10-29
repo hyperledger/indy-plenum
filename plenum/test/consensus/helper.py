@@ -5,20 +5,26 @@ from typing import Dict, Type, List, Optional
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
+from plenum.common.batched import Batched
 from plenum.common.config_util import getConfig
 from plenum.common.constants import NODE, NYM, SEQ_NO_DB_LABEL
 from plenum.common.event_bus import InternalBus
+from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck, PrePrepare, Prepare, \
-    Commit
+    Commit, MessageRep
 from plenum.common.txn_util import get_type
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, BatchID, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
-from plenum.server.consensus.view_change_service import ViewChangeService, view_change_digest
+from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
 from plenum.server.replica_helper import generateName
@@ -32,6 +38,7 @@ from plenum.test.simulation.sim_network import SimNetwork
 from plenum.test.simulation.sim_random import DefaultSimRandom, SimRandom
 from plenum.test.testing_utils import FakeSomething
 from storage.kv_in_memory import KeyValueStorageInMemory
+from stp_zmq.zstack import ZStack
 
 
 class TestLedgersBootstrap(LedgersBootstrap):
@@ -120,7 +127,7 @@ class SimPool:
     def __init__(self, node_count: int = 4, random: Optional[SimRandom] = None):
         self._random = random if random else DefaultSimRandom()
         self._timer = MockTimer()
-        self._network = SimNetwork(self._timer, self._random)
+        self._network = SimNetwork(self._timer, self._random, self._serialize_deserialize)
         self._nodes = []
         validators = genNodeNames(node_count)
         # ToDo: maybe it should be a random too?
@@ -135,14 +142,22 @@ class SimPool:
             # TODO: emulate it the same way as in Replica, that is sender must have 'node_name:inst_id' form
             replica_name = generateName(name, 0)
             handler = partial(self.network._send_message, replica_name)
+            write_manager = create_test_write_req_manager(name, genesis_txns)
             replica = ReplicaService(replica_name,
                                      validators,
                                      primary_name,
                                      self._timer,
                                      InternalBus(),
                                      self.network.create_peer(name, handler),
-                                     write_manager=create_test_write_req_manager(name, genesis_txns),
+                                     write_manager=write_manager,
                                      bls_bft_replica=MockBlsBftReplica())
+            # ToDo: For now, future_primary_handler is depended from the node.
+            # And for now we need to patching set_node_state functionality
+            future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
+                                                                   FakeSomething(nodeReg={},
+                                                                                 nodeIds=[],
+                                                                                 primaries=replica._data.primaries))
+            write_manager.register_batch_handler(future_primaries_handler)
             replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)
 
@@ -162,6 +177,15 @@ class SimPool:
     @property
     def size(self):
         return len(self.nodes)
+
+    def _serialize_deserialize(self, msg):
+        serialized_msg = Batched().prepForSending(msg)
+        serialized_msg = ZStack.serializeMsg(serialized_msg)
+        new_msg = node_message_factory.get_instance(**ZStack.deserializeMsg(serialized_msg))
+        if not isinstance(msg, MessageRep):
+            assert MessageProcessor().toDict(msg) == MessageProcessor().toDict(new_msg), \
+                "\n {} \n {}".format(MessageProcessor().toDict(msg), MessageProcessor().toDict(new_msg))
+        return new_msg
 
 
 VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
@@ -221,7 +245,7 @@ def create_view_change(initial_view_no, stable_cp=10, batches=None):
 
 def create_new_view_from_vc(vc, validators, checkpoint=None, batches=None):
     vc_digest = view_change_digest(vc)
-    vcs = [(node_name, vc_digest) for node_name in validators]
+    vcs = [[node_name, vc_digest] for node_name in validators]
     checkpoint = checkpoint or vc.checkpoints[0]
     batches = batches or vc.prepared
     return NewView(vc.viewNo,

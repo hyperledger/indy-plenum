@@ -4,7 +4,8 @@ from orderedset._orderedset import OrderedSet
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
-from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
+    TXN_PAYLOAD, TXN_PAYLOAD_DATA, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_DIGEST
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.database_manager import DatabaseManager
@@ -21,13 +22,14 @@ from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_
 class ReplicaFakeNode(FakeSomething):
 
     def __init__(self, viewNo, quorums, ledger_ids):
+        node_names = ["Alpha", "Beta", "Gamma", "Delta"]
         node_stack = FakeSomething(
             name="fake stack",
-            connecteds={"Alpha", "Beta", "Gamma", "Delta"}
+            connecteds=set(node_names)
         )
         self.replicas = []
         self.viewNo = viewNo
-        audit_ledger = FakeSomething(size=0)
+        audit_ledger = FakeSomething(size=0, get_last_txn=lambda *args: None, getAllTxn=lambda *args, **kwargs: [])
         db_manager = DatabaseManager()
         db_manager.register_new_database(AUDIT_LEDGER_ID, audit_ledger)
         super().__init__(
@@ -39,7 +41,6 @@ class ReplicaFakeNode(FakeSomething):
             utc_epoch=lambda *args: get_utc_epoch(),
             mode=Mode.participating,
             view_change_in_progress=False,
-            pre_view_change_in_progress=False,
             requests=Requests(),
             onBatchCreated=lambda self, *args, **kwargs: True,
             applyReq=lambda self, *args, **kwargs: True,
@@ -48,7 +49,8 @@ class ReplicaFakeNode(FakeSomething):
             db_manager=db_manager,
             write_manager=FakeSomething(database_manager=db_manager,
                                         apply_request=lambda req, cons_time: None),
-            timer=QueueTimer()
+            timer=QueueTimer(),
+            poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names)
         )
 
     @property

@@ -34,6 +34,7 @@ def tconf(tconf):
     tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
+@pytest.mark.skip(reason="We don't make a catchup during new view_change")
 def test_slow_node_reverts_unordered_state_during_catchup(looper,
                                                           txnPoolNodeSet,
                                                           sdk_pool_handle,

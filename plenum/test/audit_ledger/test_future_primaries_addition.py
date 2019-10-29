@@ -1,9 +1,19 @@
 import copy
+import time
+
+from plenum.common.request import Request
+from plenum.test.delayers import cDelay
+
+from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.util import randomString
+
+from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.test.stasher import delay_rules
 
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import add_new_node
 
-from plenum.test.helper import checkViewNoForNodes
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import demote_node
 
 nodeCount = 6
@@ -29,9 +39,20 @@ def test_future_primaries_replicas_increase(looper, txnPoolNodeSet, sdk_pool_han
     new_view_no = checkViewNoForNodes(txnPoolNodeSet)
     assert new_view_no == starting_view_number + 1
     # "seq_no + 2" because 1 domain and 1 pool txn.
-    state = txnPoolNodeSet[0].write_manager.future_primary_handler.node_states[-1]
-    assert len(state.primaries) == len(initial_primaries) + 1
-    assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
+
+    node = txnPoolNodeSet[0]
+    with delay_rules(node.nodeIbStasher, cDelay()):
+        req = sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                        sdk_pool_handle,
+                                        sdk_wallet_stewards[0], 1)[0][0]
+        req = Request(**req)
+        three_pc_batch = ThreePcBatch(DOMAIN_LEDGER_ID, 0, 0, 1, time.time(),
+                                      randomString(),
+                                      randomString(),
+                                      ['a', 'b', 'c'], [req.digest], pp_digest='')
+        primaries = node.write_manager.future_primary_handler.post_batch_applied(three_pc_batch)
+        assert len(primaries) == len(initial_primaries) + 1
+        assert len(primaries) == len(node.primaries)
 
 
 def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -49,9 +70,19 @@ def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_han
 
     new_view_no = checkViewNoForNodes(txnPoolNodeSet)
     assert new_view_no == starting_view_number + 1
-    state = txnPoolNodeSet[0].write_manager.future_primary_handler.node_states[-1]
-    assert len(state.primaries) + 1 == len(initial_primaries)
-    assert len(state.primaries) == len(txnPoolNodeSet[0].primaries)
+    node = txnPoolNodeSet[0]
+    with delay_rules(node.nodeIbStasher, cDelay()):
+        req = sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                        sdk_pool_handle,
+                                        sdk_wallet_stewards[0], 1)[0][0]
+        req = Request(**req)
+        three_pc_batch = ThreePcBatch(DOMAIN_LEDGER_ID, 0, 0, 1, time.time(),
+                                      randomString(),
+                                      randomString(),
+                                      ['a', 'b', 'c'], [req.digest], pp_digest='')
+        primaries = node.write_manager.future_primary_handler.post_batch_applied(three_pc_batch)
+        assert len(primaries) + 1 == len(initial_primaries)
+        assert len(primaries) == len(txnPoolNodeSet[0].primaries)
 
     for node in txnPoolNodeSet:
         node.write_manager.future_primary_handler.commit_batch = old_commit

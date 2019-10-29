@@ -135,6 +135,7 @@ class StashingRouter(Router):
             return
 
         data = queue.pop_all()
+        self._logger.info("Unstash {} messages from stash with code {}".format(len(data), code))
         for msg_tuple in data:
             self._resolve_and_process(*msg_tuple)
 

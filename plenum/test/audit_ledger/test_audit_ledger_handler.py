@@ -12,7 +12,7 @@ def check_apply_audit_txn(alh,
                           pool_size, domain_size, config_size,
                           last_pool_seqno, last_domain_seqno, last_config_seqno,
                           primaries, other_sizes={},
-                          original_view_no=None):
+                          original_view_no=None, digest=''):
     db_manager = alh.database_manager
     uncommited_size_before = alh.ledger.uncommitted_size
     size_before = alh.ledger.size
@@ -20,7 +20,7 @@ def check_apply_audit_txn(alh,
     do_apply_audit_txn(alh,
                        txns_count=txns_count, ledger_id=ledger_ids[0],
                        view_no=view_no, pp_sq_no=pp_sq_no, txn_time=txn_time,
-                       original_view_no=original_view_no)
+                       original_view_no=original_view_no, digest=digest)
 
     assert alh.ledger.uncommitted_size == uncommited_size_before + 1
     assert alh.ledger.size == size_before
@@ -41,7 +41,8 @@ def check_apply_audit_txn(alh,
                     last_domain_seqno=last_domain_seqno,
                     last_config_seqno=last_config_seqno,
                     primaries=primaries,
-                    other_sizes=other_sizes)
+                    other_sizes=other_sizes,
+                    digest=digest)
 
 
 def test_apply_audit_ledger_txn_pool_ledger(alh,
@@ -89,7 +90,8 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           pool_size=initial_pool_size, domain_size=initial_domain_size + 10,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
-                          primaries=DEFAULT_PRIMARIES)
+                          primaries=DEFAULT_PRIMARIES,
+                          digest='pp_digest_1')
 
     # 2. add pool txn
     check_apply_audit_txn(alh=alh,
@@ -98,7 +100,8 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 10,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=1, last_config_seqno=None,
-                          primaries=1)
+                          primaries=1,
+                          digest='pp_digest_2')
 
     # 3. add config txn
     check_apply_audit_txn(alh=alh,
@@ -107,7 +110,8 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 10,
                           config_size=initial_config_size + 8,
                           last_pool_seqno=2, last_domain_seqno=1, last_config_seqno=None,
-                          primaries=2)
+                          primaries=2,
+                          digest='pp_digest_3')
 
     # 4. add domain txn
     check_apply_audit_txn(alh=alh,
@@ -116,7 +120,8 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 12,
                           config_size=initial_config_size + 8,
                           last_pool_seqno=2, last_domain_seqno=None, last_config_seqno=3,
-                          primaries=3)
+                          primaries=3,
+                          digest='pp_digest_4')
 
     # 5. add domain txn
     check_apply_audit_txn(alh=alh,
@@ -125,7 +130,8 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           pool_size=initial_pool_size + 6, domain_size=initial_domain_size + 19,
                           config_size=initial_config_size + 8,
                           last_pool_seqno=2, last_domain_seqno=None, last_config_seqno=3,
-                          primaries=4)
+                          primaries=4,
+                          digest='pp_digest_5')
 
     # 6. add pool txn
     check_apply_audit_txn(alh=alh,
@@ -134,7 +140,8 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           pool_size=initial_pool_size + 11, domain_size=initial_domain_size + 19,
                           config_size=initial_config_size + 8,
                           last_pool_seqno=None, last_domain_seqno=5, last_config_seqno=3,
-                          primaries=5)
+                          primaries=5,
+                          digest='pp_digest_6')
 
 
 def test_reject_batch(alh, db_manager,
@@ -273,9 +280,11 @@ def test_commit_one_batch(alh, db_manager,
                           initial_domain_size, initial_pool_size, initial_config_size,
                           initial_seq_no):
     size_before = alh.ledger.size
+    digest = '123/0digest'
     do_apply_audit_txn(alh,
                        txns_count=7, ledger_id=DOMAIN_LEDGER_ID,
-                       view_no=3, pp_sq_no=35, txn_time=11111)
+                       view_no=3, pp_sq_no=35, txn_time=11111,
+                       digest=digest)
     txn_root_hash = db_manager.get_ledger(DOMAIN_LEDGER_ID).uncommitted_root_hash
     state_root_hash = db_manager.get_state(DOMAIN_LEDGER_ID).headHash
     pool_txn_root_hash = db_manager.get_ledger(POOL_LEDGER_ID).uncommitted_root_hash
@@ -299,7 +308,8 @@ def test_commit_one_batch(alh, db_manager,
                     last_pool_seqno=None,
                     last_domain_seqno=None,
                     last_config_seqno=None,
-                    primaries=DEFAULT_PRIMARIES)
+                    primaries=DEFAULT_PRIMARIES,
+                    digest=digest)
 
 
 def test_audit_not_applied_if_pre_prepare_doesnt_have_audit(alh):

@@ -2,7 +2,7 @@ from common.serializers.serialization import node_status_db_serializer
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 from plenum.test import waits
 from plenum.test.checkpoints.conftest import chkFreqPatched
-from plenum.test.helper import sdk_send_batches_of_random, assertExp, get_pp_seq_no
+from plenum.test.helper import sdk_send_batches_of_random, assertExp
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica, \

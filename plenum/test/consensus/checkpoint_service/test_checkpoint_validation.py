@@ -7,7 +7,7 @@ from plenum.common.util import SortedDict
 from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.replica_validator import ReplicaValidator
 from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, CATCHING_UP, ALREADY_STABLE, \
-    STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW
+    STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW_3PC
 from plenum.test.checkpoints.helper import cp_digest
 
 
@@ -117,12 +117,4 @@ def test_check_future_view(validator):
     msg = checkpoint(view_no=validator._data.view_no + 1,
                      inst_id=validator._data.inst_id,
                      pp_seq_no=10)
-    assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
-
-
-def test_check_view_chnange(validator):
-    validator._data.legacy_vc_in_progress = True
-    msg = checkpoint(view_no=validator._data.view_no,
-                     inst_id=validator._data.inst_id,
-                     pp_seq_no=10)
-    assert validator.validate(msg) == (STASH_VIEW, FUTURE_VIEW)
+    assert validator.validate(msg) == (STASH_VIEW_3PC, FUTURE_VIEW)

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.server.consensus.message_request.message_req_3pc_service import MessageReq3pcService
+from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.test.helper import create_pre_prepare_no_bls, create_commit_no_bls_sig, create_prepare, generate_state_root
 
 
@@ -10,10 +10,10 @@ def data(consensus_data):
 
 
 @pytest.fixture
-def message_req_3pc_service(data, internal_bus, external_bus):
-    req_service = MessageReq3pcService(data=data,
-                                       bus=internal_bus,
-                                       network=external_bus)
+def message_req_service(data, internal_bus, external_bus):
+    req_service = MessageReqService(data=data,
+                                    bus=internal_bus,
+                                    network=external_bus)
     return req_service
 
 
