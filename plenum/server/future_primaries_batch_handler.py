@@ -30,15 +30,12 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
             if isinstance(p_primaries, int):
                 return p_primaries
             return 1
-        else:
-            if isinstance(p_primaries, int):
-                return p_primaries
-            return p_primaries
+        return p_primaries
 
     def _get_previous_primaries(self, audit, view_no, seq_no_end):
         if seq_no_end == 0:
             return None
-        previous_txn = audit.getBySeqNo(seq_no_end) if seq_no_end <= audit.size else audit.get_by_seq_no_uncommitted(seq_no_end)
+        previous_txn = audit.get_by_seq_no_uncommitted(seq_no_end)
         primaries = self._inspect_audit_txn(previous_txn, view_no)
         if isinstance(primaries, list):
             return primaries
@@ -66,6 +63,9 @@ class FuturePrimariesBatchHandler(BatchRequestHandler):
         view_no = self.node.viewNo if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
         primaries = self.get_primaries(view_no)
         if primaries is None:
+            # In case of reordering after view_change
+            # we can trust for list of primaries from PrePrepare
+            # because this PrePrepare was validated on all the nodes
             primaries = three_pc_batch.primaries
             self.set_primaries(view_no, primaries)
 
