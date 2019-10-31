@@ -1,5 +1,7 @@
 import inspect
 
+from zmq.auth import Authenticator
+
 from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.common.util import z85_to_friendly
@@ -41,7 +43,6 @@ from plenum.common.exceptions import InvalidMessageExceedingSizeException
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 logger = getlogger()
-
 
 Quota = NamedTuple("Quota", [("count", int), ("size", int)])
 
@@ -341,7 +342,10 @@ class ZStack(NetworkInterface):
 
     def start(self, restricted=None, reSetupAuth=True):
         # self.ctx = test.asyncio.Context.instance()
-        self.ctx = zmq.Context.instance()
+        if self.config.NEW_CTXT_INSTANCE:
+            self.ctx = zmq.Context()
+        else:
+            self.ctx = zmq.Context.instance()
         if self.config.MAX_SOCKETS:
             self.ctx.MAX_SOCKETS = self.config.MAX_SOCKETS
         restricted = self.restricted if restricted is None else restricted
@@ -355,7 +359,6 @@ class ZStack(NetworkInterface):
         if self.opened:
             logger.display('stack {} closing its listener'.format(self), extra={"cli": False, "demo": False})
             self.close()
-        self.teardownAuth()
         logger.display("stack {} stopped".format(self), extra={"cli": False, "demo": False})
 
     @property
@@ -404,25 +407,34 @@ class ZStack(NetworkInterface):
                 time.sleep(sleep_between_bind_retries)
 
     def close(self):
-        if self.listener_monitor is not None:
-            self.listener.disable_monitor()
-            self.listener_monitor = None
-        self.listener.unbind(self.listener.LAST_ENDPOINT)
-        self.listener.close(linger=0)
-        self.listener = None
-        logger.debug('{} starting to disconnect remotes'.format(self))
-        for r in self.remotes.values():
-            r.disconnect()
-            self.remotesByKeys.pop(r.publicKey, None)
-
-        self._remotes = {}
-        if self.remotesByKeys:
-            logger.debug('{} found remotes that were only in remotesByKeys and '
-                         'not in remotes. This is suspicious')
-            for r in self.remotesByKeys.values():
-                r.disconnect()
+        if self.config.NEW_CTXT_INSTANCE:
+            self.ctx.destroy(linger=0)
+            self.listener = None
+            self._remotes = {}
             self.remotesByKeys = {}
-        self._conns = set()
+            self._conns = set()
+        else:
+            if self.listener_monitor is not None:
+                self.listener.disable_monitor()
+                self.listener_monitor = None
+            self.listener.unbind(self.listener.LAST_ENDPOINT)
+            self.listener.close(linger=0)
+            self.listener = None
+            logger.debug('{} starting to disconnect remotes'.format(self))
+            for r in self.remotes.values():
+                r.disconnect()
+                self.remotesByKeys.pop(r.publicKey, None)
+
+            self._remotes = {}
+            if self.remotesByKeys:
+                logger.debug('{} found remotes that were only in remotesByKeys and '
+                             'not in remotes. This is suspicious')
+                for r in self.remotesByKeys.values():
+                    r.disconnect()
+                self.remotesByKeys = {}
+            self._conns = set()
+
+            self.teardownAuth()
 
     @property
     def selfEncKeys(self):
@@ -553,7 +565,8 @@ class ZStack(NetworkInterface):
                 except zmq.Again as e:
                     break
                 except zmq.ZMQError as e:
-                    logger.debug("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
+                    logger.debug(
+                        "Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
             if i > 0:
                 logger.trace('{} got {} messages through remote {}'.
                              format(self, i, remote))
@@ -589,6 +602,9 @@ class ZStack(NetworkInterface):
             msg, ident = self.rxMsgs.popleft()
             frm = self.remotesByKeys[ident].name \
                 if ident in self.remotesByKeys else ident
+
+            if not self.config.RETRY_CONNECT and ident in self.remotesByKeys:
+                self.remotesByKeys[ident].setConnected()
 
             if self.handlePingPong(msg, frm, ident):
                 continue
