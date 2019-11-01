@@ -343,7 +343,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 # Since the GC needs to happen after a primary has been
                 # decided.
                 return
-            self._gc_before_new_view()
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -356,10 +355,10 @@ class Replica(HasActionQueue, MessageProcessor):
             self.primaryNames.pop(view_no)
 
     def primaryChanged(self, primaryName):
-        self._ordering_service.batches.clear()
         if self.isMaster:
             # Since there is no temporary state data structure and state root
             # is explicitly set to correct value
+            # ToDo: Do we really need this?
             for lid in self.ledger_ids:
                 try:
                     ledger = self.node.getLedger(lid)
@@ -368,7 +367,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._setup_for_non_master_after_view_change(self.viewNo)
 
     def on_view_change_start(self):
         if self.isMaster:
@@ -430,12 +428,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 return n
         return None
 
-    def _setup_for_non_master_after_view_change(self, current_view):
-        if not self.isMaster:
-            for v in list(self.stashed_out_of_order_commits.keys()):
-                if v < current_view:
-                    self.stashed_out_of_order_commits.pop(v)
-
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
         Return whether this replica was primary in the given view
@@ -496,14 +488,6 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return self._consensus_data.view_no
 
-    @property
-    def stashed_out_of_order_commits(self):
-        # Commits which are not being ordered since commits with lower
-        # sequence numbers have not been ordered yet. Key is the
-        # viewNo and value a map of pre-prepare sequence number to commit
-        # type: Dict[int,Dict[int,Commit]]
-        return self._ordering_service.stashed_out_of_order_commits
-
     def send_3pc_batch(self):
         return self._ordering_service.send_3pc_batch()
 
@@ -563,16 +547,6 @@ class Replica(HasActionQueue, MessageProcessor):
             sender = self.generateName(sender, self.instId)
             self._external_bus.process_incoming(external_msg, sender)
         return count
-
-    def _gc_before_new_view(self):
-        # Trigger GC for all batches of old view
-        # Clear any checkpoints, since they are valid only in a view
-        # ToDo: Need to send a cmd like ViewChangeStart into internal bus
-        # self._gc(self.last_ordered_3pc)
-        self._ordering_service.gc(self.last_ordered_3pc)
-        # ToDo: get rid of directly calling
-        self._ordering_service._clear_prev_view_pre_prepares()
-        # self._clear_prev_view_pre_prepares()
 
     def has_already_ordered(self, view_no, pp_seq_no):
         return compare_3PC_keys((view_no, pp_seq_no),

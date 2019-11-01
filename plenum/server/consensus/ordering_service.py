@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView, NewViewAccepted
+    ReOrderedInNewView, NewViewAccepted, CatchupFinished
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -203,6 +203,7 @@ class OrderingService:
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
         self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
         self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
+        self._subscription.subscribe(self._bus, CatchupFinished, self.process_catchup_finished)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
@@ -2220,7 +2221,6 @@ class OrderingService:
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
-            self.batches.clear()
             self.sent_preprepares.clear()
             self.prePrepares.clear()
             self.prepares.clear()
@@ -2310,6 +2310,26 @@ class OrderingService:
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
         self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
+        self._setup_for_non_master_after_view_change(msg.view_no)
+
+    def _setup_for_non_master_after_view_change(self, current_view):
+        if not self.is_master:
+            for v in list(self.stashed_out_of_order_commits.keys()):
+                if v < current_view:
+                    self.stashed_out_of_order_commits.pop(v)
+
+    def process_catchup_finished(self, msg: CatchupFinished):
+        if compare_3PC_keys(msg.master_last_ordered,
+                            msg.last_caught_up_3PC) > 0:
+            if self.is_master:
+                self._caught_up_till_3pc(msg.last_caught_up_3PC)
+            else:
+                self.first_batch_after_catchup = True
+                self.catchup_clear_for_backup()
+        # This method was in primaryName setter
+        self.gc(msg.last_caught_up_3PC)
+        self._clear_prev_view_pre_prepares()
+
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
