@@ -2330,7 +2330,6 @@ class OrderingService:
         self.gc(msg.last_caught_up_3PC)
         self._clear_prev_view_pre_prepares()
 
-
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
             view_no = get_original_viewno(pp)
