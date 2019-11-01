@@ -5,7 +5,7 @@ def emulate_catchup(replica, ppSeqNo=100):
 
 def emulate_select_primaries(replica):
     replica.primaryName = 'SomeAnotherNode'
-    replica._setup_for_non_master_after_view_change(replica.viewNo)
+    replica._ordering_service._setup_for_non_master_after_view_change(replica.viewNo)
 
 
 def expect_suspicious(replica, suspicious_code):

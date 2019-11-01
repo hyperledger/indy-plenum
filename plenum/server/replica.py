@@ -354,20 +354,6 @@ class Replica(HasActionQueue, MessageProcessor):
         for view_no in views_to_remove:
             self.primaryNames.pop(view_no)
 
-    def primaryChanged(self, primaryName):
-        if self.isMaster:
-            # Since there is no temporary state data structure and state root
-            # is explicitly set to correct value
-            # ToDo: Do we really need this?
-            for lid in self.ledger_ids:
-                try:
-                    ledger = self.node.getLedger(lid)
-                except KeyError:
-                    continue
-                ledger.reset_uncommitted()
-
-        self.primaryName = primaryName
-
     def on_view_change_start(self):
         if self.isMaster:
             lst = self._ordering_service.l_last_prepared_certificate_in_view()
@@ -577,17 +563,6 @@ class Replica(HasActionQueue, MessageProcessor):
         that have not been ordered.
         """
         return self._ordering_service.revert_unordered_batches()
-
-    def on_catch_up_finished(self, last_caught_up_3PC=None, master_last_ordered_3PC=None):
-        if master_last_ordered_3PC and last_caught_up_3PC and \
-                compare_3PC_keys(master_last_ordered_3PC,
-                                 last_caught_up_3PC) > 0:
-            if self.isMaster:
-                self._caught_up_till_3pc(last_caught_up_3PC)
-            else:
-                self._ordering_service.first_batch_after_catchup = True
-                self._catchup_clear_for_backup()
-        self.stasher.process_all_stashed(STASH_CATCH_UP)
 
     def discard_req_key(self, ledger_id, req_key):
         return self._ordering_service.discard_req_key(ledger_id, req_key)

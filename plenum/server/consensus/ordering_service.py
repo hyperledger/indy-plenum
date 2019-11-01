@@ -46,7 +46,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -2329,6 +2329,7 @@ class OrderingService:
         # This method was in primaryName setter
         self.gc(msg.last_caught_up_3PC)
         self._clear_prev_view_pre_prepares()
+        self._stasher.process_all_stashed(STASH_CATCH_UP)
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
