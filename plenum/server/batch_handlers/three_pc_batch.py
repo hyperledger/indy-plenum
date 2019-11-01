@@ -6,7 +6,7 @@ from plenum.server.consensus.consensus_shared_data import get_original_viewno
 
 class ThreePcBatch:
     def __init__(self, ledger_id, inst_id, view_no, pp_seq_no, pp_time, state_root, txn_root, primaries, valid_digests,
-                 pp_digest, has_audit_txn=True, original_view_no=None) -> None:
+                 pp_digest, node_reg=[], has_audit_txn=True, original_view_no=None) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
         self.view_no = view_no
@@ -17,6 +17,7 @@ class ThreePcBatch:
         self.primaries = primaries
         self.valid_digests = valid_digests
         self.pp_digest = pp_digest
+        self.node_reg = node_reg
         self.has_audit_txn = has_audit_txn
         self.original_view_no = original_view_no
 
@@ -54,6 +55,7 @@ class ThreePcBatch:
             primaries=ordered.primaries,
             valid_digests=ordered.valid_reqIdr,
             pp_digest=ordered.digest,
+            node_reg=ordered.nodeReg,
             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in ordered and ordered.auditTxnRootHash is not None,
             original_view_no=ordered.originalViewNo
         )
@@ -72,6 +74,7 @@ class ThreePcBatch:
             primaries=batch_comitted[f.PRIMARIES.nm],
             valid_digests=valid_req_keys,
             pp_digest=batch_comitted[f.DIGEST.nm],
+            node_reg=batch_comitted[f.NODE_REG.nm],
             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in batch_comitted and batch_comitted[
                 f.AUDIT_TXN_ROOT_HASH.nm] is not None,
             original_view_no=batch_comitted[f.ORIGINAL_VIEW_NO.nm] if f.ORIGINAL_VIEW_NO.nm in batch_comitted else None
