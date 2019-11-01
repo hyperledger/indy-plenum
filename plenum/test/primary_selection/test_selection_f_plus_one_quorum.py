@@ -9,7 +9,6 @@ from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.view_change.helper import start_stopped_node
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath,
                                      tdir, tconf, sdk_pool_handle, sdk_wallet_client):
     """
