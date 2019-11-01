@@ -14,6 +14,7 @@ from plenum.persistence.storage import initStorage
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.config_batch_handler import ConfigBatchHandler
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
+from plenum.server.batch_handlers.node_reg_batch_handler import NodeRegBatchHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
@@ -177,8 +178,10 @@ class LedgersBootstrap:
         self.write_manager.register_batch_handler(config_b_h)
 
     def _register_audit_batch_handlers(self):
+        node_reg_handler = NodeRegBatchHandler(self.db_manager)
         audit_b_h = AuditBatchHandler(self.db_manager)
         for lid in self.ledger_ids:
+            self.write_manager.register_batch_handler(node_reg_handler, ledger_id=lid)
             self.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
 
     def _register_common_handlers(self):

@@ -78,7 +78,7 @@ def do_apply_audit_txn(alh,
                        txns_count, ledger_id,
                        view_no, pp_sq_no, txn_time,
                        has_audit_txn=True,
-                       original_view_no=None, digest='', nod_reg=DEFAULT_PRIMARIES):
+                       original_view_no=None, digest='', nod_reg=DEFAULT_NODE_REG):
     db_manager = alh.database_manager
     add_txns(db_manager, ledger_id, txns_count, txn_time)
     three_pc_batch = ThreePcBatch(ledger_id=ledger_id,

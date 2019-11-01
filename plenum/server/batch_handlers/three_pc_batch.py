@@ -6,7 +6,7 @@ from plenum.server.consensus.consensus_shared_data import get_original_viewno
 
 class ThreePcBatch:
     def __init__(self, ledger_id, inst_id, view_no, pp_seq_no, pp_time, state_root, txn_root, primaries, valid_digests,
-                 pp_digest, node_reg=[], has_audit_txn=True, original_view_no=None) -> None:
+                 pp_digest, node_reg=None, has_audit_txn=True, original_view_no=None) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
         self.view_no = view_no
@@ -17,7 +17,7 @@ class ThreePcBatch:
         self.primaries = primaries
         self.valid_digests = valid_digests
         self.pp_digest = pp_digest
-        self.node_reg = node_reg
+        self.node_reg = node_reg or []
         self.has_audit_txn = has_audit_txn
         self.original_view_no = original_view_no
 

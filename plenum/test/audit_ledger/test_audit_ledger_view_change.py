@@ -100,7 +100,8 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
                         last_pool_seqno=2,
                         last_domain_seqno=1,
                         last_config_seqno=None,
-                        primaries=node.primaries)
+                        primaries=node.primaries,
+                        node_reg=[n.name for n in txnPoolNodeSet])
 
 
 def check_audit_ledger_uncommitted_updated(audit_size_initial, nodes, audit_txns_added):

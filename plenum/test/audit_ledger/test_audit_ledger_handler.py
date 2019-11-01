@@ -393,7 +393,8 @@ def test_apply_audit_ledger_txn_new_ledger(alh, node,
                           pool_size=initial_pool_size + 10, domain_size=initial_domain_size,
                           config_size=initial_config_size,
                           last_pool_seqno=None, last_domain_seqno=1, last_config_seqno=None,
-                          primaries=1)
+                          primaries=1,
+                          node_reg=1)
 
     integrate_plugin_in_node(node)
 
