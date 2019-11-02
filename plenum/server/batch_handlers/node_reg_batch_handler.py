@@ -1,3 +1,5 @@
+from collections import deque
+
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
     AUDIT_TXN_NODE_REG, TYPE
 from plenum.common.request import Request
@@ -13,24 +15,40 @@ class NodeRegBatchHandler(BatchRequestHandler, WriteRequestHandler):
     def __init__(self, database_manager: DatabaseManager):
         BatchRequestHandler.__init__(self, database_manager, POOL_LEDGER_ID)
         WriteRequestHandler.__init__(self, database_manager, NODE, POOL_LEDGER_ID)
+
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
-        self.last_view_node_reg = []
+        self.node_reg_at_beginning_of_last_view = []
+
+        self._uncommitted = deque()
+        self._node_reg_at_beginning_of_this_view = []
+        self._current_view_no = 0
 
     def on_catchup_finished(self):
         node_reg = self.__load_node_reg()
         self.uncommitted_node_reg = list(node_reg)
         self.committed_node_reg = list(node_reg)
-        self.last_view_node_reg = list(node_reg)
+        self.node_reg_at_beginning_of_last_view = list(node_reg)
+        self._node_reg_at_beginning_of_this_view = list(node_reg)
+        self._current_view_no = 0
 
-    def post_batch_applied(self, three_pc_batch, prev_handler_result=None):
+    def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        self._uncommitted.append(list(self.uncommitted_node_reg))
+        if three_pc_batch.view_no > self._current_view_no:
+            self.node_reg_at_beginning_of_last_view = list(self._node_reg_at_beginning_of_this_view)
+            self._node_reg_at_beginning_of_this_view = list(self.uncommitted_node_reg)
+            self._current_view_no = three_pc_batch.view_no
         three_pc_batch.node_reg = self.uncommitted_node_reg
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
-        pass
+        self._uncommitted.pop()
+        if len(self._uncommitted) == 0:
+            self.uncommitted_node_reg = self.committed_node_reg
+        else:
+            self.uncommitted_node_reg = self._uncommitted[-1]
 
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
-        pass
+        self.committed_node_reg = self._uncommitted.popleft()
 
     def apply_request(self, request: Request, batch_ts, prev_result):
         if request.operation.get(TYPE) != NODE:

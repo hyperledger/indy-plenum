@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, NamedTuple, Dict
+from typing import Any, List, Optional
 
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
@@ -27,7 +27,6 @@ from plenum.server.request_managers.action_request_manager import ActionRequestM
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from state.pruning_state import PruningState
-
 from storage.helper import initHashStore, initKeyValueStorage
 from storage.kv_in_memory import KeyValueStorageInMemory
 from stp_core.common.log import getlogger
@@ -128,6 +127,7 @@ class LedgersBootstrap:
         self._register_pool_req_handlers()
         self._register_domain_req_handlers()
         self._register_config_req_handlers()
+        self._register_node_reg_handlers() # do it before audit req handlers
         self._register_audit_req_handlers()
         self._register_action_req_handlers()
 
@@ -182,11 +182,14 @@ class LedgersBootstrap:
         for lid in self.ledger_ids:
             self.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
 
-    def _register_common_handlers(self):
+    def _register_node_reg_handlers(self):
         node_reg_handler = NodeRegBatchHandler(self.db_manager)
         self.write_manager.register_req_handler(node_reg_handler)
         for lid in self.ledger_ids:
             self.write_manager.register_batch_handler(node_reg_handler, ledger_id=lid)
+
+    def _register_common_handlers(self):
+        pass
 
     def upload_states(self, ledger_ids=[POOL_LEDGER_ID,
                                         CONFIG_LEDGER_ID,
