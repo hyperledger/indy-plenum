@@ -1542,7 +1542,10 @@ class OrderingService:
         return txn_primaries
 
     def _get_node_reg_for_ordered(self, pp):
-        return self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        if txn_node_reg is None:
+            txn_node_reg = self._write_manager.node_reg_handler.uncommitted_node_reg
+        return txn_node_reg
 
     def _get_from_audit_for_ordered(self, pp, field):
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)

@@ -178,14 +178,15 @@ class LedgersBootstrap:
         self.write_manager.register_batch_handler(config_b_h)
 
     def _register_audit_batch_handlers(self):
-        node_reg_handler = NodeRegBatchHandler(self.db_manager)
         audit_b_h = AuditBatchHandler(self.db_manager)
         for lid in self.ledger_ids:
-            self.write_manager.register_batch_handler(node_reg_handler, ledger_id=lid)
             self.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
 
     def _register_common_handlers(self):
-        pass
+        node_reg_handler = NodeRegBatchHandler(self.db_manager)
+        self.write_manager.register_req_handler(node_reg_handler)
+        for lid in self.ledger_ids:
+            self.write_manager.register_batch_handler(node_reg_handler, ledger_id=lid)
 
     def upload_states(self, ledger_ids=[POOL_LEDGER_ID,
                                         CONFIG_LEDGER_ID,

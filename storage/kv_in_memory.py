@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import Tuple, Iterable
 
 from rlp.utils import str_to_bytes
@@ -13,7 +14,7 @@ databases = {}
 class KeyValueStorageInMemory(KeyValueStorage):
     def __init__(self):
         # TODO: Most probably this will need to be replaced by SortedDict
-        self._dict = {}
+        self._dict = OrderedDict()
 
     def get(self, key):
         if isinstance(key, str):

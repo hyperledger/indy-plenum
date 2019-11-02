@@ -80,6 +80,7 @@ def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequest
         [txn for txn in genesis_txns if get_type(txn) == NYM]
     )
     bootstrap.init()
+    bootstrap.upload_states()
 
     return write_manager
 
