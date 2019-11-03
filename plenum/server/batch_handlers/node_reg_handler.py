@@ -66,7 +66,10 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             return None, None, None
 
         node_name = request.operation[DATA][ALIAS]
-        services = request.operation[DATA].get(SERVICES, [])
+        services = request.operation[DATA].get(SERVICES)
+
+        if services is None:
+            return None, None, None
 
         if node_name not in self.uncommitted_node_reg and VALIDATOR in services:
             # new node added or old one promoted
@@ -114,7 +117,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self._uncommitted_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
         self._committed_view_no = self._uncommitted_view_no
         self.node_reg_at_beginning_of_view[self._committed_view_no] = list(
-            self.__load_node_reg_for_view(first_txn_in_this_view))
+            self.__load_node_reg_for_view(audit_ledger, first_txn_in_this_view))
 
         # 3. If audit ledger has information about the current view only,
         # then let last and current view node regs be equal (and get from the pool ledger)
@@ -127,7 +130,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
                                                                          audit_ledger.getBySeqNo(
                                                                              first_txn_in_this_view_seq_no - 1))
         self.node_reg_at_beginning_of_view[self._committed_view_no - 1] = list(
-            self.__load_node_reg_for_view(first_txn_in_last_view))
+            self.__load_node_reg_for_view(audit_ledger, first_txn_in_last_view))
 
     def __load_node_reg_from_pool_ledger(self, to=None):
         node_reg = []
@@ -137,6 +140,9 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             txn_data = get_payload_data(txn)
             node_name = txn_data[DATA][ALIAS]
             services = txn_data[DATA].get(SERVICES)
+
+            if services is None:
+                continue
 
             if node_name not in node_reg and VALIDATOR in services:
                 # new node added or old one promoted
@@ -166,7 +172,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             return None
         return last_txn_node_reg
 
-    def __load_node_reg_for_view(self, audit_txn):
+    def __load_node_reg_for_view(self, audit_ledger, audit_txn):
         txn_seq_no = get_seq_no(audit_txn)
 
         # If this is the first txn in the audit ledger, so that we don't know a full history,
@@ -180,7 +186,18 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         if node_reg is None:
             # we don't have node reg in audit ledger yet, so get it from the pool ledger
             pool_ledger_size_for_txn = get_payload_data(audit_txn)[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
-            node_reg = self.__load_node_reg_from_pool_ledger(to=pool_ledger_size_for_txn)
+            return self.__load_node_reg_from_pool_ledger(to=pool_ledger_size_for_txn)
+
+        if isinstance(node_reg, int):
+            seq_no = get_seq_no(audit_txn) - node_reg
+            prev_audit_txn = audit_ledger.getBySeqNo(seq_no)
+            node_reg = get_payload_data(prev_audit_txn).get(AUDIT_TXN_NODE_REG)
+
+        if node_reg is None:
+            # we don't have node reg in audit ledger yet, so get it from the pool ledger
+            pool_ledger_size_for_txn = get_payload_data(audit_txn)[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
+            return self.__load_node_reg_from_pool_ledger(to=pool_ledger_size_for_txn)
+
         return node_reg
 
     def __get_first_txn_in_view_from_audit(self, audit_ledger, audit_txn):
