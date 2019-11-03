@@ -147,7 +147,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             if node_name not in node_reg and VALIDATOR in services:
                 # new node added or old one promoted
                 node_reg.append(node_name)
-            elif node_name in node_name and VALIDATOR not in services:
+            elif node_name in node_reg and VALIDATOR not in services:
                 # existing node demoted
                 node_reg.remove(node_name)
         return node_reg
