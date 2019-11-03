@@ -34,11 +34,17 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self._load_last_view_node_reg()
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        # Observer case:
+        if not self.uncommitted_node_reg and three_pc_batch.node_reg:
+            self.uncommitted_node_reg = list(three_pc_batch.node_reg)
+
         view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
         self._uncommitted.append(UncommittedNodeReg(list(self.uncommitted_node_reg), view_no))
+
         if view_no > self._uncommitted_view_no:
             self.node_reg_at_beginning_of_view[view_no] = list(self.uncommitted_node_reg)
             self._uncommitted_view_no = three_pc_batch.view_no
+
         three_pc_batch.node_reg = self.uncommitted_node_reg
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):

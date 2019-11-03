@@ -1931,8 +1931,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(self, self.num_txns_caught_up_in_last_catchup()))
 
         self.write_manager.on_catchup_finished()
-        # FIXME
-        self.write_manager.node_reg_handler.uncommitted_node_reg = list(self.poolManager.nodeReg.keys())
 
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
