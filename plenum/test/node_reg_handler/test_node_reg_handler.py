@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.constants import POOL_LEDGER_ID, VALIDATOR, CURRENT_PROTOCOL_VERSION, NODE, DATA, TYPE, CLIENT_IP, \
     ALIAS, CLIENT_PORT, NODE_IP, NODE_PORT, BLS_KEY, SERVICES, TARGET_NYM
 from plenum.common.request import Request
@@ -206,10 +208,12 @@ def test_update_node_reg_at_beginning_of_last_view(node_reg_handler, init_node_r
                                                                    'Alpha']
 
 
-def test_load_regs_on_catchup_finished_no_node_reg_in_audit_view_0(node_reg_handler, init_node_reg_handler,
-                                                                   write_req_manager):
-    add_node(write_req_manager, "Epsilon", 1, 0, commit=True, add_node_reg_to_audit=False)
-    demote_node(write_req_manager, "Alpha", 2, 0, commit=True, add_node_reg_to_audit=False)
+@pytest.mark.parametrize('add_node_reg_to_audit', [True, False])
+def test_load_regs_on_catchup_finished_view_0(node_reg_handler, init_node_reg_handler,
+                                              write_req_manager,
+                                              add_node_reg_to_audit):
+    add_node(write_req_manager, "Epsilon", 1, 0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
+    demote_node(write_req_manager, "Alpha", 2, 0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
 
     write_req_manager.on_catchup_finished()
 
@@ -219,131 +223,66 @@ def test_load_regs_on_catchup_finished_no_node_reg_in_audit_view_0(node_reg_hand
     assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
 
 
-def test_load_regs_on_catchup_finished_no_node_reg_in_audit_view_1(node_reg_handler, init_node_reg_handler,
-                                                                   write_req_manager):
-    add_node(write_req_manager, "Epsilon", 1, 0, commit=True, add_node_reg_to_audit=False)
-    demote_node(write_req_manager, "Alpha", 2, 1, commit=True, add_node_reg_to_audit=False)
+@pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
+def test_load_regs_on_catchup_finished_view_1(node_reg_handler, init_node_reg_handler,
+                                              write_req_manager,
+                                              add_node_reg_to_audit):
+    add_node_reg_to_audit_view_0 = add_node_reg_to_audit == 'True'
+    add_node_reg_to_audit_view_1 = add_node_reg_to_audit == 'True' or add_node_reg_to_audit == 'Latest_only'
+
+    add_node(write_req_manager, "Epsilon", 1, 0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    demote_node(write_req_manager, "Alpha", 2, 0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    demote_node(write_req_manager, "Beta", 3, 1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    add_node(write_req_manager, "BBB", 4, 1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
 
     write_req_manager.on_catchup_finished()
 
-    assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-
-
-def test_load_regs_on_catchup_finished_no_node_reg_in_audit_view_2(node_reg_handler, init_node_reg_handler,
-                                                                   write_req_manager):
-    add_node(write_req_manager, "Epsilon", 1, 0, commit=True, add_node_reg_to_audit=False)
-    demote_node(write_req_manager, "Alpha", 2, 1, commit=True, add_node_reg_to_audit=False)
-    demote_node(write_req_manager, "Beta", 3, 2, commit=True, add_node_reg_to_audit=False)
-
-    write_req_manager.on_catchup_finished()
-
-    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Gamma', 'Delta', 'Epsilon']
 
 
-def test_load_regs_on_catchup_finished_node_reg_in_audit_view_0(node_reg_handler, init_node_reg_handler,
-                                                                write_req_manager):
+@pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
+def test_load_regs_on_catchup_finished_view_2(node_reg_handler, init_node_reg_handler,
+                                              write_req_manager,
+                                              add_node_reg_to_audit):
+    add_node_reg_to_audit_view_0 = add_node_reg_to_audit == 'True'
+    add_node_reg_to_audit_view_1 = add_node_reg_to_audit == 'True'
+    add_node_reg_to_audit_view_2 = add_node_reg_to_audit == 'True' or add_node_reg_to_audit == 'Latest_only'
+
+    add_node(write_req_manager, "Epsilon", 1, 0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    demote_node(write_req_manager, "Alpha", 2, 0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    demote_node(write_req_manager, "Beta", 3, 1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    add_node(write_req_manager, "BBB", 4, 1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    demote_node(write_req_manager, "Epsilon", 5, 2, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_2)
+    add_node(write_req_manager, "AAA", 6, 2, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_2)
+
+    write_req_manager.on_catchup_finished()
+
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'BBB', 'AAA']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'BBB', 'AAA']
+    assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Gamma', 'Delta', 'BBB']
+
+
+def test_load_regs_from_audit_ledger_on_catchup_finished_with_uncomitted(node_reg_handler, init_node_reg_handler,
+                                                                         write_req_manager):
     add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
     demote_node(write_req_manager, "Alpha", 2, 0, commit=True)
+    demote_node(write_req_manager, "Beta", 3, 1, commit=True)
+    add_node(write_req_manager, "BBB", 4, 1, commit=True)
+    add_node(write_req_manager, "AAA", 5, 2, commit=True)
+    add_node(write_req_manager, "Beta", 6, 2, commit=True)
+    add_node(write_req_manager, "Alpha", 7, 3, commit=False)
+    add_node(write_req_manager, "CCC", 8, 3, commit=False)
 
     write_req_manager.on_catchup_finished()
 
-    assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
-
-
-def test_load_regs_on_catchup_finished_node_reg_in_audit_view_1(node_reg_handler, init_node_reg_handler,
-                                                                write_req_manager):
-    add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
-    demote_node(write_req_manager, "Alpha", 2, 1, commit=True)
-
-    write_req_manager.on_catchup_finished()
-
-    assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-
-
-def test_load_regs_on_catchup_finished_node_reg_in_audit_view_2(node_reg_handler, init_node_reg_handler,
-                                                                write_req_manager):
-    add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
-    demote_node(write_req_manager, "Alpha", 2, 1, commit=True)
-    demote_node(write_req_manager, "Beta", 3, 2, commit=True)
-
-    write_req_manager.on_catchup_finished()
-
-    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Gamma', 'Delta', 'Epsilon']
-
-
-# def test_load_regs_from_audit_ledger_on_catchup_finished_view_0(node_reg_handler, init_node_reg_handler,
-#                                                                 write_req_manager):
-#     add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
-#     demote_node(write_req_manager, "Alpha", 2, 0, commit=True)
-#
-#     write_req_manager.on_catchup_finished()
-#
-#     assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-#     assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-#     assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
-#
-#
-# def test_load_regs_from_audit_ledger_on_catchup_finished_view_1(node_reg_handler, init_node_reg_handler,
-#                                                                 write_req_manager):
-#     add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
-#     demote_node(write_req_manager, "Alpha", 2, 0, commit=True)
-#     demote_node(write_req_manager, "Beta", 3, 1, commit=True)
-#     add_node(write_req_manager, "BBB", 4, 1, commit=True)
-#
-#     write_req_manager.on_catchup_finished()
-#
-#     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
-#     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
-#     assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Alpha', 'Beta', 'Gamma', 'Delta']
-#
-#
-# def test_load_regs_from_audit_ledger_on_catchup_finished_view_2(node_reg_handler, init_node_reg_handler,
-#                                                                 write_req_manager):
-#     add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
-#     demote_node(write_req_manager, "Alpha", 2, 0, commit=True)
-#     demote_node(write_req_manager, "Beta", 3, 1, commit=True)
-#     add_node(write_req_manager, "BBB", 4, 1, commit=True)
-#     add_node(write_req_manager, "AAA", 5, 2, commit=True)
-#     add_node(write_req_manager, "Beta", 6, 2, commit=True)
-#
-#     write_req_manager.on_catchup_finished()
-#
-#     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
-#     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
-#     assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Gamma', 'Delta', 'Epsilon']
-#
-#
-# def test_load_regs_from_audit_ledger_on_catchup_finished_with_uncomitted(node_reg_handler, init_node_reg_handler,
-#                                                                          write_req_manager):
-#     add_node(write_req_manager, "Epsilon", 1, 0, commit=True)
-#     demote_node(write_req_manager, "Alpha", 2, 0, commit=True)
-#     demote_node(write_req_manager, "Beta", 3, 1, commit=True)
-#     add_node(write_req_manager, "BBB", 4, 1, commit=True)
-#     add_node(write_req_manager, "AAA", 5, 2, commit=True)
-#     add_node(write_req_manager, "Beta", 6, 2, commit=True)
-#     add_node(write_req_manager, "Alpha", 7, 3, commit=False)
-#     add_node(write_req_manager, "CCC", 8, 3, commit=False)
-#
-#     write_req_manager.on_catchup_finished()
-#
-#     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
-#     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
-#     assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
+    assert node_reg_handler.node_reg_at_beginning_of_last_view == ['Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_this_view == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
 
 
 def build_node_req(node_name, services):
