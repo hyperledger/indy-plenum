@@ -240,8 +240,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self.primaries_selector = RoundRobinNodeRegPrimariesSelector(node_reg_handler=
-                                                                     self.write_manager.node_reg_handler)  # type: PrimariesSelector
+        self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
 
