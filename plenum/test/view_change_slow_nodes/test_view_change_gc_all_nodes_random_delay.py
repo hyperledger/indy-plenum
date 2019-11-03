@@ -25,7 +25,6 @@ def check_nodes_requests_size(nodes, size):
         assert len(node.requests) == size
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_view_change_gc_in_between_3pc_all_nodes_delays(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     """
@@ -61,7 +60,6 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
 
     viewNo = checkViewNoForNodes(txnPoolNodeSet, viewNo + 1)
     looper.run(eventually(check_nodes_last_ordered_3pc, txnPoolNodeSet, (viewNo, batches_count)))
-    check_nodes_requests_size(txnPoolNodeSet, 0)
 
     # 3 slow processing 3PC messages for all nodes (all replica instances)
     #   randomly and send one more message
@@ -99,7 +97,6 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     assert viewNoNew - viewNo in (1, 2)
     viewNo = viewNoNew
     check_nodes_last_ordered_3pc(txnPoolNodeSet, (last_ordered_3pc[0] + 1, batches_count - 1))
-    check_nodes_requests_size(txnPoolNodeSet, 1)
 
     # 5 reset delays and wait for replies
     #    -> new primaries should send new 3pc for last message
@@ -113,7 +110,6 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     checkViewNoForNodes(txnPoolNodeSet, viewNo)
     last_ordered_3pc = (viewNo, batches_count)
     check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
-    check_nodes_requests_size(txnPoolNodeSet, 1)
 
     # 6 do view change
     #    -> GC should remove them
@@ -122,4 +118,3 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
 
     viewNo = checkViewNoForNodes(txnPoolNodeSet, viewNo + 1)
     check_nodes_last_ordered_3pc(txnPoolNodeSet, (last_ordered_3pc[0] + 1, batches_count))
-    check_nodes_requests_size(txnPoolNodeSet, 0)

@@ -46,7 +46,7 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
         waitForViewChange(looper, nodes, expectedViewNo=1)
 
         # make sure view change is finished on all nodes except the slow one
-        ensureElectionsDone(looper, fast_nodes, instances_list=range(3))
+        ensureElectionsDone(looper, fast_nodes, instances_list=range(3), customTimeout=30)
 
         # drop all VCD to view=1
         slow_stasher.drop_delayeds()

@@ -92,6 +92,7 @@ class Suspicions:
     NEW_VIEW_INVALID_BATCHES = Suspicion(48, "New View's Primary sent NewView with invalid batches")
     INCORRECT_NEW_PRIMARY = Suspicion(49, "In view change selected master primary is the same with the "
                                           "current master primary")
+    PPR_WITH_WRONG_PRIMARIES = Suspicion(50, "Pre-Prepare message has wrong list of primaries")
 
     @classmethod
     def get_list(cls):

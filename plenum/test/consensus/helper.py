@@ -157,7 +157,9 @@ class SimPool:
             future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
                                                                    FakeSomething(nodeReg={},
                                                                                  nodeIds=[],
-                                                                                 primaries=replica._data.primaries))
+                                                                                 primaries=[]))
+            future_primaries_handler.set_primaries(replica._data.view_no,
+                                                   replica._data.primaries)
             write_manager.register_batch_handler(future_primaries_handler)
             replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)

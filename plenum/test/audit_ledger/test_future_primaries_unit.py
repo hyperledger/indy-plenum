@@ -1,6 +1,10 @@
 import pytest
 
-from plenum.common.constants import TARGET_NYM, DATA, ALIAS, SERVICES, TXN_TYPE, NODE
+from common.exceptions import LogicError
+from ledger.compact_merkle_tree import CompactMerkleTree
+from plenum.common.constants import TARGET_NYM, DATA, ALIAS, SERVICES, TXN_TYPE, NODE, TXN_PAYLOAD, TXN_PAYLOAD_DATA, \
+    AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, TXN_METADATA, AUDIT_TXN_PRIMARIES
+from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
@@ -30,9 +34,54 @@ def node():
 
 
 @pytest.fixture(scope='function')
-def future_primaries(node):
-    fp = FuturePrimariesBatchHandler(FakeSomething(), node)
+def future_primaries(node, audit_ledger):
+    fp = FuturePrimariesBatchHandler(FakeSomething(get_ledger=lambda *args: audit_ledger), node)
+    fp.primaries[node.viewNo] = list(node.primaries)
     return fp
+
+
+@pytest.fixture(params=[[(0, 1, ['A', 'B']),
+                         (0, 2, 1),
+                         (0, 3, 2),
+                         (1, 4, ['B', 'G']),
+                         (1, 5, 1),
+                         (2, 6, ['G', 'D']),
+                         (2, 7, 1),
+                         (3, 8, ['D', 'A']),
+                         (3, 9, 1)],
+                        [(0, 1, ['A', 'B']),
+                         (1, 2, ['B', 'G']),
+                         (2, 3, ['G', 'D']),
+                         (3, 4, ['D', 'A'])]])
+def ordered_batches(request):
+    return request.param
+
+
+@pytest.fixture(scope='function', params=['all_uncommitted', 'all_committed', 'mixed'])
+def audit_ledger(tconf, tmpdir_factory, ordered_batches, request):
+    tdir = tmpdir_factory.mktemp('').strpath
+    ledger = Ledger(CompactMerkleTree(), dataDir=tdir)
+    for view_no, pp_seq_no, primaries in ordered_batches:
+        txn = {
+            TXN_PAYLOAD: {
+                TXN_PAYLOAD_DATA: {
+                    AUDIT_TXN_VIEW_NO: view_no,
+                    AUDIT_TXN_PP_SEQ_NO: pp_seq_no,
+                    AUDIT_TXN_PRIMARIES: primaries,
+                }
+            },
+            TXN_METADATA: {}
+        }
+        if request.param == "mixed":
+            if view_no > 1:
+                ledger.uncommittedTxns.append(txn)
+            else:
+                ledger.append(txn)
+        elif request.param == "all_committed":
+            ledger.append(txn)
+        elif request.param == "all_uncommitted":
+            ledger.uncommittedTxns.append(txn)
+    return ledger
 
 
 @pytest.fixture(scope='function')
@@ -53,3 +102,9 @@ def test_post_batch_applied_during_reordering(future_primaries, node, three_pc_b
     future_primaries.post_batch_applied(three_pc_batch)
     assert three_pc_batch.primaries == primaries
 
+
+def test_get_primaries_by_view_no(future_primaries):
+    assert future_primaries.get_primaries_from_audit(0) == ['A', 'B']
+    assert future_primaries.get_primaries_from_audit(1) == ['B', 'G']
+    assert future_primaries.get_primaries_from_audit(2) == ['G', 'D']
+    assert future_primaries.get_primaries_from_audit(3) == ['D', 'A']

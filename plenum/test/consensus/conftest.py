@@ -80,7 +80,8 @@ def pre_prepare():
         'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
         '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
         0,
-        True
+        True,
+        primaries=[]
     )
 
 
@@ -173,18 +174,19 @@ def replica_service(validators, primary, timer,
         node_names=validators,
         crypto_factory=create_default_bls_crypto_factory(),
         get_free_port=lambda: 8090)['txns']
+    write_manager = create_test_write_req_manager("Alpha", genesis_txns)
+    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
+                                                           FakeSomething(nodeReg={},
+                                                                         nodeIds=[]))
+    future_primaries_handler.get_primaries = lambda *args, **kwargs: replica._data.primaries
+    write_manager.register_batch_handler(future_primaries_handler)
+
     replica = ReplicaService("Alpha:0",
                              validators, primary,
                              timer,
                              internal_bus,
                              external_bus,
-                             write_manager=create_test_write_req_manager("Alpha", genesis_txns),
+                             write_manager=write_manager,
                              bls_bft_replica=FakeSomething(gc=lambda key: None))
-
-    future_primaries_handler = FuturePrimariesBatchHandler(replica._write_manager.database_manager,
-                                                           FakeSomething(nodeReg={},
-                                                                         nodeIds=[]))
-    future_primaries_handler._get_primaries = lambda *args, **kwargs: replica._data.primaries
-    replica._write_manager.register_batch_handler(future_primaries_handler)
 
     return replica

@@ -571,6 +571,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primaries = ps
         for r in self.replicas.values():
             r.set_primaries(ps)
+        self.write_manager.future_primary_handler.set_primaries(self.viewNo, ps)
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -664,12 +665,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqNo and state and txn root for previous view
         """
-
-        if not self.replicas.all_instances_have_primary:
-            raise LogicError(
-                "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
-            )
 
         for replica in self.replicas.values():
             replica.on_view_change_done()
@@ -1998,12 +1993,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
                     self.start_participating()
-                if instance_id >= len(self.primaries):
-                    self.replicas.remove_replica(instance_id)
-                    continue
-                replica.primaryChanged(
-                    Replica.generateName(self.primaries[instance_id], instance_id))
-                self.primary_selected(instance_id)
+                if instance_id < len(self.primaries):
+                    replica.primaryChanged(
+                        Replica.generateName(self.primaries[instance_id], instance_id))
+                    self.primary_selected(instance_id)
 
         # Primary propagation
         last_sent_pp_seq_no_restored = False

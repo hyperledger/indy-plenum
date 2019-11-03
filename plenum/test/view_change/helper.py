@@ -170,6 +170,7 @@ def ensure_several_view_change(looper, nodes, vc_count=1,
                 return rv
 
             node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
+            node.checkPerformance()
 
         perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
         timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + perf_check_freq

@@ -64,7 +64,8 @@ pre_prepare_msg = PrePrepare(
     'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
     '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
     0,
-    True
+    True,
+    []
 )
 
 prepare_msg = Prepare(
