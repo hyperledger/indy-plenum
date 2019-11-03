@@ -207,7 +207,7 @@ class AuditBatchHandler(BatchRequestHandler):
             else:
                 txn[AUDIT_TXN_NODE_REG] = current_node_reg
 
-        # 3. Previous primaries field is delta
+        # 3. Previous nodeReg field is delta
         elif isinstance(last_audit_node_reg, int) and last_audit_node_reg < self.ledger.uncommitted_size:
             last_node_reg_seq_no = get_seq_no(last_audit_txn) - last_audit_node_reg
             last_node_reg = get_payload_data(
