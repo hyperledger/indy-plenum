@@ -55,3 +55,11 @@ def test_view_change_primary_selection_constant_node_reg(primary_selector, valid
     assert len(primaries | prev_primaries) == instance_count + 1
     assert len(primaries | next_primaries) == instance_count + 1
     assert len(prev_primaries | next_primaries) == instance_count + 2
+
+# def test_select_primaries_for_view_1(primary_selector, node_reg_handler):
+#     validators = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+#
+#     primary_selector = RoundRobinConstantNodesPrimariesSelector(validators)
+#     primaries = primary_selector.select_primaries(view_no=0,
+#                                                   instance_count=3)
+#     assert primaries == ["Alpha", "Beta", "Gamma"]

@@ -47,7 +47,6 @@ class ReplicaService:
                                         freshness_checker=FreshnessChecker(
                                             freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL),
                                         stasher=self.stasher)
-        self._orderer._validator = OrderingServiceMsgValidator(self._orderer._data)
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
                                                write_manager.database_manager)
         primaries_selector = RoundRobinNodeRegPrimariesSelector(self._write_manager.node_reg_handler)

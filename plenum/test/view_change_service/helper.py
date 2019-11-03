@@ -2,7 +2,7 @@ from plenum.common.constants import PREPREPARE
 from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.stasher import delay_rules
+from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import add_new_node
 
@@ -42,7 +42,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
     if delay_commit:
         delayers.append(cDelay())
 
-    with delay_rules(slow_stashers, *delayers):
+    with delay_rules_without_processing(slow_stashers, *delayers):
         # Add Node5
         new_node = add_new_node(looper,
                                 fast_nodes,
@@ -60,4 +60,5 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
         # make sure view change is finished eventually
         waitForViewChange(looper, old_set, 4)
         ensureElectionsDone(looper, old_set)
-        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

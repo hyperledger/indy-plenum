@@ -36,6 +36,7 @@ class RoundRobinNodeRegPrimariesSelector(PrimariesSelector):
         self.node_reg_handler = node_reg_handler
 
     def select_primaries(self, view_no: int, instance_count: int) -> List[str]:
+        view_no_for_selection = view_no - 1 if view_no > 1 else 0
         return RoundRobinConstantNodesPrimariesSelector. \
             select_primaries_round_robin(view_no, instance_count,
-                                         self.node_reg_handler.node_reg_at_beginning_of_view[view_no - 1])
+                                         self.node_reg_handler.node_reg_at_beginning_of_view[view_no_for_selection])

@@ -6,7 +6,6 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
-from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -105,11 +104,6 @@ def orderer_with_requests(orderer, fake_requests):
         orderer._requests.set_finalised(req)
 
     return orderer
-
-
-@pytest.fixture()
-def validator(consensus_data):
-    return ThreePCMsgValidator(consensus_data)
 
 
 @pytest.fixture()

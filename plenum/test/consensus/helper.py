@@ -144,6 +144,7 @@ class SimPool:
             replica_name = generateName(name, 0)
             handler = partial(self.network._send_message, replica_name)
             write_manager = create_test_write_req_manager(name, genesis_txns)
+            write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = validators
             replica = ReplicaService(replica_name,
                                      validators,
                                      primary_name,

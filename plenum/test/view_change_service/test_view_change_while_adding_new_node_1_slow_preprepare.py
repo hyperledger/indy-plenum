@@ -1,9 +1,6 @@
-import pytest
-
 from plenum.test.view_change_service.helper import check_view_change_adding_new_node
 
 
-@pytest.mark.skip('INDY-2262')
 def test_view_change_while_adding_new_node_1_slow_preprepare(looper, tdir, tconf, allPluginsPath,
                                                              txnPoolNodeSet,
                                                              sdk_pool_handle,
