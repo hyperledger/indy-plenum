@@ -189,7 +189,7 @@ class AuditBatchHandler(BatchRequestHandler):
 
     def __fill_node_reg(self, txn, three_pc_batch, last_audit_txn):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
-        last_audit_node_reg = last_audit_txn_data[AUDIT_TXN_NODE_REG] if last_audit_txn_data else None
+        last_audit_node_reg = last_audit_txn_data.get(AUDIT_TXN_NODE_REG) if last_audit_txn_data else None
         current_node_reg = three_pc_batch.node_reg
 
         # 1. First audit txn
@@ -221,7 +221,6 @@ class AuditBatchHandler(BatchRequestHandler):
                 raise LogicError('Value, mentioned in nodeReg field must be a '
                                  'seq_no of a txn with nodeReg')
 
-        # 4. That cannot be
+        # 4. it can be that there is no node reg to be saved (legacy nodes and tests)
         else:
-            raise LogicError('Incorrect nodeReg field in audit ledger (seq_no: {}. value: {})'.format(
-                get_seq_no(last_audit_txn), last_audit_node_reg))
+            pass

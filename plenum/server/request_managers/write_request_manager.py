@@ -8,7 +8,7 @@ from common.serializers.serialization import pool_state_serializer, config_state
 from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
-from plenum.server.batch_handlers.node_reg_batch_handler import NodeRegBatchHandler
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
 from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
@@ -74,7 +74,7 @@ class WriteRequestManager(RequestManager):
             self.audit_b_handler = handler
         if isinstance(handler, FuturePrimariesBatchHandler):
             self.future_primary_handler = handler
-        if isinstance(handler, NodeRegBatchHandler):
+        if isinstance(handler, NodeRegHandler):
             self.node_reg_handler = handler
 
     def remove_batch_handler(self, ledger_id):
@@ -241,9 +241,8 @@ class WriteRequestManager(RequestManager):
 
     def on_catchup_finished(self):
         # ToDo: ugly thing, needs to be refactored
-        for batch_handlers in self.batch_handlers.values():
-            for batch_handler in batch_handlers:
-                batch_handler.on_catchup_finished()
+        self.audit_b_handler.on_catchup_finished()
+        self.node_reg_handler.on_catchup_finished()
 
     def get_lid_for_request(self, request: Request):
         if request.operation.get(TXN_TYPE) is None:
