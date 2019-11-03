@@ -1563,7 +1563,6 @@ class OrderingService:
                 break
         return None
 
-
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
             # Using discard since the key may not be present as in case of

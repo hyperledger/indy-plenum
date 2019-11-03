@@ -127,7 +127,7 @@ class LedgersBootstrap:
         self._register_pool_req_handlers()
         self._register_domain_req_handlers()
         self._register_config_req_handlers()
-        self._register_node_reg_handlers() # do it before audit req handlers
+        self._register_node_reg_handlers()  # do it before audit req handlers
         self._register_audit_req_handlers()
         self._register_action_req_handlers()
 
