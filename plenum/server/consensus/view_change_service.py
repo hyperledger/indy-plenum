@@ -12,7 +12,7 @@ from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.primary_selector import PrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
@@ -22,7 +22,7 @@ from stp_core.common.log import getlogger
 
 class ViewChangeService:
     def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter):
+                 stasher: StashingRouter, primaries_selector: PrimariesSelector):
         self._config = getConfig()
         self._logger = getlogger()
 
@@ -49,7 +49,7 @@ class ViewChangeService:
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
-        self._primaries_selector = RoundRobinPrimariesSelector()
+        self._primaries_selector = primaries_selector
 
         self._subscription = Subscription()
         self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
@@ -76,8 +76,7 @@ class ViewChangeService:
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
-                                                                         instance_count=self._data.quorums.f + 1,
-                                                                         validators=self._data.validators)
+                                                                         instance_count=self._data.quorums.f + 1)
         for i, primary_name in enumerate(self._data.primaries):
             self._logger.display("{} selected primary {} for instance {} (view {})"
                                  .format(PRIMARY_SELECTION_PREFIX,

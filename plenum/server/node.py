@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
+from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -240,7 +240,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self.primaries_selector = RoundRobinPrimariesSelector()  # type: PrimariesSelector
+        self.primaries_selector = RoundRobinNodeRegPrimariesSelector(node_reg_handler=
+                                                                     self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
 
@@ -2786,8 +2787,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_primaries_for_current_view(self):
         return self.primaries_selector.select_primaries(view_no=self.viewNo,
-                                                        instance_count=self.requiredNumberOfInstances,
-                                                        validators=self.poolManager.node_names_ordered_by_rank())
+                                                        instance_count=self.requiredNumberOfInstances)
 
     def select_primaries(self):
         # If you want to refactor primaries selection,

@@ -12,6 +12,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
@@ -61,9 +62,10 @@ def timer():
 
 
 @pytest.fixture
-def view_change_service(internal_bus, external_bus, timer, stasher):
+def view_change_service(internal_bus, external_bus, timer, stasher, validators):
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
-    return ViewChangeService(data, timer, internal_bus, external_bus, stasher)
+    primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
+    return ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
 
 
 @pytest.fixture

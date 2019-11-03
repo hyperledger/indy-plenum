@@ -54,9 +54,6 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def notify_view_change_start(self):
         self._node.on_view_change_start()
 
-    def select_primaries(self):
-        self._node.select_primaries()
-
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         self._node.discard(msg, reason, logMethod, cliOutput)
 

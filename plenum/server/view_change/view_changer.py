@@ -73,10 +73,6 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def select_primaries(self):
-        pass
-
-    @abstractmethod
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
@@ -372,7 +368,6 @@ class ViewChanger():
         self.provider.start_view_change(proposed_view_no)
 
     # TODO: Check whether these still need to be called somewhere after view change:
-    #  - self.provider.select_primaries()
     #  - self.instance_changes.remove_view(self.view_no)
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):

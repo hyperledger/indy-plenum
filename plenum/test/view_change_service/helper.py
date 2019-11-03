@@ -1,21 +1,15 @@
 from plenum.common.constants import PREPREPARE
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.stasher import delay_rules_without_processing, delay_rules
+from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import add_new_node
 
 
 def get_next_primary_name(txnPoolNodeSet, expected_view_no):
-    selector = RoundRobinPrimariesSelector()
     inst_count = len(txnPoolNodeSet[0].replicas)
-    next_p_name = \
-        selector.select_primaries(expected_view_no, inst_count,
-                                  txnPoolNodeSet[0].poolManager.node_names_ordered_by_rank())[
-            0]
-    return next_p_name
+    return txnPoolNodeSet[0].primaries_selector.select_primaries(expected_view_no, inst_count)[0]
 
 
 def trigger_view_change(nodes):

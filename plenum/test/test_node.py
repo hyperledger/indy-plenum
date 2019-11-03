@@ -440,7 +440,8 @@ class TestReplica(replica.Replica):
                                      timer=self.node.timer,
                                      bus=self.internal_bus,
                                      network=self._external_bus,
-                                     stasher=self.stasher)
+                                     stasher=self.stasher,
+                                     primaries_selector=self.node.primaries_selector)
 
     def _init_message_req_service(self) -> MessageReqService:
         return TestMessageReqService(data=self._consensus_data,

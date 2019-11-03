@@ -58,8 +58,7 @@ def _view_change_completed_count(node):
 
 def stop_master_primary(nodes, view_no):
     m_next_primary_name = nodes[0].primaries_selector.select_primaries(view_no,
-                                                                       nodes[0].requiredNumberOfInstances,
-                                                                       nodes[0].poolManager.node_names_ordered_by_rank())[0]
+                                                                       nodes[0].requiredNumberOfInstances)[0]
     next(node for node in nodes if node.name == m_next_primary_name).stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes

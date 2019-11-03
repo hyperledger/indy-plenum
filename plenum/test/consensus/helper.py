@@ -19,7 +19,7 @@ from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
@@ -272,5 +272,4 @@ def create_view_change_acks(vc, vc_frm, senders):
 
 def primary_in_view(validators, view_no):
     f = (len(validators) - 1) // 3
-    return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
-                                                          validators=validators)[0]
+    return RoundRobinConstantNodesPrimariesSelector(validators).select_primaries(view_no=view_no, instance_count=f + 1)[0]
