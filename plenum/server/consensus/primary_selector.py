@@ -37,6 +37,11 @@ class RoundRobinNodeRegPrimariesSelector(PrimariesSelector):
 
     def select_primaries(self, view_no: int, instance_count: int) -> List[str]:
         view_no_for_selection = view_no - 1 if view_no > 1 else 0
+
+        # it's possible that there is no nodeReg for some views if no txns have been ordered there
+        while view_no_for_selection > 0 and view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
+            view_no_for_selection -= 1
+
         return RoundRobinConstantNodesPrimariesSelector. \
             select_primaries_round_robin(view_no, instance_count,
                                          self.node_reg_handler.node_reg_at_beginning_of_view[view_no_for_selection])

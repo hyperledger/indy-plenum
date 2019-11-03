@@ -56,10 +56,48 @@ def test_view_change_primary_selection_constant_node_reg(primary_selector, valid
     assert len(primaries | next_primaries) == instance_count + 1
     assert len(prev_primaries | next_primaries) == instance_count + 2
 
-# def test_select_primaries_for_view_1(primary_selector, node_reg_handler):
-#     validators = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-#
-#     primary_selector = RoundRobinConstantNodesPrimariesSelector(validators)
-#     primaries = primary_selector.select_primaries(view_no=0,
-#                                                   instance_count=3)
-#     assert primaries == ["Alpha", "Beta", "Gamma"]
+
+def test_select_primaries_for_view_0(primary_selector, node_reg_handler):
+    node_reg_handler.node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+    primaries = primary_selector.select_primaries(view_no=0,
+                                                  instance_count=3)
+    assert primaries == ["Alpha", "Beta", "Gamma"]
+
+
+@pytest.mark.parametrize('has_node_reg_last_view', [True, False])
+def test_select_primaries_for_view_1_takes_node_reg_from_previous_view(primary_selector, node_reg_handler,
+                                                                       has_node_reg_last_view):
+    node_reg_handler.node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+    if has_node_reg_last_view:
+        node_reg_handler.node_reg_at_beginning_of_view[1] = ["Epsilon", "Zeta", "Eta"]
+
+    primaries = primary_selector.select_primaries(view_no=1,
+                                                  instance_count=3)
+    assert primaries == ["Beta", "Gamma", "Delta"]
+
+
+@pytest.mark.parametrize('has_node_reg_last_view', [True, False])
+def test_select_primaries_for_view_5_takes_node_reg_from_previous_view(primary_selector, node_reg_handler,
+                                                                       has_node_reg_last_view):
+    node_reg_handler.node_reg_at_beginning_of_view[4] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+    if has_node_reg_last_view:
+        node_reg_handler.node_reg_at_beginning_of_view[5] = ["Epsilon", "Zeta", "Eta"]
+
+    primaries = primary_selector.select_primaries(view_no=5,
+                                                  instance_count=3)
+    assert primaries == ["Zeta", "Eta", "Alpha"]
+
+
+@pytest.mark.parametrize('has_node_reg_last_view', [True, False])
+@pytest.mark.parametrize('prev_available_viewno', [0, 1, 2, 3])
+def test_select_primaries_takes_latest_available_node_reg_for_previous_views(primary_selector, node_reg_handler,
+                                                                             has_node_reg_last_view,
+                                                                             prev_available_viewno):
+    node_reg_handler.node_reg_at_beginning_of_view[prev_available_viewno] = ["Alpha", "Beta", "Gamma", "Delta",
+                                                                             "Epsilon", "Zeta", "Eta"]
+    if has_node_reg_last_view:
+        node_reg_handler.node_reg_at_beginning_of_view[5] = ["Epsilon", "Zeta", "Eta"]
+
+    primaries = primary_selector.select_primaries(view_no=5,
+                                                  instance_count=3)
+    assert primaries == ["Zeta", "Eta", "Alpha"]
