@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from typing import TypeVar, NamedTuple, Dict
 
 from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
@@ -16,8 +15,7 @@ from plenum.common.messages.fields import NonNegativeNumberField, IterableField,
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
     IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField, FieldValidator
-from plenum.common.messages.message_base import \
-    MessageBase, MessageValidator
+from plenum.common.messages.message_base import MessageBase
 from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
     SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
