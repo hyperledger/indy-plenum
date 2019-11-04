@@ -24,7 +24,6 @@ from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
 from plenum.server.replica_helper import generateName
@@ -155,12 +154,6 @@ class SimPool:
                                      bls_bft_replica=MockBlsBftReplica())
             # ToDo: For now, future_primary_handler is depended from the node.
             # And for now we need to patching set_node_state functionality
-            future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
-                                                                   FakeSomething(nodeReg={},
-                                                                                 nodeIds=[],
-                                                                                 primaries=[]))
-            future_primaries_handler.set_primaries(replica._data.view_no,
-                                                   replica._data.primaries)
             write_manager.register_batch_handler(future_primaries_handler)
             replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)

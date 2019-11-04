@@ -1,11 +1,9 @@
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import ReqKey
 from plenum.common.startable import Mode
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import getNodeName
 from plenum.test.consensus.helper import SimPool
 from plenum.test.helper import sdk_random_request_objects
-from plenum.test.testing_utils import FakeSomething
 from stp_core.common.log import getlogger
 
 

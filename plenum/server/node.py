@@ -571,7 +571,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primaries = ps
         for r in self.replicas.values():
             r.set_primaries(ps)
-        self.write_manager.future_primary_handler.set_primaries(self.viewNo, ps)
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
