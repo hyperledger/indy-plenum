@@ -136,5 +136,6 @@ setup(
              'scripts/log_stats',
              'scripts/init_bls_keys',
              'scripts/process_logs/process_logs',
-             'scripts/process_logs/process_logs.yml']
+             'scripts/process_logs/process_logs.yml'],
+    classifiers=['Programming Language :: Python :: 3.5']
 )
