@@ -1,4 +1,5 @@
 import itertools
+import json
 import logging
 import time
 from collections import defaultdict, OrderedDict, deque
@@ -206,6 +207,10 @@ class OrderingService:
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
         self.old_view_preprepares = {}
+        
+        # Dict to keep OldViewPrePrepareReplies
+        # Dict[OldViewPrePrepareReply, Set[frm]]
+        self._old_view_pp_reply = {}
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
@@ -2306,6 +2311,11 @@ class OrderingService:
         if result != PROCESS:
             return result, reason
 
+        serialized_msg = json.dumps(msg._asdict(), sort_keys=True)
+        self._old_view_pp_reply.setdefault(serialized_msg, set())
+        self._old_view_pp_reply[serialized_msg].add(sender)
+        if not self._data.quorums.weak.is_reached(len(self._old_view_pp_reply[serialized_msg])):
+            return
         for pp_dict in msg.preprepares:
             try:
                 pp = PrePrepare(**pp_dict)
@@ -2313,7 +2323,7 @@ class OrderingService:
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
-
+        self._old_view_pp_reply.clear()
         self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
