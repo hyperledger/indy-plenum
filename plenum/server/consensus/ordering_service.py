@@ -207,7 +207,7 @@ class OrderingService:
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
         self.old_view_preprepares = {}
-        
+
         # Dict to keep OldViewPrePrepareReplies
         # Dict[OldViewPrePrepareReply, Set[frm]]
         self._old_view_pp_reply = {}
