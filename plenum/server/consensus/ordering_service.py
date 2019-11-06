@@ -21,7 +21,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView, NewViewAccepted, CatchupFinished
+    ReOrderedInNewView, NewViewAccepted, CatchupCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -203,7 +203,7 @@ class OrderingService:
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
         self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
         self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
-        self._subscription.subscribe(self._bus, CatchupFinished, self.process_catchup_finished)
+        self._subscription.subscribe(self._bus, CatchupCheckpointsApplied, self.process_catchup_checkpoints_applied)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
@@ -2318,7 +2318,7 @@ class OrderingService:
                 if v < current_view:
                     self.stashed_out_of_order_commits.pop(v)
 
-    def process_catchup_finished(self, msg: CatchupFinished):
+    def process_catchup_checkpoints_applied(self, msg: CatchupCheckpointsApplied):
         if compare_3PC_keys(msg.master_last_ordered,
                             msg.last_caught_up_3PC) > 0:
             if self.is_master:

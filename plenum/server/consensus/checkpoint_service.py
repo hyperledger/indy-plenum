@@ -9,7 +9,7 @@ from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TX
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
-    BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied, CatchupFinished
+    BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied, CatchupFinished, CatchupCheckpointsApplied
 from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
@@ -340,3 +340,6 @@ class CheckpointService:
             else:
                 if not self._data.is_primary:
                     self.catchup_clear_for_backup()
+
+        self._bus.send(CatchupCheckpointsApplied(last_caught_up_3PC=msg.last_caught_up_3PC,
+                                                 master_last_ordered=msg.master_last_ordered))
