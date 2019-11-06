@@ -49,7 +49,7 @@ def test_future_primaries_replicas_increase(looper, txnPoolNodeSet, sdk_pool_han
         three_pc_batch = ThreePcBatch(DOMAIN_LEDGER_ID, 0, 0, 1, time.time(),
                                       randomString(),
                                       randomString(),
-                                      ['a', 'b', 'c'], [req.digest])
+                                      ['a', 'b', 'c'], [req.digest], pp_digest='')
         primaries = node.write_manager.future_primary_handler.post_batch_applied(three_pc_batch)
         assert len(primaries) == len(initial_primaries) + 1
         assert len(primaries) == len(node.primaries)
@@ -79,7 +79,7 @@ def test_future_primaries_replicas_decrease(looper, txnPoolNodeSet, sdk_pool_han
         three_pc_batch = ThreePcBatch(DOMAIN_LEDGER_ID, 0, 0, 1, time.time(),
                                       randomString(),
                                       randomString(),
-                                      ['a', 'b', 'c'], [req.digest])
+                                      ['a', 'b', 'c'], [req.digest], pp_digest='')
         primaries = node.write_manager.future_primary_handler.post_batch_applied(three_pc_batch)
         assert len(primaries) + 1 == len(initial_primaries)
         assert len(primaries) == len(txnPoolNodeSet[0].primaries)

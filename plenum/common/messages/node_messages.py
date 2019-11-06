@@ -100,6 +100,7 @@ class Ordered(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -128,6 +129,7 @@ class PrePrepare(MessageBase):
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
         (f.SUB_SEQ_NO.nm, NonNegativeNumberField()),
         (f.FINAL.nm, BooleanField()),
+        (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(max_length=NAME_FIELD_LIMIT))),
         (f.POOL_STATE_ROOT_HASH.nm, MerkleRootField(optional=True,
                                                     nullable=True)),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(optional=True,
@@ -513,6 +515,7 @@ class BatchCommitted(MessageBase):
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 

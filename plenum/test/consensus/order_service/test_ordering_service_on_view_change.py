@@ -98,7 +98,8 @@ def test_update_shared_data_on_view_change_started(internal_bus, orderer):
 
 def test_clear_data_on_view_change_started(internal_bus, orderer):
     pp = create_pre_prepare_no_bls(generate_state_root(),
-                                   view_no=0, pp_seq_no=10, inst_id=0)
+                                   view_no=0, pp_seq_no=10, inst_id=0,
+                                   audit_txn_root="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4")
     prepare = create_prepare(req_key=(0, 10),
                              state_root=generate_state_root(), inst_id=0)
     commit = create_commit_no_bls_sig(req_key=(0, 10), inst_id=0)
@@ -107,7 +108,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     orderer.prePrepares[key] = pp
     orderer.prepares[key] = prepare
     orderer.commits[key] = commit
-    orderer.pre_prepare_tss[key][pp, "Node1"] = 1234
+    orderer.pre_prepare_tss[key][pp.auditTxnRootHash, "Node1"] = 1234
     orderer.prePreparesPendingFinReqs.append(pp)
     orderer.prePreparesPendingPrevPP[key] = pp
     orderer.sent_preprepares[key] = pp
@@ -292,7 +293,8 @@ def test_send_reply_on_old_view_pre_prepares_request(external_bus, orderer,
     if not orderer.is_master:
         assert len(external_bus.sent_messages) == 0
         return
-    expected_pps = list(set(requested_old_view_pre_prepares) & set(stored_old_view_pre_prepares))
+    # equal to set's union operation
+    expected_pps = [i for i in stored_old_view_pre_prepares if i in requested_old_view_pre_prepares]
     expected_pps = sorted(expected_pps, key=lambda pp: pp.ppSeqNo)
     check_reply_old_view_preprepares_sent(external_bus, frm, expected_pps)
 

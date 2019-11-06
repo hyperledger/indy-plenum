@@ -14,15 +14,15 @@ from common.serializers.serialization import state_roots_serializer, invalid_ind
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, PREPREPARE, PREPARE, COMMIT, \
-    DOMAIN_LEDGER_ID, TS_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST,\
+    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView
+    ReOrderedInNewView, NewViewAccepted
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -44,7 +44,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC
@@ -203,6 +203,7 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, OldViewPrePrepareReply, self.process_old_view_preprepare_reply)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
         self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
@@ -492,6 +493,12 @@ class OrderingService:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
 
+    def _validate_primaries(self, pre_prepare: PrePrepare):
+        view_no = get_original_viewno(pre_prepare)
+        prs_from_pp = pre_prepare.primaries
+        prs_from_audit = self._write_manager.future_primary_handler.get_primaries(view_no)
+        return PROCESS if prs_from_pp == prs_from_audit else DISCARD
+
     @measure_consensus_time(MetricsName.PROCESS_PREPREPARE_TIME,
                             MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
     def process_preprepare(self, pre_prepare: PrePrepare, sender: str):
@@ -504,10 +511,10 @@ class OrderingService:
         """
         pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         # the same PrePrepare might come here multiple times
-        if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and (pre_prepare.auditTxnRootHash, sender) not in self.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key][pre_prepare, sender] = self.get_time_for_3pc_batch()
+            self.pre_prepare_tss[pp_key][pre_prepare.auditTxnRootHash, sender] = self.get_time_for_3pc_batch()
 
         result, reason = self._validate(pre_prepare)
         if result != PROCESS:
@@ -549,6 +556,8 @@ class OrderingService:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
                 elif why_not_applied == PP_REQUEST_ALREADY_ORDERED:
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+                elif why_not_applied == PP_WRONG_PRIMARIES:
+                    report_suspicious(Suspicions.PPR_WITH_WRONG_PRIMARIES)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -1081,11 +1090,11 @@ class OrderingService:
                 pp.ppTime < self.last_accepted_pre_prepare_time):
             return False
         elif ((tpcKey not in self.pre_prepare_tss) or
-                ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
+                ((pp.auditTxnRootHash, sender) not in self.pre_prepare_tss[tpcKey])):
             return False
         else:
             return (
-                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp.auditTxnRootHash, sender]) <=
                 self._config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
             )
 
@@ -1159,14 +1168,13 @@ class OrderingService:
 
         # 2. call callback for the applied batch
         if self.is_master:
-            three_pc_batch = ThreePcBatch.from_pre_prepare(pre_prepare,
-                                                           state_root=self.get_state_root_hash(pre_prepare.ledgerId,
-                                                                                               to_str=False),
-                                                           txn_root=self.get_txn_root_hash(pre_prepare.ledgerId,
-                                                                                           to_str=False),
-                                                           primaries=[],
-                                                           valid_digests=self._get_valid_req_ids_from_all_requests(
-                                                               reqs, invalid_indices))
+            three_pc_batch = ThreePcBatch.from_pre_prepare(
+                pre_prepare,
+                state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
+                txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
+                primaries=pre_prepare.primaries,
+                valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
+            )
             self.post_batch_creation(three_pc_batch)
 
         return reqs, invalid_indices, rejects, suspicious
@@ -1178,6 +1186,10 @@ class OrderingService:
                                       reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
+
+        result = self._validate_primaries(pre_prepare)
+        if result != PROCESS:
+            return PP_WRONG_PRIMARIES
 
         digest = self.replica_batch_digest(reqs)
         if digest != pre_prepare.digest:
@@ -1496,18 +1508,21 @@ class OrderingService:
             self._requests.ordered_by_replica(reqIdr)
 
         original_view_no = get_original_viewno(pp)
-        ordered = Ordered(self._data.inst_id,
-                          pp.viewNo,
-                          valid_reqIdr,
-                          invalid_reqIdr,
-                          pp.ppSeqNo,
-                          pp.ppTime,
-                          pp.ledgerId,
-                          pp.stateRootHash,
-                          pp.txnRootHash,
-                          pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
-                          self._get_primaries_for_ordered(pp),
-                          original_view_no)
+        ordered = Ordered(
+            self._data.inst_id,
+            pp.viewNo,
+            valid_reqIdr,
+            invalid_reqIdr,
+            pp.ppSeqNo,
+            pp.ppTime,
+            pp.ledgerId,
+            pp.stateRootHash,
+            pp.txnRootHash,
+            pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
+            self._get_primaries_for_ordered(pp),
+            original_view_no,
+            pp.digest,
+        )
         self._discard_ordered_req_keys(pp)
 
         self._bus.send(ordered)
@@ -1783,6 +1798,8 @@ class OrderingService:
             self._do_dynamic_validation(req, cons_time)
             self._write_manager.apply_request(req, cons_time)
 
+    # ToDo: Maybe we should remove this,
+    #  because we have the same one in replica's validator
     def can_send_3pc_batch(self):
         if not self._data.is_primary:
             return False
@@ -2006,25 +2023,30 @@ class OrderingService:
 
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
-        if self.is_master:
-            three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
-                                          inst_id=self._data.inst_id,
-                                          view_no=self.view_no,
-                                          pp_seq_no=pp_seq_no,
-                                          pp_time=tm,
-                                          state_root=self.get_state_root_hash(ledger_id, to_str=False),
-                                          txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
-                                          primaries=[],
-                                          valid_digests=self._get_valid_req_ids_from_all_requests(
-                                              reqs, invalid_indices),
-                                          original_view_no=self.view_no)
-            self.post_batch_creation(three_pc_batch)
 
         digest = self.replica_batch_digest(reqs)
+        primaries_for_batch = self._write_manager.future_primary_handler.get_primaries(self.view_no)
+
+        if self.is_master:
+            three_pc_batch = ThreePcBatch(
+                ledger_id=ledger_id,
+                inst_id=self._data.inst_id,
+                view_no=self.view_no,
+                pp_seq_no=pp_seq_no,
+                pp_time=tm,
+                state_root=self.get_state_root_hash(ledger_id, to_str=False),
+                txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
+                primaries=primaries_for_batch,
+                valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices),
+                pp_digest=digest,
+                original_view_no=self.view_no,
+            )
+            self.post_batch_creation(three_pc_batch)
+
         state_root_hash = self.get_state_root_hash(ledger_id)
         audit_txn_root_hash = self.get_txn_root_hash(AUDIT_LEDGER_ID)
 
-        """TODO: for now default value for fields sub_seq_no is 0 and for final is True"""
+        # TODO: for now default value for fields sub_seq_no is 0 and for final is True
         params = [
             self._data.inst_id,
             self.view_no,
@@ -2038,8 +2060,9 @@ class OrderingService:
             self.get_txn_root_hash(ledger_id),
             0,
             True,
+            primaries_for_batch,
             pool_state_root_hash,
-            audit_txn_root_hash
+            audit_txn_root_hash,
         ]
 
         # BLS multi-sig:
@@ -2171,6 +2194,35 @@ class OrderingService:
         self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
+        # Get all pre-prepares and prepares since the latest stable checkpoint
+        ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
+        last_txn = ledger.get_last_txn()
+
+        if not last_txn:
+            return
+
+        to = get_payload_data(last_txn)[AUDIT_TXN_PP_SEQ_NO]
+        frm = to - to % self._config.CHK_FREQ + 1
+
+        try:
+            batch_ids = [
+                BatchID(
+                    view_no=get_payload_data(txn)[AUDIT_TXN_VIEW_NO],
+                    pp_view_no=get_payload_data(txn)[AUDIT_TXN_VIEW_NO],
+                    pp_seq_no=get_payload_data(txn)[AUDIT_TXN_PP_SEQ_NO],
+                    pp_digest=get_payload_data(txn)[AUDIT_TXN_DIGEST]
+                )
+                for _, txn in ledger.getAllTxn(frm=frm, to=to)
+            ]
+
+            self._data.preprepared.extend(batch_ids)
+            self._data.prepared.extend(batch_ids)
+
+        except KeyError as e:
+            self._logger.warning(
+                'Pre-Prepared/Prepared not restored as Audit TXN is missing needed fields: {}'.format(e)
+            )
+
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
             self.batches.clear()
@@ -2261,6 +2313,9 @@ class OrderingService:
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
 
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
+
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
             view_no = get_original_viewno(pp)
@@ -2344,8 +2399,16 @@ class OrderingService:
         # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
         self._bus.send(ReOrderedInNewView())
 
+    def _remove_primaries_until(self, view_no):
+        for vn in list(self._write_manager.future_primary_handler.primaries.keys()):
+            # view_no == 0 it's an edge case with view_change from 0 view and not ordered any txns in 0 view
+            if vn < view_no and vn != 0:
+                del self._write_manager.future_primary_handler.primaries[vn]
+
     def _cleanup_process(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
+        if self.is_master:
+            self._remove_primaries_until(self.view_no)
 
     def _preprepare_batch(self, pp: PrePrepare):
         """

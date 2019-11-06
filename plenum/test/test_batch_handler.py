@@ -54,7 +54,9 @@ def three_pc_batch(batch_handler):
     return ThreePcBatch(LEDGER_ID, 0, 0, 1, time.time(),
                         batch_handler.state.headHash,
                         FIXED_HASH,
-                        ['a', 'b', 'c'], ['d1', 'd2', 'd3'])
+                        ['a', 'b', 'c'],
+                        ['d1', 'd2', 'd3'],
+                        'pp_digest')
 
 
 def test_batch_handler_commit(batch_handler: BatchRequestHandler, three_pc_batch):

@@ -8,6 +8,7 @@ from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
 from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
@@ -35,6 +36,11 @@ def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
     orderer._revert = lambda *args, **kwargs: None
     orderer.db_manager.stores[LAST_SENT_PP_STORE_LABEL] = \
         FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
+    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
+                                                           FakeSomething(nodeReg={},
+                                                                         nodeIds=[]))
+    future_primaries_handler.get_primaries = lambda *args, **kwargs: orderer._data.primaries
+    write_manager.register_batch_handler(future_primaries_handler)
     return orderer
 
 
