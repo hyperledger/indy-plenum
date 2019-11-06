@@ -10,6 +10,7 @@ STASH_WAITING_VIEW_CHANGE = 5
 
 # ReplicaValidationReasons
 INCORRECT_INSTANCE = "Incorrect instance"
+INCORRECT_PRE_PREPARES = "Incorrect pre-prepares list"
 INCORRECT_PP_SEQ_NO = "pp_seq_no must start from 1"
 OUTSIDE_WATERMARKS = "Outside watermwarks"
 FUTURE_VIEW = "Future view"

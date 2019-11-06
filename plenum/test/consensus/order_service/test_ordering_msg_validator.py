@@ -1,17 +1,18 @@
 import pytest
 
 from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
-from plenum.common.messages.node_messages import NewView, OldViewPrePrepareRequest, OldViewPrePrepareReply
+from plenum.common.messages.node_messages import NewView, OldViewPrePrepareRequest, OldViewPrePrepareReply, PrePrepare
 from plenum.common.startable import Mode
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import generateName
 from plenum.server.replica_validator_enums import PROCESS, DISCARD, STASH_VIEW_3PC, STASH_CATCH_UP, STASH_WATERMARKS, \
     STASH_VIEW_3PC, OLD_VIEW, OUTSIDE_WATERMARKS, ALREADY_ORDERED, CATCHING_UP, FUTURE_VIEW, \
-    WAITING_FOR_NEW_VIEW, NON_MASTER, INCORRECT_INSTANCE
+    WAITING_FOR_NEW_VIEW, NON_MASTER, INCORRECT_INSTANCE, INCORRECT_PRE_PREPARES
 from plenum.test.bls.helper import generate_state_root
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import create_pre_prepare_no_bls, create_prepare, create_commit_no_bls_sig
+from plenum.test.testing_utils import FakeSomething
 
 
 @pytest.fixture(scope='function', params=[0, 2])
@@ -77,11 +78,11 @@ def old_view_pp_rep():
     pp1 = create_pre_prepare_no_bls(generate_state_root(),
                                     view_no=0,
                                     pp_seq_no=1,
-                                    inst_id=0)
+                                    inst_id=0)._asdict()
     pp2 = create_pre_prepare_no_bls(generate_state_root(),
                                     view_no=0,
                                     pp_seq_no=1,
-                                    inst_id=0)
+                                    inst_id=0)._asdict()
     return OldViewPrePrepareReply(0,
                                   [pp1, pp2])
 
@@ -110,7 +111,14 @@ def test_process_correct_old_view_pp_req(validator, view_no):
 
 
 def test_process_correct_old_view_pp_rep(validator, view_no):
-    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (PROCESS, None)
+    old_view_pp_rep_msg = old_view_pp_rep()
+    validator._data.new_view = FakeSomething(batches=[preprepare_to_batch_id(PrePrepare(**pp))
+                                                      for pp in old_view_pp_rep_msg.preprepares])
+    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep_msg) == (PROCESS, None)
+
+
+def test_discard_old_view_pp_rep_with_incorrect_pp(validator, view_no):
+    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == (DISCARD, INCORRECT_PRE_PREPARES)
 
 
 def test_discard_old_view(validator, view_no, mode, waiting_for_new_view):
@@ -188,12 +196,15 @@ def test_discard_ordered_pre_prepare_no_stash(validator, view_no, pp_seq_no, mod
 ])
 def test_stash_while_catchup(validator, view_no, mode, result):
     validator._data.node_mode = mode
+    old_view_pp_rep_msg = old_view_pp_rep()
+    validator._data.new_view = FakeSomething(batches=[preprepare_to_batch_id(PrePrepare(**pp))
+                                                      for pp in old_view_pp_rep_msg.preprepares])
     assert validator.validate_pre_prepare(pre_prepare(view_no, 1)) == result
     assert validator.validate_prepare(prepare(view_no, 1)) == result
     assert validator.validate_commit(commit(view_no, 1)) == result
     assert validator.validate_new_view(new_view(view_no)) == result
     assert validator.validate_old_view_prep_prepare_req(old_view_pp_req()) == result
-    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep()) == result
+    assert validator.validate_old_view_prep_prepare_rep(old_view_pp_rep_msg) == result
 
 
 def test_stash_future_view(validator, view_no):

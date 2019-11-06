@@ -7,10 +7,10 @@ from plenum.common.messages.node_messages import PrePrepare, Commit, Prepare, Ol
 from plenum.common.stashing_router import DISCARD, PROCESS
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, \
     ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER, \
-    INCORRECT_PP_SEQ_NO, INCORRECT_INSTANCE
+    INCORRECT_PP_SEQ_NO, INCORRECT_INSTANCE, INCORRECT_PRE_PREPARES
 
 
 class OrderingServiceMsgValidator:
@@ -98,6 +98,10 @@ class OrderingServiceMsgValidator:
         # Check if catchup is in progress
         if not self._data.is_participating:
             return STASH_CATCH_UP, CATCHING_UP
+
+        for pp in msg.preprepares:
+            if not self._data.new_view or preprepare_to_batch_id(PrePrepare(**pp)) not in self._data.new_view.batches:
+                return DISCARD, INCORRECT_PRE_PREPARES
 
         # PROCESS
         return PROCESS, None
