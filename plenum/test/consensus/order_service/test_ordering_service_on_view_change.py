@@ -305,10 +305,13 @@ def test_process_preprepare_on_old_view_pre_prepares_reply(external_bus, interna
     orderer._data.view_no = initial_view_no + 1
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
                                batches=create_batches_from_preprepares(pre_prepares))
+    orderer._data.new_view = new_view
 
     # !!!EXECUTE!!!
     rep = OldViewPrePrepareReply(0, [pp._asdict() for pp in pre_prepares])
-    orderer._network.process_incoming(rep, generateName("node1", orderer._data.inst_id))
+    for i in list(range(len(orderer._data.validators))):
+        orderer._network.process_incoming(rep, generateName("node{}".format(i),
+                                                            orderer._data.inst_id))
 
     # !!!CHECK!!!
     if not orderer.is_master:
