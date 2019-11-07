@@ -657,8 +657,9 @@ class ZStack(NetworkInterface):
                                  format(name, ha, verKey, publicKey))
             remote = self.addRemote(name, ha, verKey, publicKey)
 
+        ctx = zmq.Context()
         public, secret = self.selfEncKeys
-        remote.connect(self.ctx, public, secret)
+        remote.connect(ctx, public, secret)
 
         logger.info("{}{} looking for {} at {}:{}"
                     .format(CONNECTION_PREFIX, self,
@@ -691,7 +692,8 @@ class ZStack(NetworkInterface):
         logger.info('{} reconnecting to {}'.format(self, remote))
         public, secret = self.selfEncKeys
         remote.disconnect()
-        remote.connect(self.ctx, public, secret)
+        ctx = zmq.Context()
+        remote.connect(ctx, public, secret)
         self.sendPingPong(remote, is_ping=True)
 
     def reconnectRemoteWithName(self, remoteName):
