@@ -201,7 +201,7 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, OldViewPrePrepareRequest, self.process_old_view_preprepare_request)
         self._subscription.subscribe(self._stasher, OldViewPrePrepareReply, self.process_old_view_preprepare_reply)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
-        self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self._bus, CheckpointStabilized, self.process_checkpoint_stabilized)
         self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
         self._subscription.subscribe(self._bus, CatchupCheckpointsApplied, self.process_catchup_checkpoints_applied)
 
@@ -2326,8 +2326,7 @@ class OrderingService:
             else:
                 self.first_batch_after_catchup = True
                 self.catchup_clear_for_backup()
-        # This method was in primaryName setter
-        self.gc(msg.last_caught_up_3PC)
+
         self._clear_prev_view_pre_prepares()
         self._stasher.process_all_stashed(STASH_CATCH_UP)
 
@@ -2415,7 +2414,7 @@ class OrderingService:
             if vn < view_no and vn != 0:
                 del self._write_manager.future_primary_handler.primaries[vn]
 
-    def _cleanup_process(self, msg: CheckpointStabilized):
+    def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
         if self.is_master:
             self._remove_primaries_until(self.view_no)
