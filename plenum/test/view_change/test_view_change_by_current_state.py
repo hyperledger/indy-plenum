@@ -7,12 +7,11 @@ from plenum.test.view_change.helper import ensure_view_change, start_stopped_nod
 nodeCount = 6
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
-def test_vc_by_current_state(txnPoolNodeSet,
-                             looper,
-                             tdir,
-                             tconf,
-                             allPluginsPath):
+def test_vc_initial_catchup(txnPoolNodeSet,
+                            looper,
+                            tdir,
+                            tconf,
+                            allPluginsPath):
     node_to_stop = txnPoolNodeSet[-1]
     old_view_no = node_to_stop.last_completed_view_no
     disconnect_node_and_ensure_disconnected(looper,
