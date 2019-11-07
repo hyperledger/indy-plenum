@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import sys
-from typing import Tuple, NamedTuple, List, Set, Optional
+from typing import Tuple, NamedTuple, List, Set
 
 from common.exceptions import LogicError
 from plenum.common.config_util import getConfig

@@ -2,7 +2,6 @@ from abc import ABCMeta, abstractmethod
 from typing import List
 
 from common.exceptions import LogicError
-from plenum.common.constants import PRIMARY_SELECTION_PREFIX
 from stp_core.common.log import getlogger
 
 logger = getlogger()

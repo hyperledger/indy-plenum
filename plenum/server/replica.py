@@ -1,6 +1,6 @@
 import time
 from collections import deque, OrderedDict
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 
 import sys
 
@@ -17,7 +17,7 @@ from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, RaisedSuspicion, NewViewAccepted, \
     CheckpointStabilized
-from plenum.common.messages.node_messages import Ordered, Commit
+from plenum.common.messages.node_messages import Ordered
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
@@ -32,7 +32,7 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.server.router import Router
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
