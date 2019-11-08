@@ -87,7 +87,7 @@ def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           reqs_for_checkpoint)
+                                           reqs_for_checkpoint * max_batch_size)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
 
