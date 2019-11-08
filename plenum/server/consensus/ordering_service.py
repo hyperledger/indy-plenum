@@ -13,8 +13,8 @@ from common.serializers.serialization import state_roots_serializer, invalid_ind
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST,\
-    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST, \
+    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL, AUDIT_TXN_NODE_REG
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
@@ -1504,6 +1504,7 @@ class OrderingService:
             self._requests.ordered_by_replica(reqIdr)
 
         original_view_no = get_original_viewno(pp)
+        # TODO: Replace Ordered msg by ThreePcBatch
         ordered = Ordered(
             self._data.inst_id,
             pp.viewNo,
@@ -1516,6 +1517,7 @@ class OrderingService:
             pp.txnRootHash,
             pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
             self._get_primaries_for_ordered(pp),
+            self._get_node_reg_for_ordered(pp),
             original_view_no,
             pp.digest,
         )
@@ -1548,21 +1550,32 @@ class OrderingService:
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
     def _get_primaries_for_ordered(self, pp):
+        txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
+        if txn_primaries is None:
+            txn_primaries = self._data.primaries
+        return txn_primaries
+
+    def _get_node_reg_for_ordered(self, pp):
+        txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        if txn_node_reg is None:
+            txn_node_reg = self._write_manager.node_reg_handler.uncommitted_node_reg
+        return txn_node_reg
+
+    def _get_from_audit_for_ordered(self, pp, field):
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
         for index, txn in enumerate(ledger.get_uncommitted_txns()):
             payload_data = get_payload_data(txn)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
                     pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
-                if isinstance(txn_primaries, Iterable):
-                    return txn_primaries
-                elif isinstance(txn_primaries, int):
-                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                txn_data = payload_data[field]
+                if isinstance(txn_data, Iterable):
+                    return txn_data
+                elif isinstance(txn_data, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_data
                     return get_payload_data(
-                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[field]
                 break
-        else:
-            return self._data.primaries
+        return None
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:

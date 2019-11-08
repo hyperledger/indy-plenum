@@ -1872,7 +1872,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postAuditLedgerCaughtUp(self, **kwargs):
-        self.write_manager.on_catchup_finished()
+        pass
 
     def preLedgerCatchUp(self, ledger_id):
         if len(self.auditLedger.uncommittedTxns) > 0:
@@ -1929,6 +1929,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def allLedgersCaughtUp(self):
         logger.info('{} caught up to {} txns in the last catchup'.
                     format(self, self.num_txns_caught_up_in_last_catchup()))
+
+        self.write_manager.on_catchup_finished()
 
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
@@ -2972,6 +2974,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  last_txn_seq_no,
                                                  audit_txn_root,
                                                  three_pc_batch.primaries,
+                                                 three_pc_batch.node_reg,
                                                  three_pc_batch.original_view_no,
                                                  three_pc_batch.pp_digest)
             self._observable.append_input(batch_committed_msg, self.name)

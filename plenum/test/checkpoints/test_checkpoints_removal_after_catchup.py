@@ -1,8 +1,7 @@
 import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_PRIMARIES
-from plenum.test.checkpoints.helper import cp_key, check_num_received_checkpoints, check_last_received_checkpoint, \
-    check_stable_checkpoint
+from plenum.test.checkpoints.helper import cp_key, check_num_received_checkpoints, check_last_received_checkpoint
 from plenum.test.test_node import getNonPrimaryReplicas, getAllReplicas, \
     getPrimaryReplica
 from plenum.test.view_change.helper import ensure_view_change_complete
@@ -52,6 +51,7 @@ def test_received_checkpoints_removed_on_master_non_primary_replica_after_catchu
                                              AUDIT_TXN_PP_SEQ_NO: 20,
                                              AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
     audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
+    node.write_manager.node_reg_handler.on_catchup_finished = lambda *args: None
     node.allLedgersCaughtUp()
 
     check_num_received_checkpoints(replica, 1)
@@ -83,6 +83,7 @@ def test_received_checkpoints_removed_on_backup_non_primary_replica_after_catchu
                                              AUDIT_TXN_PP_SEQ_NO: 20,
                                              AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
     audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
+    node.write_manager.node_reg_handler.on_catchup_finished = lambda *args: None
     node.allLedgersCaughtUp()
 
     check_num_received_checkpoints(replica, 0)
@@ -110,6 +111,7 @@ def test_received_checkpoints_removed_on_backup_primary_replica_after_catchup(
                                              AUDIT_TXN_PP_SEQ_NO: 20,
                                              AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
     audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
+    node.write_manager.node_reg_handler.on_catchup_finished = lambda *args: None
     node.allLedgersCaughtUp()
 
     check_num_received_checkpoints(replica, 1)

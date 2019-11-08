@@ -90,6 +90,7 @@ class f:  # provides a namespace for reusable field constants
     VALID_REQ_IDR = Field("valid_reqIdr", List[str])
     INVALID_REQ_IDR = Field("invalid_reqIdr", List[str])
     PRIMARIES = Field("primaries", List[str])
+    NODE_REG = Field("nodeReg", List[str])
     # TAA
     TAA_TEXT = Field(TXN_AUTHOR_AGREEMENT_TEXT, str)
     TAA_VERSION = Field(TXN_AUTHOR_AGREEMENT_VERSION, str)

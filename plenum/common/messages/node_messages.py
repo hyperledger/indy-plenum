@@ -97,6 +97,8 @@ class Ordered(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.NODE_REG.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
@@ -511,6 +513,8 @@ class BatchCommitted(MessageBase):
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
+        (f.NODE_REG.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),

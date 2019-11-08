@@ -26,6 +26,7 @@ def create_observed_data(seq_no_start=1, seq_no_end=5):
                          seq_no_end,
                          generate_state_root(),
                          ['Alpha', 'Beta'],
+                         ['Alpha', 'Beta', 'Gamma', 'Delta'],
                          0,
                          'digest')
     return ObservedData(BATCH, msg)

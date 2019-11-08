@@ -157,6 +157,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
 
     replica._ordering_service._get_primaries_for_ordered = lambda pp: [replica.primaryName]
+    replica._ordering_service._get_node_reg_for_ordered = lambda pp: ["Alpha", "Beta", "Gamma", "Delta"]
 
     def reportSuspiciousNodeEx(ex):
         assert False, ex
