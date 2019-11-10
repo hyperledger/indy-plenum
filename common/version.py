@@ -1,4 +1,4 @@
-from typing import Tuple, Iterable, Union
+from typing import Iterable, Union
 from abc import abstractmethod, ABCMeta
 import re
 import collections

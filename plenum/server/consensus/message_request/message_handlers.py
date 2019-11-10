@@ -1,20 +1,15 @@
 import logging
-from struct import Struct
-from typing import Dict, Any, Optional, Tuple, Callable
+from typing import Dict, Any, Optional, Tuple
 from abc import ABCMeta, abstractmethod
 
 from plenum.common.constants import THREE_PC_PREFIX
-from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import MismatchedMessageReplyException, IncorrectMessageForHandlingException
-from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import MessageReq, MessageRep, \
-    LedgerStatus, PrePrepare, ConsistencyProof, Propagate, Prepare, Commit, ViewChangeAck, ViewChange, NewView
-from plenum.common.txn_util import TxnUtilConfig
+from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare, Prepare, Commit, \
+    ViewChange, NewView
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.view_change_storages import view_change_digest
-from stp_core.common.log import getlogger
 
 
 class AbstractMessagesHandler(metaclass=ABCMeta):

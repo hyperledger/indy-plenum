@@ -4,7 +4,6 @@ from enum import IntEnum, unique
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
-from plenum.common.util import UniqueSet
 
 NOMINATE = "NOMINATE"
 REELECTION = "REELECTION"

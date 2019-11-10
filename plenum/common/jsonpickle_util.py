@@ -1,14 +1,13 @@
 from enum import Enum
 
-import jsonpickle
 from jsonpickle import tags
 from jsonpickle.unpickler import loadclass
-
+from jsonpickle.handlers import register, BaseHandler
 
 ENUMVALUE = 'py/enumvalue'
 
 
-class EnumHandler(jsonpickle.handlers.BaseHandler):
+class EnumHandler(BaseHandler):
     """
     Jsonpickle handler for enumerations.
     Used to avoid the issue https://github.com/jsonpickle/jsonpickle/issues/135
@@ -26,4 +25,4 @@ class EnumHandler(jsonpickle.handlers.BaseHandler):
 
 
 def setUpJsonpickle():
-    jsonpickle.handlers.register(Enum, EnumHandler, base=True)
+    register(Enum, EnumHandler, base=True)

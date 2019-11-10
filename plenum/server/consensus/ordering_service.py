@@ -1437,8 +1437,6 @@ class OrderingService:
             self._data.inst_id, p.viewNo, p.ppSeqNo
         ]
 
-        pre_prepare = self.get_preprepare(*key_3pc)
-
         # BLS multi-sig:
         if p.stateRootHash is not None:
             pre_prepare = self.get_preprepare(*key_3pc)

@@ -12,7 +12,7 @@ from plenum.common.txn_util import get_payload_data, get_from, \
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
-from plenum.server.request_handlers.utils import is_steward, nym_to_state_key, get_nym_details
+from plenum.server.request_handlers.utils import is_steward, get_nym_details
 from stp_core.common.log import getlogger
 
 logger = getlogger()
