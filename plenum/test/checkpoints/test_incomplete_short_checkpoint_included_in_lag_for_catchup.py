@@ -84,10 +84,11 @@ def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
     # Send more requests for the new node's master replica to reach
     # Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1 quorumed stashed
     # checkpoints from others
+    print(new_node.master_replica.last_ordered_3pc)
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           reqs_for_checkpoint * max_batch_size)
+                                           2 * CHK_FREQ - 1, 2 * CHK_FREQ - 1)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
 
