@@ -1,7 +1,5 @@
 import inspect
 
-from zmq.auth import Authenticator
-
 from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.common.util import z85_to_friendly

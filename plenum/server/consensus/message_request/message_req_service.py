@@ -1,8 +1,6 @@
 import logging
-from typing import Dict, List
 
-from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
-    PROPAGATE, PREPARE, COMMIT, VIEW_CHANGE, NEW_VIEW
+from plenum.common.constants import PREPREPARE, PREPARE, COMMIT, VIEW_CHANGE, NEW_VIEW
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import IncorrectMessageForHandlingException
 from plenum.common.messages.internal_messages import MissingMessage, CheckpointStabilized, ViewChangeStarted

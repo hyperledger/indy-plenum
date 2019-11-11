@@ -1,5 +1,3 @@
-from typing import Dict
-
 from common.exceptions import LogicError
 from plenum.common.constants import TXN_TYPE
 from plenum.common.messages.node_messages import RequestNack

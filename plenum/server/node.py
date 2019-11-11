@@ -2935,7 +2935,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # but anyway it is ordered and executed normally
                 logger.debug('{} normally executed request {} which object has been dropped '
                              'from the requests queue'.format(self, req_key))
-                pass
 
         # TODO is it possible to get len(committedTxns) != len(valid_reqs)
         # someday

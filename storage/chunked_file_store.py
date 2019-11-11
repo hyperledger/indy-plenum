@@ -1,5 +1,4 @@
 import os
-import shutil
 
 from storage.kv_store_file import KeyValueStorageFile
 from storage.text_file_store import TextFileStore

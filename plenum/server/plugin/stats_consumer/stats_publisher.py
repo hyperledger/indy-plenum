@@ -3,7 +3,6 @@ from collections import deque
 from enum import Enum, unique
 
 from stp_core.common.log import getlogger
-from plenum.common.config_util import getConfig
 
 logger = getlogger()
 
