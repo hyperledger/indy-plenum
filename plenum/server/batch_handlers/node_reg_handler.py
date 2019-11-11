@@ -1,6 +1,8 @@
 from collections import deque
 from typing import NamedTuple
 
+from sortedcontainers import SortedDict
+
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
     AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE
 from plenum.common.request import Request
@@ -23,7 +25,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
-        self.node_reg_at_beginning_of_view = {}
+        self.node_reg_at_beginning_of_view = SortedDict()
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0
@@ -43,7 +45,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         if view_no > self._uncommitted_view_no:
             self.node_reg_at_beginning_of_view[view_no] = list(self.uncommitted_node_reg)
-            self._uncommitted_view_no = three_pc_batch.view_no
+            self._uncommitted_view_no = view_no
 
         three_pc_batch.node_reg = self.uncommitted_node_reg
 
@@ -62,10 +64,14 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         self.committed_node_reg = self._uncommitted.popleft().uncommitted_node_reg
         self._committed_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
-        for view_no in list(self.node_reg_at_beginning_of_view.keys()):
-            # keep at least current and previous view nos
-            if self._committed_view_no - view_no > 1:
-                self.node_reg_at_beginning_of_view.pop(view_no)
+
+        # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
+        # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
+        # and keep the one from the previous view (5). Views 0 and 3 needs to be deleted.
+        view_nos = list(self.node_reg_at_beginning_of_view.keys())
+        prev_committed_index = max(view_nos.index(self._committed_view_no) - 1, 0)
+        for view_no in view_nos[:prev_committed_index]:
+            self.node_reg_at_beginning_of_view.pop(view_no, None)
 
     def apply_request(self, request: Request, batch_ts, prev_result):
         if request.operation.get(TYPE) != NODE:
