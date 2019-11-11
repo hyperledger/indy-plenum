@@ -13,15 +13,15 @@ from common.serializers.serialization import state_roots_serializer, invalid_ind
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST,\
-    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST, \
+    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL, AUDIT_TXN_NODE_REG
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView, NewViewAccepted
+    ReOrderedInNewView, NewViewAccepted, CatchupCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -46,7 +46,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -201,8 +201,9 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, OldViewPrePrepareRequest, self.process_old_view_preprepare_request)
         self._subscription.subscribe(self._stasher, OldViewPrePrepareReply, self.process_old_view_preprepare_reply)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
-        self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self._bus, CheckpointStabilized, self.process_checkpoint_stabilized)
         self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
+        self._subscription.subscribe(self._bus, CatchupCheckpointsApplied, self.process_catchup_checkpoints_applied)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
@@ -1503,6 +1504,7 @@ class OrderingService:
             self._requests.ordered_by_replica(reqIdr)
 
         original_view_no = get_original_viewno(pp)
+        # TODO: Replace Ordered msg by ThreePcBatch
         ordered = Ordered(
             self._data.inst_id,
             pp.viewNo,
@@ -1515,6 +1517,7 @@ class OrderingService:
             pp.txnRootHash,
             pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
             self._get_primaries_for_ordered(pp),
+            self._get_node_reg_for_ordered(pp),
             original_view_no,
             pp.digest,
         )
@@ -1547,21 +1550,32 @@ class OrderingService:
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
     def _get_primaries_for_ordered(self, pp):
+        txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
+        if txn_primaries is None:
+            txn_primaries = self._data.primaries
+        return txn_primaries
+
+    def _get_node_reg_for_ordered(self, pp):
+        txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        if txn_node_reg is None:
+            txn_node_reg = self._write_manager.node_reg_handler.uncommitted_node_reg
+        return txn_node_reg
+
+    def _get_from_audit_for_ordered(self, pp, field):
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
         for index, txn in enumerate(ledger.get_uncommitted_txns()):
             payload_data = get_payload_data(txn)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
                     pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
-                if isinstance(txn_primaries, Iterable):
-                    return txn_primaries
-                elif isinstance(txn_primaries, int):
-                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                txn_data = payload_data[field]
+                if isinstance(txn_data, Iterable):
+                    return txn_data
+                elif isinstance(txn_data, int):
+                    last_primaries_seq_no = get_seq_no(txn) - txn_data
                     return get_payload_data(
-                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[field]
                 break
-        else:
-            return self._data.primaries
+        return None
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
@@ -2220,7 +2234,6 @@ class OrderingService:
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
-            self.batches.clear()
             self.sent_preprepares.clear()
             self.prePrepares.clear()
             self.prepares.clear()
@@ -2310,6 +2323,25 @@ class OrderingService:
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
         self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
+        self._setup_for_non_master_after_view_change(msg.view_no)
+
+    def _setup_for_non_master_after_view_change(self, current_view):
+        if not self.is_master:
+            for v in list(self.stashed_out_of_order_commits.keys()):
+                if v < current_view:
+                    self.stashed_out_of_order_commits.pop(v)
+
+    def process_catchup_checkpoints_applied(self, msg: CatchupCheckpointsApplied):
+        if compare_3PC_keys(msg.master_last_ordered,
+                            msg.last_caught_up_3PC) > 0:
+            if self.is_master:
+                self._caught_up_till_3pc(msg.last_caught_up_3PC)
+            else:
+                self.first_batch_after_catchup = True
+                self.catchup_clear_for_backup()
+
+        self._clear_prev_view_pre_prepares()
+        self._stasher.process_all_stashed(STASH_CATCH_UP)
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
@@ -2395,7 +2427,7 @@ class OrderingService:
             if vn < view_no and vn != 0:
                 del self._write_manager.future_primary_handler.primaries[vn]
 
-    def _cleanup_process(self, msg: CheckpointStabilized):
+    def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
         if self.is_master:
             self._remove_primaries_until(self.view_no)

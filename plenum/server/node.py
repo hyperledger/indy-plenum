@@ -11,7 +11,7 @@ import gc
 import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -1869,7 +1869,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postAuditLedgerCaughtUp(self, **kwargs):
-        self.write_manager.on_catchup_finished()
+        pass
 
     def preLedgerCatchUp(self, ledger_id):
         if len(self.auditLedger.uncommittedTxns) > 0:
@@ -1927,6 +1927,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} caught up to {} txns in the last catchup'.
                     format(self, self.num_txns_caught_up_in_last_catchup()))
 
+        self.write_manager.on_catchup_finished()
+
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
             data = get_payload_data(last_txn)
@@ -1936,9 +1938,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         master_last_ordered_3PC = self.master_last_ordered_3PC
         self.mode = Mode.synced
-        for replica in self.replicas.values():
-            replica.on_catch_up_finished(last_caught_up_3PC,
-                                         master_last_ordered_3PC)
+        self.replicas.send_to_internal_bus(CatchupFinished(last_caught_up_3PC,
+                                                           master_last_ordered_3PC))
         logger.info('{}{} caught up till {}'
                     .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                     extra={'cli': True})
@@ -1947,8 +1948,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # next looper iteration, new catchup will have already begun and unstashed 3pc
         # messages will stash again.
         # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
-        if self.view_change_in_progress:
-            self._process_replica_messages()
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic
@@ -1987,8 +1986,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if instance_id == 0:
                     self.start_participating()
                 if instance_id < len(self.primaries):
-                    replica.primaryChanged(
-                        Replica.generateName(self.primaries[instance_id], instance_id))
+                    replica.primaryName = Replica.generateName(self.primaries[instance_id], instance_id)
                     self.primary_selected(instance_id)
 
         # Primary propagation
@@ -2508,7 +2506,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica._ordering_service.commits))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
-                               sum_for_values(self.master_replica.stashed_out_of_order_commits))
+                               sum_for_values(self.master_replica._ordering_service.stashed_out_of_order_commits))
         self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
                                len(self.master_replica._consensus_data.checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_RECVD_CHECKPOINTS_MASTER,
@@ -2814,7 +2812,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             replica = self.replicas[i]
             instance_name = Replica.generateName(nodeName=primary_name, instId=i)
-            replica.primaryChanged(instance_name)
+            replica.primaryName = instance_name
             self.primary_selected(i)
 
             logger.display("{}{} declares primaries selection {} as completed for "
@@ -2973,6 +2971,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  last_txn_seq_no,
                                                  audit_txn_root,
                                                  three_pc_batch.primaries,
+                                                 three_pc_batch.node_reg,
                                                  three_pc_batch.original_view_no,
                                                  three_pc_batch.pp_digest)
             self._observable.append_input(batch_committed_msg, self.name)
