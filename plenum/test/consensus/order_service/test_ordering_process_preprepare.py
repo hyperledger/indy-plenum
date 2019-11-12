@@ -152,8 +152,7 @@ def test_suspicious_on_wrong_list_of_primaries(orderer_with_requests,
                                                    pool_state_root=state_roots[POOL_LEDGER_ID],
                                                    audit_txn_root=state_roots[AUDIT_LEDGER_ID],
                                                    reqs=fake_requests,
-                                                   pp_seq_no=1,
-                                                   primaries=["Some", "Other", "Primaries"])
+                                                   pp_seq_no=1)
     pre_prepare = PrePrepare(*pre_prepare_params)
     _register_pp_ts(orderer_with_requests, pre_prepare, orderer_with_requests.primary_name)
 

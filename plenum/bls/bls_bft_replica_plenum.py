@@ -395,7 +395,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             txn_root_hash,
             pre_prepare.sub_seq_no,
             pre_prepare.final,
-            pre_prepare.primaries,
             pre_prepare.poolStateRootHash,
             pre_prepare.auditTxnRootHash,
         ]

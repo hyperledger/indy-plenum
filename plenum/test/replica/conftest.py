@@ -48,9 +48,7 @@ class ReplicaFakeNode(FakeSomething):
             get_validators=lambda: [],
             db_manager=db_manager,
             write_manager=FakeSomething(database_manager=db_manager,
-                                        apply_request=lambda req, cons_time: None,
-                                        future_primary_handler=FakeSomething(primaries={},
-                                                                             get_primaries=lambda *args: [])),
+                                        apply_request=lambda req, cons_time: None),
             timer=QueueTimer(),
             poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names)
         )

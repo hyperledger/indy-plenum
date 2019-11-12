@@ -152,9 +152,6 @@ class SimPool:
                                      self.network.create_peer(name, handler),
                                      write_manager=write_manager,
                                      bls_bft_replica=MockBlsBftReplica())
-            # ToDo: For now, future_primary_handler is depended from the node.
-            # And for now we need to patching set_node_state functionality
-            write_manager.register_batch_handler(future_primaries_handler)
             replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
             self._nodes.append(replica)
 

@@ -657,8 +657,7 @@ def send_pre_prepare(view_no, pp_seq_no, nodes,
         state_root or '0' * 44,
         txn_root or '0' * 44,
         0,
-        True,
-        primaries=[]
+        True
     )
     primary_node = getPrimaryReplica(nodes).node
     non_primary_nodes = set(nodes) - {primary_node}
@@ -1226,8 +1225,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None,
-                              bls_multi_sigs=None,
-                              primaries=[]):
+                              bls_multi_sigs=None):
     digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
     params = [inst_id,
@@ -1242,7 +1240,6 @@ def create_pre_prepare_params(state_root,
               txn_root or '1' * 32,
               0,
               True,
-              primaries,
               pool_state_root or generate_state_root(),
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:
