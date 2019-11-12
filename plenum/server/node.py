@@ -1288,17 +1288,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         alias = ""
         if txn_data and DATA in txn_data:
             alias = txn_data[DATA].get(ALIAS, alias)
-        # If required number of instances changed, we need to recalculate it.
-        if (self.requiredNumberOfInstances != old_required_number_of_instances or alias in self.primaries) \
-                and not self.view_changer.view_change_in_progress \
+        # If number of nodes changed, we need to do a view change.
+        if not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
-            # We need to reselect primaries only during usual ordering. Because:
-            # - If this is catchup, called by view change, then, we will select
-            # primaries after it finish.
-            # - If this is usual catchup, then, we will apply primaries from audit,
+            # We need to do a view change only during usual ordering. Because
+            # if this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
-            self.view_changer.on_replicas_count_changed()
+            self.view_changer.on_node_count_changed()
 
     @property
     def clientStackName(self):
