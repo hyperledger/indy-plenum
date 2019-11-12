@@ -19,14 +19,14 @@ def test_upper_bound_of_checkpoint_after_catchup_is_divisible_by_chk_freq(
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, tconf.Max3PCBatchSize * CHK_FREQ * 2 + 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    # waitNodeDataEquality(looper, lagging_node, *txnPoolNodeSet[:-1],
-    #                      exclude_from_check=['check_last_ordered_3pc_backup'])
+    waitNodeDataEquality(looper, lagging_node, *txnPoolNodeSet[:-1],
+                         exclude_from_check=['check_last_ordered_3pc_backup'])
     # Epsilon did not participate in ordering of the batch with EpsilonSteward
     # NYM transaction and the batch with Epsilon NODE transaction.
     # Epsilon got these transactions via catch-up.
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 4 * tconf.Max3PCBatchSize)
+                              sdk_wallet_client, (CHK_FREQ - 1) * tconf.Max3PCBatchSize)
 
     for replica in txnPoolNodeSet[0].replicas.values():
         check_stable_checkpoint(replica, CHK_FREQ * 3)
