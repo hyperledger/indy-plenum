@@ -75,8 +75,7 @@ class ViewChangeService:
         # 3. Update shared data
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
-        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
-                                                                         instance_count=self._data.quorums.f + 1)
+        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no)
         for i, primary_name in enumerate(self._data.primaries):
             self._logger.display("{} selected primary {} for instance {} (view {})"
                                  .format(PRIMARY_SELECTION_PREFIX,

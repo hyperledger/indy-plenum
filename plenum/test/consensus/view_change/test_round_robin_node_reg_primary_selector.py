@@ -26,7 +26,7 @@ def validators(request):
     return genNodeNames(request.param)
 
 
-def test_view_change_primary_selection_constant_node_reg(primary_selector, validators, instance_count,
+def test_view_change_primary_selection_dynamic_node_reg(primary_selector, validators, instance_count,
                                                          node_reg_handler):
     initial_view_no = 3
     node_reg_handler.uncommitted_node_reg = validators
@@ -34,9 +34,10 @@ def test_view_change_primary_selection_constant_node_reg(primary_selector, valid
     node_reg_handler.node_reg_at_beginning_of_view[initial_view_no - 2] = validators
     node_reg_handler.node_reg_at_beginning_of_view[initial_view_no] = validators
 
-    primaries = set(primary_selector.select_primaries(initial_view_no, instance_count))
-    prev_primaries = set(primary_selector.select_primaries(initial_view_no - 1, instance_count))
-    next_primaries = set(primary_selector.select_primaries(initial_view_no + 1, instance_count))
+    instance_count = (len(validators) - 1) // 3 + 1
+    primaries = set(primary_selector.select_primaries(initial_view_no))
+    prev_primaries = set(primary_selector.select_primaries(initial_view_no - 1))
+    next_primaries = set(primary_selector.select_primaries(initial_view_no + 1))
 
     assert len(set(primaries)) == instance_count
     assert len(set(prev_primaries)) == instance_count
@@ -59,8 +60,7 @@ def test_view_change_primary_selection_constant_node_reg(primary_selector, valid
 
 def test_select_primaries_for_view_0(primary_selector, node_reg_handler):
     node_reg_handler.node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    primaries = primary_selector.select_primaries(view_no=0,
-                                                  instance_count=3)
+    primaries = primary_selector.select_primaries(view_no=0)
     assert primaries == ["Alpha", "Beta", "Gamma"]
 
 
@@ -71,8 +71,7 @@ def test_select_primaries_for_view_1_takes_node_reg_from_previous_view(primary_s
     if has_node_reg_last_view:
         node_reg_handler.node_reg_at_beginning_of_view[1] = ["Epsilon", "Zeta", "Eta"]
 
-    primaries = primary_selector.select_primaries(view_no=1,
-                                                  instance_count=3)
+    primaries = primary_selector.select_primaries(view_no=1)
     assert primaries == ["Beta", "Gamma", "Delta"]
 
 
@@ -83,8 +82,7 @@ def test_select_primaries_for_view_5_takes_node_reg_from_previous_view(primary_s
     if has_node_reg_last_view:
         node_reg_handler.node_reg_at_beginning_of_view[5] = ["Epsilon", "Zeta", "Eta"]
 
-    primaries = primary_selector.select_primaries(view_no=5,
-                                                  instance_count=3)
+    primaries = primary_selector.select_primaries(view_no=5)
     assert primaries == ["Zeta", "Eta", "Alpha"]
 
 
@@ -98,6 +96,5 @@ def test_select_primaries_takes_latest_available_node_reg_for_previous_views(pri
     if has_node_reg_last_view:
         node_reg_handler.node_reg_at_beginning_of_view[5] = ["Epsilon", "Zeta", "Eta"]
 
-    primaries = primary_selector.select_primaries(view_no=5,
-                                                  instance_count=3)
+    primaries = primary_selector.select_primaries(view_no=5)
     assert primaries == ["Zeta", "Eta", "Alpha"]

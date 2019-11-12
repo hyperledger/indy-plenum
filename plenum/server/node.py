@@ -2780,8 +2780,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule_view_change()
 
     def get_primaries_for_current_view(self):
-        return self.primaries_selector.select_primaries(view_no=self.viewNo,
-                                                        instance_count=self.requiredNumberOfInstances)
+        return self.primaries_selector.select_primaries(view_no=self.viewNo)
 
     def select_primaries(self):
         # If you want to refactor primaries selection,

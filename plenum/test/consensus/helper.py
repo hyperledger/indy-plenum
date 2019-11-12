@@ -262,5 +262,4 @@ def create_view_change_acks(vc, vc_frm, senders):
 
 
 def primary_in_view(validators, view_no):
-    f = (len(validators) - 1) // 3
-    return RoundRobinConstantNodesPrimariesSelector(validators).select_primaries(view_no=view_no, instance_count=f + 1)[0]
+    return RoundRobinConstantNodesPrimariesSelector(validators).select_primaries(view_no=view_no)[0]

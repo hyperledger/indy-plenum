@@ -13,5 +13,4 @@ def test_view_change_while_adding_new_node_2_slow_commit(looper, tdir, tconf, al
                                       sdk_wallet_steward,
                                       slow_nodes=[txnPoolNodeSet[1], txnPoolNodeSet[2]],
                                       delay_pre_prepare=False,
-                                      delay_commit=True,
-                                      expected_viewno=4)
+                                      delay_commit=True)

@@ -1166,8 +1166,7 @@ class OrderingService:
                 pre_prepare,
                 state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
                 txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
-                primaries=self._primaries_selector.select_primaries(view_no=get_original_viewno(pre_prepare),
-                                                                    instance_count=self._data.quorums.f + 1),
+                primaries=self._primaries_selector.select_primaries(view_no=get_original_viewno(pre_prepare)),
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
             )
             self.post_batch_creation(three_pc_batch)
@@ -2029,7 +2028,7 @@ class OrderingService:
             ledger_id, tm, self.view_no, pp_seq_no)
 
         digest = self.replica_batch_digest(reqs)
-        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no, self._data.quorums.f + 1)
+        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
 
         if self.is_master:
             three_pc_batch = ThreePcBatch(

@@ -9,7 +9,7 @@ from plenum.test.view_change.helper import add_new_node
 
 def get_next_primary_name(txnPoolNodeSet, expected_view_no):
     inst_count = len(txnPoolNodeSet[0].replicas)
-    return txnPoolNodeSet[0].primaries_selector.select_primaries(expected_view_no, inst_count)[0]
+    return txnPoolNodeSet[0].primaries_selector.select_primaries(expected_view_no)[0]
 
 
 def trigger_view_change(nodes):
@@ -24,8 +24,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
                                       sdk_wallet_steward,
                                       slow_nodes=[],
                                       delay_commit=False,
-                                      delay_pre_prepare=False,
-                                      expected_viewno=4):
+                                      delay_pre_prepare=False):
     # Pre-requisites: viewNo=3, Primary is Node4
     for viewNo in range(1, 4):
         trigger_view_change(txnPoolNodeSet)
