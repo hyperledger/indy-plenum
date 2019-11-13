@@ -1,7 +1,6 @@
 from abc import abstractmethod
 from typing import Dict
 
-from common.exceptions import ValueUndefinedError
 from base58 import b58decode, b58encode
 from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.exceptions import InvalidKey

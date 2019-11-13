@@ -2,19 +2,16 @@
 Clients are authenticated with a digital signature.
 """
 from abc import abstractmethod
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional
 
 import base58
 from common.serializers.serialization import serialize_msg_for_signing
-from plenum.common.constants import VERKEY, ROLE, GET_TXN, NYM, IDENTIFIER
-from plenum.common.exceptions import EmptySignature, \
-    MissingSignature, EmptyIdentifier, \
-    MissingIdentifier, CouldNotAuthenticate, \
-    InvalidSignatureFormat, UnknownIdentifier, \
-    InsufficientSignatures, InsufficientCorrectSignatures
+from plenum.common.constants import VERKEY, ROLE, NYM
+from plenum.common.exceptions import EmptySignature, MissingSignature, EmptyIdentifier, \
+    MissingIdentifier, CouldNotAuthenticate, InvalidSignatureFormat, InsufficientSignatures, \
+    InsufficientCorrectSignatures
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier, Verifier
-from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
 from plenum.server.request_handlers.utils import get_nym_details, get_request_type, nym_ident_is_dest, get_target_verkey
 from stp_core.common.log import getlogger
 

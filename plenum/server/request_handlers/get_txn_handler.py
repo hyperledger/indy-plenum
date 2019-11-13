@@ -1,7 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, DATA, TXN_TYPE, GET_TXN, MULTI_SIGNATURE, AUDIT_LEDGER_ID, \
     AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, STATE_PROOF
 from plenum.common.exceptions import InvalidClientRequest
-from plenum.common.messages.node_messages import RequestNack, Reply
+from plenum.common.messages.node_messages import RequestNack
 from plenum.common.request import Request
 from plenum.common.txn_util import get_seq_no
 from plenum.common.types import f

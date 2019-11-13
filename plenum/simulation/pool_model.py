@@ -2,9 +2,9 @@ from collections import defaultdict
 from typing import NamedTuple, Set, List, Optional
 
 from plenum.server.quorums import Quorums
-from plenum.simulation.node_model import NodeModel, NetworkEvent
+from plenum.simulation.node_model import NodeModel
 from plenum.simulation.pool_connections import PoolConnections
-from plenum.simulation.sim_event_stream import SimEvent, ErrorEvent, ListEventStream, CompositeEventStream
+from plenum.simulation.sim_event_stream import SimEvent, ErrorEvent, CompositeEventStream
 from plenum.simulation.sim_model import SimModel
 
 RestartEvent = NamedTuple('RestartEvent', [('node', str)])

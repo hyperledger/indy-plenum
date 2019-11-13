@@ -2,7 +2,6 @@ from logging import getLogger
 
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, ALIAS
-from plenum.server.pool_manager import TxnPoolManager
 
 logger = getLogger()
 

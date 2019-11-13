@@ -1,5 +1,8 @@
 from collections import deque
+from logging import getLogger
 from typing import NamedTuple
+
+from sortedcontainers import SortedDict
 
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
     AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE
@@ -13,6 +16,7 @@ from plenum.server.request_handlers.handler_interfaces.write_request_handler imp
 UncommittedNodeReg = NamedTuple('UncommittedNodeReg',
                                 [('uncommitted_node_reg', list),
                                  ('view_no', int)])
+logger = getLogger()
 
 
 class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
@@ -23,7 +27,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
-        self.node_reg_at_beginning_of_view = {}
+        self.node_reg_at_beginning_of_view = SortedDict()
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0
@@ -32,6 +36,9 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
     def on_catchup_finished(self):
         self._load_current_node_reg()
         self._load_last_view_node_reg()
+        logger.info("Loaded current node registry from the ledger: {}".format(self.uncommitted_node_reg))
+        logger.info(
+            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         # Observer case:
@@ -43,9 +50,13 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         if view_no > self._uncommitted_view_no:
             self.node_reg_at_beginning_of_view[view_no] = list(self.uncommitted_node_reg)
-            self._uncommitted_view_no = three_pc_batch.view_no
+            self._uncommitted_view_no = view_no
 
         three_pc_batch.node_reg = self.uncommitted_node_reg
+
+        logger.debug("Applied uncommitted node registry: {}".format(self.uncommitted_node_reg))
+        logger.debug(
+            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         reverted = self._uncommitted.pop()
@@ -59,13 +70,33 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         if self._uncommitted_view_no < reverted.view_no:
             self.node_reg_at_beginning_of_view.pop(reverted.view_no)
 
+        logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
+                                                                               self.uncommitted_node_reg))
+        logger.debug(
+            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        prev_committed = self.committed_node_reg
         self.committed_node_reg = self._uncommitted.popleft().uncommitted_node_reg
         self._committed_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
-        for view_no in list(self.node_reg_at_beginning_of_view.keys()):
-            # keep at least current and previous view nos
-            if self._committed_view_no - view_no > 1:
-                self.node_reg_at_beginning_of_view.pop(view_no)
+
+        # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
+        # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
+        # and keep the one from the previous view (5). Views 0 and 3 needs to be deleted.
+        view_nos = list(self.node_reg_at_beginning_of_view.keys())
+        prev_committed_index = max(view_nos.index(self._committed_view_no) - 1, 0) \
+            if self._committed_view_no in self.node_reg_at_beginning_of_view else 0
+        for view_no in view_nos[:prev_committed_index]:
+            self.node_reg_at_beginning_of_view.pop(view_no, None)
+
+        if prev_committed != self.committed_node_reg:
+            logger.info("Committed node registry: {}".format(self.committed_node_reg))
+            logger.info("Current node registry for previous views: {}".format(
+                sorted(self.node_reg_at_beginning_of_view.items())))
+        else:
+            logger.debug("Committed node registry: {}".format(self.committed_node_reg))
+            logger.debug("Current node registry for previous views: {}".format(
+                sorted(self.node_reg_at_beginning_of_view.items())))
 
     def apply_request(self, request: Request, batch_ts, prev_result):
         if request.operation.get(TYPE) != NODE:
@@ -80,9 +111,11 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         if node_name not in self.uncommitted_node_reg and VALIDATOR in services:
             # new node added or old one promoted
             self.uncommitted_node_reg.append(node_name)
+            logger.info("Changed uncommitted node registry to: {}".format(self.uncommitted_node_reg))
         elif node_name in self.uncommitted_node_reg and VALIDATOR not in services:
             # existing node demoted
             self.uncommitted_node_reg.remove(node_name)
+            logger.info("Changed uncommitted node registry to: {}".format(self.uncommitted_node_reg))
 
         return None, None, None
 

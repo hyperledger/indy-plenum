@@ -218,8 +218,8 @@ class ViewChanger():
         self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
         self.provider.schedule_resend_inst_chng()
 
-    def on_replicas_count_changed(self):
-        self.propose_view_change(Suspicions.REPLICAS_COUNT_CHANGED)
+    def on_node_count_changed(self):
+        self.propose_view_change(Suspicions.NODE_COUNT_CHANGED)
 
     # __ EXTERNAL EVENTS __
 

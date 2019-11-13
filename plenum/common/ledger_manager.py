@@ -1,15 +1,14 @@
 from collections import Callable
-from typing import Any, List, Dict, NamedTuple
+from typing import Any, List, Dict
 from typing import Optional
 
 from ledger.merkle_verifier import MerkleVerifier
-from plenum.common.channel import create_direct_channel, TxChannel, Router
+from plenum.common.channel import create_direct_channel, Router
 from plenum.common.config_util import getConfig
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_info import LedgerInfo
 from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, ConsistencyProof, CatchupReq
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
-from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_catchup_data import CatchupNodeDataProvider
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.server.catchup.seeder_service import ClientSeederService, NodeSeederService

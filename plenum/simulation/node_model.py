@@ -1,7 +1,6 @@
-from collections import defaultdict
-from typing import NamedTuple, List, Any, Set
+from typing import NamedTuple, List, Any
 
-from plenum.common.timer import TimerService, RepeatingTimer
+from plenum.common.timer import RepeatingTimer
 from plenum.server.quorums import Quorums
 from plenum.simulation.node_model_view_changer import create_view_changer
 from plenum.simulation.pool_connections import PoolConnections
