@@ -175,7 +175,6 @@ def replica_service(validators, primary, timer,
         crypto_factory=create_default_bls_crypto_factory(),
         get_free_port=lambda: 8090)['txns']
     write_manager = create_test_write_req_manager("Alpha", genesis_txns)
-    write_manager.register_batch_handler(future_primaries_handler)
 
     replica = ReplicaService("Alpha:0",
                              validators, primary,
