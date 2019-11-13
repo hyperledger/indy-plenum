@@ -104,6 +104,12 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             updated_state = handler.update_state(txn, updated_state, request, isCommitted)
 
+    def restore_state(self, txn, ledger_id):
+        state = self.database_manager.get_state(ledger_id)
+        self.database_manager.update_state_version(txn)
+        self.update_state(txn, isCommitted=True)
+        state.commit(rootHash=state.headHash)
+
     def apply_request(self, request, batch_ts):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
         if handlers is None:

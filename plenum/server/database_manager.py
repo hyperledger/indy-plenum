@@ -13,6 +13,7 @@ class DatabaseManager():
         self.stores = {}
         self.trackers = {}
         self._init_db_list()
+        self._state_version_controller = None
 
     def _init_db_list(self):
         self._ledgers = {lid: db.ledger for lid, db in self.databases.items()}
@@ -81,6 +82,19 @@ class DatabaseManager():
         if lid not in self.databases:
             return False
         return self.databases[lid].taa_acceptance_required
+
+    def set_state_version_controller(self, controller):
+        self._state_version_controller = controller
+
+    def update_state_version(self, txn):
+        if self._state_version_controller is not None:
+            self._state_version_controller.set_version(txn)
+
+    @property
+    def state_version(self):
+        if self._state_version_controller is None:
+            return None
+        return self._state_version_controller.version
 
     @property
     def states(self):
