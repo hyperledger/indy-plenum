@@ -65,6 +65,7 @@ class FakeNode:
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
         self.write_manager = FakeSomething()
+        self.primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
@@ -79,7 +80,6 @@ class FakeNode:
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
         self.view_changer = create_view_changer(self)
-        self.primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
         self.metrics = NullMetricsCollector()
 
         # For catchup testing
