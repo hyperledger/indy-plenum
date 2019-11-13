@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import List
 
+from common.exceptions import LogicError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from stp_core.common.log import getlogger
 
@@ -44,6 +45,10 @@ class RoundRobinNodeRegPrimariesSelector(PrimariesSelector):
         # it's possible that there is no nodeReg for some views if no txns have been ordered there
         while view_no_for_selection > 0 and view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
             view_no_for_selection -= 1
+
+        if view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
+            raise LogicError("Can not find view_no {} in node_reg_at_beginning_of_view {}".format(view_no,
+                                                                                                  self.node_reg_handler.node_reg_at_beginning_of_view))
 
         return RoundRobinConstantNodesPrimariesSelector. \
             select_primaries_round_robin(view_no,

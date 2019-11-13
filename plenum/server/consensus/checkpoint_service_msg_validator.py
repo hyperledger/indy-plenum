@@ -2,8 +2,8 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.replica_validator_enums import FUTURE_VIEW, OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, \
-    INCORRECT_INSTANCE, ALREADY_STABLE, STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE, WAITING_FOR_NEW_VIEW
+from plenum.server.replica_validator_enums import OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, \
+    INCORRECT_INSTANCE, ALREADY_STABLE, STASH_WAITING_VIEW_CHANGE, WAITING_FOR_NEW_VIEW
 
 
 class CheckpointMsgValidator:

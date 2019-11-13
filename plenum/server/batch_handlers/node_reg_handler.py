@@ -213,18 +213,19 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
     def __load_node_reg_for_view(self, audit_ledger, audit_txn):
         txn_seq_no = get_seq_no(audit_txn)
+        audit_txn_data = get_payload_data(audit_txn)
 
         # If this is the first txn in the audit ledger, so that we don't know a full history,
         # then get node reg from the pool ledger
         if txn_seq_no <= 1:
-            genesis_pool_ledger_size = get_payload_data(audit_txn)[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID] - 1
+            genesis_pool_ledger_size = audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
             return self.__load_node_reg_from_pool_ledger(to=genesis_pool_ledger_size)
 
         # Get the node reg from audit txn
-        node_reg = get_payload_data(audit_txn).get(AUDIT_TXN_NODE_REG)
+        node_reg = audit_txn_data.get(AUDIT_TXN_NODE_REG)
         if node_reg is None:
             # we don't have node reg in audit ledger yet, so get it from the pool ledger
-            pool_ledger_size_for_txn = get_payload_data(audit_txn)[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
+            pool_ledger_size_for_txn = audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
             return self.__load_node_reg_from_pool_ledger(to=pool_ledger_size_for_txn)
 
         if isinstance(node_reg, int):
@@ -234,7 +235,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         if node_reg is None:
             # we don't have node reg in audit ledger yet, so get it from the pool ledger
-            pool_ledger_size_for_txn = get_payload_data(audit_txn)[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
+            pool_ledger_size_for_txn = audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
             return self.__load_node_reg_from_pool_ledger(to=pool_ledger_size_for_txn)
 
         return node_reg

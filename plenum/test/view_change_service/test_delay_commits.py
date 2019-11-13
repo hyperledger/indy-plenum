@@ -36,7 +36,7 @@ def test_delay_commits_for_one_node(looper,
         delayed_node = [n for n in pretenders if n.name != next_primary][0]
 
     with delay_rules_without_processing(delayed_node.nodeIbStasher, cDelay()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
         trigger_view_change(txnPoolNodeSet)
         if vc_counts == 'twice':

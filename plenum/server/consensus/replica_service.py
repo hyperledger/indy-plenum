@@ -9,12 +9,10 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
-from plenum.common.util import getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.replica_freshness_checker import FreshnessChecker

@@ -27,7 +27,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Re
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import PROCESS, DISCARD
+from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
@@ -1811,9 +1811,6 @@ class OrderingService:
         if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
-        # ToDo: is pre_view_change_in_progress needed?
-        # if self.replica.node.pre_view_change_in_progress:
-        #     return False
         if self.view_no < self.last_ordered_3pc[0]:
             return False
         if self.view_no == self.last_ordered_3pc[0]:

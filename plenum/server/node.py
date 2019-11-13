@@ -1977,9 +1977,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if len(self.replicas) != len(self.primaries):
                 logger.warning('Audit ledger has inconsistent number of nodes. '
                                'Node primaries = {}'.format(self.primaries))
-            if any(p not in self.nodeReg for p in self.primaries):
-                logger.error('Audit ledger has inconsistent names of primaries. '
-                             'Node primaries = {}'.format(self.primaries))
             # Similar functionality to select_primaries
             for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
