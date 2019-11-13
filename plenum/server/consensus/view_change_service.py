@@ -292,6 +292,9 @@ class ViewChangeService:
         self._finish_view_change()
 
     def _finish_view_change(self):
+        self._logger.info("{} finished view change to view {}. Primaries: {}".format(self._data.name,
+                                                                                     self._data.view_no,
+                                                                                     self._data.primaries))
         # Update shared data
         self._data.waiting_for_new_view = False
         self._data.prev_view_prepare_cert = self._data.new_view.batches[-1].pp_seq_no \
