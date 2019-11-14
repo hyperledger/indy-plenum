@@ -43,16 +43,18 @@ class ViewChangeService:
                                                         partial(self._propose_view_change_not_complete_in_time),
                                                         active=False)
 
-        self._router.subscribe(ViewChange, self.process_view_change_message)
-        self._router.subscribe(ViewChangeAck, self.process_view_change_ack_message)
-        self._router.subscribe(NewView, self.process_new_view_message)
-
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
         self._primaries_selector = RoundRobinPrimariesSelector()
 
         self._subscription = Subscription()
+        self._subscription.subscribe(self._router, ViewChange, self.process_view_change_message)
+        self._subscription.subscribe(self._router, ViewChangeAck, self.process_view_change_ack_message)
+        self._subscription.subscribe(self._router, NewView, self.process_new_view_message)
         self._subscription.subscribe(self._bus, NeedViewChange, self.process_need_view_change)
+
+    def cleanup(self):
+        self._subscription.unsubscribe_all()
 
     def __repr__(self):
         return self._data.name
