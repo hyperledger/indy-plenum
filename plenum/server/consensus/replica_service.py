@@ -60,6 +60,7 @@ class ReplicaService:
                        digest='4F7BsTMVPKFshM1MwLf6y23cid6fL3xMpazVoF9krzUw'))
 
         # ToDo: it should be done in Zero-view stage.
+        write_manager.on_catchup_finished()
         self._data.primaries = self._view_changer._primaries_selector.select_primaries(self._data.view_no)
 
     def ready_for_3pc(self, req_key):

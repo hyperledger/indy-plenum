@@ -623,9 +623,11 @@ def test_load_regs_on_catchup_finished_view_1(node_reg_handler, init_node_reg_ha
         # as we don't know whether the first Audit txn was for a Pool or other ledger Batch,
         # get all Nodes for a Pool ledger corresponding to the first audit txn
         assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+        assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     else:
         assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
+        assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
 
 
 @pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
