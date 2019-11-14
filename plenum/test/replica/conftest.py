@@ -52,7 +52,7 @@ class ReplicaFakeNode(FakeSomething):
                                         apply_request=lambda req, cons_time: None),
             timer=QueueTimer(),
             poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names),
-            primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
+            primaries_selector=RoundRobinConstantNodesPrimariesSelector(node_names)
         )
 
     @property

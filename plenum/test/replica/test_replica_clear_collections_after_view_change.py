@@ -48,7 +48,7 @@ def test_replica_clear_collections_after_view_change(looper,
             node.view_changer.on_master_degradation()
 
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
-                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                          customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
 
     # + 1 because of lastPrePrepareSeqNo was not dropped after view_change
     sdk_send_batches_of_random_and_check(looper,

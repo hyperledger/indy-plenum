@@ -22,7 +22,7 @@ def test_vc_initial_catchup(txnPoolNodeSet,
     ensure_view_change(looper, txnPoolNodeSet[:-1])
     ensureElectionsDone(looper,
                         txnPoolNodeSet[:-1],
-                        customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+                        customTimeout=tconf.NEW_VIEW_TIMEOUT)
     new_view_no = txnPoolNodeSet[0].last_completed_view_no
     assert new_view_no > old_view_no
     node_to_stop = start_stopped_node(node_to_stop,
@@ -31,5 +31,5 @@ def test_vc_initial_catchup(txnPoolNodeSet,
                                       tdir,
                                       allPluginsPath)
     txnPoolNodeSet[-1] = node_to_stop
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.NEW_VIEW_TIMEOUT)
     assert node_to_stop.last_completed_view_no == new_view_no

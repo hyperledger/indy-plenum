@@ -35,7 +35,7 @@ def test_restart_primaries_then_demote(
                                                           tconf,
                                                           tdir,
                                                           allPluginsPath,
-                                                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT,
+                                                          customTimeout=2 * tconf.NEW_VIEW_TIMEOUT,
                                                           exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # ensure pool is working properly
@@ -48,7 +48,7 @@ def test_restart_primaries_then_demote(
                                                           tconf,
                                                           tdir,
                                                           allPluginsPath,
-                                                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT,
+                                                          customTimeout=2 * tconf.NEW_VIEW_TIMEOUT,
                                                           exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # ensure pool is working properly

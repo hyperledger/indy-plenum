@@ -9,7 +9,7 @@ from plenum.test.delayers import cr_delay, msg_rep_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
-    sdk_send_batches_of_random_and_check
+    sdk_send_batches_of_random_and_check, assert_eq
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
@@ -42,7 +42,7 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
                                          chkFreqPatched):
     '''
     Test that the lagging_node can process messages from catchup stash after catchup
-     and request lost messages from other nodes.
+    and request lost messages from other nodes.
     '''
 
     # Prepare nodes
@@ -91,12 +91,8 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
 
         # Check that firs txn was ordered from stash after first catchup
         looper.run(
-            eventually(
-                lambda: assertExp(
-                    lagging_node.master_last_ordered_3PC[1] == txnPoolNodeSet[0].master_last_ordered_3PC[1] - 1),
-                retryWait=1,
-                timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet))
-            )
+            eventually(assert_eq, lagging_node.master_last_ordered_3PC[1], txnPoolNodeSet[0].master_last_ordered_3PC[1] - 1,
+                       timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet)))
         )
 
         # Order 2 checkpoints in the second lagging node catchup (2 txns in 2 batches)

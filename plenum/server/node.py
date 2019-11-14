@@ -369,8 +369,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.config.STACK_COMPANION == 1:
             add_start_time(self.ledger_dir, self.utc_epoch())
 
-        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
-
         HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
 
