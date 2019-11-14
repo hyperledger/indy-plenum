@@ -167,7 +167,8 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         # get the last view from the pool ledger
         first_txn_in_this_view_seq_no = get_seq_no(first_txn_in_this_view)
         if first_txn_in_this_view_seq_no <= 1:
-            self.node_reg_at_beginning_of_view[self._committed_view_no - 1] = list(
+            # assume last view=0 if we don't know it
+            self.node_reg_at_beginning_of_view[0] = list(
                 self.__load_node_reg_for_first_audit_txn(first_txn_in_this_view))
             return
 
@@ -178,7 +179,8 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         # 7. load the last view node reg (either from audit ledger or
         # the pool one if first_txn_in_last_view is the first txn in audit ledger)
-        self.node_reg_at_beginning_of_view[self._committed_view_no - 1] = list(
+        last_view_no = get_payload_data(first_txn_in_last_view)[AUDIT_TXN_VIEW_NO]
+        self.node_reg_at_beginning_of_view[last_view_no] = list(
             self.__load_node_reg_for_view(audit_ledger, first_txn_in_last_view))
 
     def __load_node_reg_from_pool_ledger(self, to=None):

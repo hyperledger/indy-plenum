@@ -576,10 +576,10 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
 
 @pytest.mark.parametrize('add_node_reg_to_audit', [True, False])
 @pytest.mark.parametrize('first_txn', [None, 'DomainFirst', 'PoolFirst'])
-def test_load_regs_on_catchup_finished_view_0(node_reg_handler, init_node_reg_handler,
-                                              write_req_manager,
-                                              add_node_reg_to_audit,
-                                              first_txn):
+def test_load_regs_on_catchup_finished_view_initial_to_0(node_reg_handler, init_node_reg_handler,
+                                                         write_req_manager,
+                                                         add_node_reg_to_audit,
+                                                         first_txn):
     if first_txn == 'PoolFirst':
         edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
     elif first_txn == 'DomainFirst':
@@ -603,17 +603,19 @@ def test_load_regs_on_catchup_finished_view_0(node_reg_handler, init_node_reg_ha
 
 @pytest.mark.parametrize('add_node_reg_to_audit', [True, False])
 @pytest.mark.parametrize('first_txn', [None, 'DomainFirst', 'PoolFirst'])
-def test_load_regs_on_catchup_finished_view_1(node_reg_handler, init_node_reg_handler,
-                                              write_req_manager,
-                                              add_node_reg_to_audit,
-                                              first_txn):
+@pytest.mark.parametrize('view_no', [1, 2])
+def test_load_regs_on_catchup_finished_view_initial_to_X(node_reg_handler, init_node_reg_handler,
+                                                         write_req_manager,
+                                                         add_node_reg_to_audit,
+                                                         first_txn,
+                                                         view_no):
     if first_txn == 'PoolFirst':
-        edit_node(write_req_manager, "Gamma", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
+        edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
     elif first_txn == 'DomainFirst':
-        add_domain_txn(write_req_manager, view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
-    add_node(write_req_manager, "Epsilon", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
-    edit_node(write_req_manager, "Gamma", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
-    demote_node(write_req_manager, "Alpha", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
+        add_domain_txn(write_req_manager, view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
+    add_node(write_req_manager, "Epsilon", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
+    demote_node(write_req_manager, "Alpha", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit)
 
     write_req_manager.on_catchup_finished()
 
@@ -622,18 +624,20 @@ def test_load_regs_on_catchup_finished_view_1(node_reg_handler, init_node_reg_ha
     if first_txn is None:
         # as we don't know whether the first Audit txn was for a Pool or other ledger Batch,
         # get all Nodes for a Pool ledger corresponding to the first audit txn
-        assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+        assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
         assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     else:
-        assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+        assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta']
         assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
 
 
 @pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
-def test_load_regs_on_catchup_finished_views_0_1_list_as_first_node_reg_in_view(node_reg_handler, init_node_reg_handler,
+@pytest.mark.parametrize('view_no', [1, 2])
+def test_load_regs_on_catchup_finished_views_from_0_to_X_list_as_first_node_reg_in_view(node_reg_handler, init_node_reg_handler,
                                                                                 write_req_manager,
-                                                                                add_node_reg_to_audit):
+                                                                                add_node_reg_to_audit,
+                                                                                view_no):
     add_node_reg_to_audit_view_0 = add_node_reg_to_audit == 'True'
     add_node_reg_to_audit_view_1 = add_node_reg_to_audit == 'True' or add_node_reg_to_audit == 'Latest_only'
 
@@ -641,24 +645,28 @@ def test_load_regs_on_catchup_finished_views_0_1_list_as_first_node_reg_in_view(
     edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
     demote_node(write_req_manager, "Alpha", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
 
-    demote_node(write_req_manager, "Beta", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
-    edit_node(write_req_manager, "Gamma", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
-    add_node(write_req_manager, "BBB", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    demote_node(write_req_manager, "Beta", view_no=view_no, commit=True,
+                add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    add_node(write_req_manager, "BBB", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
 
     write_req_manager.on_catchup_finished()
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
 
 
 @pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
-def test_load_regs_on_catchup_finished_views_0_1_delta_as_first_node_reg_in_view(node_reg_handler,
+@pytest.mark.parametrize('view_no', [1, 2])
+def test_load_regs_on_catchup_finished_views_from_0_to_X_delta_as_first_node_reg_in_view(node_reg_handler,
                                                                                  init_node_reg_handler,
                                                                                  write_req_manager,
-                                                                                 add_node_reg_to_audit):
+                                                                                 add_node_reg_to_audit,
+                                                                                 view_no):
     add_node_reg_to_audit_view_0 = add_node_reg_to_audit == 'True'
     add_node_reg_to_audit_view_1 = add_node_reg_to_audit == 'True' or add_node_reg_to_audit == 'Latest_only'
 
@@ -667,17 +675,20 @@ def test_load_regs_on_catchup_finished_views_0_1_delta_as_first_node_reg_in_view
     edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
     demote_node(write_req_manager, "Alpha", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
 
-    edit_node(write_req_manager, "Gamma", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
-    demote_node(write_req_manager, "Beta", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
-    edit_node(write_req_manager, "Gamma", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
-    add_node(write_req_manager, "BBB", view_no=1, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    demote_node(write_req_manager, "Beta", view_no=view_no, commit=True,
+                add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    add_node(write_req_manager, "BBB", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
 
     write_req_manager.on_catchup_finished()
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
 
 
