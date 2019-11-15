@@ -139,7 +139,7 @@ class TestNodeCore(StackedTester):
 
     def newViewChanger(self):
         view_changer = self.view_changer if self.view_changer is not None \
-            else create_view_changer(self, TestViewChanger)
+            else create_view_changer(self, ViewChanger)
         # TODO: This is a hack for tests compatibility, do something better
         view_changer.node = self
         return view_changer
@@ -296,8 +296,7 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.transmitToClient,
                  Node.has_ordered_till_last_prepared_certificate,
-                 Node.on_inconsistent_3pc_state,
-                 Node.sendToViewChanger, ]
+                 Node.on_inconsistent_3pc_state]
 
 class TestNodeBootstrap(NodeBootstrap):
 
@@ -328,7 +327,7 @@ class TestNode(TestNodeCore, Node):
             kwargs['bootstrap_cls'] = TestNodeBootstrap
 
         Node.__init__(self, *args, **kwargs)
-        self.view_changer = create_view_changer(self, TestViewChanger)
+        self.view_changer = create_view_changer(self, ViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
@@ -368,18 +367,6 @@ class TestNode(TestNodeCore, Node):
 
     def restart_clientstack(self):
         self.clientstack.restart()
-
-
-view_changer_spyables = [
-    ViewChanger.sendInstanceChange,
-    ViewChanger.process_instance_change_msg,
-    ViewChanger.start_view_change
-]
-
-
-@spyable(methods=view_changer_spyables)
-class TestViewChanger(ViewChanger):
-    pass
 
 
 replica_stasher_spyables = [

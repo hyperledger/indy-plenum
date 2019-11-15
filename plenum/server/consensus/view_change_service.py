@@ -1,12 +1,12 @@
-from functools import partial
 from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any
 
 from plenum.common.config_util import getConfig
 from plenum.common.constants import VIEW_CHANGE, PRIMARY_SELECTION_PREFIX, NEW_VIEW
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
+from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage, \
+    VoteForViewChange
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
@@ -16,7 +16,7 @@ from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
-from plenum.server.suspicion_codes import Suspicions
+from plenum.server.suspicion_codes import Suspicions, Suspicion
 from stp_core.common.log import getlogger
 
 
@@ -40,7 +40,7 @@ class ViewChangeService:
 
         self._resend_inst_change_timer = RepeatingTimer(self._timer,
                                                         self._config.NEW_VIEW_TIMEOUT,
-                                                        partial(self._propose_view_change_not_complete_in_time),
+                                                        self._propose_view_change_not_complete_in_time,
                                                         active=False)
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
@@ -98,7 +98,7 @@ class ViewChangeService:
                               "current master primary (new_view {}). "
                               "Propose a new view {}".format(self._data.view_no,
                                                              self._data.view_no + 1))
-            self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY.code)
+            self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY)
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
@@ -278,7 +278,7 @@ class ViewChangeService:
                                                                                             self._data.view_no,
                                                                                             cp)
             )
-            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_CHECKPOINTS.code)
+            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_CHECKPOINTS)
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
@@ -290,7 +290,7 @@ class ViewChangeService:
                                                                                          self._data.view_no,
                                                                                          batches)
             )
-            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_BATCHES.code)
+            self._propose_view_change(Suspicions.NEW_VIEW_INVALID_BATCHES)
             return
 
         self._finish_view_change()
@@ -311,20 +311,12 @@ class ViewChangeService:
         self.last_completed_view_no = self._data.view_no
 
     def _propose_view_change_not_complete_in_time(self):
-        self._propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT.code)
+        self._propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
         if self._data.new_view is None:
             self._request_new_view_message(self._data.view_no)
 
-    def _propose_view_change(self, suspision_code):
-        proposed_view_no = self._data.view_no
-        # TODO: For some reason not incrementing view_no in most cases leads to lots of failing/flaky tests
-        # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
-        if suspision_code != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self._data.waiting_for_new_view:
-            proposed_view_no += 1
-        self._logger.info("{} proposing a view change to {} with code {}".
-                          format(self, proposed_view_no, suspision_code))
-        msg = InstanceChange(proposed_view_no, suspision_code)
-        self._network.send(msg)
+    def _propose_view_change(self, suspicion: Suspicion):
+        self._bus.send(VoteForViewChange(suspicion))
 
     def _request_new_view_message(self, view_no):
         self._bus.send(MissingMessage(msg_type=NEW_VIEW,

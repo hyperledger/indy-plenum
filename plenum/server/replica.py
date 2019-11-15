@@ -25,6 +25,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.instance_change_service import InstanceChangeService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.view_change_service import ViewChangeService
@@ -159,6 +160,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
         self._view_change_service = self._init_view_change_service()
+        self._instance_change_service = self._init_instance_change_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -190,6 +192,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service.cleanup()
         self._checkpointer.cleanup()
         self._view_change_service.cleanup()
+        if self._instance_change_service is not None:
+            self._instance_change_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 
@@ -697,6 +701,19 @@ class Replica(HasActionQueue, MessageProcessor):
                                  bus=self.internal_bus,
                                  network=self._external_bus,
                                  stasher=self.stasher)
+
+    def _init_instance_change_service(self) -> Optional[InstanceChangeService]:
+        if not self.isMaster:
+            return None
+
+        return InstanceChangeService(data=self._consensus_data,
+                                     timer=self.node.timer,
+                                     bus=self.internal_bus,
+                                     network=self._external_bus,
+                                     db_manager=self.node.db_manager,
+                                     stasher=self.stasher,
+                                     metrics=self.metrics,
+                                     is_master_degraded=self.node.monitor.isMasterDegraded)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

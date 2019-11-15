@@ -2,7 +2,9 @@ from typing import List
 from orderedset._orderedset import OrderedSet
 
 from plenum.common.constants import TXN_TYPE
+from plenum.common.messages.internal_messages import PreNeedViewChange, NeedViewChange
 from plenum.common.util import getMaxFailures
+from plenum.server.consensus.instance_change_service import InstanceChangeService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_freshness_checker import FreshnessChecker
@@ -50,6 +52,13 @@ class ReplicaService:
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
                                                write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network, self.stasher)
+        self._instance_changer = InstanceChangeService(data=self._data,
+                                                       timer=timer,
+                                                       bus=bus,
+                                                       network=network,
+                                                       db_manager=write_manager.database_manager,
+                                                       stasher=self.stasher,
+                                                       is_master_degraded=lambda: False)
         self._message_requestor = MessageReqService(self._data, bus, network)
 
         self._add_ledgers()
@@ -63,6 +72,10 @@ class ReplicaService:
         self._data.primaries = self._view_changer._primaries_selector.select_primaries(self._data.view_no,
                                                                                        getMaxFailures(len(validators)) + 1,
                                                                                        validators)
+
+        # Simulate node behavior
+        self._internal_bus = bus
+        self._internal_bus.subscribe(PreNeedViewChange, self.process_pre_need_view_change)
 
     def ready_for_3pc(self, req_key):
         fin_req = self._data.requests[req_key.digest].finalised
@@ -81,3 +94,6 @@ class ReplicaService:
 
     def __repr__(self):
         return self.name
+
+    def process_pre_need_view_change(self, msg: PreNeedViewChange):
+        self._internal_bus.send(NeedViewChange(msg.view_no))

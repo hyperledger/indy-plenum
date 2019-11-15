@@ -1406,7 +1406,7 @@ class MockTimer(QueueTimer):
         """
         self.advance_until(self._ts.value + seconds)
 
-    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None, max_iterations: int = 500000):
+    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None, max_iterations: int = 50000):
         """
         Advance time in steps until condition is reached, running scheduled callbacks in process
         Throws TimeoutError if fail to reach condition (under required timeout if defined)

@@ -30,17 +30,12 @@ def filter(request):
 
 @pytest.fixture(params=range(150, 200))
 def default_random(request):
-    seed = request.param
-    return DefaultSimRandom(seed)
+    return DefaultSimRandom(request.param)
 
 
 @pytest.fixture(params=Random().sample(range(1000000), 100))
 def random_random(request):
-    seed = request.param
-    # TODO: Remove after starting processing INSTANCE_CHANGE messages in simulation tests
-    if seed in {290370, 749952, 348636, 919685, 674863, 378187}:
-        return DefaultSimRandom(0)
-    return DefaultSimRandom(seed)
+    return DefaultSimRandom(request.param)
 
 
 def test_view_change_completes_under_normal_conditions_default_seeds(default_random, latency, filter):
@@ -49,6 +44,12 @@ def test_view_change_completes_under_normal_conditions_default_seeds(default_ran
 
 def test_view_change_completes_under_normal_conditions_random_seeds(random_random, latency, filter):
     check_view_change_completes_under_normal_conditions(random_random, *latency, *filter)
+
+
+@pytest.mark.parametrize(argnames="seed", argvalues=[290370, 749952, 348636, 919685, 674863, 378187])
+def test_view_change_completes_under_normal_conditions_regression_seeds(seed, latency, filter):
+    random = DefaultSimRandom(seed)
+    check_view_change_completes_under_normal_conditions(random, *latency, *filter)
 
 
 def test_new_view_combinations(random):
@@ -133,7 +134,10 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
     committed_above_cp = [c for c in committed if c.pp_seq_no > stable_checkpoint]
     for n in pool.nodes:
         if n._data.stable_checkpoint >= stable_checkpoint:
-            assert committed_above_cp == n._data.preprepared[:len(committed_above_cp)]
+            for expected_batch, actual_batch in zip(committed_above_cp, n._data.preprepared[:len(committed_above_cp)]):
+                assert expected_batch.pp_view_no == actual_batch.pp_view_no
+                assert expected_batch.pp_seq_no == actual_batch.pp_seq_no
+                assert expected_batch.pp_digest == actual_batch.pp_digest
 
 
 def calc_committed(view_changes):

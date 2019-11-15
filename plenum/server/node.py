@@ -11,7 +11,8 @@ import gc
 import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, NeedViewChange, \
+    PreNeedViewChange
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -56,7 +57,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_IP, BLS_PREFIX, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, PRIMARY_SELECTION_PREFIX
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, PRIMARY_SELECTION_PREFIX, MONITORING_PREFIX
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -259,9 +260,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
 
-        # Requests that are to be given to the view_changer by the node
-        self.msgsToViewChanger = deque()
-
         # do it after all states and BLS stores are created
         self.adjustReplicas(0, self.requiredNumberOfInstances)
 
@@ -444,7 +442,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # CurrentState
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
-            (InstanceChange, self.sendToViewChanger),
+            (InstanceChange, self.sendToReplica),
             (MessageReq, self.route_message_req),
             (MessageRep, self.route_message_rep),
             (PrePrepare, self.sendToReplica),
@@ -640,6 +638,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
+        logger.info("{}{} metrics for monitor: {}".format(MONITORING_PREFIX, self, self.monitor.prettymetrics))
+
         self.view_changer.start_view_change_ts = self.utc_epoch()
 
         for replica in self.replicas.values():
@@ -649,7 +649,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.processStashedMsgsForView(self.viewNo)
 
         self.backup_instance_faulty_processor.restore_replicas()
-        # self.drop_primaries()
 
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.logNodeInfo()
@@ -1067,7 +1066,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.timer.service()
             with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger(limit)
             c += await self.service_observable(limit)
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
@@ -1126,19 +1124,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         await self.processClientInBox()
         return c
-
-    @async_measure_time(MetricsName.SERVICE_VIEW_CHANGER_TIME)
-    async def serviceViewChanger(self, limit) -> int:
-        """
-        Service the view_changer's inBox, outBox and action queues.
-
-        :return: the number of messages successfully serviced
-        """
-        if not self.isReady():
-            return 0
-        o = self.serviceViewChangerOutBox(limit)
-        i = await self.serviceViewChangerInbox(limit)
-        return o + i
 
     @async_measure_time(MetricsName.SERVICE_OBSERVABLE_TIME)
     async def service_observable(self, limit) -> int:
@@ -1359,10 +1344,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, InstanceChange):
-            self.sendToViewChanger(msg, frm)
-            return True
-        elif isinstance(msg, ThreePhaseType):
+        if isinstance(msg, ThreePhaseType) or isinstance(msg, InstanceChange):
             self.sendToReplica(msg, frm)
             return True
         else:
@@ -1409,10 +1391,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     OldViewPrePrepareRequest, OldViewPrePrepareReply,
                                     ViewChange, ViewChangeAck, NewView, InstanceChange)):
                 self.send(message)
-                # TODO: This is kind of hack, should be removed after moving instance change
-                #  logic out of legacy view change service
-                if isinstance(message, InstanceChange) and self.view_changer is not None:
-                    self.view_changer._on_verified_instance_change_msg(message, self.name)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
@@ -1434,37 +1412,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.error("Received msg {} and don't "
                              "know how to handle it".format(message))
         return num_processed
-
-    def serviceViewChangerOutBox(self, limit: int = None) -> int:
-        """
-        Service at most `limit` number of messages from the view_changer's outBox.
-
-        :return: the number of messages successfully serviced.
-        """
-        msgCount = 0
-        while self.view_changer.outBox and (not limit or msgCount < limit):
-            msgCount += 1
-            msg = self.view_changer.outBox.popleft()
-            if isinstance(msg, InstanceChange):
-                self.send(msg)
-            else:
-                logger.error("Received msg {} and don't know how to handle it".
-                             format(msg))
-        return msgCount
-
-    async def serviceViewChangerInbox(self, limit: int = None) -> int:
-        """
-        Service at most `limit` number of messages from the view_changer's outBox.
-
-        :return: the number of messages successfully serviced.
-        """
-        msgCount = 0
-        while self.msgsToViewChanger and (not limit or msgCount < limit):
-            msgCount += 1
-            msg = self.msgsToViewChanger.popleft()
-            self.view_changer.inBox.append(msg)
-        await self.view_changer.serviceQueues(limit)
-        return msgCount
 
     @property
     def hasPrimary(self) -> bool:
@@ -1555,6 +1502,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
+        if isinstance(msg, InstanceChange):
+            inst_id = MASTER_REPLICA_INDEX
         if inst_id is None:
             inst_id = getattr(msg, f.INST_ID.nm, None)
         if inst_id is not None and inst_id not in self.replicas:
@@ -1562,19 +1511,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(msg, "Invalid node msg", logger.debug)
             return
         self.replicas.pass_message((msg, frm), inst_id)
-
-    def sendToViewChanger(self, msg, frm):
-        """
-        Send the message to the intended view changer.
-
-        :param msg: the message to send
-        :param frm: the name of the node which sent this `msg`
-        """
-        if (isinstance(msg, InstanceChange) or
-                self.msgHasAcceptableViewNo(msg, frm)):
-            logger.debug("{} sending message to view changer: {}".
-                         format(self, (msg, frm)))
-            self.msgsToViewChanger.append((msg, frm))
 
     def send_to_observer(self, msg, frm):
         """
@@ -2478,11 +2414,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.TIMER_QUEUE_SIZE, self.timer.queue_size())
 
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
-
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
-        self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
@@ -3293,7 +3225,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "view no                 : {}".format(self.viewNo),
             "rank                    : {}".format(self.rank),
             "msgs to replicas        : {}".format(self.replicas.sum_inbox_len),
-            "msgs to view changer    : {}".format(len(self.msgsToViewChanger)),
             "action queue            : {} {}".format(len(self.actionQueue),
                                                      id(self.actionQueue)),
             "action queue stash      : {} {}".format(len(self.aqStash),
@@ -3414,6 +3345,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
+    def _process_pre_need_view_change(self, msg: PreNeedViewChange):
+        self.on_view_change_start()
+        self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
+
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
@@ -3426,6 +3361,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)
         self.replicas.subscribe_to_internal_bus(NeedMasterCatchup,
                                                 self._process_start_master_catchup_msg,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(PreNeedViewChange,
+                                                self._process_pre_need_view_change,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
                                                 self._process_new_view_accepted,

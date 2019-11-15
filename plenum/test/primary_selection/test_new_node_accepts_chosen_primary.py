@@ -1,11 +1,10 @@
 import pytest
 
-from plenum.server.view_change.node_view_changer import create_view_changer
 from stp_core.common.log import getlogger
 
 from plenum.test.helper import sdk_send_random_and_check
 
-from plenum.test.test_node import TestNode, TestViewChanger
+from plenum.test.test_node import TestNode
 from plenum.test.view_change.helper import ensure_view_change_complete
 
 from plenum.test.node_catchup.helper import waitNodeDataEquality

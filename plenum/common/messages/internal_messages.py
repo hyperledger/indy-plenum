@@ -1,6 +1,7 @@
 from typing import NamedTuple, List, Any, Optional
 
 from plenum.common.exceptions import SuspiciousNode
+from plenum.server.suspicion_codes import Suspicion
 
 # General recommendation for (naming) internal messages is follows:
 # - internal messages are basically events, not commands
@@ -37,6 +38,14 @@ MissingMessage = NamedTuple('MissingMessage',
                              ('inst_id', int),
                              ('dst', List[str]),
                              ('stash_data', Optional[tuple])])
+
+# TODO: This should be merged with RaisedSuspicion
+VoteForViewChange = NamedTuple('VoteForViewChange', [('suspicion', Suspicion)])
+
+# TODO: This is a kind of hack to make Node process NeedViewChange before replicas
+#  Possible solution to this (and some other hacks) would be adding separate node internal bus
+#  to which such messages are sent, processed, and then forwarded to replicas buses if needed
+PreNeedViewChange = NamedTuple('PreNeedViewChange', [('view_no', int)])
 
 # by default view_no for StartViewChange is None meaning that we move to the next view
 NeedViewChange = NamedTuple('NeedViewChange',

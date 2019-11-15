@@ -3,6 +3,7 @@ import types
 from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.common.util import randomString
 from plenum.server.view_change.node_view_changer import create_view_changer
+from plenum.server.view_change.view_changer import ViewChanger
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
@@ -13,7 +14,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode, checkNodesConnected, TestViewChanger
+    TestNode, checkNodesConnected
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -368,7 +369,7 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
     # add node_to_disconnect to pool
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)
-    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, TestViewChanger)
+    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, ViewChanger)
 
     txnPoolNodeSet[idx] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))
