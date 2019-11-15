@@ -157,7 +157,7 @@ class ViewChangeService:
             self._stashed_vc_msgs.setdefault(msg.viewNo, 0)
             self._stashed_vc_msgs[msg.viewNo] += 1
             if self._data.quorums.view_change.is_reached(self._stashed_vc_msgs[msg.viewNo]) and \
-                not self._data.waiting_for_new_view:
+                    not self._data.waiting_for_new_view:
                 self._bus.send(StartViewChange(msg.viewNo))
         if result != PROCESS:
             return result, None
