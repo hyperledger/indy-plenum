@@ -3,7 +3,7 @@ from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import OLD_VIEW, STASH_CATCH_UP, CATCHING_UP, \
-    INCORRECT_INSTANCE, ALREADY_STABLE, STASH_WAITING_VIEW_CHANGE, WAITING_FOR_NEW_VIEW
+    INCORRECT_INSTANCE, ALREADY_STABLE, WAITING_FOR_NEW_VIEW, STASH_VIEW_3PC
 
 
 class CheckpointMsgValidator:
@@ -29,7 +29,7 @@ class CheckpointMsgValidator:
 
         # 4. Check if view change is in progress
         if self._data.waiting_for_new_view:
-            return STASH_WAITING_VIEW_CHANGE, WAITING_FOR_NEW_VIEW
+            return STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW
 
         # 3. Check if Participating
         if not self._data.is_participating:

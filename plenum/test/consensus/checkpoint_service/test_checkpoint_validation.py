@@ -5,7 +5,7 @@ from plenum.common.startable import Mode
 from plenum.common.stashing_router import PROCESS, DISCARD
 from plenum.server.consensus.checkpoint_service_msg_validator import CheckpointMsgValidator
 from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, CATCHING_UP, ALREADY_STABLE, \
-    STASH_CATCH_UP, OLD_VIEW, STASH_WAITING_VIEW_CHANGE, WAITING_FOR_NEW_VIEW
+    STASH_CATCH_UP, OLD_VIEW, WAITING_FOR_NEW_VIEW, STASH_VIEW_3PC
 from plenum.test.checkpoints.helper import cp_digest
 
 
@@ -121,4 +121,4 @@ def test_check_view_change_in_progress(validator):
     msg = checkpoint(view_no=validator._data.view_no,
                      inst_id=validator._data.inst_id,
                      pp_seq_no=10)
-    assert validator.validate(msg) == (STASH_WAITING_VIEW_CHANGE, WAITING_FOR_NEW_VIEW)
+    assert validator.validate(msg) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)
