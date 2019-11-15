@@ -902,7 +902,9 @@ def apply_req(write_req_manager, req, view_no, commit=True, add_node_reg_to_audi
                                   pp_time=1234,
                                   state_root=write_req_manager.database_manager.get_state_root_hash(ledger_id),
                                   txn_root=write_req_manager.database_manager.get_txn_root_hash(ledger_id),
-                                  primaries=["Node{}".format(view_no)],
+                                  # make sure that we write new primaries every time
+                                  # so that just one jump is not sufficient to find out the first txn in the last view
+                                  primaries=["Node{}".format(pp_seq_no)],
                                   valid_digests=['digest1'],
                                   pp_digest='pp_digest',
                                   original_view_no=original_view_no)
