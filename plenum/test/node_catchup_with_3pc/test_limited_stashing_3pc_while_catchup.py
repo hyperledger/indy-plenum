@@ -3,13 +3,14 @@ from logging import getLogger
 import pytest
 
 from plenum.common.constants import PREPARE, PREPREPARE, DOMAIN_LEDGER_ID
+from plenum.common.messages.node_messages import CatchupRep
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.delayers import cr_delay, msg_rep_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
-    sdk_send_batches_of_random_and_check, assert_eq
+    sdk_send_batches_of_random_and_check, check_last_ordered_3pc_on_master
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
@@ -84,6 +85,12 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
             txnPoolNodeSet[-1] = lagging_node
             looper.run(checkNodesConnected(txnPoolNodeSet))
 
+            # wait till we got catchup replies for messages missed while the node was offline,
+            # so that now we can order more messages, and they will not be caught up, but stashed
+            looper.run(
+                eventually(lambda: assertExp(lagging_node.nodeIbStasher.num_of_stashed(CatchupRep) >= 3), retryWait=1,
+                           timeout=60))
+
             # Order 2 checkpoints in the first lagging node catchup (2 txns in 2 batches)
             sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
                                                  sdk_pool_handle, sdk_wallet_client,
@@ -91,7 +98,7 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
 
         # Check that firs txn was ordered from stash after first catchup
         looper.run(
-            eventually(assert_eq, lagging_node.master_last_ordered_3PC[1], txnPoolNodeSet[0].master_last_ordered_3PC[1] - 1,
+            eventually(check_last_ordered_3pc_on_master, [lagging_node], (0, txnPoolNodeSet[0].master_last_ordered_3PC[1] - 1),
                        timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet)))
         )
 
