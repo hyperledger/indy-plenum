@@ -17,8 +17,7 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
         'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
         '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
         0,
-        True,
-        []
+        True
     )
     prepare = Prepare(
         0,

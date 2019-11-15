@@ -30,7 +30,6 @@ def fake_node(txnPoolNodeSet,
                     tconf=tconf,
                     plugin_path=allPluginsPath,
                     nodeClass=testNodeClass)
-    node.write_manager.future_primary_handler.primaries = txnPoolNodeSet[0].write_manager.future_primary_handler.primaries
     yield node
     node.stop()
 

@@ -11,9 +11,8 @@ import gc
 import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, StartViewChange, \
-    NeedViewChange
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, StartViewChange
+from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -241,7 +240,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self.primaries_selector = RoundRobinPrimariesSelector()  # type: PrimariesSelector
+        self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
 
@@ -369,8 +368,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.config.STACK_COMPANION == 1:
             add_start_time(self.ledger_dir, self.utc_epoch())
-
-        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
         HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
@@ -572,7 +569,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primaries = ps
         for r in self.replicas.values():
             r.set_primaries(ps)
-        self.write_manager.future_primary_handler.set_primaries(self.viewNo, ps)
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -1979,9 +1975,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if len(self.replicas) != len(self.primaries):
                 logger.warning('Audit ledger has inconsistent number of nodes. '
                                'Node primaries = {}'.format(self.primaries))
-            if any(p not in self.nodeReg for p in self.primaries):
-                logger.error('Audit ledger has inconsistent names of primaries. '
-                             'Node primaries = {}'.format(self.primaries))
             # Similar functionality to select_primaries
             for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
@@ -2779,9 +2772,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule_view_change()
 
     def get_primaries_for_current_view(self):
-        return self.primaries_selector.select_primaries(view_no=self.viewNo,
-                                                        instance_count=self.requiredNumberOfInstances,
-                                                        validators=self.poolManager.node_names_ordered_by_rank())
+        return self.primaries_selector.select_primaries(view_no=self.viewNo)
 
     def select_primaries(self):
         # If you want to refactor primaries selection,

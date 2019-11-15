@@ -40,7 +40,6 @@ def test_clear_old_view_pre_prepares_till_3pc_multiple_digests(orderer):
 
 
 def test_cleanup_after_checkpoint_stabilize(orderer):
-    orderer._write_manager.future_primary_handler = FakeSomething(primaries={})
     pre_prepares = [create_pre_prepare_no_bls(generate_state_root(), view_no=0, pp_seq_no=1),
                     create_pre_prepare_no_bls(generate_state_root(), view_no=1, pp_seq_no=2),
                     create_pre_prepare_no_bls(generate_state_root(), view_no=1, pp_seq_no=3)]
@@ -70,23 +69,3 @@ def test_cleanup_after_checkpoint_stabilize(orderer):
         assert (pre_prepares[2].viewNo, pre_prepares[2].ppSeqNo) in dict_to_cleaning
     for list_to_cleaning in lists_to_cleaning:
         assert preprepare_to_batch_id(pre_prepares[2]) in list_to_cleaning
-
-
-def test_erase_unused_primaries(orderer):
-    orderer._write_manager.future_primary_handler = FakeSomething(primaries={0: ['A', 'B'],
-                                                                             1: ['B', 'G'],
-                                                                             2: ['G', 'D']})
-    orderer._remove_primaries_until(0)
-    assert orderer._write_manager.future_primary_handler.primaries == {0: ['A', 'B'],
-                                                                       1: ['B', 'G'],
-                                                                       2: ['G', 'D']}
-    orderer._remove_primaries_until(1)
-    assert orderer._write_manager.future_primary_handler.primaries == {0: ['A', 'B'],
-                                                                       1: ['B', 'G'],
-                                                                       2: ['G', 'D']}
-    orderer._remove_primaries_until(2)
-    assert orderer._write_manager.future_primary_handler.primaries == {0: ['A', 'B'],
-                                                                       2: ['G', 'D']}
-
-    orderer._remove_primaries_until(3)
-    assert orderer._write_manager.future_primary_handler.primaries == {0: ['A', 'B']}

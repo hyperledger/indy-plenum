@@ -133,7 +133,7 @@ def test_removed_replica_restored_on_view_change(
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
-                      customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                      customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     assert start_replicas_count == node.replicas.num_replicas

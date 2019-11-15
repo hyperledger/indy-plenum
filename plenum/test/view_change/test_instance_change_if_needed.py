@@ -6,12 +6,12 @@ from plenum.server.suspicion_codes import Suspicions
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    OLD_INSTANCE_CHANGE_TIMEOUT = tconf.INSTANCE_CHANGE_TIMEOUT
-    tconf.INSTANCE_CHANGE_TIMEOUT = 0.3
+    OLD_NEW_VIEW_TIMEOUT = tconf.NEW_VIEW_TIMEOUT
+    tconf.NEW_VIEW_TIMEOUT = 0.3
 
     yield tconf
 
-    tconf.INSTANCE_CHANGE_TIMEOUT = OLD_INSTANCE_CHANGE_TIMEOUT
+    tconf.NEW_VIEW_TIMEOUT = OLD_NEW_VIEW_TIMEOUT
 
 
 @pytest.fixture(params=[0])
@@ -30,7 +30,7 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
 
     times = 5
     for _ in range(times):
-        looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
+        looper.runFor(tconf.NEW_VIEW_TIMEOUT)
         fake_view_changer.node.timer.service()
 
     # As long as primary would be disconnected, view_changer
@@ -42,7 +42,7 @@ def test_instance_change_on_primary_disconnected(looper, fake_view_changer, tcon
     fake_view_changer.node.nodestack.conns.add('Alpha')
 
     for _ in range(times):
-        looper.runFor(tconf.INSTANCE_CHANGE_TIMEOUT)
+        looper.runFor(tconf.NEW_VIEW_TIMEOUT)
         fake_view_changer.node.timer.service()
         # Instance change counter dropped because primary
         # reconnected and we do not send INSTANCE_CHANGE anymore

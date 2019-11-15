@@ -32,7 +32,7 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
     are functional. The test is run with several starting view_no, including 0
     """
 
-    ensure_several_view_change(looper, txnPoolNodeSet, do_view_change, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensure_several_view_change(looper, txnPoolNodeSet, do_view_change, custom_timeout=tconf.NEW_VIEW_TIMEOUT)
 
     cur_ppseqno = get_pp_seq_no(txnPoolNodeSet)
     big_ppseqno = cur_ppseqno + tconf.LOG_SIZE * 2 + 2300

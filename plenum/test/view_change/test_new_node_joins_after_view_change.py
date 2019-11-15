@@ -58,7 +58,7 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 5)
     old_view_no = txnPoolNodeSet[0].viewNo
-    ensure_view_change(looper, remaining_nodes, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensure_view_change(looper, remaining_nodes, custom_timeout=tconf.NEW_VIEW_TIMEOUT)
     waitForViewChange(looper, remaining_nodes, expectedViewNo=old_view_no + 1)
     ensureElectionsDone(looper, remaining_nodes)
     # Send some requests after view change

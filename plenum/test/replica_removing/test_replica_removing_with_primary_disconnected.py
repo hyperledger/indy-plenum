@@ -58,7 +58,7 @@ def test_replica_removing_with_primary_disconnected(looper,
     for node in txnPoolNodeSet:
         node.view_changer.on_master_degradation()
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
-                      customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                      customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     # check that all replicas were restored
     assert start_replicas_count == node.replicas.num_replicas

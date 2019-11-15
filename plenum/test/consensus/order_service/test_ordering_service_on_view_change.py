@@ -6,8 +6,6 @@ from plenum.common.util import updateNamedTuple
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import generateName
 from plenum.test.consensus.helper import copy_shared_data, create_batches, \
     check_service_changed_only_owned_fields_in_shared_data, create_new_view, \
@@ -28,16 +26,6 @@ def is_primary(request):
 
 @pytest.fixture()
 def orderer(_orderer, is_primary, ):
-    # ToDo: For now, future_primary_handler is depended from the node.
-    # And for now we need to patching set_node_state functionality
-    write_manager = _orderer._write_manager
-    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
-                                                           FakeSomething(nodeReg={},
-                                                                         nodeIds=[],
-                                                                         primaries=_orderer._data.primaries))
-    write_manager.register_batch_handler(future_primaries_handler)
-
-    _orderer._validator = OrderingServiceMsgValidator(_orderer._data)
     _orderer.name = 'Alpha:0'
     _orderer._data.primary_name = 'some_node:0' if not is_primary else orderer.name
 

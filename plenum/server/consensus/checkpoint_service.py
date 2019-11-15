@@ -16,9 +16,9 @@ from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.txn_util import get_payload_data
 from plenum.common.util import compare_3PC_keys
+from plenum.server.consensus.checkpoint_service_msg_validator import CheckpointMsgValidator
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
-from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from stp_core.common.log import getlogger

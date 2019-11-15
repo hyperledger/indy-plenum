@@ -33,7 +33,6 @@ def test_msg_len_limit_large_enough_for_preprepare():
         state_root,
         txn_root,
         0,
-        True,
-        [])
+        True)
 
     assert len(ZStack.serializeMsg(pp)) <= config.MSG_LEN_LIMIT
