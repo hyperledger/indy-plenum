@@ -9,6 +9,7 @@ from plenum.common.messages.internal_messages import NeedViewChange, NewViewAcce
     StartViewChange
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.common.router import Subscription
+from plenum.common.startable import Mode
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
@@ -16,7 +17,7 @@ from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.replica_helper import generateName, getNodeName
-from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
+from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE, STASH_CATCH_UP
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 

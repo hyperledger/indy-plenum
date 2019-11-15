@@ -3413,8 +3413,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
 
     def _process_start_vc_msg(self, msg: StartViewChange):
-        for replica in self.replicas.values():
-            replica.internal_bus.send(NeedViewChange(msg.view_no))
+        if Mode.is_done_syncing(self.mode):
+            self.view_changer.start_view_change(msg.view_no)
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
