@@ -153,7 +153,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         # 2. get the first txn in the current view
         first_txn_in_this_view, last_txn_in_prev_view = self.__get_first_txn_in_view_from_audit(audit_ledger,
-                                                                         audit_ledger.get_last_committed_txn())
+                                                                                                audit_ledger.get_last_committed_txn())
         self._uncommitted_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
         self._committed_view_no = self._uncommitted_view_no
         self.node_reg_at_beginning_of_view[self._committed_view_no] = list(
