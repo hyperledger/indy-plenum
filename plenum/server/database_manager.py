@@ -88,7 +88,7 @@ class DatabaseManager():
 
     def update_state_version(self, txn):
         if self._state_version_controller is not None:
-            self._state_version_controller.set_version(txn)
+            self._state_version_controller.update_version(txn)
 
     @property
     def state_version(self):
