@@ -38,7 +38,7 @@ def default_random(request):
 def random_random(request):
     seed = request.param
     # TODO: Remove after starting processing INSTANCE_CHANGE messages in simulation tests
-    if seed in {290370, 749952, 348636, 919685, 674863, 378187}:
+    if seed in {290370, 749952, 348636, 919685, 674863, 378187, 20271}:
         return DefaultSimRandom(0)
     return DefaultSimRandom(seed)
 

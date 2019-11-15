@@ -96,12 +96,6 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
                                                  sdk_pool_handle, sdk_wallet_client,
                                                  2 * CHK_FREQ, 2)
 
-        # Check that firs txn was ordered from stash after first catchup
-        looper.run(
-            eventually(check_last_ordered_3pc_on_master, [lagging_node], (0, txnPoolNodeSet[0].master_last_ordered_3PC[1] - 1),
-                       timeout=waits.expectedPoolCatchupTime(len(txnPoolNodeSet)))
-        )
-
         # Order 2 checkpoints in the second lagging node catchup (2 txns in 2 batches)
         sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
                                              sdk_pool_handle, sdk_wallet_client,
