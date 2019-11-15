@@ -65,3 +65,5 @@ CatchupFinished = NamedTuple('CatchupFinished', [('last_caught_up_3PC', tuple),
 
 CatchupCheckpointsApplied = NamedTuple('CatchupCheckpointsApplied', [('last_caught_up_3PC', tuple),
                                                                      ('master_last_ordered', tuple)])
+
+StartViewChange = NamedTuple('StartViewChange', [('view_no', int)])

@@ -2320,7 +2320,8 @@ class OrderingService:
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
-        self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
+        if self.is_master:
+            self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
         self._setup_for_non_master_after_view_change(msg.view_no)
 
     def _setup_for_non_master_after_view_change(self, current_view):
