@@ -9,12 +9,12 @@ from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkProtocolInstanceSetup, ensureElectionsDone
 
 nodeCount = 7
-VIEW_CHANGE_TIMEOUT = 5
+NEW_VIEW_TIMEOUT = 5
 
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    with view_change_timeout(tconf, VIEW_CHANGE_TIMEOUT):
+    with view_change_timeout(tconf, NEW_VIEW_TIMEOUT):
         yield tconf
 
 

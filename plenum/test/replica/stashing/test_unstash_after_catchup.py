@@ -14,11 +14,6 @@ from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 20
-    return tconf
-
 
 def test_unstash_three_phase_msg_after_catchup(txnPoolNodeSet, looper, tconf,
                                                sdk_pool_handle,
@@ -66,7 +61,6 @@ def test_unstash_three_phase_msg_after_catchup(txnPoolNodeSet, looper, tconf,
                 for r in n.replicas.values():
                     assert commit_key in r._ordering_service.commits
                     assert len(r._ordering_service.commits[commit_key].voters) == 1
-
 
         looper.run(eventually(check_commits,
                               (view_no, last_ordered[1] + batches_count)))

@@ -45,7 +45,7 @@ def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
 
     ensureElectionsDone(looper, txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
-                      customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+                      customTimeout=tconf.NEW_VIEW_TIMEOUT)
 
     # Ensure that pool is still functional
     sdk_send_random_and_check(looper, txnPoolNodeSet,

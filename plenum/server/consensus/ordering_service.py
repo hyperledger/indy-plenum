@@ -27,7 +27,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Re
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import PROCESS, DISCARD
+from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
@@ -39,6 +39,7 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, p
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
+from plenum.server.consensus.primary_selector import PrimariesSelector
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
@@ -62,6 +63,7 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
+                 primaries_selector: PrimariesSelector,
                  stasher=None,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
@@ -193,6 +195,8 @@ class OrderingService:
 
         self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
+
+        self._primaries_selector = primaries_selector
 
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
@@ -488,12 +492,6 @@ class OrderingService:
         if key not in self.commitsWaitingForPrepare:
             self.commitsWaitingForPrepare[key] = deque()
         self.commitsWaitingForPrepare[key].append((request, sender))
-
-    def _validate_primaries(self, pre_prepare: PrePrepare):
-        view_no = get_original_viewno(pre_prepare)
-        prs_from_pp = pre_prepare.primaries
-        prs_from_audit = self._write_manager.future_primary_handler.get_primaries(view_no)
-        return PROCESS if prs_from_pp == prs_from_audit else DISCARD
 
     @measure_consensus_time(MetricsName.PROCESS_PREPREPARE_TIME,
                             MetricsName.BACKUP_PROCESS_PREPREPARE_TIME)
@@ -1168,7 +1166,7 @@ class OrderingService:
                 pre_prepare,
                 state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
                 txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
-                primaries=pre_prepare.primaries,
+                primaries=self._primaries_selector.select_primaries(view_no=get_original_viewno(pre_prepare)),
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
             )
             self.post_batch_creation(three_pc_batch)
@@ -1182,10 +1180,6 @@ class OrderingService:
                                       reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
-
-        result = self._validate_primaries(pre_prepare)
-        if result != PROCESS:
-            return PP_WRONG_PRIMARIES
 
         digest = self.replica_batch_digest(reqs)
         if digest != pre_prepare.digest:
@@ -1817,9 +1811,6 @@ class OrderingService:
         if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
-        # ToDo: is pre_view_change_in_progress needed?
-        # if self.replica.node.pre_view_change_in_progress:
-        #     return False
         if self.view_no < self.last_ordered_3pc[0]:
             return False
         if self.view_no == self.last_ordered_3pc[0]:
@@ -2032,7 +2023,7 @@ class OrderingService:
             ledger_id, tm, self.view_no, pp_seq_no)
 
         digest = self.replica_batch_digest(reqs)
-        primaries_for_batch = self._write_manager.future_primary_handler.get_primaries(self.view_no)
+        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
 
         if self.is_master:
             three_pc_batch = ThreePcBatch(
@@ -2067,7 +2058,6 @@ class OrderingService:
             self.get_txn_root_hash(ledger_id),
             0,
             True,
-            primaries_for_batch,
             pool_state_root_hash,
             audit_txn_root_hash,
         ]
@@ -2320,7 +2310,6 @@ class OrderingService:
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
-        self._write_manager.future_primary_handler.set_primaries(msg.view_no, self._data.primaries)
         self._setup_for_non_master_after_view_change(msg.view_no)
 
     def _setup_for_non_master_after_view_change(self, current_view):
@@ -2419,16 +2408,8 @@ class OrderingService:
         # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
         self._bus.send(ReOrderedInNewView())
 
-    def _remove_primaries_until(self, view_no):
-        for vn in list(self._write_manager.future_primary_handler.primaries.keys()):
-            # view_no == 0 it's an edge case with view_change from 0 view and not ordered any txns in 0 view
-            if vn < view_no and vn != 0:
-                del self._write_manager.future_primary_handler.primaries[vn]
-
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
-        if self.is_master:
-            self._remove_primaries_until(self.view_no)
 
     def _preprepare_batch(self, pp: PrePrepare):
         """

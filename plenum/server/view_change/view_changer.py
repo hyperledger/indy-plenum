@@ -73,10 +73,6 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
-    def select_primaries(self):
-        pass
-
-    @abstractmethod
     def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         pass
 
@@ -185,7 +181,7 @@ class ViewChanger():
             # InstanceChange quorum
             logger.info("Resend instance change message to all recipients")
             self.sendInstanceChange(proposed_view_no, reason)
-            self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+            self._timer.schedule(self.config.NEW_VIEW_TIMEOUT,
                                  self.instance_change_action)
             logger.info("Count of rounds without quorum of "
                         "instance change messages: {}".format(self.instance_change_rounds))
@@ -208,7 +204,7 @@ class ViewChanger():
         self.instance_change_action = partial(self.send_instance_change_if_needed,
                                               view_no,
                                               Suspicions.PRIMARY_DISCONNECTED)
-        self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+        self._timer.schedule(self.config.NEW_VIEW_TIMEOUT,
                              self.instance_change_action)
 
     # TODO we have `on_primary_loss`, do we need that one?
@@ -217,10 +213,6 @@ class ViewChanger():
 
     def on_suspicious_primary(self, suspicion: Suspicions):
         self.propose_view_change(suspicion)
-
-    def on_view_change_not_completed_in_time(self):
-        self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
-        self.provider.schedule_resend_inst_chng()
 
     def on_node_count_changed(self):
         self.propose_view_change(Suspicions.NODE_COUNT_CHANGED)
@@ -372,13 +364,10 @@ class ViewChanger():
         self.provider.start_view_change(proposed_view_no)
 
     # TODO: Check whether these still need to be called somewhere after view change:
-    #  - self.provider.select_primaries()
     #  - self.instance_changes.remove_view(self.view_no)
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
         proposed_view_no = self.view_no
-        # TODO: For some reason not incrementing view_no in most cases leads to lots of failing/flaky tests
-        # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
         if suspicion != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self.view_change_in_progress:
             proposed_view_no += 1
         self.sendInstanceChange(proposed_view_no, suspicion)

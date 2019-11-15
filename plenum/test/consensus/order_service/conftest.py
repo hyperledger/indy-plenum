@@ -6,9 +6,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, CURRENT_PROTOCOL_VERSION, 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
-from plenum.server.consensus.msg_validator import ThreePCMsgValidator
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
 from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
@@ -18,7 +17,7 @@ from plenum.test.testing_utils import FakeSomething
 
 @pytest.fixture()
 def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
-            txn_roots, state_roots, bls_bft_replica, tconf, stasher):
+            txn_roots, state_roots, bls_bft_replica, tconf, stasher, validators):
     orderer = OrderingService(data=consensus_data(name),
                               timer=QueueTimer(),
                               bus=internal_bus,
@@ -27,6 +26,7 @@ def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
                               bls_bft_replica=bls_bft_replica,
                               freshness_checker=FreshnessChecker(
                                   freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL),
+                              primaries_selector=RoundRobinConstantNodesPrimariesSelector(validators),
                               stasher=stasher)
     orderer._data.node_mode = Mode.participating
     orderer._data.primary_name = "Alpha:0"
@@ -36,11 +36,6 @@ def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
     orderer._revert = lambda *args, **kwargs: None
     orderer.db_manager.stores[LAST_SENT_PP_STORE_LABEL] = \
         FakeSomething(store_last_sent_pp_seq_no=lambda b, c: None)
-    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
-                                                           FakeSomething(nodeReg={},
-                                                                         nodeIds=[]))
-    future_primaries_handler.get_primaries = lambda *args, **kwargs: orderer._data.primaries
-    write_manager.register_batch_handler(future_primaries_handler)
     return orderer
 
 
@@ -105,11 +100,6 @@ def orderer_with_requests(orderer, fake_requests):
         orderer._requests.set_finalised(req)
 
     return orderer
-
-
-@pytest.fixture()
-def validator(consensus_data):
-    return ThreePCMsgValidator(consensus_data)
 
 
 @pytest.fixture()

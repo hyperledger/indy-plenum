@@ -54,7 +54,7 @@ def test_node_catchup_when_3_not_primary_node_restarted(
         looper.removeProdable(node_to_restart)
         ensure_all_nodes_have_same_data(looper,
                                         remaining_nodes,
-                                        custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+                                        custom_timeout=tconf.NEW_VIEW_TIMEOUT)
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_steward, 1)
         node_to_restart = start_stopped_node(node_to_restart,
@@ -67,7 +67,7 @@ def test_node_catchup_when_3_not_primary_node_restarted(
         looper.run(checkNodesConnected(pool_of_nodes))
         ensure_all_nodes_have_same_data(looper,
                                         pool_of_nodes,
-                                        custom_timeout=tconf.VIEW_CHANGE_TIMEOUT,
+                                        custom_timeout=tconf.NEW_VIEW_TIMEOUT,
                                         exclude_from_check=['check_last_ordered_3pc_backup'])
         timeout = waits.expectedPoolCatchupTime(nodeCount=len(pool_of_nodes))
         looper.run(eventually(check_ledger_state, node_to_restart, DOMAIN_LEDGER_ID,
@@ -87,4 +87,4 @@ def test_node_catchup_when_3_not_primary_node_restarted(
                                   sdk_wallet_steward, 1)
         ensure_all_nodes_have_same_data(looper,
                                         pool_of_nodes,
-                                        custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+                                        custom_timeout=tconf.NEW_VIEW_TIMEOUT)

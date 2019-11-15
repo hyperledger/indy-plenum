@@ -5,7 +5,7 @@ import base58
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 
 from plenum.server.propagator import Requests
@@ -65,6 +65,7 @@ class FakeNode:
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
         self.write_manager = FakeSomething()
+        self.primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
@@ -79,7 +80,6 @@ class FakeNode:
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
         self.view_changer = create_view_changer(self)
-        self.primaries_selector = RoundRobinPrimariesSelector()
         self.metrics = NullMetricsCollector()
 
         # For catchup testing

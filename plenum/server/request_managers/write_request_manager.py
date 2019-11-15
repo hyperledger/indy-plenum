@@ -17,7 +17,6 @@ from plenum.common.types import f
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_handlers.state_constants import MARKER_TAA, MARKER_TAA_AML
 from plenum.server.request_handlers.utils import decode_state_value
@@ -34,7 +33,6 @@ class WriteRequestManager(RequestManager):
         self.batch_handlers = {}  # type: Dict[int,List[BatchRequestHandler]]
         self.state_serializer = pool_state_serializer
         self.audit_b_handler = None
-        self.future_primary_handler = None
         self.node_reg_handler = None
 
     def is_valid_ledger_id(self, ledger_id):
@@ -72,8 +70,6 @@ class WriteRequestManager(RequestManager):
         self.ledger_ids.add(ledger_id)
         if handler.ledger_id == AUDIT_LEDGER_ID:
             self.audit_b_handler = handler
-        if isinstance(handler, FuturePrimariesBatchHandler):
-            self.future_primary_handler = handler
         if isinstance(handler, NodeRegHandler):
             self.node_reg_handler = handler
 

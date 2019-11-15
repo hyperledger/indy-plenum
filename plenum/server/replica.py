@@ -679,6 +679,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                write_manager=self.node.write_manager,
                                bls_bft_replica=self._bls_bft_replica,
                                freshness_checker=self._freshness_checker,
+                               primaries_selector=self.node.primaries_selector,
                                get_current_time=self.get_current_time,
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                stasher=self.stasher,
@@ -695,7 +696,8 @@ class Replica(HasActionQueue, MessageProcessor):
                                  timer=self.node.timer,
                                  bus=self.internal_bus,
                                  network=self._external_bus,
-                                 stasher=self.stasher)
+                                 stasher=self.stasher,
+                                 primaries_selector=self.node.primaries_selector)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)
