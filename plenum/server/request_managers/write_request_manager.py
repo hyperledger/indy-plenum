@@ -109,7 +109,7 @@ class WriteRequestManager(RequestManager):
 
     def _get_handlers_by_version(self, txn_type=None):
         version = self.database_manager.state_version
-        version = self.config.INDY_NODE_VERSION_MATCHING.get(version, version)
+        version = self.config.INDY_VERSION_MATCHING.get(version, version)
         handlers = self._request_handlers_with_version.get((txn_type, version)) \
             if (txn_type, version) in self._request_handlers_with_version \
             else self.request_handlers.get(txn_type, None)
@@ -128,6 +128,8 @@ class WriteRequestManager(RequestManager):
     def restore_state(self, txn, ledger_id):
         state = self.database_manager.get_state(ledger_id)
         self.database_manager.update_state_version(txn)
+        # TODO: add to TxnVersionController function `get_version(txn)`
+        # to use a version from the txn and update it in the internal TxnVersionController version
         handlers = self._get_handlers_by_version(get_type(txn))
         updated_state = None
         for handler in handlers:
