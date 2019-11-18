@@ -11,7 +11,7 @@ import gc
 import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, StartViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -3403,6 +3403,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
+    def _process_start_vc_msg(self, msg: StartViewChange):
+        if Mode.is_done_syncing(self.mode):
+            self.view_changer.start_view_change(msg.view_no)
+
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
@@ -3421,6 +3425,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(StartViewChange,
+                                                self._process_start_vc_msg,
                                                 self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):

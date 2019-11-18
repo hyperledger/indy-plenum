@@ -4,7 +4,7 @@ from collections import deque
 import pytest
 
 from plenum.common.constants import PreVCStrategies
-from plenum.common.messages.node_messages import ViewChangeDone, InstanceChange, NewView
+from plenum.common.messages.node_messages import ViewChangeDone, InstanceChange, NewView, ViewChange
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import TestNode, ensureElectionsDone
@@ -34,7 +34,7 @@ def not_processing_view_change_done(node):
             m = self.nodeInBox.popleft()
             if isinstance(m, tuple) and len(
                     m) == 2 and not hasattr(m, '_field_types') and \
-                    isinstance(m[0], (NewView, InstanceChange)) and \
+                    isinstance(m[0], (NewView, InstanceChange, ViewChange)) and \
                     m[0].viewNo > self.viewNo:
                 if isinstance(m[0], NewView):
                     stashed_vc_done_msgs.append(m)
