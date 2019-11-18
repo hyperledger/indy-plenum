@@ -84,7 +84,7 @@ class DatabaseManager():
             return False
         return self.databases[lid].taa_acceptance_required
 
-    def set_state_version_controller(self, controller: ITxnVersionController):
+    def set_txn_version_controller(self, controller: ITxnVersionController):
         self._txn_version_controller = controller
 
     def update_state_version(self, txn):
