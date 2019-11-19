@@ -1881,10 +1881,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         typ = get_type(txn)
         self.postRecvTxnFromCatchup(ledger_id, txn)
         if self.write_manager.is_valid_type(typ):
-            self.write_manager.update_state(txn, isCommitted=True)
             state = self.getState(ledger_id)
             if state:
-                state.commit(rootHash=state.headHash)
+                self.write_manager.restore_state(txn, ledger_id)
                 if self.stateTsDbStorage and \
                         (ledger_id == DOMAIN_LEDGER_ID or ledger_id == CONFIG_LEDGER_ID):
                     timestamp = get_txn_time(txn)
