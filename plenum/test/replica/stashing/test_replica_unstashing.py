@@ -26,7 +26,7 @@ def test_unstash_future_view(replica, msg):
     pre_prepare, _ = msg
     replica.stasher._stash(STASH_VIEW_3PC, "reason", *msg)
     assert replica.stasher.stash_size(STASH_VIEW_3PC) > 0
-    replica.on_view_change_done()
+    replica.on_view_propagated_after_catchup()
     assert replica.stasher.stash_size(STASH_VIEW_3PC) == 0
 
 
