@@ -1373,6 +1373,7 @@ class MockTimer(QueueTimer):
         Update time and run scheduled callbacks afterwards
         """
         self._ts.value = value
+        self._log_time()
         self.service()
 
     def sleep(self, seconds):
@@ -1390,6 +1391,7 @@ class MockTimer(QueueTimer):
 
         event = self._pop_event()
         self._ts.value = event.timestamp
+        self._log_time()
         event.callback()
 
     def advance_until(self, value):
@@ -1431,6 +1433,10 @@ class MockTimer(QueueTimer):
         """
         while self._events:
             self.advance()
+
+    def _log_time(self):
+        # TODO: Probably better solution would be to replace real time in logs with virtual?
+        logger.info("Virtual time: {}".format(self._ts.value))
 
 
 class MockNetwork(ExternalBus):

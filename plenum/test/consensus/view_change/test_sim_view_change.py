@@ -102,7 +102,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
 
     # Schedule view change at different time on all nodes
     for node in pool.nodes:
-        pool.timer.schedule(random.integer(0, 10000),
+        pool.timer.schedule(random.float(0, 10),
                             partial(node._view_changer.process_need_view_change, NeedViewChange()))
 
     # CHECK

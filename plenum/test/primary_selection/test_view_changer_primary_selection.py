@@ -78,6 +78,7 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
+        self.monitor = FakeSomething(isMasterDegraded=lambda: False)
         self.view_changer = create_view_changer(self)
         self.primaries_selector = RoundRobinPrimariesSelector()
         self.metrics = NullMetricsCollector()

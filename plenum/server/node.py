@@ -3350,7 +3350,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
-        self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
             if i != MASTER_REPLICA_INDEX:

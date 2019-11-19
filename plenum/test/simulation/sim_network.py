@@ -86,7 +86,7 @@ class SimNetwork:
                 self._logger.debug("Discard {} for {} because it filtered by SimNetwork".format(msg, name))
                 continue
 
-            self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
+            self._timer.schedule(self._random.float(self._min_latency, self._max_latency),
                                  partial(peer.process_incoming, msg, frm))
 
     def _is_filtered(self, msg, name):

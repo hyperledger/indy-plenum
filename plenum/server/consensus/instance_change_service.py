@@ -3,7 +3,7 @@ from typing import Callable
 from plenum.common.config_util import getConfig
 from plenum.common.constants import NODE_STATUS_DB_LABEL, VIEW_CHANGE_PREFIX
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import VoteForViewChange, PreNeedViewChange
+from plenum.common.messages.internal_messages import VoteForViewChange, PreNeedViewChange, NewViewAccepted
 from plenum.common.messages.node_messages import InstanceChange
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
@@ -44,6 +44,7 @@ class InstanceChangeService:
 
         self._subscription = Subscription()
         self._subscription.subscribe(bus, VoteForViewChange, self.process_vote_for_view_change)
+        self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
         self._subscription.subscribe(stasher, InstanceChange, self.process_instance_change)
 
     def cleanup(self):
@@ -95,10 +96,12 @@ class InstanceChangeService:
                                  "receiving instance change message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
             self._send_instance_change(msg.viewNo)
 
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        self.instance_changes.remove_view(self._data.view_no)
+
     def _send_instance_change(self, view_no: int, suspicion: Suspicion):
         self._logger.info("{}{} sending an instance change with view_no {} since {}".
                           format(VIEW_CHANGE_PREFIX, self, view_no, suspicion.reason))
-
         msg = InstanceChange(view_no, suspicion.code)
         self._network.send(msg)
         # record instance change vote for self and try to change the view if quorum is reached

@@ -7,6 +7,12 @@ def test_sim_random_generates_integers_in_required_range():
     assert all(10 <= v <= 50 for v in values)
 
 
+def test_sim_random_generates_floats_in_required_range():
+    rnd = DefaultSimRandom()
+    values = [rnd.float(0.1, 5.5) for _ in range(100)]
+    assert all(0.1 <= v <= 5.5 for v in values)
+
+
 def test_sim_random_generates_strings_of_requried_length():
     rnd = DefaultSimRandom()
     lengths = [rnd.integer(0, 10) for _ in range(100)]
@@ -39,12 +45,13 @@ def test_sim_random_shuffles():
 
 def test_sim_random_is_deterministic():
     def generate_some(rnd: SimRandom):
-        values = [rnd.integer(-37, 7342) for _ in range(1000)]
+        integers = [rnd.integer(-37, 7342) for _ in range(1000)]
+        floats = [rnd.float(0.1, 5.5) for _ in range(1000)]
         strings = [rnd.string(10) for _ in range(10)]
-        choice = rnd.choice(*values)
-        sample = rnd.sample(values, 10)
-        shuffled = rnd.shuffle(values)
-        return values, strings, choice, sample, shuffled
+        choice = rnd.choice(*integers)
+        sample = rnd.sample(integers, 10)
+        shuffled = rnd.shuffle(integers)
+        return integers, floats, strings, choice, sample, shuffled
 
     rnd1 = DefaultSimRandom(42)
     rnd2 = DefaultSimRandom(42)
