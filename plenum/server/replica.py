@@ -189,6 +189,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self._ordering_service.cleanup()
         self._checkpointer.cleanup()
+        self._view_change_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 
