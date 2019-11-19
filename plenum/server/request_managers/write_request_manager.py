@@ -129,7 +129,7 @@ class WriteRequestManager(RequestManager):
         handlers = self._get_handlers_by_version(get_type(txn))
         updated_state = None
         for handler in handlers:
-            updated_state = handler.update_state(txn, updated_state, None)
+            updated_state = handler.update_state(txn, updated_state, None, is_committed=True)
         state.commit(rootHash=state.headHash)
 
     def apply_request(self, request, batch_ts):
