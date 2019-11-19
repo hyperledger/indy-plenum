@@ -1959,7 +1959,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.view_changer.previous_view_no = self.viewNo
             self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
 
-
         # 2. select primaries
         self.primaries = self.get_primaries_for_current_view()
         if len(self.replicas) != len(self.primaries):
@@ -1981,10 +1980,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
                 self.primary_selected(instance_id)
                 logger.display("{} selected primary {} for instance {} (view {})"
-                                     .format(PRIMARY_SELECTION_PREFIX,
-                                             self.primaries[instance_id], instance_id, self.viewNo),
-                                     extra={"cli": "ANNOUNCE",
-                                            "tags": ["node-election"]})
+                               .format(PRIMARY_SELECTION_PREFIX,
+                                       self.primaries[instance_id], instance_id, self.viewNo),
+                               extra={"cli": "ANNOUNCE",
+                                      "tags": ["node-election"]})
 
         # 4. Notify replica, that we need to send batch with new primaries
         if self.viewNo != 0:
@@ -2783,7 +2782,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_primaries_for_current_view(self):
         return self.primaries_selector.select_primaries(view_no=self.viewNo)
-
 
     def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica
