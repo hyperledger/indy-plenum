@@ -192,8 +192,11 @@ class AuditBatchHandler(BatchRequestHandler):
         last_audit_node_reg = last_audit_txn_data.get(AUDIT_TXN_NODE_REG) if last_audit_txn_data else None
         current_node_reg = three_pc_batch.node_reg
 
-        # 1. First audit txn
-        if last_audit_txn_data is None:
+        if current_node_reg is None:
+            return
+
+        # 1. First audit txn with node reg
+        if last_audit_node_reg is None:
             txn[AUDIT_TXN_NODE_REG] = current_node_reg
 
         # 2. Previous nodeReg field contains nodeReg list
@@ -220,7 +223,3 @@ class AuditBatchHandler(BatchRequestHandler):
             else:
                 raise LogicError('Value, mentioned in nodeReg field must be a '
                                  'seq_no of a txn with nodeReg')
-
-        # 4. it can be that there is no node reg to be saved (legacy nodes and tests)
-        else:
-            pass
