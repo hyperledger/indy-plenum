@@ -1559,13 +1559,13 @@ class OrderingService:
             payload_data = get_payload_data(txn)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
                     pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                txn_data = payload_data[field]
+                txn_data = payload_data.get(field)
                 if isinstance(txn_data, Iterable):
                     return txn_data
                 elif isinstance(txn_data, int):
-                    last_primaries_seq_no = get_seq_no(txn) - txn_data
+                    last_txn_seq_no = get_seq_no(txn) - txn_data
                     return get_payload_data(
-                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[field]
+                        ledger.get_by_seq_no_uncommitted(last_txn_seq_no)).get(field)
                 break
         return None
 
