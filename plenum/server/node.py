@@ -656,17 +656,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
-    def on_view_propagated(self):
-        """
-        View change completes for a replica when it has been decided which was
-        the last ppSeqNo and state and txn root for previous view
-        """
-
-        for replica in self.replicas.values():
-            replica.on_view_change_done()
-        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
-        self.monitor.reset()
-
     def drop_primaries(self):
         for replica in self.replicas.values():
             replica.primaryName = None
@@ -1895,41 +1884,63 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.select_primaries_on_catchup_complete()
 
     def select_primaries_on_catchup_complete(self):
-        # Select primaries after usual catchup (not view change)
-        ledger = self.getLedger(AUDIT_LEDGER_ID)
+        audit_ledger = self.getLedger(AUDIT_LEDGER_ID)
+
+        # 0. cleanup
         self.backup_instance_faulty_processor.restore_replicas()
         self.drop_primaries()
-        if len(ledger) == 0:
-            self.select_primaries()
-        else:
-            # Emulate view change start
+
+        # 1. Get viewNo from the audit
+        if len(audit_ledger) != 0:
             self.view_changer.previous_view_no = self.viewNo
-            self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.viewNo = get_payload_data(audit_ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
 
-            self.primaries = self._get_last_audited_primaries()
-            if len(self.replicas) != len(self.primaries):
-                logger.warning('Audit ledger has inconsistent number of nodes. '
-                               'Node primaries = {}'.format(self.primaries))
-            # Similar functionality to select_primaries
-            for instance_id, replica in list(self.replicas.items()):
-                if instance_id == 0:
-                    self.start_participating()
-                if instance_id < len(self.primaries):
-                    replica.primaryName = Replica.generateName(self.primaries[instance_id], instance_id)
-                    self.primary_selected(instance_id)
+        # 2. select primaries
+        self.primaries = self.get_primaries_for_current_view()
+        if len(self.replicas) != len(self.primaries):
+            logger.warning('Audit ledger has inconsistent number of nodes. '
+                           'Node primaries = {}'.format(self.primaries))
 
-        # Primary propagation
+        # 3. process primary selection by replicas
+        for instance_id, replica in list(self.replicas.items()):
+            # can participate
+            if instance_id == 0:
+                self.start_participating()
+
+            # set primary
+            if instance_id < len(self.primaries):
+                # TODO: combine with CatchupFinished processing
+                replica.primaryName = Replica.generateName(self.primaries[instance_id], instance_id)
+                # TODO: combine with CatchupFinished processing
+                replica.on_propagate_primary_done()
+
+                self.primary_selected(instance_id)
+                logger.display("{} selected primary {} for instance {} (view {})"
+                               .format(PRIMARY_SELECTION_PREFIX,
+                                       self.primaries[instance_id], instance_id, self.viewNo),
+                               extra={"cli": "ANNOUNCE",
+                                      "tags": ["node-election"]})
+
+        # 4. Notify replica, that we need to send batch with new primaries
+        # do it only if audit ledger is empty yet to write primaries there
+        if self.viewNo != 0 and len(audit_ledger) == 0:
+            for r in self.replicas.values():
+                r.set_primaries_batch_needed(True)
+
+        # 5. Restore backup Primaries
         last_sent_pp_seq_no_restored = False
-        for replica in self.replicas.values():
-            replica.on_propagate_primary_done()
         if self.view_changer.previous_view_no == 0:
             last_sent_pp_seq_no_restored = \
                 self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
         if not last_sent_pp_seq_no_restored:
             self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
-        # Emulate view_change ending
-        self.on_view_propagated()
+        # 6. Emulate view_change ending
+        for replica in self.replicas.values():
+            # TODO: combine with CatchupFinished processing
+            replica.on_view_propagated_after_catchup()
+        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
+        self.monitor.reset()
 
     def _get_last_audited_primaries(self):
         audit = self.getLedger(AUDIT_LEDGER_ID)
@@ -2704,57 +2715,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_primaries_for_current_view(self):
         return self.primaries_selector.select_primaries(view_no=self.viewNo)
-
-    def select_primaries(self):
-        # If you want to refactor primaries selection,
-        # please take a look at https://jira.hyperledger.org/browse/INDY-1946
-
-        self.backup_instance_faulty_processor.restore_replicas()
-        self.ensure_primaries_dropped()
-
-        self.primaries = self.get_primaries_for_current_view()
-        for i, primary_name in enumerate(self.primaries):
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX,
-                                   primary_name, i, self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-        pc = len(self.primaries)
-        rc = len(self.replicas)
-        if pc != rc:
-            raise LogicError('Inconsistent number or primaries ({}) and replicas ({})'
-                             .format(pc, rc))
-
-        for i, primary_name in enumerate(self.primaries):
-            if i == 0:
-                # The node needs to be set in participating mode since when
-                # the replica is made aware of the primary, it will start
-                # processing stashed requests and hence the node needs to be
-                # participating.
-                self.start_participating()
-
-            replica = self.replicas[i]
-            instance_name = Replica.generateName(nodeName=primary_name, instId=i)
-            replica.primaryName = instance_name
-            self.primary_selected(i)
-
-            logger.display("{}{} declares primaries selection {} as completed for "
-                           "instance {}, "
-                           "new primary is {}, "
-                           "ledger info is {}"
-                           .format(VIEW_CHANGE_PREFIX,
-                                   replica,
-                                   self.viewNo,
-                                   i,
-                                   instance_name,
-                                   self.ledger_summary),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-        # Notify replica, that we need to send batch with new primaries
-        if self.viewNo != 0:
-            for r in self.replicas.values():
-                r.set_primaries_batch_needed(True)
 
     def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica
