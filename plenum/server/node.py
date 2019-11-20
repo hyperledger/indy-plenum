@@ -1948,16 +1948,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.select_primaries_on_catchup_complete()
 
     def select_primaries_on_catchup_complete(self):
-        ledger = self.getLedger(AUDIT_LEDGER_ID)
+        audit_ledger = self.getLedger(AUDIT_LEDGER_ID)
 
         # 0. cleanup
         self.backup_instance_faulty_processor.restore_replicas()
         self.drop_primaries()
 
         # 1. Get viewNo from the audit
-        if len(ledger) != 0:
+        if len(audit_ledger) != 0:
             self.view_changer.previous_view_no = self.viewNo
-            self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.viewNo = get_payload_data(audit_ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
 
         # 2. select primaries
         self.primaries = self.get_primaries_for_current_view()
@@ -1986,7 +1986,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                       "tags": ["node-election"]})
 
         # 4. Notify replica, that we need to send batch with new primaries
-        if self.viewNo != 0:
+        # do it only if audit ledger is empty yet to write primaries there
+        if self.viewNo != 0 and len(audit_ledger) == 0:
             for r in self.replicas.values():
                 r.set_primaries_batch_needed(True)
 
