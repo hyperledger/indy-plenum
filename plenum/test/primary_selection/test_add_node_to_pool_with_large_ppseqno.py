@@ -21,7 +21,6 @@ def _set_ppseqno(nodes, new_ppsn):
             repl.last_ordered_3pc = (repl.viewNo, new_ppsn)
 
 
-# @pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 @pytest.mark.parametrize('do_view_change', [0, 1])
 def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, sdk_pool_handle,
                                                         sdk_wallet_steward, tdir, allPluginsPath):
@@ -33,7 +32,7 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
     are functional. The test is run with several starting view_no, including 0
     """
 
-    ensure_several_view_change(looper, txnPoolNodeSet, do_view_change, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensure_several_view_change(looper, txnPoolNodeSet, do_view_change, custom_timeout=tconf.NEW_VIEW_TIMEOUT)
 
     cur_ppseqno = get_pp_seq_no(txnPoolNodeSet)
     big_ppseqno = cur_ppseqno + tconf.LOG_SIZE * 2 + 2300

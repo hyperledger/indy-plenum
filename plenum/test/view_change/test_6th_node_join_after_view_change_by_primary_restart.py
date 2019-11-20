@@ -25,14 +25,14 @@ def limitTestRunningTime():
 
 @pytest.fixture(scope="module", autouse=True)
 def tconf(tconf):
-    old_vc_timeout = tconf.VIEW_CHANGE_TIMEOUT
+    old_vc_timeout = tconf.NEW_VIEW_TIMEOUT
     old_max_reconnect_retry = tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET
     tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = 0
-    tconf.VIEW_CHANGE_TIMEOUT = 30
+    tconf.NEW_VIEW_TIMEOUT = 30
 
     yield tconf
 
-    tconf.VIEW_CHANGE_TIMEOUT = old_vc_timeout
+    tconf.NEW_VIEW_TIMEOUT = old_vc_timeout
     tconf.MAX_RECONNECT_RETRY_ON_SAME_SOCKET = old_max_reconnect_retry
 
 
@@ -56,9 +56,9 @@ def test_6th_node_join_after_view_change_by_master_restart(
     7. add 6th node and ensure, that new node is catchuped
     """
     for __ in range(4):
-        ensure_view_change(looper, txnPoolNodeSet, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+        ensure_view_change(looper, txnPoolNodeSet, custom_timeout=tconf.NEW_VIEW_TIMEOUT)
 
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.NEW_VIEW_TIMEOUT)
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(txnPoolNodeSet))
     for node in txnPoolNodeSet:
         looper.run(eventually(catchuped, node, timeout=2 * timeout))
@@ -86,9 +86,9 @@ def test_6th_node_join_after_view_change_by_master_restart(
         looper.run(eventually(check_ledger_state, node, POOL_LEDGER_ID,
                               LedgerState.synced, retryWait=.5, timeout=timeout))
     for __ in range(4):
-        ensure_view_change(looper, txnPoolNodeSet, custom_timeout=tconf.VIEW_CHANGE_TIMEOUT)
+        ensure_view_change(looper, txnPoolNodeSet, custom_timeout=tconf.NEW_VIEW_TIMEOUT)
 
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.NEW_VIEW_TIMEOUT)
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(txnPoolNodeSet))
     for node in txnPoolNodeSet:
         looper.run(eventually(catchuped, node, timeout=3 * timeout))

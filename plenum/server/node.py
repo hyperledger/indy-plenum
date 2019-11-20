@@ -11,9 +11,9 @@ import gc
 import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, NeedViewChange, \
-    PreNeedViewChange
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
+    NeedViewChange, StartViewChange, PreNeedViewChange
+from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -241,7 +241,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self.primaries_selector = RoundRobinPrimariesSelector()  # type: PrimariesSelector
+        self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
 
@@ -366,8 +366,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.config.STACK_COMPANION == 1:
             add_start_time(self.ledger_dir, self.utc_epoch())
-
-        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
         HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
@@ -569,7 +567,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._primaries = ps
         for r in self.replicas.values():
             r.set_primaries(ps)
-        self.write_manager.future_primary_handler.set_primaries(self.viewNo, ps)
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -1273,17 +1270,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         alias = ""
         if txn_data and DATA in txn_data:
             alias = txn_data[DATA].get(ALIAS, alias)
-        # If required number of instances changed, we need to recalculate it.
-        if (self.requiredNumberOfInstances != old_required_number_of_instances or alias in self.primaries) \
-                and not self.view_changer.view_change_in_progress \
+        # If number of nodes changed, we need to do a view change.
+        if not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
-            # We need to reselect primaries only during usual ordering. Because:
-            # - If this is catchup, called by view change, then, we will select
-            # primaries after it finish.
-            # - If this is usual catchup, then, we will apply primaries from audit,
+            # We need to do a view change only during usual ordering. Because
+            # if this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
-            self.view_changer.on_replicas_count_changed()
+            self.view_changer.on_node_count_changed()
 
     @property
     def clientStackName(self):
@@ -1823,10 +1817,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         typ = get_type(txn)
         self.postRecvTxnFromCatchup(ledger_id, txn)
         if self.write_manager.is_valid_type(typ):
-            self.write_manager.update_state(txn, isCommitted=True)
             state = self.getState(ledger_id)
             if state:
-                state.commit(rootHash=state.headHash)
+                self.write_manager.restore_state(txn, ledger_id)
                 if self.stateTsDbStorage and \
                         (ledger_id == DOMAIN_LEDGER_ID or ledger_id == CONFIG_LEDGER_ID):
                     timestamp = get_txn_time(txn)
@@ -1917,9 +1910,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if len(self.replicas) != len(self.primaries):
                 logger.warning('Audit ledger has inconsistent number of nodes. '
                                'Node primaries = {}'.format(self.primaries))
-            if any(p not in self.nodeReg for p in self.primaries):
-                logger.error('Audit ledger has inconsistent names of primaries. '
-                             'Node primaries = {}'.format(self.primaries))
             # Similar functionality to select_primaries
             for instance_id, replica in list(self.replicas.items()):
                 if instance_id == 0:
@@ -2713,9 +2703,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule_view_change()
 
     def get_primaries_for_current_view(self):
-        return self.primaries_selector.select_primaries(view_no=self.viewNo,
-                                                        instance_count=self.requiredNumberOfInstances,
-                                                        validators=self.poolManager.node_names_ordered_by_rank())
+        return self.primaries_selector.select_primaries(view_no=self.viewNo)
 
     def select_primaries(self):
         # If you want to refactor primaries selection,
@@ -3349,6 +3337,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.on_view_change_start()
         self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
 
+    # TODO: Either merge with PreNeedViewChange or remove altogether
+    def _process_start_vc_msg(self, msg: StartViewChange):
+        # TODO: This conditional looks extremely suspicious - probably we should just
+        #  stash InstanceChange messages during catch up instead
+        if Mode.is_done_syncing(self.mode):
+            self._process_pre_need_view_change(PreNeedViewChange(view_no=msg.view_no))
+
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.monitor.reset()
         for i in self.replicas.keys():
@@ -3369,6 +3364,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(StartViewChange,
+                                                self._process_start_vc_msg,
                                                 self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):

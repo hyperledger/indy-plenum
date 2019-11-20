@@ -19,12 +19,11 @@ from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.node import Node
 from plenum.server.replica_helper import generateName
@@ -88,7 +87,8 @@ def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequest
 class MockBlsBftReplica(BlsBftReplica):
 
     def __init__(self):
-        pass
+        super().__init__(bls_bft=None,
+                         is_master=True)
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         return None
@@ -144,6 +144,7 @@ class SimPool:
             replica_name = generateName(name, 0)
             handler = partial(self.network._send_message, replica_name)
             write_manager = create_test_write_req_manager(name, genesis_txns)
+            write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = validators
             replica = ReplicaService(replica_name,
                                      validators,
                                      primary_name,
@@ -152,17 +153,7 @@ class SimPool:
                                      self.network.create_peer(name, handler),
                                      write_manager=write_manager,
                                      bls_bft_replica=MockBlsBftReplica())
-            # ToDo: For now, future_primary_handler is depended from the node.
-            # And for now we need to patching set_node_state functionality
-            future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
-                                                                   FakeSomething(nodeReg={},
-                                                                                 nodeIds=[],
-                                                                                 primaries=[]))
-            future_primaries_handler.set_primaries(replica._data.view_no,
-                                                   replica._data.primaries)
-            write_manager.register_batch_handler(future_primaries_handler)
             self._nodes.append(replica)
-
 
     @property
     def timer(self) -> MockTimer:
@@ -270,6 +261,4 @@ def create_view_change_acks(vc, vc_frm, senders):
 
 
 def primary_in_view(validators, view_no):
-    f = (len(validators) - 1) // 3
-    return RoundRobinPrimariesSelector().select_primaries(view_no=view_no, instance_count=f + 1,
-                                                          validators=validators)[0]
+    return RoundRobinConstantNodesPrimariesSelector(validators).select_primaries(view_no=view_no)[0]

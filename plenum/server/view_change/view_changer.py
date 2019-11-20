@@ -126,7 +126,7 @@ class ViewChanger():
             self.instance_change_rounds = 0
         self.instance_change_action = partial(self.propose_view_change,
                                               Suspicions.PRIMARY_DISCONNECTED)
-        self._timer.schedule(self.config.INSTANCE_CHANGE_TIMEOUT,
+        self._timer.schedule(self.config.NEW_VIEW_TIMEOUT,
                              self.instance_change_action)
 
     # TODO we have `on_primary_loss`, do we need that one?
@@ -136,12 +136,8 @@ class ViewChanger():
     def on_suspicious_primary(self, suspicion: Suspicions):
         self.propose_view_change(suspicion)
 
-    def on_view_change_not_completed_in_time(self):
-        self.propose_view_change(Suspicions.INSTANCE_CHANGE_TIMEOUT)
-        self.provider.schedule_resend_inst_chng()
-
-    def on_replicas_count_changed(self):
-        self.propose_view_change(Suspicions.REPLICAS_COUNT_CHANGED)
+    def on_node_count_changed(self):
+        self.propose_view_change(Suspicions.NODE_COUNT_CHANGED)
 
     def propose_view_change(self, suspicion=Suspicions.PRIMARY_DEGRADED):
         self.provider.propose_view_change(suspicion)

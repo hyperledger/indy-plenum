@@ -657,8 +657,7 @@ def send_pre_prepare(view_no, pp_seq_no, nodes,
         state_root or '0' * 44,
         txn_root or '0' * 44,
         0,
-        True,
-        primaries=[]
+        True
     )
     primary_node = getPrimaryReplica(nodes).node
     non_primary_nodes = set(nodes) - {primary_node}
@@ -1148,25 +1147,17 @@ def perf_monitor_disabled(tconf):
 
 
 @contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None, ic_timeout=None):
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
+def view_change_timeout(tconf, vc_timeout, propose_timeout=None):
+    old_view_change_timeout = tconf.NEW_VIEW_TIMEOUT
     old_propose_timeout = tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT
     old_propagate_request_delay = tconf.PROPAGATE_REQUEST_DELAY
-    old_ic_timeout = tconf.INSTANCE_CHANGE_TIMEOUT
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
-        0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
+    tconf.NEW_VIEW_TIMEOUT = vc_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = vc_timeout if propose_timeout is None else propose_timeout
     tconf.PROPAGATE_REQUEST_DELAY = 0
-    if ic_timeout is not None:
-        tconf.INSTANCE_CHANGE_TIMEOUT = ic_timeout
     yield tconf
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
+    tconf.NEW_VIEW_TIMEOUT = old_view_change_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
     tconf.PROPAGATE_REQUEST_DELAY = old_propagate_request_delay
-    tconf.INSTANCE_CHANGE_TIMEOUT = old_ic_timeout
 
 
 @contextmanager
@@ -1226,8 +1217,7 @@ def create_pre_prepare_params(state_root,
                               inst_id=0,
                               audit_txn_root=None,
                               reqs=None,
-                              bls_multi_sigs=None,
-                              primaries=[]):
+                              bls_multi_sigs=None):
     digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
     req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
     params = [inst_id,
@@ -1242,7 +1232,6 @@ def create_pre_prepare_params(state_root,
               txn_root or '1' * 32,
               0,
               True,
-              primaries,
               pool_state_root or generate_state_root(),
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:

@@ -5,14 +5,15 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import VIEW_CHANGE, PRIMARY_SELECTION_PREFIX, NEW_VIEW
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage, \
-    VoteForViewChange
+    VoteForViewChange, StartViewChange
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.common.router import Subscription
+from plenum.common.startable import Mode
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.primary_selector import PrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
@@ -22,7 +23,7 @@ from stp_core.common.log import getlogger
 
 class ViewChangeService:
     def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus,
-                 stasher: StashingRouter):
+                 stasher: StashingRouter, primaries_selector: PrimariesSelector):
         self._config = getConfig()
         self._logger = getlogger()
 
@@ -45,7 +46,8 @@ class ViewChangeService:
 
         self._old_prepared = {}  # type: Dict[int, BatchID]
         self._old_preprepared = {}  # type: Dict[int, List[BatchID]]
-        self._primaries_selector = RoundRobinPrimariesSelector()
+        self._stashed_vc_msgs = {}  # type: Dict[int, int]
+        self._primaries_selector = primaries_selector
 
         self._subscription = Subscription()
         self._subscription.subscribe(self._router, ViewChange, self.process_view_change_message)
@@ -77,9 +79,7 @@ class ViewChangeService:
         # 3. Update shared data
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
-        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no,
-                                                                         instance_count=self._data.quorums.f + 1,
-                                                                         validators=self._data.validators)
+        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no)
         for i, primary_name in enumerate(self._data.primaries):
             self._logger.display("{} selected primary {} for instance {} (view {})"
                                  .format(PRIMARY_SELECTION_PREFIX,
@@ -113,6 +113,7 @@ class ViewChangeService:
 
         # 7. Unstash messages for view change
         self._router.process_all_stashed(STASH_WAITING_VIEW_CHANGE)
+        self._stashed_vc_msgs.clear()
 
         # 8. Restart instance change timer
         self._resend_inst_change_timer.stop()
@@ -152,6 +153,12 @@ class ViewChangeService:
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
         result = self._validate(msg, frm)
+        if result == STASH_WAITING_VIEW_CHANGE:
+            self._stashed_vc_msgs.setdefault(msg.viewNo, 0)
+            self._stashed_vc_msgs[msg.viewNo] += 1
+            if self._data.quorums.view_change.is_reached(self._stashed_vc_msgs[msg.viewNo]) and \
+                    not self._data.waiting_for_new_view:
+                self._bus.send(StartViewChange(msg.viewNo))
         if result != PROCESS:
             return result, None
 
@@ -296,6 +303,9 @@ class ViewChangeService:
         self._finish_view_change()
 
     def _finish_view_change(self):
+        self._logger.info("{} finished view change to view {}. Primaries: {}".format(self._data.name,
+                                                                                     self._data.view_no,
+                                                                                     self._data.primaries))
         # Update shared data
         self._data.waiting_for_new_view = False
         self._data.prev_view_prepare_cert = self._data.new_view.batches[-1].pp_seq_no \

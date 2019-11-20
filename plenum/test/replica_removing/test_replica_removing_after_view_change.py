@@ -59,7 +59,7 @@ def test_replica_removing_after_view_change(looper,
     for node in txnPoolNodeSet:
         node.view_changer.on_master_degradation()
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
-                      customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                      customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
     instance_to_remove -= 1
     instances = list(range(txnPoolNodeSet[0].requiredNumberOfInstances))
     instances.remove(instance_to_remove)

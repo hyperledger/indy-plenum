@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import icDelay, vcd_delay, delay_for_view
+from plenum.test.delayers import icDelay, vcd_delay, delay_for_view, vc_delay
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -27,7 +27,7 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
     initial_view_no = checkViewNoForNodes(txnPoolNodeSet)
     initial_last_ordered = lagging_node.master_last_ordered_3PC
 
-    with delay_rules(lagging_node.nodeIbStasher, icDelay(viewNo=2), vcd_delay(viewNo=2)):
+    with delay_rules(lagging_node.nodeIbStasher, icDelay(viewNo=2), vcd_delay(viewNo=2), vc_delay(view_no=2)):
         with delay_rules(lagging_node.nodeIbStasher, delay_for_view(viewNo=0), delay_for_view(viewNo=1)):
             # view change to viewNo=1
             for n in txnPoolNodeSet:

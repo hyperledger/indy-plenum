@@ -3,11 +3,9 @@ import pytest
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.startable import Mode
 from plenum.common.stashing_router import PROCESS, DISCARD
-from plenum.common.util import SortedDict
-from plenum.server.consensus.msg_validator import CheckpointMsgValidator
-from plenum.server.replica_validator import ReplicaValidator
+from plenum.server.consensus.checkpoint_service_msg_validator import CheckpointMsgValidator
 from plenum.server.replica_validator_enums import INCORRECT_INSTANCE, CATCHING_UP, ALREADY_STABLE, \
-    STASH_CATCH_UP, OLD_VIEW, FUTURE_VIEW, STASH_VIEW_3PC
+    STASH_CATCH_UP, OLD_VIEW, WAITING_FOR_NEW_VIEW, STASH_VIEW_3PC
 from plenum.test.checkpoints.helper import cp_digest
 
 
@@ -58,8 +56,6 @@ def test_check_inst_id_incorrect(validator):
     (Mode.synced, (STASH_CATCH_UP, CATCHING_UP)),
     (Mode.participating, (PROCESS, None)),
 ])
-
-
 def test_check_participating(validator, mode, result):
     validator._data.node_mode = mode
     msg = checkpoint(view_no=validator._data.view_no,
@@ -117,4 +113,12 @@ def test_check_future_view(validator):
     msg = checkpoint(view_no=validator._data.view_no + 1,
                      inst_id=validator._data.inst_id,
                      pp_seq_no=10)
-    assert validator.validate(msg) == (STASH_VIEW_3PC, FUTURE_VIEW)
+    assert validator.validate(msg) == (PROCESS, None)
+
+
+def test_check_view_change_in_progress(validator):
+    validator._data.waiting_for_new_view = True
+    msg = checkpoint(view_no=validator._data.view_no,
+                     inst_id=validator._data.inst_id,
+                     pp_seq_no=10)
+    assert validator.validate(msg) == (STASH_VIEW_3PC, WAITING_FOR_NEW_VIEW)

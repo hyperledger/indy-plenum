@@ -25,7 +25,7 @@ def test_promotion_before_view_change(looper,
 
     node_2 = txnPoolNodeSet[1]
     node_3 = txnPoolNodeSet[2]
-    node_4 = txnPoolNodeSet[3]
+    node_5 = txnPoolNodeSet[4]
 
     # Demote node 2
     steward_2 = sdk_wallet_stewards[1]
@@ -35,9 +35,12 @@ def test_promotion_before_view_change(looper,
     txnPoolNodeSet.remove(node_2)
 
     # Checking that view change happened
+    # we are expecting 2 view changes here since Beta is selected as a master Primary on view=1
+    # (since node reg at the beginning of view 0 is used to select it), but it's not available (demoted),
+    # so we do view change to view=2 by timeout
     waitForViewChange(looper,
                       txnPoolNodeSet,
-                      expectedViewNo=starting_view_number + 1)
+                      expectedViewNo=starting_view_number + 2)
     ensureElectionsDone(looper, txnPoolNodeSet, instances_list=[0, 1])
     assert node_3.master_replica.isPrimary
 
@@ -50,7 +53,8 @@ def test_promotion_before_view_change(looper,
                       txnPoolNodeSet,
                       expectedViewNo=starting_view_number + 3)
     ensureElectionsDone(looper, txnPoolNodeSet, instances_list=[0, 1, 2])
-    assert node_4.master_replica.isPrimary
+    # node 5 is a primary since promoted node is added at the end of the list
+    assert node_5.master_replica.isPrimary
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
