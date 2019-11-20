@@ -38,6 +38,7 @@ class WriteRequestManager(RequestManager):
         self.future_primary_handler = None
         self.node_reg_handler = None
         self.config = getConfig()
+        # TODO: combine dictionary request_handlers with _request_handlers_with_version.
         self._request_handlers_with_version = {}  # type: Dict[Tuple[int, str], List[WriteRequestHandler]]
 
     def is_valid_ledger_id(self, ledger_id):
@@ -126,7 +127,6 @@ class WriteRequestManager(RequestManager):
             updated_state = handler.update_state(txn, updated_state, request, isCommitted)
 
     def restore_state(self, txn, ledger_id):
-        state = self.database_manager.get_state(ledger_id)
         self.database_manager.update_state_version(txn)
         # TODO: add to TxnVersionController function `get_version(txn)`
         # to use a version from the txn and update it in the internal TxnVersionController version
@@ -134,7 +134,9 @@ class WriteRequestManager(RequestManager):
         updated_state = None
         for handler in handlers:
             updated_state = handler.update_state(txn, updated_state, None, is_committed=True)
-        state.commit(rootHash=state.headHash)
+        state = self.database_manager.get_state(ledger_id)
+        if state:
+            state.commit(rootHash=state.headHash)
 
     def apply_request(self, request, batch_ts):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
