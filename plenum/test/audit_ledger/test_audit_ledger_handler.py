@@ -97,7 +97,7 @@ def test_apply_audit_ledger_txn_multi_ledger(alh,
                           last_pool_seqno=None, last_domain_seqno=None, last_config_seqno=None,
                           primaries=DEFAULT_PRIMARIES,
                           digest='pp_digest_1',
-                          node_reg=DEFAULT_NODE_REG)
+                          node_reg=None)  # make it None to emulate audit txns without node reg yet
 
     # 2. add pool txn
     check_apply_audit_txn(alh=alh,

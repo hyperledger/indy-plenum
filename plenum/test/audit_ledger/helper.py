@@ -53,7 +53,6 @@ def check_audit_txn(txn,
                 "stateRoot": state_roots,
                 "primaries": primaries,
                 "digest": digest,
-                "nodeReg": node_reg
             },
             "metadata": {
             },
@@ -67,6 +66,8 @@ def check_audit_txn(txn,
 
         "ver": "1"
     }
+    if node_reg is not None:
+        expected["txn"]["data"]["nodeReg"] = node_reg
     txn = JsonSerializer().serialize(txn)
     expected = JsonSerializer().serialize(expected)
     print(txn)
