@@ -58,6 +58,7 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
         def patched_sender(msg, dst=None, stat=None):
             if isinstance(msg, OldViewPrePrepareReply) and msg.preprepares:
                 msg.preprepares[0].ppTime += 1
+                monkeypatch.undo()
             old_sender(msg, dst, stat)
 
         monkeypatch.setattr(malicious_node.master_replica._ordering_service,
@@ -65,7 +66,7 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
                             patched_sender)
         monkeypatch.setattr(slow_node.master_replica._ordering_service,
                             '_validate_applied_pre_prepare',
-                            lambda a, b, c, d: None)
+                            lambda a, b, c: None)
 
         for n in txnPoolNodeSet:
             n.view_changer.on_master_degradation()
@@ -75,8 +76,6 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
         ensureElectionsDone(looper=looper, nodes=other_nodes + [malicious_node],
                             instances_list=[0, 1, 2])
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes + [malicious_node])
-        looper.run(eventually(
-            lambda: assertExp(slow_node.master_replica._ordering_service._old_view_pp_reply)))
-        monkeypatch.undo()
+
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
