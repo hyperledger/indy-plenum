@@ -519,7 +519,7 @@ def check_last_ordered_3pc_backup(node1, node2):
 
 def check_view_no(node1, node2):
     assert node1.master_replica.viewNo == node2.master_replica.viewNo, \
-        "{} != {}".format(node1.master_replica.viewNo, node2.master_replica.node2.viewNo)
+        "{} != {}".format(node1.master_replica.viewNo, node2.master_replica.viewNo)
 
 
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
