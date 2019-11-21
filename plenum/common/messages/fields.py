@@ -239,7 +239,7 @@ class IterableField(FieldBase):
                 if not m > 0:
                     raise PlenumValueError(k, m, '> 0')
 
-        self.inner_field_type = inner_field_type
+        self.validate_inner_field = inner_field_type.validate
         self.min_length = min_length
         self.max_length = max_length
         super().__init__(**kwargs)
@@ -253,7 +253,7 @@ class IterableField(FieldBase):
                 return 'length should be at most {}'.format(self.max_length)
 
         for v in val:
-            check_er = self.inner_field_type.validate(v)
+            check_er = self.validate_inner_field(v)
             if check_er:
                 return check_er
 
@@ -709,6 +709,11 @@ class ProtocolVersionField(FieldBase):
 class BatchIDField(FieldBase):
     _base_types = (list, tuple, dict)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._validate_non_negative_number_field = NonNegativeNumberField().validate
+        self._validate_non_empty_string_field = NonEmptyStringField().validate
+
     def _specific_validation(self, val):
         if len(val) != 4:
             return 'should have size of 4'
@@ -719,11 +724,11 @@ class BatchIDField(FieldBase):
         else:
             bid = BatchID(*val)
 
-        for validator, value in ((NonNegativeNumberField().validate, bid.view_no),
-                                 (NonNegativeNumberField().validate, bid.pp_view_no),
-                                 (NonNegativeNumberField().validate, bid.pp_seq_no),
-                                 (NonEmptyStringField().validate, bid.pp_digest)):
-            err = validator(value)
+        for validate, value in ((self._validate_non_negative_number_field, bid.view_no),
+                                 (self._validate_non_negative_number_field, bid.pp_view_no),
+                                 (self._validate_non_negative_number_field, bid.pp_seq_no),
+                                 (self._validate_non_empty_string_field, bid.pp_digest)):
+            err = validate(value)
             if err:
                 return err
 
