@@ -4,6 +4,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
+from plenum.server.consensus.consensus_shared_data import get_original_viewno
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
@@ -78,14 +79,15 @@ def checkPrePrepared(looper,
             non-primaries must be greater than or equal to 0;
             with faults in system.
             """
+            tm = get_utc_epoch()
             expectedPrePrepareRequest = PrePrepare(
                 instId,
                 primary.viewNo,
                 primary.lastPrePrepareSeqNo,
-                get_utc_epoch(),
+                tm,
                 [propagated1.digest],
                 init_discarded(),
-                Replica.batchDigest([propagated1, ]),
+                primary._ordering_service.generate_pp_digest([propagated1], primary.viewNo, tm),
                 DOMAIN_LEDGER_ID,
                 primary._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
                 primary._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
@@ -130,7 +132,9 @@ def checkPrePrepared(looper,
                                          primary._ordering_service.send_pre_prepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
-                              primary.batchDigest([propagated1, ])])
+                              primary._ordering_service.generate_pp_digest([propagated1],
+                                                                           get_original_viewno(PrePrepare(**param)),
+                                                                           param['ppTime'])])
 
             numOfMsgsWithZFN = 1
 
