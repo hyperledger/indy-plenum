@@ -51,15 +51,15 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
     def patched_sender(msg, dst=None, stat=None):
         if isinstance(msg, PrePrepare) and msg:
             old_sender(msg, [n.name for n in other_nodes], stat)
-            msg.ppTime += 1
+            msg.ppTime = 0
             old_sender(msg, [slow_node.name], stat)
 
-    # monkeypatch.setattr(malicious_node.master_replica._ordering_service,
-    #                     '_send',
-    #                     patched_sender)
-    # monkeypatch.setattr(slow_node.master_replica._ordering_service,
-    #                         '_validate_applied_pre_prepare',
-    #                         lambda a, b, c, d: None)
+    monkeypatch.setattr(malicious_node.master_replica._ordering_service,
+                        '_send',
+                        patched_sender)
+    monkeypatch.setattr(slow_node.master_replica._ordering_service,
+                            '_validate_applied_pre_prepare',
+                            lambda a, b, c: None)
     next_seq_no = slow_node.master_last_ordered_3PC[1] + 1
     resp_task = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_steward)
 
@@ -76,6 +76,9 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
     # for n in txnPoolNodeSet:
     #     for ledger in n.db_manager._ledgers.values():
     #         print("{} {}".format(n.name, ledger.root_hash))
+
+    for n in txnPoolNodeSet:
+        n.view_changer.on_master_degradation()
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=start_view_no + 1)
 
