@@ -1,23 +1,17 @@
 from typing import List
-
-from plenum.common.constants import TXN_TYPE
-from plenum.common.messages.internal_messages import PreNeedViewChange, NeedViewChange
-from plenum.common.util import getMaxFailures
-from plenum.server.consensus.instance_change_service import InstanceChangeService
-from plenum.server.consensus.message_request.message_req_service import MessageReqService
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
-from plenum.server.replica_freshness_checker import FreshnessChecker
 from orderedset._orderedset import OrderedSet
 
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE
 from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.messages.internal_messages import PreNeedViewChange, NeedViewChange
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.instance_change_service import InstanceChangeService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector

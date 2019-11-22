@@ -1,12 +1,9 @@
-import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Set
 from functools import partial
 
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.quorums import Quorums
-from storage.kv_store import KeyValueStorage
 from stp_core.common.log import getlogger
 
 from plenum.server.suspicion_codes import Suspicions, Suspicion
