@@ -2383,6 +2383,8 @@ class OrderingService:
         self._send(rep, dst=[getNodeName(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
+        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+            return
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
@@ -2390,13 +2392,14 @@ class OrderingService:
         for pp_dict in msg.preprepares:
             try:
                 pp = PrePrepare(**pp_dict)
-                if (pp.viewNo, pp.ppSeqNo, pp.digest) not in self.old_view_preprepares:
+                if self._data.new_view is None or \
+                        preprepare_to_batch_id(pp) not in self._data.new_view.batches:
                     continue
                 self._process_pre_prepare_from_old_view(pp)
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
-        if self.lastPrePrepareSeqNo >= self._data.new_view.batches[-1].pp_seq_no:
+        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert >= self.lastPrePrepareSeqNo:
             self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
