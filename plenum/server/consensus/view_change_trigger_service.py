@@ -37,7 +37,7 @@ class ViewChangeTriggerService:
         self._config = getConfig()
         self._logger = getlogger()
 
-        self.instance_changes = \
+        self._instance_changes = \
             InstanceChangeProvider(outdated_ic_interval=self._config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
                                    node_status_db=db_manager.get_store(NODE_STATUS_DB_LABEL),
                                    time_provider=timer.get_current_time)
@@ -85,7 +85,7 @@ class ViewChangeTriggerService:
         #  found then change view even if master not degraded
         self._on_verified_instance_change_msg(msg, frm)
 
-        if self.instance_changes.has_inst_chng_from(msg.viewNo, self.name):
+        if self._instance_changes.has_inst_chng_from(msg.viewNo, self.name):
             self._logger.info("{} received instance change message {} "
                               "but has already sent an instance change message".format(self, msg))
         elif not self._is_master_degraded():
@@ -97,7 +97,7 @@ class ViewChangeTriggerService:
             self._send_instance_change(msg.viewNo, Suspicions.PRIMARY_DEGRADED)
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
-        self.instance_changes.remove_view(self._data.view_no)
+        self._instance_changes.remove_view(self._data.view_no)
 
     def _send_instance_change(self, view_no: int, suspicion: Suspicion):
         self._logger.info("{}{} sending an instance change with view_no {} since {}".
@@ -110,8 +110,8 @@ class ViewChangeTriggerService:
     def _on_verified_instance_change_msg(self, msg: InstanceChange, frm: str):
         view_no = msg.viewNo
 
-        if not self.instance_changes.has_inst_chng_from(view_no, frm):
-            self.instance_changes.add_vote(msg, frm)
+        if not self._instance_changes.has_inst_chng_from(view_no, frm):
+            self._instance_changes.add_vote(msg, frm)
             if view_no > self._data.view_no:
                 self._try_start_view_change_by_instance_change(view_no)
 
@@ -129,7 +129,7 @@ class ViewChangeTriggerService:
 
     def _can_view_change(self, proposed_view_no: int) -> (bool, str):
         quorum = self._data.quorums.view_change.value
-        if not self.instance_changes.has_quorum(proposed_view_no, quorum):
+        if not self._instance_changes.has_quorum(proposed_view_no, quorum):
             return False, '{} has no quorum for view {}'.format(self, proposed_view_no)
         if not proposed_view_no > self._data.view_no:
             return False, '{} is in higher view more than {}'.format(self, proposed_view_no)

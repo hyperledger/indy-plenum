@@ -160,7 +160,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
         self._view_change_service = self._init_view_change_service()
-        self._instance_change_service = self._init_view_change_trigger_service()
+        self._view_change_trigger_service = self._init_view_change_trigger_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -192,8 +192,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service.cleanup()
         self._checkpointer.cleanup()
         self._view_change_service.cleanup()
-        if self._instance_change_service is not None:
-            self._instance_change_service.cleanup()
+        if self._view_change_trigger_service is not None:
+            self._view_change_trigger_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 

@@ -4,6 +4,7 @@ import pytest
 
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
+from plenum.test.view_change.helper import node_received_instance_changes_count
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 
@@ -22,9 +23,8 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
     lost_pr_calls = partitioned_node.spylog.count(
         partitioned_node.lost_master_primary.__name__)
 
-    recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
-        if node != partitioned_node and node != pr_node}
+    recv_inst_chg_calls = {node.name: node_received_instance_changes_count(node) for node in txnPoolNodeSet
+                           if node != partitioned_node and node != pr_node}
 
     view_no = checkViewNoForNodes(txnPoolNodeSet)
 
@@ -48,8 +48,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
             partitioned_node.lost_master_primary.__name__) > lost_pr_calls
         for node in txnPoolNodeSet:
             if node != partitioned_node and node != pr_node:
-                assert node.view_changer.spylog.count(
-                    node.view_changer.process_instance_change_msg.__name__) > recv_inst_chg_calls[node.name]
+                assert node_received_instance_changes_count(node) > recv_inst_chg_calls[node.name]
 
     looper.run(eventually(chk1, retryWait=1, timeout=10))
 

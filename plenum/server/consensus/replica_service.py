@@ -56,8 +56,8 @@ class ReplicaService:
                                                              bus=bus,
                                                              network=network,
                                                              db_manager=write_manager.database_manager,
-                                                             stasher=self.stasher,
-                                                             is_master_degraded=lambda: False)
+                                                             is_master_degraded=lambda: False,
+                                                             stasher=self.stasher)
         self._message_requestor = MessageReqService(self._data, bus, network)
 
         self._add_ledgers()

@@ -16,6 +16,7 @@ from plenum.server.consensus.message_request.message_req_service import MessageR
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
@@ -431,6 +432,19 @@ class TestReplica(replica.Replica):
                                      stasher=self.stasher,
                                      primaries_selector=self.node.primaries_selector)
 
+    def _init_view_change_trigger_service(self) -> Optional[ViewChangeTriggerService]:
+        if not self.isMaster:
+            return
+
+        return TestViewChangeTriggerService(data=self._consensus_data,
+                                            timer=self.node.timer,
+                                            bus=self.internal_bus,
+                                            network=self._external_bus,
+                                            db_manager=self.node.db_manager,
+                                            stasher=self.stasher,
+                                            is_master_degraded=self.node.monitor.isMasterDegraded,
+                                            metrics=self.metrics)
+
     def _init_message_req_service(self) -> MessageReqService:
         return TestMessageReqService(data=self._consensus_data,
                                      bus=self.internal_bus,
@@ -505,6 +519,16 @@ view_change_service_spyables = [
 
 @spyable(methods=view_change_service_spyables)
 class TestViewChangeService(ViewChangeService):
+    pass
+
+
+view_change_trigger_service_spyables = [
+    ViewChangeTriggerService.process_instance_change
+]
+
+
+@spyable(methods=view_change_trigger_service_spyables)
+class TestViewChangeTriggerService(ViewChangeTriggerService):
     pass
 
 

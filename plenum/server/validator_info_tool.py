@@ -466,7 +466,7 @@ class ValidatorNodeInfoTool:
 
     def _get_ic_queue(self):
         ic_queue = {}
-        for view_no, votes in self._node.view_changer.instance_changes.items():
+        for view_no, votes in self._node.master_replica._view_change_trigger_service._instance_changes.items():
             ics = {voter: {"reason": vote.reason}
                    for voter, vote in votes.items()}
             ic_queue[view_no] = {"Voters": self._prepare_for_json(ics)}

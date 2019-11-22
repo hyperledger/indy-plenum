@@ -388,3 +388,8 @@ def check_prepare_certificate(nodes, ppSeqNo):
         quorum = node.master_replica.quorums.prepare.value
         assert node.master_replica._ordering_service.prepares.hasQuorum(ThreePhaseKey(*key),
                                                                         quorum)
+
+
+def node_received_instance_changes_count(node):
+    vct_service = node.master_replica._view_change_trigger_service
+    return vct_service.spylog.count(vct_service.process_instance_change.__name__)
