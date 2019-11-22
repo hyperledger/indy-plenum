@@ -87,7 +87,7 @@ def checkPrePrepared(looper,
                 tm,
                 [propagated1.digest],
                 init_discarded(),
-                primary._ordering_service.generate_pp_digest([propagated1], primary.viewNo, tm),
+                primary._ordering_service.generate_pp_digest([propagated1.digest], primary.viewNo, tm),
                 DOMAIN_LEDGER_ID,
                 primary._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
                 primary._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
@@ -131,9 +131,9 @@ def checkPrePrepared(looper,
                                          primary._ordering_service.send_pre_prepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
-                              primary._ordering_service.generate_pp_digest([propagated1],
-                                                                           get_original_viewno(PrePrepare(**param)),
-                                                                           param['ppTime'])])
+                              primary._ordering_service.generate_pp_digest([propagated1.digest],
+                                                                           get_original_viewno(param['ppReq']),
+                                                                           param['ppReq'].ppTime)])
 
             numOfMsgsWithZFN = 1
 
