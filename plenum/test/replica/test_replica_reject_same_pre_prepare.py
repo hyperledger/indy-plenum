@@ -100,8 +100,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         primaryRepl._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
         primaryRepl._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
         0,
-        True,
-        []
+        True
     )
 
     logger.debug("""Checking whether all the non primary replicas have received

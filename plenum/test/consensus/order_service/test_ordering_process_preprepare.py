@@ -128,37 +128,10 @@ def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
 def test_suspicious_on_wrong_sub_seq_no(orderer_with_requests, pre_prepare):
     pre_prepare.sub_seq_no = 1
     assert PP_SUB_SEQ_NO_WRONG == orderer_with_requests._process_valid_preprepare(pre_prepare,
-                                                                                   orderer_with_requests.primary_name)
+                                                                                  orderer_with_requests.primary_name)
 
 
 def test_suspicious_on_not_final(orderer_with_requests, pre_prepare):
     pre_prepare.final = False
     assert PP_NOT_FINAL == orderer_with_requests._process_valid_preprepare(pre_prepare,
                                                                            orderer_with_requests.primary_name)
-
-
-def test_suspicious_on_wrong_list_of_primaries(orderer_with_requests,
-                                               state_roots, txn_roots, multi_sig, fake_requests):
-    if not orderer_with_requests.is_master:
-        return
-    handler = Mock()
-    orderer_with_requests._bus.subscribe(RaisedSuspicion, handler)
-    pre_prepare_params = create_pre_prepare_params(state_root=state_roots[DOMAIN_LEDGER_ID],
-                                                   ledger_id=DOMAIN_LEDGER_ID,
-                                                   txn_root=txn_roots[DOMAIN_LEDGER_ID],
-                                                   bls_multi_sig=multi_sig,
-                                                   view_no=orderer_with_requests.view_no,
-                                                   inst_id=0,
-                                                   pool_state_root=state_roots[POOL_LEDGER_ID],
-                                                   audit_txn_root=state_roots[AUDIT_LEDGER_ID],
-                                                   reqs=fake_requests,
-                                                   pp_seq_no=1,
-                                                   primaries=["Some", "Other", "Primaries"])
-    pre_prepare = PrePrepare(*pre_prepare_params)
-    _register_pp_ts(orderer_with_requests, pre_prepare, orderer_with_requests.primary_name)
-
-    orderer_with_requests.process_preprepare(pre_prepare, orderer_with_requests.primary_name)
-    check_suspicious(handler, RaisedSuspicion(inst_id=orderer_with_requests._data.inst_id,
-                                              ex=SuspiciousNode(orderer_with_requests.primary_name,
-                                                                Suspicions.PPR_WITH_WRONG_PRIMARIES,
-                                                                pre_prepare)))

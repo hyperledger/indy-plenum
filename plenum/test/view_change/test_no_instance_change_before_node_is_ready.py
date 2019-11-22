@@ -21,10 +21,10 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     """
     Test steps:
     1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
-    2. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
+    2. wait for more than NEW_VIEW_TIMEOUT (a timeout for initial check for disconnected primary)
     3. make sure no InstanceChange sent by the new node
     4. add the node to the pool (send NODE txn) and make sure that the node is ready now.
-    5. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
+    5. wait for more than NEW_VIEW_TIMEOUT (a timeout for initial check for disconnected primary)
     6. make sure no InstanceChange sent by the new node
     """
 
@@ -34,8 +34,8 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
                              tdir, tconf, allPluginsPath,
                              "TestTheta")
 
-    # 2. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
-    looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 2)
+    # 2. wait for more than NEW_VIEW_TIMEOUT (a timeout for initial check for disconnected primary)
+    looper.runFor(tconf.NEW_VIEW_TIMEOUT + 2)
 
     # 3. make sure no InstanceChange sent by the new node
     assert 0 == new_node.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
@@ -53,8 +53,8 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
                      bls_key,
                      key_proof)
 
-    # 5. wait for more than VIEW_CHANGE_TIMEOUT (a timeout for initial check for disconnected primary)
-    looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 2)
+    # 5. wait for more than NEW_VIEW_TIMEOUT (a timeout for initial check for disconnected primary)
+    looper.runFor(tconf.NEW_VIEW_TIMEOUT + 2)
 
     # 6. make sure no InstanceChange sent by the new node
     assert 0 == new_node.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
