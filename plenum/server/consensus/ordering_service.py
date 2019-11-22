@@ -1189,10 +1189,6 @@ class OrderingService:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
 
-        result = self._validate_primaries(pre_prepare)
-        if result != PROCESS:
-            return PP_WRONG_PRIMARIES
-
         if self.is_master:
             if pre_prepare.stateRootHash != self.get_state_root_hash(pre_prepare.ledgerId):
                 return PP_APPLY_WRONG_STATE

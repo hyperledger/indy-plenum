@@ -42,7 +42,7 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
     slow_node = txnPoolNodeSet[-2]
     malicious_node = txnPoolNodeSet[-1]
     other_nodes = [n for n in txnPoolNodeSet if n not in [slow_node, malicious_node]]
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.NEW_VIEW_TIMEOUT)
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(txnPoolNodeSet))
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=timeout)
     sdk_send_random_and_check(looper, txnPoolNodeSet,
