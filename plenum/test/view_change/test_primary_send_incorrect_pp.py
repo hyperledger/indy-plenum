@@ -51,8 +51,10 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
     def patched_sender(msg, dst=None, stat=None):
         if isinstance(msg, PrePrepare) and msg:
             old_sender(msg, [n.name for n in other_nodes], stat)
-            msg.ppTime += 1
-            old_sender(msg, [slow_node.name], stat)
+            pp = PrePrepare(**msg._asdict())
+            pp.ppTime += 1
+            slow_node.master_replica._ordering_service.process_preprepare(pp, "{}:0".format(malicious_node.name))
+            # old_sender(msg, [slow_node.name], stat)
 
     monkeypatch.setattr(malicious_node.master_replica._ordering_service,
                         '_send',

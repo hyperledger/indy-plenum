@@ -2279,7 +2279,8 @@ class OrderingService:
                 return commit
         return None
 
-    def generate_pp_digest(self, req_digests, original_view_no, pp_time):
+    @staticmethod
+    def generate_pp_digest(req_digests, original_view_no, pp_time):
         return sha256(serialize_msg_for_signing([original_view_no, pp_time, *req_digests])).hexdigest()
 
     def replica_batch_digest(self, reqs):
