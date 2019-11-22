@@ -1,6 +1,7 @@
 import pytest
 
 from common.exceptions import PlenumValueError
+from plenum.server.consensus.consensus_shared_data import get_original_viewno
 from plenum.server.consensus.ordering_service import OrderingService
 
 nodeCount = 4
@@ -56,9 +57,9 @@ def test_request_prepare_doesnt_crash_when_primary_is_not_connected(orderer):
 
 
 def test_pp_storages_ordering(pre_prepare, orderer: OrderingService):
-    orderer.self.generate_pp_digest(reqs,
-                                         get_original_viewno(pre_prepare),
-                                         pre_prepare.ppTime)
+    orderer.generate_pp_digest(pre_prepare.reqIdr,
+                               get_original_viewno(pre_prepare),
+                               pre_prepare.ppTime)
 
 
 
