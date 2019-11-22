@@ -36,6 +36,10 @@ class ViewChangerDataProvider(ABC):
         pass
 
     @abstractmethod
+    def is_primary_disconnected(self) -> bool:
+        pass
+
+    @abstractmethod
     def state_freshness(self) -> float:
         pass
 
@@ -117,14 +121,39 @@ class ViewChanger():
             return
         self.propose_view_change(Suspicions.STATE_SIGS_ARE_NOT_UPDATED)
 
+    def _propose_view_change_if_needed(self, proposed_view_no, suspicion):
+        # if scheduled action will be awakened after view change completed,
+        # then this action must be stopped also.
+        if self.view_no < proposed_view_no and self.provider.is_primary_disconnected():
+            # Resend the same instance change message if we are not archive
+            # InstanceChange quorum
+            logger.info("Resend instance change message to all recipients")
+            self.propose_view_change(suspicion)
+            self._timer.schedule(self.config.NEW_VIEW_TIMEOUT,
+                                 self.instance_change_action)
+            logger.info("Count of rounds without quorum of "
+                        "instance change messages: {}".format(self.instance_change_rounds))
+            self.instance_change_rounds += 1
+        else:
+            # ViewChange procedure was started, therefore stop scheduling
+            # resending instanceChange messages
+            logger.info("Stop scheduling instance change resending")
+            self._timer.cancel(self.instance_change_action)
+            self.instance_change_action = None
+            self.instance_change_rounds = 0
+
     def on_primary_loss(self):
         self.propose_view_change(Suspicions.PRIMARY_DISCONNECTED)
+        proposed_view_no = self.view_no
+        if not self.view_change_in_progress:
+            proposed_view_no += 1
         if self.instance_change_action:
             # It's an action, scheduled for previous instanceChange round
             logger.info("Stop previous instance change resending schedule")
             self._timer.cancel(self.instance_change_action)
             self.instance_change_rounds = 0
-        self.instance_change_action = partial(self.propose_view_change,
+        self.instance_change_action = partial(self._propose_view_change_if_needed,
+                                              proposed_view_no,
                                               Suspicions.PRIMARY_DISCONNECTED)
         self._timer.schedule(self.config.NEW_VIEW_TIMEOUT,
                              self.instance_change_action)

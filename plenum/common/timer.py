@@ -16,7 +16,7 @@ class TimerService(ABC):
         pass
 
     @abstractmethod
-    def schedule(self, delay: int, callback: Callable):
+    def schedule(self, delay: float, callback: Callable):
         pass
 
     @abstractmethod
@@ -58,7 +58,7 @@ class QueueTimer(TimerService):
 
 
 class RepeatingTimer:
-    def __init__(self, timer: TimerService, interval: int, callback: Callable, active: bool = True):
+    def __init__(self, timer: TimerService, interval: float, callback: Callable, active: bool = True):
         @wraps(callback)
         def wrapped_callback():
             if not self._active:
@@ -87,7 +87,7 @@ class RepeatingTimer:
         self._active = False
         self._timer.cancel(self._callback)
 
-    def update_interval(self, interval):
+    def update_interval(self, interval: float):
         if interval <= 0:
             logger.debug("RepeatingTimer - incorrect interval {}".format(interval))
             return

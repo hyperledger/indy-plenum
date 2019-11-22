@@ -94,7 +94,7 @@ class InstanceChangeService:
         else:
             self._logger.display("{}{} found master degraded after "
                                  "receiving instance change message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
-            self._send_instance_change(msg.viewNo)
+            self._send_instance_change(msg.viewNo, Suspicions.PRIMARY_DEGRADED)
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
         self.instance_changes.remove_view(self._data.view_no)

@@ -13,7 +13,7 @@ from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 
 
-@pytest.fixture(params=[(0, 0.6), (1, 2)])
+@pytest.fixture(params=[(0, 0.6)])
 def latency(request, tconf):
     min_latency, max_latency = tuple(int(param * tconf.NEW_VIEW_TIMEOUT) for param in request.param)
     return min_latency, max_latency
@@ -28,7 +28,7 @@ def filter(request):
     return request.param[0], request.param[1]
 
 
-@pytest.fixture(params=range(150, 200))
+@pytest.fixture(params=range(100))
 def default_random(request):
     return DefaultSimRandom(request.param)
 

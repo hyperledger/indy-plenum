@@ -21,6 +21,12 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def node_mode(self) -> Mode:
         return self._node.mode
 
+    def is_primary_disconnected(self) -> bool:
+        return \
+            self._node.primaries_disconnection_times[self._node.master_replica.instId] \
+            and self._node.master_primary_name \
+            and self._node.master_primary_name not in self._node.nodestack.conns
+
     def state_freshness(self) -> float:
         replica = self._node.master_replica
         timestamps = replica.get_ledgers_last_update_time().values()

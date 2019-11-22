@@ -19,8 +19,8 @@ class SimNetwork:
         self._serialize_deserialize = serialize_deserialize \
             if serialize_deserialize is not None \
             else lambda x: x
-        self._min_latency = 1
-        self._max_latency = 500
+        self._min_latency = 0.01
+        self._max_latency = 0.5
         self._filters = {}
         self._logger = getLogger()
         self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
