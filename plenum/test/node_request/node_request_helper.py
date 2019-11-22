@@ -158,7 +158,9 @@ def checkPrePrepared(looper,
                                      npr._ordering_service._add_to_pre_prepares)
                           if param['pp'].reqIdr[0] == propagated1.digest
                           and param['pp'].digest ==
-                          primary.batchDigest([propagated1, ])])
+                          OrderingService.generate_pp_digest([propagated1.digest, ],
+                                                             get_original_viewno(param['pp']),
+                                                             param['pp'].ppTime)])
 
                 numOfMsgsWithZFN = 1
                 numOfMsgsWithFaults = 0
