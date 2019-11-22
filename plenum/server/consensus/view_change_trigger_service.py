@@ -3,7 +3,7 @@ from typing import Callable
 from plenum.common.config_util import getConfig
 from plenum.common.constants import NODE_STATUS_DB_LABEL, VIEW_CHANGE_PREFIX
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import VoteForViewChange, PreNeedViewChange, NewViewAccepted
+from plenum.common.messages.internal_messages import VoteForViewChange, NodeNeedViewChange, NewViewAccepted
 from plenum.common.messages.node_messages import InstanceChange
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
@@ -16,7 +16,7 @@ from plenum.server.view_change.instance_change_provider import InstanceChangePro
 from stp_core.common.log import getlogger
 
 
-class InstanceChangeService:
+class ViewChangeTriggerService:
     def __init__(self,
                  data: ConsensusSharedData,
                  timer: TimerService,
@@ -122,7 +122,7 @@ class InstanceChangeService:
         if can:
             self._logger.display("{}{} initiating a view change to {} from {}".
                                  format(VIEW_CHANGE_PREFIX, self, proposed_view_no, self._data.view_no))
-            self._bus.send(PreNeedViewChange(view_no=proposed_view_no))
+            self._bus.send(NodeNeedViewChange(view_no=proposed_view_no))
         else:
             self._logger.info(why_not)
         return can

@@ -5,13 +5,13 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import PreNeedViewChange, NeedViewChange
+from plenum.common.messages.internal_messages import NodeNeedViewChange, NeedViewChange
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.instance_change_service import InstanceChangeService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector
@@ -51,13 +51,13 @@ class ReplicaService:
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
                                                write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network, self.stasher, primaries_selector)
-        self._instance_changer = InstanceChangeService(data=self._data,
-                                                       timer=timer,
-                                                       bus=bus,
-                                                       network=network,
-                                                       db_manager=write_manager.database_manager,
-                                                       stasher=self.stasher,
-                                                       is_master_degraded=lambda: False)
+        self._view_change_trigger = ViewChangeTriggerService(data=self._data,
+                                                             timer=timer,
+                                                             bus=bus,
+                                                             network=network,
+                                                             db_manager=write_manager.database_manager,
+                                                             stasher=self.stasher,
+                                                             is_master_degraded=lambda: False)
         self._message_requestor = MessageReqService(self._data, bus, network)
 
         self._add_ledgers()
@@ -73,7 +73,7 @@ class ReplicaService:
 
         # Simulate node behavior
         self._internal_bus = bus
-        self._internal_bus.subscribe(PreNeedViewChange, self.process_pre_need_view_change)
+        self._internal_bus.subscribe(NodeNeedViewChange, self.process_node_need_view_change)
 
     def ready_for_3pc(self, req_key):
         fin_req = self._data.requests[req_key.digest].finalised
@@ -93,5 +93,5 @@ class ReplicaService:
     def __repr__(self):
         return self.name
 
-    def process_pre_need_view_change(self, msg: PreNeedViewChange):
+    def process_node_need_view_change(self, msg: NodeNeedViewChange):
         self._internal_bus.send(NeedViewChange(msg.view_no))

@@ -25,7 +25,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.instance_change_service import InstanceChangeService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.view_change_service import ViewChangeService
@@ -160,7 +160,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
         self._view_change_service = self._init_view_change_service()
-        self._instance_change_service = self._init_instance_change_service()
+        self._instance_change_service = self._init_view_change_trigger_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -707,18 +707,18 @@ class Replica(HasActionQueue, MessageProcessor):
                                  stasher=self.stasher,
                                  primaries_selector=self.node.primaries_selector)
 
-    def _init_instance_change_service(self) -> Optional[InstanceChangeService]:
+    def _init_view_change_trigger_service(self) -> Optional[ViewChangeTriggerService]:
         if not self.isMaster:
             return None
 
-        return InstanceChangeService(data=self._consensus_data,
-                                     timer=self.node.timer,
-                                     bus=self.internal_bus,
-                                     network=self._external_bus,
-                                     db_manager=self.node.db_manager,
-                                     stasher=self.stasher,
-                                     metrics=self.metrics,
-                                     is_master_degraded=self.node.monitor.isMasterDegraded)
+        return ViewChangeTriggerService(data=self._consensus_data,
+                                        timer=self.node.timer,
+                                        bus=self.internal_bus,
+                                        network=self._external_bus,
+                                        db_manager=self.node.db_manager,
+                                        stasher=self.stasher,
+                                        metrics=self.metrics,
+                                        is_master_degraded=self.node.monitor.isMasterDegraded)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

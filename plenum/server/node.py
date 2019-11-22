@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
-    NeedViewChange, StartViewChange, PreNeedViewChange
+    NeedViewChange, StartViewChange, NodeNeedViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -3293,7 +3293,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
-    def _process_pre_need_view_change(self, msg: PreNeedViewChange):
+    def _process_node_need_view_change(self, msg: NodeNeedViewChange):
         self.on_view_change_start()
         self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
 
@@ -3302,7 +3302,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: This conditional looks extremely suspicious - probably we should just
         #  stash InstanceChange messages during catch up instead
         if Mode.is_done_syncing(self.mode):
-            self._process_pre_need_view_change(PreNeedViewChange(view_no=msg.view_no))
+            self._process_node_need_view_change(NodeNeedViewChange(view_no=msg.view_no))
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.monitor.reset()
@@ -3316,8 +3316,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.replicas.subscribe_to_internal_bus(NeedMasterCatchup,
                                                 self._process_start_master_catchup_msg,
                                                 self.master_replica.instId)
-        self.replicas.subscribe_to_internal_bus(PreNeedViewChange,
-                                                self._process_pre_need_view_change,
+        self.replicas.subscribe_to_internal_bus(NodeNeedViewChange,
+                                                self._process_node_need_view_change,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
                                                 self._process_new_view_accepted,
