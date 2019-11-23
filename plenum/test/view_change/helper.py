@@ -392,4 +392,4 @@ def check_prepare_certificate(nodes, ppSeqNo):
 
 def node_received_instance_changes_count(node):
     vct_service = node.master_replica._view_change_trigger_service
-    return vct_service.spylog.count(vct_service.process_instance_change.__name__)
+    return vct_service.spylog.count(vct_service.process_instance_change)

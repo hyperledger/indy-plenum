@@ -60,6 +60,7 @@ class FakeNode:
         self.totalNodes = len(self.allNodeNames)
         self.poolManager = FakeSomething(node_names_ordered_by_rank=lambda: node_names)
         self.mode = Mode.starting
+        self.monitor = FakeSomething(isMasterDegraded=lambda: False)
         self.config = config or getConfigOnce()
         self.nodeStatusDB = None
         self.quorums = Quorums(self.totalNodes)
@@ -79,7 +80,6 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.monitor = FakeSomething(isMasterDegraded=lambda: False)
         self.view_changer = create_view_changer(self)
         self.metrics = NullMetricsCollector()
 

@@ -70,9 +70,9 @@ class ViewChangeTriggerService:
 
     def process_instance_change(self, msg: InstanceChange, frm: str):
         # TODO: Do we really need this?
-        # if frm not in self._network.connecteds:
-        #     return DISCARD, "instance change request: {} from {} which is not in connected list: {}".\
-        #         format(msg, frm, self._network.connecteds)
+        if frm.rsplit(':', maxsplit=1)[0] not in self._network.connecteds:
+            return DISCARD, "instance change request: {} from {} which is not in connected list: {}".\
+                format(msg, frm, self._network.connecteds)
 
         self._logger.info("{} received instance change request: {} from {}".format(self, msg, frm))
 

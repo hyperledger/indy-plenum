@@ -523,7 +523,8 @@ class TestViewChangeService(ViewChangeService):
 
 
 view_change_trigger_service_spyables = [
-    ViewChangeTriggerService.process_instance_change
+    ViewChangeTriggerService.process_instance_change,
+    ViewChangeTriggerService._send_instance_change
 ]
 
 

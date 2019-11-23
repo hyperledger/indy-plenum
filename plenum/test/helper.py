@@ -412,6 +412,18 @@ def checkDiscardMsg(processors, discardedMsg,
         assert reasonRegexp in last['reason']
 
 
+def checkMasterReplicaDiscardMsg(processors, discardedMsg,
+                           reasonRegexp, *exclude):
+    if not exclude:
+        exclude = []
+    for p in filterNodeSet(processors, exclude):
+        stasher = p.master_replica.stasher
+        last = stasher.spylog.getLastParams(stasher.discard, required=False)
+        assert last
+        assert last['msg'] == discardedMsg
+        assert reasonRegexp in last['reason']
+
+
 def countDiscarded(processor, reasonPat):
     c = 0
     for entry in processor.spylog.getAll(processor.discard):

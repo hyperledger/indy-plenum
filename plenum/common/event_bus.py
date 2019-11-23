@@ -18,7 +18,7 @@ class ExternalBus(Router):
         self._send_handler = send_handler
 
         # list of connected nodes
-        self._connecteds = {}
+        self._connecteds = set()
 
     @property
     def connecteds(self):
@@ -30,5 +30,5 @@ class ExternalBus(Router):
     def process_incoming(self, message: Any, frm: str):
         self._route(message, frm)
 
-    def update_connecteds(self, connecteds: dict):
+    def update_connecteds(self, connecteds: set):
         self._connecteds = connecteds

@@ -10,6 +10,8 @@ from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrim
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
+from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_helper import generateName, getNodeName
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.checkpoints.helper import cp_digest
@@ -27,6 +29,15 @@ def view_change_service_builder(consensus_data, timer, internal_bus, external_bu
         digest = cp_digest(DEFAULT_STABLE_CHKP)
         cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=DEFAULT_STABLE_CHKP, digest=digest)
         data.checkpoints.append(cp)
+
+        ViewChangeTriggerService(data=data,
+                                 timer=timer,
+                                 bus=internal_bus,
+                                 network=external_bus,
+                                 db_manager=DatabaseManager(),
+                                 stasher=stasher,
+                                 is_master_degraded=lambda: False)
+
         primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
         service = ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
         return service

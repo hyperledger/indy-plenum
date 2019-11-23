@@ -15,6 +15,7 @@ from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
@@ -65,6 +66,18 @@ def view_change_service(internal_bus, external_bus, timer, stasher, validators):
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
     primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
     return ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
+
+
+@pytest.fixture
+def view_change_trigger_service(internal_bus, external_bus, timer, stasher, validators):
+    data = ConsensusSharedData("some_name", genNodeNames(4), 0)
+    return ViewChangeTriggerService(data=data,
+                                    timer=timer,
+                                    bus=internal_bus,
+                                    network=external_bus,
+                                    db_manager=DatabaseManager(),
+                                    stasher=stasher,
+                                    is_master_degraded=lambda: False)
 
 
 @pytest.fixture
@@ -131,8 +144,10 @@ def internal_bus():
 
 
 @pytest.fixture()
-def external_bus():
-    return MockNetwork()
+def external_bus(validators):
+    network = MockNetwork()
+    network.update_connecteds(set(validators))
+    return network
 
 
 @pytest.fixture()
