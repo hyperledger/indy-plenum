@@ -7,6 +7,7 @@ from ledger.ledger import Ledger
 from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE
 from plenum.common.event_bus import InternalBus, ExternalBus
+from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
@@ -43,7 +44,7 @@ class ReplicaService:
         self.config = getConfig()
         self.stasher = StashingRouter(self.config.REPLICA_STASH_LIMIT, buses=[bus, network])
         self._write_manager = write_manager
-        primaries_selector = RoundRobinNodeRegPrimariesSelector(self._write_manager.node_reg_handler)
+        self._primaries_selector = RoundRobinNodeRegPrimariesSelector(self._write_manager.node_reg_handler)
         self._orderer = OrderingService(data=self._data,
                                         timer=timer,
                                         bus=bus,
@@ -52,11 +53,11 @@ class ReplicaService:
                                         bls_bft_replica=bls_bft_replica,
                                         freshness_checker=FreshnessChecker(
                                             freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL),
-                                        primaries_selector=primaries_selector,
+                                        primaries_selector=self._primaries_selector,
                                         stasher=self.stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
                                                write_manager.database_manager)
-        self._view_changer = ViewChangeService(self._data, timer, bus, network, self.stasher, primaries_selector)
+        self._view_changer = ViewChangeService(self._data, timer, bus, network, self.stasher, self._primaries_selector)
         self._message_requestor = MessageReqService(self._data, bus, network)
 
         self._add_ledgers()

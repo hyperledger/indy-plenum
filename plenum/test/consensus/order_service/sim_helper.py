@@ -76,3 +76,5 @@ def order_requests(pool):
     primary_nodes = [n for n in pool.nodes if n._data.is_primary]
     if primary_nodes and not primary_nodes[0]._data.waiting_for_new_view:
         primary_nodes[0]._orderer.send_3pc_batch()
+    for n in pool.nodes:
+        n._orderer.dequeue_pre_prepares()

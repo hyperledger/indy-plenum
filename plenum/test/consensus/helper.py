@@ -1,3 +1,4 @@
+import copy
 from functools import partial
 from operator import itemgetter
 from typing import Dict, Type, List, Optional
@@ -11,6 +12,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import NODE, NYM, SEQ_NO_DB_LABEL
 from plenum.common.event_bus import InternalBus
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.internal_messages import NeedViewChange, CatchupFinished
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck, PrePrepare, Prepare, \
     Commit, MessageRep
@@ -141,19 +143,28 @@ class SimPool:
         self.validators = self._genesis_validators
         # ToDo: maybe it should be a random too?
         self._primary_name = self._genesis_validators[0]
-        self._generate_genensis_txns()
         self._internal_buses = {}
         self._node_votes = {}
+        self._ports = self._random.sample(range(9000, 9999), 2 * len(self._genesis_validators))
+        # ToDo: need to remove after implementation catchup_service (INDY-2148)
+        #  and when we can change pool after NODE txn
+        self._expected_node_reg = self.validators
+
+        # Actions
+        self._generate_genensis_txns()
 
         # Create nodes from genesis
         for name in self._genesis_validators:
             self.add_new_node(name)
 
+    def _get_free_port(self):
+        return self._ports.pop()
+
     def _generate_genensis_txns(self):
         self._genesis_txns = create_pool_txn_data(
             node_names=self._genesis_validators,
             crypto_factory=create_default_bls_crypto_factory(),
-            get_free_port=partial(self._random.integer, 9000, 9999))['txns']
+            get_free_port=self._get_free_port)['txns']
 
     def add_new_node(self, name):
         if name not in self.validators:
@@ -163,7 +174,7 @@ class SimPool:
         replica_name = generateName(name, 0)
         handler = partial(self.network._send_message, replica_name)
         write_manager = create_test_write_req_manager(name, self._genesis_txns)
-        write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = self.validators
+        write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = self._genesis_validators
         _internal_bus = InternalBus()
         self._internal_buses[name] = _internal_bus
         self._subscribe_to_internal_msgs(name)
@@ -201,16 +212,23 @@ class SimPool:
         self._node_votes.setdefault(msg.name, 0)
         self._node_votes[msg.name] += 1
         # ToDo: Maybe need to use real Quorum. For now it's just a prototype
-        if self._node_votes[msg.name] > self.f + 1 and msg.name not in self.validators:
-            self.add_new_node(msg.name)
+        if self._node_votes[msg.name] >= self._random.integer(0, self.size) and msg.name not in self._expected_node_reg:
+            # self.initiate_view_change()
+            self._expected_node_reg.append(msg.name)
+            # ToDo: uncomment this calls when INDY-2148 will be implemented
+            # self.add_new_node(msg.name)
+            # self._emulate_catchup(msg.name)
             self._node_votes.clear()
 
     def _process_remove_node(self, msg: NeedRemoveNode):
         self._node_votes.setdefault(msg.name, 0)
         self._node_votes[msg.name] += 1
         # ToDo: Maybe need to use real Quorum. For now it's just a prototype
-        if self._node_votes[msg.name] > self.f + 1 and msg.name in self.validators:
-            self.remove_node(msg.name)
+        if self._node_votes[msg.name] > self.f + 1 and msg.name in self._expected_node_reg:
+            # self.initiate_view_change()
+            self._expected_node_reg.remove(msg.name)
+            # ToDo: uncomment this call when INDY-2148 will be implemented
+            # self.remove_node(msg.name)
             self._node_votes.clear()
 
     def sim_send_requests(self, reqs):
@@ -221,6 +239,20 @@ class SimPool:
                 node._data.requests.mark_as_forwarded(req, faulty + 1)
                 node._data.requests.set_finalised(req)
                 node.ready_for_3pc(ReqKey(req.key))
+
+    def initiate_view_change(self, view_no=None):
+        view_no = view_no if view_no else self.view_no + 1
+        for _bus in self._internal_buses.values():
+            _bus.send(NeedViewChange(view_no))
+
+    # ToDo: remove it after catchup_service integration
+    def _emulate_catchup(self, node_name):
+        node_donor = self.nodes[0]
+        node_recipient = [n for n in self.nodes if n.name.split(':')[0] == node_name][0]
+        node_recipient._write_manager.database_manager = copy.copy(node_donor._write_manager.database_manager)
+        node_recipient._internal_bus.send(CatchupFinished(node_donor._orderer.last_ordered_3pc,
+                                                          node_donor._orderer.last_ordered_3pc))
+        node_recipient._write_manager.on_catchup_finished()
 
     @property
     def timer(self) -> MockTimer:
@@ -241,6 +273,12 @@ class SimPool:
     @property
     def f(self):
         return getMaxFailures(self.size)
+
+    @property
+    def view_no(self):
+        vs = set([n._data.view_no for n in self.nodes])
+        assert len(vs) == 1
+        return vs.pop()
 
     def _serialize_deserialize(self, msg):
         serialized_msg = Batched().prepForSending(msg)
