@@ -103,10 +103,12 @@ def checkPrePrepared(looper,
                                   getAllArgs(npr._ordering_service,
                                              npr._ordering_service.process_preprepare)
                                   if (param['pre_prepare'][0:3] +
-                                      param['pre_prepare'][4:],
+                                      param['pre_prepare'][4:6] +
+                                      param['pre_prepare'][7:],
                                       param['sender']) == (
                                       expectedPrePrepareRequest[0:3] +
-                                      expectedPrePrepareRequest[4:],
+                                      expectedPrePrepareRequest[4:6] +
+                                      param['pre_prepare'][7:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -118,7 +120,7 @@ def checkPrePrepared(looper,
                                          numOfMsgsWithZFN,
                                          numOfMsgsWithFaults))
             assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
-                'Non-primary sees correct number pre-prepares - {}'.format(passes)
+                '1Non-primary sees correct number pre-prepares - {}'.format(passes)
 
         def primarySentsCorrectNumberOfPREPREPAREs():
             """
@@ -172,7 +174,7 @@ def checkPrePrepared(looper,
                                      numOfMsgsWithFaults)
 
             assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
-                'Non-primary receives correct number of pre-prepare -- {}'.format(passes)
+                '2Non-primary receives correct number of pre-prepare -- {}'.format(passes)
 
         primarySeesCorrectNumberOfPREPREPAREs()
         nonPrimarySeesCorrectNumberOfPREPREPAREs()
