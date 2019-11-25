@@ -2385,6 +2385,7 @@ class OrderingService:
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
         if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+            self._reordered_in_new_view()
             return
         result, reason = self._validate(msg)
         if result != PROCESS:
@@ -2401,7 +2402,7 @@ class OrderingService:
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
-        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert >= self.lastPrePrepareSeqNo:
+        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
             self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
