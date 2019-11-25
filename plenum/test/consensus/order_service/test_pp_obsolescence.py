@@ -4,6 +4,7 @@ from plenum.common.util import SortedDict
 from plenum.common.messages.node_messages import PrePrepare, Commit
 
 # from plenum.test.replica.conftest import *
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.replica_helper import generateName
 from plenum.test.consensus.order_service.conftest import primary_orderer as _primary_orderer
 from plenum.test.helper import MockTimestamp, create_prepare, generate_state_root, create_commit_no_bls_sig
@@ -79,6 +80,7 @@ def pp(primary_orderer, ts_now, inst_id):
         ppSeqNo=(primary_orderer.last_ordered_3pc[1] + 1),
         ppTime=ts_now,
         reqIdr=tuple(),
+        digest=OrderingService.generate_pp_digest([], primary_orderer.view_no, ts_now),
         auditTxnRootHash="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4"
     )
 
