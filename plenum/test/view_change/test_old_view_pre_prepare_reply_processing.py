@@ -1,6 +1,7 @@
 import pytest
 
-from plenum.common.messages.node_messages import OldViewPrePrepareReply
+from plenum.common.messages.node_messages import OldViewPrePrepareReply, PrePrepare
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.test.delayers import lsDelay, msg_rep_delay, ppDelay, old_view_pp_request_delay
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
@@ -57,7 +58,10 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
 
         def patched_sender(msg, dst=None, stat=None):
             if isinstance(msg, OldViewPrePrepareReply) and msg.preprepares:
-                msg.preprepares[0].ppTime += 1
+                pp_dict = msg.preprepares[0]._asdict()
+                pp_dict["digest"] = "incorrect_digest"
+                pp = PrePrepare(**pp_dict)
+                msg.preprepares[0] = pp
                 monkeypatch.undo()
             old_sender(msg, dst, stat)
 
@@ -67,6 +71,8 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
         monkeypatch.setattr(slow_node.master_replica._ordering_service,
                             '_validate_applied_pre_prepare',
                             lambda a, b, c: None)
+        process_old_pp_num = slow_node.master_replica._ordering_service.spylog.count(
+            OrderingService.process_old_view_preprepare_reply)
 
         for n in txnPoolNodeSet:
             n.view_changer.on_master_degradation()
@@ -76,6 +82,11 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
         ensureElectionsDone(looper=looper, nodes=other_nodes + [malicious_node],
                             instances_list=[0, 1, 2])
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes + [malicious_node])
+
+        def chk():
+            assert process_old_pp_num + 1 == slow_node.master_replica._ordering_service.spylog.count(
+                OrderingService.process_old_view_preprepare_reply)
+        looper.run(eventually(chk))
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
