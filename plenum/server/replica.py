@@ -189,6 +189,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self._ordering_service.cleanup()
         self._checkpointer.cleanup()
+        self._view_change_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 
@@ -354,13 +355,15 @@ class Replica(HasActionQueue, MessageProcessor):
         for view_no in views_to_remove:
             self.primaryNames.pop(view_no)
 
+    # TODO: do we still need it?
     def on_view_change_start(self):
         if self.isMaster:
             lst = self._ordering_service.l_last_prepared_certificate_in_view()
             self._consensus_data.legacy_last_prepared_before_view_change = lst
             self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
 
-    def on_view_change_done(self):
+    # TODO: combine with CatchupFinished processing
+    def on_view_propagated_after_catchup(self):
         if self.isMaster:
             self.last_prepared_before_view_change = None
         self.stasher.process_all_stashed(STASH_VIEW_3PC)
@@ -377,6 +380,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service.last_ordered_3pc = (self.viewNo, 0)
         self._clear_all_3pc_msgs()
 
+    # TODO: combine with CatchupFinished processing
     def on_propagate_primary_done(self):
         if self.isMaster:
             # if this is a Primary that is re-connected (that is view change is not actually changed,

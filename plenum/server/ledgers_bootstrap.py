@@ -251,8 +251,7 @@ class LedgersBootstrap:
             ledger = self.db_manager.get_ledger(ledger_id)
             for seq_no, txn in ledger.getAllTxn():
                 txn = self._update_txn_with_extra_data(txn)
-                self.write_manager.update_state(txn, isCommitted=True)
-                state.commit(rootHash=state.headHash)
+                self.write_manager.restore_state(txn, ledger_id)
 
         logger.info(
             "{} initialized state for ledger {}: state root {}".format(

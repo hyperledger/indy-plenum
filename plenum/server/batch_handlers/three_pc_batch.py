@@ -17,7 +17,7 @@ class ThreePcBatch:
         self.primaries = primaries
         self.valid_digests = valid_digests
         self.pp_digest = pp_digest
-        self.node_reg = node_reg or []
+        self.node_reg = node_reg
         self.has_audit_txn = has_audit_txn
         self.original_view_no = original_view_no
 

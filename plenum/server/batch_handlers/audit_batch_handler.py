@@ -101,17 +101,17 @@ class AuditBatchHandler(BatchRequestHandler):
 
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
-            self.__fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
+            self._fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
 
         # 5. set primaries field
-        self.__fill_primaries(txn, three_pc_batch, last_audit_txn)
+        self._fill_primaries(txn, three_pc_batch, last_audit_txn)
 
         # 6. set nodeReg field
-        self.__fill_node_reg(txn, three_pc_batch, last_audit_txn)
+        self._fill_node_reg(txn, three_pc_batch, last_audit_txn)
 
         return txn
 
-    def __fill_ledger_root_hash(self, txn, lid, ledger, last_audit_txn, three_pc_batch):
+    def _fill_ledger_root_hash(self, txn, lid, ledger, last_audit_txn, three_pc_batch):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
 
         if lid == three_pc_batch.ledger_id:
@@ -148,7 +148,7 @@ class AuditBatchHandler(BatchRequestHandler):
         elif last_audit_txn_data:
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = 1
 
-    def __fill_primaries(self, txn, three_pc_batch, last_audit_txn):
+    def _fill_primaries(self, txn, three_pc_batch, last_audit_txn):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
         last_txn_value = last_audit_txn_data[AUDIT_TXN_PRIMARIES] if last_audit_txn_data else None
         current_primaries = three_pc_batch.primaries
@@ -187,13 +187,16 @@ class AuditBatchHandler(BatchRequestHandler):
             raise LogicError('Incorrect primaries field in audit ledger (seq_no: {}. value: {})'.format(
                 get_seq_no(last_audit_txn), last_txn_value))
 
-    def __fill_node_reg(self, txn, three_pc_batch, last_audit_txn):
+    def _fill_node_reg(self, txn, three_pc_batch, last_audit_txn):
         last_audit_txn_data = get_payload_data(last_audit_txn) if last_audit_txn is not None else None
         last_audit_node_reg = last_audit_txn_data.get(AUDIT_TXN_NODE_REG) if last_audit_txn_data else None
         current_node_reg = three_pc_batch.node_reg
 
-        # 1. First audit txn
-        if last_audit_txn_data is None:
+        if current_node_reg is None:
+            return
+
+        # 1. First audit txn with node reg
+        if last_audit_node_reg is None:
             txn[AUDIT_TXN_NODE_REG] = current_node_reg
 
         # 2. Previous nodeReg field contains nodeReg list
@@ -220,7 +223,3 @@ class AuditBatchHandler(BatchRequestHandler):
             else:
                 raise LogicError('Value, mentioned in nodeReg field must be a '
                                  'seq_no of a txn with nodeReg')
-
-        # 4. it can be that there is no node reg to be saved (legacy nodes and tests)
-        else:
-            pass
