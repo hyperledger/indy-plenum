@@ -503,6 +503,7 @@ ordering_service_spyables = [
     OrderingService._validate,
     OrderingService.post_batch_rejection,
     OrderingService.post_batch_creation,
+    OrderingService.process_old_view_preprepare_reply,
     OrderingService.report_suspicious_node
 ]
 
