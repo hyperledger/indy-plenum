@@ -198,9 +198,9 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
     replica._ordering_service._do_dynamic_validation = types.MethodType(malicious_dynamic_validation, replica.node)
 
     txnPoolNodeSet.remove(replica.node)
-    old_reverts = {}
+    old_suspicious = {}
     for i, node in enumerate(txnPoolNodeSet):
-        old_reverts[i] = node.master_replica._ordering_service.spylog.count(OrderingService._revert)
+        old_suspicious[i] = node.master_replica._ordering_service.spylog.count(OrderingService.report_suspicious_node)
         node.seqNoDB._keyValueStorage.remove(req.digest)
         node.seqNoDB._keyValueStorage.remove(req.payload_digest)
 
@@ -210,6 +210,7 @@ def test_suspicious_primary_send_same_request_with_same_signatures(
 
     def reverts():
         for i, node in enumerate(txnPoolNodeSet):
-            assert old_reverts[i] + 1 == node.master_replica._ordering_service.spylog.count(OrderingService._revert)
+            assert old_suspicious[i] + 1 == node.master_replica._ordering_service.\
+                spylog.count(OrderingService.report_suspicious_node)
 
     looper.run(eventually(reverts))
