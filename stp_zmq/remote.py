@@ -114,7 +114,7 @@ class Remote:
             logger.debug('Remote {} already disconnected'.format(self))
             return False
 
-        events = self._lastSocketEvents()
+        events = self._last_socket_events()
 
         if events:
             logger.trace('Remote {} has monitor events: {}'.
@@ -123,7 +123,6 @@ class Remote:
         # noinspection PyUnresolvedReferences
         if zmq.EVENT_DISCONNECTED in events or zmq.EVENT_CLOSED in events:
             logger.debug('{} found disconnected event on monitor'.format(self))
-
             # Reverse events list since list has no builtin to get last index
             events.reverse()
 
@@ -135,14 +134,17 @@ class Remote:
 
             connected = eventIndex(zmq.EVENT_CONNECTED)
             delayed = eventIndex(zmq.EVENT_CONNECT_DELAYED)
-            disconnected = min(eventIndex(zmq.EVENT_DISCONNECTED),
-                               eventIndex(zmq.EVENT_CLOSED))
+            disconnected = min(eventIndex(zmq.EVENT_DISCONNECTED), eventIndex(zmq.EVENT_CLOSED))
             if disconnected < connected and disconnected < delayed:
+                logger.trace('{} closing monitor socket'.format(self))
+                self.socket._monitor_socket.linger = 0
+                self.socket.monitor(None, 0)
+                self.socket._monitor_socket = None
                 return True
 
         return False
 
-    def _lastSocketEvents(self, nonBlock=True):
+    def _last_socket_events(self, nonBlock=True):
         return self._get_monitor_events(self.socket, nonBlock)
 
     @staticmethod
