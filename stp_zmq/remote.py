@@ -123,7 +123,8 @@ class Remote:
         # noinspection PyUnresolvedReferences
         if zmq.EVENT_DISCONNECTED in events or zmq.EVENT_CLOSED in events:
             logger.debug('{} found disconnected event on monitor'.format(self))
-
+            monitor = self.socket.get_monitor_socket()
+            monitor.close()
             # Reverse events list since list has no builtin to get last index
             events.reverse()
 
