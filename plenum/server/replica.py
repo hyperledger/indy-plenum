@@ -655,7 +655,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def set_primaries_batch_needed(self, value):
         self._ordering_service.primaries_batch_needed = value
 
-    def update_connecteds(self, connecteds: dict):
+    def update_connecteds(self, connecteds: set):
         self._external_bus.update_connecteds(connecteds)
 
     def _init_replica_stasher(self):

@@ -1,4 +1,3 @@
-import sys
 import pytest
 
 from plenum.test.helper import sdk_send_random_and_check
