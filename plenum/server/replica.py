@@ -481,10 +481,6 @@ class Replica(HasActionQueue, MessageProcessor):
     def send_3pc_batch(self):
         return self._ordering_service.send_3pc_batch()
 
-    @staticmethod
-    def batchDigest(reqs):
-        return replica_batch_digest(reqs)
-
     def readyFor3PC(self, key: ReqKey):
         try:
             fin_req = self.requests[key.digest].finalised

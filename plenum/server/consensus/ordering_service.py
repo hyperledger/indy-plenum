@@ -47,7 +47,6 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
@@ -2282,9 +2281,6 @@ class OrderingService:
     @staticmethod
     def generate_pp_digest(req_digests, original_view_no, pp_time):
         return sha256(serialize_msg_for_signing([original_view_no, pp_time, *req_digests])).hexdigest()
-
-    def replica_batch_digest(self, reqs):
-        return replica_batch_digest(reqs)
 
     def _clear_all_3pc_msgs(self):
 

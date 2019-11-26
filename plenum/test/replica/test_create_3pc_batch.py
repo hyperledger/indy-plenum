@@ -3,6 +3,7 @@ import functools
 from common.serializers.serialization import invalid_index_serializer
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import InvalidClientMessageException
+from plenum.server.consensus.consensus_shared_data import get_original_viewno
 
 nodeCount = 4
 
@@ -49,3 +50,76 @@ def test_reqidr_ordered_regardless_validation_result(replica_with_requests, fake
     invalid_from_pp = invalid_index_serializer.deserialize(pre_prepare_msg.discarded)
     assert len(invalid_from_pp) == len(fake_requests) / 2
     assert pre_prepare_msg.reqIdr == tuple(res.key for res in fake_requests)
+
+
+def test_create_preprepares_with_same_digest(replica_with_requests, fake_requests, txn_roots, state_roots):
+    replica_with_requests._ordering_service._consume_req_queue_for_pre_prepare = \
+        lambda ledger, tm, view_no, pp_seq_no: (fake_requests, [], [])
+
+    replica_with_requests._ordering_service._get_utc_epoch_for_preprepare = lambda inst_id, view_no, pp_seq_no: 1574762231
+
+    pre_prepare_msg1 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+    pre_prepare_msg2 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+    assert pre_prepare_msg1.reqIdr == pre_prepare_msg2.reqIdr
+    assert get_original_viewno(pre_prepare_msg1) == get_original_viewno(pre_prepare_msg2)
+    assert pre_prepare_msg1.ppTime == pre_prepare_msg2.ppTime
+    assert pre_prepare_msg1.digest == pre_prepare_msg2.digest
+
+
+def test_create_preprepares_with_different_req_idr(replica_with_requests, fake_requests, txn_roots, state_roots):
+    replica_with_requests._ordering_service._consume_req_queue_for_pre_prepare = \
+        lambda ledger, tm, view_no, pp_seq_no: (fake_requests, [], [])
+
+    replica_with_requests._ordering_service._get_utc_epoch_for_preprepare = lambda inst_id, view_no, pp_seq_no: 1574762231
+
+    # create the first pre_prepare
+    pre_prepare_msg1 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+
+    # create the second pre_prepare with other requests
+    replica_with_requests._ordering_service._consume_req_queue_for_pre_prepare = \
+        lambda ledger, tm, view_no, pp_seq_no: (fake_requests[:-1], [], [])
+    pre_prepare_msg2 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+
+    assert pre_prepare_msg1.reqIdr != pre_prepare_msg2.reqIdr
+    assert get_original_viewno(pre_prepare_msg1) == get_original_viewno(pre_prepare_msg2)
+    assert pre_prepare_msg1.ppTime == pre_prepare_msg2.ppTime
+    assert pre_prepare_msg1.digest != pre_prepare_msg2.digest
+
+
+def test_create_preprepares_with_different_time(replica_with_requests, fake_requests, txn_roots, state_roots):
+    replica_with_requests._ordering_service._consume_req_queue_for_pre_prepare = \
+        lambda ledger, tm, view_no, pp_seq_no: (fake_requests, [], [])
+    replica_with_requests._ordering_service._get_utc_epoch_for_preprepare = \
+        lambda inst_id, view_no, pp_seq_no: 1574762231
+
+    # create the first pre_prepare
+    pre_prepare_msg1 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+
+    # create the second pre_prepare with other time
+    replica_with_requests._ordering_service._get_utc_epoch_for_preprepare = \
+        lambda inst_id, view_no, pp_seq_no: 1574762232
+    pre_prepare_msg2 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+
+    assert pre_prepare_msg1.reqIdr == pre_prepare_msg2.reqIdr
+    assert get_original_viewno(pre_prepare_msg1) == get_original_viewno(pre_prepare_msg2)
+    assert pre_prepare_msg1.ppTime != pre_prepare_msg2.ppTime
+    assert pre_prepare_msg1.digest != pre_prepare_msg2.digest
+
+
+def test_create_preprepares_with_different_view_no(replica_with_requests, fake_requests, txn_roots, state_roots):
+    replica_with_requests._ordering_service._consume_req_queue_for_pre_prepare = \
+        lambda ledger, tm, view_no, pp_seq_no: (fake_requests, [], [])
+    replica_with_requests._ordering_service._get_utc_epoch_for_preprepare = \
+        lambda inst_id, view_no, pp_seq_no: 1574762231
+
+    # create the first pre_prepare
+    pre_prepare_msg1 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+
+    # create the second pre_prepare with other view_no
+    replica_with_requests._consensus_data.view_no = 5
+    pre_prepare_msg2 = replica_with_requests._ordering_service.create_3pc_batch(DOMAIN_LEDGER_ID)
+
+    assert pre_prepare_msg1.reqIdr == pre_prepare_msg2.reqIdr
+    assert get_original_viewno(pre_prepare_msg1) != get_original_viewno(pre_prepare_msg2)
+    assert pre_prepare_msg1.ppTime == pre_prepare_msg2.ppTime
+    assert pre_prepare_msg1.digest != pre_prepare_msg2.digest
