@@ -3,9 +3,6 @@
 import os
 import sys
 
-from ioflo.aid.consoling import Console
-
-from plenum.test.test_node import TestNode
 from stp_core.loop.looper import Looper
 from stp_core.types import HA
 from plenum.common.config_util import getConfig

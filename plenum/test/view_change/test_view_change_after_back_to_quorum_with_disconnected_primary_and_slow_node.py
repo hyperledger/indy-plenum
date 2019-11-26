@@ -34,7 +34,7 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
                                                   tconf,
                                                   tdir,
                                                   allPluginsPath,
-                                                  customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT,
+                                                  customTimeout=2 * tconf.NEW_VIEW_TIMEOUT,
                                                   exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # Now primary should be Beta
@@ -86,7 +86,7 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
     # 6. Check that view change happened eventually because
     # Delta re-send InstanceChang for view=2 after it finished catchup
     waitForViewChange(looper, remaining_nodes, expectedViewNo=(view_no + 1),
-                      customTimeout=3 * tconf.VIEW_CHANGE_TIMEOUT)
+                      customTimeout=3 * tconf.NEW_VIEW_TIMEOUT)
 
     # 7. ensure pool is working properly
     sdk_send_random_and_check(looper, remaining_nodes, sdk_pool_handle,

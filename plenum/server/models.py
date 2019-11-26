@@ -1,8 +1,7 @@
 """
 Some model objects used in Plenum protocol.
 """
-import time
-from typing import NamedTuple, Set, Optional, Any, Dict, Callable
+from typing import NamedTuple, Set, Optional, Any
 
 from plenum.common.messages.node_messages import Prepare, Commit
 from stp_core.common.log import getlogger

@@ -1,6 +1,7 @@
 import itertools
 import logging
 import time
+from _sha256 import sha256
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
 from typing import Tuple, List, Set, Optional, Dict, Iterable
@@ -9,25 +10,25 @@ from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
 
 from common.exceptions import PlenumValueError, LogicError
-from common.serializers.serialization import state_roots_serializer, invalid_index_serializer
+from common.serializers.serialization import state_roots_serializer, invalid_index_serializer, serialize_msg_for_signing
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST,\
-    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST, \
+    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL, AUDIT_TXN_NODE_REG
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView
+    ReOrderedInNewView, NewViewAccepted, CatchupCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.request import Request
 from plenum.common.router import Subscription
-from plenum.common.stashing_router import PROCESS, DISCARD
+from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
@@ -39,14 +40,15 @@ from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, p
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
+from plenum.server.consensus.primary_selector import PrimariesSelector
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -62,6 +64,7 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
+                 primaries_selector: PrimariesSelector,
                  stasher=None,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
@@ -194,6 +197,8 @@ class OrderingService:
         self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
 
+        self._primaries_selector = primaries_selector
+
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
         self._subscription.subscribe(self._stasher, Commit, self.process_commit)
@@ -201,7 +206,9 @@ class OrderingService:
         self._subscription.subscribe(self._stasher, OldViewPrePrepareRequest, self.process_old_view_preprepare_request)
         self._subscription.subscribe(self._stasher, OldViewPrePrepareReply, self.process_old_view_preprepare_reply)
         self._subscription.subscribe(self._bus, ViewChangeStarted, self.process_view_change_started)
-        self._subscription.subscribe(self._bus, CheckpointStabilized, self._cleanup_process)
+        self._subscription.subscribe(self._bus, CheckpointStabilized, self.process_checkpoint_stabilized)
+        self._subscription.subscribe(self._bus, NewViewAccepted, self.process_new_view_accepted)
+        self._subscription.subscribe(self._bus, CatchupCheckpointsApplied, self.process_catchup_checkpoints_applied)
 
         # Dict to keep PrePrepares from old view to be re-ordered in the new view
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
@@ -499,10 +506,10 @@ class OrderingService:
         """
         pp_key = (pre_prepare.viewNo, pre_prepare.ppSeqNo)
         # the same PrePrepare might come here multiple times
-        if (pp_key and (pre_prepare, sender) not in self.pre_prepare_tss[pp_key]):
+        if (pp_key and (pre_prepare.auditTxnRootHash, sender) not in self.pre_prepare_tss[pp_key]):
             # TODO more clean solution would be to set timestamps
             # earlier (e.g. in zstack)
-            self.pre_prepare_tss[pp_key][pre_prepare, sender] = self.get_time_for_3pc_batch()
+            self.pre_prepare_tss[pp_key][pre_prepare.auditTxnRootHash, sender] = self.get_time_for_3pc_batch()
 
         result, reason = self._validate(pre_prepare)
         if result != PROCESS:
@@ -527,8 +534,6 @@ class OrderingService:
             if why_not_applied is not None:
                 if why_not_applied == PP_APPLY_REJECT_WRONG:
                     report_suspicious(Suspicions.PPR_REJECT_WRONG)
-                elif why_not_applied == PP_APPLY_WRONG_DIGEST:
-                    report_suspicious(Suspicions.PPR_DIGEST_WRONG)
                 elif why_not_applied == PP_APPLY_WRONG_STATE:
                     report_suspicious(Suspicions.PPR_STATE_WRONG)
                 elif why_not_applied == PP_APPLY_ROOT_HASH_MISMATCH:
@@ -544,6 +549,11 @@ class OrderingService:
                     report_suspicious(Suspicions.PPR_AUDIT_TXN_ROOT_HASH_WRONG)
                 elif why_not_applied == PP_REQUEST_ALREADY_ORDERED:
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
+                elif why_not_applied == PP_WRONG_PRIMARIES:
+                    report_suspicious(Suspicions.PPR_WITH_WRONG_PRIMARIES)
+
+        elif why_not == PP_APPLY_WRONG_DIGEST:
+            report_suspicious(Suspicions.PPR_DIGEST_WRONG)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -824,6 +834,12 @@ class OrderingService:
         if self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
             return None
 
+        digest = self.generate_pp_digest(pre_prepare.reqIdr,
+                                         get_original_viewno(pre_prepare),
+                                         pre_prepare.ppTime)
+        if digest != pre_prepare.digest:
+            return PP_APPLY_WRONG_DIGEST
+
         # PRE-PREPARE should not be sent from non primary
         if not self._is_msg_from_primary(pre_prepare, sender):
             return PP_CHECK_NOT_FROM_PRIMARY
@@ -904,7 +920,7 @@ class OrderingService:
             why_not_applied = PP_REQUEST_ALREADY_ORDERED
         else:
             why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
-                                                                 reqs, invalid_indices, invalid_from_pp)
+                                                                 invalid_indices, invalid_from_pp)
 
         # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
@@ -1076,11 +1092,11 @@ class OrderingService:
                 pp.ppTime < self.last_accepted_pre_prepare_time):
             return False
         elif ((tpcKey not in self.pre_prepare_tss) or
-                ((pp, sender) not in self.pre_prepare_tss[tpcKey])):
+                ((pp.auditTxnRootHash, sender) not in self.pre_prepare_tss[tpcKey])):
             return False
         else:
             return (
-                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp, sender]) <=
+                abs(pp.ppTime - self.pre_prepare_tss[tpcKey][pp.auditTxnRootHash, sender]) <=
                 self._config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
             )
 
@@ -1158,7 +1174,7 @@ class OrderingService:
                 pre_prepare,
                 state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
                 txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
-                primaries=[],
+                primaries=self._primaries_selector.select_primaries(view_no=get_original_viewno(pre_prepare)),
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
             )
             self.post_batch_creation(three_pc_batch)
@@ -1169,13 +1185,9 @@ class OrderingService:
         return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
 
     def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
-                                      reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
+                                      invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
-
-        digest = self.replica_batch_digest(reqs)
-        if digest != pre_prepare.digest:
-            return PP_APPLY_WRONG_DIGEST
 
         if self.is_master:
             if pre_prepare.stateRootHash != self.get_state_root_hash(pre_prepare.ledgerId):
@@ -1423,8 +1435,6 @@ class OrderingService:
             self._data.inst_id, p.viewNo, p.ppSeqNo
         ]
 
-        pre_prepare = self.get_preprepare(*key_3pc)
-
         # BLS multi-sig:
         if p.stateRootHash is not None:
             pre_prepare = self.get_preprepare(*key_3pc)
@@ -1490,6 +1500,7 @@ class OrderingService:
             self._requests.ordered_by_replica(reqIdr)
 
         original_view_no = get_original_viewno(pp)
+        # TODO: Replace Ordered msg by ThreePcBatch
         ordered = Ordered(
             self._data.inst_id,
             pp.viewNo,
@@ -1502,6 +1513,7 @@ class OrderingService:
             pp.txnRootHash,
             pp.auditTxnRootHash if f.AUDIT_TXN_ROOT_HASH.nm in pp else None,
             self._get_primaries_for_ordered(pp),
+            self._get_node_reg_for_ordered(pp),
             original_view_no,
             pp.digest,
         )
@@ -1534,21 +1546,32 @@ class OrderingService:
         self.last_ordered_3pc = (view_no, pp_seq_no)
 
     def _get_primaries_for_ordered(self, pp):
+        txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
+        if txn_primaries is None:
+            txn_primaries = self._data.primaries
+        return txn_primaries
+
+    def _get_node_reg_for_ordered(self, pp):
+        txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        if txn_node_reg is None:
+            txn_node_reg = self._write_manager.node_reg_handler.uncommitted_node_reg
+        return txn_node_reg
+
+    def _get_from_audit_for_ordered(self, pp, field):
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
         for index, txn in enumerate(ledger.get_uncommitted_txns()):
             payload_data = get_payload_data(txn)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
                     pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
-                txn_primaries = payload_data[AUDIT_TXN_PRIMARIES]
-                if isinstance(txn_primaries, Iterable):
-                    return txn_primaries
-                elif isinstance(txn_primaries, int):
-                    last_primaries_seq_no = get_seq_no(txn) - txn_primaries
+                txn_data = payload_data.get(field)
+                if isinstance(txn_data, Iterable):
+                    return txn_data
+                elif isinstance(txn_data, int):
+                    last_txn_seq_no = get_seq_no(txn) - txn_data
                     return get_payload_data(
-                        ledger.get_by_seq_no_uncommitted(last_primaries_seq_no))[AUDIT_TXN_PRIMARIES]
+                        ledger.get_by_seq_no_uncommitted(last_txn_seq_no)).get(field)
                 break
-        else:
-            return self._data.primaries
+        return None
 
     def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
@@ -1780,6 +1803,8 @@ class OrderingService:
             self._do_dynamic_validation(req, cons_time)
             self._write_manager.apply_request(req, cons_time)
 
+    # ToDo: Maybe we should remove this,
+    #  because we have the same one in replica's validator
     def can_send_3pc_batch(self):
         if not self._data.is_primary:
             return False
@@ -1790,9 +1815,6 @@ class OrderingService:
         if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
 
-        # ToDo: is pre_view_change_in_progress needed?
-        # if self.replica.node.pre_view_change_in_progress:
-        #     return False
         if self.view_no < self.last_ordered_3pc[0]:
             return False
         if self.view_no == self.last_ordered_3pc[0]:
@@ -2003,8 +2025,10 @@ class OrderingService:
 
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
-        digest = self.replica_batch_digest(reqs)
 
+        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
+        req_ids = [req.digest for req in reqs]
+        digest = self.generate_pp_digest(req_ids, self.view_no, tm)
         if self.is_master:
             three_pc_batch = ThreePcBatch(
                 ledger_id=ledger_id,
@@ -2014,7 +2038,7 @@ class OrderingService:
                 pp_time=tm,
                 state_root=self.get_state_root_hash(ledger_id, to_str=False),
                 txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
-                primaries=[],
+                primaries=primaries_for_batch,
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices),
                 pp_digest=digest,
                 original_view_no=self.view_no,
@@ -2030,7 +2054,7 @@ class OrderingService:
             self.view_no,
             pp_seq_no,
             tm,
-            [req.digest for req in reqs],
+            req_ids,
             invalid_index_serializer.serialize(invalid_indices, toBytes=False),
             digest,
             ledger_id,
@@ -2039,7 +2063,7 @@ class OrderingService:
             0,
             True,
             pool_state_root_hash,
-            audit_txn_root_hash
+            audit_txn_root_hash,
         ]
 
         # BLS multi-sig:
@@ -2202,7 +2226,6 @@ class OrderingService:
 
     def catchup_clear_for_backup(self):
         if not self._data.is_primary:
-            self.batches.clear()
             self.sent_preprepares.clear()
             self.prePrepares.clear()
             self.prepares.clear()
@@ -2256,6 +2279,10 @@ class OrderingService:
                 return commit
         return None
 
+    @staticmethod
+    def generate_pp_digest(req_digests, original_view_no, pp_time):
+        return sha256(serialize_msg_for_signing([original_view_no, pp_time, *req_digests])).hexdigest()
+
     def replica_batch_digest(self, reqs):
         return replica_batch_digest(reqs)
 
@@ -2289,6 +2316,27 @@ class OrderingService:
         # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
         return PROCESS, None
+
+    def process_new_view_accepted(self, msg: NewViewAccepted):
+        self._setup_for_non_master_after_view_change(msg.view_no)
+
+    def _setup_for_non_master_after_view_change(self, current_view):
+        if not self.is_master:
+            for v in list(self.stashed_out_of_order_commits.keys()):
+                if v < current_view:
+                    self.stashed_out_of_order_commits.pop(v)
+
+    def process_catchup_checkpoints_applied(self, msg: CatchupCheckpointsApplied):
+        if compare_3PC_keys(msg.master_last_ordered,
+                            msg.last_caught_up_3PC) > 0:
+            if self.is_master:
+                self._caught_up_till_3pc(msg.last_caught_up_3PC)
+            else:
+                self.first_batch_after_catchup = True
+                self.catchup_clear_for_backup()
+
+        self._clear_prev_view_pre_prepares()
+        self._stasher.process_all_stashed(STASH_CATCH_UP)
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
@@ -2336,6 +2384,12 @@ class OrderingService:
         self._send(rep, dst=[getNodeName(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
+        # TODO: return the check after INDY-2238 about persisting of 3pc messages
+        # At the moment this optimization adds a bug that is reproduced in
+        # test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_the_other_half
+        # if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+        #     self._reordered_in_new_view()
+        #     return
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
@@ -2343,12 +2397,16 @@ class OrderingService:
         for pp_dict in msg.preprepares:
             try:
                 pp = PrePrepare(**pp_dict)
+                if self._data.new_view is None or \
+                        preprepare_to_batch_id(pp) not in self._data.new_view.batches:
+                    self._logger.info("Skipped useless PrePrepare {} from {}".format(pp, sender))
+                    continue
                 self._process_pre_prepare_from_old_view(pp)
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
-
-        self._reordered_in_new_view()
+        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+            self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
@@ -2368,7 +2426,7 @@ class OrderingService:
         # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
         self._bus.send(ReOrderedInNewView())
 
-    def _cleanup_process(self, msg: CheckpointStabilized):
+    def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
 
     def _preprepare_batch(self, pp: PrePrepare):

@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import sys
-from typing import Tuple, NamedTuple, List, Set, Optional
+from typing import Tuple, NamedTuple, List, Set
 
 from common.exceptions import LogicError
 from plenum.common.config_util import getConfig
@@ -9,16 +9,16 @@ from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT_TXN_VIEW_NO, AUDIT_TX
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import NeedMasterCatchup, NeedBackupCatchup, CheckpointStabilized, \
-    BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied
+    BackupSetupLastOrdered, NewViewAccepted, NewViewCheckpointsApplied, CatchupFinished, CatchupCheckpointsApplied
 from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, PROCESS
 from plenum.common.txn_util import get_payload_data
 from plenum.common.util import compare_3PC_keys
+from plenum.server.consensus.checkpoint_service_msg_validator import CheckpointMsgValidator
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
-from plenum.server.consensus.msg_validator import CheckpointMsgValidator
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from stp_core.common.log import getlogger
@@ -54,6 +54,7 @@ class CheckpointService:
         self._subscription.subscribe(bus, Ordered, self.process_ordered)
         self._subscription.subscribe(bus, BackupSetupLastOrdered, self.process_backup_setup_last_ordered)
         self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
+        self._subscription.subscribe(bus, CatchupFinished, self.process_catchup_finished)
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
@@ -330,3 +331,15 @@ class CheckpointService:
                                                  view_changes=msg.view_changes,
                                                  checkpoint=msg.checkpoint,
                                                  batches=msg.batches))
+
+    def process_catchup_finished(self, msg: CatchupFinished):
+        if compare_3PC_keys(msg.master_last_ordered,
+                            msg.last_caught_up_3PC) > 0:
+            if self._data.is_master:
+                self.caught_up_till_3pc(msg.last_caught_up_3PC)
+            else:
+                if not self._data.is_primary:
+                    self.catchup_clear_for_backup()
+
+        self._bus.send(CatchupCheckpointsApplied(last_caught_up_3PC=msg.last_caught_up_3PC,
+                                                 master_last_ordered=msg.master_last_ordered))

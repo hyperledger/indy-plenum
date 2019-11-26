@@ -17,7 +17,7 @@ def test_lag_less_then_catchup(looper,
                                sdk_wallet_client):
     delayed_node = txnPoolNodeSet[-1]
     other_nodes = list(set(txnPoolNodeSet) - {delayed_node})
-    current_view_no = checkViewNoForNodes(txnPoolNodeSet)
+    checkViewNoForNodes(txnPoolNodeSet)
     last_ordered_before = delayed_node.master_replica.last_ordered_3pc
     with delay_rules_without_processing(delayed_node.nodeIbStasher, cDelay()):
         # Send txns for stable checkpoint

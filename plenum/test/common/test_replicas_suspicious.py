@@ -14,8 +14,8 @@ def test_nodes_make_view_change_only_on_master_suspicious(
     assert master_primary.isPrimary is True
     assert backup_primary.isPrimary is True
 
-    master_primary._ordering_service.replica_batch_digest = lambda reqs: 'asd'
-    backup_primary._ordering_service.replica_batch_digest = lambda reqs: 'asd'
+    master_primary._ordering_service.generate_pp_digest = lambda a, b, c: 'asd'
+    backup_primary._ordering_service.generate_pp_digest = lambda a, b, c: 'asd'
 
     non_primary_backup = txnPoolNodeSet[0].replicas[1]
     old_pp = non_primary_backup.spylog.count(non_primary_backup._ordering_service.process_preprepare)

@@ -38,6 +38,7 @@ def ordered(pre_prepare):
         pre_prepare.txnRootHash,
         pre_prepare.auditTxnRootHash,
         ["Alpha", "Beta"],
+        ["Alpha", "Beta", "Gamma", "Delta"],
         pre_prepare.viewNo,
         pre_prepare.digest
     ]

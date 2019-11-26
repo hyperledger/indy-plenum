@@ -12,7 +12,7 @@ def expect_suspicious(orderer, suspicious_code):
 
 def _register_pp_ts(orderer, pp, sender):
     tpcKey = (pp.viewNo, pp.ppSeqNo)
-    ppKey = (pp, sender)
+    ppKey = (pp.auditTxnRootHash, sender)
     orderer.pre_prepare_tss[tpcKey][ppKey] = get_utc_epoch()
 
 

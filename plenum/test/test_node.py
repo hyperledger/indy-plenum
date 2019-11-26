@@ -430,6 +430,7 @@ class TestReplica(replica.Replica):
                                    write_manager=self.node.write_manager,
                                    bls_bft_replica=self._bls_bft_replica,
                                    freshness_checker=self._freshness_checker,
+                                   primaries_selector=self.node.primaries_selector,
                                    get_current_time=self.get_current_time,
                                    get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                    stasher=self.stasher,
@@ -440,7 +441,8 @@ class TestReplica(replica.Replica):
                                      timer=self.node.timer,
                                      bus=self.internal_bus,
                                      network=self._external_bus,
-                                     stasher=self.stasher)
+                                     stasher=self.stasher,
+                                     primaries_selector=self.node.primaries_selector)
 
     def _init_message_req_service(self) -> MessageReqService:
         return TestMessageReqService(data=self._consensus_data,
@@ -500,7 +502,9 @@ ordering_service_spyables = [
     OrderingService._revert,
     OrderingService._validate,
     OrderingService.post_batch_rejection,
-    OrderingService.post_batch_creation
+    OrderingService.post_batch_creation,
+    OrderingService.process_old_view_preprepare_reply,
+    OrderingService.report_suspicious_node
 ]
 
 
@@ -813,8 +817,8 @@ def checkIfSameReplicaIsPrimary(looper: Looper,
     def checkPrisAreSame():
         pris = {r.primaryName for r in replicas}
         assert len(pris) == 1, "Primary should be same for all, but were {} " \
-                               "for protocol no {}" \
-            .format(pris, replicas[0].instId)
+                               "for protocol no {}, Replicas: {}" \
+            .format(pris, replicas[0].instId, [{r.name: r.primaryName} for r in replicas])
 
     looper.run(
         eventuallyAll(checkElectionDone, checkPrisAreOne, checkPrisAreSame,
@@ -995,7 +999,7 @@ def instances(nodes: Sequence[Node],
     instances = (range(getRequiredInstances(len(nodes)))
                  if instances is None else instances)
     for n in nodes:
-        assert len(n.replicas) == len(instances)
+        assert len(n.replicas) == len(instances), "Node: {}".format(n)
     return {i: [n.replicas[i] for n in nodes] for i in instances}
 
 

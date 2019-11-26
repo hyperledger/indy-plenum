@@ -42,7 +42,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 2 * checkpoint_size - 1)
     # TODO: When stable checkpoint is not deleted it makes sense to check just our last checkpoint
-    #  and remove eventually. Also for some reason 2 checkpoints generated here
+    # and remove eventually.
     looper.run(eventually(check_for_nodes, active_nodes, check_stable_checkpoint, 2 * checkpoint_freq))
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 

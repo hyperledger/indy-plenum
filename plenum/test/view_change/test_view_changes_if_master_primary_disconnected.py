@@ -47,7 +47,7 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
 
     txnPoolNodeSet = remaining_nodes + [old_pr_node]
     looper.run(eventually(checkViewNoForNodes,
-                          txnPoolNodeSet, old_view_no + 1, timeout=tconf.VIEW_CHANGE_TIMEOUT))
+                          txnPoolNodeSet, old_view_no + 1, timeout=tconf.NEW_VIEW_TIMEOUT))
 
     # After node catches up it set view_no from audit ledger and do not need to do view_change
     assert len(getAllReturnVals(old_pr_node.view_changer,

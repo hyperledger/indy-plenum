@@ -8,6 +8,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PR
     TXN_PAYLOAD, TXN_PAYLOAD_DATA, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_DIGEST
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
@@ -50,7 +51,8 @@ class ReplicaFakeNode(FakeSomething):
             write_manager=FakeSomething(database_manager=db_manager,
                                         apply_request=lambda req, cons_time: None),
             timer=QueueTimer(),
-            poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names)
+            poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names),
+            primaries_selector=RoundRobinConstantNodesPrimariesSelector(node_names)
         )
 
     @property
@@ -136,7 +138,8 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     )
     replica = Replica(
         node, instId=inst_id, isMaster=inst_id == 0,
-        config=tconf, bls_bft_replica=bls_bft_replica,
+        config=tconf,
+        bls_bft_replica=bls_bft_replica,
         get_current_time=mock_timestamp,
         get_time_for_3pc_batch=mock_timestamp
     )
@@ -155,6 +158,7 @@ def replica(tconf, viewNo, inst_id, ledger_ids, mock_timestamp, fake_requests, t
     replica._ordering_service.requestQueues[DOMAIN_LEDGER_ID] = OrderedSet()
 
     replica._ordering_service._get_primaries_for_ordered = lambda pp: [replica.primaryName]
+    replica._ordering_service._get_node_reg_for_ordered = lambda pp: ["Alpha", "Beta", "Gamma", "Delta"]
 
     def reportSuspiciousNodeEx(ex):
         assert False, ex
