@@ -1,6 +1,7 @@
 from typing import NamedTuple, List, Any, Optional
 
 from plenum.common.exceptions import SuspiciousNode
+from plenum.common.startable import Status
 from plenum.server.suspicion_codes import Suspicion
 
 # General recommendation for (naming) internal messages is follows:
@@ -9,6 +10,9 @@ from plenum.server.suspicion_codes import Suspicion
 # - in some cases message names may indicate that "something needs to happen"
 # - avoid names that tell "do something", messages are not commands
 # - avoid names that are just nouns, messages are not "things"
+
+ConnectionStatusUpdated = NamedTuple('ConnectionStatusUpdated',
+                                     [('status', Status)])
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
@@ -74,5 +78,3 @@ CatchupFinished = NamedTuple('CatchupFinished', [('last_caught_up_3PC', tuple),
 
 CatchupCheckpointsApplied = NamedTuple('CatchupCheckpointsApplied', [('last_caught_up_3PC', tuple),
                                                                      ('master_last_ordered', tuple)])
-
-StartViewChange = NamedTuple('StartViewChange', [('view_no', int)])

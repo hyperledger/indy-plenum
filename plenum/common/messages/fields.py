@@ -725,9 +725,9 @@ class BatchIDField(FieldBase):
             bid = BatchID(*val)
 
         for validate, value in ((self._validate_non_negative_number_field, bid.view_no),
-                                 (self._validate_non_negative_number_field, bid.pp_view_no),
-                                 (self._validate_non_negative_number_field, bid.pp_seq_no),
-                                 (self._validate_non_empty_string_field, bid.pp_digest)):
+                                (self._validate_non_negative_number_field, bid.pp_view_no),
+                                (self._validate_non_negative_number_field, bid.pp_seq_no),
+                                (self._validate_non_empty_string_field, bid.pp_digest)):
             err = validate(value)
             if err:
                 return err

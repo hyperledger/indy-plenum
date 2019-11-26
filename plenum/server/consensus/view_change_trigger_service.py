@@ -3,14 +3,17 @@ from typing import Callable
 from plenum.common.config_util import getConfig
 from plenum.common.constants import NODE_STATUS_DB_LABEL, VIEW_CHANGE_PREFIX
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import VoteForViewChange, NodeNeedViewChange, NewViewAccepted
+from plenum.common.messages.internal_messages import VoteForViewChange, NodeNeedViewChange, NewViewAccepted, \
+    ConnectionStatusUpdated
 from plenum.common.messages.node_messages import InstanceChange
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
+from plenum.common.startable import Status
 from plenum.common.stashing_router import StashingRouter, DISCARD
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.replica_validator_enums import STASH_NOT_READY
 from plenum.server.suspicion_codes import Suspicions, Suspicion
 from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
 from stp_core.common.log import getlogger
@@ -26,6 +29,7 @@ class ViewChangeTriggerService:
                  network: ExternalBus,
                  db_manager: DatabaseManager,
                  stasher: StashingRouter,
+                 status: Status,
                  is_master_degraded: Callable[[], bool],
                  metrics: MetricsCollector = NullMetricsCollector()):
         self._data = data
@@ -33,6 +37,7 @@ class ViewChangeTriggerService:
         self._bus = bus
         self._network = network
         self._stasher = stasher
+        self._status = status
         self._is_master_degraded = is_master_degraded
         self.metrics = metrics
 
@@ -44,6 +49,7 @@ class ViewChangeTriggerService:
                                    time_provider=timer.get_current_time)
 
         self._subscription = Subscription()
+        self._subscription.subscribe(bus, ConnectionStatusUpdated, self.process_connection_status_updated)
         self._subscription.subscribe(bus, VoteForViewChange, self.process_vote_for_view_change)
         self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
         self._subscription.subscribe(stasher, InstanceChange, self.process_instance_change)
@@ -58,6 +64,12 @@ class ViewChangeTriggerService:
     def __repr__(self):
         return self.name
 
+    def process_connection_status_updated(self, msg: ConnectionStatusUpdated):
+        old_status = self._status
+        self._status = msg.status
+        if old_status not in Status.ready() and msg.status in Status.ready():
+            self._stasher.process_all_stashed(STASH_NOT_READY)
+
     def process_vote_for_view_change(self, msg: VoteForViewChange):
         proposed_view_no = self._data.view_no
         # TODO: Some time ago it was proposed that view_no should not be increased during proposal
@@ -70,6 +82,9 @@ class ViewChangeTriggerService:
         self._send_instance_change(proposed_view_no, msg.suspicion)
 
     def process_instance_change(self, msg: InstanceChange, frm: str):
+        if self._status not in Status.ready():
+            return STASH_NOT_READY, 'not ready yet'
+
         # TODO: Do we really need this?
         if frm.rsplit(':', maxsplit=1)[0] not in self._network.connecteds:
             return DISCARD, "instance change request: {} from {} which is not in connected list: {}".\

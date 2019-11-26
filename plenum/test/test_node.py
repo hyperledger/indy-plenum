@@ -442,6 +442,7 @@ class TestReplica(replica.Replica):
                                             network=self._external_bus,
                                             db_manager=self.node.db_manager,
                                             stasher=self.stasher,
+                                            status=self.node.status,
                                             is_master_degraded=self.node.monitor.isMasterDegraded,
                                             metrics=self.metrics)
 

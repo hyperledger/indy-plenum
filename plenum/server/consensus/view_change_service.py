@@ -5,10 +5,9 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import VIEW_CHANGE, PRIMARY_SELECTION_PREFIX, NEW_VIEW
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, MissingMessage, \
-    VoteForViewChange, StartViewChange
+    VoteForViewChange, NodeNeedViewChange
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint
 from plenum.common.router import Subscription
-from plenum.common.startable import Mode
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
@@ -159,7 +158,7 @@ class ViewChangeService:
             self._stashed_vc_msgs[msg.viewNo] += 1
             if self._data.quorums.view_change.is_reached(self._stashed_vc_msgs[msg.viewNo]) and \
                     not self._data.waiting_for_new_view:
-                self._bus.send(StartViewChange(msg.viewNo))
+                self._bus.send(NodeNeedViewChange(msg.viewNo))
         if result != PROCESS:
             return result, None
 

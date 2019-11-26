@@ -4,7 +4,8 @@ import pytest
 from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
-    NewViewCheckpointsApplied, StartViewChange
+    NewViewCheckpointsApplied, NodeNeedViewChange
+from plenum.common.startable import Status
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
@@ -36,6 +37,7 @@ def view_change_service_builder(consensus_data, timer, internal_bus, external_bu
                                  network=external_bus,
                                  db_manager=DatabaseManager(),
                                  stasher=stasher,
+                                 status=Status.started,
                                  is_master_degraded=lambda: False)
 
         primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
@@ -658,10 +660,10 @@ def test_start_vc_by_quorum_of_vc_msgs(view_change_service_builder,
                                        external_bus,
                                        validators,
                                        is_master):
-    svc_queue = []
-    def svc_handler(msg: StartViewChange):
-        svc_queue.append(msg)
-    internal_bus.subscribe(StartViewChange, svc_handler)
+    nnvc_queue = []
+    def nnvc_handler(msg: NodeNeedViewChange):
+        nnvc_queue.append(msg)
+    internal_bus.subscribe(NodeNeedViewChange, nnvc_handler)
     # Quorum for ViewChange message is N-f
     service = view_change_service_builder(validators[0])
     proposed_view_no = 10
@@ -671,13 +673,13 @@ def test_start_vc_by_quorum_of_vc_msgs(view_change_service_builder,
         msg = ViewChange(proposed_view_no, 0, [], [], [])
         service.process_view_change_message(msg, validator)
     # N-f-1 msgs is not enough for triggering view_change
-    assert not svc_queue
+    assert not nnvc_queue
     # Process the other one message
     service.process_view_change_message(ViewChange(proposed_view_no, 0, [], [], []), validators[-1])
     if is_master:
-        assert svc_queue
-        assert isinstance(svc_queue[0], StartViewChange)
-        assert svc_queue[0].view_no == proposed_view_no
+        assert nnvc_queue
+        assert isinstance(nnvc_queue[0], NodeNeedViewChange)
+        assert nnvc_queue[0].view_no == proposed_view_no
     else:
         # ViewChange message isn't processed on backups
-        assert not svc_queue
+        assert not nnvc_queue

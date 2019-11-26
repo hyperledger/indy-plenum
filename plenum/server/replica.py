@@ -717,6 +717,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                         network=self._external_bus,
                                         db_manager=self.node.db_manager,
                                         stasher=self.stasher,
+                                        status=self.node.status,
                                         metrics=self.metrics,
                                         is_master_degraded=self.node.monitor.isMasterDegraded)
 
