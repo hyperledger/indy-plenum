@@ -1,6 +1,7 @@
 import itertools
 import logging
 import time
+from _sha256 import sha256
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
 from typing import Tuple, List, Set, Optional, Dict, Iterable
@@ -9,7 +10,7 @@ from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
 
 from common.exceptions import PlenumValueError, LogicError
-from common.serializers.serialization import state_roots_serializer, invalid_index_serializer
+from common.serializers.serialization import state_roots_serializer, invalid_index_serializer, serialize_msg_for_signing
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
@@ -533,8 +534,6 @@ class OrderingService:
             if why_not_applied is not None:
                 if why_not_applied == PP_APPLY_REJECT_WRONG:
                     report_suspicious(Suspicions.PPR_REJECT_WRONG)
-                elif why_not_applied == PP_APPLY_WRONG_DIGEST:
-                    report_suspicious(Suspicions.PPR_DIGEST_WRONG)
                 elif why_not_applied == PP_APPLY_WRONG_STATE:
                     report_suspicious(Suspicions.PPR_STATE_WRONG)
                 elif why_not_applied == PP_APPLY_ROOT_HASH_MISMATCH:
@@ -552,6 +551,9 @@ class OrderingService:
                     report_suspicious(Suspicions.PPR_WITH_ORDERED_REQUEST)
                 elif why_not_applied == PP_WRONG_PRIMARIES:
                     report_suspicious(Suspicions.PPR_WITH_WRONG_PRIMARIES)
+
+        elif why_not == PP_APPLY_WRONG_DIGEST:
+            report_suspicious(Suspicions.PPR_DIGEST_WRONG)
         elif why_not == PP_CHECK_NOT_FROM_PRIMARY:
             report_suspicious(Suspicions.PPR_FRM_NON_PRIMARY)
         elif why_not == PP_CHECK_TO_PRIMARY:
@@ -832,6 +834,12 @@ class OrderingService:
         if self._validator.has_already_ordered(pre_prepare.viewNo, pre_prepare.ppSeqNo):
             return None
 
+        digest = self.generate_pp_digest(pre_prepare.reqIdr,
+                                         get_original_viewno(pre_prepare),
+                                         pre_prepare.ppTime)
+        if digest != pre_prepare.digest:
+            return PP_APPLY_WRONG_DIGEST
+
         # PRE-PREPARE should not be sent from non primary
         if not self._is_msg_from_primary(pre_prepare, sender):
             return PP_CHECK_NOT_FROM_PRIMARY
@@ -912,7 +920,7 @@ class OrderingService:
             why_not_applied = PP_REQUEST_ALREADY_ORDERED
         else:
             why_not_applied = self._validate_applied_pre_prepare(pre_prepare,
-                                                                 reqs, invalid_indices, invalid_from_pp)
+                                                                 invalid_indices, invalid_from_pp)
 
         # 4. IF NOT VALID AFTER APPLYING - REVERT
         if why_not_applied is not None:
@@ -1177,13 +1185,9 @@ class OrderingService:
         return [req.key for idx, req in enumerate(reqs) if idx not in invalid_indices]
 
     def _validate_applied_pre_prepare(self, pre_prepare: PrePrepare,
-                                      reqs, invalid_indices, invalid_from_pp) -> Optional[int]:
+                                      invalid_indices, invalid_from_pp) -> Optional[int]:
         if len(invalid_indices) != len(invalid_from_pp):
             return PP_APPLY_REJECT_WRONG
-
-        digest = self.replica_batch_digest(reqs)
-        if digest != pre_prepare.digest:
-            return PP_APPLY_WRONG_DIGEST
 
         if self.is_master:
             if pre_prepare.stateRootHash != self.get_state_root_hash(pre_prepare.ledgerId):
@@ -2022,9 +2026,9 @@ class OrderingService:
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
 
-        digest = self.replica_batch_digest(reqs)
         primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
-
+        req_ids = [req.digest for req in reqs]
+        digest = self.generate_pp_digest(req_ids, self.view_no, tm)
         if self.is_master:
             three_pc_batch = ThreePcBatch(
                 ledger_id=ledger_id,
@@ -2050,7 +2054,7 @@ class OrderingService:
             self.view_no,
             pp_seq_no,
             tm,
-            [req.digest for req in reqs],
+            req_ids,
             invalid_index_serializer.serialize(invalid_indices, toBytes=False),
             digest,
             ledger_id,
@@ -2275,6 +2279,10 @@ class OrderingService:
                 return commit
         return None
 
+    @staticmethod
+    def generate_pp_digest(req_digests, original_view_no, pp_time):
+        return sha256(serialize_msg_for_signing([original_view_no, pp_time, *req_digests])).hexdigest()
+
     def replica_batch_digest(self, reqs):
         return replica_batch_digest(reqs)
 
@@ -2376,6 +2384,12 @@ class OrderingService:
         self._send(rep, dst=[getNodeName(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
+        # TODO: return the check after INDY-2238 about persisting of 3pc messages
+        # At the moment this optimization adds a bug that is reproduced in
+        # test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_the_other_half
+        # if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+        #     self._reordered_in_new_view()
+        #     return
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
@@ -2383,12 +2397,16 @@ class OrderingService:
         for pp_dict in msg.preprepares:
             try:
                 pp = PrePrepare(**pp_dict)
+                if self._data.new_view is None or \
+                        preprepare_to_batch_id(pp) not in self._data.new_view.batches:
+                    self._logger.info("Skipped useless PrePrepare {} from {}".format(pp, sender))
+                    continue
                 self._process_pre_prepare_from_old_view(pp)
             except Exception as ex:
                 # TODO: catch more specific error here
                 self._logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
-
-        self._reordered_in_new_view()
+        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+            self._reordered_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)

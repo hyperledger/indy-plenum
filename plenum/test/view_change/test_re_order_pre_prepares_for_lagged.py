@@ -2,6 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, PREPREPARE, PREPARE, COMMIT
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewCheckpointsApplied
+from plenum.common.messages.node_messages import NewView
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.test.delayers import delay_3pc, msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
@@ -54,13 +55,18 @@ def test_re_order_pre_prepares_no_pre_prepares(looper, txnPoolNodeSet,
         new_master = txnPoolNodeSet[1]
         batches = sorted([preprepare_to_batch_id(pp) for _, pp in
                          new_master.master_replica._ordering_service.old_view_preprepares.items()])
-        new_view_msg = NewViewCheckpointsApplied(view_no=0,
-                                                 view_changes=[],
-                                                 checkpoint=None,
-                                                 batches=batches)
+        new_view_msg = NewView(viewNo=0,
+                               viewChanges=[],
+                               checkpoint=None,
+                               batches=batches)
+        new_view_chk_applied_msg = NewViewCheckpointsApplied(view_no=0,
+                                                             view_changes=[],
+                                                             checkpoint=None,
+                                                             batches=batches)
         for n in txnPoolNodeSet:
+            n.master_replica._consensus_data.new_view = new_view_msg
             n.master_replica._consensus_data.prev_view_prepare_cert = batches[-1].pp_seq_no
-            n.master_replica._ordering_service._bus.send(new_view_msg)
+            n.master_replica._ordering_service._bus.send(new_view_chk_applied_msg)
 
         # 4. Make sure that the nodes 1-3 (that already ordered the requests) sent Prepares and Commits so that
         # the request was eventually ordered on Node4 as well
