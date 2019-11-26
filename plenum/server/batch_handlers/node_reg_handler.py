@@ -53,7 +53,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             self.node_reg_at_beginning_of_view[view_no] = list(self.uncommitted_node_reg)
             self._uncommitted_view_no = view_no
 
-        three_pc_batch.node_reg = self.uncommitted_node_reg
+        three_pc_batch.node_reg = list(self.uncommitted_node_reg)
 
         logger.debug("Applied uncommitted node registry: {}".format(self.uncommitted_node_reg))
         logger.debug(

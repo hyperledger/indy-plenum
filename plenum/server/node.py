@@ -1205,9 +1205,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule_view_change()
 
         for inst_id, replica in self.replicas.items():
+            replica.update_connecteds(self.nodestack.connecteds)
             if not replica.isMaster and replica.primaryName is not None:
-                replica.update_connecteds(self.nodestack.connecteds)
-                primary_node_name = replica.primaryName.split(':')[0]
+                primary_node_name = replica.primaryName.rsplit(':', maxsplit=1)[0]
                 if primary_node_name in joined:
                     self.primaries_disconnection_times[inst_id] = None
                 elif primary_node_name in left:
