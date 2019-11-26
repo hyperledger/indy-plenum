@@ -35,30 +35,8 @@ def create_stack(name, looper, tdir, tconf):
     stackParams = dict(name=name, ha=REGISTRY[name], basedirpath=tdir,
                        auth_mode=AuthMode.RESTRICTED.value)
     stack = KITZStack(stackParams, msgHandler=printer.print, registry=REGISTRY, config=tconf)
-    patch_ping_pong(stack)
     motor = prepStacks(looper, *[stack], connect=False, useKeys=True)[0]
     return stack, motor
-
-
-def patch_ping_pong(stack):
-    origMethod = stack.handlePingPong
-
-    stack.drop_ping = False
-    stack.drop_pong = False
-    stack.has_ping = set()
-
-    def patchedHandlePingPong(self, msg, frm, ident):
-        if self.drop_ping and msg == self.pingMessage:
-            return
-        if self.drop_pong and msg == self.pongMessage:
-            return
-
-        if msg == self.pingMessage:
-            self.has_ping.add(frm)
-
-        return origMethod(msg, frm, ident)
-
-    stack.handlePingPong = types.MethodType(patchedHandlePingPong, stack)
 
 
 CONNECT_TIMEOUT = 17  # this is the value we have in plenum.waits (expectedPoolInterconnectionTime) for 4 nodes
@@ -181,47 +159,5 @@ def test_reconnect_for_long_time(looper, tdir, tconf, generated_keys):
         connectStack(beta, alpha)
 
         # 4. check that they are connected
-        looper.run(eventually(
-            checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
-
-
-def test_reconnect_for_long_time_lose_pongs(looper, tdir, tconf, generated_keys):
-    # create stacks
-    alpha, alpha_motor = create_stack("Alpha", looper, tdir, tconf)
-    beta, beta_motor = create_stack("Beta", looper, tdir, tconf)
-
-    # connect both
-    connectStack(alpha, beta)
-    connectStack(beta, alpha)
-    looper.run(eventually(
-        checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
-
-    for i in range(10):
-        # 1. stop Beta
-        looper.removeProdable(beta_motor)
-        beta_motor.stop()
-        looper.run(eventually(
-            checkStackDisonnected, beta, [alpha], retryWait=1, timeout=CONNECT_TIMEOUT))
-        looper.run(eventually(
-            checkStackDisonnected, alpha, [beta], retryWait=1, timeout=CONNECT_TIMEOUT))
-
-        # 2. wait for some time so that Alpha re-creates the socket multiple time trying to reconnect to Beta
-        looper.runFor(15)
-
-        # 3. start Beta again but drop pongs to emulate a situation when Alpha connected to Beta, but Beta doesn't
-        beta, beta_motor = create_stack("Beta", looper, tdir, tconf)
-        beta.drop_pong = True
-        connectStack(beta, alpha)
-
-        # 4. make sure that only Alpha is connected
-        looper.run(eventually(
-            checkStackConnected, alpha, [beta], retryWait=1, timeout=CONNECT_TIMEOUT))
-        looper.run(eventually(
-            checkStackDisonnected, beta, [alpha], retryWait=1, timeout=CONNECT_TIMEOUT))
-
-        # 5. allow beta to connect to Alpha
-        beta.drop_pong = False
-
-        # 6. check that they both connected
         looper.run(eventually(
             checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
