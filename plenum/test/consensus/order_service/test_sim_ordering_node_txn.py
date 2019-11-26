@@ -1,10 +1,10 @@
 from functools import partial
-from random import randint
+from random import randint, shuffle
 
 import pytest
 
 from plenum.common.constants import VALIDATOR, POOL_LEDGER_ID, TYPE, NODE, DATA, ALIAS, CLIENT_IP, CLIENT_PORT, NODE_IP, \
-    NODE_PORT, BLS_KEY, TARGET_NYM, SERVICES, CURRENT_PROTOCOL_VERSION
+    NODE_PORT, BLS_KEY, TARGET_NYM, SERVICES, CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.request import Request
 from plenum.common.timer import RepeatingTimer
@@ -15,14 +15,16 @@ from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesS
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.test.consensus.helper import SimPool
 from plenum.test.consensus.order_service.sim_helper import order_requests, \
-    get_pools_ledger_size, setup_pool, check_batch_count, check_ledger_size
+    get_pools_ledger_size, setup_pool, check_batch_count, check_ledger_size, create_requests
 from plenum.test.greek import Greeks
 from plenum.test.simulation.sim_random import DefaultSimRandom
 from stp_core.common.log import Logger, getlogger
 
 
 logger = getlogger()
-Logger().setLogLevel(0)
+
+
+DOMAIN_REQ_COUNT = 10
 
 
 def build_add_new_node_req(node_name, services, ports_addiction):
@@ -77,10 +79,11 @@ def check_primaries(pool: SimPool, expected_primaries):
 
 def check_node_reg(pool: SimPool, expected_node_reg):
     for node in pool.nodes:
-        if node._write_manager.node_reg_handler.committed_node_reg != expected_node_reg:
+        committed_node_reg = node._write_manager.node_reg_handler.committed_node_reg
+        if set(committed_node_reg).difference(set(expected_node_reg)):
             logger.debug("Node: {}, Current node reg: {}, Expected node reg: {}".format(
                 node.name,
-                node._write_manager.node_reg_handler.committed_node_reg,
+                committed_node_reg,
                 expected_node_reg
             ))
             return False
@@ -151,13 +154,17 @@ def pool_with_edge_primaries(sim_pool):
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
-    reqs = [node_req_add(sim_pool.size + i) for i in range(random.integer(1, sim_pool.size - 1))]
+    pool_reqs = [node_req_add(sim_pool.size + i) for i in range(random.integer(1, sim_pool.size - 1))]
+    domain_reqs = create_requests(DOMAIN_REQ_COUNT)
+    reqs = pool_reqs + domain_reqs
+    shuffle(reqs)
     sim_pool.sim_send_requests(reqs)
 
     current_view_no = sim_pool.view_no
-    current_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
+    current_pool_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
+    current_domain_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=DOMAIN_LEDGER_ID)
     expected_view_no = current_view_no + 1
-    expected_node_reg = sim_pool.validators + [Greeks[sim_pool.size + i][0] for i in range(len(reqs))]
+    expected_node_reg = sim_pool.validators + [Greeks[sim_pool.size + i][0] for i in range(len(pool_reqs))]
 
     # Step 2. Start requests ordering
     random_interval = random.integer(10, 20) * 100
@@ -181,26 +188,33 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # ToDo: change this checks for making they on whole pool after INDY-2148 will be implemented
 
     sim_pool.timer.wait_for(lambda: all([n._data.view_no == expected_view_no for n in sim_pool.nodes]))
-    sim_pool.timer.wait_for(lambda: all([n._write_manager.node_reg_handler.committed_node_reg == expected_node_reg for n in sim_pool.nodes]))
+    sim_pool.timer.wait_for(partial(check_node_reg, sim_pool, expected_node_reg))
     for node in sim_pool.nodes:
         sim_pool.timer.wait_for(
             partial(
-                check_ledger_size, node, current_ledger_size + len(reqs), POOL_LEDGER_ID))
+                check_ledger_size, node, current_pool_ledger_size + len(pool_reqs), POOL_LEDGER_ID))
+        sim_pool.timer.wait_for(
+            partial(
+                check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
     demoted_names = []
-    reqs = []
+    pool_reqs = []
+    domain_reqs = create_requests(DOMAIN_REQ_COUNT)
     for i in indexes_to_demote:
         name, req = node_req_demote(i)
         demoted_names.append(name)
-        reqs.append(req)
+        pool_reqs.append(req)
+    reqs = pool_reqs + domain_reqs
+    shuffle(reqs)
     sim_pool.sim_send_requests(reqs)
 
     current_view_no = sim_pool.view_no
-    current_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
+    current_pool_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
+    current_domain_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=DOMAIN_LEDGER_ID)
     expected_view_no = current_view_no + 1
     expected_node_reg = [name for name in sim_pool._genesis_validators if name not in demoted_names]
     # Step 2. Start requests ordering
@@ -229,7 +243,10 @@ def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demo
     for node in sim_pool.nodes:
         sim_pool.timer.wait_for(
             partial(
-                check_ledger_size, node, current_ledger_size + len(reqs), POOL_LEDGER_ID))
+                check_ledger_size, node, current_pool_ledger_size + len(pool_reqs), POOL_LEDGER_ID))
+        sim_pool.timer.wait_for(
+            partial(
+                check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
 @pytest.mark.skip("INDY-2148, need catchup for new added node")
