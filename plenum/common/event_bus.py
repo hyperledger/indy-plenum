@@ -1,6 +1,4 @@
-from collections import defaultdict
-from functools import partial
-from typing import Callable, Type, Dict, List, Any, Union
+from typing import Callable, List, Any, Union
 
 from plenum.common.router import Router
 

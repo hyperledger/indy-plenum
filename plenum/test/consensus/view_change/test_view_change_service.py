@@ -4,7 +4,9 @@ import pytest
 from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
-    NewViewCheckpointsApplied
+    NewViewCheckpointsApplied, StartViewChange
+from plenum.common.util import getMaxFailures
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.server.consensus.view_change_service import ViewChangeService
@@ -19,13 +21,14 @@ DEFAULT_STABLE_CHKP = 10
 
 
 @pytest.fixture
-def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher, initial_view_no):
+def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher, initial_view_no, validators):
     def _service(name):
         data = consensus_data(name)
         digest = cp_digest(DEFAULT_STABLE_CHKP)
         cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=DEFAULT_STABLE_CHKP, digest=digest)
         data.checkpoints.append(cp)
-        service = ViewChangeService(data, timer, internal_bus, external_bus, stasher)
+        primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
+        service = ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
         return service
 
     return _service
@@ -637,3 +640,33 @@ def test_do_not_send_instance_change_on_timeout_when_multiple_view_change_finish
     assert len(external_bus.sent_messages) == 1
     msg, dst = external_bus.sent_messages[0]
     assert isinstance(msg, NewView)
+
+
+def test_start_vc_by_quorum_of_vc_msgs(view_change_service_builder,
+                                       internal_bus,
+                                       external_bus,
+                                       validators,
+                                       is_master):
+    svc_queue = []
+    def svc_handler(msg: StartViewChange):
+        svc_queue.append(msg)
+    internal_bus.subscribe(StartViewChange, svc_handler)
+    # Quorum for ViewChange message is N-f
+    service = view_change_service_builder(validators[0])
+    proposed_view_no = 10
+    f = getMaxFailures(len(validators))
+    # Append N-f-1 ViewChange msgs to view_change_votes
+    for validator in validators[1:-f]:
+        msg = ViewChange(proposed_view_no, 0, [], [], [])
+        service.process_view_change_message(msg, validator)
+    # N-f-1 msgs is not enough for triggering view_change
+    assert not svc_queue
+    # Process the other one message
+    service.process_view_change_message(ViewChange(proposed_view_no, 0, [], [], []), validators[-1])
+    if is_master:
+        assert svc_queue
+        assert isinstance(svc_queue[0], StartViewChange)
+        assert svc_queue[0].view_no == proposed_view_no
+    else:
+        # ViewChange message isn't processed on backups
+        assert not svc_queue

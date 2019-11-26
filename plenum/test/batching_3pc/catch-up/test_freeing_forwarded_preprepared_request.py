@@ -50,7 +50,7 @@ def test_freeing_forwarded_preprepared_request(
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
 
     def _check():
-        assert len(behind_node.requests) == req_num
+        assert len(behind_node.requests) == 0
 
     looper.run(eventually(_check))
     assert all(r.executed for r in behind_node.requests.values() if behind_node.seqNoDB.
@@ -59,5 +59,5 @@ def test_freeing_forwarded_preprepared_request(
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
 
-    # Master and backup replicas do not stash new requests and succesfully order them
-    assert len(behind_node.requests) == req_num
+    # Master and backup replicas do not stash new requests and successfully order them
+    assert len(behind_node.requests) == 0

@@ -61,6 +61,7 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
             last_config_seqno=3,
             primaries=pp_seq_no + 1 - 1,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 1 - 1].pp_digest,
+            node_reg=pp_seq_no + 1 - 1
         )
 
         check_audit_txn(
@@ -83,6 +84,7 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
             last_config_seqno=3,
             primaries=pp_seq_no + 2 - 1,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 2 - 1].pp_digest,
+            node_reg=pp_seq_no + 2 - 1
         )
 
         check_audit_txn(
@@ -105,4 +107,5 @@ def test_audit_ledger_updated_after_freshness_updated(looper, tconf, txnPoolNode
             last_config_seqno=None,
             primaries=pp_seq_no + 3 - 1,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 3 - 1].pp_digest,
+            node_reg=pp_seq_no + 3 - 1
         )

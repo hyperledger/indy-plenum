@@ -86,11 +86,17 @@ class KITZStack(simple_zstack_class, KITNetworkInterface):
         return self.registry.keys() - matches - {self.name}
 
     def retryDisconnected(self, exclude=None):
+        if not self.config.RETRY_CONNECT:
+            return
         exclude = exclude or {}
         for name, remote in self.remotes.items():
             if name in exclude or remote.isConnected:
                 if name in self._retry_connect:
                     self._retry_connect.pop(name, None)
+                continue
+
+            if not self.config.RETRY_SOCKET_RECONNECT:
+                self.sendPingPong(remote, is_ping=True)
                 continue
 
             if name not in self._retry_connect:

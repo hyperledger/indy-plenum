@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Optional, NamedTuple
+from typing import Optional
 
 from ledger.ledger import Ledger
 from plenum.common.channel import RxChannel, TxChannel, Router

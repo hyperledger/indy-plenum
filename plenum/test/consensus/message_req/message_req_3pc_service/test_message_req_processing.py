@@ -59,6 +59,7 @@ def test_process_ordered(message_req_service: MessageReqService, internal_bus, d
         pp.txnRootHash,
         pp.auditTxnRootHash,
         ["Alpha", "Beta"],
+        ["Alpha", "Beta", "Gamma", "Delta"],
         view_no,
         'digest'
     ]

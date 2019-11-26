@@ -67,7 +67,7 @@ def test_reconnect_primary_and_not_primary(looper,
                           timeout=5,
                           acceptableExceptions=[AssertionError]))
     looper.run(eventually(partial(checkViewNoForNodes, restNodes, expectedViewNo=old_view_no + 1),
-                          timeout=tconf.VIEW_CHANGE_TIMEOUT))
+                          timeout=tconf.NEW_VIEW_TIMEOUT))
     sdk_send_random_and_check(looper, restNodes, sdk_pool_handle, sdk_wallet_steward, 5)
     logger.debug("restNodes: {}".format(restNodes))
     restNodes.add(node_after_all_primary)

@@ -11,12 +11,12 @@ from plenum.test.test_node import get_master_primary_node, \
 from stp_core.loop.eventually import eventually
 
 nodeCount = 7
-VIEW_CHANGE_TIMEOUT = 5
+NEW_VIEW_TIMEOUT = 5
 
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    with view_change_timeout(tconf, VIEW_CHANGE_TIMEOUT), \
+    with view_change_timeout(tconf, NEW_VIEW_TIMEOUT), \
          perf_monitor_disabled(tconf):
         yield tconf
 
@@ -57,9 +57,7 @@ def _view_change_completed_count(node):
 
 
 def stop_master_primary(nodes, view_no):
-    m_next_primary_name = nodes[0].primaries_selector.select_primaries(view_no,
-                                                                       nodes[0].requiredNumberOfInstances,
-                                                                       nodes[0].poolManager.node_names_ordered_by_rank())[0]
+    m_next_primary_name = nodes[0].primaries_selector.select_primaries(view_no)[0]
     next(node for node in nodes if node.name == m_next_primary_name).stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes
@@ -95,7 +93,7 @@ def test_view_change_retry_by_timeout(
         with pytest.raises(AssertionError):
             ensureElectionsDone(looper=looper,
                                 nodes=txnPoolNodeSet,
-                                customTimeout=1.5 * VIEW_CHANGE_TIMEOUT)
+                                customTimeout=1.5 * NEW_VIEW_TIMEOUT)
 
     # Now as ViewChangeDone messages are unblocked view changes should finish successfully
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
@@ -133,7 +131,7 @@ def test_multiple_view_change_retries_by_timeouts(
         looper.run(eventually(check_watchdog_called_expected_times,
                               txnPoolNodeSet, timeout_callback_stats, 3,
                               retryWait=1,
-                              timeout=3 * VIEW_CHANGE_TIMEOUT + 2))
+                              timeout=3 * NEW_VIEW_TIMEOUT + 2))
 
         # View changes should fail
         with pytest.raises(AssertionError):

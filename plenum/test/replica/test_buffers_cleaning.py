@@ -2,6 +2,7 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.startable import Mode
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
@@ -23,7 +24,8 @@ def test_ordered_cleaning(tconf):
         timer=QueueTimer(),
         quorums=Quorums(4),
         write_manager=None,
-        poolManager=FakeSomething(node_names_ordered_by_rank=lambda: [])
+        poolManager=FakeSomething(node_names_ordered_by_rank=lambda: []),
+        primaries_selector=RoundRobinConstantNodesPrimariesSelector(["Alpha", "Beta", "Gamma", "Delta"])
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,
@@ -61,7 +63,8 @@ def test_primary_names_cleaning(tconf):
         timer=QueueTimer(),
         quorums=Quorums(4),
         write_manager=None,
-        poolManager=FakeSomething(node_names_ordered_by_rank=lambda: [])
+        poolManager=FakeSomething(node_names_ordered_by_rank=lambda: []),
+        primaries_selector=RoundRobinConstantNodesPrimariesSelector(["Alpha", "Beta", "Gamma", "Delta"])
     )
     bls_bft_replica = FakeSomething(
         gc=lambda *args: None,

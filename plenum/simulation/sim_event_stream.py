@@ -3,7 +3,7 @@ from math import inf
 
 from hypothesis import strategies as st
 from hypothesis.strategies import composite
-from typing import NamedTuple, Any, List, Optional, Set, Union, Iterable, Callable
+from typing import NamedTuple, Any, Optional, Union, Iterable, Callable
 
 from sortedcontainers import SortedListWithKey
 

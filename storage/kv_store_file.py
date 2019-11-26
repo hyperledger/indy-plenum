@@ -1,10 +1,6 @@
-import logging
 import os
-import shutil
 from abc import abstractmethod
-from hashlib import sha256
-
-from typing import Tuple, Iterable, Optional
+from typing import Tuple, Iterable
 
 from storage.kv_store import KeyValueStorage
 

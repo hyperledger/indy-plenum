@@ -1,8 +1,7 @@
-from typing import Optional, Tuple, Dict
+from typing import Optional, Dict
 
 from plenum.common.channel import RxChannel, TxChannel, Router, create_direct_channel
 from plenum.common.constants import LedgerState
-from plenum.common.messages.node_messages import ConsistencyProof
 from plenum.common.metrics_collector import MetricsCollector
 from plenum.common.timer import TimerService
 from plenum.server.catchup.catchup_rep_service import CatchupRepService
