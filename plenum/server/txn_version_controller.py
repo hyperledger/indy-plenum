@@ -6,3 +6,6 @@ class ITxnVersionController:
 
     def update_version(self, txn):
         pass
+
+    def get_version(self, timestamp):
+        return None

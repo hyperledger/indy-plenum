@@ -90,6 +90,9 @@ class DatabaseManager():
     def update_state_version(self, txn):
         self._txn_version_controller.update_version(txn)
 
+    def get_version(self, timestamp):
+        self._txn_version_controller.get_version(timestamp)
+
     @property
     def state_version(self):
         return self._txn_version_controller.version
