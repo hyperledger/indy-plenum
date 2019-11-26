@@ -20,12 +20,13 @@ from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
 from plenum.server.suspicion_codes import Suspicions, Suspicion
 from stp_core.common.log import getlogger
 
+logger = getlogger()
+
 
 class ViewChangeService:
     def __init__(self, data: ConsensusSharedData, timer: TimerService, bus: InternalBus, network: ExternalBus,
                  stasher: StashingRouter, primaries_selector: PrimariesSelector):
         self._config = getConfig()
-        self._logger = getlogger()
 
         self._data = data
         self._new_view_builder = NewViewBuilder(self._data)
@@ -66,7 +67,7 @@ class ViewChangeService:
         return self._data.view_change_votes
 
     def process_need_view_change(self, msg: NeedViewChange):
-        self._logger.info("{} processing {}".format(self, msg))
+        logger.info("{} processing {}".format(self, msg))
 
         # 1. calculate new viewno
         view_no = msg.view_no
@@ -81,11 +82,11 @@ class ViewChangeService:
         self._data.waiting_for_new_view = True
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no)
         for i, primary_name in enumerate(self._data.primaries):
-            self._logger.display("{} selected primary {} for instance {} (view {})"
-                                 .format(PRIMARY_SELECTION_PREFIX,
-                                         primary_name, i, self._data.view_no),
-                                 extra={"cli": "ANNOUNCE",
-                                        "tags": ["node-election"]})
+            logger.display("{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_SELECTION_PREFIX,
+                                   primary_name, i, self._data.view_no),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
 
         old_primary = self._data.primary_name
         self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
@@ -94,17 +95,17 @@ class ViewChangeService:
             return
 
         if old_primary and self._data.primary_name == old_primary:
-            self._logger.info("Selected master primary is the same with the "
-                              "current master primary (new_view {}). "
-                              "Propose a new view {}".format(self._data.view_no,
-                                                             self._data.view_no + 1))
+            logger.info("Selected master primary is the same with the "
+                        "current master primary (new_view {}). "
+                        "Propose a new view {}".format(self._data.view_no,
+                                                       self._data.view_no + 1))
             self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY)
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
 
         # 5. Send ViewChangeStarted via internal bus to update other services
-        self._logger.info("{} sending {}".format(self, vc))
+        logger.info("{} sending {}".format(self, vc))
         self._bus.send(ViewChangeStarted(view_no=self._data.view_no))
 
         # 6. Send ViewChange msg to other nodes (via external bus)
@@ -162,7 +163,7 @@ class ViewChangeService:
         if result != PROCESS:
             return result, None
 
-        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+        logger.info("{} processing {} from {}".format(self, msg, frm))
 
         self.view_change_votes.add_view_change(msg, frm)
 
@@ -178,7 +179,7 @@ class ViewChangeService:
             return PROCESS, None
 
         primary_node_name = getNodeName(self._data.primary_name)
-        self._logger.info("{} sending {}".format(self, vca))
+        logger.info("{} sending {}".format(self, vca))
         self._network.send(vca, [primary_node_name])
 
         self._finish_view_change_if_needed()
@@ -189,7 +190,7 @@ class ViewChangeService:
         if result != PROCESS:
             return result, None
 
-        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+        logger.info("{} processing {} from {}".format(self, msg, frm))
 
         if not self._data.is_primary:
             return PROCESS, None
@@ -203,10 +204,10 @@ class ViewChangeService:
         if result != PROCESS:
             return result, None
 
-        self._logger.info("{} processing {} from {}".format(self, msg, frm))
+        logger.info("{} processing {} from {}".format(self, msg, frm))
 
         if frm != self._data.primary_name:
-            self._logger.info(
+            logger.info(
                 "{} Received NewView {} for view {} from non-primary {}; expected primary {}".format(self._data.name,
                                                                                                      msg,
                                                                                                      self._data.view_no,
@@ -258,7 +259,7 @@ class ViewChangeService:
             checkpoint=cp,
             batches=batches
         )
-        self._logger.info("{} sending {}".format(self, nv))
+        logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
         self._data.new_view = nv
         self._finish_view_change()
@@ -279,7 +280,7 @@ class ViewChangeService:
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None or cp != self._data.new_view.checkpoint:
             # New primary is malicious
-            self._logger.info(
+            logger.info(
                 "{} Received invalid NewView {} for view {}: expected checkpoint {}".format(self._data.name,
                                                                                             self._data.new_view,
                                                                                             self._data.view_no,
@@ -291,7 +292,7 @@ class ViewChangeService:
         batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches != self._data.new_view.batches:
             # New primary is malicious
-            self._logger.info(
+            logger.info(
                 "{} Received invalid NewView {} for view {}: expected batches {}".format(self._data.name,
                                                                                          self._data.new_view,
                                                                                          self._data.view_no,
@@ -303,7 +304,7 @@ class ViewChangeService:
         self._finish_view_change()
 
     def _finish_view_change(self):
-        self._logger.info("{} finished view change to view {}. Primaries: {}".format(self._data.name,
+        logger.info("{} finished view change to view {}. Primaries: {}".format(self._data.name,
                                                                                      self._data.view_no,
                                                                                      self._data.primaries))
         # Update shared data

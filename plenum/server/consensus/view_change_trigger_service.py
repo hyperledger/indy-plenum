@@ -15,6 +15,8 @@ from plenum.server.suspicion_codes import Suspicions, Suspicion
 from plenum.server.view_change.instance_change_provider import InstanceChangeProvider
 from stp_core.common.log import getlogger
 
+logger = getlogger()
+
 
 class ViewChangeTriggerService:
     def __init__(self,
@@ -35,7 +37,6 @@ class ViewChangeTriggerService:
         self.metrics = metrics
 
         self._config = getConfig()
-        self._logger = getlogger()
 
         self._instance_changes = \
             InstanceChangeProvider(outdated_ic_interval=self._config.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL,
@@ -74,7 +75,7 @@ class ViewChangeTriggerService:
             return DISCARD, "instance change request: {} from {} which is not in connected list: {}".\
                 format(msg, frm, self._network.connecteds)
 
-        self._logger.info("{} received instance change request: {} from {}".format(self, msg, frm))
+        logger.info("{} received instance change request: {} from {}".format(self, msg, frm))
 
         if msg.viewNo <= self._data.view_no:
             return DISCARD, "instance change request with view no {} which is not more than its view no {}".\
@@ -86,22 +87,22 @@ class ViewChangeTriggerService:
         self._on_verified_instance_change_msg(msg, frm)
 
         if self._instance_changes.has_inst_chng_from(msg.viewNo, self.name):
-            self._logger.info("{} received instance change message {} "
-                              "but has already sent an instance change message".format(self, msg))
+            logger.info("{} received instance change message {} "
+                        "but has already sent an instance change message".format(self, msg))
         elif not self._is_master_degraded():
-            self._logger.info("{} received instance change message {} "
-                              "but did not find the master to be slow".format(self, msg))
+            logger.info("{} received instance change message {} "
+                        "but did not find the master to be slow".format(self, msg))
         else:
-            self._logger.display("{}{} found master degraded after "
-                                 "receiving instance change message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
+            logger.display("{}{} found master degraded after "
+                           "receiving instance change message from {}".format(VIEW_CHANGE_PREFIX, self, frm))
             self._send_instance_change(msg.viewNo, Suspicions.PRIMARY_DEGRADED)
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
         self._instance_changes.remove_view(self._data.view_no)
 
     def _send_instance_change(self, view_no: int, suspicion: Suspicion):
-        self._logger.info("{}{} sending an instance change with view_no {} since {}".
-                          format(VIEW_CHANGE_PREFIX, self, view_no, suspicion.reason))
+        logger.info("{}{} sending an instance change with view_no {} since {}".
+                    format(VIEW_CHANGE_PREFIX, self, view_no, suspicion.reason))
         msg = InstanceChange(view_no, suspicion.code)
         self._network.send(msg)
         # record instance change vote for self and try to change the view if quorum is reached
@@ -120,11 +121,11 @@ class ViewChangeTriggerService:
         #  malicious nodes sending messages early on
         can, why_not = self._can_view_change(proposed_view_no)
         if can:
-            self._logger.display("{}{} initiating a view change to {} from {}".
-                                 format(VIEW_CHANGE_PREFIX, self, proposed_view_no, self._data.view_no))
+            logger.display("{}{} initiating a view change to {} from {}".
+                           format(VIEW_CHANGE_PREFIX, self, proposed_view_no, self._data.view_no))
             self._bus.send(NodeNeedViewChange(view_no=proposed_view_no))
         else:
-            self._logger.info(why_not)
+            logger.info(why_not)
         return can
 
     def _can_view_change(self, proposed_view_no: int) -> (bool, str):
