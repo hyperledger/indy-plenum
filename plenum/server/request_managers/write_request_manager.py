@@ -104,7 +104,7 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.dynamic_validation(request)
 
-    def _get_handlers_by_version(self, timestamp, txn_type=None):
+    def _get_handlers_by_version(self, txn_type=None, timestamp=0):
         version = self.database_manager.get_version(timestamp)
         version = self.config.INDY_VERSION_MATCHING.get(version, version)
         handlers = self._request_handlers_with_version.get((txn_type, version)) \
