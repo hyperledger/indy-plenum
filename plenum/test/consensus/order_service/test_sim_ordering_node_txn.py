@@ -1,5 +1,5 @@
 from functools import partial
-from random import randint, shuffle
+from random import randint, shuffle, Random
 
 import pytest
 
@@ -117,7 +117,7 @@ def node_req_demote(random, sim_pool):
 
 
 # "params" equal to seed
-@pytest.fixture(params=range(100))
+@pytest.fixture(params=Random().sample(range(1000000), 100))
 def random(request):
     return DefaultSimRandom(request.param)
 
