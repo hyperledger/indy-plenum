@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
-    NeedViewChange, NodeNeedViewChange, ConnectionStatusUpdated
+    NeedViewChange, NodeNeedViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -1286,7 +1286,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param old: the previous status
         :param new: the current status
         """
-        self.replicas.send_to_internal_bus(ConnectionStatusUpdated(status=new))
 
     def checkInstances(self) -> None:
         # TODO: Is this method really needed?
@@ -3295,11 +3294,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
 
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
-        # TODO: This conditional looks extremely suspicious - probably we should just
-        #  stash InstanceChange messages during catch up instead
-        if Mode.is_done_syncing(self.mode):
-            self.on_view_change_start()
-            self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
+        self.on_view_change_start()
+        self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.monitor.reset()

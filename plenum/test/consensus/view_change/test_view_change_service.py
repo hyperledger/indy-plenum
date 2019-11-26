@@ -5,7 +5,6 @@ from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
     NewViewCheckpointsApplied, NodeNeedViewChange
-from plenum.common.startable import Status
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
@@ -37,7 +36,6 @@ def view_change_service_builder(consensus_data, timer, internal_bus, external_bu
                                  network=external_bus,
                                  db_manager=DatabaseManager(),
                                  stasher=stasher,
-                                 status=Status.started,
                                  is_master_degraded=lambda: False)
 
         primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)

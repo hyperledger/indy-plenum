@@ -15,7 +15,7 @@ from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import PrimariesSelector
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.replica_helper import generateName, getNodeName
-from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE
+from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE, STASH_CATCH_UP
 from plenum.server.suspicion_codes import Suspicions, Suspicion
 from stp_core.common.log import getlogger
 
@@ -229,6 +229,9 @@ class ViewChangeService:
 
         if msg.viewNo == self._data.view_no and not self._data.waiting_for_new_view:
             return DISCARD
+
+        if not self._data.is_participating:
+            return STASH_CATCH_UP
 
         if msg.viewNo > self._data.view_no:
             return STASH_WAITING_VIEW_CHANGE

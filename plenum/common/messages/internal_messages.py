@@ -11,9 +11,6 @@ from plenum.server.suspicion_codes import Suspicion
 # - avoid names that tell "do something", messages are not commands
 # - avoid names that are just nouns, messages are not "things"
 
-ConnectionStatusUpdated = NamedTuple('ConnectionStatusUpdated',
-                                     [('status', Status)])
-
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
 
