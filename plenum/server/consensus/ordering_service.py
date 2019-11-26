@@ -2384,9 +2384,12 @@ class OrderingService:
         self._send(rep, dst=[getNodeName(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
-        if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
-            self._reordered_in_new_view()
-            return
+        # TODO: return the check after INDY-2238 about persisting of 3pc messages
+        # At the moment this optimization adds a bug that is reproduced in
+        # test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_the_other_half
+        # if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
+        #     self._reordered_in_new_view()
+        #     return
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
