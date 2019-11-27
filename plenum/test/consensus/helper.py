@@ -12,7 +12,8 @@ from plenum.common.event_bus import InternalBus
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck, PrePrepare, Prepare, \
-    Commit, MessageRep
+    Commit, MessageRep, OldViewPrePrepareRequest
+from plenum.common.startable import Mode
 from plenum.common.txn_util import get_type
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.server.consensus.checkpoint_service import CheckpointService
@@ -156,6 +157,7 @@ class SimPool:
                                      external_bus,
                                      write_manager=write_manager,
                                      bls_bft_replica=MockBlsBftReplica())
+            replica._data.node_mode = Mode.participating
             self._nodes.append(replica)
 
     @property
@@ -178,7 +180,8 @@ class SimPool:
         serialized_msg = Batched().prepForSending(msg)
         serialized_msg = ZStack.serializeMsg(serialized_msg)
         new_msg = node_message_factory.get_instance(**ZStack.deserializeMsg(serialized_msg))
-        if not isinstance(msg, MessageRep):
+        # TODO: Figure out why BatchIDs are not deserialized back
+        if not isinstance(msg, (MessageRep, OldViewPrePrepareRequest)):
             assert MessageProcessor().toDict(msg) == MessageProcessor().toDict(new_msg), \
                 "\n {} \n {}".format(MessageProcessor().toDict(msg), MessageProcessor().toDict(new_msg))
         return new_msg

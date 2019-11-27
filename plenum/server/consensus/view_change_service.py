@@ -153,7 +153,7 @@ class ViewChangeService:
         )
 
     def process_view_change_message(self, msg: ViewChange, frm: str):
-        result = self._validate(msg, frm)
+        result, reason = self._validate(msg, frm)
         if result == STASH_WAITING_VIEW_CHANGE:
             self._stashed_vc_msgs.setdefault(msg.viewNo, 0)
             self._stashed_vc_msgs[msg.viewNo] += 1
@@ -161,7 +161,7 @@ class ViewChangeService:
                     not self._data.waiting_for_new_view:
                 self._bus.send(NodeNeedViewChange(msg.viewNo))
         if result != PROCESS:
-            return result, None
+            return result, reason
 
         logger.info("{} processing {} from {}".format(self, msg, frm))
 
@@ -186,9 +186,9 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_view_change_ack_message(self, msg: ViewChangeAck, frm: str):
-        result = self._validate(msg, frm)
+        result, reason = self._validate(msg, frm)
         if result != PROCESS:
-            return result, None
+            return result, reason
 
         logger.info("{} processing {} from {}".format(self, msg, frm))
 
@@ -200,9 +200,9 @@ class ViewChangeService:
         return PROCESS, None
 
     def process_new_view_message(self, msg: NewView, frm: str):
-        result = self._validate(msg, frm)
+        result, reason = self._validate(msg, frm)
         if result != PROCESS:
-            return result, None
+            return result, reason
 
         logger.info("{} processing {} from {}".format(self, msg, frm))
 
@@ -220,24 +220,24 @@ class ViewChangeService:
         self._finish_view_change_if_needed()
         return PROCESS, None
 
-    def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> int:
+    def _validate(self, msg: Union[ViewChange, ViewChangeAck, NewView], frm: str) -> (int, str):
         # TODO: Proper validation
         if not self._data.is_master:
-            return DISCARD
+            return DISCARD, "not master instance"
 
         if msg.viewNo < self._data.view_no:
-            return DISCARD
+            return DISCARD, "message has old view {}, current view {}".format(msg.viewNo, self._data.view_no)
 
         if msg.viewNo == self._data.view_no and not self._data.waiting_for_new_view:
-            return DISCARD
+            return DISCARD, "message has current view {}, but we already finished view change".format(msg.viewNo)
 
         if not self._data.is_participating:
-            return STASH_CATCH_UP
+            return STASH_CATCH_UP, "we're not participating yet"
 
         if msg.viewNo > self._data.view_no:
-            return STASH_WAITING_VIEW_CHANGE
+            return STASH_WAITING_VIEW_CHANGE, "message is from future view {}".format(msg.viewNo)
 
-        return PROCESS
+        return PROCESS, None
 
     def _send_new_view_if_needed(self):
         confirmed_votes = self.view_change_votes.confirmed_votes
