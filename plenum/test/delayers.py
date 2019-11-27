@@ -154,6 +154,11 @@ def cr_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
     return delayerMsgTuple(delay, CatchupRep, ledgerFilter=ledger_filter)
 
 
+def old_view_pp_request_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
+    # Delayer of OldViewPrePrepareRequest
+    return delayerMsgTuple(delay, OldViewPrePrepareRequest, ledgerFilter=ledger_filter)
+
+
 def req_delay(delay: float = DEFAULT_DELAY):
     # Delayer of Request requests
     return delayerMsgTuple(delay, Request)
