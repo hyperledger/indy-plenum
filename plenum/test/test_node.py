@@ -15,6 +15,7 @@ from plenum.server.client_authn import CoreAuthNr
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.node_bootstrap import NodeBootstrap
@@ -1046,7 +1047,7 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 def get_master_primary_node(nodes):
     node = next(iter(nodes))
     if node.replicas[0].primaryName is not None:
-        nm = TestReplica.getNodeName(node.replicas[0].primaryName)
+        nm = replica_name_to_node_name(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
     raise AssertionError('No primary found for master')
 

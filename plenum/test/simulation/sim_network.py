@@ -5,7 +5,7 @@ from typing import Any, Iterable, Optional, Callable
 
 from plenum.common.event_bus import ExternalBus
 from plenum.common.timer import TimerService
-from plenum.server.replica_helper import getNodeName
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.simulation.sim_random import SimRandom
 
 
@@ -66,7 +66,7 @@ class SimNetwork:
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
-            dst = [name for name in self._peers if name != getNodeName(frm)]
+            dst = [name for name in self._peers if name != replica_name_to_node_name(frm)]
         elif isinstance(dst, str):
             dst = [dst]
         elif isinstance(dst, Iterable):

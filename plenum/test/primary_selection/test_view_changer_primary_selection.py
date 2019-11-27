@@ -6,6 +6,7 @@ from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LED
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 
 from plenum.server.propagator import Requests
@@ -116,7 +117,7 @@ class FakeNode:
     def master_primary_name(self) -> Optional[str]:
         nm = self.replicas[0].primaryName
         if nm:
-            return Replica.getNodeName(nm)
+            return replica_name_to_node_name(nm)
 
     @property
     def master_replica(self):

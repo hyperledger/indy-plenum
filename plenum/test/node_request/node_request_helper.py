@@ -4,11 +4,10 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
-from plenum.server.consensus.consensus_shared_data import get_original_viewno
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.utils import get_original_viewno
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
-from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.helper import chk_all_funcs, init_discarded
 from plenum.test.spy_helpers import getAllArgs

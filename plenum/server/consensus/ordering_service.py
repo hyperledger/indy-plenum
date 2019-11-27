@@ -35,17 +35,17 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id, \
-    get_original_viewno
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.metrics_decorator import measure_consensus_time
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.consensus.primary_selector import PrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name, get_original_viewno, preprepare_to_batch_id
 from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_DIGEST, PP_APPLY_WRONG_STATE, \
     PP_APPLY_ROOT_HASH_MISMATCH, PP_APPLY_HOOK_ERROR, PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL, PP_APPLY_AUDIT_HASH_MISMATCH, \
     PP_REQUEST_ALREADY_ORDERED, PP_CHECK_NOT_FROM_PRIMARY, PP_CHECK_TO_PRIMARY, PP_CHECK_DUPLICATE, \
     PP_CHECK_INCORRECT_POOL_STATE_ROOT, PP_CHECK_OLD, PP_CHECK_REQUEST_NOT_FINALIZED, PP_CHECK_NOT_NEXT, \
-    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, getNodeName, PP_WRONG_PRIMARIES
+    PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
@@ -988,7 +988,7 @@ class OrderingService:
         """
         if not self._config.PRE_PREPARE_REQUEST_ENABLED:
             return
-        recipients = [getNodeName(self.primary_name)]
+        recipients = [replica_name_to_node_name(self.primary_name)]
         self._request_three_phase_msg(three_pc_key,
                                       PREPREPARE,
                                       recipients,
@@ -1004,7 +1004,7 @@ class OrderingService:
             return
         if recipients is None:
             recipients = self._network.connecteds.copy()
-            primary_node_name = getNodeName(self.primary_name)
+            primary_node_name = replica_name_to_node_name(self.primary_name)
             if primary_node_name in recipients:
                 recipients.remove(primary_node_name)
         return self._request_three_phase_msg(three_pc_key, PREPARE, recipients, stash_data)
@@ -2374,7 +2374,7 @@ class OrderingService:
             if pp is not None:
                 old_view_pps.append(pp)
         rep = OldViewPrePrepareReply(self._data.inst_id, old_view_pps)
-        self._send(rep, dst=[getNodeName(sender)])
+        self._send(rep, dst=[replica_name_to_node_name(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
         # TODO: return the check after INDY-2238 about persisting of 3pc messages

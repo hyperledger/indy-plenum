@@ -10,6 +10,7 @@ from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_validator_enums import STASH_CATCH_UP, CATCHING_UP
 from plenum.server.suspicion_codes import Suspicions, Suspicion
@@ -54,7 +55,7 @@ class ViewChangeTriggerService:
 
     @property
     def name(self):
-        return self._data.name
+        return replica_name_to_node_name(self._data.name)
 
     def __repr__(self):
         return self.name
@@ -71,8 +72,10 @@ class ViewChangeTriggerService:
         self._send_instance_change(proposed_view_no, msg.suspicion)
 
     def process_instance_change(self, msg: InstanceChange, frm: str):
+        frm = replica_name_to_node_name(frm)
+
         # TODO: Do we really need this?
-        if frm.rsplit(':', maxsplit=1)[0] not in self._network.connecteds:
+        if frm not in self._network.connecteds:
             return DISCARD, "instance change request: {} from {} which is not in connected list: {}".\
                 format(msg, frm, self._network.connecteds)
 

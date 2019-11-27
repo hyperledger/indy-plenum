@@ -303,10 +303,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 return nodeName
         return "{}:{}".format(nodeName, instId)
 
-    @staticmethod
-    def getNodeName(replicaName: str):
-        return replicaName.split(":")[0]
-
     @property
     def isPrimary(self):
         """

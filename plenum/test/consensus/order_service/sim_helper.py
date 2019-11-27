@@ -1,7 +1,7 @@
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.request import ReqKey
 from plenum.common.startable import Mode
-from plenum.server.replica_helper import getNodeName
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.consensus.helper import SimPool
 from plenum.test.helper import sdk_random_request_objects
 from stp_core.common.log import getlogger
@@ -45,7 +45,8 @@ def setup_pool(random, req_count):
         node._orderer._config.CHK_FREQ = 5
         node._orderer._config.LOG_SIZE = 3 * node._orderer._config.CHK_FREQ
         setup_consensus_data(node._data)
-        node._orderer._network._connecteds = list(set(node._data.validators) - {getNodeName(node._data.name)})
+        node._orderer._network._connecteds = list(set(node._data.validators) -
+                                                  {replica_name_to_node_name(node._data.name)})
 
     sim_send_requests(pool, req_count)
 

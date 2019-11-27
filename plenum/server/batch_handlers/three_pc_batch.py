@@ -1,7 +1,7 @@
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.common.types import f
-from plenum.server.consensus.consensus_shared_data import get_original_viewno
+from plenum.server.consensus.utils import get_original_viewno
 
 
 class ThreePcBatch:

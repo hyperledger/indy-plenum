@@ -13,8 +13,9 @@ from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import PrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_storages import view_change_digest
-from plenum.server.replica_helper import generateName, getNodeName
+from plenum.server.replica_helper import generateName
 from plenum.server.replica_validator_enums import STASH_WAITING_VIEW_CHANGE, STASH_CATCH_UP
 from plenum.server.suspicion_codes import Suspicions, Suspicion
 from stp_core.common.log import getlogger
@@ -168,16 +169,16 @@ class ViewChangeService:
 
         vca = ViewChangeAck(
             viewNo=msg.viewNo,
-            name=getNodeName(frm),
+            name=replica_name_to_node_name(frm),
             digest=view_change_digest(msg)
         )
-        self.view_change_votes.add_view_change_ack(vca, getNodeName(self._data.name))
+        self.view_change_votes.add_view_change_ack(vca, replica_name_to_node_name(self._data.name))
 
         if self._data.is_primary:
             self._send_new_view_if_needed()
             return PROCESS, None
 
-        primary_node_name = getNodeName(self._data.primary_name)
+        primary_node_name = replica_name_to_node_name(self._data.primary_name)
         logger.info("{} sending {}".format(self, vca))
         self._network.send(vca, [primary_node_name])
 
@@ -335,7 +336,7 @@ class ViewChangeService:
         self._bus.send(MissingMessage(msg_type=NEW_VIEW,
                                       key=view_no,
                                       inst_id=self._data.inst_id,
-                                      dst=[getNodeName(self._data.primary_name)],
+                                      dst=[replica_name_to_node_name(self._data.primary_name)],
                                       stash_data=None))
 
     def _request_view_change_message(self, key):

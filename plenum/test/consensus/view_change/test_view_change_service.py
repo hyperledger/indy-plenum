@@ -7,12 +7,13 @@ from plenum.common.messages.internal_messages import NeedViewChange, NewViewAcce
     NewViewCheckpointsApplied, NodeNeedViewChange
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.replica_helper import generateName, getNodeName
+from plenum.server.replica_helper import generateName
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
@@ -228,7 +229,7 @@ def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new
 
     assert len(external_bus.sent_messages) == 1
     msg, dst = external_bus.sent_messages[0]
-    assert dst == [getNodeName(service._data.primary_name)]
+    assert dst == [replica_name_to_node_name(service._data.primary_name)]
     assert isinstance(msg, ViewChangeAck)
     assert msg.viewNo == vc.viewNo
     assert msg.name == frm

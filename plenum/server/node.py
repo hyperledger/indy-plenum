@@ -14,6 +14,7 @@ from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
     NeedViewChange, NodeNeedViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -1192,7 +1193,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for inst_id, replica in self.replicas.items():
             replica.update_connecteds(self.nodestack.connecteds)
             if not replica.isMaster and replica.primaryName is not None:
-                primary_node_name = replica.primaryName.rsplit(':', maxsplit=1)[0]
+                primary_node_name = replica_name_to_node_name(replica.primaryName)
                 if primary_node_name in joined:
                     self.primaries_disconnection_times[inst_id] = None
                 elif primary_node_name in left:
@@ -1420,7 +1421,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         master_primary_name = self.master_replica.primaryName
         if master_primary_name:
-            return self.master_replica.getNodeName(master_primary_name)
+            return replica_name_to_node_name(master_primary_name)
         return None
 
     @property
@@ -2655,7 +2656,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     or self.master_primary_name == self.name:
                 self.primaries_disconnection_times[self.master_replica.instId] = None
         else:
-            primary_node_name = self.replicas[instance_id].primaryName.split(':')[0]
+            primary_node_name = replica_name_to_node_name(self.replicas[instance_id].primaryName)
             if self.nodestack.isConnectedTo(primary_node_name) \
                     or primary_node_name == self.name:
                 self.primaries_disconnection_times[instance_id] = None
