@@ -1,7 +1,6 @@
 from typing import NamedTuple, List, Any, Optional
 
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.startable import Status
 from plenum.server.suspicion_codes import Suspicion
 
 # General recommendation for (naming) internal messages is follows:

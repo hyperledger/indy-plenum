@@ -379,8 +379,9 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
 
 def nodes_received_ic(nodes, frm, view_no=1):
     for n in nodes:
-        assert n.view_changer.instance_changes.has_inst_chng_from(view_no,
-                                                                 frm.name)
+        vct_service = n.master_replica._view_change_trigger_service
+        assert vct_service._instance_changes.has_inst_chng_from(view_no, frm.name)
+
 
 def check_prepare_certificate(nodes, ppSeqNo):
     for node in nodes:
@@ -388,6 +389,11 @@ def check_prepare_certificate(nodes, ppSeqNo):
         quorum = node.master_replica.quorums.prepare.value
         assert node.master_replica._ordering_service.prepares.hasQuorum(ThreePhaseKey(*key),
                                                                         quorum)
+
+
+def node_sent_instance_changes_count(node):
+    vct_service = node.master_replica._view_change_trigger_service
+    return vct_service.spylog.count(vct_service._send_instance_change)
 
 
 def node_received_instance_changes_count(node):
