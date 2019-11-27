@@ -2026,7 +2026,7 @@ class OrderingService:
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
 
-        primaries_for_batch = self._write_manager.future_primary_handler.get_primaries(self.view_no)
+        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
         req_ids = [req.digest for req in reqs]
         digest = self.generate_pp_digest(req_ids, self.view_no, tm)
         if self.is_master:
