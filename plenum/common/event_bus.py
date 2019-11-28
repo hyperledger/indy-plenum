@@ -1,4 +1,4 @@
-from typing import Callable, List, Any, Union
+from typing import Callable, List, Any, Union, NamedTuple
 
 from plenum.common.router import Router
 
@@ -12,6 +12,8 @@ class ExternalBus(Router):
     Destination = Union[None, str, List[str]]
     SendHandler = Callable[[Any, Destination], None]
     RecvHandler = Callable[[Any, str], None]
+    Connected = NamedTuple('Connected', [])
+    Disconnected = NamedTuple('Disconnected', [])
 
     def __init__(self, send_handler: SendHandler):
         super().__init__()
@@ -21,7 +23,7 @@ class ExternalBus(Router):
         self._connecteds = set()
 
     @property
-    def connecteds(self):
+    def connecteds(self) -> set:
         return self._connecteds
 
     def send(self, message: Any, dst: Destination = None):
@@ -31,4 +33,11 @@ class ExternalBus(Router):
         self._route(message, frm)
 
     def update_connecteds(self, connecteds: set):
+        # TODO: Make more efficient API
+        connected = connecteds - self._connecteds
+        disconnected = self._connecteds - connecteds
         self._connecteds = connecteds
+        for frm in connected:
+            self.process_incoming(self.Connected(), frm)
+        for frm in disconnected:
+            self.process_incoming(self.Disconnected(), frm)
