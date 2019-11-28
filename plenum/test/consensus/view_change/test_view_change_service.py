@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
     NewViewCheckpointsApplied, NodeNeedViewChange
+from plenum.common.startable import Mode
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
@@ -27,6 +28,7 @@ DEFAULT_STABLE_CHKP = 10
 def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher, initial_view_no, validators):
     def _service(name):
         data = consensus_data(name)
+        data.node_mode = Mode.participating
         digest = cp_digest(DEFAULT_STABLE_CHKP)
         cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=DEFAULT_STABLE_CHKP, digest=digest)
         data.checkpoints.append(cp)

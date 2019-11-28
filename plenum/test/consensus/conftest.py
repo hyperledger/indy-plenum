@@ -71,6 +71,7 @@ def view_change_service(internal_bus, external_bus, timer, stasher, validators):
 @pytest.fixture
 def view_change_trigger_service(internal_bus, external_bus, timer, stasher, validators):
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
+    data.node_mode = Mode.participating
     return ViewChangeTriggerService(data=data,
                                     timer=timer,
                                     bus=internal_bus,
