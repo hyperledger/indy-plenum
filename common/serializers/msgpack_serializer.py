@@ -1,4 +1,3 @@
-import collections
 from collections import OrderedDict
 from typing import Dict, List
 
@@ -8,7 +7,7 @@ from common.serializers.stream_serializer import StreamSerializer
 
 
 def decode_to_sorted(obj):
-    return collections.OrderedDict(obj)
+    return OrderedDict(obj)
 
 
 class MsgPackSerializer(MappingSerializer, StreamSerializer):

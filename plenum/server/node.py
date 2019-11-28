@@ -11,8 +11,8 @@ import gc
 import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector, PrimariesSelector
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, StartViewChange
+from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -240,7 +240,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
-        self.primaries_selector = RoundRobinPrimariesSelector()  # type: PrimariesSelector
+        self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
 
@@ -368,8 +368,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.config.STACK_COMPANION == 1:
             add_start_time(self.ledger_dir, self.utc_epoch())
-
-        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
         HasFileStorage.__init__(self, self.ledger_dir)
         self.ensureKeysAreSetup()
@@ -658,23 +656,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(VIEW_CHANGE_PREFIX, self, self.viewNo))
 
         self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
-
-    def on_view_propagated(self):
-        """
-        View change completes for a replica when it has been decided which was
-        the last ppSeqNo and state and txn root for previous view
-        """
-
-        if not self.replicas.all_instances_have_primary:
-            raise LogicError(
-                "{} Not all replicas have "
-                "primaries: {}".format(self, self.replicas.primary_name_by_inst_id)
-            )
-
-        for replica in self.replicas.values():
-            replica.on_view_change_done()
-        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
-        self.monitor.reset()
 
     def drop_primaries(self):
         for replica in self.replicas.values():
@@ -1224,9 +1205,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule_view_change()
 
         for inst_id, replica in self.replicas.items():
+            replica.update_connecteds(self.nodestack.connecteds)
             if not replica.isMaster and replica.primaryName is not None:
-                replica.update_connecteds(self.nodestack.connecteds)
-                primary_node_name = replica.primaryName.split(':')[0]
+                primary_node_name = replica.primaryName.rsplit(':', maxsplit=1)[0]
                 if primary_node_name in joined:
                     self.primaries_disconnection_times[inst_id] = None
                 elif primary_node_name in left:
@@ -1293,17 +1274,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         alias = ""
         if txn_data and DATA in txn_data:
             alias = txn_data[DATA].get(ALIAS, alias)
-        # If required number of instances changed, we need to recalculate it.
-        if (self.requiredNumberOfInstances != old_required_number_of_instances or alias in self.primaries) \
-                and not self.view_changer.view_change_in_progress \
+        # If number of nodes changed, we need to do a view change.
+        if not self.view_changer.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
-            # We need to reselect primaries only during usual ordering. Because:
-            # - If this is catchup, called by view change, then, we will select
-            # primaries after it finish.
-            # - If this is usual catchup, then, we will apply primaries from audit,
+            # We need to do a view change only during usual ordering. Because
+            # if this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
-            self.view_changer.on_replicas_count_changed()
+            self.view_changer.on_node_count_changed()
 
     @property
     def clientStackName(self):
@@ -1877,7 +1855,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postAuditLedgerCaughtUp(self, **kwargs):
-        self.write_manager.on_catchup_finished()
+        pass
 
     def preLedgerCatchUp(self, ledger_id):
         if len(self.auditLedger.uncommittedTxns) > 0:
@@ -1892,10 +1870,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         typ = get_type(txn)
         self.postRecvTxnFromCatchup(ledger_id, txn)
         if self.write_manager.is_valid_type(typ):
-            self.write_manager.update_state(txn, isCommitted=True)
             state = self.getState(ledger_id)
             if state:
-                state.commit(rootHash=state.headHash)
+                self.write_manager.restore_state(txn, ledger_id)
                 if self.stateTsDbStorage and \
                         (ledger_id == DOMAIN_LEDGER_ID or ledger_id == CONFIG_LEDGER_ID):
                     timestamp = get_txn_time(txn)
@@ -1935,6 +1912,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} caught up to {} txns in the last catchup'.
                     format(self, self.num_txns_caught_up_in_last_catchup()))
 
+        self.write_manager.on_catchup_finished()
+
         last_txn = self.getLedger(AUDIT_LEDGER_ID).get_last_committed_txn()
         if last_txn:
             data = get_payload_data(last_txn)
@@ -1944,9 +1923,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         master_last_ordered_3PC = self.master_last_ordered_3PC
         self.mode = Mode.synced
-        for replica in self.replicas.values():
-            replica.on_catch_up_finished(last_caught_up_3PC,
-                                         master_last_ordered_3PC)
+        self.replicas.send_to_internal_bus(CatchupFinished(last_caught_up_3PC,
+                                                           master_last_ordered_3PC))
         logger.info('{}{} caught up till {}'
                     .format(CATCH_UP_PREFIX, self, last_caught_up_3PC),
                     extra={'cli': True})
@@ -1955,8 +1933,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # next looper iteration, new catchup will have already begun and unstashed 3pc
         # messages will stash again.
         # TODO: Divide different catchup iterations for different looper iterations. And remove this call after.
-        if self.view_change_in_progress:
-            self._process_replica_messages()
 
         # More than one catchup may be needed during the current ViewChange protocol
         # TODO: separate view change and catchup logic
@@ -1972,47 +1948,63 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.select_primaries_on_catchup_complete()
 
     def select_primaries_on_catchup_complete(self):
-        # Select primaries after usual catchup (not view change)
-        ledger = self.getLedger(AUDIT_LEDGER_ID)
+        audit_ledger = self.getLedger(AUDIT_LEDGER_ID)
+
+        # 0. cleanup
         self.backup_instance_faulty_processor.restore_replicas()
         self.drop_primaries()
-        if len(ledger) == 0:
-            self.select_primaries()
-        else:
-            # Emulate view change start
+
+        # 1. Get viewNo from the audit
+        if len(audit_ledger) != 0:
             self.view_changer.previous_view_no = self.viewNo
-            self.viewNo = get_payload_data(ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
+            self.viewNo = get_payload_data(audit_ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
 
-            self.primaries = self._get_last_audited_primaries()
-            if len(self.replicas) != len(self.primaries):
-                logger.warning('Audit ledger has inconsistent number of nodes. '
-                               'Node primaries = {}'.format(self.primaries))
-            if any(p not in self.nodeReg for p in self.primaries):
-                logger.error('Audit ledger has inconsistent names of primaries. '
-                             'Node primaries = {}'.format(self.primaries))
-            # Similar functionality to select_primaries
-            for instance_id, replica in list(self.replicas.items()):
-                if instance_id == 0:
-                    self.start_participating()
-                if instance_id >= len(self.primaries):
-                    self.replicas.remove_replica(instance_id)
-                    continue
-                replica.primaryChanged(
-                    Replica.generateName(self.primaries[instance_id], instance_id))
+        # 2. select primaries
+        self.primaries = self.get_primaries_for_current_view()
+        if len(self.replicas) != len(self.primaries):
+            logger.warning('Audit ledger has inconsistent number of nodes. '
+                           'Node primaries = {}'.format(self.primaries))
+
+        # 3. process primary selection by replicas
+        for instance_id, replica in list(self.replicas.items()):
+            # can participate
+            if instance_id == 0:
+                self.start_participating()
+
+            # set primary
+            if instance_id < len(self.primaries):
+                # TODO: combine with CatchupFinished processing
+                replica.primaryName = Replica.generateName(self.primaries[instance_id], instance_id)
+                # TODO: combine with CatchupFinished processing
+                replica.on_propagate_primary_done()
+
                 self.primary_selected(instance_id)
+                logger.display("{} selected primary {} for instance {} (view {})"
+                               .format(PRIMARY_SELECTION_PREFIX,
+                                       self.primaries[instance_id], instance_id, self.viewNo),
+                               extra={"cli": "ANNOUNCE",
+                                      "tags": ["node-election"]})
 
-        # Primary propagation
+        # 4. Notify replica, that we need to send batch with new primaries
+        # do it only if audit ledger is empty yet to write primaries there
+        if self.viewNo != 0 and len(audit_ledger) == 0:
+            for r in self.replicas.values():
+                r.set_primaries_batch_needed(True)
+
+        # 5. Restore backup Primaries
         last_sent_pp_seq_no_restored = False
-        for replica in self.replicas.values():
-            replica.on_propagate_primary_done()
         if self.view_changer.previous_view_no == 0:
             last_sent_pp_seq_no_restored = \
                 self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
         if not last_sent_pp_seq_no_restored:
             self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
-        # Emulate view_change ending
-        self.on_view_propagated()
+        # 6. Emulate view_change ending
+        for replica in self.replicas.values():
+            # TODO: combine with CatchupFinished processing
+            replica.on_view_propagated_after_catchup()
+        self.master_replica._view_change_service.last_completed_view_no = self.viewNo
+        self.monitor.reset()
 
     def _get_last_audited_primaries(self):
         audit = self.getLedger(AUDIT_LEDGER_ID)
@@ -2518,7 +2510,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.REPLICA_COMMITS_MASTER, len(self.master_replica._ordering_service.commits))
         self.metrics.add_event(MetricsName.REPLICA_PRIMARYNAMES_MASTER, len(self.master_replica.primaryNames))
         self.metrics.add_event(MetricsName.REPLICA_STASHED_OUT_OF_ORDER_COMMITS_MASTER,
-                               sum_for_values(self.master_replica.stashed_out_of_order_commits))
+                               sum_for_values(self.master_replica._ordering_service.stashed_out_of_order_commits))
         self.metrics.add_event(MetricsName.REPLICA_CHECKPOINTS_MASTER,
                                len(self.master_replica._consensus_data.checkpoints))
         self.metrics.add_event(MetricsName.REPLICA_RECVD_CHECKPOINTS_MASTER,
@@ -2790,60 +2782,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule_view_change()
 
     def get_primaries_for_current_view(self):
-        return self.primaries_selector.select_primaries(view_no=self.viewNo,
-                                                        instance_count=self.requiredNumberOfInstances,
-                                                        validators=self.poolManager.node_names_ordered_by_rank())
-
-    def select_primaries(self):
-        # If you want to refactor primaries selection,
-        # please take a look at https://jira.hyperledger.org/browse/INDY-1946
-
-        self.backup_instance_faulty_processor.restore_replicas()
-        self.ensure_primaries_dropped()
-
-        self.primaries = self.get_primaries_for_current_view()
-        for i, primary_name in enumerate(self.primaries):
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX,
-                                   primary_name, i, self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-        pc = len(self.primaries)
-        rc = len(self.replicas)
-        if pc != rc:
-            raise LogicError('Inconsistent number or primaries ({}) and replicas ({})'
-                             .format(pc, rc))
-
-        for i, primary_name in enumerate(self.primaries):
-            if i == 0:
-                # The node needs to be set in participating mode since when
-                # the replica is made aware of the primary, it will start
-                # processing stashed requests and hence the node needs to be
-                # participating.
-                self.start_participating()
-
-            replica = self.replicas[i]
-            instance_name = Replica.generateName(nodeName=primary_name, instId=i)
-            replica.primaryChanged(instance_name)
-            self.primary_selected(i)
-
-            logger.display("{}{} declares primaries selection {} as completed for "
-                           "instance {}, "
-                           "new primary is {}, "
-                           "ledger info is {}"
-                           .format(VIEW_CHANGE_PREFIX,
-                                   replica,
-                                   self.viewNo,
-                                   i,
-                                   instance_name,
-                                   self.ledger_summary),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-        # Notify replica, that we need to send batch with new primaries
-        if self.viewNo != 0:
-            for r in self.replicas.values():
-                r.set_primaries_batch_needed(True)
+        return self.primaries_selector.select_primaries(view_no=self.viewNo)
 
     def _do_start_catchup(self, just_started: bool):
         # Process any already Ordered requests by the replica
@@ -2944,7 +2883,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # but anyway it is ordered and executed normally
                 logger.debug('{} normally executed request {} which object has been dropped '
                              'from the requests queue'.format(self, req_key))
-                pass
 
         # TODO is it possible to get len(committedTxns) != len(valid_reqs)
         # someday
@@ -2983,6 +2921,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  last_txn_seq_no,
                                                  audit_txn_root,
                                                  three_pc_batch.primaries,
+                                                 three_pc_batch.node_reg,
                                                  three_pc_batch.original_view_no,
                                                  three_pc_batch.pp_digest)
             self._observable.append_input(batch_committed_msg, self.name)
@@ -3423,6 +3362,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
+    def _process_start_vc_msg(self, msg: StartViewChange):
+        if Mode.is_done_syncing(self.mode):
+            self.view_changer.start_view_change(msg.view_no)
+
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
@@ -3441,6 +3384,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,
+                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(StartViewChange,
+                                                self._process_start_vc_msg,
                                                 self.master_replica.instId)
 
     def set_view_change_status(self, value: bool):

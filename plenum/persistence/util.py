@@ -1,6 +1,3 @@
-
-from copy import deepcopy
-
 from ledger.util import F
 from plenum.common.util import pop_keys
 

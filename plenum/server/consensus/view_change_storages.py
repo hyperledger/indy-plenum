@@ -1,6 +1,5 @@
 from _sha256 import sha256
 from collections import defaultdict
-from functools import partial
 from typing import Optional, List, Tuple
 
 from common.serializers.json_serializer import JsonSerializer

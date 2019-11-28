@@ -16,7 +16,7 @@ from stp_core.loop.eventually import eventually
 @pytest.fixture(scope="module")
 def tconf(tconf):
     with max_3pc_batch_limits(tconf, size=1) as tconf:
-        with view_change_timeout(tconf, vc_timeout=420, catchup_timeout=300) as tconf:
+        with view_change_timeout(tconf, vc_timeout=420) as tconf:
             yield tconf
 
 

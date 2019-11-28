@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, NamedTuple, Dict
+from typing import Any, List, Optional
 
 from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
@@ -14,6 +14,7 @@ from plenum.persistence.storage import initStorage
 from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.batch_handlers.config_batch_handler import ConfigBatchHandler
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
@@ -26,7 +27,6 @@ from plenum.server.request_managers.action_request_manager import ActionRequestM
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from state.pruning_state import PruningState
-
 from storage.helper import initHashStore, initKeyValueStorage
 from storage.kv_in_memory import KeyValueStorageInMemory
 from stp_core.common.log import getlogger
@@ -161,6 +161,7 @@ class LedgersBootstrap:
         self._register_pool_batch_handlers()
         self._register_domain_batch_handlers()
         self._register_config_batch_handlers()
+        self._register_node_reg_handlers()
         # Audit batch handler should be initiated the last
         self._register_audit_batch_handlers()
 
@@ -180,6 +181,12 @@ class LedgersBootstrap:
         audit_b_h = AuditBatchHandler(self.db_manager)
         for lid in self.ledger_ids:
             self.write_manager.register_batch_handler(audit_b_h, ledger_id=lid)
+
+    def _register_node_reg_handlers(self):
+        node_reg_handler = NodeRegHandler(self.db_manager)
+        self.write_manager.register_req_handler(node_reg_handler)
+        for lid in self.ledger_ids:
+            self.write_manager.register_batch_handler(node_reg_handler, ledger_id=lid)
 
     def _register_common_handlers(self):
         pass
@@ -244,8 +251,7 @@ class LedgersBootstrap:
             ledger = self.db_manager.get_ledger(ledger_id)
             for seq_no, txn in ledger.getAllTxn():
                 txn = self._update_txn_with_extra_data(txn)
-                self.write_manager.update_state(txn, isCommitted=True)
-                state.commit(rootHash=state.headHash)
+                self.write_manager.restore_state(txn, ledger_id)
 
         logger.info(
             "{} initialized state for ledger {}: state root {}".format(

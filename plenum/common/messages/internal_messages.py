@@ -59,3 +59,11 @@ NewViewCheckpointsApplied = NamedTuple('NewViewCheckpointsApplied',
                                         ('batches', list)])
 
 ReOrderedInNewView = NamedTuple('ReOrderedInNewView', [])
+
+CatchupFinished = NamedTuple('CatchupFinished', [('last_caught_up_3PC', tuple),
+                                                 ('master_last_ordered', tuple)])
+
+CatchupCheckpointsApplied = NamedTuple('CatchupCheckpointsApplied', [('last_caught_up_3PC', tuple),
+                                                                     ('master_last_ordered', tuple)])
+
+StartViewChange = NamedTuple('StartViewChange', [('view_no', int)])

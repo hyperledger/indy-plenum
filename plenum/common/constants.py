@@ -4,7 +4,6 @@ from enum import IntEnum, unique
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
-from plenum.common.util import UniqueSet
 
 NOMINATE = "NOMINATE"
 REELECTION = "REELECTION"
@@ -121,6 +120,7 @@ AUDIT_TXN_LEDGER_ROOT = "ledgerRoot"
 AUDIT_TXN_STATE_ROOT = "stateRoot"
 AUDIT_TXN_PRIMARIES = "primaries"
 AUDIT_TXN_DIGEST = "digest"
+AUDIT_TXN_NODE_REG = "nodeReg"
 
 # State proof fields
 STATE_PROOF = 'state_proof'

@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 from common.exceptions import LogicError
 from plenum.common.constants import TXN_TYPE
 from plenum.common.request import Request

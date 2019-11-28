@@ -87,14 +87,15 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     looper.removeProdable(primaryRepl.node)
 
     reqIdr = [request2.digest]
+    tm = get_utc_epoch()
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         view_no,
         primaryRepl.lastPrePrepareSeqNo,
-        get_utc_epoch(),
+        tm,
         reqIdr,
         init_discarded(),
-        primaryRepl.batchDigest([request2]),
+        primaryRepl._ordering_service.generate_pp_digest([request2.digest], view_no, tm),
         DOMAIN_LEDGER_ID,
         primaryRepl._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
         primaryRepl._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),

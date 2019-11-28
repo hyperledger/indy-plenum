@@ -1,6 +1,7 @@
 from plenum.common.messages.internal_messages import CheckpointStabilized
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
+from plenum.test.testing_utils import FakeSomething
 
 
 def test_clear_old_view_pre_prepares_till_3pc(orderer):
