@@ -5,7 +5,7 @@ from typing import Optional, Any, Callable, List, Iterable, NamedTuple, Dict
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
-from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof
+from plenum.common.messages.node_messages import LedgerStatus
 from stp_core.common.log import getlogger
 
 logger = getlogger()

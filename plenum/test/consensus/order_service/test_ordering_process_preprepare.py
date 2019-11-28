@@ -128,10 +128,10 @@ def test_process_pre_prepare_with_ordered_request(orderer, pre_prepare):
 def test_suspicious_on_wrong_sub_seq_no(orderer_with_requests, pre_prepare):
     pre_prepare.sub_seq_no = 1
     assert PP_SUB_SEQ_NO_WRONG == orderer_with_requests._process_valid_preprepare(pre_prepare,
-                                                                                   orderer_with_requests.primary_name)
+                                                                                  orderer_with_requests.primary_name)
 
 
 def test_suspicious_on_not_final(orderer_with_requests, pre_prepare):
     pre_prepare.final = False
     assert PP_NOT_FINAL == orderer_with_requests._process_valid_preprepare(pre_prepare,
-                                                                            orderer_with_requests.primary_name)
+                                                                           orderer_with_requests.primary_name)

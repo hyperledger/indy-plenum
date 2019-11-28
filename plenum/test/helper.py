@@ -44,6 +44,7 @@ from plenum.common.types import f, OPERATION
 from plenum.common.util import getNoInstances, get_utc_epoch
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
+from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
@@ -316,8 +317,6 @@ def check_request_is_not_returned_to_nodes(txnPoolNodeSet, request):
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica._ordering_service,
                                  replica._ordering_service.send_pre_prepare)
-    expectedDigest = TestReplica.batchDigest([req])
-    assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
     assert (req.digest,) in \
            [p["ppReq"].reqIdr for p in prePreparesSent]
 
@@ -519,7 +518,7 @@ def check_last_ordered_3pc_backup(node1, node2):
 
 def check_view_no(node1, node2):
     assert node1.master_replica.viewNo == node2.master_replica.viewNo, \
-        "{} != {}".format(node1.master_replica.viewNo, node2.master_replica.node2.viewNo)
+        "{} != {}".format(node1.master_replica.viewNo, node2.master_replica.viewNo)
 
 
 def check_last_ordered_3pc_on_all_replicas(nodes, last_ordered_3pc):
@@ -1147,25 +1146,17 @@ def perf_monitor_disabled(tconf):
 
 
 @contextmanager
-def view_change_timeout(tconf, vc_timeout, catchup_timeout=None, propose_timeout=None, ic_timeout=None):
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
+def view_change_timeout(tconf, vc_timeout, propose_timeout=None):
+    old_view_change_timeout = tconf.NEW_VIEW_TIMEOUT
     old_propose_timeout = tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT
     old_propagate_request_delay = tconf.PROPAGATE_REQUEST_DELAY
-    old_ic_timeout = tconf.INSTANCE_CHANGE_TIMEOUT
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = \
-        0.6 * vc_timeout if catchup_timeout is None else catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = vc_timeout
+    tconf.NEW_VIEW_TIMEOUT = vc_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = vc_timeout if propose_timeout is None else propose_timeout
     tconf.PROPAGATE_REQUEST_DELAY = 0
-    if ic_timeout is not None:
-        tconf.INSTANCE_CHANGE_TIMEOUT = ic_timeout
     yield tconf
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
+    tconf.NEW_VIEW_TIMEOUT = old_view_change_timeout
     tconf.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT = old_propose_timeout
     tconf.PROPAGATE_REQUEST_DELAY = old_propagate_request_delay
-    tconf.INSTANCE_CHANGE_TIMEOUT = old_ic_timeout
 
 
 @contextmanager
@@ -1226,12 +1217,14 @@ def create_pre_prepare_params(state_root,
                               audit_txn_root=None,
                               reqs=None,
                               bls_multi_sigs=None):
-    digest = Replica.batchDigest(reqs) if reqs is not None else random_string(32)
+    if timestamp is None:
+        timestamp = get_utc_epoch()
     req_idrs = [req.key for req in reqs] if reqs is not None else [random_string(32)]
+    digest = OrderingService.generate_pp_digest(req_idrs, view_no, timestamp)
     params = [inst_id,
               view_no,
               pp_seq_no,
-              timestamp or get_utc_epoch(),
+              timestamp,
               req_idrs,
               init_discarded(0),
               digest,

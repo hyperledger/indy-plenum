@@ -12,10 +12,10 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import generateName
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.checkpoints.helper import cp_digest
@@ -61,9 +61,10 @@ def timer():
 
 
 @pytest.fixture
-def view_change_service(internal_bus, external_bus, timer, stasher):
+def view_change_service(internal_bus, external_bus, timer, stasher, validators):
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
-    return ViewChangeService(data, timer, internal_bus, external_bus, stasher)
+    primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
+    return ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
 
 
 @pytest.fixture
@@ -173,18 +174,14 @@ def replica_service(validators, primary, timer,
         node_names=validators,
         crypto_factory=create_default_bls_crypto_factory(),
         get_free_port=lambda: 8090)['txns']
+    write_manager = create_test_write_req_manager("Alpha", genesis_txns)
+
     replica = ReplicaService("Alpha:0",
                              validators, primary,
                              timer,
                              internal_bus,
                              external_bus,
-                             write_manager=create_test_write_req_manager("Alpha", genesis_txns),
+                             write_manager=write_manager,
                              bls_bft_replica=FakeSomething(gc=lambda key: None))
-
-    future_primaries_handler = FuturePrimariesBatchHandler(replica._write_manager.database_manager,
-                                                           FakeSomething(nodeReg={},
-                                                                         nodeIds=[]))
-    future_primaries_handler._get_primaries = lambda *args, **kwargs: replica._data.primaries
-    replica._write_manager.register_batch_handler(future_primaries_handler)
 
     return replica

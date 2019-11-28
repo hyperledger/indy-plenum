@@ -4,19 +4,20 @@ from typing import Dict, List, Optional, Tuple
 
 from common.exceptions import LogicError
 from common.serializers.serialization import pool_state_serializer, config_state_serializer
+from plenum.common.config_util import getConfig
 
 from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
 from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
-from plenum.common.txn_util import get_type
+from plenum.common.txn_util import get_type, get_txn_time
 from plenum.common.types import f
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.server.request_handlers.state_constants import MARKER_TAA, MARKER_TAA_AML
 from plenum.server.request_handlers.utils import decode_state_value
@@ -33,7 +34,10 @@ class WriteRequestManager(RequestManager):
         self.batch_handlers = {}  # type: Dict[int,List[BatchRequestHandler]]
         self.state_serializer = pool_state_serializer
         self.audit_b_handler = None
-        self.future_primary_handler = None
+        self.node_reg_handler = None
+        self.config = getConfig()
+        # TODO: combine dictionary request_handlers with _request_handlers_with_version.
+        self._request_handlers_with_version = {}  # type: Dict[Tuple[int, str], List[WriteRequestHandler]]
 
     def is_valid_ledger_id(self, ledger_id):
         return ledger_id in self.ledger_ids
@@ -46,6 +50,14 @@ class WriteRequestManager(RequestManager):
         if not isinstance(handler, WriteRequestHandler):
             raise LogicError
         self._register_req_handler(handler, ledger_id=ledger_id, typ=typ)
+
+    def register_req_handler_with_version(self, handler: WriteRequestHandler, version, typ=None):
+        if not isinstance(handler, WriteRequestHandler):
+            raise LogicError
+        if typ is None:
+            typ = handler.txn_type
+        self._request_handlers_with_version.setdefault((typ, version), [])
+        self._request_handlers_with_version[(typ, version)].append(handler)
 
     def register_batch_handler(self, handler: BatchRequestHandler,
                                ledger_id=None, add_to_begin=False):
@@ -70,8 +82,8 @@ class WriteRequestManager(RequestManager):
         self.ledger_ids.add(ledger_id)
         if handler.ledger_id == AUDIT_LEDGER_ID:
             self.audit_b_handler = handler
-        if isinstance(handler, FuturePrimariesBatchHandler):
-            self.future_primary_handler = handler
+        if isinstance(handler, NodeRegHandler):
+            self.node_reg_handler = handler
 
     def remove_batch_handler(self, ledger_id):
         del self.batch_handlers[ledger_id]
@@ -92,6 +104,16 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.dynamic_validation(request)
 
+    def _get_handlers_by_version(self, txn_type=None, timestamp=None):
+        version = self.database_manager.get_version(timestamp)
+        version = self.config.INDY_VERSION_MATCHING.get(version, version)
+        handlers = self._request_handlers_with_version.get((txn_type, version)) \
+            if (txn_type, version) in self._request_handlers_with_version \
+            else self.request_handlers.get(txn_type, None)
+        if handlers is None:
+            raise LogicError
+        return handlers
+
     def update_state(self, txn, request=None, isCommitted=False):
         handlers = self.request_handlers.get(get_type(txn), None)
         if handlers is None:
@@ -99,6 +121,18 @@ class WriteRequestManager(RequestManager):
         updated_state = None
         for handler in handlers:
             updated_state = handler.update_state(txn, updated_state, request, isCommitted)
+
+    def restore_state(self, txn, ledger_id):
+        self.database_manager.update_state_version(txn)
+        # TODO: add to TxnVersionController function `get_version(txn)`
+        # to use a version from the txn and update it in the internal TxnVersionController version
+        handlers = self._get_handlers_by_version(get_type(txn), get_txn_time(txn))
+        updated_state = None
+        for handler in handlers:
+            updated_state = handler.update_state(txn, updated_state, None, is_committed=True)
+        state = self.database_manager.get_state(ledger_id)
+        if state:
+            state.commit(rootHash=state.headHash)
 
     def apply_request(self, request, batch_ts):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
@@ -238,6 +272,7 @@ class WriteRequestManager(RequestManager):
     def on_catchup_finished(self):
         # ToDo: ugly thing, needs to be refactored
         self.audit_b_handler.on_catchup_finished()
+        self.node_reg_handler.on_catchup_finished()
 
     def get_lid_for_request(self, request: Request):
         if request.operation.get(TXN_TYPE) is None:

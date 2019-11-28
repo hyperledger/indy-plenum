@@ -1,6 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID
-from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, DEFAULT_PRIMARIES
-
+from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, DEFAULT_PRIMARIES, DEFAULT_NODE_REG
 
 # BOTH TESTS NEED TO BE RUN TOGETHER AS THEY SHARE COMMITTED STATE
 from plenum.test.testing_utils import FakeSomething
@@ -48,7 +47,8 @@ def test_apply_revert_commit(alh, db_manager,
                     last_pool_seqno=None,
                     last_domain_seqno=None,
                     last_config_seqno=None,
-                    primaries=DEFAULT_PRIMARIES)
+                    primaries=DEFAULT_PRIMARIES,
+                    node_reg=DEFAULT_NODE_REG)
 
 
 def test_commit_multiple_batches(alh, db_manager,
@@ -106,7 +106,8 @@ def test_commit_multiple_batches(alh, db_manager,
                     last_pool_seqno=1,
                     last_domain_seqno=None,
                     last_config_seqno=None,
-                    primaries=1)
+                    primaries=1,
+                    node_reg=1)
 
     # commit 2d batch
     alh.commit_batch(FakeSomething())
@@ -126,7 +127,8 @@ def test_commit_multiple_batches(alh, db_manager,
                     last_pool_seqno=None,
                     last_domain_seqno=initial_seq_no + 1,
                     last_config_seqno=None,
-                    primaries=2)
+                    primaries=2,
+                    node_reg=2)
 
     # commit 3d batch
     alh.commit_batch(FakeSomething())
@@ -146,7 +148,8 @@ def test_commit_multiple_batches(alh, db_manager,
                     last_pool_seqno=initial_seq_no + 2,
                     last_domain_seqno=initial_seq_no + 1,
                     last_config_seqno=None,
-                    primaries=3)
+                    primaries=3,
+                    node_reg=3)
 
     # commit 4th batch
     alh.commit_batch(FakeSomething())
@@ -166,7 +169,8 @@ def test_commit_multiple_batches(alh, db_manager,
                     last_pool_seqno=initial_seq_no + 2,
                     last_domain_seqno=None,
                     last_config_seqno=initial_seq_no + 3,
-                    primaries=4)
+                    primaries=4,
+                    node_reg=4)
 
     # commit 5th batch
     alh.commit_batch(FakeSomething())
@@ -186,4 +190,5 @@ def test_commit_multiple_batches(alh, db_manager,
                     last_pool_seqno=initial_seq_no + 2,
                     last_domain_seqno=None,
                     last_config_seqno=initial_seq_no + 3,
-                    primaries=5)
+                    primaries=5,
+                    node_reg=5)

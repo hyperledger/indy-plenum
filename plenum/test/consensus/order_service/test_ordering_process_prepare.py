@@ -5,8 +5,6 @@ import pytest
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.messages.internal_messages import RaisedSuspicion
 from plenum.common.util import updateNamedTuple
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
-from plenum.server.models import ThreePhaseVotes
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts, check_suspicious
 from plenum.test.helper import generate_state_root, create_prepare_from_pre_prepare

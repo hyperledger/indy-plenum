@@ -170,6 +170,7 @@ def ensure_several_view_change(looper, nodes, vc_count=1,
                 return rv
 
             node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
+            node.checkPerformance()
 
         perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
         timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + perf_check_freq
@@ -323,14 +324,14 @@ def view_change_in_between_3pc_random_delays(
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
 
     # max delay should not be more than catchup timeout.
-    max_delay = max_delay or tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE - 1
+    max_delay = max_delay or tconf.NEW_VIEW_TIMEOUT - 1
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
     sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
 
     ensure_view_change_complete(looper,
                                 nodes,
-                                customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT + max_delay,
+                                customTimeout=2 * tconf.NEW_VIEW_TIMEOUT + max_delay,
                                 exclude_from_check=['check_last_ordered_3pc'])
 
     reset_delays_and_process_delayeds(slow_nodes)

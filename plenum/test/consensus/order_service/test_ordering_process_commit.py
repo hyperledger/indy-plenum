@@ -1,12 +1,8 @@
 import pytest
 
-from plenum.common.exceptions import SuspiciousNode
-from plenum.common.util import updateNamedTuple
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.models import ThreePhaseVotes
-from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts
-from plenum.test.helper import generate_state_root, create_prepare_from_pre_prepare, create_commit_from_pre_prepare
+from plenum.test.helper import create_prepare_from_pre_prepare, create_commit_from_pre_prepare
 
 PRIMARY_NAME = "Alpha:0"
 NON_PRIMARY_NAME = "Beta:0"
@@ -39,7 +35,6 @@ def pre_prepare(o, _pre_prepare):
 
 
 def test_process_ordered_commit(o, pre_prepare, prepare, commit):
-    o._validator = OrderingServiceMsgValidator(o._data)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     o._data.prev_view_prepare_cert = 1
     o.last_ordered_3pc = (commit.viewNo, commit.ppSeqNo + 1)
@@ -56,7 +51,6 @@ def test_process_ordered_commit(o, pre_prepare, prepare, commit):
 
 
 def test_not_order_already_ordered(o, pre_prepare, prepare, commit):
-    o._validator = OrderingServiceMsgValidator(o._data)
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     o.last_ordered_3pc = (commit.viewNo, commit.ppSeqNo + 1)
     for i in range(o._data.quorums.prepare.value):

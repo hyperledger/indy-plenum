@@ -36,7 +36,7 @@ def test_restarted_node_complete_vc_by_current_state(looper,
     print(old_completed_view_no)
     ensure_view_change(looper,
                        txnPoolNodeSet[:-1])
-    ensureElectionsDone(looper, txnPoolNodeSet[:-1], customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+    ensureElectionsDone(looper, txnPoolNodeSet[:-1], customTimeout=tconf.NEW_VIEW_TIMEOUT)
     current_completed_view_no = get_last_completed_view_no(txnPoolNodeSet[:-1])
     assert current_completed_view_no > old_completed_view_no
     print(current_completed_view_no)
@@ -57,4 +57,4 @@ def test_restarted_node_complete_vc_by_current_state(looper,
     looper.run(eventually(complete_propagate_primary,
                           node_to_restart,
                           current_completed_view_no,
-                          timeout=tconf.VIEW_CHANGE_TIMEOUT))
+                          timeout=tconf.NEW_VIEW_TIMEOUT))

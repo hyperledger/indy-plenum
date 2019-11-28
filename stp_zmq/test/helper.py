@@ -118,3 +118,10 @@ def check_pong_received(looper, stack, frm):
         assert stack.isConnectedTo(frm)
 
     looper.run(eventually(do_check_pong))
+
+
+def check_all_received(looper, frm, to_msg_handler, num_msg):
+    looper.run(eventually(to_msg_handler.check_received_from,
+                          frm.name, num_msg,
+                          retryWait=1,
+                          timeout=15))

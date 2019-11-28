@@ -6,8 +6,6 @@ from plenum.common.util import updateNamedTuple
 from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.replica_helper import generateName
 from plenum.test.consensus.helper import copy_shared_data, create_batches, \
     check_service_changed_only_owned_fields_in_shared_data, create_new_view, \
@@ -28,16 +26,6 @@ def is_primary(request):
 
 @pytest.fixture()
 def orderer(_orderer, is_primary, ):
-    # ToDo: For now, future_primary_handler is depended from the node.
-    # And for now we need to patching set_node_state functionality
-    write_manager = _orderer._write_manager
-    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
-                                                           FakeSomething(nodeReg={},
-                                                                         nodeIds=[],
-                                                                         primaries=_orderer._data.primaries))
-    write_manager.register_batch_handler(future_primaries_handler)
-
-    _orderer._validator = OrderingServiceMsgValidator(_orderer._data)
     _orderer.name = 'Alpha:0'
     _orderer._data.primary_name = 'some_node:0' if not is_primary else orderer.name
 
@@ -98,7 +86,8 @@ def test_update_shared_data_on_view_change_started(internal_bus, orderer):
 
 def test_clear_data_on_view_change_started(internal_bus, orderer):
     pp = create_pre_prepare_no_bls(generate_state_root(),
-                                   view_no=0, pp_seq_no=10, inst_id=0)
+                                   view_no=0, pp_seq_no=10, inst_id=0,
+                                   audit_txn_root="HSai3sMHKeAva4gWMabDrm1yNhezvPHfXnGyHf2ex1L4")
     prepare = create_prepare(req_key=(0, 10),
                              state_root=generate_state_root(), inst_id=0)
     commit = create_commit_no_bls_sig(req_key=(0, 10), inst_id=0)
@@ -107,7 +96,7 @@ def test_clear_data_on_view_change_started(internal_bus, orderer):
     orderer.prePrepares[key] = pp
     orderer.prepares[key] = prepare
     orderer.commits[key] = commit
-    orderer.pre_prepare_tss[key][pp, "Node1"] = 1234
+    orderer.pre_prepare_tss[key][pp.auditTxnRootHash, "Node1"] = 1234
     orderer.prePreparesPendingFinReqs.append(pp)
     orderer.prePreparesPendingPrevPP[key] = pp
     orderer.sent_preprepares[key] = pp
@@ -292,7 +281,8 @@ def test_send_reply_on_old_view_pre_prepares_request(external_bus, orderer,
     if not orderer.is_master:
         assert len(external_bus.sent_messages) == 0
         return
-    expected_pps = list(set(requested_old_view_pre_prepares) & set(stored_old_view_pre_prepares))
+    # equal to set's union operation
+    expected_pps = [i for i in stored_old_view_pre_prepares if i in requested_old_view_pre_prepares]
     expected_pps = sorted(expected_pps, key=lambda pp: pp.ppSeqNo)
     check_reply_old_view_preprepares_sent(external_bus, frm, expected_pps)
 
@@ -303,8 +293,10 @@ def test_process_preprepare_on_old_view_pre_prepares_reply(external_bus, interna
                                                            pre_prepares):
     # !!!SETUP!!!
     orderer._data.view_no = initial_view_no + 1
+    orderer._data.prev_view_prepare_cert = orderer.lastPrePrepareSeqNo + 1
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
                                batches=create_batches_from_preprepares(pre_prepares))
+    orderer._data.new_view = new_view
 
     # !!!EXECUTE!!!
     rep = OldViewPrePrepareReply(0, [pp._asdict() for pp in pre_prepares])

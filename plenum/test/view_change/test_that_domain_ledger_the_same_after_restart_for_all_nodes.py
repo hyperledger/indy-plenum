@@ -21,7 +21,6 @@ def catchuped(node):
     assert node.mode == Mode.participating
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
         looper, txnPoolNodeSet, tdir, tconf,
         allPluginsPath, limitTestRunningTime):
@@ -92,7 +91,7 @@ def test_that_domain_ledger_the_same_after_restart_for_all_nodes(
                                                               tconf,
                                                               tdir,
                                                               allPluginsPath,
-                                                              customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
+                                                              customTimeout=tconf.NEW_VIEW_TIMEOUT)
         for node in pool_of_nodes:
             logger.debug("compare_domain_ledgers: "
                          "primary node before view_change: {}, "

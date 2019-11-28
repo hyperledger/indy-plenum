@@ -3,13 +3,10 @@ import os
 import sys
 import stat
 from pathlib import Path
-
 import jsonpickle
-from jsonpickle import JSONBackend
-from libnacl import crypto_secretbox_open, randombytes, \
-    crypto_secretbox_NONCEBYTES, crypto_secretbox
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from libnacl import crypto_secretbox_open, randombytes, crypto_secretbox_NONCEBYTES, crypto_secretbox
 
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.exceptions import EmptyIdentifier
 from plenum.common.util import lxor
@@ -427,7 +424,7 @@ class WalletStorageHelper:
 WALLET_RAW_MIGRATORS = []
 
 
-class WalletCompatibilityBackend(JSONBackend):
+class WalletCompatibilityBackend(jsonpickle.JSONBackend):
     """
     Jsonpickle backend providing conversion of raw representations
     (nested dictionaries/lists structure) of wallets from previous versions

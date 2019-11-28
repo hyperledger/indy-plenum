@@ -42,6 +42,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
             last_config_seqno=None,
             primaries=node.primaries,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 1 - 1].pp_digest,
+            node_reg=[n.name for n in txnPoolNodeSet]
         )
 
     # 2d domain txn
@@ -69,6 +70,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
             last_config_seqno=None,
             primaries=1,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 2 - 1].pp_digest,
+            node_reg=1
         )
 
     # 1st pool txn
@@ -100,6 +102,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
             last_config_seqno=None,
             primaries=2,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 3 - 1].pp_digest,
+            node_reg=2
         )
 
     # 2d pool txn
@@ -131,6 +134,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
             last_config_seqno=None,
             primaries=3,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 4 - 1].pp_digest,
+            node_reg=3
         )
 
     # one more domain txn
@@ -158,4 +162,5 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
             last_config_seqno=None,
             primaries=4,
             digest=node.master_replica._consensus_data.prepared[pp_seq_no + 5 - 1].pp_digest,
+            node_reg=4
         )
