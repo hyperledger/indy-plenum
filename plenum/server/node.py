@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
-    NeedViewChange, NodeNeedViewChange
+    NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -248,11 +248,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.monitor_init(pluginPaths)
         self.replicas = self.create_replicas()
-
-        # Need to keep track of the time when lost connection with primary,
-        # help in voting for/against a view change on the master and removing
-        # replica on a backup instance
-        self.primaries_disconnection_times = []
 
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
@@ -513,6 +508,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def last_sent_pp_store_helper(self):
         return self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL)
+
+    @property
+    def primaries_disconnection_times(self) -> List[Optional[float]]:
+        return [r._primary_connection_monitor_service._primary_disconnection_time
+                for r in self.replicas.values()]
 
     # EXECUTERS
     def default_executer(self, three_pc_batch: ThreePcBatch):
@@ -931,7 +931,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def schedule_initial_propose_view_change(self):
         # It is supposed that master's primary is lost until it is connected
-        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
         self._schedule(action=self.propose_view_change,
                        seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
@@ -1176,12 +1175,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.status = Status.starting
 
-        if self.master_primary_name in joined:
-            self.primaries_disconnection_times[self.master_replica.instId] = None
-        if self.master_primary_name in left:
-            logger.display('{} lost connection to primary of master'.format(self))
-            self.lost_master_primary()
-        elif _prev_status == Status.starting and self.status == Status.started_hungry \
+        if _prev_status == Status.starting and self.status == Status.started_hungry \
                 and self.primaries_disconnection_times[self.master_replica.instId] is not None \
                 and self.master_primary_name is not None:
             """
@@ -1192,13 +1186,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         for inst_id, replica in self.replicas.items():
             replica.update_connecteds(self.nodestack.connecteds)
-            if not replica.isMaster and replica.primaryName is not None:
-                primary_node_name = replica_name_to_node_name(replica.primaryName)
-                if primary_node_name in joined:
-                    self.primaries_disconnection_times[inst_id] = None
-                elif primary_node_name in left:
-                    self.primaries_disconnection_times[inst_id] = time.perf_counter()
-                    self._schedule_replica_removal(inst_id)
 
         if self.isReady():
             self.checkInstances()
@@ -1318,12 +1305,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.replicas.remove_replica(replica_num)
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
-
-        if len(self.primaries_disconnection_times) < new_required_number_of_instances:
-            self.primaries_disconnection_times.extend(
-                [None] * (new_required_number_of_instances - len(self.primaries_disconnection_times)))
-        elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
-            self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -2648,21 +2629,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
         if instance_id == self.master_replica.instId:
-            # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.has_master_primary
-            if not self.primaries_disconnection_times[self.master_replica.instId]:
-                return
-            if self.nodestack.isConnectedTo(self.master_primary_name) \
-                    or self.master_primary_name == self.name:
-                self.primaries_disconnection_times[self.master_replica.instId] = None
-        else:
-            primary_node_name = replica_name_to_node_name(self.replicas[instance_id].primaryName)
-            if self.nodestack.isConnectedTo(primary_node_name) \
-                    or primary_node_name == self.name:
-                self.primaries_disconnection_times[instance_id] = None
-            else:
-                self.primaries_disconnection_times[instance_id] = time.perf_counter()
-                self._schedule_replica_removal(instance_id)
+
+        self.replicas.send_to_internal_bus(PrimarySelected(), instance_id)
 
     def propose_view_change(self):
         # Sends instance change message when primary has been
@@ -2704,15 +2673,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
-
-    # TODO: consider moving this to pool manager
-    def lost_master_primary(self):
-        """
-        Schedule an primary connection check which in turn can send a view
-        change message
-        """
-        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
-        self._schedule_view_change()
 
     def get_primaries_for_current_view(self):
         return self.primaries_selector.select_primaries(view_no=self.viewNo)
@@ -3294,6 +3254,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
+    def _process_primary_disconnected(self, msg: PrimaryDisconnected):
+        if msg.inst_id == MASTER_REPLICA_INDEX:
+            self._schedule_view_change()
+        else:
+            self._schedule_replica_removal(msg.inst_id)
+
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
         self.on_view_change_start()
         self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
@@ -3319,6 +3285,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,
                                                 self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(PrimaryDisconnected,
+                                                self._process_primary_disconnected)
 
     def set_view_change_status(self, value: bool):
         """

@@ -10,7 +10,6 @@ from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD
 from plenum.common.timer import TimerService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
-from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.replica_validator_enums import STASH_CATCH_UP, CATCHING_UP
@@ -46,13 +45,6 @@ class ViewChangeTriggerService:
                                    node_status_db=db_manager.get_store(NODE_STATUS_DB_LABEL),
                                    time_provider=timer.get_current_time)
 
-        self._primary_connection_monitor_service = \
-            PrimaryConnectionMonitorService(data=data,
-                                            timer=timer,
-                                            bus=bus,
-                                            network=network,
-                                            metrics=metrics)
-
         self._subscription = Subscription()
         self._subscription.subscribe(bus, VoteForViewChange, self.process_vote_for_view_change)
         self._subscription.subscribe(bus, NewViewAccepted, self.process_new_view_accepted)
@@ -60,7 +52,6 @@ class ViewChangeTriggerService:
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
-        self._primary_connection_monitor_service.cleanup()
 
     @property
     def name(self):

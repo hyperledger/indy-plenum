@@ -74,3 +74,7 @@ CatchupFinished = NamedTuple('CatchupFinished', [('last_caught_up_3PC', tuple),
 
 CatchupCheckpointsApplied = NamedTuple('CatchupCheckpointsApplied', [('last_caught_up_3PC', tuple),
                                                                      ('master_last_ordered', tuple)])
+
+PrimarySelected = NamedTuple('PrimarySelected', [])
+
+PrimaryDisconnected = NamedTuple('PrimaryDisconnected', [('inst_id', int)])

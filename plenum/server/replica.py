@@ -25,6 +25,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
 from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
@@ -161,6 +162,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._message_req_service = self._init_message_req_service()
         self._view_change_service = self._init_view_change_service()
         self._view_change_trigger_service = self._init_view_change_trigger_service()
+        self._primary_connection_monitor_service = self._init_primary_connection_monitor_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
@@ -194,6 +196,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self._view_change_service.cleanup()
         if self._view_change_trigger_service is not None:
             self._view_change_trigger_service.cleanup()
+        self._primary_connection_monitor_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 
@@ -715,6 +718,13 @@ class Replica(HasActionQueue, MessageProcessor):
                                         stasher=self.stasher,
                                         metrics=self.metrics,
                                         is_master_degraded=self.node.monitor.isMasterDegraded)
+
+    def _init_primary_connection_monitor_service(self) -> PrimaryConnectionMonitorService:
+        return PrimaryConnectionMonitorService(data=self._consensus_data,
+                                               timer=self.node.timer,
+                                               bus=self.internal_bus,
+                                               network=self._external_bus,
+                                               metrics=self.metrics)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)
