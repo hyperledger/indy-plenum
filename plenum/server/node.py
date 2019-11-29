@@ -242,6 +242,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
+        self.start_view_change_ts = 0
         self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
@@ -638,7 +639,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.info("{}{} metrics for monitor: {}".format(MONITORING_PREFIX, self, self.monitor.prettymetrics))
 
-        self.view_changer.start_view_change_ts = self.utc_epoch()
+        self.start_view_change_ts = self.utc_epoch()
 
         for replica in self.replicas.values():
             replica.on_view_change_start()
@@ -913,7 +914,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.clientstack.start()
 
             self.view_changer = self.newViewChanger()
-            self.schedule_initial_propose_view_change()
 
             self.schedule_node_status_dump()
             self.dump_additional_info()
@@ -928,11 +928,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.start_catchup(just_started=True)
 
         self.logNodeInfo()
-
-    def schedule_initial_propose_view_change(self):
-        # It is supposed that master's primary is lost until it is connected
-        self._schedule(action=self.propose_view_change,
-                       seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
     def schedule_node_status_dump(self):
         # one-shot dump right after start
@@ -1175,14 +1170,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.status = Status.starting
 
-        if _prev_status == Status.starting and self.status == Status.started_hungry \
-                and self.primaries_disconnection_times[self.master_replica.instId] is not None \
-                and self.master_primary_name is not None:
-            """
-            Such situation may occur if the pool has come back to reachable consensus but
-            primary is still disconnected, so view change proposal makes sense now.
-            """
-            self._schedule_view_change()
+        # TODO: INDY-2263 handle this case
+        # if _prev_status == Status.starting and self.status == Status.started_hungry \
+        #         and self.primaries_disconnection_times[self.master_replica.instId] is not None \
+        #         and self.master_primary_name is not None:
+        #     """
+        #     Such situation may occur if the pool has come back to reachable consensus but
+        #     primary is still disconnected, so view change proposal makes sense now.
+        #     """
+        #     self._schedule_view_change()
 
         for inst_id, replica in self.replicas.items():
             replica.update_connecteds(self.nodestack.connecteds)
@@ -2633,25 +2629,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.replicas.send_to_internal_bus(PrimarySelected(), instance_id)
 
-    def propose_view_change(self):
-        # Sends instance change message when primary has been
-        # disconnected for long enough
-        self._cancel(self.propose_view_change)
-        if not self.primaries_disconnection_times[self.master_replica.instId]:
-            logger.info('{} The primary is already connected '
-                        'so view change will not be proposed'.format(self))
-            return
-
-        logger.display("{} primary has been disconnected for too long".format(self))
-
-        if not self.isReady() or not self.is_synced:
-            logger.info('{} The node is not ready yet '
-                        'so view change will not be proposed now, but re-scheduled.'.format(self))
-            self._schedule_view_change()
-            return
-
-        self.view_changer.on_primary_loss()
-
     def _schedule_replica_removal(self, inst_id):
         disconnection_strategy = self.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED
         if not (self.backup_instance_faulty_processor.is_local_remove_strategy(disconnection_strategy) or
@@ -2668,11 +2645,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
             self.backup_instance_faulty_processor.on_backup_primary_disconnected([inst_id])
-
-    def _schedule_view_change(self):
-        logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
-        self._schedule(self.propose_view_change,
-                       self.config.ToleratePrimaryDisconnection)
 
     def get_primaries_for_current_view(self):
         return self.primaries_selector.select_primaries(view_no=self.viewNo)
@@ -3255,9 +3227,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
 
     def _process_primary_disconnected(self, msg: PrimaryDisconnected):
-        if msg.inst_id == MASTER_REPLICA_INDEX:
-            self._schedule_view_change()
-        else:
+        if msg.inst_id != MASTER_REPLICA_INDEX:
             self._schedule_replica_removal(msg.inst_id)
 
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):

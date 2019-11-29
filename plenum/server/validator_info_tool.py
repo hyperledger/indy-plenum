@@ -473,7 +473,7 @@ class ValidatorNodeInfoTool:
         return ic_queue
 
     def __get_start_vc_ts(self):
-        ts = self._node.view_changer.start_view_change_ts
+        ts = self._node.start_view_change_ts
         return str(datetime.datetime.utcfromtimestamp(ts))
 
     @property
