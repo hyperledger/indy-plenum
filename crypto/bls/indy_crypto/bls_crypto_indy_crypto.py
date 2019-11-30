@@ -111,7 +111,7 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
 
 class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
     def __init__(self, sk: SignKey, pk: VerKey, params: GroupParams):
-        self.sk = sk  # type: SignKey
+        self._sk = sk  # type: SignKey
         self.pk = pk  # type: VerKey
         self._generator = \
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
@@ -130,5 +130,5 @@ class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
         return ProofOfPossession.new(ver_key=pk, sign_key=sk)
 
     def sign(self, message: bytes) -> str:
-        sign = Bls.sign(message, self.sk)
+        sign = Bls.sign(message, self._sk)
         return IndyCryptoBlsUtils.bls_to_str(sign)
