@@ -2,8 +2,6 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from typing import Sequence
 
-from common.exceptions import PlenumTypeError
-
 GroupParams = namedtuple('GroupParams',
                          'group_name, g')
 
@@ -15,23 +13,6 @@ class BlsGroupParamsLoader(metaclass=ABCMeta):
 
 
 class BlsCryptoSigner(metaclass=ABCMeta):
-    def __init__(self, sk: str, pk: str, params: GroupParams):
-
-        if not isinstance(sk, str):
-            raise PlenumTypeError('sk', sk, str)
-
-        if not sk:
-            raise ValueError("'sk' should be a non-empty string")
-
-        if not isinstance(pk, str):
-            raise PlenumTypeError('pk', pk, str)
-
-        if not pk:
-            raise ValueError("'pk' should be a non-empty string")
-
-        self._sk = sk
-        self.pk = pk
-        self._group_params = params
 
     @staticmethod
     @abstractmethod
@@ -42,6 +23,16 @@ class BlsCryptoSigner(metaclass=ABCMeta):
     def sign(self, message: bytes) -> str:
         pass
 
+    @abstractmethod
+    @property
+    def pk(self) -> object:
+        pass
+
+    @abstractmethod
+    @property
+    def sk(self) -> object:
+        pass
+
 
 class BlsCryptoVerifier(metaclass=ABCMeta):
     @abstractmethod
@@ -49,13 +40,13 @@ class BlsCryptoVerifier(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def verify_sig(self, signature: str, message: bytes, pk: str) -> bool:
+    def verify_sig(self, signature: str, message: bytes, pk: object) -> bool:
         pass
 
     @abstractmethod
-    def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[str]) -> bool:
+    def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[object]) -> bool:
         pass
 
     @abstractmethod
-    def verify_key_proof_of_possession(self, key_proof, pk: str) -> bool:
+    def verify_key_proof_of_possession(self, key_proof, pk: object) -> bool:
         pass

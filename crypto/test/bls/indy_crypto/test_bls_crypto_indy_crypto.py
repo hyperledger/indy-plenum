@@ -1,8 +1,9 @@
 import base58
 import pytest
+from indy_crypto.bls import VerKey
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
-    BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
+    BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto, IndyCryptoBlsUtils
 from indy_crypto import IndyCryptoError
 from indy_crypto.error import ErrorCode
 
@@ -172,13 +173,13 @@ def test_verify_non_base58_pk(bls_signer1, bls_verifier, message):
     sig = bls_signer1.sign('Hello!')
     assert not bls_verifier.verify_sig(sig,
                                        message,
-                                       'Incorrect pk 1')
+                                       IndyCryptoBlsUtils.bls_pk_from_str('Incorrect pk 1'))
 
 
 def test_verify_non_base58_sig_and_pk(bls_verifier, message):
     assert not bls_verifier.verify_sig('Incorrect Signature 1',
                                        message,
-                                       'Incorrect pk 1')
+                                       IndyCryptoBlsUtils.bls_pk_from_str('Incorrect pk 1'))
 
 
 def invalid_values(valid_value):
@@ -190,6 +191,10 @@ def invalid_values(valid_value):
         valid_value + base58.b58encode(b'somefake').decode("utf-8"),
         base58.b58encode(b'somefakevaluesomefakevalue').decode("utf-8")
     ]
+
+
+def invalid_pks(invalid_vals):
+    return [IndyCryptoBlsUtils.bls_pk_from_str(val) for val in invalid_vals]
 
 
 def invalid_short_values(valid_value):
@@ -224,7 +229,7 @@ def test_verify_invalid_pk(bls_signer1, bls_verifier, message):
     pk = bls_signer1.pk
     sig = bls_signer1.sign(message)
 
-    for invalid_pk in invalid_values(pk):
+    for invalid_pk in invalid_pks(invalid_values(pk)):
         assert not bls_verifier.verify_sig(sig,
                                            message, invalid_pk)
 
@@ -242,7 +247,7 @@ def test_verify_invalid_short_pk(bls_signer1, bls_verifier, message):
     pk = bls_signer1.pk
     sig = bls_signer1.sign(message)
 
-    for invalid_pk in invalid_short_values(pk):
+    for invalid_pk in invalid_pks(invalid_short_values(pk)):
         assert not bls_verifier.verify_sig(sig,
                                            message, invalid_pk)
 
@@ -256,7 +261,7 @@ def test_verify_invalid_long_signature(bls_signer1, bls_verifier, message):
 
 def test_verify_invalid_long_pk(bls_signer1, bls_verifier, message):
     sig = bls_signer1.sign(message)
-    for invalid_pk in invalid_long_values():
+    for invalid_pk in invalid_pks(invalid_long_values()):
         assert not bls_verifier.verify_sig(sig,
                                            message, invalid_pk)
 
@@ -429,18 +434,18 @@ def test_verify_multi_signature_invalid_long_pk(bls_signer1, bls_signer2, bls_ve
 
     multi_sig = bls_verifier.create_multi_sig(sigs)
 
-    for invalid_pk2 in invalid_long_values():
+    for invalid_pk2 in invalid_pks(invalid_long_values()):
         pks = [pk1, invalid_pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1 in invalid_long_values():
+    for invalid_pk1 in invalid_pks(invalid_long_values()):
         pks = [invalid_pk1, pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1, invalid_pk2 in zip(invalid_long_values(),
-                                        invalid_long_values()):
+    for invalid_pk1, invalid_pk2 in zip(invalid_pks(invalid_long_values()),
+                                        invalid_pks(invalid_long_values())):
         pks = [invalid_pk1, invalid_pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)

@@ -45,6 +45,10 @@ class IndyCryptoBlsUtils:
             return None
 
     @staticmethod
+    def bls_pk_from_str(v: str) -> Optional[VerKey]:
+        return IndyCryptoBlsUtils.bls_from_str(v, VerKey)
+
+    @staticmethod
     def prepare_seed(seed):
         seed_bytes = None
         if isinstance(seed, str):
@@ -66,11 +70,10 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         self._generator = \
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
-    def verify_sig(self, signature: str, message: bytes, pk: str) -> bool:
+    def verify_sig(self, signature: str, message: bytes, bls_pk: Optional[VerKey]) -> bool:
         bls_signature = IndyCryptoBlsUtils.bls_from_str(signature, Signature)
         if bls_signature is None:
             return False
-        bls_pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
         if bls_pk is None:
             return False
         return Bls.verify(bls_signature,
@@ -78,9 +81,9 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
                           bls_pk,
                           self._generator)
 
-    def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[str]) -> bool:
-        epks = [IndyCryptoBlsUtils.bls_from_str(p, VerKey) for p in pks]
-        if None in epks:
+    def verify_multi_sig(self, signature: str, message: bytes, pks: Sequence[Optional[VerKey]]) -> bool:
+        # TODO: is it expected that we return False if one of the keys is None?
+        if None in pks:
             return False
 
         multi_signature = \
@@ -90,7 +93,7 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
 
         return Bls.verify_multi_sig(multi_sig=multi_signature,
                                     message=message,
-                                    ver_keys=epks,
+                                    ver_keys=pks,
                                     gen=self._generator)
 
     def create_multi_sig(self, signatures: Sequence[str]) -> str:
@@ -98,9 +101,8 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         bts = MultiSignature.new(sigs)
         return IndyCryptoBlsUtils.bls_to_str(bts)
 
-    def verify_key_proof_of_possession(self, key_proof, pk: str) -> bool:
+    def verify_key_proof_of_possession(self, key_proof, bls_pk: Optional[VerKey]) -> bool:
         bls_key_proof = IndyCryptoBlsUtils.bls_from_str(key_proof, ProofOfPossession)
-        bls_pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
         if None in [bls_key_proof, bls_pk]:
             return False
         return Bls.verify_pop(bls_key_proof,
@@ -110,11 +112,18 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
 
 class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
     def __init__(self, sk: str, pk: str, params: GroupParams):
-        super().__init__(sk, pk, params)
-        self._sk_bls = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)
-        self._pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
+        self._sk = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)  # type: SignKey
+        self._pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)  # type: VerKey
         self._generator = \
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
+
+    @property
+    def pk(self) -> VerKey:
+        return self._pk
+
+    @property
+    def sk(self) -> SignKey:
+        return self._sk
 
     @staticmethod
     def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
