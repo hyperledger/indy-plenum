@@ -101,50 +101,34 @@ class BlsCryptoVerifierIndyCrypto(BlsCryptoVerifier):
         bts = MultiSignature.new(sigs)
         return IndyCryptoBlsUtils.bls_to_str(bts)
 
-    def verify_key_proof_of_possession(self, key_proof, bls_pk: Optional[VerKey]) -> bool:
-        bls_key_proof = IndyCryptoBlsUtils.bls_from_str(key_proof, ProofOfPossession)
-        if None in [bls_key_proof, bls_pk]:
+    def verify_key_proof_of_possession(self, key_proof: Optional[ProofOfPossession], bls_pk: Optional[VerKey]) -> bool:
+        if None in [key_proof, bls_pk]:
             return False
-        return Bls.verify_pop(bls_key_proof,
+        return Bls.verify_pop(key_proof,
                               bls_pk,
                               self._generator)
 
 
 class BlsCryptoSignerIndyCrypto(BlsCryptoSigner):
-    def __init__(self, sk: str, pk: str, params: GroupParams):
-        self._sk = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)  # type: SignKey
-        self._pk = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)  # type: VerKey
+    def __init__(self, sk: SignKey, pk: VerKey, params: GroupParams):
+        self.sk = sk  # type: SignKey
+        self.pk = pk  # type: VerKey
         self._generator = \
             IndyCryptoBlsUtils.bls_from_str(params.g, Generator)  # type: Generator
 
-    @property
-    def pk(self) -> VerKey:
-        return self._pk
-
-    @property
-    def sk(self) -> SignKey:
-        return self._sk
-
     @staticmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (SignKey, VerKey, ProofOfPossession):
         seed = IndyCryptoBlsUtils.prepare_seed(seed)
         gen = IndyCryptoBlsUtils.bls_from_str(params.g, Generator)
         sk = SignKey.new(seed)
         vk = VerKey.new(gen, sk)
         key_proof = ProofOfPossession.new(ver_key=vk, sign_key=sk)
-        sk_str = IndyCryptoBlsUtils.bls_to_str(sk)
-        vk_str = IndyCryptoBlsUtils.bls_to_str(vk)
-        key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
-        return sk_str, vk_str, key_proof_str
+        return sk, vk, key_proof
 
     @staticmethod
-    def generate_key_proof(sk: str, pk: str):
-        sk_bls = IndyCryptoBlsUtils.bls_from_str(sk, SignKey)
-        pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, VerKey)
-        key_proof = ProofOfPossession.new(ver_key=pk_bls, sign_key=sk_bls)
-        key_proof_str = IndyCryptoBlsUtils.bls_to_str(key_proof)
-        return key_proof_str
+    def generate_key_proof(sk: SignKey, pk: VerKey) -> ProofOfPossession:
+        return ProofOfPossession.new(ver_key=pk, sign_key=sk)
 
     def sign(self, message: bytes) -> str:
-        sign = Bls.sign(message, self._sk_bls)
+        sign = Bls.sign(message, self.sk)
         return IndyCryptoBlsUtils.bls_to_str(sign)

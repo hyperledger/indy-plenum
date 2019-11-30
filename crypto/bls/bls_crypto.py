@@ -16,21 +16,16 @@ class BlsCryptoSigner(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def generate_keys(params: GroupParams, seed=None) -> (str, str, str):
+    def generate_keys(params: GroupParams, seed=None) -> (object, object, object):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def generate_key_proof(sk: object, pk: object) -> object:
         pass
 
     @abstractmethod
     def sign(self, message: bytes) -> str:
-        pass
-
-    @abstractmethod
-    @property
-    def pk(self) -> object:
-        pass
-
-    @abstractmethod
-    @property
-    def sk(self) -> object:
         pass
 
 
@@ -48,5 +43,5 @@ class BlsCryptoVerifier(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def verify_key_proof_of_possession(self, key_proof, pk: object) -> bool:
+    def verify_key_proof_of_possession(self, key_proof: object, pk: object) -> bool:
         pass
