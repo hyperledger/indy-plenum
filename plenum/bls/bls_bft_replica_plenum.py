@@ -306,26 +306,15 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     def _save_multi_sig_shared(self, pre_prepare: PrePrepare):
 
-        if f.BLS_MULTI_SIGS.nm in pre_prepare and pre_prepare.blsMultiSigs is not None:
-            multi_sigs = pre_prepare.blsMultiSigs
-            for sig in multi_sigs:
-                multi_sig = MultiSignature.from_list(*sig)
-                self._bls_bft.bls_store.put(multi_sig)
-                logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
-                             .format(BLS_PREFIX, self, multi_sig,
-                                     multi_sig.value.state_root_hash))
+        if f.BLS_MULTI_SIGS.nm not in pre_prepare or pre_prepare.blsMultiSigs is None:
             return
-        elif f.BLS_MULTI_SIG.nm not in pre_prepare:
-            return
-        if pre_prepare.blsMultiSig is None:
-            return
-
-        multi_sig = MultiSignature.from_list(*pre_prepare.blsMultiSig)
-        self._bls_bft.bls_store.put(multi_sig)
-        logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
-                     .format(BLS_PREFIX, self, multi_sig,
-                             multi_sig.value.state_root_hash))
-        # TODO: support multiple multi-sigs for multiple previous batches
+        multi_sigs = pre_prepare.blsMultiSigs
+        for sig in multi_sigs:
+            multi_sig = MultiSignature.from_list(*sig)
+            self._bls_bft.bls_store.put(multi_sig)
+            logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
+                         .format(BLS_PREFIX, self, multi_sig,
+                                 multi_sig.value.state_root_hash))
 
     def _get_correct_audit_transaction(self, pp: PrePrepare):
         ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
