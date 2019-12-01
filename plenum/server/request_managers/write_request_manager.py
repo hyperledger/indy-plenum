@@ -104,9 +104,11 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.dynamic_validation(request)
 
-    def _get_handlers_by_version(self, txn_type=None):
+    def _get_handlers_by_version(self, txn):
+        txn_type = get_type(txn)
         version = self.database_manager.state_version
         version = self.config.INDY_VERSION_MATCHING.get(version, version)
+
         handlers = self._request_handlers_with_version.get((txn_type, version)) \
             if (txn_type, version) in self._request_handlers_with_version \
             else self.request_handlers.get(txn_type, None)
@@ -126,7 +128,7 @@ class WriteRequestManager(RequestManager):
         self.database_manager.update_state_version(txn)
         # TODO: add to TxnVersionController function `get_version(txn)`
         # to use a version from the txn and update it in the internal TxnVersionController version
-        handlers = self._get_handlers_by_version(get_type(txn))
+        handlers = self._get_handlers_by_version(txn)
         updated_state = None
         for handler in handlers:
             updated_state = handler.update_state(txn, updated_state, None, is_committed=True)

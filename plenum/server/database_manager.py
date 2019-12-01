@@ -4,7 +4,7 @@ from common.exceptions import LogicError
 from common.serializers.serialization import state_roots_serializer
 from plenum.common.constants import BLS_LABEL, TS_LABEL, IDR_CACHE_LABEL, ATTRIB_LABEL, SEQ_NO_DB_LABEL
 from plenum.common.ledger import Ledger
-from plenum.server.txn_version_controller import ITxnVersionController
+from plenum.server.txn_version_controller import TxnVersionController
 from state.state import State
 
 
@@ -14,7 +14,7 @@ class DatabaseManager():
         self.stores = {}
         self.trackers = {}
         self._init_db_list()
-        self._txn_version_controller = ITxnVersionController()
+        self._txn_version_controller = TxnVersionController()
 
     def _init_db_list(self):
         self._ledgers = {lid: db.ledger for lid, db in self.databases.items()}
@@ -84,7 +84,7 @@ class DatabaseManager():
             return False
         return self.databases[lid].taa_acceptance_required
 
-    def set_txn_version_controller(self, controller: ITxnVersionController):
+    def set_txn_version_controller(self, controller: TxnVersionController):
         self._txn_version_controller = controller
 
     def update_state_version(self, txn):

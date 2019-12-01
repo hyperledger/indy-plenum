@@ -1,6 +1,6 @@
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_seq_no, get_txn_time
@@ -36,17 +36,22 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
         payload = get_payload_data(txn)
         text = payload[TXN_AUTHOR_AGREEMENT_TEXT]
         version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
+        retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIRED, False)
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
-        self._update_txn_author_agreement(text, version, seq_no, txn_time)
+        self._update_txn_author_agreement(text, version, seq_no, txn_time, retired)
 
-    def _update_txn_author_agreement(self, text, version, seq_no, txn_time):
+    def _update_txn_author_agreement(self, text, version, seq_no, txn_time, retired=False):
         digest = StaticTAAHelper.taa_digest(text, version)
-        data = encode_state_value({
+        state_value = {
             TXN_AUTHOR_AGREEMENT_TEXT: text,
-            TXN_AUTHOR_AGREEMENT_VERSION: version
-        }, seq_no, txn_time, serializer=config_state_serializer)
-
+            TXN_AUTHOR_AGREEMENT_VERSION: version,
+            TXN_AUTHOR_AGREEMENT_DIGEST: digest
+        }
+        if retired:
+            state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+        data = encode_state_value(state_value, seq_no, txn_time,
+                                  serializer=config_state_serializer)
         self.state.set(StaticTAAHelper.state_path_taa_digest(digest), data)
         self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
         self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)

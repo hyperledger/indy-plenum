@@ -4,7 +4,7 @@ import pytest
 from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
-    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO
+    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED
 from plenum.common.util import randomString
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
@@ -48,12 +48,16 @@ def nodeSetWithTaa(request, nodeSetWithTaaAlwaysResponding):
             yield nodeSetWithTaaAlwaysResponding
 
 
-def taa_value(result, text, version):
-    return JsonSerializer().serialize({
-        "val": {
+def taa_value(result, text, version, digest, retired=False):
+    value = {
             TXN_AUTHOR_AGREEMENT_TEXT: text,
-            TXN_AUTHOR_AGREEMENT_VERSION: version
-        },
+            TXN_AUTHOR_AGREEMENT_VERSION: version,
+            TXN_AUTHOR_AGREEMENT_DIGEST: digest
+        }
+    if retired:
+        value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+    return JsonSerializer().serialize({
+        "val": value,
         "lsn": result[TXN_METADATA_SEQ_NO],
         "lut": result[TXN_METADATA_TIME]
     })
@@ -67,6 +71,7 @@ def test_get_txn_author_agreement_returns_latest_taa_by_default(looper, set_txn_
     result = reply['result']
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V2
     check_state_proof(result, '2:latest', DIGEST_V2)
 
 
@@ -79,6 +84,7 @@ def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, nodeSet
     result = reply['result']
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V1
     check_state_proof(result, '2:v:{}'.format(V1), DIGEST_V1)
 
 
@@ -115,7 +121,8 @@ def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetW
     result = reply['result']
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
-    check_state_proof(result, '2:d:{}'.format(DIGEST_V1), taa_value(result, TEXT_V1, V1))
+    assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V1
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V1), taa_value(result, TEXT_V1, V1, DIGEST_V1))
 
 
 def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, nodeSetWithTaa,
@@ -127,7 +134,8 @@ def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, node
     result = reply['result']
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
-    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2))
+    assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V2
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2))
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(looper, nodeSetWithTaa,
@@ -151,6 +159,7 @@ def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithT
     result = reply['result']
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
+    assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V1
     check_state_proof(result, '2:latest', DIGEST_V1)
 
 
@@ -163,6 +172,7 @@ def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWit
     result = reply['result']
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
+    assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V2
     check_state_proof(result, '2:latest', DIGEST_V2)
 
 
