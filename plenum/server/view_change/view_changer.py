@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from functools import partial
 
 from plenum.common.startable import Mode
 from plenum.common.timer import TimerService, RepeatingTimer

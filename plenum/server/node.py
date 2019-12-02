@@ -1161,7 +1161,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Check protocol instances. See `checkInstances()`
 
         """
-        _prev_status = self.status
+        # _prev_status = self.status
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
