@@ -27,7 +27,7 @@ from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService, NeedAddNode, NeedRemoveNode
-from plenum.server.consensus.utils import preprepare_to_batch_id
+from plenum.server.consensus.utils import preprepare_to_batch_id, replica_name_to_node_name
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
@@ -189,7 +189,7 @@ class SimPool:
                                  self.network.create_peer(name, handler),
                                  write_manager=write_manager,
                                  bls_bft_replica=MockBlsBftReplica())
-        replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
+        replica._data.node_mode = Mode.participating
         self._nodes.append(replica)
         self._update_connecteds()
         logger.info("Node {} was added into pool".format(name))
@@ -296,9 +296,9 @@ class SimPool:
         return new_msg
 
     def _update_connecteds(self):
-        connecteds = {node.name for node in self._nodes}
-        for node in self._nodes:
-            node._network.update_connecteds(connecteds)
+        connecteds = {replica_name_to_node_name(replica.name) for replica in self._nodes}
+        for replica in self._nodes:
+            replica._network.update_connecteds(connecteds)
 
 
 VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
