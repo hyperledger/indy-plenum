@@ -1,4 +1,4 @@
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
 from plenum.common.request import ReqKey
 from plenum.common.startable import Mode
 from plenum.server.consensus.utils import replica_name_to_node_name
@@ -21,22 +21,11 @@ def create_pool(random):
     return pool
 
 
-def sim_send_requests(pool: SimPool, req_count):
-    reqs = create_requests(req_count)
-    faulty = (pool.size - 1) // 3
-    for node in pool.nodes:
-        for req in reqs:
-            node._data.requests.add(req)
-            node._data.requests.mark_as_forwarded(req, faulty + 1)
-            node._data.requests.set_finalised(req)
-            node.ready_for_3pc(ReqKey(req.key))
-
-
 def setup_consensus_data(cd):
     cd.node_mode = Mode.participating
 
 
-def setup_pool(random, req_count):
+def setup_pool(random):
     pool = create_pool(random)
 
     for node in pool.nodes:
@@ -47,8 +36,6 @@ def setup_pool(random, req_count):
         setup_consensus_data(node._data)
         node._orderer._network._connecteds = list(set(node._data.validators) -
                                                   {replica_name_to_node_name(node._data.name)})
-
-    sim_send_requests(pool, req_count)
 
     return pool
 
@@ -72,7 +59,23 @@ def check_batch_count(node, expected_pp_seq_no):
     return node._orderer.last_ordered_3pc[1] == expected_pp_seq_no
 
 
+def check_ledger_size(node, expected_ledger_size, ledger_id=DOMAIN_LEDGER_ID):
+    current_ledger_size = node._write_manager.database_manager.get_ledger(ledger_id).size
+    logger.debug("Node: {}, Actual ledger_size: {}, Expected ledger_size is: {}".format(node,
+                                                                                    current_ledger_size,
+                                                                                    expected_ledger_size))
+    return current_ledger_size == expected_ledger_size
+
+
+def get_pools_ledger_size(pool, ledger_id=DOMAIN_LEDGER_ID):
+    sizes = set([node._write_manager.database_manager.get_ledger(ledger_id).size for node in pool.nodes])
+    assert len(sizes) == 1
+    return sizes.pop()
+
+
 def order_requests(pool):
     primary_nodes = [n for n in pool.nodes if n._data.is_primary]
     if primary_nodes and not primary_nodes[0]._data.waiting_for_new_view:
         primary_nodes[0]._orderer.send_3pc_batch()
+    for n in pool.nodes:
+        n._orderer.dequeue_pre_prepares()

@@ -6,7 +6,7 @@ import pytest
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.timer import RepeatingTimer
 from plenum.test.consensus.order_service.sim_helper import MAX_BATCH_SIZE, setup_pool, order_requests, \
-    check_consistency, check_batch_count
+    check_consistency, check_batch_count, check_ledger_size, get_pools_ledger_size, create_requests
 from plenum.test.simulation.sim_random import DefaultSimRandom
 
 REQUEST_COUNT = 10
@@ -27,7 +27,10 @@ def do_test(seed):
     requests_count = REQUEST_COUNT
     batches_count = requests_count // MAX_BATCH_SIZE
     random = DefaultSimRandom(seed)
-    pool = setup_pool(random, requests_count)
+    reqs = create_requests(requests_count)
+    pool = setup_pool(random)
+    pool.sim_send_requests(reqs)
+    initial_ledger_size = get_pools_ledger_size(pool)
 
     # 2. Send 3pc batches
     random_interval = 1
@@ -42,6 +45,7 @@ def do_test(seed):
     # 3. Make sure all nodes ordered all the requests
     for node in pool.nodes:
         pool.timer.wait_for(partial(check_batch_count, node, batches_count))
+        pool.timer.wait_for(partial(check_ledger_size, node, initial_ledger_size + REQUEST_COUNT))
 
     # 4. Check data consistency
     pool.timer.wait_for(lambda: check_no_asserts(check_consistency, pool))
