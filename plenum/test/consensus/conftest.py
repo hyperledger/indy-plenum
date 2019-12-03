@@ -4,7 +4,7 @@ import pytest
 
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
-from plenum.common.messages.internal_messages import RequestPropagates
+from plenum.common.messages.internal_messages import RequestPropagates, PrimarySelected
 from plenum.common.startable import Mode
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
@@ -12,6 +12,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
+from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService
 from plenum.server.consensus.view_change_service import ViewChangeService
@@ -22,7 +23,7 @@ from plenum.server.request_managers.write_request_manager import WriteRequestMan
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import primary_in_view, create_test_write_req_manager
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import MockTimer, MockNetwork, create_pool_txn_data
+from plenum.test.helper import MockTimer, MockNetwork, create_pool_txn_data, TestInternalBus
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -63,6 +64,7 @@ def timer():
 
 @pytest.fixture
 def view_change_service(internal_bus, external_bus, timer, stasher, validators):
+    # TODO: Use validators fixture
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
     primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
     return ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
@@ -70,6 +72,7 @@ def view_change_service(internal_bus, external_bus, timer, stasher, validators):
 
 @pytest.fixture
 def view_change_trigger_service(internal_bus, external_bus, timer, stasher, validators):
+    # TODO: Use validators fixture
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
     data.node_mode = Mode.participating
     return ViewChangeTriggerService(data=data,
@@ -79,6 +82,21 @@ def view_change_trigger_service(internal_bus, external_bus, timer, stasher, vali
                                     db_manager=DatabaseManager(),
                                     stasher=stasher,
                                     is_master_degraded=lambda: False)
+
+
+@pytest.fixture
+def primary_connection_monitor_service(internal_bus, external_bus, timer):
+    # TODO: Use validators fixture
+    nodes = genNodeNames(4)
+    data = ConsensusSharedData("some_name", nodes, 0)
+    data.node_mode = Mode.participating
+    data.primary_name = nodes[0]
+    service = PrimaryConnectionMonitorService(data=data,
+                                              timer=timer,
+                                              bus=internal_bus,
+                                              network=external_bus)
+    internal_bus.send(PrimarySelected())
+    return service
 
 
 @pytest.fixture
@@ -138,7 +156,7 @@ def internal_bus():
     def rp_handler(ib, msg):
         ib.msgs.setdefault(type(msg), []).append(msg)
 
-    ib = InternalBus()
+    ib = TestInternalBus()
     ib.msgs = {}
     ib.subscribe(RequestPropagates, rp_handler)
     return ib

@@ -9,7 +9,7 @@ from functools import partial
 from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
-from time import sleep
+from time import sleep, perf_counter
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union, Callable
 
 import base58
@@ -18,12 +18,12 @@ from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
 from crypto.bls.bls_factory import BlsFactoryCrypto
-from plenum.common.event_bus import ExternalBus
+from plenum.common.event_bus import ExternalBus, InternalBus
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.timer import QueueTimer
+from plenum.common.timer import QueueTimer, TimerService
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
@@ -1429,16 +1429,44 @@ class MockTimer(QueueTimer):
             else:
                 raise TimeoutError("Failed to reach condition in {} iterations".format(max_iterations))
 
-    def run_to_completion(self):
+    def run_to_completion(self, max_iterations: int = 10000):
         """
         Advance time in steps until nothing is scheduled
         """
-        while self._events:
+        counter = 0
+        while self._events and counter < max_iterations:
             self.advance()
+            counter += 1
+
+        if self._events:
+            raise TimeoutError("Failed to complete in {} iterations".format(max_iterations))
 
     def _log_time(self):
         # TODO: Probably better solution would be to replace real time in logs with virtual?
         logger.info("Virtual time: {}".format(self._ts.value))
+
+
+class TestStopwatch:
+    def __init__(self, timer: Optional[TimerService] = None):
+        self._get_current_time = timer.get_current_time if timer else perf_counter
+        self._start_time = self._get_current_time()
+
+    def start(self):
+        self._start_time = self._get_current_time()
+
+    def has_elapsed(self, expected_delay: float, tolerance: float = 0.1) -> bool:
+        elapsed = self._get_current_time() - self._start_time
+        return abs(expected_delay - elapsed) <= expected_delay * tolerance
+
+
+class TestInternalBus(InternalBus):
+    def __init__(self):
+        super().__init__()
+        self.sent_messages = []
+
+    def send(self, message: Any, *args):
+        self.sent_messages.append(message)
+        super().send(message, *args)
 
 
 class MockNetwork(ExternalBus):
@@ -1448,6 +1476,12 @@ class MockNetwork(ExternalBus):
 
     def _send_message(self, msg: Any, dst: ExternalBus.Destination):
         self.sent_messages.append((msg, dst))
+
+    def connect(self, name: str):
+        self.update_connecteds(self.connecteds.union({name}))
+
+    def disconnect(self, name: str):
+        self.update_connecteds(self.connecteds.difference({name}))
 
 
 def get_handler_by_type_wm(write_manager, h_type):

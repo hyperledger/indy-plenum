@@ -13,7 +13,7 @@ from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 
 
-# TODO: Revert back to 0.6 if possible
+# TODO: INDY-2263 Revert back to 0.6 if possible
 @pytest.fixture(params=[(0, 0.03)])
 def latency(request, tconf):
     min_latency, max_latency = tuple(int(param * tconf.NEW_VIEW_TIMEOUT) for param in request.param)
