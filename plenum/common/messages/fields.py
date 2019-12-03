@@ -239,7 +239,7 @@ class IterableField(FieldBase):
                 if not m > 0:
                     raise PlenumValueError(k, m, '> 0')
 
-        self.validate_inner_field = inner_field_type.validate
+        self.inner_field_type = inner_field_type
         self.min_length = min_length
         self.max_length = max_length
         super().__init__(**kwargs)
@@ -253,7 +253,7 @@ class IterableField(FieldBase):
                 return 'length should be at most {}'.format(self.max_length)
 
         for v in val:
-            check_er = self.validate_inner_field(v)
+            check_er = self.inner_field_type.validate(v)
             if check_er:
                 return check_er
 
