@@ -188,6 +188,7 @@ def send_to_disconnected_then_connect(send_to_disconnected, looper,
     return alpha, beta, beta_msg_handler
 
 
+@pytest.mark.skip(reason='INDY-2289: if zeroMQ auto reconnect works some of the use cases do not make sense anymore')
 def test_send_to_disconnected_then_connect(send_to_disconnected_then_connect, looper):
     alpha, beta, beta_msg_handler = send_to_disconnected_then_connect
     check_all_received(looper, frm=alpha, to_msg_handler=beta_msg_handler, num_msg=NUM_MSGS)

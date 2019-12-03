@@ -185,6 +185,7 @@ def test_reconnect_for_long_time(looper, tdir, tconf, generated_keys):
             checkStacksConnected, [alpha, beta], retryWait=1, timeout=CONNECT_TIMEOUT))
 
 
+@pytest.mark.skip(reason='INDY-2289: if zeroMQ auto reconnect works some of the use cases do not make sense anymore')
 def test_reconnect_for_long_time_lose_pongs(looper, tdir, tconf, generated_keys):
     # create stacks
     alpha, alpha_motor = create_stack("Alpha", looper, tdir, tconf)
