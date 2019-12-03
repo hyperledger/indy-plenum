@@ -4,7 +4,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
-from plenum.common.startable import Mode
+from plenum.common.startable import Mode, Status
 from plenum.common.util import SortedDict
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
@@ -58,6 +58,7 @@ class ConsensusSharedData:
         self.high_watermark = self.low_watermark + self.log_size
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
+        self.node_status = Status.starting
         # ToDo: it should be set in view_change_service before view_change starting
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance

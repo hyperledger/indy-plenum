@@ -2,9 +2,11 @@ from typing import Optional
 
 from plenum.common.config_util import getConfig
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import PrimarySelected, PrimaryDisconnected, VoteForViewChange
+from plenum.common.messages.internal_messages import PrimarySelected, PrimaryDisconnected, VoteForViewChange, \
+    NodeStatusUpdated
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
 from plenum.common.router import Subscription
+from plenum.common.startable import Status
 from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.utils import replica_name_to_node_name
@@ -40,6 +42,7 @@ class PrimaryConnectionMonitorService:
         self._subscription.subscribe(network, ExternalBus.Connected, self.process_connected)
         self._subscription.subscribe(network, ExternalBus.Disconnected, self.process_disconnected)
         self._subscription.subscribe(bus, PrimarySelected, self.process_primary_selected)
+        self._subscription.subscribe(bus, NodeStatusUpdated, self.process_node_status_updated)
 
         if self._data.is_master:
             self._schedule_primary_connection_check(delay=self._config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
@@ -66,6 +69,17 @@ class PrimaryConnectionMonitorService:
             self._primary_connected()
         else:
             self._primary_disconnected()
+
+    def process_node_status_updated(self, msg: NodeStatusUpdated):
+        if msg.old_status == Status.starting \
+                and msg.new_status == Status.started_hungry \
+                and self._primary_disconnection_time is not None \
+                and self._data.primary_name is not None:
+            """
+            Such situation may occur if the pool has come back to reachable consensus but
+            primary is still disconnected, so view change proposal makes sense now.
+            """
+            self._schedule_primary_connection_check()
 
     def _primary_connected(self):
         self._primary_disconnection_time = None

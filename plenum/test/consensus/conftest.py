@@ -5,7 +5,7 @@ import pytest
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates, PrimarySelected
-from plenum.common.startable import Mode
+from plenum.common.startable import Mode, Status
 from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.stashing_router import StashingRouter
@@ -75,6 +75,7 @@ def view_change_trigger_service(internal_bus, external_bus, timer, stasher, vali
     # TODO: Use validators fixture
     data = ConsensusSharedData("some_name", genNodeNames(4), 0)
     data.node_mode = Mode.participating
+    data.node_status = Status.started
     return ViewChangeTriggerService(data=data,
                                     timer=timer,
                                     bus=internal_bus,
@@ -90,6 +91,7 @@ def primary_connection_monitor_service(internal_bus, external_bus, timer):
     nodes = genNodeNames(4)
     data = ConsensusSharedData("some_name", nodes, 0)
     data.node_mode = Mode.participating
+    data.node_status = Status.started
     data.primary_name = nodes[0]
     service = PrimaryConnectionMonitorService(data=data,
                                               timer=timer,

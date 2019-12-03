@@ -16,7 +16,7 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, RaisedSuspicion, NewViewAccepted, \
-    CheckpointStabilized
+    CheckpointStabilized, NodeStatusUpdated
 from plenum.common.messages.node_messages import Ordered
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
@@ -228,12 +228,16 @@ class Replica(HasActionQueue, MessageProcessor):
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.clear_requests_and_fix_last_ordered()
 
+    def _process_node_status_updated(self, msg: NodeStatusUpdated):
+        self._consensus_data.node_status = msg.new_status
+
     def _subscribe_to_internal_msgs(self):
         self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
         self._subscription.subscribe(self.internal_bus, NewViewAccepted, self._process_new_view_accepted)
+        self._subscription.subscribe(self.internal_bus, NodeStatusUpdated, self._process_node_status_updated)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,

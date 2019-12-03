@@ -1,6 +1,7 @@
 from typing import NamedTuple, List, Any, Optional
 
 from plenum.common.exceptions import SuspiciousNode
+from plenum.common.startable import Status
 from plenum.server.suspicion_codes import Suspicion
 
 # General recommendation for (naming) internal messages is follows:
@@ -9,6 +10,10 @@ from plenum.server.suspicion_codes import Suspicion
 # - in some cases message names may indicate that "something needs to happen"
 # - avoid names that tell "do something", messages are not commands
 # - avoid names that are just nouns, messages are not "things"
+
+NodeStatusUpdated = NamedTuple('NodeStatusUpdated',
+                               [('old_status', Status),
+                                ('new_status', Status)])
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])

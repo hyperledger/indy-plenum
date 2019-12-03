@@ -12,7 +12,7 @@ import psutil
 
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
-    NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected
+    NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -1161,7 +1161,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Check protocol instances. See `checkInstances()`
 
         """
-        # _prev_status = self.status
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
@@ -1169,16 +1168,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.status = Status.started_hungry
             else:
                 self.status = Status.starting
-
-        # TODO: INDY-2263 handle this case
-        # if _prev_status == Status.starting and self.status == Status.started_hungry \
-        #         and self.primaries_disconnection_times[self.master_replica.instId] is not None \
-        #         and self.master_primary_name is not None:
-        #     """
-        #     Such situation may occur if the pool has come back to reachable consensus but
-        #     primary is still disconnected, so view change proposal makes sense now.
-        #     """
-        #     self._schedule_view_change()
 
         for inst_id, replica in self.replicas.items():
             replica.update_connecteds(self.nodestack.connecteds)
@@ -1270,6 +1259,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param old: the previous status
         :param new: the current status
         """
+        self.replicas.send_to_internal_bus(NodeStatusUpdated(old_status=old, new_status=new))
 
     def checkInstances(self) -> None:
         # TODO: Is this method really needed?
