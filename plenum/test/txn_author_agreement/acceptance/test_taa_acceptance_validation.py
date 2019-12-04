@@ -303,7 +303,7 @@ def test_taa_acceptance_uses_too_precise_time1(
 ):
     validate_taa_acceptance(request_dict)
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                          latest_taa.test, latest_taa.version, retired=True)
+                                          latest_taa.text, latest_taa.version, retired=True)
     with pytest.raises(
         validation_error,
         match=(

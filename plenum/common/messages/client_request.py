@@ -75,7 +75,7 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT)),
         (TXN_AUTHOR_AGREEMENT_TEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT,
-                                                             can_be_empty=True)),
+                                                             can_be_empty=True, optional=True)),
         (TXN_AUTHOR_AGREEMENT_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT)),
         (TXN_AUTHOR_AGREEMENT_RETIRED, BooleanField(optional=True))
     )

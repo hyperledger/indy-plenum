@@ -32,7 +32,7 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
         digest = StaticTAAHelper.get_taa_digest(self.state, version, isCommitted=False)
         if digest is not None:
             ledger_taa = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))[0]
-            if ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT) != text:
+            if ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT, text) != text:
                 raise InvalidClientRequest(identifier, req_id,
                                            "Changing a text of existing transaction author agreement is forbidden")
 

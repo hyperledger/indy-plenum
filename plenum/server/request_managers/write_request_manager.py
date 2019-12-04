@@ -7,7 +7,8 @@ from common.serializers.serialization import pool_state_serializer, config_state
 from plenum.common.config_util import getConfig
 
 from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIRED
+    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIRED, \
+    TXN_AUTHOR_AGREEMENT_TIMESTAMP
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
@@ -305,11 +306,11 @@ class WriteRequestManager(RequestManager):
                 return
 
         taa = None
-        taa_data = self.get_taa_data()
+        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
+        taa_data = self.get_taa_data(digest=r_taa_a_digest)
         if taa_data is not None:
             (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
-
-        if taa is None:
+        else:
             if request.taaAcceptance:
                 raise InvalidClientTaaAcceptanceError(
                     request.identifier, request.reqId,
@@ -344,8 +345,8 @@ class WriteRequestManager(RequestManager):
             )
 
         if taa.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
-            raise LogicError(
-                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
+            raise InvalidClientTaaAcceptanceError(
+                "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
             )
 
@@ -356,15 +357,6 @@ class WriteRequestManager(RequestManager):
                 .format(ledger_id)
             )
 
-        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
-        if r_taa_a_digest != taa_digest:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance digest is invalid or non-latest:"
-                " provided {}, expected {}"
-                .format(r_taa_a_digest, taa_digest)
-            )
-
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
         datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
         if datetime_r_taa.time() != time(0):
@@ -373,8 +365,9 @@ class WriteRequestManager(RequestManager):
                 "Txn Author Agreement acceptance time {}"
                 " is too precise and is a privacy risk."
                 .format(r_taa_a_ts))
+        taa_txn_creation_time = taa.get(TXN_AUTHOR_AGREEMENT_TIMESTAMP, taa_txn_time)
         date_lowest = datetime.utcfromtimestamp(
-            taa_txn_time -
+            taa_txn_creation_time -
             config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
         ).date()
         date_higest = datetime.utcfromtimestamp(
