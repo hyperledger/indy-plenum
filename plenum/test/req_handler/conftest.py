@@ -1,6 +1,7 @@
 import pytest
 
 from common.serializers.serialization import config_state_serializer
+from plenum.common.util import randomString
 from plenum.server.request_handlers.utils import encode_state_value
 
 from plenum.common.constants import TRUSTEE, TXN_TYPE, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
@@ -24,13 +25,13 @@ def domain_state(tconf):
     return state
 
 
-@pytest.fixture(scope="function", params=[True, False, None])
+@pytest.fixture(scope="function", params=[False, True, None])
 def taa_request(tconf, domain_state, request):
     identifier = "identifier"
     update_nym(domain_state, identifier, TRUSTEE)
     operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
-                              TXN_AUTHOR_AGREEMENT_TEXT: "text",
-                              TXN_AUTHOR_AGREEMENT_VERSION: "version"}
+                 TXN_AUTHOR_AGREEMENT_TEXT: "text",
+                 TXN_AUTHOR_AGREEMENT_VERSION: "version{}".format(randomString(5))}
     if request.param is not None:
         operation[TXN_AUTHOR_AGREEMENT_RETIRED] = request.param
     return Request(identifier=identifier,

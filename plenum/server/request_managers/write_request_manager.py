@@ -7,7 +7,7 @@ from common.serializers.serialization import pool_state_serializer, config_state
 from plenum.common.config_util import getConfig
 
 from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
+    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIRED
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
@@ -338,6 +338,12 @@ class WriteRequestManager(RequestManager):
                 return
 
         if not taa_digest:
+            raise LogicError(
+                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
+                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
+            )
+
+        if taa.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
             raise LogicError(
                 "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)

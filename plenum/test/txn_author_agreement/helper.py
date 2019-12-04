@@ -14,12 +14,13 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     AML_VERSION, AML, AML_CONTEXT, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
     TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, TXN_TYPE, \
+    TXN_AUTHOR_AGREEMENT
 from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
-from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
+from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies, sdk_sign_and_submit_op
 from state.pruning_state import PruningState
 
 TaaData = NamedTuple("TaaData", [
@@ -38,10 +39,18 @@ TaaAmlData = NamedTuple("TaaAmlData", [
 ])
 
 
-def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
-    req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
-    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
-    return sdk_get_and_check_replies(looper, [rep])[0]
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: bool = False):
+    if retired:
+        operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
+                     TXN_AUTHOR_AGREEMENT_RETIRED: retired,
+                     TXN_AUTHOR_AGREEMENT_TEXT: text,
+                     TXN_AUTHOR_AGREEMENT_VERSION: version
+                     }
+        req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
+    else:
+        req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
+        req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [req])[0]
 
 
 def set_txn_author_agreement(

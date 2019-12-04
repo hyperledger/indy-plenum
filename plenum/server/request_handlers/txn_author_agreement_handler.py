@@ -1,6 +1,7 @@
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED, \
+    TXN_AUTHOR_AGREEMENT_TIMESTAMP
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_seq_no, get_txn_time
@@ -27,9 +28,13 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
             raise InvalidClientRequest(identifier, req_id,
                                        "TAA txn is forbidden until TAA AML is set. Send TAA AML first.")
         version = operation[TXN_AUTHOR_AGREEMENT_VERSION]
-        if StaticTAAHelper.get_taa_digest(self.state, version, isCommitted=False) is not None:
-            raise InvalidClientRequest(identifier, req_id,
-                                       "Changing existing version of transaction author agreement is forbidden")
+        text = operation.get(TXN_AUTHOR_AGREEMENT_TEXT)
+        digest = StaticTAAHelper.get_taa_digest(self.state, version, isCommitted=False)
+        if digest is not None:
+            ledger_taa = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))[0]
+            if ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT) != text:
+                raise InvalidClientRequest(identifier, req_id,
+                                           "Changing a text of existing transaction author agreement is forbidden")
 
     def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
@@ -48,8 +53,17 @@ class TxnAuthorAgreementHandler(WriteRequestHandler):
             TXN_AUTHOR_AGREEMENT_VERSION: version,
             TXN_AUTHOR_AGREEMENT_DIGEST: digest
         }
+        taa_time = None
+        ledger_taa = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))[0]
+        if ledger_taa:
+            taa_time = ledger_taa.get(TXN_AUTHOR_AGREEMENT_TIMESTAMP)
+
         if retired:
             state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+        else:
+            taa_time = txn_time if taa_time is None else taa_time
+        state_value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = taa_time
+
         data = encode_state_value(state_value, seq_no, txn_time,
                                   serializer=config_state_serializer)
         self.state.set(StaticTAAHelper.state_path_taa_digest(digest), data)

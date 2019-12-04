@@ -29,10 +29,11 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml,
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
     reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
+    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
     TIMESTAMP_V1 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2)
+    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2, retired=True)
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     return txnPoolNodeSet
@@ -135,7 +136,8 @@ def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, node
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V2
-    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2))
+    assert result['data'][TXN_AUTHOR_AGREEMENT_RETIRED]
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2, retired=True))
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(looper, nodeSetWithTaa,
