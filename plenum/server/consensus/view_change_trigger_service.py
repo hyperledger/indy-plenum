@@ -67,7 +67,7 @@ class ViewChangeTriggerService:
         #  Idea was to improve stability of view change triggering, however for some reason this change lead
         #  to lots of failing/flaky tests. This still needs to be investigated.
         # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
-        if msg.suspicion.code != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self._data.waiting_for_new_view:
+        if msg.suspicion != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self._data.waiting_for_new_view:
             proposed_view_no += 1
         self._send_instance_change(proposed_view_no, msg.suspicion)
 
