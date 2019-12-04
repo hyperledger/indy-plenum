@@ -120,6 +120,7 @@ def nv_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
     # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, NewView, viewFilter=viewNo)
 
+
 def vc_delay(delay: float = DEFAULT_DELAY, view_no: int = None):
     return delayerMsgTuple(delay, ViewChange, viewFilter=view_no)
 
