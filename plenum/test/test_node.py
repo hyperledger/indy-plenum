@@ -383,7 +383,7 @@ class TestStashingRouter(StashingRouter):
 
 replica_spyables = [
     replica.Replica.revert_unordered_batches,
-    replica.Replica._send_ordered,
+    replica.Replica._send_ordered
 ]
 
 

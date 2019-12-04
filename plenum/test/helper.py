@@ -30,7 +30,7 @@ import json
 import asyncio
 
 from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_node_request, \
-    build_pool_config_request, multi_sign_request
+    multi_sign_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
@@ -46,7 +46,6 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
-from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.constants import BUY
 from plenum.test.msgs import randomMsg

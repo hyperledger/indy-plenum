@@ -4,6 +4,7 @@ from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.common.util import randomString
 from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.server.view_change.view_changer import ViewChanger
+from plenum.test.spy_helpers import get_count
 from stp_core.types import HA
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
@@ -399,3 +400,8 @@ def node_sent_instance_changes_count(node):
 def node_received_instance_changes_count(node):
     vct_service = node.master_replica._view_change_trigger_service
     return vct_service.spylog.count(vct_service.process_instance_change)
+
+
+def view_change_completed_count(node):
+    vc_service = node.master_replica._view_change_service
+    return get_count(vc_service, vc_service._finish_view_change)

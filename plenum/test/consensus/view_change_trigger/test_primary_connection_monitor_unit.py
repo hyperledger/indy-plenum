@@ -1,5 +1,5 @@
-from plenum.common.messages.internal_messages import VoteForViewChange, PrimarySelected
-from plenum.common.startable import Mode
+from plenum.common.messages.internal_messages import VoteForViewChange, PrimarySelected, NodeStatusUpdated
+from plenum.common.startable import Mode, Status
 from plenum.test.helper import TestStopwatch, TestInternalBus
 
 
@@ -123,4 +123,25 @@ def test_instance_changes_are_sent_after_selecting_disconnected_primary(tconf, t
     internal_bus.send(PrimarySelected())
 
     # Check that vote for view change will be sent
+    timer.wait_for(lambda: num_votes_for_view_change(internal_bus) == 1)
+
+
+def test_instance_changes_are_sent_after_going_back_to_started_state(tconf, timer, internal_bus, external_bus,
+                                                                     primary_connection_monitor_service):
+    primary_connection_monitor_service._data.node_status = Status.starting
+    primary_connection_monitor_service._data.node_mode = Mode.starting
+
+    # Primary disconnected
+    primary_name = primary_connection_monitor_service._data.primary_name
+    external_bus.disconnect(primary_name)
+
+    # Check that there are no votes for view change after quite a lot of time
+    timer.run_for(10*(tconf.ToleratePrimaryDisconnection + tconf.NEW_VIEW_TIMEOUT))
+    assert num_votes_for_view_change(internal_bus) == 0
+
+    # Check that after connecting to enough nodes vote for view change will be sent
+    # TODO: Do we really need this message/functionality? Test successfully passes even without changing status,
+    #  changing mode is enough
+    internal_bus.send(NodeStatusUpdated(old_status=Status.starting, new_status=Status.started_hungry))
+    primary_connection_monitor_service._data.node_mode = Mode.synced
     timer.wait_for(lambda: num_votes_for_view_change(internal_bus) == 1)

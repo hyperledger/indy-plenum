@@ -71,6 +71,8 @@ class PrimaryConnectionMonitorService:
             self._primary_disconnected()
 
     def process_node_status_updated(self, msg: NodeStatusUpdated):
+        # TODO: This was ported from old code, but there is quite high chance
+        #  that this functionality is not needed anymore
         if msg.old_status == Status.starting \
                 and msg.new_status == Status.started_hungry \
                 and self._primary_disconnection_time is not None \

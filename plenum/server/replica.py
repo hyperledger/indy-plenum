@@ -150,7 +150,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                                    self.node.poolManager.node_names_ordered_by_rank(),
                                                    self.instId,
                                                    self.isMaster)
-        self._internal_bus = InternalBus()
+        self._internal_bus = self._init_internal_bus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()
         self._subscription = Subscription()
@@ -167,7 +167,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.register_ledger(ledger_id)
 
     @property
-    def internal_bus(self):
+    def internal_bus(self) -> InternalBus:
         return self._internal_bus
 
     def cleanup(self):
@@ -661,7 +661,10 @@ class Replica(HasActionQueue, MessageProcessor):
     def update_connecteds(self, connecteds: set):
         self._external_bus.update_connecteds(connecteds)
 
-    def _init_replica_stasher(self):
+    def _init_internal_bus(self) -> InternalBus:
+        return InternalBus()
+
+    def _init_replica_stasher(self) -> StashingRouter:
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
                               buses=[self.internal_bus, self._external_bus],
                               unstash_handler=self._add_to_inbox)
