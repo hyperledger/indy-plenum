@@ -114,7 +114,7 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     if not creator._can_calculate_multi_sig(key, quorums):
         return None
 
-    return creator._calculate_multi_sig(key, pre_prepare)
+    return creator._calculate_all_multi_sigs(key, pre_prepare)[0]
 
 
 def sdk_change_bls_key(looper, txnPoolNodeSet,

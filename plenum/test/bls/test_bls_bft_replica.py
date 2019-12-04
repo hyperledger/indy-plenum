@@ -21,7 +21,7 @@ whitelist = ['Indy Crypto error']
 
 
 @pytest.fixture()
-def bls_bft_replicas(txnPoolNodeSet):
+def _bls_bft_replicas(txnPoolNodeSet):
     bls_bft_replicas = []
     for node in txnPoolNodeSet:
         bls_bft_replica = create_default_bls_bft_factory(node).create_bls_bft_replica(is_master=True)
@@ -45,28 +45,85 @@ def state_root():
 
 
 @pytest.fixture()
-def pool_state_root(bls_bft_replicas):
-    bls_bft_replica = bls_bft_replicas[0]
+def txn_root():
+    return generate_state_root()
+
+
+@pytest.fixture()
+def pool_state_root(_bls_bft_replicas):
+    bls_bft_replica = _bls_bft_replicas[0]
     return bls_bft_replica.state_root_serializer.serialize(
         bytes(bls_bft_replica._bls_bft.bls_key_register.get_pool_root_hash_committed()))
 
 
 @pytest.fixture()
-def fake_pre_prepare_with_bls(fake_multi_sig, ledger_id):
-    params = create_pre_prepare_params(state_root=fake_multi_sig.value.state_root_hash,
-                                       ledger_id=ledger_id,
-                                       pool_state_root=fake_multi_sig.value.pool_state_root_hash,
-                                       bls_multi_sig=fake_multi_sig)
-    return PrePrepare(*params)
+def pool_txn_root():
+    return generate_state_root()
+
+
+@pytest.yield_fixture()
+def patch_audit_ledger(txnPoolNodeSet, pool_state_root, state_root, txn_root, pool_txn_root, ledger_id):
+    ledgers_subst = []
+    for node in txnPoolNodeSet:
+        ledgers_subst.append(_patch_audit_ledger(node, pool_state_root, state_root, txn_root, pool_txn_root, ledger_id))
+    yield txnPoolNodeSet
+    for ledger, old, old_t in ledgers_subst:
+        ledger.get_by_seq_no_uncommitted = old
+        ledger.uncommittedTxns = old_t
+
+
+def _patch_audit_ledger(node, pool_state_root, state_root, txn_root, pool_txn_root, ledger_id):
+    audit_ledger = node.db_manager.get_ledger(AUDIT_LEDGER_ID)
+    old_last = audit_ledger.get_by_seq_no_uncommitted
+    old_txn = audit_ledger.uncommittedTxns
+    audit_ledger.uncommittedTxns = [1]
+    audit_ledger.get_by_seq_no_uncommitted = lambda x: {
+        TXN_PAYLOAD: {
+            TXN_PAYLOAD_DATA: {
+                AUDIT_TXN_STATE_ROOT: {
+                    3: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
+                    POOL_LEDGER_ID: pool_state_root,
+                    ledger_id: state_root
+
+                },
+                AUDIT_TXN_LEDGER_ROOT: {
+                    3: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
+                    POOL_LEDGER_ID: pool_txn_root,
+                    ledger_id: txn_root
+                },
+                AUDIT_TXN_PP_SEQ_NO: 0
+            }
+        }
+    }
+    return audit_ledger, old_last, old_txn
 
 
 @pytest.fixture()
-def multi_sig_value(state_root, pool_state_root, ledger_id):
+def bls_bft_replicas(_bls_bft_replicas, patch_audit_ledger):
+    return _bls_bft_replicas
+
+
+@pytest.fixture()
+def multi_sig_value(state_root, pool_state_root, txn_root, ledger_id):
     return MultiSignatureValue(ledger_id=ledger_id,
                                state_root_hash=state_root,
                                pool_state_root_hash=pool_state_root,
-                               txn_root_hash=generate_state_root(),
+                               txn_root_hash=txn_root,
                                timestamp=get_utc_epoch())
+
+
+@pytest.fixture()
+def multi_sig_values(state_root, txn_root, pool_state_root, pool_txn_root):
+    return {DOMAIN_LEDGER_ID: MultiSignatureValue(ledger_id=DOMAIN_LEDGER_ID,
+                                                  state_root_hash=state_root,
+                                                  pool_state_root_hash=pool_state_root,
+                                                  txn_root_hash=txn_root,
+                                                  timestamp=get_utc_epoch()),
+            POOL_LEDGER_ID: MultiSignatureValue(ledger_id=DOMAIN_LEDGER_ID,
+                                                state_root_hash=pool_state_root,
+                                                pool_state_root_hash=pool_state_root,
+                                                txn_root_hash=pool_txn_root,
+                                                timestamp=get_utc_epoch())}
 
 
 @pytest.fixture()
@@ -86,6 +143,25 @@ def multi_signature(bls_bft_replicas, multi_sig_value):
 
 
 @pytest.fixture()
+def multi_signature_multi(bls_bft_replicas, multi_sig_values):
+    res = []
+    for ledger_id, multi_sig_value in multi_sig_values.items():
+        sigs = []
+        participants = []
+        message = multi_sig_value.as_single_value()
+        for bls_bft_replica in bls_bft_replicas:
+            sigs.append(bls_bft_replica._bls_bft.bls_crypto_signer.sign(message))
+            participants.append(bls_bft_replica.node_id)
+
+        multi_sig = bls_bft_replicas[0]._bls_bft.bls_crypto_verifier.create_multi_sig(sigs)
+
+        res.append(MultiSignature(signature=multi_sig,
+                                  participants=participants,
+                                  value=multi_sig_value))
+    return res
+
+
+@pytest.fixture()
 def pre_prepare_with_bls(multi_signature, ledger_id):
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
                                        ledger_id=ledger_id,
@@ -95,12 +171,11 @@ def pre_prepare_with_bls(multi_signature, ledger_id):
 
 
 @pytest.fixture()
-def pre_prepare_with_bls_multi(multi_signature, ledger_id):
+def pre_prepare_with_bls_multi(multi_signature, ledger_id, multi_signature_multi):
     params = create_pre_prepare_params(state_root=multi_signature.value.state_root_hash,
                                        ledger_id=ledger_id,
                                        pool_state_root=multi_signature.value.pool_state_root_hash,
-                                       bls_multi_sig=multi_signature,
-                                       bls_multi_sigs=[multi_signature])
+                                       bls_multi_sigs=multi_signature_multi)
     return PrePrepare(*params)
 
 
@@ -120,51 +195,6 @@ def pre_prepare_no_bls(state_root, pool_state_root, ledger_id):
                                        ledger_id=ledger_id,
                                        pool_state_root=pool_state_root)
     return PrePrepare(*params)
-
-
-@pytest.yield_fixture()
-def create_audit_txn_with_multiple_ledgers(txnPoolNodeSet, multi_signature, ledger_id):
-    ledgers_subst = []
-    for node in txnPoolNodeSet:
-        ledgers_subst.append(_fix_audit_ledger(node, multi_signature, ledger_id))
-    yield txnPoolNodeSet
-    for ledger, old, old_t in ledgers_subst:
-        ledger.get_by_seq_no_uncommitted = old
-        ledger.uncommittedTxns = old_t
-
-
-def _fix_audit_ledger(node, multi_signature, ledger_id):
-    audit_ledger = node.db_manager.get_ledger(AUDIT_LEDGER_ID)
-    old_last = audit_ledger.get_by_seq_no_uncommitted
-    old_txn = audit_ledger.uncommittedTxns
-    audit_ledger.uncommittedTxns = [1]
-    audit_ledger.get_by_seq_no_uncommitted = lambda x: {
-        TXN_PAYLOAD: {
-            TXN_PAYLOAD_DATA: {
-                AUDIT_TXN_STATE_ROOT: {
-                    3: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
-                    ledger_id: multi_signature.value.state_root_hash
-                },
-                AUDIT_TXN_LEDGER_ROOT: {
-                    3: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm",
-                    ledger_id: "2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm"
-                },
-                AUDIT_TXN_PP_SEQ_NO: 0
-            }
-        }
-    }
-    return audit_ledger, old_last, old_txn
-
-
-@pytest.yield_fixture(params=[1, 2, 3, 4])
-def nodes_updated(request, txnPoolNodeSet, multi_signature, ledger_id):
-    ledgers_subst = []
-    for i in range(request.param):
-        ledgers_subst.append(_fix_audit_ledger(txnPoolNodeSet[i], multi_signature, ledger_id))
-    yield request.param
-    for ledger, old, old_t in ledgers_subst:
-        ledger.get_by_seq_no_uncommitted = old
-        ledger.uncommittedTxns = old_t
 
 
 @pytest.yield_fixture(scope="function", params=['state_root', 'timestamp', 'txn_root'])
@@ -198,14 +228,16 @@ def test_update_pre_prepare_first_time(bls_bft_replicas, state_root, ledger_id):
 
 def test_update_pre_prepare_after_ordered(bls_bft_replicas, state_root, fake_multi_sig, ledger_id):
     for bls_bft_replica in bls_bft_replicas:
-        bls_bft_replica._bls_latest_multi_sig = fake_multi_sig
+        bls_bft_replica._all_bls_latest_multi_sigs = [fake_multi_sig]
 
     params = create_pre_prepare_params(state_root, ledger_id=ledger_id)
-
     params_initial = copy(params)
     for bls_bft_replica in bls_bft_replicas:
-        params = bls_bft_replica.update_pre_prepare(params, ledger_id)
+        params = bls_bft_replica.update_pre_prepare(copy(params_initial), ledger_id)
         assert params != params_initial
+        # we fill BLS_MULTI_SIG by None for backward compatibility
+        assert len(params) - len(params_initial) == 2
+        assert params[-2] is None
 
 
 def test_update_prepare(bls_bft_replicas, state_root, ledger_id):
@@ -216,22 +248,25 @@ def test_update_prepare(bls_bft_replicas, state_root, ledger_id):
         assert params == params_initial
 
 
-def test_update_commit(bls_bft_replicas, fake_pre_prepare_with_bls):
+def test_update_commit(bls_bft_replicas, pre_prepare_with_bls):
     params = create_commit_params(0, 0)
     params_initial = copy(params)
     for bls_bft_replica in bls_bft_replicas:
-        params = bls_bft_replica.update_commit(params, fake_pre_prepare_with_bls)
+        params = bls_bft_replica.update_commit(copy(params_initial), pre_prepare_with_bls)
         assert params != params_initial
+        # we fill BLS_MULTI_SIG by ' ' for backward compatibility
+        assert len(params) - len(params_initial) == 2
+        assert params[-2] == ' '
 
 
-def test_update_commit_without_bls_crypto_signer(bls_bft_replicas, fake_pre_prepare_with_bls):
+def test_update_commit_without_bls_crypto_signer(bls_bft_replicas, pre_prepare_with_bls):
     params = create_commit_params(0, 0)
     params_initial = copy(params)
     for bls_bft_replica in bls_bft_replicas:
         bls_crypto_signer = bls_bft_replica._bls_bft.bls_crypto_signer
         bls_bft_replica._bls_bft.bls_crypto_signer = None
         params = bls_bft_replica.update_commit(params,
-                                               fake_pre_prepare_with_bls)
+                                               pre_prepare_with_bls)
         bls_bft_replica._bls_bft.bls_crypto_signer = bls_crypto_signer
         assert params == params_initial
 
@@ -398,41 +433,30 @@ def test_process_order(bls_bft_replicas, pre_prepare_no_bls, quorums):
 # ------ MULTIPLE MULTI_SIGS ------
 
 
-def test_update_pre_prepare_after_ordered_with_multiple_sigs(bls_bft_replicas, state_root, fake_multi_sig, ledger_id,
-                                                             create_audit_txn_with_multiple_ledgers):
+def test_update_pre_prepare_after_ordered_with_multiple_sigs(bls_bft_replicas, state_root, fake_multi_sig,
+                                                             multi_signature, ledger_id):
     for bls_bft_replica in bls_bft_replicas:
-        bls_bft_replica._bls_latest_multi_sig = fake_multi_sig
-        bls_bft_replica._all_bls_latest_multi_sigs = [fake_multi_sig]
+        bls_bft_replica._all_bls_latest_multi_sigs = [fake_multi_sig, multi_signature]
 
     params = create_pre_prepare_params(state_root, ledger_id=ledger_id)
 
     params_initial = copy(params)
     for bls_bft_replica in bls_bft_replicas:
-        params_res = bls_bft_replica.update_pre_prepare(copy(params), ledger_id)
-        assert params_res != params_initial
-        assert len(params_res) - len(params_initial) == 2
+        params = bls_bft_replica.update_pre_prepare(copy(params_initial), ledger_id)
+        assert params != params_initial
+        # we fill BLS_MULTI_SIG by None for backward compatibility
+        assert len(params) - len(params_initial) == 2
+        assert params[-2] is None
 
 
-def test_update_commit_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls,
-                                          create_audit_txn_with_multiple_ledgers):
-    params = create_commit_params(0, 0)
-    params_initial = copy(params)
-    for bls_bft_replica in bls_bft_replicas:
-        params_res = bls_bft_replica.update_commit(copy(params), pre_prepare_with_bls)
-        assert params_res != params_initial
-        assert len(params_res) - len(params_initial) == 2
-
-
-def test_validate_pre_prepare_multiple_correct_multi_sigs(bls_bft_replicas, pre_prepare_with_bls_multi,
-                                                          create_audit_txn_with_multiple_ledgers):
+def test_validate_pre_prepare_multiple_correct_multi_sigs(bls_bft_replicas, pre_prepare_with_bls_multi):
     for sender_bls_bft_replica in bls_bft_replicas:
         for verifier_bls_bft_replica in bls_bft_replicas:
             assert not verifier_bls_bft_replica.validate_pre_prepare(pre_prepare_with_bls_multi,
                                                                      sender_bls_bft_replica.node_id)
 
 
-def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls_multi,
-                                                          create_audit_txn_with_multiple_ledgers):
+def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls_multi):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
         fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
@@ -444,8 +468,7 @@ def test_validate_commit_incorrect_sig_with_multiple_sigs(bls_bft_replicas, pre_
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
-def test_validate_commit_with_multiple_sigs_one_sig_incorrect(bls_bft_replicas, pre_prepare_with_bls,
-                                                              create_audit_txn_with_multiple_ledgers):
+def test_validate_commit_with_multiple_sigs_one_sig_incorrect(bls_bft_replicas, pre_prepare_with_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
         fake_sig = base58.b58encode(b"somefakesignaturesomefakesignaturesomefakesignature").decode("utf-8")
@@ -458,8 +481,7 @@ def test_validate_commit_with_multiple_sigs_one_sig_incorrect(bls_bft_replicas, 
             assert status == BlsBftReplica.CM_BLS_SIG_WRONG
 
 
-def test_validate_commit_correct_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_no_bls,
-                                                        create_audit_txn_with_multiple_ledgers):
+def test_validate_commit_correct_sig_with_multiple_sigs(bls_bft_replicas, pre_prepare_no_bls):
     key = (0, 0)
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, key, pre_prepare_no_bls)
@@ -475,8 +497,7 @@ def test_process_pre_prepare_with_multiple_sigs(bls_bft_replicas, pre_prepare_wi
             verifier_bls_bft.process_pre_prepare(pre_prepare_with_bls_multi, sender_bls_bft.node_id)
 
 
-def test_process_commit_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls_multi,
-                                           create_audit_txn_with_multiple_ledgers):
+def test_process_commit_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls_multi):
     for sender_bls_bft in bls_bft_replicas:
         commit = create_commit_bls_sig(sender_bls_bft, (0, 0), pre_prepare_with_bls_multi)
         assert commit.blsSigs is not None
@@ -485,60 +506,13 @@ def test_process_commit_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bl
                                             sender_bls_bft.node_id)
 
 
-def test_process_order_with_multiple_sigs(bls_bft_replicas, fake_pre_prepare_with_bls, quorums,
-                                          create_audit_txn_with_multiple_ledgers):
+def test_process_order_with_multiple_sigs(bls_bft_replicas, pre_prepare_with_bls, quorums):
     key = (0, 0)
-    process_commits_for_key(key, fake_pre_prepare_with_bls, bls_bft_replicas)
-    for bls_bft in bls_bft_replicas:
-        bls_bft.process_order(key,
-                              quorums,
-                              fake_pre_prepare_with_bls)
-
-
-def test_rolling_release_for_bls_fixes(bls_bft_replicas, nodes_updated, quorums, multi_signature,
-                                       pre_prepare_with_bls, ledger_id, state_root):
-    key = (0, 0)
-    for i in range(len(bls_bft_replicas)):
-        commit = create_commit_bls_sig(bls_bft_replicas[i], (0, 0), pre_prepare_with_bls)
-        if i < nodes_updated:
-            assert commit.blsSigs is not None
-            assert len(commit.blsSigs.items()) == 2
-        for verifier_bls_bft in bls_bft_replicas:
-            status = verifier_bls_bft.validate_commit(commit,
-                                                      bls_bft_replicas[i].node_id,
-                                                      pre_prepare_with_bls)
-            assert status != BlsBftReplica.CM_BLS_SIG_WRONG
-            verifier_bls_bft.process_commit(commit,
-                                            bls_bft_replicas[i].node_id)
+    process_commits_for_key(key, pre_prepare_with_bls, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
         bls_bft.process_order(key,
                               quorums,
                               pre_prepare_with_bls)
-
-    params = create_pre_prepare_params(state_root, ledger_id=ledger_id)
-    params_initial = copy(params)
-    for i in range(len(bls_bft_replicas)):
-        params_res = bls_bft_replicas[i].update_pre_prepare(copy(params), ledger_id)
-        assert params_res != params_initial
-        if i < nodes_updated:
-            assert len(params_res) - len(params_initial) == 2
-
-        pre_prepare = PrePrepare(*params_res)
-        if quorums.bls_signatures.is_reached(nodes_updated) and i < nodes_updated:
-            assert len(pre_prepare.blsMultiSigs) == 2
-        for verifier_bls_bft in bls_bft_replicas:
-            status = verifier_bls_bft.validate_pre_prepare(pre_prepare,
-                                                           bls_bft_replicas[i].node_id)
-            assert status != BlsBftReplica.PPR_BLS_MULTISIG_WRONG
-            verifier_bls_bft.process_pre_prepare(pre_prepare,
-                                                 bls_bft_replicas[i].node_id)
-
-    for i in range(len(bls_bft_replicas)):
-        if quorums.bls_signatures.is_reached(nodes_updated) and i < nodes_updated:
-            assert bls_bft_replicas[i]._bls_bft.bls_store.get(multi_signature.value.state_root_hash)
-            assert bls_bft_replicas[i]._bls_bft.bls_store.get("2UQ3Da54cQ6SamunzXVAtBozFnkACELBH7HzbRPgfKzm")
-        else:
-            assert bls_bft_replicas[i]._bls_bft.bls_store.get(multi_signature.value.state_root_hash)
 
 
 # ------ CREATE MULTI_SIG ------
@@ -603,51 +577,67 @@ def test_create_multi_sig_are_equal(bls_bft_replicas, quorums, pre_prepare_no_bl
 
 # ------ MULTI_SIG SAVED ------
 
-def test_signatures_cached_for_commits(bls_bft_replicas):
+def test_signatures_cached_for_commits(bls_bft_replicas, ledger_id):
     key1 = (0, 0)
     pre_prepare1 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key1, pre_prepare1, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 1
-        assert len(bls_bft._signatures[key1]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 1
+        # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+        assert len(bls_bft._all_signatures[key1]) == len({ledger_id, 3, POOL_LEDGER_ID})
+        assert str(ledger_id) in bls_bft._all_signatures[key1]
+        assert len(bls_bft._all_signatures[key1][str(ledger_id)]) == len(bls_bft_replicas)
 
     pre_prepare2 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key1, pre_prepare2, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 1
-        assert len(bls_bft._signatures[key1]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 1
+        # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+        assert len(bls_bft._all_signatures[key1]) == len({ledger_id, 3, POOL_LEDGER_ID})
+        assert str(ledger_id) in bls_bft._all_signatures[key1]
+        assert len(bls_bft._all_signatures[key1][str(ledger_id)]) == len(bls_bft_replicas)
 
     key2 = (0, 1)
     pre_prepare3 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key2, pre_prepare3, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 2
-        assert len(bls_bft._signatures[key1]) == len(bls_bft_replicas)
-        assert len(bls_bft._signatures[key2]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 2
+        for key in [key1, key2]:
+            # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+            assert len(bls_bft._all_signatures[key]) == len({ledger_id, 3, POOL_LEDGER_ID})
+            assert str(ledger_id) in bls_bft._all_signatures[key]
+            assert len(bls_bft._all_signatures[key][str(ledger_id)]) == len(bls_bft_replicas)
 
     pre_prepare4 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key2, pre_prepare4, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 2
-        assert len(bls_bft._signatures[key1]) == len(bls_bft_replicas)
-        assert len(bls_bft._signatures[key2]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 2
+        for key in [key1, key2]:
+            # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+            assert len(bls_bft._all_signatures[key]) == len({ledger_id, 3, POOL_LEDGER_ID})
+            assert str(ledger_id) in bls_bft._all_signatures[key]
+            assert len(bls_bft._all_signatures[key][str(ledger_id)]) == len(bls_bft_replicas)
 
     key3 = (1, 0)
     pre_prepare5 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key3, pre_prepare5, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 3
-        assert len(bls_bft._signatures[key1]) == len(bls_bft_replicas)
-        assert len(bls_bft._signatures[key2]) == len(bls_bft_replicas)
-        assert len(bls_bft._signatures[key3]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 3
+        for key in [key1, key2, key3]:
+            # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+            assert len(bls_bft._all_signatures[key]) == len({ledger_id, 3, POOL_LEDGER_ID})
+            assert str(ledger_id) in bls_bft._all_signatures[key]
+            assert len(bls_bft._all_signatures[key][str(ledger_id)]) == len(bls_bft_replicas)
 
     pre_prepare6 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key3, pre_prepare6, bls_bft_replicas)
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 3
-        assert len(bls_bft._signatures[key1]) == len(bls_bft_replicas)
-        assert len(bls_bft._signatures[key2]) == len(bls_bft_replicas)
-        assert len(bls_bft._signatures[key3]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 3
+        for key in [key1, key2, key3]:
+            # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+            assert len(bls_bft._all_signatures[key]) == len({ledger_id, 3, POOL_LEDGER_ID})
+            assert str(ledger_id) in bls_bft._all_signatures[key]
+            assert len(bls_bft._all_signatures[key][str(ledger_id)]) == len(bls_bft_replicas)
 
 
 def test_multi_sig_saved_locally_for_ordered(bls_bft_replicas, pre_prepare_no_bls,
@@ -712,7 +702,7 @@ def test_preprepare_multisig_replaces_saved(bls_bft_replicas, quorums,
 
 # ------ GC ------
 
-def test_commits_gc(bls_bft_replicas):
+def test_commits_gc(bls_bft_replicas, ledger_id):
     key1 = (0, 0)
     pre_prepare1 = create_pre_prepare_no_bls(generate_state_root())
     process_commits_for_key(key1, pre_prepare1, bls_bft_replicas)
@@ -726,16 +716,19 @@ def test_commits_gc(bls_bft_replicas):
     process_commits_for_key(key3, pre_prepare3, bls_bft_replicas)
 
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 3
-        assert key1 in bls_bft._signatures
-        assert key2 in bls_bft._signatures
-        assert key3 in bls_bft._signatures
+        assert len(bls_bft._all_signatures) == 3
+        assert key1 in bls_bft._all_signatures
+        assert key2 in bls_bft._all_signatures
+        assert key3 in bls_bft._all_signatures
 
     for bls_bft in bls_bft_replicas:
         bls_bft.gc((0, 1))
 
     for bls_bft in bls_bft_replicas:
-        assert len(bls_bft._signatures) == 1
-        assert not key1 in bls_bft._signatures
-        assert not key2 in bls_bft._signatures
-        assert len(bls_bft._signatures[key3]) == len(bls_bft_replicas)
+        assert len(bls_bft._all_signatures) == 1
+        assert not key1 in bls_bft._all_signatures
+        assert not key2 in bls_bft._all_signatures
+        # we have multi-sigs for all ledgers in PrePrepare, see _patch_audit_ledger
+        assert len(bls_bft._all_signatures[key3]) == len({ledger_id, 3, POOL_LEDGER_ID})
+        assert str(ledger_id) in bls_bft._all_signatures[key3]
+        assert len(bls_bft._all_signatures[key3][str(ledger_id)]) == len(bls_bft_replicas)

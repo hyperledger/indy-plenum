@@ -117,16 +117,12 @@ def vcd_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
 
 
 def nv_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
-    # Delayer of NEW_VIEW requests
+    # Delayer of VIEW_CHANGE_DONE requests
     return delayerMsgTuple(delay, NewView, viewFilter=viewNo)
+
 
 def vc_delay(delay: float = DEFAULT_DELAY, view_no: int = None):
     return delayerMsgTuple(delay, ViewChange, viewFilter=view_no)
-
-
-def old_view_pp_request_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
-    # Delayer of OLD_VIEW_PREPREPARE_REQ requests
-    return delayerMsgTuple(delay, OldViewPrePrepareRequest, viewFilter=viewNo)
 
 
 def cs_delay(delay: float = DEFAULT_DELAY):
@@ -157,6 +153,11 @@ def cqDelay(delay: float = DEFAULT_DELAY):
 def cr_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
     # Delayer of CATCHUP_REP requests
     return delayerMsgTuple(delay, CatchupRep, ledgerFilter=ledger_filter)
+
+
+def old_view_pp_request_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
+    # Delayer of OldViewPrePrepareRequest
+    return delayerMsgTuple(delay, OldViewPrePrepareRequest, ledgerFilter=ledger_filter)
 
 
 def req_delay(delay: float = DEFAULT_DELAY):
