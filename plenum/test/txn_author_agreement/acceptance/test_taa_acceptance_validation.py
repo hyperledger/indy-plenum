@@ -73,12 +73,7 @@ def test_taa_acceptance_digest_non_latest(
     with pytest.raises(
         validation_error,
         match=(
-            "Txn Author Agreement acceptance digest is invalid or non-latest:"
-            " provided {}, expected {}"
-            .format(
-                taa_digest,
-                calc_taa_digest(latest_taa.text, latest_taa.version)
-            )
+            "ncorrect Txn Author Agreement"
         )
     ):
         validate_taa_acceptance(request_dict)
@@ -235,6 +230,27 @@ def test_taa_acceptance_uses_too_precise_time(
         validate_taa_acceptance(request_dict)
 
 
+@pytest.mark.skip()
+def test_taa_acceptance_retired(
+        tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
+        turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
+        request_dict, latest_taa, monkeypatch,
+        looper, sdk_pool_handle, sdk_wallet_trustee
+):
+    validate_taa_acceptance(request_dict)
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  latest_taa.text, latest_taa.version, retired=True)
+    with pytest.raises(
+            validation_error,
+            match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
+    ):
+        validate_taa_acceptance(request_dict)
+
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  latest_taa.text, latest_taa.version)
+    validate_taa_acceptance(request_dict)
+
+
 def test_taa_acceptance_valid(
     validate_taa_acceptance, validation_error, request_dict
 ):
@@ -288,8 +304,7 @@ def test_taa_acceptance_not_allowed_when_disabled(
     with pytest.raises(
         validation_error,
         match=(
-            r"Txn Author Agreement acceptance is disabled"
-            " and not allowed in requests"
+            r"Incorrect Txn Author Agreement"
         )
     ):
         validate_taa_acceptance(request_dict)

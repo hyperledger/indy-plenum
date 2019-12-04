@@ -1,7 +1,7 @@
 from common.serializers.json_serializer import JsonSerializer
 from common.serializers.serialization import domain_state_serializer
 from ledger.ledger import Ledger
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, CURRENT_TXN_VERSION
 from plenum.common.txn_util import do_req_to_txn
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 
@@ -46,7 +46,7 @@ def check_audit_txn(txn,
         "txn": {
             "data": {
                 "ledgerRoot": expectedLedgerRoots,
-                "ver": "1",
+                "ver": CURRENT_TXN_VERSION,
                 "viewNo": view_no,
                 "ppSeqNo": pp_seq_no,
                 "ledgerSize": ledger_size,
@@ -64,7 +64,7 @@ def check_audit_txn(txn,
             "txnTime": txn_time
         },
 
-        "ver": "1"
+        "ver": CURRENT_TXN_VERSION
     }
     if node_reg is not None:
         expected["txn"]["data"]["nodeReg"] = node_reg

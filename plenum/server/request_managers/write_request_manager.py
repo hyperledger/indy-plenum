@@ -322,6 +322,13 @@ class WriteRequestManager(RequestManager):
                 )
                 return
 
+        if not request.taaAcceptance:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement acceptance is required for ledger with id {}"
+                .format(ledger_id)
+            )
+
         taa = None
         r_taa_a_digest = request.taaAcceptance.get(f.TAA_ACCEPTANCE_DIGEST.nm)
         taa_data = self.get_taa_data(digest=r_taa_a_digest)
@@ -358,13 +365,6 @@ class WriteRequestManager(RequestManager):
                 request.identifier, request.reqId,
                 "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
-            )
-
-        if not request.taaAcceptance:
-            raise InvalidClientTaaAcceptanceError(
-                request.identifier, request.reqId,
-                "Txn Author Agreement acceptance is required for ledger with id {}"
-                .format(ledger_id)
             )
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]

@@ -96,7 +96,7 @@ def req_and_expected(request, looper, sdk_wallet_client, endorser):
         "txnMetadata": {
             "txnTime": 1513945121,
         },
-        "ver": "1"
+        "ver": "2"
 
     })
 

@@ -15,9 +15,10 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
     TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, TXN_TYPE, \
-    TXN_AUTHOR_AGREEMENT
+    TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_TIMESTAMP
 from plenum.common.types import f
 from plenum.common.util import randomString
+from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies, sdk_sign_and_submit_op
@@ -171,7 +172,9 @@ def expected_state_data(data: TaaData) -> Dict:
         'lut': data.txn_time,
         'val': {
             TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-            TXN_AUTHOR_AGREEMENT_VERSION: data.version
+            TXN_AUTHOR_AGREEMENT_VERSION: data.version,
+            TXN_AUTHOR_AGREEMENT_DIGEST: StaticTAAHelper.taa_digest(data.text, data.version),
+            TXN_AUTHOR_AGREEMENT_TIMESTAMP: data.txn_time
         }
     }
 
@@ -179,7 +182,9 @@ def expected_state_data(data: TaaData) -> Dict:
 def expected_data(data: TaaData):
     return {
         TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version,
+        TXN_AUTHOR_AGREEMENT_DIGEST: StaticTAAHelper.taa_digest(data.text, data.version),
+        TXN_AUTHOR_AGREEMENT_TIMESTAMP: data.txn_time
     }, data.seq_no, data.txn_time
 
 
