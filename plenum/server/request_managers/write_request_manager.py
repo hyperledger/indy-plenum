@@ -14,7 +14,7 @@ from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
 from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
-from plenum.common.txn_util import get_type, get_txn_time
+from plenum.common.txn_util import get_type, get_txn_time, get_version
 from plenum.common.types import f
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -110,6 +110,9 @@ class WriteRequestManager(RequestManager):
         timestamp = get_txn_time(txn)
         version = self.database_manager.get_version(timestamp)
         version = self.config.INDY_VERSION_MATCHING.get(version, version)
+        if (txn_type, version) not in self._request_handlers_with_version:
+            version = get_version(txn)
+
         handlers = self._request_handlers_with_version.get((txn_type, version)) \
             if (txn_type, version) in self._request_handlers_with_version \
             else self.request_handlers.get(txn_type, None)
