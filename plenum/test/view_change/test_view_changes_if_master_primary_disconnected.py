@@ -1,5 +1,4 @@
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.view_change.helper import start_stopped_node, view_change_completed_count
 from stp_core.loop.eventually import eventually
 

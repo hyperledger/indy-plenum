@@ -13,6 +13,7 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
+from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.utils import replica_name_to_node_name
@@ -444,6 +445,13 @@ class TestReplica(replica.Replica):
                                             is_master_degraded=self.node.monitor.isMasterDegraded,
                                             metrics=self.metrics)
 
+    def _init_primary_connection_monitor_service(self) -> PrimaryConnectionMonitorService:
+        return TestPrimaryConnectionMonitorService(data=self._consensus_data,
+                                                   timer=self.node.timer,
+                                                   bus=self.internal_bus,
+                                                   network=self._external_bus,
+                                                   metrics=self.metrics)
+
     def _init_message_req_service(self) -> MessageReqService:
         return TestMessageReqService(data=self._consensus_data,
                                      bus=self.internal_bus,
@@ -531,6 +539,16 @@ view_change_trigger_service_spyables = [
 
 @spyable(methods=view_change_trigger_service_spyables)
 class TestViewChangeTriggerService(ViewChangeTriggerService):
+    pass
+
+
+primary_connection_monitor_service_spyables = [
+    PrimaryConnectionMonitorService._primary_disconnected
+]
+
+
+@spyable(methods=primary_connection_monitor_service_spyables)
+class TestPrimaryConnectionMonitorService(PrimaryConnectionMonitorService):
     pass
 
 
