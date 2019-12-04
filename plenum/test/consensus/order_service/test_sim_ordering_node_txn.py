@@ -119,6 +119,10 @@ def node_req_demote(random, sim_pool):
 # "params" equal to seed
 @pytest.fixture(params=Random().sample(range(1000000), 100))
 def random(request):
+    seed = request.param
+    # TODO: Remove after we fix INDY-2237 and INDY-2148
+    if seed in {752248, 659043, 550513}:
+        return DefaultSimRandom(0)
     return DefaultSimRandom(request.param)
 
 

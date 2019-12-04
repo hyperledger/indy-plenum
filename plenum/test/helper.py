@@ -1236,11 +1236,13 @@ def create_pre_prepare_params(state_root,
               pool_state_root or generate_state_root(),
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:
-        params.append(bls_multi_sig.as_list())
-    if bls_multi_sigs is not None:
-        params.append([sig.as_list() for sig in bls_multi_sigs])
-    elif bls_multi_sig:
+        # Pass None for backward compatibility
+        params.append(None)
         params.append([bls_multi_sig.as_list()])
+    elif bls_multi_sigs is not None:
+        # Pass None for backward compatibility
+        params.append(None)
+        params.append([sig.as_list() for sig in bls_multi_sigs])
     return params
 
 
@@ -1267,14 +1269,17 @@ def create_commit_no_bls_sig(req_key, inst_id=0):
 def create_commit_with_bls_sig(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
-    params.append(bls_sig)
+    #  Use ' ' as BLS_SIG for backward-compatibility as BLS_SIG in COMMIT is optional but not Nullable
+    params.append(' ')
+    params.append({DOMAIN_LEDGER_ID: bls_sig})
     return Commit(*params)
 
 
 def create_commit_with_bls_sigs(req_key, bls_sig, lid):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
-    params.append(bls_sig)
+    #  Use ' ' as BLS_SIG for backward-compatibility as BLS_SIG in COMMIT is optional but not Nullable
+    params.append(' ')
     params.append({str(lid): bls_sig})
     return Commit(*params)
 

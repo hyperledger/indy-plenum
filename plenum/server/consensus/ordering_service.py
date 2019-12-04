@@ -469,9 +469,11 @@ class OrderingService:
             self.report_suspicious_node(SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit))
             return False
 
-        # BLS multi-sig:
-        pre_prepare = self.get_preprepare(commit.viewNo, commit.ppSeqNo)
-        why_not = self.l_bls_bft_replica.validate_commit(commit, sender, pre_prepare)
+        # BLS multi-sig (call it for non-ordered only to avoid redundant validations):
+        why_not = None
+        if not self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo):
+            pre_prepare = self.get_preprepare(commit.viewNo, commit.ppSeqNo)
+            why_not = self.l_bls_bft_replica.validate_commit(commit, sender, pre_prepare)
 
         if why_not == BlsBftReplica.CM_BLS_SIG_WRONG:
             self._logger.warning("{} discard Commit message from "

@@ -27,9 +27,7 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         self._all_bls_latest_multi_sigs = None
         self.node_id = node_id
         self._database_manager = database_manager
-        self._signatures = {}
         self._all_signatures = {}
-        self._bls_latest_multi_sig = None  # MultiSignature
         self.state_root_serializer = state_roots_serializer
         self.metrics = metrics
 
@@ -48,41 +46,31 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                 if not self._validate_multi_sig(multi_sig):
                     return BlsBftReplica.PPR_BLS_MULTISIG_WRONG
 
-        if f.BLS_MULTI_SIG.nm not in pre_prepare or \
-                pre_prepare.blsMultiSig is None:
-            return
-
-        multi_sig = MultiSignature.from_list(*pre_prepare.blsMultiSig)
-        if not self._validate_multi_sig(multi_sig):
-            return BlsBftReplica.PPR_BLS_MULTISIG_WRONG
-
     def validate_prepare(self, prepare: Prepare, sender):
         pass
 
     @measure_time(MetricsName.BLS_VALIDATE_COMMIT_TIME)
     def validate_commit(self, commit: Commit, sender, pre_prepare: PrePrepare):
-        if f.BLS_SIGS.nm in commit:
-            audit_txn = self._get_correct_audit_transaction(pre_prepare)
-            if audit_txn:
-                audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
-                for lid, sig in commit.blsSigs.items():
-                    lid = int(lid)
-                    if lid not in audit_payload[AUDIT_TXN_STATE_ROOT] or lid not in audit_payload[AUDIT_TXN_LEDGER_ROOT]:
-                        return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
-                    if not self._validate_signature(sender, sig,
-                                                    BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(
-                                                        lid,
-                                                        audit_payload[AUDIT_TXN_STATE_ROOT][lid],
-                                                        audit_payload[AUDIT_TXN_LEDGER_ROOT][lid],
-                                                        pre_prepare
-                                                    )):
-                        return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
-        if f.BLS_SIG.nm not in commit:
-            # TODO: It's optional for now
+        if f.BLS_SIGS.nm not in commit:
             return
 
-        if not self._validate_signature(sender, commit.blsSig, pre_prepare):
-            return BlsBftReplica.CM_BLS_SIG_WRONG
+        audit_txn = self._get_correct_audit_transaction(pre_prepare)
+        if not audit_txn:
+            return
+
+        audit_payload = audit_txn[TXN_PAYLOAD][TXN_PAYLOAD_DATA]
+        for lid, sig in commit.blsSigs.items():
+            lid = int(lid)
+            if lid not in audit_payload[AUDIT_TXN_STATE_ROOT] or lid not in audit_payload[AUDIT_TXN_LEDGER_ROOT]:
+                return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
+            if not self._validate_signature(sender, sig,
+                                            BlsBftReplicaPlenum._create_fake_pre_prepare_for_multi_sig(
+                                                lid,
+                                                audit_payload[AUDIT_TXN_STATE_ROOT][lid],
+                                                audit_payload[AUDIT_TXN_LEDGER_ROOT][lid],
+                                                pre_prepare
+                                            )):
+                return BlsBftReplicaPlenum.CM_BLS_SIG_WRONG
 
     # ----CREATE/UPDATE----
 
@@ -91,12 +79,11 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if not self._can_process_ledger(ledger_id):
             return pre_prepare_params
 
-        if self._bls_latest_multi_sig is not None:
-            pre_prepare_params.append(self._bls_latest_multi_sig.as_list())
-            self._bls_latest_multi_sig = None
-
-        # Send signature in COMMITs only
         if self._all_bls_latest_multi_sigs is not None:
+            # update BLS_MULTI_SIGS only (not BLS_MULTI_SIG)
+            # Pass None for backward compatibility
+            pre_prepare_params.append(None)
+
             pre_prepare_params.append([val.as_list() for val in self._all_bls_latest_multi_sigs])
             self._all_bls_latest_multi_sigs = None
 
@@ -119,10 +106,9 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                          .format(BLS_PREFIX, self, commit_params, state_root_hash))
             return commit_params
 
-        bls_signature = self._sign_state(pre_prepare)
-        logger.debug("{}{} signed COMMIT {} for state {} with sig {}"
-                     .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
-        commit_params.append(bls_signature)
+        # update BLS_SIGS only (not BLS_SIG)
+        #  Use ' ' as BLS_SIG for backward-compatibility as BLS_SIG in COMMIT is optional but not Nullable
+        commit_params.append(' ')
 
         last_audit_txn = self._get_correct_audit_transaction(pre_prepare)
         if last_audit_txn:
@@ -136,6 +122,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                     pre_prepare
                 )
                 bls_signature = self._sign_state(fake_pp)
+                logger.debug("{}{} signed COMMIT {} for state {} with sig {}"
+                             .format(BLS_PREFIX, self, commit_params, state_root_hash, bls_signature))
                 res[str(ledger_id)] = bls_signature
             commit_params.append(res)
 
@@ -153,11 +141,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     def process_commit(self, commit: Commit, sender):
         key_3PC = (commit.viewNo, commit.ppSeqNo)
-        if f.BLS_SIG.nm in commit and commit.blsSig is not None:
-            if key_3PC not in self._signatures:
-                self._signatures[key_3PC] = {}
-            self._signatures[key_3PC][self.get_node_name(sender)] = commit.blsSig
-
         if f.BLS_SIGS.nm in commit and commit.blsSigs is not None:
             if key_3PC not in self._all_signatures:
                 self._all_signatures[key_3PC] = {}
@@ -175,8 +158,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
         # calculate signature always to keep master and non-master in sync
         # but save on master only
-        bls_multi_sig = self._calculate_multi_sig(key, pre_prepare)
-
         all_bls_multi_sigs = self._calculate_all_multi_sigs(key, pre_prepare)
 
         if not self._is_master:
@@ -185,21 +166,17 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if all_bls_multi_sigs:
             for bls_multi_sig in all_bls_multi_sigs:
                 self._save_multi_sig_local(bls_multi_sig)
-        elif bls_multi_sig:
-            self._save_multi_sig_local(bls_multi_sig)
 
-        self._bls_latest_multi_sig = bls_multi_sig
         self._all_bls_latest_multi_sigs = all_bls_multi_sigs
 
     # ----GC----
 
     def gc(self, key_3PC):
         keys_to_remove = []
-        for key in self._signatures.keys():
+        for key in self._all_signatures.keys():
             if compare_3PC_keys(key, key_3PC) >= 0:
                 keys_to_remove.append(key)
         for key in keys_to_remove:
-            self._signatures.pop(key, None)
             self._all_signatures.pop(key, None)
 
     # ----MULT_SIG----
@@ -257,47 +234,30 @@ class BlsBftReplicaPlenum(BlsBftReplica):
     def _can_calculate_multi_sig(self,
                                  key_3PC,
                                  quorums) -> bool:
-        if key_3PC in self._all_signatures:
-            sigs_for_request = self._all_signatures[key_3PC]
-            sigs_invalid = list(
-                filter(
-                    lambda item: not quorums.bls_signatures.is_reached(len(list(item[1].values()))),
-                    sigs_for_request.items()
-                )
-            )
-            if sigs_invalid:
-                for lid, sigs in sigs_invalid:
-                    logger.debug(
-                        '{}Can not create bls signatures for batch {}: '
-                        'There are only {} signatures for ledger {}, '
-                        'while {} required for multi_signature'.format(BLS_PREFIX,
-                                                                       key_3PC,
-                                                                       len(list(sigs.values())),
-                                                                       quorums.bls_signatures.value,
-                                                                       lid)
-                    )
-            else:
-                return True
-
-        if key_3PC not in self._signatures:
+        if key_3PC not in self._all_signatures:
             return False
 
-        sigs_for_request = self._signatures[key_3PC]
-        bls_signatures = list(sigs_for_request.values())
-        if not quorums.bls_signatures.is_reached(len(bls_signatures)):
-            logger.debug(
-                '{}Can not create bls signature for batch {}: '
-                'There are only {} signatures, while {} required'.format(BLS_PREFIX,
-                                                                         key_3PC,
-                                                                         len(bls_signatures),
-                                                                         quorums.bls_signatures.value))
+        sigs_for_request = self._all_signatures[key_3PC]
+        sigs_invalid = list(
+            filter(
+                lambda item: not quorums.bls_signatures.is_reached(len(list(item[1].values()))),
+                sigs_for_request.items()
+            )
+        )
+        if sigs_invalid:
+            for lid, sigs in sigs_invalid:
+                logger.debug(
+                    '{}Can not create bls signatures for batch {}: '
+                    'There are only {} signatures for ledger {}, '
+                    'while {} required for multi_signature'.format(BLS_PREFIX,
+                                                                   key_3PC,
+                                                                   len(list(sigs.values())),
+                                                                   quorums.bls_signatures.value,
+                                                                   lid)
+                )
             return False
 
         return True
-
-    def _calculate_multi_sig(self, key_3PC, pre_prepare) -> Optional[MultiSignature]:
-        sigs_for_request = self._signatures[key_3PC]
-        return self._calculate_single_multi_sig(sigs_for_request, pre_prepare)
 
     def _calculate_all_multi_sigs(self, key_3PC, pre_prepare) -> Optional[list]:
         sigs_for_request = self._all_signatures.get(key_3PC)
@@ -346,26 +306,15 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     def _save_multi_sig_shared(self, pre_prepare: PrePrepare):
 
-        if f.BLS_MULTI_SIGS.nm in pre_prepare and pre_prepare.blsMultiSigs is not None:
-            multi_sigs = pre_prepare.blsMultiSigs
-            for sig in multi_sigs:
-                multi_sig = MultiSignature.from_list(*sig)
-                self._bls_bft.bls_store.put(multi_sig)
-                logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
-                             .format(BLS_PREFIX, self, multi_sig,
-                                     multi_sig.value.state_root_hash))
+        if f.BLS_MULTI_SIGS.nm not in pre_prepare or pre_prepare.blsMultiSigs is None:
             return
-        elif f.BLS_MULTI_SIG.nm not in pre_prepare:
-            return
-        if pre_prepare.blsMultiSig is None:
-            return
-
-        multi_sig = MultiSignature.from_list(*pre_prepare.blsMultiSig)
-        self._bls_bft.bls_store.put(multi_sig)
-        logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
-                     .format(BLS_PREFIX, self, multi_sig,
-                             multi_sig.value.state_root_hash))
-        # TODO: support multiple multi-sigs for multiple previous batches
+        multi_sigs = pre_prepare.blsMultiSigs
+        for sig in multi_sigs:
+            multi_sig = MultiSignature.from_list(*sig)
+            self._bls_bft.bls_store.put(multi_sig)
+            logger.debug("{}{} saved multi signature {} for root {} (calculated by Primary)"
+                         .format(BLS_PREFIX, self, multi_sig,
+                                 multi_sig.value.state_root_hash))
 
     def _get_correct_audit_transaction(self, pp: PrePrepare):
         ledger = self._database_manager.get_ledger(AUDIT_LEDGER_ID)
@@ -390,7 +339,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
             pre_prepare.reqIdr,
             pre_prepare.discarded,
             pre_prepare.digest,
-            1,  # doing it to work around the ledgers that are not in plenum -- it will fail the validation of pre-prepare
+            # doing it to work around the ledgers that are not in plenum -- it will fail the validation of pre-prepare
+            1,
             state_root_hash,
             txn_root_hash,
             pre_prepare.sub_seq_no,

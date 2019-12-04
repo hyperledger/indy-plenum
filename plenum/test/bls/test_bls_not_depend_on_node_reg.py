@@ -24,10 +24,10 @@ def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
     last_pre_prepare = \
         node.master_replica._ordering_service.prePrepares[node.master_replica.last_ordered_3pc]
 
-    bls = getattr(last_pre_prepare, f.BLS_MULTI_SIG.nm)
+    bls = getattr(last_pre_prepare, f.BLS_MULTI_SIGS.nm)
 
     # Get random participant
-    node_name = next(iter(bls[1]))
+    node_name = next(iter(bls[0][1]))
 
     # We've removed one of the nodes from another node's log
     HA = deepcopy(node.nodeReg[node_name])
@@ -81,6 +81,6 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
 def get_last_ordered_state_root_hash(node):
     last_pre_prepare = \
         node.master_replica._ordering_service.prePrepares[node.master_replica.last_ordered_3pc]
-    multi_sig = MultiSignature.from_list(*last_pre_prepare.blsMultiSig)
+    multi_sig = MultiSignature.from_list(*last_pre_prepare.blsMultiSigs[0])
     state_root_hash = serializer.deserialize(multi_sig.value.pool_state_root_hash)
     return state_root_hash
