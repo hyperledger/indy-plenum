@@ -108,10 +108,10 @@ class WriteRequestManager(RequestManager):
     def _get_handlers_by_version(self, txn):
         txn_type = get_type(txn)
         timestamp = get_txn_time(txn)
-        version = self.database_manager.get_version(timestamp)
+        version = self.database_manager.get_pool_version(timestamp)
         version = self.config.INDY_VERSION_MATCHING.get(version, version)
         if (txn_type, version) not in self._request_handlers_with_version:
-            version = get_version(txn)
+            version = self.database_manager.get_txn_version(txn)
 
         handlers = self._request_handlers_with_version.get((txn_type, version)) \
             if (txn_type, version) in self._request_handlers_with_version \
@@ -308,12 +308,7 @@ class WriteRequestManager(RequestManager):
                 )
                 return
 
-        taa = None
-        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
-        taa_data = self.get_taa_data(digest=r_taa_a_digest)
-        if taa_data is not None:
-            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
-        else:
+        if not self.get_taa_data():
             if request.taaAcceptance:
                 raise InvalidClientTaaAcceptanceError(
                     request.identifier, request.reqId,
@@ -326,6 +321,17 @@ class WriteRequestManager(RequestManager):
                     .format(self, request.reqId)
                 )
                 return
+
+        taa = None
+        r_taa_a_digest = request.taaAcceptance.get(f.TAA_ACCEPTANCE_DIGEST.nm)
+        taa_data = self.get_taa_data(digest=r_taa_a_digest)
+        if taa_data is not None:
+            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
+        else:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Incorrect Txn Author Agreement(digest={}) in the request".format(r_taa_a_digest)
+            )
 
         if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
             if request.taaAcceptance:
@@ -349,6 +355,7 @@ class WriteRequestManager(RequestManager):
 
         if taa.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
             raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
                 "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
             )

@@ -23,9 +23,6 @@ def txn_author_agreement_handler(tconf, domain_state):
     data_manager = DatabaseManager()
     handler = TxnAuthorAgreementHandler(data_manager)
     state = PruningState(KeyValueStorageInMemory())
-    # state.txn_list = {}
-    # state.get = lambda key, isCommitted=False: state.txn_list.get(key, None)
-    # state.set = lambda key, value, isCommitted=False: state.txn_list.update({key: value})
     data_manager.register_new_database(handler.ledger_id,
                                        FakeSomething(),
                                        state)

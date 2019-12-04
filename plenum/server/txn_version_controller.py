@@ -12,3 +12,6 @@ class TxnVersionController:
 
     def get_txn_version(self, txn):
         return get_version(txn)
+
+    def get_pool_version(self, timestamp):
+        return None
