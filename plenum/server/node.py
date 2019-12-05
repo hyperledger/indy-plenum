@@ -1294,6 +1294,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO: This is not moved from PoolManager to setPoolParams because setPoolParams is called
         #  before number of replicas is adjusted. This needs cleanup.
+        # TODO: INDY-2263 For some reason this breaks test_send_txns_bls_consensus
         self.poolManager.set_validators_for_replicas()
 
     def _dispatch_stashed_msg(self, msg, frm):

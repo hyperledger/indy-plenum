@@ -125,6 +125,10 @@ class ConsensusSharedData:
         return Mode.is_done_syncing(self.node_mode)
 
     @property
+    def is_ready(self):
+        return self.node_status in Status.ready()
+
+    @property
     def total_nodes(self):
         return len(self.validators)
 

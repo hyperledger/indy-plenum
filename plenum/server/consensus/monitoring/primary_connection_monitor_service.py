@@ -114,7 +114,7 @@ class PrimaryConnectionMonitorService:
 
         logger.display("{} primary has been disconnected for too long".format(self))
 
-        if not self._data.is_synced:
+        if not self._data.is_ready or not self._data.is_synced:
             logger.info('{} The node is not ready yet so '
                         'view change will not be proposed now, but re-scheduled.'.format(self))
             self._schedule_primary_connection_check()

@@ -140,8 +140,8 @@ def test_instance_changes_are_sent_after_going_back_to_started_state(tconf, time
     assert num_votes_for_view_change(internal_bus) == 0
 
     # Check that after connecting to enough nodes vote for view change will be sent
-    # TODO: Do we really need this message/functionality? Test successfully passes even without changing status,
-    #  changing mode is enough
-    internal_bus.send(NodeStatusUpdated(old_status=Status.starting, new_status=Status.started_hungry))
     primary_connection_monitor_service._data.node_mode = Mode.synced
+    primary_connection_monitor_service._data.node_status = Status.started_hungry
+    # TODO: Do we really need this message? Test successfully passes even without this message
+    # internal_bus.send(NodeStatusUpdated(old_status=Status.starting, new_status=Status.started_hungry))
     timer.wait_for(lambda: num_votes_for_view_change(internal_bus) == 1)
