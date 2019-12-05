@@ -2392,7 +2392,7 @@ class OrderingService:
                 pp = PrePrepare(**pp_dict)
                 if self._data.new_view is None or \
                         preprepare_to_batch_id(pp) not in self._data.new_view.batches:
-                    self._logger.info("Skipped useless PrePrepare {} from {}".format(pp, sender))
+                    logger.info("Skipped useless PrePrepare {} from {}".format(pp, sender))
                     continue
                 self._process_pre_prepare_from_old_view(pp)
             except Exception as ex:
