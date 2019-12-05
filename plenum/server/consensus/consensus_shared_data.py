@@ -11,6 +11,9 @@ from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
 from plenum.server.models import Prepares, Commits
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 class ConsensusSharedData:
@@ -92,6 +95,7 @@ class ConsensusSharedData:
         return self._name
 
     def set_validators(self, validators: List[str]):
+        logger.info("{} updated validators list to {}".format(self.name, validators))
         self._validators = validators
         self.quorums = Quorums(len(validators))
         self.view_change_votes.update_quorums(self.quorums)

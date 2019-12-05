@@ -1292,6 +1292,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
 
+        # TODO: This is not moved from PoolManager to setPoolParams because setPoolParams is called
+        #  before number of replicas is adjusted. This needs cleanup.
+        self.poolManager.set_validators_for_replicas()
+
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
