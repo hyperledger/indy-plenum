@@ -13,7 +13,7 @@ from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
     TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, CONFIG_LEDGER_ID, AML_VERSION, AML, AML_CONTEXT, TXN_TYPE, \
-    GET_TXN_AUTHOR_AGREEMENT_AML, CURRENT_PROTOCOL_VERSION
+    GET_TXN_AUTHOR_AGREEMENT_AML, CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_RETIRED, TXN_AUTHOR_AGREEMENT_DIGEST
 from plenum.common.util import randomString
 from plenum.test.delayers import req_delay
 from plenum.test.helper import sdk_get_and_check_replies
@@ -71,12 +71,16 @@ def nodeSetWithTaa(request, nodeSetWithTaaAlwaysResponding):
             yield nodeSetWithTaaAlwaysResponding
 
 
-def taa_value(result, text, version):
-    return JsonSerializer().serialize({
-        "val": {
+def taa_value(result, text, version, digest, retired=False):
+    value = {
             TXN_AUTHOR_AGREEMENT_TEXT: text,
-            TXN_AUTHOR_AGREEMENT_VERSION: version
-        },
+            TXN_AUTHOR_AGREEMENT_VERSION: version,
+            TXN_AUTHOR_AGREEMENT_DIGEST: digest
+        }
+    if retired:
+        value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+    return JsonSerializer().serialize({
+        "val": value,
         "lsn": result[TXN_METADATA_SEQ_NO],
         "lut": result[TXN_METADATA_TIME]
     })

@@ -4,7 +4,8 @@ import pytest
 from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
-    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED
+    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED, \
+    TXN_AUTHOR_AGREEMENT_TIMESTAMP
 from plenum.common.util import randomString
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
@@ -28,13 +29,12 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml,
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
-    TIMESTAMP_V1 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
+    reply1 = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
+    TIMESTAMP_V1 = reply1[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2, retired=True)
-    TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
+    reply2 = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2, retired=True)
+    TIMESTAMP_V2 = reply2[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     return txnPoolNodeSet
 
@@ -57,6 +57,9 @@ def taa_value(result, text, version, digest, retired=False):
         }
     if retired:
         value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+        value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = None
+    else:
+        value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = result[TXN_METADATA_TIME]
     return JsonSerializer().serialize({
         "val": value,
         "lsn": result[TXN_METADATA_SEQ_NO],
