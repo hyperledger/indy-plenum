@@ -97,7 +97,9 @@ class ConsensusSharedData:
     def set_validators(self, validators: List[str]):
         logger.info("{} updated validators list to {}".format(self.name, validators))
         self._validators = validators
-        self.quorums = Quorums(len(validators))
+        # TODO: INDY-2263 For some reason test_send_txns_bls_consensus fails without this check
+        if self.quorums is None or self.quorums.n != len(validators):
+            self.quorums = Quorums(len(validators))
         self.view_change_votes.update_quorums(self.quorums)
 
     @property
