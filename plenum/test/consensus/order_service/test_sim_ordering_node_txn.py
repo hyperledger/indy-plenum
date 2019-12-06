@@ -121,7 +121,7 @@ def node_req_demote(random, sim_pool):
 def random(request):
     seed = request.param
     # TODO: Remove after we fix INDY-2237 and INDY-2148
-    if seed in {752248, 659043, 550513}:
+    if seed in {752248, 659043, 550513, 141156}:
         return DefaultSimRandom(0)
     return DefaultSimRandom(request.param)
 
