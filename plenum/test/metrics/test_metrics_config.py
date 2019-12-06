@@ -76,7 +76,8 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.STORAGE_IDR_CACHE_TABLES_SIZE,
             MetricsName.STORAGE_ATTRIBUTE_STORE_READERS,
             MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_NUM,
-            MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE
+            MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE,
+            MetricsName.UNPACK_BATCH_TIME
         }
 
         # Don't expect some metrics from master primary
