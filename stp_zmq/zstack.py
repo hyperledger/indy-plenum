@@ -2,6 +2,7 @@ import inspect
 
 from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
+from plenum.common.startable import Mode
 from plenum.common.util import z85_to_friendly
 from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
@@ -79,6 +80,9 @@ class ZStack(NetworkInterface):
         self.config = config or getConfig()
         self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
+        self._node_mode = None
+        self._stash_unknown_remote_msgs = deque(maxlen=self.config.ZMQ_STASH_UNKNOWN_REMOTE_MSGS_QUEUE_SIZE)
+
         self.metrics = metrics
         self.mt_incoming_size = mt_incoming_size
         self.mt_outgoing_size = mt_outgoing_size
@@ -154,6 +158,9 @@ class ZStack(NetworkInterface):
     @property
     def name(self):
         return self._name
+
+    def set_mode(self, value):
+        self._node_mode = value
 
     @staticmethod
     def isRemoteConnected(r) -> bool:
@@ -608,8 +615,13 @@ class ZStack(NetworkInterface):
                 continue
 
             if not self.onlyListener and ident not in self.remotesByKeys:
-                logger.warning('{} received message from unknown remote {}'
-                               .format(self, z85_to_friendly(ident)))
+                if self._node_mode != Mode.participating:
+                    logger.info('{} not yet caught-up, stashing message from unknown remote'
+                                .format(self, z85_to_friendly(ident)))
+                    self._stash_unknown_remote_msgs.append((msg, ident))
+                else:
+                    logger.warning('{} received message from unknown remote {}'
+                                   .format(self, z85_to_friendly(ident)))
                 continue
 
             try:
@@ -791,6 +803,14 @@ class ZStack(NetworkInterface):
         while msgs:
             msg = msgs.popleft()
             ZStack.send(self, msg, to)
+
+    def process_unknown_remote_msgs(self):
+        logger.info('Processing messages from previously unknown remotes.')
+        for msg in self._stash_unknown_remote_msgs:
+            self.rxMsgs.append(msg)
+
+        self._stash_unknown_remote_msgs.clear()
+        self.processReceived(limit=sys.maxsize)
 
     def send_heartbeats(self):
         # Sends heartbeat (ping) to all

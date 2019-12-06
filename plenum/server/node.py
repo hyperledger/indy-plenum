@@ -344,6 +344,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @mode.setter
     def mode(self, value):
         self._mode = value
+        self.nodestack.set_mode(value)
         for r in self.replicas.values():
             r.set_mode(value)
 
@@ -1856,6 +1857,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             self.no_more_catchups_needed()
             self.select_primaries_on_catchup_complete()
+            self.nodestack.process_unknown_remote_msgs()
 
     def select_primaries_on_catchup_complete(self):
         audit_ledger = self.getLedger(AUDIT_LEDGER_ID)
