@@ -52,6 +52,7 @@ class PrimaryConnectionMonitorService:
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
+        self._timer.cancel(self._check_primary_connection)
         self._propose_view_change_timer.stop()
 
     def process_connected(self, msg: ExternalBus.Connected, frm: str):

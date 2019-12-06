@@ -90,6 +90,9 @@ class ConsensusSharedData:
         # Cleared in `gc`
         self.requested_pre_prepares = {}
 
+        # Timestamp of last ordered batch, used for freshness checks
+        self.last_batch_timestamp = None
+
     @property
     def name(self) -> str:
         return self._name
