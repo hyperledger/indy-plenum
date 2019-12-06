@@ -4,13 +4,17 @@ import pytest
 from unittest.mock import Mock
 
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewAccepted, ViewChangeStarted, \
-    NewViewCheckpointsApplied, StartViewChange
+    NewViewCheckpointsApplied, NodeNeedViewChange
+from plenum.common.startable import Mode
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView, Checkpoint, InstanceChange
 from plenum.server.consensus.view_change_service import ViewChangeService
-from plenum.server.replica_helper import generateName, getNodeName
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
+from plenum.server.database_manager import DatabaseManager
+from plenum.server.replica_helper import generateName
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
@@ -24,9 +28,19 @@ DEFAULT_STABLE_CHKP = 10
 def view_change_service_builder(consensus_data, timer, internal_bus, external_bus, stasher, initial_view_no, validators):
     def _service(name):
         data = consensus_data(name)
+        data.node_mode = Mode.participating
         digest = cp_digest(DEFAULT_STABLE_CHKP)
         cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=DEFAULT_STABLE_CHKP, digest=digest)
         data.checkpoints.append(cp)
+
+        ViewChangeTriggerService(data=data,
+                                 timer=timer,
+                                 bus=internal_bus,
+                                 network=external_bus,
+                                 db_manager=DatabaseManager(),
+                                 stasher=stasher,
+                                 is_master_degraded=lambda: False)
+
         primaries_selector = RoundRobinConstantNodesPrimariesSelector(validators)
         service = ViewChangeService(data, timer, internal_bus, external_bus, stasher, primaries_selector)
         return service
@@ -217,7 +231,7 @@ def test_non_primary_responds_to_view_change_message_with_view_change_ack_to_new
 
     assert len(external_bus.sent_messages) == 1
     msg, dst = external_bus.sent_messages[0]
-    assert dst == [getNodeName(service._data.primary_name)]
+    assert dst == [replica_name_to_node_name(service._data.primary_name)]
     assert isinstance(msg, ViewChangeAck)
     assert msg.viewNo == vc.viewNo
     assert msg.name == frm
@@ -647,10 +661,10 @@ def test_start_vc_by_quorum_of_vc_msgs(view_change_service_builder,
                                        external_bus,
                                        validators,
                                        is_master):
-    svc_queue = []
-    def svc_handler(msg: StartViewChange):
-        svc_queue.append(msg)
-    internal_bus.subscribe(StartViewChange, svc_handler)
+    nnvc_queue = []
+    def nnvc_handler(msg: NodeNeedViewChange):
+        nnvc_queue.append(msg)
+    internal_bus.subscribe(NodeNeedViewChange, nnvc_handler)
     # Quorum for ViewChange message is N-f
     service = view_change_service_builder(validators[0])
     proposed_view_no = 10
@@ -660,13 +674,13 @@ def test_start_vc_by_quorum_of_vc_msgs(view_change_service_builder,
         msg = ViewChange(proposed_view_no, 0, [], [], [])
         service.process_view_change_message(msg, validator)
     # N-f-1 msgs is not enough for triggering view_change
-    assert not svc_queue
+    assert not nnvc_queue
     # Process the other one message
     service.process_view_change_message(ViewChange(proposed_view_no, 0, [], [], []), validators[-1])
     if is_master:
-        assert svc_queue
-        assert isinstance(svc_queue[0], StartViewChange)
-        assert svc_queue[0].view_no == proposed_view_no
+        assert nnvc_queue
+        assert isinstance(nnvc_queue[0], NodeNeedViewChange)
+        assert nnvc_queue[0].view_no == proposed_view_no
     else:
         # ViewChange message isn't processed on backups
-        assert not svc_queue
+        assert not nnvc_queue

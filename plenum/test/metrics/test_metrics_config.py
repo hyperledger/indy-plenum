@@ -58,6 +58,10 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.AUTH_RULES_FROM_STATE_COUNT,
 
             # Obsolete metrics
+            MetricsName.SERVICE_VIEW_CHANGER_TIME,
+            MetricsName.VIEW_CHANGER_INBOX,
+            MetricsName.VIEW_CHANGER_OUTBOX,
+            MetricsName.MSGS_TO_VIEW_CHANGER,
             MetricsName.DESERIALIZE_DURING_UNPACK_TIME,
 
             # TODO: reduce monitor window so these events are also captured

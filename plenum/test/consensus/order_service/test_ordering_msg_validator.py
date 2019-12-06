@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.internal_messages import NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import NewView, OldViewPrePrepareRequest, OldViewPrePrepareReply
-from plenum.common.startable import Mode
+from plenum.common.startable import Mode, Status
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
 from plenum.server.replica_helper import generateName
@@ -42,6 +42,7 @@ def validator(view_no):
     cd.pp_seq_no = 1
     cd.view_no = view_no
     cd.node_mode = Mode.participating
+    cd.node_status = Status.started
     cd.prev_view_prepare_cert = cd.last_ordered_3pc[1]
     return OrderingServiceMsgValidator(data=cd)
 

@@ -1,10 +1,10 @@
 import pytest
 
+from plenum.common.messages.internal_messages import NodeNeedViewChange
 from plenum.test.delayers import cDelay
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change_service.helper import get_next_primary_name, trigger_view_change
@@ -41,7 +41,7 @@ def test_delay_commits_for_one_node(looper,
         trigger_view_change(txnPoolNodeSet)
         if vc_counts == 'twice':
             for node in txnPoolNodeSet:
-                node.view_changer.start_view_change(current_view_no + 2)
+                node.master_replica.internal_bus.send(NodeNeedViewChange(current_view_no + 2))
 
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

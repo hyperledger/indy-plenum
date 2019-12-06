@@ -40,10 +40,6 @@ def generateName(nodeName: str, instId: int):
     return "{}:{}".format(nodeName, instId)
 
 
-def getNodeName(replicaName: str):
-    return replicaName.split(":")[0]
-
-
 @unique
 class TPCStat(IntEnum):  # TPC => Three-Phase Commit
     ReqDigestRcvd = 0

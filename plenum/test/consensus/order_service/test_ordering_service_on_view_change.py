@@ -3,9 +3,9 @@ import pytest
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewAccepted, NewViewCheckpointsApplied
 from plenum.common.messages.node_messages import OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.util import updateNamedTuple
-from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.server.replica_helper import generateName
 from plenum.test.consensus.helper import copy_shared_data, create_batches, \
     check_service_changed_only_owned_fields_in_shared_data, create_new_view, \
@@ -14,7 +14,6 @@ from plenum.test.consensus.order_service.helper import check_prepares_sent, chec
     check_reply_old_view_preprepares_sent
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root, create_prepare, create_commit_no_bls_sig
 from plenum.test.consensus.order_service.conftest import orderer as _orderer
-from plenum.test.testing_utils import FakeSomething
 
 applied_pre_prepares = 0
 

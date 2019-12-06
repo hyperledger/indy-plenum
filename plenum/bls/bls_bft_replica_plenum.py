@@ -11,6 +11,7 @@ from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector, measure_time, MetricsName
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 from stp_core.common.log import getlogger
 
@@ -352,9 +353,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
 
     @staticmethod
     def get_node_name(replica_name: str):
-        # TODO: there is the same method in Replica
-        # It should be moved to some util class
-        return replica_name.split(":")[0]
+        # TODO: Remove this wrapper
+        return replica_name_to_node_name(replica_name)
 
     def __str__(self, *args, **kwargs):
         return self.node_id

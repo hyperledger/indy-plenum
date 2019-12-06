@@ -10,7 +10,7 @@ from plenum.test.helper import waitForViewChange, \
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
     ensureElectionsDone
-from plenum.test.view_change.helper import simulate_slow_master
+from plenum.test.view_change.helper import simulate_slow_master, node_sent_instance_changes_count
 
 nodeCount = 7
 
@@ -87,9 +87,8 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
 
     # Count sent instance changes of all nodes
     sentInstChanges = {}
-    instChngMethodName = ViewChanger.sendInstanceChange.__name__
     for n in txnPoolNodeSet:
-        sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
+        sentInstChanges[n.name] = node_sent_instance_changes_count(n)
 
     # Node reluctant to change view, never says master is degraded
     relucatantNode.monitor.isMasterDegraded = types.MethodType(
@@ -108,11 +107,9 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
     # thus must have called `sendInstanceChange`
     for n in txnPoolNodeSet:
         if n.name != relucatantNode.name:
-            assert n.view_changer.spylog.count(instChngMethodName) > \
-                   sentInstChanges.get(n.name, 0)
+            assert node_sent_instance_changes_count(n) > sentInstChanges.get(n.name, 0)
         else:
-            assert n.view_changer.spylog.count(instChngMethodName) == \
-                   sentInstChanges.get(n.name, 0)
+            assert node_sent_instance_changes_count(n) == sentInstChanges.get(n.name, 0)
 
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     new_m_primary_node = get_master_primary_node(list(txnPoolNodeSet))

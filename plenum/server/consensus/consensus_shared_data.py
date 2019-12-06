@@ -4,23 +4,16 @@ from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
 from sortedcontainers import SortedListWithKey
 
-from plenum.common.startable import Mode
+from plenum.common.startable import Mode, Status
 from plenum.common.util import SortedDict
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
 from plenum.server.models import Prepares, Commits
-from plenum.common.types import f
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
+from stp_core.common.log import getlogger
 
-
-def get_original_viewno(pp):
-    return pp.originalViewNo if f.ORIGINAL_VIEW_NO.nm in pp else pp.viewNo
-
-
-def preprepare_to_batch_id(pre_prepare: PrePrepare) -> BatchID:
-    pp_view_no = get_original_viewno(pre_prepare)
-    return BatchID(pre_prepare.viewNo, pp_view_no, pre_prepare.ppSeqNo, pre_prepare.digest)
+logger = getlogger()
 
 
 class ConsensusSharedData:
@@ -68,6 +61,7 @@ class ConsensusSharedData:
         self.high_watermark = self.low_watermark + self.log_size
         self.pp_seq_no = 0
         self.node_mode = Mode.starting
+        self.node_status = Status.starting
         # ToDo: it should be set in view_change_service before view_change starting
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
@@ -101,8 +95,11 @@ class ConsensusSharedData:
         return self._name
 
     def set_validators(self, validators: List[str]):
+        logger.info("{} updated validators list to {}".format(self.name, validators))
         self._validators = validators
-        self.quorums = Quorums(len(validators))
+        # TODO: INDY-2263 For some reason test_send_txns_bls_consensus fails without this check
+        if self.quorums is None or self.quorums.n != len(validators):
+            self.quorums = Quorums(len(validators))
         self.view_change_votes.update_quorums(self.quorums)
 
     @property
@@ -128,6 +125,10 @@ class ConsensusSharedData:
     @property
     def is_synced(self):
         return Mode.is_done_syncing(self.node_mode)
+
+    @property
+    def is_ready(self):
+        return self.node_status in Status.ready()
 
     @property
     def total_nodes(self):
