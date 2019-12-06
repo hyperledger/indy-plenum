@@ -11,6 +11,7 @@ import codecs
 from dateutil import parser
 import datetime
 
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
 from plenum.common.config_util import getConfig
 from plenum.common.util import get_datetime_from_ts
@@ -149,7 +150,10 @@ class ValidatorNodeInfoTool:
     @property
     @none_on_fail
     def bls_key(self):
-        return self._node.bls_bft.bls_key_register.get_key_by_name(self._node.name)
+        bls_key = self._node.bls_bft.bls_key_register.get_key_by_name(self._node.name)
+        if bls_key is not None:
+            bls_key = IndyCryptoBlsUtils.bls_to_str(bls_key)
+        return bls_key
 
     @property
     @none_on_fail

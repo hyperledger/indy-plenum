@@ -1,6 +1,9 @@
 from functools import lru_cache
 
+from indy_crypto.bls import ProofOfPossession, VerKey
+
 from common.serializers.serialization import pool_state_serializer
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
     BLS_KEY_PROOF, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, VERKEY
@@ -202,6 +205,9 @@ class NodeHandler(WriteRequestHandler):
                    "request data {}. Error: {}".format(data, error)
 
     def _verify_bls_key_proof_of_possession(self, key_proof, pk):
-        return True if self.bls_crypto_verifier is None else \
-            self.bls_crypto_verifier.verify_key_proof_of_possession(key_proof,
-                                                                    pk)
+        if self.bls_crypto_verifier is None:
+            return True
+        key_proof_bls = IndyCryptoBlsUtils.bls_from_str(key_proof, cls=ProofOfPossession)
+        pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, cls=VerKey)
+        return self.bls_crypto_verifier.verify_key_proof_of_possession(key_proof_bls,
+                                                                       pk_bls)

@@ -10,6 +10,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 import gc
 import psutil
 
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, StartViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
@@ -870,12 +871,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            "was called ".format(BLS_PREFIX, new_bls_key))
             return
 
-        if bls_crypto_signer.pk != new_bls_key:
+        signer_pk_str = IndyCryptoBlsUtils.bls_to_str(bls_crypto_signer.pk)
+        if signer_pk_str != new_bls_key:
             logger.warning("{}Can not enable BLS signer on the Node. BLS key initialized for the Node ({}), "
                            "differs from the one sent to the Ledger via NODE txn ({}). "
                            "Please make sure that a script to init BLS keys (init_bls_keys) is called, "
                            "and the same key is saved via NODE txn."
-                           .format(BLS_PREFIX, bls_crypto_signer.pk, new_bls_key))
+                           .format(BLS_PREFIX, signer_pk_str, new_bls_key))
             return
 
         self.bls_bft.bls_crypto_signer = bls_crypto_signer

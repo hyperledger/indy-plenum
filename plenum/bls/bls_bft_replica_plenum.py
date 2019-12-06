@@ -4,6 +4,7 @@ from common.serializers.serialization import state_roots_serializer
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
 from crypto.bls.bls_multi_signature import MultiSignature, MultiSignatureValue
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import BLS_PREFIX, AUDIT_LEDGER_ID, TXN_PAYLOAD, \
     TXN_PAYLOAD_DATA, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
@@ -189,10 +190,6 @@ class BlsBftReplicaPlenum(BlsBftReplica):
                                               timestamp=pre_prepare.ppTime)
         return multi_sig_value
 
-    def validate_key_proof_of_possession(self, key_proof, pk):
-        return self._bls_bft.bls_crypto_verifier \
-            .verify_key_proof_of_possession(key_proof, pk)
-
     def _validate_signature(self, sender, bls_sig, pre_prepare: PrePrepare):
         pool_root_hash = self._get_pool_root_hash(pre_prepare, serialize=False)
         sender_node = self.get_node_name(sender)
@@ -206,7 +203,8 @@ class BlsBftReplicaPlenum(BlsBftReplica):
         if not result:
             logger.info("Incorrect bls signature {} in commit for "
                         "{} public key: '{}' and message: '{}' from "
-                        "pre-prepare: {}".format(bls_sig, sender, pk,
+                        "pre-prepare: {}".format(bls_sig, sender,
+                                                 IndyCryptoBlsUtils.bls_to_str(pk),
                                                  message, pre_prepare))
         return result
 
