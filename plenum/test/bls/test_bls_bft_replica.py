@@ -9,7 +9,6 @@ from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_PAYLOAD, \
     TXN_PAYLOAD_DATA, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_PP_SEQ_NO
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.common.types import f
 from plenum.common.util import get_utc_epoch
 from plenum.server.quorums import Quorums
 from plenum.test.bls.helper import process_commits_for_key, calculate_multi_sig, process_ordered

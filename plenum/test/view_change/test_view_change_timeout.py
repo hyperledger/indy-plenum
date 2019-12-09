@@ -21,10 +21,6 @@ def tconf(tconf):
         yield tconf
 
 
-def _view_change_completed_count(node):
-    return get_count(node, node.master_replica._finish_view_change)
-
-
 # def _check_view_change_completed_stats(nodes):
 #     return {node.name: (_check_view_change_completed_count(node), _check_view_change_completed_true(node))
 #             for node in nodes}

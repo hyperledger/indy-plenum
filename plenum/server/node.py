@@ -10,9 +10,12 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple, Cal
 import gc
 import psutil
 
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, StartViewChange
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
+    NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.server.replica import Replica
@@ -56,7 +59,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
     NODE_IP, BLS_PREFIX, LedgerState, CURRENT_PROTOCOL_VERSION, AUDIT_LEDGER_ID, \
     AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     TS_LABEL, SEQ_NO_DB_LABEL, NODE_STATUS_DB_LABEL, \
-    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, PRIMARY_SELECTION_PREFIX
+    LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PRIMARIES, PRIMARY_SELECTION_PREFIX, MONITORING_PREFIX
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientRequest, BaseExc, \
@@ -240,6 +243,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         self._view_changer = None  # type: ViewChanger
+        self.start_view_change_ts = 0
         self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
         self.instances = Instances()
@@ -247,20 +251,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor_init(pluginPaths)
         self.replicas = self.create_replicas()
 
-        # Need to keep track of the time when lost connection with primary,
-        # help in voting for/against a view change on the master and removing
-        # replica on a backup instance
-        self.primaries_disconnection_times = []
-
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
         # majority of nodes due to joining of a new node, but some slow nodes
         # are not aware of it. Key is instance id and value is a deque
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
-
-        # Requests that are to be given to the view_changer by the node
-        self.msgsToViewChanger = deque()
 
         # do it after all states and BLS stores are created
         self.adjustReplicas(0, self.requiredNumberOfInstances)
@@ -348,6 +344,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @mode.setter
     def mode(self, value):
         self._mode = value
+        self.nodestack.set_mode(value)
         for r in self.replicas.values():
             r.set_mode(value)
 
@@ -442,7 +439,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # CurrentState
         self.nodeMsgRouter = Router(
             (Propagate, self.processPropagate),
-            (InstanceChange, self.sendToViewChanger),
+            (InstanceChange, self.sendToReplica),
             (MessageReq, self.route_message_req),
             (MessageRep, self.route_message_rep),
             (PrePrepare, self.sendToReplica),
@@ -514,6 +511,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def last_sent_pp_store_helper(self):
         return self.db_manager.get_store(LAST_SENT_PP_STORE_LABEL)
+
+    @property
+    def primaries_disconnection_times(self) -> List[Optional[float]]:
+        return [r._primary_connection_monitor_service._primary_disconnection_time
+                for r in self.replicas.values()]
 
     # EXECUTERS
     def default_executer(self, three_pc_batch: ThreePcBatch):
@@ -637,7 +639,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Notifies node about the fact that view changed to let it
         prepare for election
         """
-        self.view_changer.start_view_change_ts = self.utc_epoch()
+        logger.info("{}{} metrics for monitor: {}".format(MONITORING_PREFIX, self, self.monitor.prettymetrics))
+
+        self.start_view_change_ts = self.utc_epoch()
 
         for replica in self.replicas.values():
             replica.on_view_change_start()
@@ -646,7 +650,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.processStashedMsgsForView(self.viewNo)
 
         self.backup_instance_faulty_processor.restore_replicas()
-        # self.drop_primaries()
 
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.logNodeInfo()
@@ -870,12 +873,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            "was called ".format(BLS_PREFIX, new_bls_key))
             return
 
-        if bls_crypto_signer.pk != new_bls_key:
+        signer_pk_str = IndyCryptoBlsUtils.bls_to_str(bls_crypto_signer.pk)
+        if signer_pk_str != new_bls_key:
             logger.warning("{}Can not enable BLS signer on the Node. BLS key initialized for the Node ({}), "
                            "differs from the one sent to the Ledger via NODE txn ({}). "
                            "Please make sure that a script to init BLS keys (init_bls_keys) is called, "
                            "and the same key is saved via NODE txn."
-                           .format(BLS_PREFIX, bls_crypto_signer.pk, new_bls_key))
+                           .format(BLS_PREFIX, signer_pk_str, new_bls_key))
             return
 
         self.bls_bft.bls_crypto_signer = bls_crypto_signer
@@ -913,7 +917,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.clientstack.start()
 
             self.view_changer = self.newViewChanger()
-            self.schedule_initial_propose_view_change()
 
             self.schedule_node_status_dump()
             self.dump_additional_info()
@@ -928,12 +931,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.start_catchup(just_started=True)
 
         self.logNodeInfo()
-
-    def schedule_initial_propose_view_change(self):
-        # It is supposed that master's primary is lost until it is connected
-        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
-        self._schedule(action=self.propose_view_change,
-                       seconds=self.config.INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT)
 
     def schedule_node_status_dump(self):
         # one-shot dump right after start
@@ -1053,7 +1050,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.timer.service()
             with self.metrics.measure_time(MetricsName.SERVICE_MONITOR_ACTIONS_TIME):
                 c += self.monitor._serviceActions()
-            c += await self.serviceViewChanger(limit)
             c += await self.service_observable(limit)
             c += await self.service_observer(limit)
             with self.metrics.measure_time(MetricsName.FLUSH_OUTBOXES_TIME):
@@ -1113,19 +1109,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         await self.processClientInBox()
         return c
 
-    @async_measure_time(MetricsName.SERVICE_VIEW_CHANGER_TIME)
-    async def serviceViewChanger(self, limit) -> int:
-        """
-        Service the view_changer's inBox, outBox and action queues.
-
-        :return: the number of messages successfully serviced
-        """
-        if not self.isReady():
-            return 0
-        o = self.serviceViewChangerOutBox(limit)
-        i = await self.serviceViewChangerInbox(limit)
-        return o + i
-
     @async_measure_time(MetricsName.SERVICE_OBSERVABLE_TIME)
     async def service_observable(self, limit) -> int:
         """
@@ -1181,7 +1164,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Check protocol instances. See `checkInstances()`
 
         """
-        _prev_status = self.status
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
@@ -1190,29 +1172,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.status = Status.starting
 
-        if self.master_primary_name in joined:
-            self.primaries_disconnection_times[self.master_replica.instId] = None
-        if self.master_primary_name in left:
-            logger.display('{} lost connection to primary of master'.format(self))
-            self.lost_master_primary()
-        elif _prev_status == Status.starting and self.status == Status.started_hungry \
-                and self.primaries_disconnection_times[self.master_replica.instId] is not None \
-                and self.master_primary_name is not None:
-            """
-            Such situation may occur if the pool has come back to reachable consensus but
-            primary is still disconnected, so view change proposal makes sense now.
-            """
-            self._schedule_view_change()
-
         for inst_id, replica in self.replicas.items():
             replica.update_connecteds(self.nodestack.connecteds)
-            if not replica.isMaster and replica.primaryName is not None:
-                primary_node_name = replica.primaryName.rsplit(':', maxsplit=1)[0]
-                if primary_node_name in joined:
-                    self.primaries_disconnection_times[inst_id] = None
-                elif primary_node_name in left:
-                    self.primaries_disconnection_times[inst_id] = time.perf_counter()
-                    self._schedule_replica_removal(inst_id)
 
         if self.isReady():
             self.checkInstances()
@@ -1301,6 +1262,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param old: the previous status
         :param new: the current status
         """
+        self.replicas.send_to_internal_bus(NodeStatusUpdated(old_status=old, new_status=new))
 
     def checkInstances(self) -> None:
         # TODO: Is this method really needed?
@@ -1333,19 +1295,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
 
-        if len(self.primaries_disconnection_times) < new_required_number_of_instances:
-            self.primaries_disconnection_times.extend(
-                [None] * (new_required_number_of_instances - len(self.primaries_disconnection_times)))
-        elif len(self.primaries_disconnection_times) > new_required_number_of_instances:
-            self.primaries_disconnection_times = self.primaries_disconnection_times[:new_required_number_of_instances]
+        # TODO: This is not moved from PoolManager to setPoolParams because setPoolParams is called
+        #  before number of replicas is adjusted. This needs cleanup.
+        self.poolManager.set_validators_for_replicas()
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
         # implicitly by routes
-        if isinstance(msg, InstanceChange):
-            self.sendToViewChanger(msg, frm)
-            return True
-        elif isinstance(msg, ThreePhaseType):
+        if isinstance(msg, ThreePhaseType) or isinstance(msg, InstanceChange):
             self.sendToReplica(msg, frm)
             return True
         else:
@@ -1392,10 +1349,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     OldViewPrePrepareRequest, OldViewPrePrepareReply,
                                     ViewChange, ViewChangeAck, NewView, InstanceChange)):
                 self.send(message)
-                # TODO: This is kind of hack, should be removed after moving instance change
-                #  logic out of legacy view change service
-                if isinstance(message, InstanceChange) and self.view_changer is not None:
-                    self.view_changer._on_verified_instance_change_msg(message, self.name)
             elif isinstance(message, Ordered):
                 self.try_processing_ordered(message)
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
@@ -1417,37 +1370,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.error("Received msg {} and don't "
                              "know how to handle it".format(message))
         return num_processed
-
-    def serviceViewChangerOutBox(self, limit: int = None) -> int:
-        """
-        Service at most `limit` number of messages from the view_changer's outBox.
-
-        :return: the number of messages successfully serviced.
-        """
-        msgCount = 0
-        while self.view_changer.outBox and (not limit or msgCount < limit):
-            msgCount += 1
-            msg = self.view_changer.outBox.popleft()
-            if isinstance(msg, InstanceChange):
-                self.send(msg)
-            else:
-                logger.error("Received msg {} and don't know how to handle it".
-                             format(msg))
-        return msgCount
-
-    async def serviceViewChangerInbox(self, limit: int = None) -> int:
-        """
-        Service at most `limit` number of messages from the view_changer's outBox.
-
-        :return: the number of messages successfully serviced.
-        """
-        msgCount = 0
-        while self.msgsToViewChanger and (not limit or msgCount < limit):
-            msgCount += 1
-            msg = self.msgsToViewChanger.popleft()
-            self.view_changer.inBox.append(msg)
-        await self.view_changer.serviceQueues(limit)
-        return msgCount
 
     @property
     def hasPrimary(self) -> bool:
@@ -1473,7 +1395,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         master_primary_name = self.master_replica.primaryName
         if master_primary_name:
-            return self.master_replica.getNodeName(master_primary_name)
+            return replica_name_to_node_name(master_primary_name)
         return None
 
     @property
@@ -1538,6 +1460,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
+        if isinstance(msg, InstanceChange):
+            inst_id = MASTER_REPLICA_INDEX
         if inst_id is None:
             inst_id = getattr(msg, f.INST_ID.nm, None)
         if inst_id is not None and inst_id not in self.replicas:
@@ -1545,19 +1469,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.discard(msg, "Invalid node msg", logger.debug)
             return
         self.replicas.pass_message((msg, frm), inst_id)
-
-    def sendToViewChanger(self, msg, frm):
-        """
-        Send the message to the intended view changer.
-
-        :param msg: the message to send
-        :param frm: the name of the node which sent this `msg`
-        """
-        if (isinstance(msg, InstanceChange) or
-                self.msgHasAcceptableViewNo(msg, frm)):
-            logger.debug("{} sending message to view changer: {}".
-                         format(self, (msg, frm)))
-            self.msgsToViewChanger.append((msg, frm))
 
     def send_to_observer(self, msg, frm):
         """
@@ -1946,6 +1857,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             self.no_more_catchups_needed()
             self.select_primaries_on_catchup_complete()
+            self.nodestack.process_unknown_remote_msgs()
 
     def select_primaries_on_catchup_complete(self):
         audit_ledger = self.getLedger(AUDIT_LEDGER_ID)
@@ -2479,11 +2391,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.metrics.add_event(MetricsName.TIMER_QUEUE_SIZE, self.timer.queue_size())
 
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_INBOX, len(self.view_changer.inBox))
-        self.metrics.add_event(MetricsName.VIEW_CHANGER_OUTBOX, len(self.view_changer.outBox))
-
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_REPLICAS, len(self.msgsForFutureReplicas))
-        self.metrics.add_event(MetricsName.MSGS_TO_VIEW_CHANGER, len(self.msgsToViewChanger))
         self.metrics.add_event(MetricsName.REQUEST_SENDER, len(self.requestSender))
 
         self.metrics.add_event(MetricsName.MSGS_FOR_FUTURE_VIEWS, len(self.msgsForFutureViews))
@@ -2715,40 +2623,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
         if instance_id == self.master_replica.instId:
-            # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.has_master_primary
-            if not self.primaries_disconnection_times[self.master_replica.instId]:
-                return
-            if self.nodestack.isConnectedTo(self.master_primary_name) \
-                    or self.master_primary_name == self.name:
-                self.primaries_disconnection_times[self.master_replica.instId] = None
-        else:
-            primary_node_name = self.replicas[instance_id].primaryName.split(':')[0]
-            if self.nodestack.isConnectedTo(primary_node_name) \
-                    or primary_node_name == self.name:
-                self.primaries_disconnection_times[instance_id] = None
-            else:
-                self.primaries_disconnection_times[instance_id] = time.perf_counter()
-                self._schedule_replica_removal(instance_id)
 
-    def propose_view_change(self):
-        # Sends instance change message when primary has been
-        # disconnected for long enough
-        self._cancel(self.propose_view_change)
-        if not self.primaries_disconnection_times[self.master_replica.instId]:
-            logger.info('{} The primary is already connected '
-                        'so view change will not be proposed'.format(self))
-            return
-
-        logger.display("{} primary has been disconnected for too long".format(self))
-
-        if not self.isReady() or not self.is_synced:
-            logger.info('{} The node is not ready yet '
-                        'so view change will not be proposed now, but re-scheduled.'.format(self))
-            self._schedule_view_change()
-            return
-
-        self.view_changer.on_primary_loss()
+        self.replicas.send_to_internal_bus(PrimarySelected(), instance_id)
 
     def _schedule_replica_removal(self, inst_id):
         disconnection_strategy = self.config.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED
@@ -2766,20 +2643,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 and time.perf_counter() - self.primaries_disconnection_times[inst_id] >= \
                 self.config.TolerateBackupPrimaryDisconnection:
             self.backup_instance_faulty_processor.on_backup_primary_disconnected([inst_id])
-
-    def _schedule_view_change(self):
-        logger.info('{} scheduling a view change in {} sec'.format(self, self.config.ToleratePrimaryDisconnection))
-        self._schedule(self.propose_view_change,
-                       self.config.ToleratePrimaryDisconnection)
-
-    # TODO: consider moving this to pool manager
-    def lost_master_primary(self):
-        """
-        Schedule an primary connection check which in turn can send a view
-        change message
-        """
-        self.primaries_disconnection_times[self.master_replica.instId] = time.perf_counter()
-        self._schedule_view_change()
 
     def get_primaries_for_current_view(self):
         return self.primaries_selector.select_primaries(view_no=self.viewNo)
@@ -3241,7 +3104,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             "view no                 : {}".format(self.viewNo),
             "rank                    : {}".format(self.rank),
             "msgs to replicas        : {}".format(self.replicas.sum_inbox_len),
-            "msgs to view changer    : {}".format(len(self.msgsToViewChanger)),
             "action queue            : {} {}".format(len(self.actionQueue),
                                                      id(self.actionQueue)),
             "action queue stash      : {} {}".format(len(self.aqStash),
@@ -3362,12 +3224,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
         self.monitor.reset()
 
-    def _process_start_vc_msg(self, msg: StartViewChange):
-        if Mode.is_done_syncing(self.mode):
-            self.view_changer.start_view_change(msg.view_no)
+    def _process_primary_disconnected(self, msg: PrimaryDisconnected):
+        if msg.inst_id != MASTER_REPLICA_INDEX:
+            self._schedule_replica_removal(msg.inst_id)
+
+    def _process_node_need_view_change(self, msg: NodeNeedViewChange):
+        self.on_view_change_start()
+        self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
 
     def _process_new_view_accepted(self, msg: NewViewAccepted):
-        self.view_changer.instance_changes.remove_view(self.viewNo)
         self.monitor.reset()
         for i in self.replicas.keys():
             if i != MASTER_REPLICA_INDEX:
@@ -3379,15 +3244,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.replicas.subscribe_to_internal_bus(NeedMasterCatchup,
                                                 self._process_start_master_catchup_msg,
                                                 self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(NodeNeedViewChange,
+                                                self._process_node_need_view_change,
+                                                self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
                                                 self._process_new_view_accepted,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
                                                 self._process_re_ordered_in_new_view,
                                                 self.master_replica.instId)
-        self.replicas.subscribe_to_internal_bus(StartViewChange,
-                                                self._process_start_vc_msg,
-                                                self.master_replica.instId)
+        self.replicas.subscribe_to_internal_bus(PrimaryDisconnected,
+                                                self._process_primary_disconnected)
 
     def set_view_change_status(self, value: bool):
         """

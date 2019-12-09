@@ -1,8 +1,8 @@
 import pytest
 
 from common.exceptions import PlenumValueError
-from plenum.server.consensus.consensus_shared_data import get_original_viewno
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.utils import get_original_viewno
 
 nodeCount = 4
 

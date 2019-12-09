@@ -58,6 +58,10 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.AUTH_RULES_FROM_STATE_COUNT,
 
             # Obsolete metrics
+            MetricsName.SERVICE_VIEW_CHANGER_TIME,
+            MetricsName.VIEW_CHANGER_INBOX,
+            MetricsName.VIEW_CHANGER_OUTBOX,
+            MetricsName.MSGS_TO_VIEW_CHANGER,
             MetricsName.DESERIALIZE_DURING_UNPACK_TIME,
 
             # TODO: reduce monitor window so these events are also captured
@@ -72,7 +76,8 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
             MetricsName.STORAGE_IDR_CACHE_TABLES_SIZE,
             MetricsName.STORAGE_ATTRIBUTE_STORE_READERS,
             MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_NUM,
-            MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE
+            MetricsName.STORAGE_ATTRIBUTE_STORE_TABLES_SIZE,
+            MetricsName.UNPACK_BATCH_TIME
         }
 
         # Don't expect some metrics from master primary

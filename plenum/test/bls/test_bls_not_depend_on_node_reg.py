@@ -3,6 +3,7 @@ from copy import deepcopy
 from crypto.bls.bls_multi_signature import MultiSignature
 
 from common.serializers.base58_serializer import Base58Serializer
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 
 from plenum.test.pool_transactions.helper import demote_node
 from plenum.test.test_node import TestNode, checkNodesConnected, ensureElectionsDone, ensure_node_disconnected
@@ -73,7 +74,9 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
                                          sdk_pool_handle, sdk_wallet_client, 1, 1)
 
     def get_current_bls_keys(node):
-        return node.master_replica._bls_bft_replica._bls_bft.bls_key_register._current_bls_keys
+        bls_keys_raw_dict = node.master_replica._bls_bft_replica._bls_bft.bls_key_register._current_bls_keys
+        return {node_nane: IndyCryptoBlsUtils.bls_to_str(bls_key_raw) for node_nane, bls_key_raw in
+                bls_keys_raw_dict.items()}
 
     assert get_current_bls_keys(restarted_node) == get_current_bls_keys(primary_node)
 

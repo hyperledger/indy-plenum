@@ -1,11 +1,8 @@
-import logging
-from typing import Set
-
-from plenum.common.messages.internal_messages import NeedViewChange
+from plenum.common.messages.internal_messages import VoteForViewChange
 from plenum.common.startable import Mode
 from plenum.server.quorums import Quorums
+from plenum.server.suspicion_codes import Suspicion
 from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
-from storage.kv_store import KeyValueStorage
 
 
 class ViewChangerNodeDataProvider(ViewChangerDataProvider):
@@ -24,23 +21,11 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
     def node_mode(self) -> Mode:
         return self._node.mode
 
-    def has_primary(self) -> bool:
-        return self._node.master_replica.hasPrimary
-
-    def is_primary(self):
-        return self._node.master_replica.isPrimary
-
     def is_primary_disconnected(self) -> bool:
         return \
             self._node.primaries_disconnection_times[self._node.master_replica.instId] \
             and self._node.master_primary_name \
             and self._node.master_primary_name not in self._node.nodestack.conns
-
-    def is_master_degraded(self) -> bool:
-        return self._node.monitor.isMasterDegraded()
-
-    def pretty_metrics(self) -> str:
-        return self._node.monitor.prettymetrics
 
     def state_freshness(self) -> float:
         replica = self._node.master_replica
@@ -48,22 +33,8 @@ class ViewChangerNodeDataProvider(ViewChangerDataProvider):
         oldest_timestamp = min(timestamps)
         return replica.get_time_for_3pc_batch() - oldest_timestamp
 
-    def connected_nodes(self) -> Set[str]:
-        return self._node.nodestack.connecteds
-
-    def notify_view_change_start(self):
-        self._node.on_view_change_start()
-
-    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
-        self._node.discard(msg, reason, logMethod, cliOutput)
-
-    @property
-    def node_status_db(self) -> KeyValueStorage:
-        return self._node.nodeStatusDB
-
-    def start_view_change(self, proposed_view_no: int):
-        for replica in self._node.replicas.values():
-            replica.internal_bus.send(NeedViewChange(view_no=proposed_view_no))
+    def propose_view_change(self, suspicion: Suspicion):
+        self._node.master_replica.internal_bus.send(VoteForViewChange(suspicion))
 
     def view_no(self):
         return self._node.master_replica.viewNo

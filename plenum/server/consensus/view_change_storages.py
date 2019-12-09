@@ -4,7 +4,7 @@ from typing import Optional, List, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck
-from plenum.server.replica_helper import getNodeName
+from plenum.server.consensus.utils import replica_name_to_node_name
 
 
 def view_change_digest(msg: ViewChange) -> str:
@@ -106,14 +106,14 @@ class ViewChangeVotesForView:
         """
         Adds view change ack and returns boolean indicating if it found node suspicios
         """
-        frm = getNodeName(frm)
+        frm = replica_name_to_node_name(frm)
         return self._get_vote(frm).add_view_change(msg)
 
     def add_view_change_ack(self, msg: ViewChangeAck, frm: str) -> bool:
         """
         Adds view change ack and returns boolean indicating if it found node suspicios
         """
-        frm = getNodeName(frm)
+        frm = replica_name_to_node_name(frm)
         return self._get_vote(msg.name).add_view_change_ack(msg, frm)
 
     def clear(self):

@@ -37,8 +37,9 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
 
     # waiting to discard InstanceChange
     def check_old_ic_discarded():
-        assert all(not n.view_changer.instance_changes.has_inst_chng_from(view_no + 1, panic_node.name)
-                   for n in txnPoolNodeSet)
+        vct_services = [n.master_replica._view_change_trigger_service for n in txnPoolNodeSet]
+        assert all(not vct_service._instance_changes.has_inst_chng_from(view_no + 1, panic_node.name)
+                   for vct_service in vct_services)
 
     looper.run(eventually(check_old_ic_discarded, timeout=tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1))
 
@@ -47,7 +48,8 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
 
     def check_ic():
         for node in txnPoolNodeSet:
-            assert all(node.view_changer.instance_changes.has_inst_chng_from(view_no + 1, n.name)
+            vct_service = node.master_replica._view_change_trigger_service
+            assert all(vct_service._instance_changes.has_inst_chng_from(view_no + 1, n.name)
                        for n in nodes_to_restart)
 
     looper.run(eventually(check_ic))

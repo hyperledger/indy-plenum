@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.helper import sdk_send_random_requests
 from stp_core.loop.eventually import eventually
 
@@ -40,7 +41,7 @@ def test_req_drop_when_backup_replica_does_not_order(
     assert len(txnPoolNodeSet[0].replicas) == 3
 
     # Stop the primary of backup replica
-    backup_primary_name_off = txnPoolNodeSet[0].replicas[2].primaryName.split(":")[0]
+    backup_primary_name_off = replica_name_to_node_name(txnPoolNodeSet[0].replicas[2].primaryName)
     for n in txnPoolNodeSet:
         if n.name == backup_primary_name_off:
             n.stop()

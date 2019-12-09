@@ -10,6 +10,10 @@ class SimRandom(ABC):
         pass
 
     @abstractmethod
+    def float(self, min_value: float, max_value: float) -> float:
+        pass
+
+    @abstractmethod
     def string(self, min_len: int, max_len: Optional[int] = None,
                alphabet: Optional[str] = string.ascii_letters + string.digits) -> str:
         pass
@@ -33,6 +37,9 @@ class DefaultSimRandom(SimRandom):
 
     def integer(self, min_value: int, max_value: int) -> int:
         return self._random.randint(min_value, max_value)
+
+    def float(self, min_value: float, max_value: float) -> float:
+        return self._random.uniform(min_value, max_value)
 
     def string(self, min_len: int, max_len: Optional[int] = None,
                alphabet: Optional[str] = string.ascii_letters + string.digits) -> str:

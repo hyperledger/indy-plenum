@@ -16,16 +16,18 @@ from plenum.common.messages.internal_messages import NeedViewChange, CatchupFini
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.messages.node_messages import Checkpoint, ViewChange, NewView, ViewChangeAck, PrePrepare, Prepare, \
     Commit, MessageRep, OldViewPrePrepareRequest, OldViewPrePrepareReply
+from plenum.common.startable import Mode
 from plenum.common.request import ReqKey
 from plenum.common.txn_util import get_type
 from plenum.common.util import getMaxFailures
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import ConsensusSharedData, preprepare_to_batch_id
+from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.replica_service import ReplicaService, NeedAddNode, NeedRemoveNode
+from plenum.server.consensus.utils import preprepare_to_batch_id, replica_name_to_node_name
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.server.database_manager import DatabaseManager
@@ -96,7 +98,8 @@ def create_test_write_req_manager(name: str, genesis_txns: List) -> WriteRequest
 class MockBlsBftReplica(BlsBftReplica):
 
     def __init__(self):
-        pass
+        super().__init__(bls_bft=None,
+                         is_master=True)
 
     def validate_pre_prepare(self, pre_prepare: PrePrepare, sender):
         return None
@@ -186,8 +189,9 @@ class SimPool:
                                  self.network.create_peer(name, handler),
                                  write_manager=write_manager,
                                  bls_bft_replica=MockBlsBftReplica())
-        replica.config.NEW_VIEW_TIMEOUT = 30 * 1000
+        replica._data.node_mode = Mode.participating
         self._nodes.append(replica)
+        self._update_connecteds()
         logger.info("Node {} was added into pool".format(name))
 
     def remove_node(self, name):
@@ -199,6 +203,7 @@ class SimPool:
         assert len(replicas) == 1
         node_obj = replicas.pop()
         self._nodes.remove(node_obj)
+        self._update_connecteds()
         logger.info("Node {} was removed from pool".format(name))
 
     def _subscribe_to_internal_msgs(self, name):
@@ -284,10 +289,16 @@ class SimPool:
         serialized_msg = Batched().prepForSending(msg)
         serialized_msg = ZStack.serializeMsg(serialized_msg)
         new_msg = node_message_factory.get_instance(**ZStack.deserializeMsg(serialized_msg))
+        # TODO: Figure out why BatchIDs are not deserialized back
         if not isinstance(msg, (MessageRep, OldViewPrePrepareRequest, OldViewPrePrepareReply)):
             assert MessageProcessor().toDict(msg) == MessageProcessor().toDict(new_msg), \
                 "\n {} \n {}".format(MessageProcessor().toDict(msg), MessageProcessor().toDict(new_msg))
         return new_msg
+
+    def _update_connecteds(self):
+        connecteds = {replica_name_to_node_name(replica.name) for replica in self._nodes}
+        for replica in self._nodes:
+            replica._network.update_connecteds(connecteds)
 
 
 VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'

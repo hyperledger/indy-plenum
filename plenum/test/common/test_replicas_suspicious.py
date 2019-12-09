@@ -1,7 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.server.view_change.view_changer import ViewChanger
 
 from plenum.test.helper import waitForViewChange
+from plenum.test.view_change.helper import node_sent_instance_changes_count
 from stp_core.loop.eventually import eventually
 
 
@@ -25,8 +25,7 @@ def test_nodes_make_view_change_only_on_master_suspicious(
 
     backup_primary._ordering_service._do_send_3pc_batch(DOMAIN_LEDGER_ID)
     looper.run(eventually(pp_processed, non_primary_backup, old_pp))
-    assert all(node.view_changer.spylog.count(ViewChanger.sendInstanceChange) == 0
-               for node in txnPoolNodeSet)
+    assert all(node_sent_instance_changes_count(node) == 0 for node in txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, old_view)
 
     non_primary_master = txnPoolNodeSet[1].replicas[0]

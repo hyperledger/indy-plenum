@@ -7,13 +7,14 @@ from ledger.ledger import Ledger
 from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE
 from plenum.common.event_bus import InternalBus, ExternalBus
-from plenum.common.messages.internal_messages import NeedViewChange
+from plenum.common.messages.internal_messages import NodeNeedViewChange, NeedViewChange
 from plenum.common.messages.node_messages import Checkpoint, Ordered
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.timer import TimerService
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector
@@ -38,7 +39,7 @@ class ReplicaService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica = None):
         # ToDo: Maybe ConsensusSharedData should be initiated before and passed already prepared?
-        self._internal_bus = bus
+        self._network = network
         self._data = ConsensusSharedData(name, validators, 0)
         self._data.primary_name = generateName(primary_name, self._data.inst_id)
         self.config = getConfig()
@@ -58,6 +59,13 @@ class ReplicaService:
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
                                                write_manager.database_manager)
         self._view_changer = ViewChangeService(self._data, timer, bus, network, self.stasher, self._primaries_selector)
+        self._view_change_trigger = ViewChangeTriggerService(data=self._data,
+                                                             timer=timer,
+                                                             bus=bus,
+                                                             network=network,
+                                                             db_manager=write_manager.database_manager,
+                                                             is_master_degraded=lambda: False,
+                                                             stasher=self.stasher)
         self._message_requestor = MessageReqService(self._data, bus, network)
 
         self._add_ledgers()
@@ -71,10 +79,13 @@ class ReplicaService:
         write_manager.on_catchup_finished()
         self._data.primaries = self._view_changer._primaries_selector.select_primaries(self._data.view_no)
 
+        # Simulate node behavior
+        self._internal_bus = bus
+        self._internal_bus.subscribe(NodeNeedViewChange, self.process_node_need_view_change)
+        self._internal_bus.subscribe(Ordered, self.emulate_ordered_processing)
+
         # ToDo: ugly way to understand node_reg changing
         self._previous_node_reg = self._write_manager.node_reg_handler.committed_node_reg
-
-        bus.subscribe(Ordered, self.emulate_ordered_processing)
 
     def ready_for_3pc(self, req_key):
         fin_req = self._data.requests[req_key.digest].finalised
@@ -110,3 +121,6 @@ class ReplicaService:
 
     def __repr__(self):
         return self.name
+
+    def process_node_need_view_change(self, msg: NodeNeedViewChange):
+        self._internal_bus.send(NeedViewChange(msg.view_no))

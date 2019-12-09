@@ -1,6 +1,6 @@
 from plenum.common.messages.node_messages import Ordered
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
 
 

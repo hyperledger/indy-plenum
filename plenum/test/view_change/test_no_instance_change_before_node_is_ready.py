@@ -2,6 +2,7 @@ import pytest
 
 from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.helper import view_change_timeout
+from plenum.test.view_change.helper import node_sent_instance_changes_count
 
 from stp_core.common.log import getlogger
 from plenum.test.pool_transactions.helper import start_not_added_node, add_started_node
@@ -38,7 +39,7 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     looper.runFor(tconf.NEW_VIEW_TIMEOUT + 2)
 
     # 3. make sure no InstanceChange sent by the new node
-    assert 0 == new_node.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
+    assert 0 == node_sent_instance_changes_count(new_node)
 
     logger.info("Start added node {}".format(new_node))
 
@@ -57,4 +58,4 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
     looper.runFor(tconf.NEW_VIEW_TIMEOUT + 2)
 
     # 6. make sure no InstanceChange sent by the new node
-    assert 0 == new_node.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
+    assert 0 == node_sent_instance_changes_count(new_node)

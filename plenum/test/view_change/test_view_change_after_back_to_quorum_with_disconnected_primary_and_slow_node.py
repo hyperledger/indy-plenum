@@ -8,7 +8,8 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import get_master_primary_node
-from plenum.test.view_change.helper import start_stopped_node, ensure_view_change_by_primary_restart
+from plenum.test.view_change.helper import start_stopped_node, ensure_view_change_by_primary_restart, \
+    node_sent_instance_changes_count
 
 TestRunningTimeLimitSec = 150
 
@@ -53,7 +54,7 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
     # than quorum.
     ic_cnt = {}
     for n in remaining_nodes:
-        ic_cnt[n.name] = n.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
+        ic_cnt[n.name] = node_sent_instance_changes_count(n)
 
     # 3. Disconnect primary
     disconnect_node_and_ensure_disconnected(
@@ -64,7 +65,7 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
     looper.runFor(tconf.ToleratePrimaryDisconnection + 5)
     remaining_nodes = list(set(remaining_nodes) - {pr_node})
     for n in remaining_nodes:
-        assert ic_cnt[n.name] == n.view_changer.spylog.count(ViewChanger.sendInstanceChange.__name__)
+        assert ic_cnt[n.name] == node_sent_instance_changes_count(n)
 
     view_no = checkViewNoForNodes(remaining_nodes)
 

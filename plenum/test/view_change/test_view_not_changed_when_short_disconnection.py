@@ -1,8 +1,14 @@
+from plenum.test.view_change.helper import node_received_instance_changes_count
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.test_node import get_master_primary_node
 from plenum.test.view_change.helper import start_stopped_node
+
+
+def node_primary_disconnect_count(node):
+    pcm_service = node.master_replica._primary_connection_monitor_service
+    return pcm_service.spylog.count(pcm_service._primary_disconnected)
 
 
 def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client,
@@ -15,13 +21,12 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper, sdk_p
     pr_node = get_master_primary_node(txnPoolNodeSet)
     view_no = checkViewNoForNodes(txnPoolNodeSet)
 
-    prp_inst_chg_calls = {node.name: node.spylog.count(
-        node.propose_view_change.__name__) for node in txnPoolNodeSet
-        if node != pr_node}
+    # TODO: Do we really need go so deep in integration tests?
+    primary_disconnect_calls = {node.name: node_primary_disconnect_count(node)
+                                for node in txnPoolNodeSet if node != pr_node}
 
-    recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
-        if node != pr_node}
+    recv_inst_chg_calls = {node.name: node_received_instance_changes_count(node) for node in txnPoolNodeSet
+                           if node != pr_node}
 
     # Disconnect master's primary
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, pr_node, timeout=2)
@@ -39,9 +44,8 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper, sdk_p
         # since primary joins again
         for node in txnPoolNodeSet:
             if node != pr_node:
-                assert node.spylog.count(node.propose_view_change.__name__) > prp_inst_chg_calls[node.name]
-                assert node.view_changer.spylog.count(node.view_changer.process_instance_change_msg.__name__) == \
-                       recv_inst_chg_calls[node.name]
+                assert node_primary_disconnect_count(node) > primary_disconnect_calls[node.name]
+                assert node_received_instance_changes_count(node) == recv_inst_chg_calls[node.name]
 
     looper.run(eventually(chk2, retryWait=.2, timeout=timeout + 1))
 

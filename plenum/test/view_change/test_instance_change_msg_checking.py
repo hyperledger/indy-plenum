@@ -22,7 +22,7 @@ def testInstanceChangeMsgTypeChecking(txnPoolNodeSet, looper):
 
         goodViewNo = 1
         badViewNo = "BAD"
-        icMsg = txnPoolNodeSet[0].view_changer._create_instance_change_msg(goodViewNo, 0)
+        icMsg = InstanceChange(viewNo=goodViewNo, reason=0)
         icMsg._fields["viewNo"] = badViewNo
         return icMsg
 

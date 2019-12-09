@@ -64,7 +64,7 @@ def test_set_H_as_maxsize_for_backup_if_is_primary(looper,
         # Check restored state
         assert primary_on_backup.replicas._replicas[1].isPrimary
         assert primary_on_backup.replicas._replicas[1].h == 1
-        assert primary_on_backup.replicas._replicas[1].H == LOG_SIZE + 1
+        assert primary_on_backup.replicas._replicas[1].H == 1 + LOG_SIZE
 
     def chk():
         assert primary_on_backup.replicas._replicas[1].h == LOG_SIZE

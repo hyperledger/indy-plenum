@@ -31,12 +31,12 @@ def do_test(seed):
     pool.sim_send_requests(reqs)
 
     # 2. Send 3pc batches
-    random_interval = 1000
+    random_interval = 1
     RepeatingTimer(pool.timer, random_interval, partial(order_requests, pool))
 
     # 3. Make sure all nodes ordered all the requests
     for node in pool.nodes:
-        pool.timer.wait_for(partial(check_batch_count, node, batches_count), timeout=20000)
+        pool.timer.wait_for(partial(check_batch_count, node, batches_count))
 
     # 4. Check data consistency
     check_consistency(pool)

@@ -33,12 +33,11 @@ def do_test(seed):
     initial_ledger_size = get_pools_ledger_size(pool)
 
     # 2. Send 3pc batches
-    random_interval = 1000
+    random_interval = 1
     RepeatingTimer(pool.timer, random_interval, partial(order_requests, pool))
 
     for node in pool.nodes:
-        pool.timer.schedule(3000,
-                            partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
+        pool.timer.schedule(3, partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
     # 3. Make sure that view_change is completed
     for node in pool.nodes:
         pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1)
