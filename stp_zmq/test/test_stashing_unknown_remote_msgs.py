@@ -45,6 +45,7 @@ def test_stashing_unknown_remote_msgs(looper, tdir, tconf):
         assert len(beta._stashed_unknown_remote_msgs) == len(sent_msgs)
         for index, item in enumerate(sent_msgs):
             assert item == beta._stashed_unknown_remote_msgs[index][0]
+            assert alpha.remotes['Beta'].socket.IDENTITY == beta._stashed_unknown_remote_msgs[index][1]
 
     sent_msgs = deque(maxlen=tconf.ZMQ_STASH_UNKNOWN_REMOTE_MSGS_QUEUE_SIZE)
     msg = 'message num: {}'
