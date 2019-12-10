@@ -104,11 +104,8 @@ class NodeHandler(WriteRequestHandler):
     def _auth_error_while_updating_node(self, request):
         # Check if steward of the node is updating it and its data does not
         # conflict with any existing node's data
-        origin = request.identifier
         operation = request.operation
         node_nym = operation.get(TARGET_NYM)
-        if not self._is_steward_of_node(origin, node_nym, is_committed=False):
-            return "{} is not a steward of node {}".format(origin, node_nym)
 
         data = operation.get(DATA, {})
         return self._data_error_while_validating_update(data, node_nym)
