@@ -1045,7 +1045,6 @@ class ZStack(NetworkInterface):
 
     def prepare_to_send(self, msg: Any):
         msg_bytes = self.serializeMsg(msg)
-        self.msgLenVal.validate(msg_bytes)
         return msg_bytes
 
     @staticmethod
