@@ -1,0 +1,128 @@
+@startuml
+!pragma teoz true
+hide footbox
+
+participant Node1
+participant Node2
+participant Node3
+participant Node4
+
+note over Node1, Node4
+    When nodes have a quorum (n-f) of INSTANCE_CHANGE messages for a same number of view
+    <b>Start a View Change</b>
+end note
+
+
+loop repeat for Node2, Node3, Node4
+    note over Node1, Node4
+        <b>Node1 send VIEW_CHANGE </b>
+    end note
+
+    Node1 -> Node4: VIEW_CHANGE(Node1)
+    Node1 -> Node3: VIEW_CHANGE(Node1)
+    Node1 -> Node2: VIEW_CHANGE(Node1)
+    note right Node4
+          <b>VIEW_CHANGE contains:
+                        - <b>stable_checkpoint</b> <i>(seq_no of the last stabilized checkpoint),
+                        - <b>prepared</b> <i>(list of tuples BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
+                        - <b>preprepared</b> <i>(list of BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
+                        - <b>checkpoints</b> <i>(list of checkpoint messages)
+    end note
+
+    Node3 -> Node4: VIEW_CHANGE_ACK(VIEW_CHANGE(Node1))
+    deactivate Node3
+    Node2 -> Node4: VIEW_CHANGE_ACK(VIEW_CHANGE(Node1))
+    deactivate Node2
+    Node4 -> Node4: VIEW_CHANGE_ACK(VIEW_CHANGE(Node1))
+    deactivate Node4
+    note right Node4
+          <b>VIEW_CHANGE_ACK contains:
+                        - <b>view_no</b> <i>(number of future view change),
+                        - <b>name</b> <i>(name of the node that sent VIEW_CHANGE message)
+                        - <b>digest</b> <i>(digest of VIEW_CHANGE message)
+    end note
+end loop
+
+Node4 -> Node3: NEW_VIEW
+Node4 -> Node2: NEW_VIEW
+Node4 -> Node1: NEW_VIEW
+note right Node4
+    <b>NEW_VIEW contains:
+                        - <b>view_no</b> <i>(number of future view change),
+                        - <b>view_changes</b> <i>(list of tuples(sender name, digest of VIEW_CHANGE messages)
+                        - <b>checkpoint</b> <i>(checkpoint to be selected as stable)
+                        - <b>batches</b> <i>(list of BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
+end note
+
+
+opt If Node1 lost a VIEW_CHANGE message
+Node1 -> Node2: MESSAGE_REQUEST(VIEW_CHANGE)
+Node1 -> Node3: MESSAGE_REQUEST(VIEW_CHANGE)
+Node1 -> Node4: MESSAGE_REQUEST(VIEW_CHANGE)
+note right Node4
+    Node1 send requests for a VIEW_CHANGE message to all nodes
+    because in theory it could have a problem with a network connection
+    with the owner of the lost message
+end note
+
+Node2 -> Node1: MESSAGE_RESPONSE(VIEW_CHANGE)
+Node3 -> Node1: MESSAGE_RESPONSE(VIEW_CHANGE)
+Node4 -> Node1: MESSAGE_RESPONSE(VIEW_CHANGE)
+note right Node4
+    If Node1 receive a VIEW_CHANGE message from its owner
+    or from quorum (f+1) of nodes then Node1 used it
+end note
+end opt
+
+opt If Node1 lost a NEW_VIEW message or receive it from a non-primary node
+Node1 -> Node2: MESSAGE_REQUEST(NEW_VIEW)
+Node1 -> Node3: MESSAGE_REQUEST(NEW_VIEW)
+Node1 -> Node4: MESSAGE_REQUEST(NEW_VIEW)
+note right Node4
+    Node1 send requests for a NEW_VIEW message to all nodes
+    because in theory it could choose a wrong primary
+end note
+
+Node2 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+Node3 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+Node4 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+note right Node4
+    If Node1 doesn't receive NewView by the primary and uses a quorum(f+1) of responses
+    it finish the view change and start a <b> catchup</b>
+end note
+end opt
+
+note over Node1, Node4
+  <b>Finish the View change</b>
+ - Stabilize the checkpoint
+ - Unstash 3pc messages waiting for a new view
+ - Reset Monitor and start ordering on backup replicas
+end note
+
+
+opt If Node1 preprepared less then the previous view prepare certificate
+Node1 -> Node2: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
+Node1 -> Node3: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
+Node1 -> Node4: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
+note right Node4
+    Node1 send requests for PREPREPARE messages (which it doesn't have)
+    from NEW_VIEW to all nodes
+end note
+
+Node2 -> Node1: OLD_VIEW_PREPREPARE_REP([PREPREPARE])
+Node3 -> Node1: OLD_VIEW_PREPREPARE_REP([PREPREPARE])
+Node4 -> Node1: OLD_VIEW_PREPREPARE_REP([PREPREPARE])
+note right Node4
+    Node1 can trust any nodes for a PREPREPARE message because it can
+    compare its digest with expected one.
+end note
+Node1 -> Node1: Apply PREPREPAREs from replies
+Node1 -> Node1: Unstash 3pc messages \nwaiting for a new view
+Node1 -> Node1: Order till the previous \nview prepare certificate
+Node1 -> Node1: Reset Monitor and start \nordering on backup replicas
+
+
+end opt
+
+
+@enduml
