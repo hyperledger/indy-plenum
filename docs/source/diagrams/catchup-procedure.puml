@@ -29,10 +29,6 @@ note right Node4
         - Replicas do not generate, send or process any 3PC messages
         - All 3PC messages are stashed (in received order)
         - No ORDERED msgs are processed
-    <b>- Exception: mode=synced and view change in progress
-        - COMMITs below last_prepared_certificate are processed
-        - ORDERED msgs are processed (the requests will be re-applied since
-        the uncommitted state was reverted before catch-up/view-change)
 
 end note
 
@@ -305,36 +301,6 @@ loop For each replica
 end loop
 
 Node4 -> Node4: mode = synced
-
-alt view change in progress
-    loop For each replica
-        Node4 -> Node4: process unstashed 3PC messages before starting next catch-up
-        note right Node4
-            Only COMMITS less than last prepared certificate will be processed
-        end note
-        Node4 -> Node4: process ORDERED msgs
-        alt audit ledger is empty when processing ORDERED msg
-            Node4 -> Node4: re-apply 3PC batch
-            note right Node4
-                re-apply 3PC batch since uncommitted state was reverted
-                for this batch before catchup, but ORDERED msg was created only during catch-up
-            end note
-        end alt
-    end loop
-
-    Node4 -> Node4: Check if next catch-up is needed
-    note right Node4
-        <b>Check if next catch-up is needed</b> <i>(multiple catch-up
-        <i>rounds may be needed in scope of view change)
-    end note
-
-    alt Next catchup needed
-        Node4 -> Node4: Start next catchup
-    else No more catchups needed
-        Node4 -> Node4: mode = participating
-    end alt
-else no view change in progress
-    Node4 -> Node4: mode = participating
-end alt
+Node4 -> Node4: mode = participating
 
 @enduml
