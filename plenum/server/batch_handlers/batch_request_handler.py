@@ -31,6 +31,9 @@ class BatchRequestHandler:
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         pass
 
+    def on_catchup_finished(self):
+        pass
+
     @staticmethod
     def _commit(ledger, state, three_pc_batch: ThreePcBatch):
         _, committedTxns = ledger.commitTxns(len(three_pc_batch.valid_digests))

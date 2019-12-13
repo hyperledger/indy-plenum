@@ -1,6 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, add_txns, DEFAULT_PRIMARIES
+from plenum.test.audit_ledger.helper import check_audit_txn, do_apply_audit_txn, add_txns, DEFAULT_PRIMARIES, \
+    DEFAULT_NODE_REG
 
 # BOTH TESTS NEED TO BE RUN TOGETHER AS THEY SHARE COMMITTED STATE
 from plenum.test.testing_utils import FakeSomething
@@ -61,7 +62,8 @@ def test_revert_works_after_catchup(alh, db_manager,
                     last_pool_seqno=initial_seq_no + 1 + caughtup_txns,
                     last_domain_seqno=None,
                     last_config_seqno=None,
-                    primaries=caughtup_txns + 1)
+                    primaries=caughtup_txns + 1,
+                    node_reg=caughtup_txns + 1)
 
     alh.post_batch_rejected(DOMAIN_LEDGER_ID)
 
@@ -79,7 +81,8 @@ def test_revert_works_after_catchup(alh, db_manager,
                     last_pool_seqno=None,
                     last_domain_seqno=initial_seq_no + 1,
                     last_config_seqno=None,
-                    primaries=caughtup_txns)
+                    primaries=caughtup_txns,
+                    node_reg=caughtup_txns)
 
 
 def test_commit_works_after_catchup(alh, db_manager,
@@ -134,10 +137,11 @@ def test_commit_works_after_catchup(alh, db_manager,
                     last_pool_seqno=initial_seq_no + 1 + caughtup_txns,
                     last_domain_seqno=None,
                     last_config_seqno=None,
-                    primaries=2 * (caughtup_txns + 1))
+                    primaries=2 * (caughtup_txns + 1),
+                    node_reg=2 * (caughtup_txns + 1))
 
 
-def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp_seq_no, pp_time):
+def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp_seq_no, pp_time, digest=''):
     db_manager = alh.database_manager
     for i in range(count):
         add_txns(db_manager, ledger_id, txns_per_batch, pp_time)
@@ -149,6 +153,8 @@ def add_txns_to_audit(alh, count, ledger_id, txns_per_batch, view_no, initial_pp
                                       state_root=db_manager.get_state(ledger_id).headHash,
                                       txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
                                       primaries=DEFAULT_PRIMARIES,
-                                      valid_digests=[])
+                                      node_reg=DEFAULT_NODE_REG,
+                                      valid_digests=[],
+                                      pp_digest=digest)
         alh._add_to_ledger(three_pc_batch)
     alh.ledger.commitTxns(count)

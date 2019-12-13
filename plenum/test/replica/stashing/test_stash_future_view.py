@@ -11,12 +11,6 @@ from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 20
-    return tconf
-
-
 def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper, tconf,
                                                          sdk_pool_handle,
                                                          sdk_wallet_steward):
@@ -40,7 +34,7 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
             for n in txnPoolNodeSet:
                 n.view_changer.on_master_degradation()
             waitForViewChange(looper, fast_nodes, expectedViewNo=view_no + 1,
-                              customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
+                              customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
             ensureElectionsDone(looper=looper,
                                 nodes=fast_nodes,
                                 instances_list=range(fast_nodes[0].requiredNumberOfInstances))
@@ -54,11 +48,12 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
             # (len(txnPoolNodeSet) - 2) - prepare msgs
             # (len(txnPoolNodeSet) - 1) - commit msgs
             stashed_master_messages = 2 * (1 + (len(txnPoolNodeSet) - 2) + (len(txnPoolNodeSet) - 1))
-            assert slow_node.master_replica.stasher.stash_size(STASH_VIEW_3PC) == old_stashed[0] + stashed_master_messages
+            assert slow_node.master_replica.stasher.stash_size(STASH_VIEW_3PC) == old_stashed[
+                0] + stashed_master_messages
 
         def chk():
             for inst_id, r in slow_node.replicas.items():
-                assert r.last_ordered_3pc[1] == (2 if r.isMaster else 1)
+                assert r.last_ordered_3pc[1] == 2
                 assert r.stasher.stash_size(STASH_VIEW_3PC) == 0
 
         looper.run(eventually(chk))

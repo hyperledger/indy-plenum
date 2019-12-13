@@ -16,13 +16,10 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
 def test_view_change_with_unaligned_prepare_certificates_on_one_node(
         txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
     """
     Perform view change with only one node reaching lower last prepared certificate than others.
-    This is to ensure that despite setting MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE high view change
-    can finish early in optimistic scenarios.
     """
     do_view_change_with_unaligned_prepare_certificates(txnPoolNodeSet[3:],
                                                        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)

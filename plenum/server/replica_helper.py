@@ -21,6 +21,7 @@ PP_SUB_SEQ_NO_WRONG = 12
 PP_NOT_FINAL = 13
 PP_APPLY_AUDIT_HASH_MISMATCH = 15
 PP_REQUEST_ALREADY_ORDERED = 16
+PP_WRONG_PRIMARIES = 17
 
 
 def generateName(nodeName: str, instId: int):
@@ -37,10 +38,6 @@ def generateName(nodeName: str, instId: int):
             # already has ':'. This should be fixed.
             return nodeName
     return "{}:{}".format(nodeName, instId)
-
-
-def getNodeName(replicaName: str):
-    return replicaName.split(":")[0]
 
 
 @unique

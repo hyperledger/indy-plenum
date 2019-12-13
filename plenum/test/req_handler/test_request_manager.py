@@ -2,6 +2,7 @@ import pytest
 import time
 
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
+from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
 from plenum.test.testing_utils import FakeSomething
 
 from plenum.common.txn_util import reqToTxn
@@ -10,12 +11,14 @@ from common.exceptions import LogicError
 
 from plenum.common.request import Request
 from plenum.common.util import randomString
-from plenum.common.constants import TARGET_NYM, NODE, DOMAIN_LEDGER_ID
+from plenum.common.constants import TARGET_NYM, NODE, DOMAIN_LEDGER_ID, TXN_PAYLOAD, TXN_PAYLOAD_TYPE, \
+    TXN_METADATA_TIME, TXN_METADATA
 
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
+from unittest.mock import Mock, call
 
 
 @pytest.fixture(scope='function')
@@ -68,7 +71,9 @@ def three_pc_batch():
     return ThreePcBatch(DOMAIN_LEDGER_ID, 0, 0, 1, time.time(),
                         randomString(),
                         randomString(),
-                        ['a', 'b', 'c'], ['d1', 'd2', 'd3'])
+                        ['a', 'b', 'c'],
+                        ['d1', 'd2', 'd3'],
+                        'pp_digest')
 
 
 def test_write_request_manager_fails_to_handle(write_req_manager: WriteRequestManager,
@@ -196,3 +201,43 @@ def test_write_request_manager_chain_of_responsib_batch(write_req_manager: Write
         check.check_field = False
     write_req_manager.post_batch_rejected(three_pc_batch.ledger_id)
     assert all(check.check_field for check in check_list)
+
+
+def test_write_request_manager_restore_state(write_req_manager: WriteRequestManager,
+                                             three_pc_batch, db):
+    txn_type = "TXN_TYPE"
+    ledger_id = 1
+
+    class MockHandler(WriteRequestHandler):
+        def __init__(self):
+            super().__init__(db, txn_type, ledger_id)
+            self.last_update_state_call = None
+
+        def static_validation(self, request: Request):
+            pass
+
+        def dynamic_validation(self, request: Request):
+            pass
+
+        def update_state(self, txn, prev_result, request, is_committed=False):
+            self.last_update_state_call = txn, prev_result, request, is_committed
+
+    handler_current = MockHandler()
+    handler_prev_version = MockHandler()
+    version = "version1"
+    txn = {TXN_PAYLOAD: {TXN_PAYLOAD_TYPE: txn_type},
+           TXN_METADATA: {TXN_METADATA_TIME: 0}}
+    write_req_manager.register_req_handler(handler_current)
+    write_req_manager.register_req_handler_with_version(handler_prev_version, version)
+
+    write_req_manager.restore_state(txn, ledger_id)
+    assert handler_current.last_update_state_call == (txn, None, None, True)
+    assert handler_prev_version.last_update_state_call is None
+
+    handler_current.last_update_state_call = None
+    db.set_txn_version_controller(FakeSomething(get_version=lambda a: version,
+                                                update_version=lambda a: None))
+
+    write_req_manager.restore_state(txn, ledger_id)
+    assert handler_current.last_update_state_call is None
+    assert handler_prev_version.last_update_state_call == (txn, None, None, True)

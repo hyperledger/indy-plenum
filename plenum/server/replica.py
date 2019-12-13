@@ -1,6 +1,6 @@
 import time
 from collections import deque, OrderedDict
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 
 import sys
 
@@ -11,17 +11,13 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from orderedset import OrderedSet
 
 from plenum.common.config_util import getConfig
-from plenum.common.constants import THREE_PC_PREFIX, PREPREPARE, PREPARE, \
-    DOMAIN_LEDGER_ID, COMMIT, POOL_LEDGER_ID, AUDIT_LEDGER_ID, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, \
-    AUDIT_TXN_PRIMARIES, TS_LABEL
+from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID, TS_LABEL
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.internal_messages import NeedBackupCatchup, CheckpointStabilized, RaisedSuspicion, \
-    NewViewAccepted
-from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import Ordered, \
-    PrePrepare, Prepare, Commit, ThreePhaseKey
+from plenum.common.messages.internal_messages import NeedBackupCatchup, RaisedSuspicion, NewViewAccepted, \
+    CheckpointStabilized, NodeStatusUpdated
+from plenum.common.messages.node_messages import Ordered
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
 from plenum.common.router import Subscription
@@ -29,14 +25,16 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.view_change_service import ViewChangeService
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.replica_freshness_checker import FreshnessChecker
-from plenum.server.replica_helper import replica_batch_digest, TPCStat
+from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator import ReplicaValidator
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.server.router import Router
 from sortedcontainers import SortedList
 from stp_core.common.log import getlogger
@@ -152,7 +150,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                                    self.node.poolManager.node_names_ordered_by_rank(),
                                                    self.instId,
                                                    self.isMaster)
-        self._internal_bus = InternalBus()
+        self._internal_bus = self._init_internal_bus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()
         self._subscription = Subscription()
@@ -163,11 +161,13 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
         self._view_change_service = self._init_view_change_service()
+        self._view_change_trigger_service = self._init_view_change_trigger_service()
+        self._primary_connection_monitor_service = self._init_primary_connection_monitor_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
     @property
-    def internal_bus(self):
+    def internal_bus(self) -> InternalBus:
         return self._internal_bus
 
     def cleanup(self):
@@ -193,6 +193,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self._ordering_service.cleanup()
         self._checkpointer.cleanup()
+        self._view_change_service.cleanup()
+        if self._view_change_trigger_service is not None:
+            self._view_change_trigger_service.cleanup()
+        self._primary_connection_monitor_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 
@@ -224,12 +228,16 @@ class Replica(HasActionQueue, MessageProcessor):
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.clear_requests_and_fix_last_ordered()
 
+    def _process_node_status_updated(self, msg: NodeStatusUpdated):
+        self._consensus_data.node_status = msg.new_status
+
     def _subscribe_to_internal_msgs(self):
         self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
         self._subscription.subscribe(self.internal_bus, NewViewAccepted, self._process_new_view_accepted)
+        self._subscription.subscribe(self.internal_bus, NodeStatusUpdated, self._process_node_status_updated)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -302,10 +310,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 return nodeName
         return "{}:{}".format(nodeName, instId)
 
-    @staticmethod
-    def getNodeName(replicaName: str):
-        return replicaName.split(":")[0]
-
     @property
     def isPrimary(self):
         """
@@ -347,7 +351,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 # Since the GC needs to happen after a primary has been
                 # decided.
                 return
-            self._gc_before_new_view()
 
     def compact_primary_names(self):
         min_allowed_view_no = self.viewNo - 1
@@ -359,28 +362,15 @@ class Replica(HasActionQueue, MessageProcessor):
         for view_no in views_to_remove:
             self.primaryNames.pop(view_no)
 
-    def primaryChanged(self, primaryName):
-        self._ordering_service.batches.clear()
-        if self.isMaster:
-            # Since there is no temporary state data structure and state root
-            # is explicitly set to correct value
-            for lid in self.ledger_ids:
-                try:
-                    ledger = self.node.getLedger(lid)
-                except KeyError:
-                    continue
-                ledger.reset_uncommitted()
-
-        self.primaryName = primaryName
-        self._setup_for_non_master_after_view_change(self.viewNo)
-
+    # TODO: do we still need it?
     def on_view_change_start(self):
         if self.isMaster:
             lst = self._ordering_service.l_last_prepared_certificate_in_view()
             self._consensus_data.legacy_last_prepared_before_view_change = lst
             self.logger.info('{} setting last prepared for master to {}'.format(self, lst))
 
-    def on_view_change_done(self):
+    # TODO: combine with CatchupFinished processing
+    def on_view_propagated_after_catchup(self):
         if self.isMaster:
             self.last_prepared_before_view_change = None
         self.stasher.process_all_stashed(STASH_VIEW_3PC)
@@ -391,23 +381,13 @@ class Replica(HasActionQueue, MessageProcessor):
     def clear_requests_and_fix_last_ordered(self):
         if self.isMaster:
             return
-        self._clear_all_3pc_msgs()
-        reqs_for_remove = []
-        for req in self.requests.values():
-            ledger_id, seq_no = self.node.seqNoDB.get_by_payload_digest(req.request.payload_digest)
-            if seq_no is not None:
-                reqs_for_remove.append((req.request.digest, ledger_id, seq_no))
-        for key, ledger_id, seq_no in reqs_for_remove:
-            self.requests.ordered_by_replica(key)
-            self.requests.free(key)
-            self._ordering_service.requestQueues[int(ledger_id)].discard(key)
-        self.last_ordered_3pc = (self.viewNo, 0)
-        self._ordering_service._lastPrePrepareSeqNo = 0
-        self._checkpointer.set_watermarks(0)
-        self._checkpointer._reset_checkpoints()
-        self._consensus_data.stable_checkpoint = 0
-        self._checkpointer._remove_received_checkpoints(till_3pc_key=(self.viewNo, 0))
 
+        self._internal_bus.send(CheckpointStabilized(self.last_ordered_3pc))
+        self._ordering_service._lastPrePrepareSeqNo = 0
+        self._ordering_service.last_ordered_3pc = (self.viewNo, 0)
+        self._clear_all_3pc_msgs()
+
+    # TODO: combine with CatchupFinished processing
     def on_propagate_primary_done(self):
         if self.isMaster:
             # if this is a Primary that is re-connected (that is view change is not actually changed,
@@ -444,12 +424,6 @@ class Replica(HasActionQueue, MessageProcessor):
             if n in seq_no_p:
                 return n
         return None
-
-    def _setup_for_non_master_after_view_change(self, current_view):
-        if not self.isMaster:
-            for v in list(self.stashed_out_of_order_commits.keys()):
-                if v < current_view:
-                    self.stashed_out_of_order_commits.pop(v)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
@@ -511,14 +485,6 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return self._consensus_data.view_no
 
-    @property
-    def stashed_out_of_order_commits(self):
-        # Commits which are not being ordered since commits with lower
-        # sequence numbers have not been ordered yet. Key is the
-        # viewNo and value a map of pre-prepare sequence number to commit
-        # type: Dict[int,Dict[int,Commit]]
-        return self._ordering_service.stashed_out_of_order_commits
-
     def send_3pc_batch(self):
         return self._ordering_service.send_3pc_batch()
 
@@ -579,16 +545,6 @@ class Replica(HasActionQueue, MessageProcessor):
             self._external_bus.process_incoming(external_msg, sender)
         return count
 
-    def _gc_before_new_view(self):
-        # Trigger GC for all batches of old view
-        # Clear any checkpoints, since they are valid only in a view
-        # ToDo: Need to send a cmd like ViewChangeStart into internal bus
-        # self._gc(self.last_ordered_3pc)
-        self._ordering_service.gc(self.last_ordered_3pc)
-        # ToDo: get rid of directly calling
-        self._ordering_service._clear_prev_view_pre_prepares()
-        # self._clear_prev_view_pre_prepares()
-
     def has_already_ordered(self, view_no, pp_seq_no):
         return compare_3PC_keys((view_no, pp_seq_no),
                                 self.last_ordered_3pc) >= 0
@@ -618,17 +574,6 @@ class Replica(HasActionQueue, MessageProcessor):
         that have not been ordered.
         """
         return self._ordering_service.revert_unordered_batches()
-
-    def on_catch_up_finished(self, last_caught_up_3PC=None, master_last_ordered_3PC=None):
-        if master_last_ordered_3PC and last_caught_up_3PC and \
-                compare_3PC_keys(master_last_ordered_3PC,
-                                 last_caught_up_3PC) > 0:
-            if self.isMaster:
-                self._caught_up_till_3pc(last_caught_up_3PC)
-            else:
-                self._ordering_service.first_batch_after_catchup = True
-                self._catchup_clear_for_backup()
-        self.stasher.process_all_stashed(STASH_CATCH_UP)
 
     def discard_req_key(self, ledger_id, req_key):
         return self._ordering_service.discard_req_key(ledger_id, req_key)
@@ -713,10 +658,13 @@ class Replica(HasActionQueue, MessageProcessor):
     def set_primaries_batch_needed(self, value):
         self._ordering_service.primaries_batch_needed = value
 
-    def update_connecteds(self, connecteds: dict):
+    def update_connecteds(self, connecteds: set):
         self._external_bus.update_connecteds(connecteds)
 
-    def _init_replica_stasher(self):
+    def _init_internal_bus(self) -> InternalBus:
+        return InternalBus()
+
+    def _init_replica_stasher(self) -> StashingRouter:
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
                               buses=[self.internal_bus, self._external_bus],
                               unstash_handler=self._add_to_inbox)
@@ -745,6 +693,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                write_manager=self.node.write_manager,
                                bls_bft_replica=self._bls_bft_replica,
                                freshness_checker=self._freshness_checker,
+                               primaries_selector=self.node.primaries_selector,
                                get_current_time=self.get_current_time,
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                stasher=self.stasher,
@@ -761,7 +710,28 @@ class Replica(HasActionQueue, MessageProcessor):
                                  timer=self.node.timer,
                                  bus=self.internal_bus,
                                  network=self._external_bus,
-                                 stasher=self.stasher)
+                                 stasher=self.stasher,
+                                 primaries_selector=self.node.primaries_selector)
+
+    def _init_view_change_trigger_service(self) -> Optional[ViewChangeTriggerService]:
+        if not self.isMaster:
+            return None
+
+        return ViewChangeTriggerService(data=self._consensus_data,
+                                        timer=self.node.timer,
+                                        bus=self.internal_bus,
+                                        network=self._external_bus,
+                                        db_manager=self.node.db_manager,
+                                        stasher=self.stasher,
+                                        metrics=self.metrics,
+                                        is_master_degraded=self.node.monitor.isMasterDegraded)
+
+    def _init_primary_connection_monitor_service(self) -> PrimaryConnectionMonitorService:
+        return PrimaryConnectionMonitorService(data=self._consensus_data,
+                                               timer=self.node.timer,
+                                               bus=self.internal_bus,
+                                               network=self._external_bus,
+                                               metrics=self.metrics)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

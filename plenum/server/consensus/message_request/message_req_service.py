@@ -1,8 +1,6 @@
 import logging
-from typing import Dict, List
 
-from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, \
-    PROPAGATE, PREPARE, COMMIT, VIEW_CHANGE
+from plenum.common.constants import PREPREPARE, PREPARE, COMMIT, VIEW_CHANGE, NEW_VIEW
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import IncorrectMessageForHandlingException
 from plenum.common.messages.internal_messages import MissingMessage, CheckpointStabilized, ViewChangeStarted
@@ -13,7 +11,8 @@ from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler, \
-    ViewChangeHandler
+    ViewChangeHandler, NewViewHandler
+from plenum.server.consensus.utils import replica_name_to_node_name
 from stp_core.common.log import getlogger
 
 
@@ -41,7 +40,8 @@ class MessageReqService:
             PREPREPARE: PreprepareHandler(self._data),
             PREPARE: PrepareHandler(self._data),
             COMMIT: CommitHandler(self._data),
-            VIEW_CHANGE: ViewChangeHandler(self._data)
+            VIEW_CHANGE: ViewChangeHandler(self._data),
+            NEW_VIEW: NewViewHandler(self._data)
         }
         self.three_pc_handlers = {PREPREPARE, PREPARE, COMMIT}
 
@@ -69,7 +69,7 @@ class MessageReqService:
                 f.MSG_TYPE.nm: msg_type,
                 f.PARAMS.nm: msg.params,
                 f.MSG.nm: resp
-            }), dst=[frm.split(":")[0], ])
+            }), dst=[replica_name_to_node_name(frm), ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):

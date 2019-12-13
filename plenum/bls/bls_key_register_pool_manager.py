@@ -1,8 +1,10 @@
 from logging import getLogger
 
+from indy_crypto.bls import VerKey
+
 from crypto.bls.bls_key_register import BlsKeyRegister
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import BLS_KEY, BLS_KEY_PROOF, ALIAS
-from plenum.server.pool_manager import TxnPoolManager
 
 logger = getLogger()
 
@@ -18,7 +20,7 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
     def get_pool_root_hash_committed(self):
         return self._node.poolManager.state.committedHeadHash
 
-    def get_key_by_name(self, node_name, pool_state_root_hash=None):
+    def get_key_by_name(self, node_name, pool_state_root_hash=None) -> VerKey:
         if not pool_state_root_hash:
             pool_state_root_hash = self.get_pool_root_hash_committed()
 
@@ -33,10 +35,19 @@ class BlsKeyRegisterPoolManager(BlsKeyRegister):
         for data in self._node.write_manager.get_all_node_data_for_root_hash(
                 pool_state_root_hash):
             node_name = data[ALIAS]
-            if BLS_KEY in data:
-                if not self._node.poolManager.config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF and \
-                        data.get(BLS_KEY_PROOF, None) is None:
-                    logger.warning("{} has no proof of possession for BLS public key.".format(node_name))
-                    self._current_bls_keys[node_name] = None
-                else:
-                    self._current_bls_keys[node_name] = data[BLS_KEY]
+            if BLS_KEY not in data:
+                continue
+
+            if not self._node.poolManager.config.VALIDATE_BLS_SIGNATURE_WITHOUT_KEY_PROOF and \
+                    data.get(BLS_KEY_PROOF, None) is None:
+                logger.warning("{} has no proof of possession for BLS public key.".format(node_name))
+                self._current_bls_keys[node_name] = None
+                continue
+
+            key_str = data.get(BLS_KEY, None)
+            if key_str is None:
+                self._current_bls_keys[node_name] = None
+                continue
+
+            key_bls = IndyCryptoBlsUtils.bls_from_str(key_str, cls=VerKey)
+            self._current_bls_keys[node_name] = key_bls

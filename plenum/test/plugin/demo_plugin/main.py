@@ -1,5 +1,4 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.server.batch_handlers.audit_batch_handler import AuditBatchHandler
 from plenum.server.client_authn import CoreAuthNr
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 from plenum.test.plugin.demo_plugin.batch_handlers.auction_batch_handler import AuctionBatchHandler
@@ -41,6 +40,8 @@ def integrate_plugin_in_node(node):
     node.write_manager.register_batch_handler(AuctionBatchHandler(node.db_manager),
                                               ledger_id=AUCTION_LEDGER_ID,
                                               add_to_begin=True)
+    node.write_manager.register_batch_handler(node.write_manager.node_reg_handler,
+                                              ledger_id=AUCTION_LEDGER_ID)
     node.write_manager.register_batch_handler(node.write_manager.audit_b_handler,
                                               ledger_id=AUCTION_LEDGER_ID)
 

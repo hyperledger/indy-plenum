@@ -5,7 +5,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from stp_core.test.helper import Printer, CounterMsgsHandler, prepStacks, MessageSender, connectStack
-from stp_zmq.test.helper import genKeys, check_pong_received
+from stp_zmq.test.helper import genKeys, check_pong_received, check_all_received
 from stp_zmq.zstack import ZStack
 
 NUM_MSGS = 100
@@ -38,13 +38,6 @@ def drop_pongs(stack):
 
 def drop_pings(stack):
     stack.drop_ping = True
-
-
-def check_all_received(looper, frm, to, to_msg_handler):
-    looper.run(eventually(to_msg_handler.check_received_from,
-                          frm.name, NUM_MSGS,
-                          retryWait=1,
-                          timeout=15))
 
 
 def check_ping_received(looper, stack, frm):
@@ -195,7 +188,8 @@ def send_to_disconnected_then_connect(send_to_disconnected, looper,
     return alpha, beta, beta_msg_handler
 
 
+@pytest.mark.skip(reason='INDY-2289: if zeroMQ auto reconnect works some of the use cases do not make sense anymore')
 def test_send_to_disconnected_then_connect(send_to_disconnected_then_connect, looper):
     alpha, beta, beta_msg_handler = send_to_disconnected_then_connect
-    check_all_received(looper, frm=alpha, to=beta, to_msg_handler=beta_msg_handler)
+    check_all_received(looper, frm=alpha, to_msg_handler=beta_msg_handler, num_msg=NUM_MSGS)
     assert len(alpha._stashed_to_disconnected[beta.name]) == 0

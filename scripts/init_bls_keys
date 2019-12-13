@@ -25,7 +25,7 @@ def parse_args():
 
 def generate_and_store_bls_keys(node_name, seed):
     try:
-        init_bls_keys(baseDir=config.baseDir, node_name=node_name, seed=seed)
+        init_bls_keys(keys_dir=config.baseDir, node_name=node_name, seed=seed)
     except Exception as ex:
         print(ex)
         exit()

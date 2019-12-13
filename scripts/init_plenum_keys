@@ -6,7 +6,6 @@ from plenum.common.script_helper import getOldAddNewGenStewardCommand, getOldAdd
     buildKeepDirIfNotExists
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.constants import CLIENT_STACK_SUFFIX
-from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
 
 config = getConfig()

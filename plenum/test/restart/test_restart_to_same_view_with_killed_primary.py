@@ -8,12 +8,12 @@ from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 
 nodeCount = 7
 
-VIEW_CHANGE_TIMEOUT = 10
+NEW_VIEW_TIMEOUT = 10
 
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    with view_change_timeout(tconf, VIEW_CHANGE_TIMEOUT):
+    with view_change_timeout(tconf, NEW_VIEW_TIMEOUT):
         old_network_3pc_watcher_state = tconf.ENABLE_INCONSISTENCY_WATCHER_NETWORK
         tconf.ENABLE_INCONSISTENCY_WATCHER_NETWORK = True
         yield tconf
@@ -35,7 +35,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     primary.stop()
     looper.removeProdable(primary)
     ensure_node_disconnected(looper, primary, txnPoolNodeSet)
-    waitForViewChange(looper, alive_nodes, 1, customTimeout=VIEW_CHANGE_TIMEOUT)
+    waitForViewChange(looper, alive_nodes, 1, customTimeout=NEW_VIEW_TIMEOUT)
     ensureElectionsDone(looper, alive_nodes, instances_list=range(3))
 
     # Add transaction to ledger
@@ -45,7 +45,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     majority_before_restart = majority.copy()
     restart_nodes(looper, alive_nodes, majority, tconf, tdir, allPluginsPath,
                   after_restart_timeout=restart_timeout, start_one_by_one=False, wait_for_elections=False)
-    waitForViewChange(looper, majority, 1, customTimeout=2.1 * VIEW_CHANGE_TIMEOUT)
+    waitForViewChange(looper, majority, 1, customTimeout=2.1 * NEW_VIEW_TIMEOUT)
     ensureElectionsDone(looper, majority, instances_list=range(3))
 
     # Check that nodes in minority group are aware that they might have inconsistent 3PC state

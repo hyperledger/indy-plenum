@@ -3,7 +3,7 @@ import pytest
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.startable import Mode
 from plenum.server.replica_validator_enums import INCORRECT_PP_SEQ_NO, OLD_VIEW, ALREADY_ORDERED, STASH_WATERMARKS, \
-    STASH_CATCH_UP, STASH_VIEW_3PC, STASH_VIEW_3PC
+    STASH_CATCH_UP, STASH_VIEW_3PC
 from plenum.test.helper import checkDiscardMsg, generate_state_root, create_prepare
 from plenum.test.test_node import TestNode
 from plenum.test.testing_utils import FakeSomething

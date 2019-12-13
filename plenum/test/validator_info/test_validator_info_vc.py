@@ -12,13 +12,10 @@ from stp_core.loop.eventually import eventually
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 15
-    tconf.VIEW_CHANGE_TIMEOUT = 30
+    old_view_change_timeout = tconf.NEW_VIEW_TIMEOUT
+    tconf.NEW_VIEW_TIMEOUT = 30
     yield tconf
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
-    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
+    tconf.NEW_VIEW_TIMEOUT = old_view_change_timeout
 
 
 def test_number_txns_in_catchup_and_vc_queue_valid(looper,
@@ -38,7 +35,7 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, master_node, stopNode=True)
     looper.removeProdable(master_node)
     looper.run(eventually(checkViewNoForNodes, other_nodes, expected_view_no, retryWait=1,
-                          timeout=tconf.VIEW_CHANGE_TIMEOUT))
+                          timeout=tconf.NEW_VIEW_TIMEOUT))
     sdk_pool_refresh(looper, sdk_pool_handle)
     sdk_send_random_and_check(looper, other_nodes, sdk_pool_handle, sdk_wallet_steward, num_txns)
     master_node = start_stopped_node(master_node, looper, tconf,
@@ -68,9 +65,9 @@ def test_instance_change_before_vc(looper,
     def has_inst_chng_in_validator_info():
         for node in txnPoolNodeSet:
             latest_info = node._info_tool.info
-            assert expected_view_no in latest_info['Node_info']['View_change_status']['IC_queue']
-            assert latest_info['Node_info']['View_change_status']['IC_queue'][expected_view_no]["Voters"][
-                       panic_node.name]['reason'] == Suspicions.PRIMARY_DEGRADED.code
+            ic_queue = latest_info['Node_info']['View_change_status']['IC_queue']
+            assert expected_view_no in ic_queue
+            assert ic_queue[expected_view_no]["Voters"][panic_node.name]['reason'] == Suspicions.PRIMARY_DEGRADED.code
 
     looper.run(eventually(has_inst_chng_in_validator_info))
 
@@ -78,7 +75,7 @@ def test_instance_change_before_vc(looper,
         node.view_changer.on_master_degradation()
 
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, expected_view_no, retryWait=1,
-                          timeout=tconf.VIEW_CHANGE_TIMEOUT))
+                          timeout=tconf.NEW_VIEW_TIMEOUT))
     waitNodeDataEquality(looper, master_node, *txnPoolNodeSet)
 
     def is_inst_chngs_cleared():

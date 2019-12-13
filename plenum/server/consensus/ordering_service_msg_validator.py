@@ -10,7 +10,7 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, \
     ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER, \
-    INCORRECT_PP_SEQ_NO
+    INCORRECT_PP_SEQ_NO, INCORRECT_INSTANCE
 
 
 class OrderingServiceMsgValidator:
@@ -62,13 +62,15 @@ class OrderingServiceMsgValidator:
     def validate_new_view(self, msg: NewViewCheckpointsApplied) -> Tuple[int, Optional[str]]:
         # View Change service has already validated NewView
         # so basic validation here is sufficient
-
-        if not self._data.is_master:
-            return DISCARD, NON_MASTER
-
         return self._validate_base(msg, msg.view_no)
 
     def validate_old_view_prep_prepare_req(self, msg: OldViewPrePrepareRequest):
+        inst_id = getattr(msg, f.INST_ID.nm, None)
+
+        # Check INSTANCE_ID
+        if inst_id is None or inst_id != self._data.inst_id:
+            return DISCARD, INCORRECT_INSTANCE
+
         if not self._data.is_master:
             return DISCARD, NON_MASTER
 
@@ -80,6 +82,12 @@ class OrderingServiceMsgValidator:
         return PROCESS, None
 
     def validate_old_view_prep_prepare_rep(self, msg: OldViewPrePrepareReply):
+        inst_id = getattr(msg, f.INST_ID.nm, None)
+
+        # Check INSTANCE_ID
+        if inst_id is None or inst_id != self._data.inst_id:
+            return DISCARD, INCORRECT_INSTANCE
+
         if not self._data.is_master:
             return DISCARD, NON_MASTER
 
@@ -97,6 +105,11 @@ class OrderingServiceMsgValidator:
     def _validate_3pc(self, msg) -> Tuple[int, Optional[str]]:
         pp_seq_no = getattr(msg, f.PP_SEQ_NO.nm, None)
         view_no = getattr(msg, f.VIEW_NO.nm, None)
+        inst_id = getattr(msg, f.INST_ID.nm, None)
+
+        # Check INSTANCE_ID
+        if inst_id is None or inst_id != self._data.inst_id:
+            return DISCARD, INCORRECT_INSTANCE
 
         # DISCARD CHECKS first
         # pp_seq_no cannot be 0

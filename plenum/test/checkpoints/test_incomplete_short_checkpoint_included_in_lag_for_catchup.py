@@ -54,7 +54,7 @@ def test_incomplete_short_checkpoint_included_in_lag_for_catchup(
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            sdk_wallet_client,
-                                           reqs_for_checkpoint - 3 * max_batch_size)
+                                           reqs_for_checkpoint - 4 * max_batch_size)
 
     # The master replica of the new node stops to receive 3PC-messages
     new_node.master_replica.external_bus._handlers[PrePrepare] = [lambda *x, **y: (None, None)]

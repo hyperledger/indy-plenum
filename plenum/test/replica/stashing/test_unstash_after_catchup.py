@@ -14,16 +14,10 @@ from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
-@pytest.fixture(scope="module")
-def tconf(tconf):
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 20
-    return tconf
 
-
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
-def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, looper, tconf,
-                                                         sdk_pool_handle,
-                                                         sdk_wallet_steward):
+def test_unstash_three_phase_msg_after_catchup(txnPoolNodeSet, looper, tconf,
+                                               sdk_pool_handle,
+                                               sdk_wallet_steward):
     """
     1. Delay Commit on Node4
     2. Order 1 req
@@ -68,50 +62,35 @@ def test_unstash_three_phase_msg_after_catchup_in_view_change(txnPoolNodeSet, lo
                     assert commit_key in r._ordering_service.commits
                     assert len(r._ordering_service.commits[commit_key].voters) == 1
 
-
         looper.run(eventually(check_commits,
                               (view_no, last_ordered[1] + batches_count)))
 
         # Delay CatchupRep messages for the slow_node.
         with delay_rules([slow_node.nodeIbStasher], cr_delay()):
-            with delay_rules([n.nodeIbStasher for n in fast_nodes], vcd_delay()):
-                with delay_rules([n.nodeIbStasher for n in fast_nodes],
-                                 msg_rep_delay(types_to_delay=[LEDGER_STATUS])):
+            with delay_rules([n.nodeIbStasher for n in fast_nodes],
+                             msg_rep_delay(types_to_delay=[LEDGER_STATUS])):
 
-                    for n in txnPoolNodeSet:
-                        n.view_changer.on_master_degradation()
-                    looper.run(eventually(lambda: assertExp(slow_node.mode == Mode.discovering)))
+                for n in txnPoolNodeSet:
+                    n.start_catchup()
+                looper.run(eventually(lambda: assertExp(slow_node.mode == Mode.discovering)))
 
-                    # Reset delay Commit messages for all nodes.
-                    for n in txnPoolNodeSet:
-                        n.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
+                # Reset delay Commit messages for all nodes.
+                for n in txnPoolNodeSet:
+                    n.nodeIbStasher.reset_delays_and_process_delayeds(COMMIT)
 
-                    assert slow_node.view_change_in_progress
-                    assert slow_node.mode == Mode.discovering
-                    looper.run(eventually(_check_nodes_stashed,
-                                          fast_nodes,
-                                          old_stashed,
-                                          len(txnPoolNodeSet) - 1))
-                    looper.run(eventually(_check_nodes_stashed,
-                                          [slow_node],
-                                          old_stashed,
-                                          (len(txnPoolNodeSet) - 1) * 2))
+                assert slow_node.mode == Mode.discovering
+                looper.run(eventually(_check_nodes_stashed,
+                                      fast_nodes,
+                                      old_stashed,
+                                      len(txnPoolNodeSet) - 1))
+                looper.run(eventually(_check_nodes_stashed,
+                                      [slow_node],
+                                      old_stashed,
+                                      (len(txnPoolNodeSet) - 1) * 2))
 
-            waitForViewChange(looper, fast_nodes, expectedViewNo=view_no + 1,
-                              customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
-            ensureElectionsDone(looper=looper,
-                                nodes=fast_nodes,
-                                instances_list=range(fast_nodes[0].requiredNumberOfInstances),
-                                customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
         sdk_get_and_check_replies(looper, [request2])
-        batches_count += 1
-        waitForViewChange(looper, [slow_node], expectedViewNo=view_no + 1,
-                          customTimeout=2 * tconf.VIEW_CHANGE_TIMEOUT)
-        ensureElectionsDone(looper=looper,
-                            nodes=txnPoolNodeSet)
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
         assert get_pp_seq_no(txnPoolNodeSet) == batches_count
-        assert slow_node.catchup_rounds_without_txns == 1
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

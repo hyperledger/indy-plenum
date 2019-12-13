@@ -29,11 +29,12 @@ if __name__ == "__main__":
 
     try:
         # Initialize node stack
-        pubkey, verkey, blspk = initLocalKeys(name,
+        pubkey, verkey, blspk, _ = initLocalKeys(name,
                                               config.baseDir,
                                               args.seed,
                                               use_bls=False,
                                               override=args.force)
+
         # Print genesis transaction commands
         generateStewardGenesisTxn(config.baseDir,
                                   args.print_gen_txn,

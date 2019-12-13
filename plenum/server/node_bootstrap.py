@@ -2,7 +2,6 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.ledger_manager import LedgerManager
 from plenum.server.batch_handlers.ts_store_batch_handler import TsStoreBatchHandler
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
 from plenum.server.last_sent_pp_store_helper import LastSentPpStoreHelper
 from plenum.server.ledgers_bootstrap import LedgersBootstrap
 from plenum.server.request_handlers.get_txn_handler import GetTxnHandler
@@ -98,12 +97,6 @@ class NodeBootstrap(LedgersBootstrap):
                                                 postCatchupClbk=self.node.postLedgerCatchUp,
                                                 ledger_sync_order=ledger_sync_order,
                                                 metrics=self.node.metrics)
-
-    def _register_pool_batch_handlers(self):
-        super()._register_pool_batch_handlers()
-        # TODO: This should be moved into LedgersBootstrap somehow
-        future_primaries_handler = FuturePrimariesBatchHandler(self.db_manager, self.node)
-        self.write_manager.register_batch_handler(future_primaries_handler)
 
     def register_ts_store_batch_handlers(self):
         ts_store_b_h = TsStoreBatchHandler(self.node.db_manager)

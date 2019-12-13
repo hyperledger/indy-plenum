@@ -1,5 +1,5 @@
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, \
-    TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, ROLE
+    TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, ROLE, DATA, ALIAS
 from plenum.common.ledger import Ledger
 from plenum.common.transactions import PlenumTransactions
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -92,7 +92,7 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
     op2 = {
         TXN_TYPE: PlenumTransactions.NODE.value,
         TARGET_NYM: "000000000000000000000000Trustee1",
-        ROLE: None
+        DATA: {ALIAS: "Node100"}
     }
     node_req = sdk_gen_request(op2, signatures={"sig1": "111"})
     node.write_manager.apply_request(node_req, 10000)
@@ -132,4 +132,4 @@ def append_txn_to_ledger(txn_data, ledger, seq_no):
 
 
 def get_3PC_batch(root_hash, ledger_id=1):
-    return ThreePcBatch(ledger_id, 0, 0, 1, 5000, root_hash, "", ["Alpha", "Beta"], [])
+    return ThreePcBatch(ledger_id, 0, 0, 1, 5000, root_hash, "", ["Alpha", "Beta"], [], pp_digest='')

@@ -5,9 +5,9 @@ from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.server.consensus.ordering_service import OrderingService
+from plenum.server.consensus.utils import get_original_viewno
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
-from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.helper import chk_all_funcs, init_discarded
 from plenum.test.spy_helpers import getAllArgs
@@ -78,21 +78,22 @@ def checkPrePrepared(looper,
             non-primaries must be greater than or equal to 0;
             with faults in system.
             """
+            tm = get_utc_epoch()
             expectedPrePrepareRequest = PrePrepare(
                 instId,
                 primary.viewNo,
                 primary.lastPrePrepareSeqNo,
-                get_utc_epoch(),
+                tm,
                 [propagated1.digest],
                 init_discarded(),
-                Replica.batchDigest([propagated1, ]),
+                primary._ordering_service.generate_pp_digest([propagated1.digest], primary.viewNo, tm),
                 DOMAIN_LEDGER_ID,
                 primary._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID),
                 primary._ordering_service.get_txn_root_hash(DOMAIN_LEDGER_ID),
                 0,
                 True,
                 primary._ordering_service.get_state_root_hash(POOL_LEDGER_ID),
-                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID)
+                primary._ordering_service.get_txn_root_hash(AUDIT_LEDGER_ID),
             )
 
             passes = 0
@@ -101,10 +102,12 @@ def checkPrePrepared(looper,
                                   getAllArgs(npr._ordering_service,
                                              npr._ordering_service.process_preprepare)
                                   if (param['pre_prepare'][0:3] +
-                                      param['pre_prepare'][4:],
+                                      param['pre_prepare'][4:6] +
+                                      param['pre_prepare'][7:],
                                       param['sender']) == (
                                       expectedPrePrepareRequest[0:3] +
-                                      expectedPrePrepareRequest[4:],
+                                      expectedPrePrepareRequest[4:6] +
+                                      param['pre_prepare'][7:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -116,7 +119,7 @@ def checkPrePrepared(looper,
                                          numOfMsgsWithZFN,
                                          numOfMsgsWithFaults))
             assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
-                'Non-primary sees correct number pre-prepares - {}'.format(passes)
+                '1Non-primary sees correct number pre-prepares - {}'.format(passes)
 
         def primarySentsCorrectNumberOfPREPREPAREs():
             """
@@ -129,7 +132,9 @@ def checkPrePrepared(looper,
                                          primary._ordering_service.send_pre_prepare)
                               if param['ppReq'].reqIdr[0] == propagated1.digest
                               and param['ppReq'].digest ==
-                              primary.batchDigest([propagated1, ])])
+                              primary._ordering_service.generate_pp_digest([propagated1.digest],
+                                                                           get_original_viewno(param['ppReq']),
+                                                                           param['ppReq'].ppTime)])
 
             numOfMsgsWithZFN = 1
 
@@ -154,7 +159,9 @@ def checkPrePrepared(looper,
                                      npr._ordering_service._add_to_pre_prepares)
                           if param['pp'].reqIdr[0] == propagated1.digest
                           and param['pp'].digest ==
-                          primary.batchDigest([propagated1, ])])
+                          OrderingService.generate_pp_digest([propagated1.digest, ],
+                                                             get_original_viewno(param['pp']),
+                                                             param['pp'].ppTime)])
 
                 numOfMsgsWithZFN = 1
                 numOfMsgsWithFaults = 0
@@ -166,7 +173,7 @@ def checkPrePrepared(looper,
                                      numOfMsgsWithFaults)
 
             assert passes >= len(nonPrimaryReplicas) - faultyNodes, \
-                'Non-primary receives correct number of pre-prepare -- {}'.format(passes)
+                '2Non-primary receives correct number of pre-prepare -- {}'.format(passes)
 
         primarySeesCorrectNumberOfPREPREPAREs()
         nonPrimarySeesCorrectNumberOfPREPREPAREs()

@@ -4,7 +4,6 @@ from typing import Optional
 from plenum.common.constants import TXN_TYPE
 from common.error import error
 from plenum.common.exceptions import NoAuthenticatorFound
-from plenum.common.request import Request
 from plenum.common.types import OPERATION, f
 from plenum.server.client_authn import ClientAuthNr
 

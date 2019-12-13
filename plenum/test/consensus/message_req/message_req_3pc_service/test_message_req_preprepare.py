@@ -1,14 +1,11 @@
 from unittest.mock import Mock
 
-import pytest
-
 from plenum.common.constants import PREPREPARE
 from plenum.common.messages.internal_messages import MissingMessage
 from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrepare
 from plenum.common.types import f
-from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
-from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
+from plenum.server.consensus.utils import preprepare_to_batch_id
 
 
 def test_process_message_req_preprepare(message_req_service: MessageReqService, external_bus, data, pp):

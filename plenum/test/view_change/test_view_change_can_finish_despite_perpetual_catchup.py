@@ -6,13 +6,10 @@ from plenum.test.view_change.helper import ensure_view_change_complete
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    old_view_change_timeout = tconf.VIEW_CHANGE_TIMEOUT
-    old_catchup_timeout = tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE
-    tconf.VIEW_CHANGE_TIMEOUT = 10
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
+    old_view_change_timeout = tconf.NEW_VIEW_TIMEOUT
+    tconf.NEW_VIEW_TIMEOUT = 10
     yield tconf
-    tconf.VIEW_CHANGE_TIMEOUT = old_view_change_timeout
-    tconf.MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE = old_catchup_timeout
+    tconf.NEW_VIEW_TIMEOUT = old_view_change_timeout
 
 
 def test_view_change_can_finish_despite_perpetual_catchup(txnPoolNodeSet, looper, tconf):

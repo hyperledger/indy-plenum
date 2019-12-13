@@ -5,16 +5,13 @@ from plenum.test.test_node import checkProtocolInstanceSetup, getRequiredInstanc
     checkNodesConnected
 from plenum.test import waits
 
-VIEW_CHANGE_TIMEOUT = 10
 
-
-def test_view_change_without_primary(txnPoolNodeSet, looper,
-                                     patched_view_change_timeout):
+def test_view_change_without_primary(txnPoolNodeSet, looper, tconf):
     first, others = stop_nodes_and_remove_first(looper, txnPoolNodeSet)
 
     start_and_connect_nodes(looper, others)
 
-    timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + patched_view_change_timeout
+    timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + tconf.NEW_VIEW_TIMEOUT
 
     # looper.runFor(40)
 
@@ -36,13 +33,3 @@ def start_and_connect_nodes(looper, nodes):
     for n in nodes:
         n.start(looper.loop)
     looper.run(checkNodesConnected(nodes))
-
-
-@pytest.fixture(scope='function')
-def patched_view_change_timeout(txnPoolNodeSet):
-    old_view_change_timeout = txnPoolNodeSet[0]._view_change_timeout
-    for node in txnPoolNodeSet:
-        node._view_change_timeout = VIEW_CHANGE_TIMEOUT
-    yield VIEW_CHANGE_TIMEOUT
-    for node in txnPoolNodeSet:
-        node._view_change_timeout = old_view_change_timeout

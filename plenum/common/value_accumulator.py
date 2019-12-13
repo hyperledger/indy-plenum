@@ -1,6 +1,6 @@
 import math
 import struct
-from numbers import Real, Number
+from numbers import Real
 from typing import List, Union, Optional
 
 
@@ -135,8 +135,7 @@ class ValueAccumulator:
         return a, b
 
     def _sum_to_str(self, mul: float, units: Optional[str]):
-        return "{} samples, {:.2f} {}".format(self.count, self.sum * mul, units,
-                                              "{} total".format(units) if units else "sum")
+        return "{} samples, {:.2f} {}".format(self.count, self.sum * mul, "{} total".format(units) if units else "sum")
 
     def _stats_to_str(self, mul: float, units: Optional[str]):
         return "{:.2f}/{:.2f}/{:.2f} {}min/avg/max, {:.2f} stddev".format(

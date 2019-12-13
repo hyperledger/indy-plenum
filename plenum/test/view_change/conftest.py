@@ -79,7 +79,6 @@ def fake_node(tdir, tconf, request):
     node.msgHasAcceptableViewNo = Node.msgHasAcceptableViewNo
     node._is_initial_view_change_now = functools.partial(Node._is_initial_view_change_now, node)
     node.msgsForFutureViews = {}
-    node.msgsToViewChanger = deque()
     node.set_view_for_replicas = lambda a: None
     node.master_replica._consensus_data.view_no = request.param
     node.last_completed_view_no = request.param

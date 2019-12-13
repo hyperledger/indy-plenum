@@ -6,6 +6,7 @@ from plenum.common.txn_util import do_req_to_txn
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 
 DEFAULT_PRIMARIES = ['Alpha', 'Beta']
+DEFAULT_NODE_REG = ['Alpha', 'Beta', 'Gamma', 'Delta']
 
 def check_audit_ledger_updated(audit_size_initial, nodes, audit_txns_added):
     audit_size_after = [node.auditLedger.size for node in nodes]
@@ -20,7 +21,7 @@ def check_audit_txn(txn,
                     txn_roots, state_roots,
                     pool_size, domain_size, config_size,
                     last_domain_seqno, last_pool_seqno, last_config_seqno,
-                    primaries, other_sizes={}):
+                    primaries, node_reg, digest='', other_sizes={}):
     expectedLedgerRoots = {}
     txn_roots = {k: Ledger.hashToStr(v) for k, v in txn_roots.items()}
     state_roots = {k: Ledger.hashToStr(v) for k, v in state_roots.items()}
@@ -50,8 +51,8 @@ def check_audit_txn(txn,
                 "ppSeqNo": pp_seq_no,
                 "ledgerSize": ledger_size,
                 "stateRoot": state_roots,
-                "primaries": primaries
-
+                "primaries": primaries,
+                "digest": digest,
             },
             "metadata": {
             },
@@ -65,6 +66,8 @@ def check_audit_txn(txn,
 
         "ver": "1"
     }
+    if node_reg is not None:
+        expected["txn"]["data"]["nodeReg"] = node_reg
     txn = JsonSerializer().serialize(txn)
     expected = JsonSerializer().serialize(expected)
     print(txn)
@@ -76,7 +79,7 @@ def do_apply_audit_txn(alh,
                        txns_count, ledger_id,
                        view_no, pp_sq_no, txn_time,
                        has_audit_txn=True,
-                       original_view_no=None):
+                       original_view_no=None, digest='', nod_reg=DEFAULT_NODE_REG):
     db_manager = alh.database_manager
     add_txns(db_manager, ledger_id, txns_count, txn_time)
     three_pc_batch = ThreePcBatch(ledger_id=ledger_id,
@@ -88,6 +91,8 @@ def do_apply_audit_txn(alh,
                                   txn_root=db_manager.get_ledger(ledger_id).uncommitted_root_hash,
                                   primaries=DEFAULT_PRIMARIES,
                                   valid_digests=[],
+                                  pp_digest=digest,
+                                  node_reg=nod_reg,
                                   has_audit_txn=has_audit_txn,
                                   original_view_no=original_view_no)
     alh.post_batch_applied(three_pc_batch)

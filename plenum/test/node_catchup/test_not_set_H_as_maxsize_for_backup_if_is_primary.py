@@ -1,10 +1,13 @@
-import sys
 import pytest
 
+from plenum.test.delayers import delay_3pc
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import start_stopped_node, ensure_view_change
+from stp_core.loop.eventually import eventually
+
 
 Max3PCBatchSize = 1
 CHK_FREQ = 5
@@ -26,36 +29,46 @@ def tconf(tconf):
     tconf.CHK_FREQ = old_chk_freq
 
 
-
 def test_set_H_as_maxsize_for_backup_if_is_primary(looper,
-                                                       txnPoolNodeSet,
-                                                       sdk_pool_handle,
-                                                       sdk_wallet_steward,
-                                                       tconf,
-                                                       tdir,
-                                                       allPluginsPath):
+                                                   txnPoolNodeSet,
+                                                   sdk_pool_handle,
+                                                   sdk_wallet_steward,
+                                                   tconf,
+                                                   tdir,
+                                                   allPluginsPath):
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
     primary_on_backup = txnPoolNodeSet[2]
     assert primary_on_backup.replicas._replicas[1].isPrimary
-    disconnect_node_and_ensure_disconnected(looper,
-                                            txnPoolNodeSet,
-                                            primary_on_backup,
-                                            stopNode=True)
+
+    # Stop Node
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, primary_on_backup, stopNode=True)
+    txnPoolNodeSet.remove(primary_on_backup)
     looper.removeProdable(primary_on_backup)
-    sdk_send_random_and_check(looper,
-                              txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_steward,
-                              LOG_SIZE)
-    restarted_node = start_stopped_node(primary_on_backup,
-                                        looper,
-                                        tconf,
-                                        tdir,
-                                        allPluginsPath)
-    txnPoolNodeSet[2] = restarted_node
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.VIEW_CHANGE_TIMEOUT)
-    # Gamma catchup 1 txn
-    assert restarted_node.replicas._replicas[1].isPrimary
-    assert restarted_node.replicas._replicas[1].h == 0
-    assert restarted_node.replicas._replicas[1].H == sys.maxsize
+
+    # Start stopped Node
+    primary_on_backup = start_stopped_node(primary_on_backup, looper, tconf, tdir, allPluginsPath)
+
+    # Delay 3PC messages so that when restarted node does not have them ordered
+    with delay_rules(primary_on_backup.nodeIbStasher, delay_3pc()):
+        txnPoolNodeSet.append(primary_on_backup)
+
+        ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=tconf.NEW_VIEW_TIMEOUT)
+
+        sdk_send_random_and_check(looper,
+                                  txnPoolNodeSet,
+                                  sdk_pool_handle,
+                                  sdk_wallet_steward,
+                                  LOG_SIZE)
+
+        # Check restored state
+        assert primary_on_backup.replicas._replicas[1].isPrimary
+        assert primary_on_backup.replicas._replicas[1].h == 1
+        assert primary_on_backup.replicas._replicas[1].H == 1 + LOG_SIZE
+
+    def chk():
+        assert primary_on_backup.replicas._replicas[1].h == LOG_SIZE
+        assert primary_on_backup.replicas._replicas[1].H == LOG_SIZE + LOG_SIZE
+
+    # Check caught-up state
+    looper.run(eventually(chk, retryWait=.2, timeout=tconf.NEW_VIEW_TIMEOUT))

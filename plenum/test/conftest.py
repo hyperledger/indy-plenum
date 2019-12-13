@@ -231,8 +231,7 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    "VIEW_CHANGE_TIMEOUT": 60,
-    "MIN_TIMEOUT_CATCHUPS_DONE_DURING_VIEW_CHANGE": 15,
+    "NEW_VIEW_TIMEOUT": 10,
     "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60,
     "ToleratePrimaryDisconnection": 2,
     "UPDATE_STATE_FRESHNESS": True,
@@ -399,7 +398,6 @@ def _tconf(general_config):
 @pytest.fixture(scope="module")
 def tconf(general_conf_tdir):
     conf = _tconf(general_conf_tdir)
-    conf.Max3PCBatchWait = 2
     return conf
 
 
@@ -1021,6 +1019,7 @@ def create_node_and_not_start(testNodeClass,
                                 tconf,
                                 tdir,
                                 allPluginsPath))
+        node.write_manager.on_catchup_finished()
         yield node
         node.stop()
 

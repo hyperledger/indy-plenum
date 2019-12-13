@@ -371,8 +371,10 @@ class Base58Field(FieldBase):
             # TODO could impact performance, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
-                return 'b58 decoded value length {} should be one of {}' \
-                    .format(b58len, list(self.byte_lengths))
+                expected_length = list(self.byte_lengths)[0] if len(self.byte_lengths) == 1 \
+                    else 'one of {}'.format(list(self.byte_lengths))
+                return 'b58 decoded value length {} should be {}' \
+                    .format(b58len, expected_length)
 
 
 class IdentifierField(Base58Field):
@@ -707,6 +709,11 @@ class ProtocolVersionField(FieldBase):
 class BatchIDField(FieldBase):
     _base_types = (list, tuple, dict)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._validate_non_negative_number_field = NonNegativeNumberField().validate
+        self._validate_non_empty_string_field = NonEmptyStringField().validate
+
     def _specific_validation(self, val):
         if len(val) != 4:
             return 'should have size of 4'
@@ -717,11 +724,11 @@ class BatchIDField(FieldBase):
         else:
             bid = BatchID(*val)
 
-        for validator, value in ((NonNegativeNumberField().validate, bid.view_no),
-                                 (NonNegativeNumberField().validate, bid.pp_view_no),
-                                 (NonNegativeNumberField().validate, bid.pp_seq_no),
-                                 (NonEmptyStringField().validate, bid.pp_digest)):
-            err = validator(value)
+        for validate, value in ((self._validate_non_negative_number_field, bid.view_no),
+                                (self._validate_non_negative_number_field, bid.pp_view_no),
+                                (self._validate_non_negative_number_field, bid.pp_seq_no),
+                                (self._validate_non_empty_string_field, bid.pp_digest)):
+            err = validate(value)
             if err:
                 return err
 

@@ -6,7 +6,8 @@ from plenum.common.request import Request
 
 from plenum.common.messages.node_messages import Propagate, PrePrepare, Prepare, Commit, Checkpoint, InstanceChange, \
     LedgerStatus, \
-    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState, NewView
+    ConsistencyProof, CatchupReq, CatchupRep, ViewChangeDone, MessageReq, MessageRep, CurrentState, NewView, \
+    ViewChange, OldViewPrePrepareRequest
 from plenum.common.constants import OP_FIELD_NAME, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.types import f
 from plenum.common.util import getCallableName
@@ -120,6 +121,10 @@ def nv_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
     return delayerMsgTuple(delay, NewView, viewFilter=viewNo)
 
 
+def vc_delay(delay: float = DEFAULT_DELAY, view_no: int = None):
+    return delayerMsgTuple(delay, ViewChange, viewFilter=view_no)
+
+
 def cs_delay(delay: float = DEFAULT_DELAY):
     # Delayer of CURRENT_STATE requests
     return delayerMsgTuple(delay, CurrentState)
@@ -148,6 +153,11 @@ def cqDelay(delay: float = DEFAULT_DELAY):
 def cr_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
     # Delayer of CATCHUP_REP requests
     return delayerMsgTuple(delay, CatchupRep, ledgerFilter=ledger_filter)
+
+
+def old_view_pp_request_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
+    # Delayer of OldViewPrePrepareRequest
+    return delayerMsgTuple(delay, OldViewPrePrepareRequest, ledgerFilter=ledger_filter)
 
 
 def req_delay(delay: float = DEFAULT_DELAY):

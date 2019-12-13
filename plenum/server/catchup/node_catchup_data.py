@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple, Any, Optional, Callable, Iterable
+from typing import List, Any, Optional, Callable, Iterable
 
 from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.ledger import Ledger

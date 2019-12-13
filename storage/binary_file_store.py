@@ -1,6 +1,4 @@
-import logging
 import os
-from itertools import chain
 
 from storage.kv_store_single_file import SingleFileStore
 

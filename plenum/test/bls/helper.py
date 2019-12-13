@@ -4,6 +4,7 @@ import base58
 import os
 
 from crypto.bls.bls_crypto import BlsCryptoVerifier
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, reqToTxn, get_payload_data
@@ -114,7 +115,7 @@ def calculate_multi_sig(creator, bls_bft_with_commits, quorums, pre_prepare):
     if not creator._can_calculate_multi_sig(key, quorums):
         return None
 
-    return creator._calculate_multi_sig(key, pre_prepare)
+    return creator._calculate_all_multi_sigs(key, pre_prepare)[0]
 
 
 def sdk_change_bls_key(looper, txnPoolNodeSet,
@@ -158,7 +159,7 @@ def check_bls_key(blskey, node, nodes, add_wrong=False):
     '''
     keys = set()
     for n in nodes:
-        keys.add(n.bls_bft.bls_key_register.get_key_by_name(node.name))
+        keys.add(IndyCryptoBlsUtils.bls_to_str(n.bls_bft.bls_key_register.get_key_by_name(node.name)))
     assert len(keys) == 1
     if not add_wrong:
         assert blskey == next(iter(keys))
@@ -166,7 +167,7 @@ def check_bls_key(blskey, node, nodes, add_wrong=False):
     # check that this node has correct blskey
     if not add_wrong:
         assert node.bls_bft.can_sign_bls()
-        assert blskey == node.bls_bft.bls_crypto_signer.pk
+        assert blskey == IndyCryptoBlsUtils.bls_to_str(node.bls_bft.bls_crypto_signer.pk)
     else:
         assert not node.bls_bft.can_sign_bls()
 

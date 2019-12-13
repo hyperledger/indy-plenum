@@ -1,7 +1,7 @@
 import pytest
 from plenum.test.helper import sdk_send_random_and_check
 
-from plenum.test.delayers import ppgDelay
+from plenum.test.delayers import ppgDelay, req_delay
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -9,7 +9,8 @@ from plenum.test.test_node import getNonPrimaryReplicas
 @pytest.fixture(scope='function')
 def setup(txnPoolNodeSet):
     faulty_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[1].node
-    faulty_node.nodeIbStasher.delay(ppgDelay(90))
+    faulty_node.nodeIbStasher.delay(ppgDelay())
+    faulty_node.clientIbStasher.delay(req_delay())
     return faulty_node
 
 

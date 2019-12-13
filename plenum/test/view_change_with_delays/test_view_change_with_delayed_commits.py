@@ -19,7 +19,6 @@ def tconf(tconf):
         yield tconf
 
 
-@pytest.mark.skip(reason="INDY-1303, case 2 (simplified)")
 def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
                                           sdk_pool_handle,
                                           sdk_wallet_client,
@@ -30,4 +29,4 @@ def test_view_change_with_delayed_commits(txnPoolNodeSet, looper,
                                                           looper, sdk_pool_handle, sdk_wallet_client)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    # sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

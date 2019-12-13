@@ -6,6 +6,7 @@ from crypto.bls.bls_bft import BlsBft
 from plenum.bls.bls_bft_factory import create_default_bls_bft_factory
 from plenum.common.metrics_collector import MetricsCollector, NullMetricsCollector
 from plenum.common.util import SortedDict
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.monitor import Monitor
 from plenum.server.replica import Replica
 from stp_core.common.log import getlogger
@@ -162,12 +163,12 @@ class Replicas:
 
     @property
     def primary_name_by_inst_id(self) -> dict:
-        return {r.instId: r.primaryName.split(":", maxsplit=1)[0] if r.primaryName else None
+        return {r.instId: replica_name_to_node_name(r.primaryName)
                 for r in self._replicas.values()}
 
     @property
     def inst_id_by_primary_name(self) -> dict:
-        return {r.primaryName.split(":", maxsplit=1)[0]: r.instId
+        return {replica_name_to_node_name(r.primaryName): r.instId
                 for r in self._replicas.values() if r.primaryName}
 
     def register_new_ledger(self, ledger_id):
@@ -220,7 +221,7 @@ class Replicas:
                 str_commits = ', '.join(commits)
 
             # get txn content
-            content = replica.requests[reqId].finalised.as_dict \
+            content = replica.requests[reqId].request.as_dict \
                 if reqId in replica.requests else 'no content saved'
 
             logger.warning('Consensus for digest {} was not achieved within {} seconds. '
@@ -230,7 +231,7 @@ class Replicas:
                            'Received {} valid Commits from {}. '
                            'Transaction contents: {}. '
                            .format(reqId, duration,
-                                   replica.primaryName.split(':')[0] if replica.primaryName is not None else None,
+                                   replica_name_to_node_name(replica.primaryName),
                                    prepre_sender,
                                    n_prepares, str_prepares, n_commits, str_commits, content))
 

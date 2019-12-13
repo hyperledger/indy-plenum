@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.startable import Mode
 from plenum.test.delayers import icDelay
 from plenum.test.stasher import delay_rules
 
@@ -13,7 +14,7 @@ from stp_core.loop.eventually import eventually
 nodeCount = 6
 
 
-@pytest.mark.skip(reason="INDY-2223: Temporary skipped to create build")
+@pytest.mark.skip(reason="INDY-2276. Issue with adding node that will change f value")
 def test_audit_ledger_view_change(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                   initial_domain_size, initial_pool_size, initial_config_size,
@@ -77,8 +78,10 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
 
         assert ordereds
         monkeypatch.setattr(slow_node, 'force_process_ordered', patch_force_process_ordered)
+        for n in txnPoolNodeSet:
+            n.start_catchup()
+        looper.run(eventually(lambda nodes: assertExp(all([n.mode == Mode.participating for n in nodes])), txnPoolNodeSet))
 
-    looper.run(eventually(lambda: assertExp(all(n.viewNo == 1 for n in txnPoolNodeSet))))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     looper.run(eventually(lambda: assertExp(not ordereds)))
 
@@ -100,7 +103,8 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
                         last_pool_seqno=2,
                         last_domain_seqno=1,
                         last_config_seqno=None,
-                        primaries=node.write_manager.future_primary_handler.get_last_primaries() or node.primaries)
+                        primaries=node.primaries,
+                        node_reg=[n.name for n in txnPoolNodeSet])
 
 
 def check_audit_ledger_uncommitted_updated(audit_size_initial, nodes, audit_txns_added):

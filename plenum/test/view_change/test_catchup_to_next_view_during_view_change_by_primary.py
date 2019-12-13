@@ -9,12 +9,12 @@ from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkProtocolInstanceSetup, ensureElectionsDone
 
 nodeCount = 7
-VIEW_CHANGE_TIMEOUT = 5
+NEW_VIEW_TIMEOUT = 5
 
 
 @pytest.fixture(scope="module")
 def tconf(tconf):
-    with view_change_timeout(tconf, VIEW_CHANGE_TIMEOUT):
+    with view_change_timeout(tconf, NEW_VIEW_TIMEOUT):
         yield tconf
 
 
@@ -43,7 +43,7 @@ def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, loop
             waitForViewChange(looper,
                               other_nodes,
                               expectedViewNo=initial_view_no + 2,
-                              customTimeout=30)
+                              customTimeout=40)
             checkProtocolInstanceSetup(looper=looper, nodes=other_nodes, instances=range(3))
             ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 

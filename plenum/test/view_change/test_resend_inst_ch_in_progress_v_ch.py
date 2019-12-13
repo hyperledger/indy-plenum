@@ -15,15 +15,12 @@ nodeCount = 7
 
 @pytest.fixture(scope='module')
 def tconf(tconf):
-    old_value_v_ch = tconf.VIEW_CHANGE_TIMEOUT
-    old_value_i_ch = tconf.INSTANCE_CHANGE_RESEND_TIMEOUT
+    old_value_v_ch = tconf.NEW_VIEW_TIMEOUT
     old_value_freshness = tconf.STATE_FRESHNESS_UPDATE_INTERVAL
-    tconf.VIEW_CHANGE_TIMEOUT = 10
-    tconf.INSTANCE_CHANGE_RESEND_TIMEOUT = 10
+    tconf.NEW_VIEW_TIMEOUT = 10
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = 10
     yield tconf
-    tconf.VIEW_CHANGE_TIMEOUT = old_value_v_ch
-    tconf.INSTANCE_CHANGE_RESEND_TIMEOUT = old_value_i_ch
+    tconf.NEW_VIEW_TIMEOUT = old_value_v_ch
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_value_freshness
 
 
@@ -41,13 +38,13 @@ def test_resend_inst_ch_in_progress_v_ch(txnPoolNodeSet, looper, sdk_pool_handle
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet[:-1]]
     with delay_rules_without_processing(stashers, icDelay(viewNo=2)):
         ensure_view_change(looper, txnPoolNodeSet)
-        looper.runFor(tconf.VIEW_CHANGE_TIMEOUT + 1)
+        looper.runFor(tconf.NEW_VIEW_TIMEOUT + 1)
 
     # checks
     def checks():
         assert all(not node.view_change_in_progress for node in txnPoolNodeSet)
         assert all(node.viewNo == old_view + 2 for node in txnPoolNodeSet)
 
-    looper.run(eventually(checks, timeout=tconf.INSTANCE_CHANGE_RESEND_TIMEOUT * 1.5, retryWait=1))
+    looper.run(eventually(checks, timeout=tconf.NEW_VIEW_TIMEOUT * 2.5, retryWait=1))
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

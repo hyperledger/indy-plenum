@@ -24,13 +24,9 @@ txnCount = 5
 @pytest.fixture(scope="module")
 def tconf(tconf):
     oldMax3PCBatchSize = tconf.Max3PCBatchSize
-    oldMax3PCBatchWait = tconf.Max3PCBatchWait
     tconf.Max3PCBatchSize = txnCount
-    tconf.Max3PCBatchWait = 2
     yield tconf
-
     tconf.Max3PCBatchSize = oldMax3PCBatchSize
-    tconf.Max3PCBatchWait = oldMax3PCBatchWait
 
 
 # TODO: This test passes but it is observed that PREPAREs are not received at

@@ -59,7 +59,9 @@ def test_process_ordered(message_req_service: MessageReqService, internal_bus, d
         pp.txnRootHash,
         pp.auditTxnRootHash,
         ["Alpha", "Beta"],
-        view_no
+        ["Alpha", "Beta", "Gamma", "Delta"],
+        view_no,
+        'digest'
     ]
     msg = Ordered(*ord_args)
     internal_bus.send(msg)

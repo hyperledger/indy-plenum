@@ -1,23 +1,8 @@
-import pytest
-
 from plenum.common.messages.internal_messages import NeedViewChange, NewViewCheckpointsApplied
 from plenum.common.startable import Mode
-from plenum.server.future_primaries_batch_handler import FuturePrimariesBatchHandler
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_WAITING_VIEW_CHANGE
 from plenum.test.consensus.helper import create_new_view
 from plenum.test.helper import create_commit_no_bls_sig
-from plenum.test.testing_utils import FakeSomething
-
-
-@pytest.fixture
-def replica_service(replica_service):
-    write_manager = replica_service._write_manager
-    future_primaries_handler = FuturePrimariesBatchHandler(write_manager.database_manager,
-                                                           FakeSomething(nodeReg={},
-                                                                         nodeIds=[]))
-    future_primaries_handler._get_primaries = lambda *args, **kwargs: replica_service._data.primaries
-    write_manager.register_batch_handler(future_primaries_handler)
-    return replica_service
 
 
 def test_unstash_future_view_on_need_view_change(external_bus, internal_bus,

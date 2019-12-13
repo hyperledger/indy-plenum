@@ -5,7 +5,8 @@ import base58
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
-from plenum.server.consensus.primary_selector import RoundRobinPrimariesSelector
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
 
 from plenum.server.propagator import Requests
@@ -60,11 +61,13 @@ class FakeNode:
         self.totalNodes = len(self.allNodeNames)
         self.poolManager = FakeSomething(node_names_ordered_by_rank=lambda: node_names)
         self.mode = Mode.starting
+        self.monitor = FakeSomething(isMasterDegraded=lambda: False)
         self.config = config or getConfigOnce()
         self.nodeStatusDB = None
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
         self.write_manager = FakeSomething()
+        self.primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
             1: Replica(node=self, instId=1, isMaster=False, config=self.config),
@@ -79,11 +82,9 @@ class FakeNode:
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
         self.view_changer = create_view_changer(self)
-        self.primaries_selector = RoundRobinPrimariesSelector()
         self.metrics = NullMetricsCollector()
 
         # For catchup testing
-        self.catchup_rounds_without_txns = 0
         self.view_change_in_progress = False
         self.ledgerManager.last_caught_up_3PC = (0, 0)
         self.master_last_ordered_3PC = (0, 0)
@@ -116,7 +117,7 @@ class FakeNode:
     def master_primary_name(self) -> Optional[str]:
         nm = self.replicas[0].primaryName
         if nm:
-            return Replica.getNodeName(nm)
+            return replica_name_to_node_name(nm)
 
     @property
     def master_replica(self):

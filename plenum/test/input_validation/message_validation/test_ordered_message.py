@@ -3,7 +3,7 @@ import pytest
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, IterableField, TimestampField, HexField, MerkleRootField, \
-    AnyValueField, AnyMapField, SerializedValueField
+    AnyValueField, AnyMapField, SerializedValueField, LimitedLengthStringField
 from plenum.common.messages.node_messages import Ordered
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
@@ -18,7 +18,9 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("txnRootHash", MerkleRootField),
     ("auditTxnRootHash", MerkleRootField),
     ("primaries", IterableField),
+    ("nodeReg", IterableField),
     ("originalViewNo", NonNegativeNumberField),
+    ("digest", LimitedLengthStringField),
     ('plugin_fields', AnyMapField)
 ])
 

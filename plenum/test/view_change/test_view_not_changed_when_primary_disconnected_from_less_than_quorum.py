@@ -4,8 +4,14 @@ import pytest
 
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
+from plenum.test.view_change.helper import node_received_instance_changes_count
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+
+
+def node_primary_disconnected_calls(node):
+    pcm_service = node.master_replica._primary_connection_monitor_service
+    return pcm_service.spylog.count(pcm_service._primary_disconnected)
 
 
 def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
@@ -19,12 +25,10 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
     partitioned_rep = npr[0]
     partitioned_node = partitioned_rep.node
 
-    lost_pr_calls = partitioned_node.spylog.count(
-        partitioned_node.lost_master_primary.__name__)
+    primary_disconnected_calls = node_primary_disconnected_calls(partitioned_node)
 
-    recv_inst_chg_calls = {node.name: node.spylog.count(
-        node.view_changer.process_instance_change_msg.__name__) for node in txnPoolNodeSet
-        if node != partitioned_node and node != pr_node}
+    recv_inst_chg_calls = {node.name: node_received_instance_changes_count(node) for node in txnPoolNodeSet
+                           if node != partitioned_node and node != pr_node}
 
     view_no = checkViewNoForNodes(txnPoolNodeSet)
 
@@ -44,12 +48,10 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
         # Check that the partitioned node detects losing connection with
         # primary and sends an instance change which is received by other
         # nodes except the primary (since its disconnected from primary)
-        assert partitioned_node.spylog.count(
-            partitioned_node.lost_master_primary.__name__) > lost_pr_calls
+        assert node_primary_disconnected_calls(partitioned_node) > primary_disconnected_calls
         for node in txnPoolNodeSet:
             if node != partitioned_node and node != pr_node:
-                assert node.view_changer.spylog.count(
-                    node.view_changer.process_instance_change_msg.__name__) > recv_inst_chg_calls[node.name]
+                assert node_received_instance_changes_count(node) > recv_inst_chg_calls[node.name]
 
     looper.run(eventually(chk1, retryWait=1, timeout=10))
 

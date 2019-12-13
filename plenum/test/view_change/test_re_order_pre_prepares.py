@@ -2,8 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewCheckpointsApplied
-from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
-from plenum.server.consensus.ordering_service_msg_validator import OrderingServiceMsgValidator
+from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.delayers import cDelay, pDelay
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -19,11 +18,6 @@ def tconf(tconf):
 
 def test_re_order_pre_prepares(looper, txnPoolNodeSet,
                                sdk_wallet_client, sdk_pool_handle):
-    # 0. use new 3PC validator
-    for n in txnPoolNodeSet:
-        ordering_service = n.master_replica._ordering_service
-        ordering_service._validator = OrderingServiceMsgValidator(ordering_service._data)
-
     # 1. drop Prepares and Commits on 4thNode
     # Order a couple of requests on Nodes 1-3
     lagging_node = txnPoolNodeSet[-1]

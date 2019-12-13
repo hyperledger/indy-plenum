@@ -4,6 +4,8 @@ from plenum.common.constants import PREPREPARE
 from plenum.test.delayers import ppDelay, msg_rep_delay
 from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_request
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import check_prepare_certificate
@@ -36,3 +38,6 @@ def test_view_change_with_different_prepare_certificate(looper, txnPoolNodeSet,
             assert slow_node.master_replica._ordering_service.l_last_prepared_certificate_in_view() == \
                    (0, last_ordered[1])
             ensureElectionsDone(looper, txnPoolNodeSet)
+
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

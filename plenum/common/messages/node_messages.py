@@ -1,26 +1,22 @@
-from collections import OrderedDict
 from typing import TypeVar, NamedTuple, Dict
 
-from plenum.common.constants import NOMINATE, BATCH, REELECTION, PRIMARY, \
-    BLACKLIST, REQACK, REQNACK, REJECT, \
-    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, \
-    CHECKPOINT, THREE_PC_STATE, CHECKPOINT_STATE, \
-    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
-    CATCHUP_REP, VIEW_CHANGE_DONE, CURRENT_STATE, \
-    MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, \
-    BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE, VIEW_CHANGE, VIEW_CHANGE_ACK, \
-    NEW_VIEW, OLD_VIEW_PREPREPARE_REQ, OLD_VIEW_PREPREPARE_REP
+from plenum.common.constants import BATCH, BLACKLIST, REQACK, REQNACK, REJECT, \
+    POOL_LEDGER_TXNS, ORDERED, PROPAGATE, PREPREPARE, PREPARE, COMMIT, CHECKPOINT, \
+    REPLY, INSTANCE_CHANGE, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, \
+    VIEW_CHANGE_DONE, CURRENT_STATE, MESSAGE_REQUEST, MESSAGE_RESPONSE, OBSERVED_DATA, \
+    BATCH_COMMITTED, OPERATION_SCHEMA_IS_STRICT, BACKUP_INSTANCE_FAULTY, VIEW_CHANGE_START, \
+    PROPOSED_VIEW_NO, VIEW_CHANGE_CONTINUE, VIEW_CHANGE, VIEW_CHANGE_ACK, NEW_VIEW, \
+    OLD_VIEW_PREPREPARE_REQ, OLD_VIEW_PREPREPARE_REP
 from plenum.common.messages.client_request import ClientMessageValidator
 from plenum.common.messages.fields import NonNegativeNumberField, IterableField, \
-    SerializedValueField, SignatureField, TieAmongField, AnyValueField, TimestampField, \
+    SerializedValueField, SignatureField, AnyValueField, TimestampField, \
     LedgerIdField, MerkleRootField, Base58Field, LedgerInfoField, AnyField, ChooseField, AnyMapField, \
     LimitedLengthStringField, BlsMultiSignatureField, ProtocolVersionField, BooleanField, \
-    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField, FieldValidator
-from plenum.common.messages.message_base import \
-    MessageBase, MessageValidator
+    IntegerField, BatchIDField, ViewChangeField, MapField, StringifiedNonNegativeNumberField
+from plenum.common.messages.message_base import MessageBase
 from plenum.common.types import f
 from plenum.config import NAME_FIELD_LIMIT, DIGEST_FIELD_LIMIT, SENDER_CLIENT_FIELD_LIMIT, HASH_FIELD_LIMIT, \
-    SIGNATURE_FIELD_LIMIT, TIE_IDR_FIELD_LIMIT, BLS_SIG_LIMIT
+    SIGNATURE_FIELD_LIMIT, BLS_SIG_LIMIT
 
 
 # TODO set of classes are not hashable but MessageBase expects that
@@ -99,7 +95,10 @@ class Ordered(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.NODE_REG.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
         (f.PLUGIN_FIELDS.nm, AnyMapField(optional=True, nullable=True))
     )
 
@@ -459,7 +458,7 @@ class MessageReq(MessageBase):
     Purpose: ask node for any message
     """
     allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE, PREPARE,
-                     COMMIT, PROPAGATE, VIEW_CHANGE}
+                     COMMIT, PROPAGATE, VIEW_CHANGE, NEW_VIEW}
     typename = MESSAGE_REQUEST
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
@@ -512,7 +511,10 @@ class BatchCommitted(MessageBase):
         (f.AUDIT_TXN_ROOT_HASH.nm, MerkleRootField(nullable=True)),
         (f.PRIMARIES.nm, IterableField(LimitedLengthStringField(
             max_length=NAME_FIELD_LIMIT))),
+        (f.NODE_REG.nm, IterableField(LimitedLengthStringField(
+            max_length=NAME_FIELD_LIMIT))),
         (f.ORIGINAL_VIEW_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, LimitedLengthStringField(max_length=DIGEST_FIELD_LIMIT)),
     )
 
 
