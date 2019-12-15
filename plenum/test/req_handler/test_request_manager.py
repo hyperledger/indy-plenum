@@ -12,7 +12,7 @@ from common.exceptions import LogicError
 from plenum.common.request import Request
 from plenum.common.util import randomString
 from plenum.common.constants import TARGET_NYM, NODE, DOMAIN_LEDGER_ID, TXN_PAYLOAD, TXN_PAYLOAD_TYPE, \
-    TXN_METADATA_TIME, TXN_METADATA, TXN_TYPE, CURRENT_TXN_VERSION, TXN_VERSION
+    TXN_METADATA_TIME, TXN_METADATA, TXN_TYPE, CURRENT_TXN_VERSIONS, TXN_VERSION
 
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.request_handlers.node_handler import NodeHandler
@@ -227,7 +227,7 @@ def test_write_request_manager_restore_state(write_req_manager: WriteRequestMana
     version = "version1"
     txn = {TXN_PAYLOAD: {TXN_PAYLOAD_TYPE: txn_type},
            TXN_METADATA: {TXN_METADATA_TIME: 0},
-           TXN_VERSION: CURRENT_TXN_VERSION}
+           TXN_VERSION: CURRENT_TXN_VERSIONS["txn_type"]}
     write_req_manager.register_req_handler(handler_current)
     write_req_manager.register_req_handler_with_version(handler_prev_version, version)
 

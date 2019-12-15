@@ -3,7 +3,7 @@ import pytest
 from common.exceptions import LogicError
 from plenum.common.constants import TXN_TYPE, TXN_PAYLOAD, TXN_PAYLOAD_METADATA, TXN_PAYLOAD_METADATA_DIGEST, \
     TXN_PAYLOAD_TYPE, TXN_PAYLOAD_DATA, TXN_PAYLOAD_METADATA_REQ_ID, TXN_METADATA, TXN_METADATA_SEQ_NO, \
-    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, CURRENT_TXN_VERSION, TXN_VERSION
+    TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, CURRENT_TXN_VERSIONS, TXN_VERSION
 from plenum.common.request import Request
 from plenum.test.testing_utils import FakeSomething
 
@@ -29,7 +29,7 @@ def test_seq_no_db_updates(test_node):
         TXN_METADATA: {
             TXN_METADATA_SEQ_NO: "1"
         },
-        TXN_VERSION: CURRENT_TXN_VERSION
+        TXN_VERSION: CURRENT_TXN_VERSIONS["2"]
     }
 
     test_node.postTxnFromCatchupAddedToLedger(2, test_txn, False)
@@ -51,7 +51,7 @@ def test_seq_no_db_updates_by_default(test_node):
         TXN_METADATA: {
             TXN_METADATA_SEQ_NO: "1"
         },
-        TXN_VERSION: CURRENT_TXN_VERSION
+        TXN_VERSION: CURRENT_TXN_VERSIONS["2"]
     }
 
     test_node.postTxnFromCatchupAddedToLedger(2, test_txn)

@@ -15,7 +15,7 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
     TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, TXN_TYPE, \
-    TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_TIMESTAMP
+    TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_TIMESTAMP, TXN_AUTHOR_AGREEMENT_DISABLE
 from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
@@ -51,6 +51,12 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str
     else:
         req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
         req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [req])[0]
+
+
+def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
+    operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_DISABLE}
+    req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
     return sdk_get_and_check_replies(looper, [req])[0]
 
 

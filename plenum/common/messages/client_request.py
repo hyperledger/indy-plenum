@@ -6,7 +6,8 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION, \
     TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, \
+    TXN_AUTHOR_AGREEMENT_DISABLE
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -81,6 +82,12 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
     )
 
 
+class ClientTxnAuthorAgreementDisableOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_DISABLE)),
+    )
+
+
 class ClientTxnAuthorAgreementOperationAML(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_AML)),
@@ -117,6 +124,7 @@ class ClientOperationField(MessageValidator):
             NYM: ClientNYMOperation(schema_is_strict=strict),
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict),
+            TXN_AUTHOR_AGREEMENT_DISABLE: ClientTxnAuthorAgreementDisableOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict),
             GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict),
             GET_TXN_AUTHOR_AGREEMENT_AML: ClientGetTxnAuthorAgreementAMLOperation(schema_is_strict=strict)

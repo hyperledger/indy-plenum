@@ -12,6 +12,11 @@ from plenum.server.request_handlers.utils import is_trustee
 class StaticTAAHelper:
 
     @staticmethod
+    def state_path_taa_active_list() -> bytes:
+        return "{marker}:active_list". \
+            format(marker=MARKER_TAA).encode()
+
+    @staticmethod
     def state_path_taa_latest() -> bytes:
         return "{marker}:latest". \
             format(marker=MARKER_TAA).encode()
