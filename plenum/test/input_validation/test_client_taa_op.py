@@ -10,7 +10,7 @@ TAA_EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("type", ConstantField),
     ("text", LimitedLengthStringField),
     ("version", LimitedLengthStringField),
-    ("retired", BooleanField),
+    ("retired", NonNegativeNumberField),
 ])
 
 GET_TAA_EXPECTED_ORDERED_FIELDS = OrderedDict([

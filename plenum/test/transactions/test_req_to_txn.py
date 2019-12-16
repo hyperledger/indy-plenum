@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.constants import CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import CURRENT_PROTOCOL_VERSION, CURRENT_TXN_VERSIONS
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.types import OPERATION, f
@@ -96,7 +96,7 @@ def req_and_expected(request, looper, sdk_wallet_client, endorser):
         "txnMetadata": {
             "txnTime": 1513945121,
         },
-        "ver": "2"
+        "ver": CURRENT_TXN_VERSIONS["1"]
 
     })
 

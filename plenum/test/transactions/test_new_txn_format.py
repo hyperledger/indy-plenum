@@ -58,7 +58,7 @@ def old_and_expected(request):
             "seqNo": 143,
             "txnId": "fea82e10e894419fe2bea7d96296a6d46f50f93f9eeda954ec461b2ed2950b62",
         },
-        "ver": "2"
+        "ver": "1"
     })
 
     if request.param == 'sig_only':

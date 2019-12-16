@@ -282,8 +282,6 @@ def test_taa_acceptance_not_allowed_when_disabled(
         validate_taa_acceptance(request_dict)
 
 
-
-#@pytest.mark.skip()
 def test_taa_acceptance_retired(
         tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
         turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
@@ -291,12 +289,9 @@ def test_taa_acceptance_retired(
         looper, sdk_pool_handle, sdk_wallet_trustee, set_txn_author_agreement
 ):
     validate_taa_acceptance(request_dict)
+    set_txn_author_agreement()
     taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version, retired=1)
-    with pytest.raises(
-            validation_error,
-            match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
-    ):
-        validate_taa_acceptance(request_dict)
+    validate_taa_acceptance(request_dict)
 
     taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version)
     validate_taa_acceptance(request_dict)
