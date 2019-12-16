@@ -81,9 +81,6 @@ def test_update_state(txn_author_agreement_handler, taa_request):
     state_value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = None if retired else txn_time
 
     txn_author_agreement_handler.update_state(txn, None, taa_request)
-    print(txn_author_agreement_handler.get_from_state(
-        StaticTAAHelper.state_path_taa_digest(digest)))
-    print((state_value, seq_no, txn_time))
 
     assert txn_author_agreement_handler.get_from_state(
         StaticTAAHelper.state_path_taa_digest(digest)) == (state_value, seq_no, txn_time)
@@ -103,7 +100,6 @@ def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, new_
     payload = get_payload_data(txn)
     text = payload[TXN_AUTHOR_AGREEMENT_TEXT]
     version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
-    retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIRED, False)
     digest = StaticTAAHelper.taa_digest(text, version)
     append_txn_metadata(txn, seq_no, txn_time_first, txn_id)
 
@@ -119,11 +115,7 @@ def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, new_
 
     if new_status:
         state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = new_status
-
     state_value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = txn_time_first
-
-    print(txn_author_agreement_handler.get_from_state(StaticTAAHelper.state_path_taa_digest(digest)))
-    print((state_value, seq_no, txn_time_second))
 
     assert txn_author_agreement_handler.get_from_state(
         StaticTAAHelper.state_path_taa_digest(digest)) == (state_value, seq_no, txn_time_second)

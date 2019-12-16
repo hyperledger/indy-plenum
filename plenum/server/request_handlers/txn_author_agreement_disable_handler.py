@@ -28,9 +28,8 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
         self.authorize(request)
-        _, identifier, req_id = request.operation, request.identifier, request.reqId
         if not self.state.get(StaticTAAHelper.state_path_taa_latest(), isCommitted=False):
-            raise InvalidClientRequest(identifier, req_id,
+            raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Transaction author agreement is already disabled.")
 
     def update_state(self, txn, prev_result, request, is_committed=False):

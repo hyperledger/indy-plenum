@@ -312,7 +312,7 @@ class WriteRequestManager(RequestManager):
             logger.trace(
                 "{} TAA acceptance passed for request {}: "
                 "taa is disabled".format(self, request.reqId)
-                )
+            )
             return
 
         if not request.taaAcceptance:
