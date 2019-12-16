@@ -28,15 +28,13 @@ def domain_state(tconf):
     return state
 
 
-@pytest.fixture(scope="function", params=[1234666, None])
-def taa_request(tconf, domain_state, request):
+@pytest.fixture(scope="function")
+def taa_request(tconf, domain_state):
     identifier = "identifier"
     update_nym(domain_state, identifier, TRUSTEE)
     operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
                  TXN_AUTHOR_AGREEMENT_TEXT: "text",
                  TXN_AUTHOR_AGREEMENT_VERSION: "version{}".format(randomString(5))}
-    if request.param is not None:
-        operation[TXN_AUTHOR_AGREEMENT_RETIRED] = request.param
     return Request(identifier=identifier,
                    signature="sign",
                    operation=operation)

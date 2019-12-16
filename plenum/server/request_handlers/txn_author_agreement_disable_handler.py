@@ -28,7 +28,7 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
     def dynamic_validation(self, request: Request):
         self._validate_request_type(request)
         self.authorize(request)
-        operation, identifier, req_id = request.operation, request.identifier, request.reqId
+        _, identifier, req_id = request.operation, request.identifier, request.reqId
         if not self.state.get(StaticTAAHelper.state_path_taa_latest(), isCommitted=False):
             raise InvalidClientRequest(identifier, req_id,
                                        "Transaction author agreement is already disabled.")
@@ -38,7 +38,7 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
         _, taa_list = self.state.generate_state_proof_for_keys_with_prefix(StaticTAAHelper.state_path_taa_digest(""),
-                                                                        serialize=False, get_value=True)
+                                                                           serialize=False, get_value=True)
         for encode_key, encode_data in taa_list.items():
             # taa = rlp_decode(encode_data)
             # taa = self._decode_state_value(taa[0])[0]

@@ -1,4 +1,6 @@
 import pytest as pytest
+
+from plenum.common.util import get_utc_epoch
 from storage.kv_in_memory import KeyValueStorageInMemory
 
 from common.serializers.serialization import config_state_serializer
@@ -91,7 +93,7 @@ def test_update_state(txn_author_agreement_handler, taa_request):
         StaticTAAHelper.state_path_taa_version(version), isCommitted=False) == digest.encode()
 
 
-@pytest.mark.parametrize("new_status", [True, False])
+@pytest.mark.parametrize("new_status", [get_utc_epoch(), False])
 def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, new_status):
     seq_no = 1
     txn_time_first = 1560241033
@@ -114,21 +116,14 @@ def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, new_
     state_value = {TXN_AUTHOR_AGREEMENT_TEXT: text,
                    TXN_AUTHOR_AGREEMENT_VERSION: version,
                    TXN_AUTHOR_AGREEMENT_DIGEST: digest}
-    taa_time = None
-    if not new_status:
-        taa_time = txn_time_second
-
-    if retired:
-        state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
-    else:
-        taa_time = txn_time_first
 
     if new_status:
         state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = new_status
-    else:
-        state_value.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
 
-    state_value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = taa_time
+    state_value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = txn_time_first
+
+    print(txn_author_agreement_handler.get_from_state(StaticTAAHelper.state_path_taa_digest(digest)))
+    print((state_value, seq_no, txn_time_second))
 
     assert txn_author_agreement_handler.get_from_state(
         StaticTAAHelper.state_path_taa_digest(digest)) == (state_value, seq_no, txn_time_second)

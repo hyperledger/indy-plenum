@@ -138,11 +138,11 @@ def set_txn_author_agreement_aml(
 def set_txn_author_agreement(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
 ):
-    def wrapped(text=None, version=None):
+    def wrapped(text=None, version=None, retired=None):
         random_taa = gen_random_txn_author_agreement()
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
-        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
+        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version, retired)
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return res
 

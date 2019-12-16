@@ -61,10 +61,10 @@ def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
 
 
 def set_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet, text: str, version: str
+        looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: int
 ) -> TaaData:
     reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet, text, version)[1]
+        looper, sdk_pool_handle, sdk_wallet, text, version, retired=retired)[1]
 
     assert reply[OP_FIELD_NAME] == REPLY
     result = reply[f.RESULT.nm]

@@ -230,27 +230,6 @@ def test_taa_acceptance_uses_too_precise_time(
         validate_taa_acceptance(request_dict)
 
 
-#@pytest.mark.skip()
-def test_taa_acceptance_retired(
-        tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
-        turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
-        request_dict, latest_taa, monkeypatch,
-        looper, sdk_pool_handle, sdk_wallet_trustee
-):
-    validate_taa_acceptance(request_dict)
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                  latest_taa.text, latest_taa.version, retired=1)
-    with pytest.raises(
-            validation_error,
-            match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
-    ):
-        validate_taa_acceptance(request_dict)
-
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                  latest_taa.text, latest_taa.version)
-    validate_taa_acceptance(request_dict)
-
-
 def test_taa_acceptance_valid(
     validate_taa_acceptance, validation_error, request_dict
 ):
@@ -284,14 +263,7 @@ def test_taa_acceptance_not_allowed_when_disabled(
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 1
-    with pytest.raises(
-        validation_error,
-        match=(
-            r"Txn Author Agreement acceptance is disabled"
-            " and not allowed in requests"
-        )
-    ):
-        validate_taa_acceptance(request_dict)
+    validate_taa_acceptance(request_dict)
 
     # some invalid TAA acceptance
     request_json = add_taa_acceptance(
@@ -308,3 +280,23 @@ def test_taa_acceptance_not_allowed_when_disabled(
         )
     ):
         validate_taa_acceptance(request_dict)
+
+
+
+#@pytest.mark.skip()
+def test_taa_acceptance_retired(
+        tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
+        turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
+        request_dict, latest_taa, monkeypatch,
+        looper, sdk_pool_handle, sdk_wallet_trustee, set_txn_author_agreement
+):
+    validate_taa_acceptance(request_dict)
+    taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version, retired=1)
+    with pytest.raises(
+            validation_error,
+            match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
+    ):
+        validate_taa_acceptance(request_dict)
+
+    taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version)
+    validate_taa_acceptance(request_dict)
