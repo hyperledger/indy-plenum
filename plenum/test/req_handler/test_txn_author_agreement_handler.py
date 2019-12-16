@@ -19,20 +19,6 @@ from state.state import State
 
 
 @pytest.fixture(scope="function")
-def txn_author_agreement_handler(tconf, domain_state):
-    data_manager = DatabaseManager()
-    handler = TxnAuthorAgreementHandler(data_manager)
-    state = PruningState(KeyValueStorageInMemory())
-    data_manager.register_new_database(handler.ledger_id,
-                                       FakeSomething(),
-                                       state)
-    data_manager.register_new_database(DOMAIN_LEDGER_ID,
-                                       FakeSomething(),
-                                       domain_state)
-    return handler
-
-
-@pytest.fixture(scope="function")
 def set_aml(txn_author_agreement_handler):
     txn_author_agreement_handler.state.set(StaticTAAHelper.state_path_taa_aml_latest(),
                                            encode_state_value("value", "seqNo", "txnTime",

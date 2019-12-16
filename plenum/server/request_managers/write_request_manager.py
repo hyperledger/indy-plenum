@@ -309,18 +309,11 @@ class WriteRequestManager(RequestManager):
                 return
 
         if not self.get_taa_data():
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance has not been set yet"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is not set"
+            logger.trace(
+                    "{} TAA acceptance passed for request {}: taa is disabled"
                     .format(self, request.reqId)
                 )
-                return
+            return
 
         if not request.taaAcceptance:
             raise InvalidClientTaaAcceptanceError(
@@ -340,27 +333,14 @@ class WriteRequestManager(RequestManager):
                 "Incorrect Txn Author Agreement(digest={}) in the request".format(r_taa_a_digest)
             )
 
-        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is disabled"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is disabled"
-                    .format(self, request.reqId)
-                )
-                return
-
         if not taa_digest:
             raise LogicError(
                 "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
                 .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
             )
 
-        if taa.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
+        retired = taa.get(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        if retired and retired < req_pp_time:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
                 "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}"

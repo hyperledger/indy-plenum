@@ -230,7 +230,7 @@ def test_taa_acceptance_uses_too_precise_time(
         validate_taa_acceptance(request_dict)
 
 
-@pytest.mark.skip()
+#@pytest.mark.skip()
 def test_taa_acceptance_retired(
         tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
         turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
@@ -239,7 +239,7 @@ def test_taa_acceptance_retired(
 ):
     validate_taa_acceptance(request_dict)
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                  latest_taa.text, latest_taa.version, retired=True)
+                                  latest_taa.text, latest_taa.version, retired=1)
     with pytest.raises(
             validation_error,
             match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))

@@ -40,7 +40,7 @@ TaaAmlData = NamedTuple("TaaAmlData", [
 ])
 
 
-def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: bool = False):
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: int = None):
     if retired:
         operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
                      TXN_AUTHOR_AGREEMENT_RETIRED: retired,
