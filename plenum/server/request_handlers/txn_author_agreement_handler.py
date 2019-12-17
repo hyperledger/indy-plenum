@@ -71,7 +71,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
                                        "Changing a text of existing transaction author agreement is forbidden")
         # check the latest TAA
         if request.operation.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
-            last_taa_digest = self.get_from_state(StaticTAAHelper.state_path_taa_latest())
+            last_taa_digest = StaticTAAHelper.get_latest_taa(self.state)
             if last_taa_digest == digest:
                 raise InvalidClientRequest(request.identifier, request.reqId,
                                            "The latest transaction author agreement cannot be retired.")
