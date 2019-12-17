@@ -53,6 +53,13 @@ class StaticTAAHelper:
             return res.decode()
 
     @staticmethod
+    def get_latest_taa(state):
+        last_taa_digest = state.get(StaticTAAHelper.state_path_taa_latest())
+        if last_taa_digest is None:
+            return ''
+        return last_taa_digest.decode()
+
+    @staticmethod
     def get_taa_aml_data(state, version: Optional[str] = None,
                          isCommitted: bool = True):
         path = StaticTAAHelper.state_path_taa_aml_latest() if version is None \
