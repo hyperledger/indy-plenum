@@ -5,10 +5,9 @@ import json
 from random import randint
 
 from plenum.common.types import f
-from plenum.common.request import Request
 from plenum.common.constants import AML, DOMAIN_LEDGER_ID
 
-from plenum.test.txn_author_agreement.helper import calc_taa_digest, sdk_send_txn_author_agreement
+from plenum.test.txn_author_agreement.helper import calc_taa_digest
 
 SEC_PER_DAY = 24 * 60 * 60
 
