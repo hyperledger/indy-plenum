@@ -227,7 +227,7 @@ def test_write_request_manager_restore_state(write_req_manager: WriteRequestMana
     version = "version1"
     txn = {TXN_PAYLOAD: {TXN_PAYLOAD_TYPE: txn_type},
            TXN_METADATA: {TXN_METADATA_TIME: 0},
-           TXN_VERSION: CURRENT_TXN_VERSIONS["txn_type"]}
+           TXN_VERSION: CURRENT_TXN_VERSIONS[txn_type]}
     write_req_manager.register_req_handler(handler_current)
     write_req_manager.register_req_handler_with_version(handler_prev_version, version)
 

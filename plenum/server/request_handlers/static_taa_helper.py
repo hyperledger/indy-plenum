@@ -12,11 +12,6 @@ from plenum.server.request_handlers.utils import is_trustee
 class StaticTAAHelper:
 
     @staticmethod
-    def state_path_taa_active_list() -> bytes:
-        return "{marker}:active_list". \
-            format(marker=MARKER_TAA).encode()
-
-    @staticmethod
     def state_path_taa_latest() -> bytes:
         return "{marker}:latest". \
             format(marker=MARKER_TAA).encode()
@@ -68,6 +63,10 @@ class StaticTAAHelper:
         if payload is None:
             return None
         return config_state_serializer.deserialize(payload)
+
+    @staticmethod
+    def get_digest_from_state_key(encode_key):
+        return encode_key.decode().rsplit(":", maxsplit=1)[1]
 
     @staticmethod
     def authorize(database_manager, req: Request):

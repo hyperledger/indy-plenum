@@ -8,7 +8,7 @@ from plenum.common.config_util import getConfig
 
 from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIRED, \
-    TXN_AUTHOR_AGREEMENT_TIMESTAMP
+    TXN_AUTHOR_AGREEMENT_RATIFIED
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
@@ -333,13 +333,7 @@ class WriteRequestManager(RequestManager):
                 "Incorrect Txn Author Agreement(digest={}) in the request".format(r_taa_a_digest)
             )
 
-        if not taa_digest:
-            raise LogicError(
-                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
-                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
-            )
-
-        retired = taa.get(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        retired = taa.get(TXN_AUTHOR_AGREEMENT_RETIRED)
         if retired and retired < req_pp_time:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
@@ -355,7 +349,7 @@ class WriteRequestManager(RequestManager):
                 "Txn Author Agreement acceptance time {}"
                 " is too precise and is a privacy risk."
                 .format(r_taa_a_ts))
-        taa_txn_creation_time = taa.get(TXN_AUTHOR_AGREEMENT_TIMESTAMP, taa_txn_time)
+        taa_txn_creation_time = taa.get(TXN_AUTHOR_AGREEMENT_RATIFIED, taa_txn_time)
         date_lowest = datetime.utcfromtimestamp(
             taa_txn_creation_time -
             config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME

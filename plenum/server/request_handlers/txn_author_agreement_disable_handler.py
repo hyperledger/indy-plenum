@@ -1,7 +1,7 @@
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED, \
-    TXN_AUTHOR_AGREEMENT_TIMESTAMP, TXN_AUTHOR_AGREEMENT_DISABLE
+    TXN_AUTHOR_AGREEMENT_RATIFIED, TXN_AUTHOR_AGREEMENT_DISABLE
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_seq_no, get_txn_time
@@ -39,8 +39,9 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
         _, taa_list = self.state.generate_state_proof_for_keys_with_prefix(StaticTAAHelper.state_path_taa_digest(""),
                                                                            serialize=False, get_value=True)
         for encode_key, encode_data in taa_list.items():
+            # TODO: Possible optimization
             # taa = rlp_decode(encode_data)
             # taa = self._decode_state_value(taa[0])[0]
-            digest = encode_key.decode().split(":")[-1]
+            digest = StaticTAAHelper.get_digest_from_state_key(encode_key)
             self._update_txn_author_agreement(digest, seq_no, txn_time, retired=self.retired_time)
         self.state.remove(StaticTAAHelper.state_path_taa_latest())

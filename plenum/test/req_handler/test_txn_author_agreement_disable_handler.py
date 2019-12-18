@@ -1,12 +1,14 @@
 import pytest as pytest
 
+from plenum.common.util import get_utc_epoch
 from plenum.server.request_handlers.txn_author_agreement_disable_handler import TxnAuthorAgreementDisableHandler
+from plenum.test.req_handler.conftest import taa_request
 from storage.kv_in_memory import KeyValueStorageInMemory
 
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE, TXN_AUTHOR_AGREEMENT, \
     TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TRUSTEE, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_DIGEST, \
-    TXN_AUTHOR_AGREEMENT_RETIRED, TXN_AUTHOR_AGREEMENT_TIMESTAMP, TXN_METADATA, TXN_METADATA_TIME, \
+    TXN_AUTHOR_AGREEMENT_RETIRED, TXN_AUTHOR_AGREEMENT_RATIFIED, TXN_METADATA, TXN_METADATA_TIME, \
     TXN_AUTHOR_AGREEMENT_DISABLE
 from plenum.common.exceptions import UnauthorizedClientRequest, InvalidClientRequest
 from plenum.common.request import Request
@@ -15,7 +17,7 @@ from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
 from plenum.server.request_handlers.utils import nym_to_state_key, encode_state_value
-from plenum.test.req_handler.helper import update_nym
+from plenum.test.req_handler.helper import update_nym, create_taa_txn, check_taa_in_state
 from plenum.test.testing_utils import FakeSomething
 from state.pruning_state import PruningState
 from state.state import State
@@ -59,53 +61,47 @@ def test_dynamic_validation_for_already_disable_taa(txn_author_agreement_disable
         txn_author_agreement_disable_handler.dynamic_validation(taa_disable_request)
 
 
-def test_update_state(txn_author_agreement_disable_handler, taa_request,
-                      taa_disable_request, txn_author_agreement_handler):
-    taa_seq_no = 1
-    disable_seq_no = taa_seq_no + 1
-    taa_txn_time = 1560241033
-    disable_txn_time = taa_txn_time + 1
-    txn_id = "id"
-    taa_txn = reqToTxn(taa_request)
+def test_update_state(txn_author_agreement_disable_handler,
+                      taa_disable_request, txn_author_agreement_handler, tconf, domain_state):
+    # create TAAs
+    taa_txns = []
+    taa_digests = []
+    taa_state_datas = []
+    for _ in list(range(5)):
+        txn, digest, state_data = create_taa_txn(taa_request(tconf, domain_state))
+        taa_txns.append(txn)
+        taa_digests.append(digest)
+        taa_state_datas.append(state_data)
+    assert taa_txns
+
+    # create a disable txn
+    disable_seq_no = 1
+    disable_txn_time = get_utc_epoch()
     taa_disable_txn = reqToTxn(taa_disable_request)
-    payload = get_payload_data(taa_txn)
-    text = payload[TXN_AUTHOR_AGREEMENT_TEXT]
-    version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
-    retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIRED, False)
-    digest = StaticTAAHelper.taa_digest(text, version)
-    append_txn_metadata(taa_txn, taa_seq_no, taa_txn_time, txn_id)
-    append_txn_metadata(taa_disable_txn, disable_seq_no, disable_txn_time, txn_id)
+    append_txn_metadata(taa_disable_txn, disable_seq_no, disable_txn_time)
 
-    state_value = {TXN_AUTHOR_AGREEMENT_TEXT: text,
-                   TXN_AUTHOR_AGREEMENT_VERSION: version,
-                   TXN_AUTHOR_AGREEMENT_DIGEST: digest}
-    if retired:
-        state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
-    state_value[TXN_AUTHOR_AGREEMENT_TIMESTAMP] = None if retired else taa_txn_time
+    # set a TAAs
+    for index, taa_txn in enumerate(taa_txns):
+        txn_author_agreement_handler.update_state(taa_txn, None, None)
 
-    # Set a TAA
-    txn_author_agreement_handler.update_state(taa_txn, None, taa_request)
+        check_taa_in_state(handler=txn_author_agreement_handler,
+                           digest=taa_digests[index],
+                           version=taa_state_datas[index][0][TXN_AUTHOR_AGREEMENT_VERSION],
+                           state_data=taa_state_datas[index])
+        assert txn_author_agreement_disable_handler.state.get(
+            StaticTAAHelper.state_path_taa_latest(), isCommitted=False) == taa_digests[index].encode()
 
-    assert txn_author_agreement_disable_handler.get_from_state(
-        StaticTAAHelper.state_path_taa_digest(digest)) == (state_value, taa_seq_no, taa_txn_time)
-    assert txn_author_agreement_disable_handler.state.get(
-        StaticTAAHelper.state_path_taa_latest(), isCommitted=False) == digest.encode()
-    assert txn_author_agreement_disable_handler.state.get(
-        StaticTAAHelper.state_path_taa_version(version), isCommitted=False) == digest.encode()
+    # disable TAAs
+    txn_author_agreement_disable_handler.update_state(taa_disable_txn, None, None)
 
-    # Disable TAA
-    txn_author_agreement_disable_handler.update_state(taa_disable_txn, None, taa_disable_request)
-
-    state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = txn_author_agreement_disable_handler.retired_time
-
-    print(txn_author_agreement_handler.get_from_state(
-        StaticTAAHelper.state_path_taa_digest(digest)))
-    print((state_value, disable_seq_no, disable_txn_time))
-
-
-    assert txn_author_agreement_disable_handler.get_from_state(
-        StaticTAAHelper.state_path_taa_digest(digest)) == (state_value, disable_seq_no, disable_txn_time)
     assert txn_author_agreement_disable_handler.state.get(
         StaticTAAHelper.state_path_taa_latest(), isCommitted=False) is None
-    assert txn_author_agreement_disable_handler.state.get(
-        StaticTAAHelper.state_path_taa_version(version), isCommitted=False) == digest.encode()
+
+    # set a TAAs
+    for index, state_data in enumerate(taa_state_datas):
+        state_value = state_data[0]
+        state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = txn_author_agreement_disable_handler.retired_time
+        check_taa_in_state(handler=txn_author_agreement_handler,
+                           digest=taa_digests[index],
+                           version=state_value[TXN_AUTHOR_AGREEMENT_VERSION],
+                           state_data=(state_data[0], disable_seq_no, disable_txn_time))

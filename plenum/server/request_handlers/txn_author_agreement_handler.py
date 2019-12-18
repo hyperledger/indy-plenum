@@ -1,7 +1,7 @@
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED, \
-    TXN_AUTHOR_AGREEMENT_TIMESTAMP
+    TXN_AUTHOR_AGREEMENT_RATIFIED
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_seq_no, get_txn_time
@@ -41,7 +41,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         payload = get_payload_data(txn)
         text = payload.get(TXN_AUTHOR_AGREEMENT_TEXT)
         version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
-        retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIRED, False)
+        retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIRED)
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
         digest = StaticTAAHelper.taa_digest(text, version)
@@ -58,20 +58,27 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         return None, None, None
 
     def _validate_add_taa(self, request):
-        if request.operation.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
+        if request.operation.get(TXN_AUTHOR_AGREEMENT_TEXT) is None:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Cannot create a transaction author agreement without a 'text' field.")
+
+        if TXN_AUTHOR_AGREEMENT_RETIRED in request.operation:
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Cannot create a transaction author agreement with a 'retired' field.")
 
     def _validate_update_taa(self, request, digest):
         # check TAA text
-        text = request.operation.get(TXN_AUTHOR_AGREEMENT_TEXT)
         ledger_taa = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))[0]
-        if ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT, text) != text:
+        taa_text = ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT)
+        if request.operation.get(TXN_AUTHOR_AGREEMENT_TEXT, taa_text) != taa_text:
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Changing a text of existing transaction author agreement is forbidden")
         # check the latest TAA
-        if request.operation.get(TXN_AUTHOR_AGREEMENT_RETIRED, False):
+        if TXN_AUTHOR_AGREEMENT_RETIRED in request.operation:
             last_taa_digest = StaticTAAHelper.get_latest_taa(self.state)
             if last_taa_digest == digest:
                 raise InvalidClientRequest(request.identifier, request.reqId,
                                            "The latest transaction author agreement cannot be retired.")
+            if last_taa_digest is None:
+                raise InvalidClientRequest(request.identifier, request.reqId,
+                                           "Retirement date cannot be changed when TAA enforcement is disabled.")
