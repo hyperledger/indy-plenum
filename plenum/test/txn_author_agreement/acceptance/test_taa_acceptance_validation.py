@@ -287,15 +287,15 @@ def test_taa_acceptance_retired(
         request_dict, latest_taa,
         looper, sdk_pool_handle, sdk_wallet_trustee, set_txn_author_agreement
 ):
-    validate_taa_acceptance(request_dict)
+    # Create new txn author agreement
     set_txn_author_agreement()
-    old_taa = latest_taa
-    taa_data = set_txn_author_agreement(old_taa.text, old_taa.version, retired=1)
+    # Retire previous txn author agreement
+    taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version, retired=1)
+    # Check that request with original author agreement is discarded
     with pytest.raises(
             validation_error,
             match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
     ):
         validate_taa_acceptance(request_dict)
-
-    taa_data = set_txn_author_agreement(old_taa.text, old_taa.version)
-    validate_taa_acceptance(request_dict)
+    # TODO: Check that transaction is accepted when sent with a new TAA accepted
+    # validate_taa_acceptance(request_dict)
