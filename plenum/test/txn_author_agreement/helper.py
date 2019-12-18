@@ -28,7 +28,8 @@ TaaData = NamedTuple("TaaData", [
     ("text", str),
     ("version", str),
     ("seq_no", int),
-    ("txn_time", int)
+    ("txn_time", int),
+    ("digest", str)
 ])
 
 TaaAmlData = NamedTuple("TaaAmlData", [
@@ -73,7 +74,8 @@ def set_txn_author_agreement(
     return TaaData(
         text, version,
         seq_no=result[TXN_METADATA][TXN_METADATA_SEQ_NO],
-        txn_time=result[TXN_METADATA][TXN_METADATA_TIME]
+        txn_time=result[TXN_METADATA][TXN_METADATA_TIME],
+        digest=StaticTAAHelper.taa_digest(text, version)
     )
 
 
@@ -119,7 +121,8 @@ def get_txn_author_agreement(
         text=result[DATA][TXN_AUTHOR_AGREEMENT_TEXT],
         version=result[DATA][TXN_AUTHOR_AGREEMENT_VERSION],
         seq_no=result[f.SEQ_NO.nm],
-        txn_time=result[TXN_TIME]
+        txn_time=result[TXN_TIME],
+        digest=result[DATA][TXN_AUTHOR_AGREEMENT_DIGEST]
     )
 
 

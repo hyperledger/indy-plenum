@@ -72,7 +72,7 @@ def test_taa_acceptance_digest_non_latest(
     with pytest.raises(
         validation_error,
         match=(
-            "incorrect Txn Author Agreement"
+            "Incorrect Txn Author Agreement"
         )
     ):
         validate_taa_acceptance(request_dict)

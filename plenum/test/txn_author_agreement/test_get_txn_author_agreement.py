@@ -31,12 +31,13 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml,
     looper.runFor(3)  # Make sure we have long enough gap between updates
     reply1 = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1)
     TIMESTAMP_V1 = reply1[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
-    reply1 = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1,
-                                           retired=TIMESTAMP_V1)
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
     reply2 = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V2, V2)
     TIMESTAMP_V2 = reply2[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
+
+    reply1 = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, TEXT_V1, V1,
+                                           retired=TIMESTAMP_V1)
 
     return txnPoolNodeSet
 
@@ -51,17 +52,17 @@ def nodeSetWithTaa(request, nodeSetWithTaaAlwaysResponding):
             yield nodeSetWithTaaAlwaysResponding
 
 
-def taa_value(result, text, version, digest, retired=False):
+def taa_value(result, text, version, digest, retired=None, ratified=None):
+    if ratified is None:
+        ratified = result[TXN_METADATA_TIME]
     value = {
             TXN_AUTHOR_AGREEMENT_TEXT: text,
             TXN_AUTHOR_AGREEMENT_VERSION: version,
-            TXN_AUTHOR_AGREEMENT_DIGEST: digest
+            TXN_AUTHOR_AGREEMENT_DIGEST: digest,
+            TXN_AUTHOR_AGREEMENT_RATIFIED: ratified
         }
     if retired:
         value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
-        value[TXN_AUTHOR_AGREEMENT_RATIFIED] = None
-    else:
-        value[TXN_AUTHOR_AGREEMENT_RATIFIED] = result[TXN_METADATA_TIME]
     return JsonSerializer().serialize({
         "val": value,
         "lsn": result[TXN_METADATA_SEQ_NO],
@@ -128,7 +129,10 @@ def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetW
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V1
-    check_state_proof(result, '2:d:{}'.format(DIGEST_V1), taa_value(result, TEXT_V1, V1, DIGEST_V1))
+    assert result['data'][TXN_AUTHOR_AGREEMENT_RETIRED]
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V1), taa_value(result, TEXT_V1, V1, DIGEST_V1,
+                                                                    retired=TIMESTAMP_V1,
+                                                                    ratified=TIMESTAMP_V1))
 
 
 def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, nodeSetWithTaa,
@@ -141,8 +145,7 @@ def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, node
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V2
-    assert result['data'][TXN_AUTHOR_AGREEMENT_RETIRED]
-    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2, retired=True))
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2))
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(looper, nodeSetWithTaa,
