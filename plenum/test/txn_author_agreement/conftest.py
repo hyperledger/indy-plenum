@@ -5,6 +5,7 @@ from indy.ledger import build_acceptance_mechanisms_request
 
 from common.serializers.serialization import config_state_serializer
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
@@ -138,11 +139,11 @@ def set_txn_author_agreement_aml(
 def set_txn_author_agreement(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
 ):
-    def wrapped(text=None, version=None):
+    def wrapped(text=None, version=None, retired=None):
         random_taa = gen_random_txn_author_agreement()
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
-        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version)
+        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version, retired)
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return res
 
@@ -171,10 +172,12 @@ def random_taa(request):
 
 @pytest.fixture
 def taa_input_data():
-    return [
-        TaaData(*gen_random_txn_author_agreement(32, 8), n, n + 10)
-        for n in range(10)
-    ]
+    input_data = []
+    for n in range(10):
+        text, version = gen_random_txn_author_agreement(32, 8)
+        input_data.append(TaaData(text, version, n, n + 10,
+                                  StaticTAAHelper.taa_digest(text, version)))
+    return input_data
 
 
 @pytest.fixture
