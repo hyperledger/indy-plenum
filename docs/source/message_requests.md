@@ -31,10 +31,10 @@ If the node has the quorum(n - f - 1) of LedgerStatuses or the quorum(f + 1) of 
 
 ###ViewChange messages
 
-Loose a NewView message from primary. It is necessary to finish a view change. A node requests NewView messages from all nodes in NEW_VIEW_TIMEOUT after a view change started. 
-- If an answer is received from a primary is received the node uses them and finishes the view change. 
-- Else it uses a quorum (f+1) of NewView responses from other nodes, finishes the view change and starts catchup.
+Lost NewView message will prevent view change from finishing successfully. A node requests NewView messages from all nodes in NEW_VIEW_TIMEOUT after a view change started. 
+- If an answer is received from expected primary node uses it and finishes the view change.
+- Otherwise it uses a quorum (f+1) of NewView responses from other nodes, finishes the view change and starts catchup.
 
-Loose a ViewChange message from primary. It is necessary to finish a view change. A node requests missing ViewChange messages from all nodes after receiving a NewView message. 
+Lost ViewChange message can prevent view change from finishing successfully. A node requests missing ViewChange messages from all nodes after receiving a NewView message.  
 - If an answer is received from an owner of requested ViewChange the node uses it and finishes the view change. 
-- Else it uses a quorum (f+1) of ViewChange responses from other nodes and finishes the view change.
+- Otherwise it uses a quorum (f+1) of ViewChange responses from other nodes and finishes the view change.

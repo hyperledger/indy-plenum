@@ -47,8 +47,8 @@ In particular, it needs to know:
     - Contains in the last transaction from Audit ledger
 - Primaries for each protocol instance         
     - Contains in the last transaction from Audit ledger
-- NodeReg - list of active nodes to select next primary        
-    - Contains in the last transaction from Audit ledger
+- NodeReg - list of active nodes from which to select next primary        
+    - Contained in the last transaction from Audit ledger
 - Digests of PrePrepare messages from the last checkpoint
     - Every transaction from Audit ledger contains a digest of PrePrepare message. And list can be collect from  last transactions.
 
@@ -176,7 +176,7 @@ it will stash all corresponding 3PC messages and will apply them when catch-up f
 all ledgers are correctly caught up till the same 3PC Batch and the pool state is properly recovered (see next section),
 the node can achieve the same state as other nodes.
  
- ### View Change
+ #### View Change
  - nodeReg - to select a new primary.
  - digests of PrePrepares to recovery BatchIds which are needed for a creating VIEW_CHANGE messages.
  

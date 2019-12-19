@@ -23,6 +23,7 @@ loop repeat for Node2, Node3, Node4
     Node1 -> Node2: VIEW_CHANGE(Node1)
     note right Node4
           <b>VIEW_CHANGE contains:
+                        - <b>view_no</b> <i>(future view number),
                         - <b>stable_checkpoint</b> <i>(seq_no of the last stabilized checkpoint),
                         - <b>prepared</b> <i>(list of tuples BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
                         - <b>preprepared</b> <i>(list of BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
@@ -37,7 +38,7 @@ loop repeat for Node2, Node3, Node4
     deactivate Node4
     note right Node4
           <b>VIEW_CHANGE_ACK contains:
-                        - <b>view_no</b> <i>(number of future view change),
+                        - <b>view_no</b> <i>(future view number),
                         - <b>name</b> <i>(name of the node that sent VIEW_CHANGE message)
                         - <b>digest</b> <i>(digest of VIEW_CHANGE message)
     end note
@@ -100,7 +101,7 @@ note over Node1, Node4
 end note
 
 
-opt If Node1 preprepared less then the previous view prepare certificate
+opt If Node1 preprepared less than prepare certificate from previous view
 Node1 -> Node2: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
 Node1 -> Node3: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
 Node1 -> Node4: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
