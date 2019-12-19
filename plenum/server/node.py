@@ -12,7 +12,7 @@ import psutil
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
-    RequestPropagates, PreSigVerification, NewViewAccepted, ReOrderedInNewView, CatchupFinished, \
+    RequestPropagates, PreSigVerification, NewViewAccepted, ReAppliedInNewView, CatchupFinished, \
     NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
@@ -3221,7 +3221,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
-    def _process_re_ordered_in_new_view(self, msg: ReOrderedInNewView):
+    def _process_re_ordered_in_new_view(self, msg: ReAppliedInNewView):
         self.monitor.reset()
 
     def _process_primary_disconnected(self, msg: PrimaryDisconnected):
@@ -3250,7 +3250,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.replicas.subscribe_to_internal_bus(NewViewAccepted,
                                                 self._process_new_view_accepted,
                                                 self.master_replica.instId)
-        self.replicas.subscribe_to_internal_bus(ReOrderedInNewView,
+        self.replicas.subscribe_to_internal_bus(ReAppliedInNewView,
                                                 self._process_re_ordered_in_new_view,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(PrimaryDisconnected,

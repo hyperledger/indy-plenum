@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView, NewViewAccepted, CatchupCheckpointsApplied
+    ReAppliedInNewView, NewViewAccepted, CatchupCheckpointsApplied
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -2362,7 +2362,7 @@ class OrderingService:
         self.primaries_batch_needed = True
 
         if not missing_batches:
-            self._reordered_in_new_view()
+            self._reapplied_in_new_view()
 
     def process_old_view_preprepare_request(self, msg: OldViewPrePrepareRequest, sender):
         result, reason = self._validate(msg)
@@ -2379,12 +2379,6 @@ class OrderingService:
         self._send(rep, dst=[replica_name_to_node_name(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
-        # TODO: return the check after INDY-2238 about persisting of 3pc messages
-        # At the moment this optimization adds a bug that is reproduced in
-        # test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_the_other_half
-        # if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
-        #     self._reordered_in_new_view()
-        #     return
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
@@ -2401,7 +2395,7 @@ class OrderingService:
                 # TODO: catch more specific error here
                 logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
         if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
-            self._reordered_in_new_view()
+            self._reapplied_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
@@ -2416,10 +2410,10 @@ class OrderingService:
 
         return PROCESS, None
 
-    def _reordered_in_new_view(self):
+    def _reapplied_in_new_view(self):
         self._stasher.process_all_stashed(STASH_VIEW_3PC)
         # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
-        self._bus.send(ReOrderedInNewView())
+        self._bus.send(ReAppliedInNewView())
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
