@@ -12,7 +12,13 @@
 
 - Transaction Author Agreement is stored in Config Ledger.
 
-- Transaction Author Agreement consists of a text and a unique version. See [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md) for details.
+- Every Transaction Author Agreement consists of a text, unique version and ratification date. See [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md) for details.
+
+- There could be multiple active Transaction Author Agreements in ledger.
+
+- It's possible to set a retirement date on non-latest Transaction Author Agreement.
+
+- It's also possible to retire all Transaction Author Agreements at once (thus stopping enforcing Transaction Author Agreement on ledger).
 
 - It's possible to get the latest Transaction Author Agreement from the ledger.
 
@@ -40,9 +46,15 @@
  
 - Transaction Author Agreement can be enabled for DOMAIN and plugins ledgers by setting `TRANSACTION_AUTHOR_AGREEMENT` transaction with non-empty text (see [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md)). Please note, that a `TRANSACTION_AUTHOR_AGREEMENT_AML` transaction needs to be sent before sending the first `TRANSACTION_AUTHOR_AGREEMENT`.
 
+#### Updating Transaction Author Agreement
+
+- In order to update Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing new version and new text of agreement. This makes it possible to use new Transaction Author Agreement, but doesn't disable previous one automatically.
+
+- In order to retire previous Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing old version and retirement timestamp, which can be in future. After that date pool will stop accepting transactions with old Transaction Author Agreement acceptance.
+
 #### Disabling Transaction Author Agreement
 
-- Transaction Author Agreement can be disabled for DOMAIN and plugins ledgers by setting `TRANSACTION_AUTHOR_AGREEMENT` transaction with an empty text.
+- Transaction Author Agreement can be disabled for DOMAIN and plugins ledgers by sending `TRANSACTION_AUTHOR_AGREEMENT_DISABLE` transaction. This will immediately set current timestamp as retirement date of all not yet retired Transaction Author Agreements.
 
 #### Transaction Author Agreement Acceptance metadata in requests
 
@@ -52,7 +64,7 @@
 
 - This metadata must be signed by the user (using a standard signature used in write requests).
 
-- If Transaction Author Agreement is not set or disabled, then requests must not have any Transaction Author Agreement Acceptance metadata. 
+- If Transaction Author Agreement is not set or disabled, then requests may have any Transaction Author Agreement Acceptance metadata.
 
 - Requests to POOL and CONFIG ledgers must not have any Transaction Author Agreement Acceptance metadata.
 
@@ -60,21 +72,23 @@
 
 #### How ledger validates Transaction Author Agreement metadata in a request
 
-- If Transaction Author Agreement is not enabled, or if this is a request to POOL or CONFIG ledger, then
+- If this is a request to POOL or CONFIG ledger, then
     
     - If the request contains Transaction Author Agreement Acceptance metadata, then REJECT it.
     
     - Otherwise - ACCEPT
 
+- If Transaction Author Agreement is not enabled, then ACCEPT
+
 - If Transaction Author Agreement is required, and the request doesn't have Transaction Author Agreement Acceptance metadata, then REJECT
 
-- If Acceptance metadata's Transaction Author Agreement digest doesn't equal to the  digest of the latest Transaction Author Agreement on the ledger - REJECT
+- If Acceptance metadata's Transaction Author Agreement digest doesn't equal to the  digest of any active Transaction Author Agreement on the ledger - REJECT
 
 - If Acceptance metadata's acceptance mechanism is not in the latest Transaction Author Agreement Acceptance Mechanisms List, then REJECT
 
 - If Acceptance metadata's acceptance time is not in the acceptable interval, then REJECT
   
-  - The acceptable interval is defined as follows: `[LATEST_TAA_TXN_TIME - 2 secs; CURRENT_TIME + 2 secs]`, where `CURRENT_TIME` is a master Primary's time used for a 3PC batch the given request is ordered in. 
+  - The acceptable interval is defined as follows: `[TAA_RATIFICATION_TIME - 2 secs; CURRENT_TIME + 2 secs]`, where `CURRENT_TIME` is a master Primary's time used for a 3PC batch the given request is ordered in.
 
 #### External Audit of Transaction Author Agreement Acceptance 
 
