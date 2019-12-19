@@ -281,6 +281,7 @@ def test_taa_acceptance_allowed_when_disabled(
         validate_taa_acceptance(request_dict)
 
 
+@pytest.mark.skip(reason="Need to fix these fixtures!")
 def test_taa_acceptance_retired(
         validate_taa_acceptance, validation_error,
         turn_off_freshness_state_update,
