@@ -44,7 +44,7 @@
 
 - Transaction Author Agreement is disabled by default for all ledgers, so acceptance is not required by default.
  
-- Transaction Author Agreement can be enabled for DOMAIN and plugins ledgers by setting `TRANSACTION_AUTHOR_AGREEMENT` transaction with non-empty text (see [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md)). Please note, that a `TRANSACTION_AUTHOR_AGREEMENT_AML` transaction needs to be sent before sending the first `TRANSACTION_AUTHOR_AGREEMENT`.
+- Transaction Author Agreement can be enabled for DOMAIN and plugins ledgers by setting `TRANSACTION_AUTHOR_AGREEMENT` transaction with non-empty text (see [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md)). Please note that a `TRANSACTION_AUTHOR_AGREEMENT_AML` transaction needs to be sent before sending the first `TRANSACTION_AUTHOR_AGREEMENT`.
 
 - Newly created Transaction Author Agreement cannot have retirement date.
 
@@ -52,7 +52,7 @@
 
 - In order to update Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing new version and new text of agreement. This makes it possible to use new Transaction Author Agreement, but doesn't disable previous one automatically.
 
-- In order to retire previous Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing old version and retirement timestamp, which can be in future.
+- Old Transaction Author Agreements should be explicitely retired (see next section)
 
 #### Disabling Transaction Author Agreement
 
@@ -94,9 +94,13 @@
 
 - If Acceptance metadata's acceptance mechanism is not in the latest Transaction Author Agreement Acceptance Mechanisms List, then REJECT
 
+- If Acceptance metadata's acceptance timestamp is not rounded to date, then REJECT
+
+  - This is done to prevent correlation of different transactions which is possible when acceptance time is too precise
+
 - If Acceptance metadata's acceptance time is not in the acceptable interval, then REJECT
   
-  - The acceptable interval is defined as follows: `[TAA_RATIFICATION_TIME - 2 secs; CURRENT_TIME + 2 secs]`, where `CURRENT_TIME` is a master Primary's time used for a 3PC batch the given request is ordered in.
+  - The acceptable interval is defined as follows: `[date(TAA_RATIFICATION_TIME - 2 secs); date(CURRENT_TIME + 2 secs)]`, where `CURRENT_TIME` is a master Primary's time used for a 3PC batch the given request is ordered in, and `date` rounds timestamp to date
 
 #### External Audit of Transaction Author Agreement Acceptance 
 
