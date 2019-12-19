@@ -46,15 +46,21 @@
  
 - Transaction Author Agreement can be enabled for DOMAIN and plugins ledgers by setting `TRANSACTION_AUTHOR_AGREEMENT` transaction with non-empty text (see [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md)). Please note, that a `TRANSACTION_AUTHOR_AGREEMENT_AML` transaction needs to be sent before sending the first `TRANSACTION_AUTHOR_AGREEMENT`.
 
+- Newly created Transaction Author Agreement cannot have retirement date.
+
 #### Updating Transaction Author Agreement
 
 - In order to update Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing new version and new text of agreement. This makes it possible to use new Transaction Author Agreement, but doesn't disable previous one automatically.
 
-- In order to retire previous Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing old version and retirement timestamp, which can be in future. After that date pool will stop accepting transactions with old Transaction Author Agreement acceptance.
+- In order to retire previous Transaction Author Agreement `TRANSACTION_AUTHOR_AGREEMENT` transaction should be sent, containing old version and retirement timestamp, which can be in future.
 
 #### Disabling Transaction Author Agreement
 
-- Transaction Author Agreement can be disabled for DOMAIN and plugins ledgers by sending `TRANSACTION_AUTHOR_AGREEMENT_DISABLE` transaction. This will immediately set current timestamp as retirement date of all not yet retired Transaction Author Agreements.
+- Individual transaction author agreements can be disabled by setting retirement date using `TRANSACTION_AUTHOR_AGREEMENT` transaction. Retirement date can be in future, in this case deactivation of agreement won't happen immediately, it will be automatically deactivated at required date instead. It is also possible to change (or delete) existing retirement date of agreement if it didn't occur yet.
+
+- Latest transaction author agreement cannot be disabled individually.
+
+- It is possible to disable all Transaction Author Agreements at once by sending `TRANSACTION_AUTHOR_AGREEMENT_DISABLE` transaction. This will immediately set current timestamp as retirement date of all not yet retired Transaction Author Agreements.
 
 #### Transaction Author Agreement Acceptance metadata in requests
 
@@ -83,6 +89,8 @@
 - If Transaction Author Agreement is required, and the request doesn't have Transaction Author Agreement Acceptance metadata, then REJECT
 
 - If Acceptance metadata's Transaction Author Agreement digest doesn't equal to the  digest of any active Transaction Author Agreement on the ledger - REJECT
+
+  - Active TAA is an TAA either without retirement date or with retirement date set in future compared to batch time containing transaction. Comparison is precise (without any rounding).
 
 - If Acceptance metadata's acceptance mechanism is not in the latest Transaction Author Agreement Acceptance Mechanisms List, then REJECT
 
