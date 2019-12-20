@@ -7,7 +7,7 @@ from random import randint
 from plenum.common.types import f
 from plenum.common.constants import AML, DOMAIN_LEDGER_ID
 
-from plenum.test.txn_author_agreement.helper import calc_taa_digest
+from plenum.test.txn_author_agreement.helper import calc_taa_digest, sdk_send_txn_author_agreement_disable
 
 SEC_PER_DAY = 24 * 60 * 60
 
@@ -239,7 +239,7 @@ def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance,
     validation_error,
     set_txn_author_agreement,
-    add_taa_acceptance
+    add_taa_acceptance, looper, sdk_pool_handle, sdk_wallet
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -252,7 +252,7 @@ def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance(request_dict)
 
     # disable TAA acceptance
-    taa_data = set_txn_author_agreement("")
+    sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet)
 
     # formally valid TAA acceptance
     request_json = add_taa_acceptance(

@@ -49,9 +49,9 @@ class StaticTAAHelper:
 
     @staticmethod
     def get_latest_taa(state):
-        last_taa_digest = state.get(StaticTAAHelper.state_path_taa_latest())
+        last_taa_digest = state.get(StaticTAAHelper.state_path_taa_latest(), isCommitted=False)
         if last_taa_digest is None:
-            return ''
+            return None
         return last_taa_digest.decode()
 
     @staticmethod
