@@ -70,8 +70,7 @@ class NymHandler(WriteRequestHandler):
             new_data[ROLE] = None
             new_data[VERKEY] = None
 
-        if ROLE in txn_data:
-            new_data[ROLE] = txn_data[ROLE]
+        new_data[ROLE] = txn_data.get(ROLE, None)
         if VERKEY in txn_data:
             new_data[VERKEY] = txn_data[VERKEY]
         new_data[F.seqNo.name] = get_seq_no(txn)

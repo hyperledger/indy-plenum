@@ -81,7 +81,7 @@ class ZStack(NetworkInterface):
         self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
         self._node_mode = None
-        self._stash_unknown_remote_msgs = deque(maxlen=self.config.ZMQ_STASH_UNKNOWN_REMOTE_MSGS_QUEUE_SIZE)
+        self._stashed_unknown_remote_msgs = deque(maxlen=self.config.ZMQ_STASH_UNKNOWN_REMOTE_MSGS_QUEUE_SIZE)
 
         self.metrics = metrics
         self.mt_incoming_size = mt_incoming_size
@@ -618,7 +618,7 @@ class ZStack(NetworkInterface):
                 if self._node_mode != Mode.participating:
                     logger.info('{} not yet caught-up, stashing message from unknown remote'
                                 .format(self, z85_to_friendly(ident)))
-                    self._stash_unknown_remote_msgs.append((msg, ident))
+                    self._stashed_unknown_remote_msgs.append((msg, ident))
                 else:
                     logger.warning('{} received message from unknown remote {}'
                                    .format(self, z85_to_friendly(ident)))
@@ -806,10 +806,10 @@ class ZStack(NetworkInterface):
 
     def process_unknown_remote_msgs(self):
         logger.info('Processing messages from previously unknown remotes.')
-        for msg in self._stash_unknown_remote_msgs:
+        for msg in self._stashed_unknown_remote_msgs:
             self.rxMsgs.append(msg)
 
-        self._stash_unknown_remote_msgs.clear()
+        self._stashed_unknown_remote_msgs.clear()
         self.processReceived(limit=sys.maxsize)
 
     def send_heartbeats(self):
@@ -1045,7 +1045,6 @@ class ZStack(NetworkInterface):
 
     def prepare_to_send(self, msg: Any):
         msg_bytes = self.serializeMsg(msg)
-        self.msgLenVal.validate(msg_bytes)
         return msg_bytes
 
     @staticmethod

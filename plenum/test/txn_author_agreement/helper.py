@@ -14,19 +14,22 @@ from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PR
     AML_VERSION, AML, AML_CONTEXT, GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     OP_FIELD_NAME, DATA, TXN_TIME, REPLY, \
     TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, TXN_TYPE, \
+    TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RATIFIED, TXN_AUTHOR_AGREEMENT_DISABLE
 from plenum.common.types import f
 from plenum.common.util import randomString
+from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
-from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies
+from plenum.test.helper import sdk_sign_and_submit_req, sdk_get_and_check_replies, sdk_sign_and_submit_op
 from state.pruning_state import PruningState
 
 TaaData = NamedTuple("TaaData", [
     ("text", str),
     ("version", str),
     ("seq_no", int),
-    ("txn_time", int)
+    ("txn_time", int),
+    ("digest", str)
 ])
 
 TaaAmlData = NamedTuple("TaaAmlData", [
@@ -38,17 +41,32 @@ TaaAmlData = NamedTuple("TaaAmlData", [
 ])
 
 
-def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str):
-    req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
-    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
-    return sdk_get_and_check_replies(looper, [rep])[0]
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str,
+                                  retired: Optional[int] = None):
+    if retired:
+        operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
+                     TXN_AUTHOR_AGREEMENT_RETIRED: retired,
+                     TXN_AUTHOR_AGREEMENT_TEXT: text,
+                     TXN_AUTHOR_AGREEMENT_VERSION: version
+                     }
+        req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
+    else:
+        req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
+        req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [req])[0]
+
+
+def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
+    operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_DISABLE}
+    req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
+    return sdk_get_and_check_replies(looper, [req])[0]
 
 
 def set_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet, text: str, version: str
+        looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: int
 ) -> TaaData:
     reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet, text, version)[1]
+        looper, sdk_pool_handle, sdk_wallet, text, version, retired=retired)[1]
 
     assert reply[OP_FIELD_NAME] == REPLY
     result = reply[f.RESULT.nm]
@@ -56,7 +74,8 @@ def set_txn_author_agreement(
     return TaaData(
         text, version,
         seq_no=result[TXN_METADATA][TXN_METADATA_SEQ_NO],
-        txn_time=result[TXN_METADATA][TXN_METADATA_TIME]
+        txn_time=result[TXN_METADATA][TXN_METADATA_TIME],
+        digest=StaticTAAHelper.taa_digest(text, version)
     )
 
 
@@ -102,7 +121,8 @@ def get_txn_author_agreement(
         text=result[DATA][TXN_AUTHOR_AGREEMENT_TEXT],
         version=result[DATA][TXN_AUTHOR_AGREEMENT_VERSION],
         seq_no=result[f.SEQ_NO.nm],
-        txn_time=result[TXN_TIME]
+        txn_time=result[TXN_TIME],
+        digest=result[DATA][TXN_AUTHOR_AGREEMENT_DIGEST]
     )
 
 
@@ -162,7 +182,9 @@ def expected_state_data(data: TaaData) -> Dict:
         'lut': data.txn_time,
         'val': {
             TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-            TXN_AUTHOR_AGREEMENT_VERSION: data.version
+            TXN_AUTHOR_AGREEMENT_VERSION: data.version,
+            TXN_AUTHOR_AGREEMENT_DIGEST: StaticTAAHelper.taa_digest(data.text, data.version),
+            TXN_AUTHOR_AGREEMENT_RATIFIED: data.txn_time
         }
     }
 
@@ -170,7 +192,9 @@ def expected_state_data(data: TaaData) -> Dict:
 def expected_data(data: TaaData):
     return {
         TXN_AUTHOR_AGREEMENT_TEXT: data.text,
-        TXN_AUTHOR_AGREEMENT_VERSION: data.version
+        TXN_AUTHOR_AGREEMENT_VERSION: data.version,
+        TXN_AUTHOR_AGREEMENT_DIGEST: StaticTAAHelper.taa_digest(data.text, data.version),
+        TXN_AUTHOR_AGREEMENT_RATIFIED: data.txn_time
     }, data.seq_no, data.txn_time
 
 

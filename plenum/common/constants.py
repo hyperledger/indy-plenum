@@ -1,4 +1,5 @@
 # inter-node communication
+from collections import defaultdict
 from enum import IntEnum, unique
 
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
@@ -154,8 +155,12 @@ AUDIT = PlenumTransactions.AUDIT.value
 GET_TXN = PlenumTransactions.GET_TXN.value
 TXN_AUTHOR_AGREEMENT = PlenumTransactions.TXN_AUTHOR_AGREEMENT.value
 TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.TXN_AUTHOR_AGREEMENT_AML.value
+TXN_AUTHOR_AGREEMENT_DISABLE = PlenumTransactions.TXN_AUTHOR_AGREEMENT_DISABLE.value
 GET_TXN_AUTHOR_AGREEMENT = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT.value
 GET_TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT_AML.value
+
+CURRENT_TXN_VERSIONS = defaultdict(lambda: "1")
+CURRENT_TXN_VERSIONS[TXN_AUTHOR_AGREEMENT] = "2"
 
 # TXN
 # TODO: manye of these constants will be replaced
@@ -185,6 +190,9 @@ TXN_SIGNATURE_VALUE = "value"
 
 TXN_AUTHOR_AGREEMENT_TEXT = "text"
 TXN_AUTHOR_AGREEMENT_VERSION = "version"
+TXN_AUTHOR_AGREEMENT_DIGEST = "digest"
+TXN_AUTHOR_AGREEMENT_RETIRED = "retired"
+TXN_AUTHOR_AGREEMENT_RATIFIED = "ratified"
 
 GET_TXN_AUTHOR_AGREEMENT_VERSION = "version"
 GET_TXN_AUTHOR_AGREEMENT_DIGEST = "digest"
