@@ -7,7 +7,7 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, \
-    TXN_AUTHOR_AGREEMENT_DISABLE
+    TXN_AUTHOR_AGREEMENT_DISABLE, TXN_AUTHOR_AGREEMENT_RATIFIED
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
@@ -78,6 +78,7 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
         (TXN_AUTHOR_AGREEMENT_TEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT,
                                                              can_be_empty=True, optional=True)),
         (TXN_AUTHOR_AGREEMENT_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT)),
+        (TXN_AUTHOR_AGREEMENT_RATIFIED, NonNegativeNumberField(optional=True)),
         (TXN_AUTHOR_AGREEMENT_RETIRED, NonNegativeNumberField(optional=True))
     )
 

@@ -54,9 +54,8 @@ def test_send_valid_txn_author_agreement_without_enough_privileges_fails(
         sdk_pool_handle, sdk_wallet_steward, random_taa
 ):
     with pytest.raises(RequestRejectedException):
-        sdk_send_txn_author_agreement(
-            looper, sdk_pool_handle, sdk_wallet_steward, *random_taa
-        )
+        text, version = random_taa
+        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_steward, version, text)
 
 
 def test_send_different_txn_author_agreement_with_same_version_fails(
@@ -64,11 +63,9 @@ def test_send_different_txn_author_agreement_with_same_version_fails(
 ):
     # Send original txn
     text, version = gen_random_txn_author_agreement()
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                  text, version)
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version, text)
 
     text, _ = gen_random_txn_author_agreement()
     # Send new txn with old version
     with pytest.raises(RequestRejectedException):
-        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
-                                      text, version)
+        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version, text)

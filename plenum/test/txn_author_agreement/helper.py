@@ -41,18 +41,24 @@ TaaAmlData = NamedTuple("TaaAmlData", [
 ])
 
 
-def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, text: str, version: str,
+def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: str,
+                                  text: Optional[str] = None,
+                                  ratified: Optional[int] = None,
                                   retired: Optional[int] = None):
-    if retired:
-        operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
-                     TXN_AUTHOR_AGREEMENT_RETIRED: retired,
-                     TXN_AUTHOR_AGREEMENT_TEXT: text,
-                     TXN_AUTHOR_AGREEMENT_VERSION: version
-                     }
-        req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
-    else:
-        req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
-        req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    # TODO: Replace manual building request with SDK call when it is supported
+    # req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
+    operation = {
+        TXN_TYPE: TXN_AUTHOR_AGREEMENT,
+        TXN_AUTHOR_AGREEMENT_VERSION: version
+    }
+    if text is not None:
+        operation[TXN_AUTHOR_AGREEMENT_TEXT] = text
+    if ratified is not None:
+        operation[TXN_AUTHOR_AGREEMENT_RATIFIED] = ratified
+    if retired is not None:
+        operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+
+    req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
     return sdk_get_and_check_replies(looper, [req])[0]
 
 
@@ -65,8 +71,7 @@ def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
 def set_txn_author_agreement(
         looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: int
 ) -> TaaData:
-    reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet, text, version, retired=retired)[1]
+    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version, text, retired=retired)[1]
 
     assert reply[OP_FIELD_NAME] == REPLY
     result = reply[f.RESULT.nm]
