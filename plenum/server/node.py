@@ -3259,7 +3259,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self._process_new_view_accepted,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(ReAppliedInNewView,
-                                                self._process_re_ordered_in_new_view,
+                                                self._process_re_applied_in_new_view,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(PrimaryDisconnected,
                                                 self._process_primary_disconnected)
