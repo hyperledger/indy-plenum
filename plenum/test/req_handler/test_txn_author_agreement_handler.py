@@ -20,6 +20,11 @@ from state.pruning_state import PruningState
 from state.state import State
 
 
+@pytest.fixture(scope="function", params=[1, None, "without"])
+def retired_time(request):
+    return request.param
+
+
 @pytest.fixture(scope="function")
 def set_aml(txn_author_agreement_handler):
     txn_author_agreement_handler.state.set(StaticTAAHelper.state_path_taa_aml_latest(),
@@ -38,6 +43,91 @@ def test_dynamic_validation(txn_author_agreement_handler, taa_request, set_aml):
 def test_dynamic_validation_without_aml(txn_author_agreement_handler, taa_request):
     with pytest.raises(InvalidClientRequest,
                        match="TAA txn is forbidden until TAA AML is set. Send TAA AML first."):
+        txn_author_agreement_handler.dynamic_validation(taa_request)
+
+
+def test_dynamic_validation_add_with_retired(txn_author_agreement_handler, domain_state,
+                                         taa_request, set_aml, retired_time):
+
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    if retired_time == "without":
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        retired_time = None
+
+    if retired_time:
+        with pytest.raises(InvalidClientRequest,
+                           match="Cannot create a transaction author agreement with a 'retired' field."):
+            txn_author_agreement_handler.dynamic_validation(taa_request)
+    else:
+        txn_author_agreement_handler.dynamic_validation(taa_request)
+
+
+def test_dynamic_validation_update_last_taa_with_retired(txn_author_agreement_handler, domain_state,
+                                         taa_request, set_aml, retired_time):
+
+    txn, digest, state_data = create_taa_txn(taa_request)
+    txn_author_agreement_handler.update_state(txn, None, taa_request)
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    if retired_time == "without":
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        txn_author_agreement_handler.dynamic_validation(taa_request)
+    else:
+        with pytest.raises(InvalidClientRequest,
+                           match="The latest transaction author agreement cannot be retired"):
+            txn_author_agreement_handler.dynamic_validation(taa_request)
+
+
+def test_dynamic_validation_update_with_retired_taa_off(txn_author_agreement_handler, domain_state,
+                                         taa_request, set_aml, retired_time):
+
+    txn, digest, state_data = create_taa_txn(taa_request)
+    txn_author_agreement_handler.update_state(txn, None, taa_request)
+    txn_author_agreement_handler.state.remove(StaticTAAHelper.state_path_taa_latest())
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    if retired_time == "without":
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        txn_author_agreement_handler.dynamic_validation(taa_request)
+    else:
+        with pytest.raises(InvalidClientRequest,
+                           match="Retirement date cannot be changed when TAA enforcement is disabled."):
+            txn_author_agreement_handler.dynamic_validation(taa_request)
+
+
+def test_dynamic_validation_add_with_text(txn_author_agreement_handler, domain_state,
+                                          taa_request, set_aml):
+    # Validate adding TAA with text
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_TEXT] = "text"
+    txn_author_agreement_handler.dynamic_validation(taa_request)
+
+    # Validate adding TAA without text
+    taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_TEXT, None)
+    with pytest.raises(InvalidClientRequest,
+                       match="Cannot create a transaction author agreement without a 'text' field."):
+        txn_author_agreement_handler.dynamic_validation(taa_request)
+
+
+@pytest.mark.parametrize("second_text", ["text1", "text2", "without"])
+def test_dynamic_validation_update_with_text(txn_author_agreement_handler, domain_state,
+                                         taa_request, set_aml, second_text):
+
+    # Add a TAA
+    first_text = "text1"
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_TEXT] = first_text
+    txn, digest, state_data = create_taa_txn(taa_request)
+    txn_author_agreement_handler.update_state(txn, None, taa_request)
+
+    # Prepare the TAA for update
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_TEXT] = second_text
+    if first_text == "without":
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_TEXT, None)
+        second_text = None
+
+    # Validate the second TAA
+    if second_text and first_text != second_text:
+        with pytest.raises(InvalidClientRequest,
+                           match="Changing a text of existing transaction author agreement is forbidden"):
+            txn_author_agreement_handler.dynamic_validation(taa_request)
+    else:
         txn_author_agreement_handler.dynamic_validation(taa_request)
 
 
@@ -74,7 +164,6 @@ def test_update_state(txn_author_agreement_handler, taa_request):
         StaticTAAHelper.state_path_taa_latest(), isCommitted=False) == digest.encode()
 
 
-@pytest.mark.parametrize("retired_time", [get_utc_epoch(), None])
 def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, retired_time):
     txn, digest, state_data = create_taa_txn(taa_request)
     state_value, seq_no, txn_time_first = state_data
@@ -83,12 +172,11 @@ def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, reti
 
     # update state
     txn_author_agreement_handler.update_state(txn, None, None)
-    payload[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    if retired_time and retired_time != "without":
+        payload[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+        state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
     txn[TXN_METADATA][TXN_METADATA_TIME] = txn_time_second
     txn_author_agreement_handler.update_state(txn, None, None)
-
-    if retired_time:
-        state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
 
     assert txn_author_agreement_handler.get_from_state(
         StaticTAAHelper.state_path_taa_digest(digest)) == (state_value, seq_no, txn_time_second)

@@ -59,7 +59,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Cannot create a transaction author agreement without a 'text' field.")
 
-        if TXN_AUTHOR_AGREEMENT_RETIRED in request.operation:
+        if request.operation.get(TXN_AUTHOR_AGREEMENT_RETIRED) is not None:
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Cannot create a transaction author agreement with a 'retired' field.")
 
