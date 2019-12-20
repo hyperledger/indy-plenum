@@ -13,7 +13,8 @@ import psutil
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReAppliedInNewView, CatchupFinished, \
-    NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated
+    NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated, \
+    MasterReorderedAfterVC
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -3228,6 +3229,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if msg.inst_id != MASTER_REPLICA_INDEX:
             self._schedule_replica_removal(msg.inst_id)
 
+    def _process_master_reordered(self, msg: MasterReorderedAfterVC):
+        for replica in self.replicas.values():
+            if not replica.isMaster:
+                replica._consensus_data._master_reordered_after_vc = True
+
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
         self.on_view_change_start()
         self.replicas.send_to_internal_bus(NeedViewChange(view_no=msg.view_no))
@@ -3255,6 +3261,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                 self.master_replica.instId)
         self.replicas.subscribe_to_internal_bus(PrimaryDisconnected,
                                                 self._process_primary_disconnected)
+
+        self.replicas.subscribe_to_internal_bus(MasterReorderedAfterVC,
+                                                self._process_master_reordered)
 
     def set_view_change_status(self, value: bool):
         """

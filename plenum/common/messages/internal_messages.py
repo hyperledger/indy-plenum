@@ -83,3 +83,5 @@ CatchupCheckpointsApplied = NamedTuple('CatchupCheckpointsApplied', [('last_caug
 PrimarySelected = NamedTuple('PrimarySelected', [])
 
 PrimaryDisconnected = NamedTuple('PrimaryDisconnected', [('inst_id', int)])
+
+MasterReorderedAfterVC = NamedTuple('MasterReorderedAfterVC', [])

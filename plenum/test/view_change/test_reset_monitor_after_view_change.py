@@ -1,4 +1,4 @@
-from plenum.common.messages.internal_messages import ReOrderedInNewView
+from plenum.common.messages.internal_messages import ReAppliedInNewView
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -17,7 +17,7 @@ def test_reset_monitor_after_view_change_events(create_node_and_not_start):
     # TODO: Actually it would be nice to check that NewViewAccepted also resets monitor,
     #  however this requires either much more mocking (which is fragile) or rewriting test
     #  to use actual Replicas
-    node._process_re_ordered_in_new_view(ReOrderedInNewView())
+    node._process_re_ordered_in_new_view(ReAppliedInNewView())
 
     # After reset throughput must be 0 or None
     # depending on the throughput measurement strategy

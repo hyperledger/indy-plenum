@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReAppliedInNewView, NewViewAccepted, CatchupCheckpointsApplied
+    ReAppliedInNewView, NewViewAccepted, CatchupCheckpointsApplied, MasterReorderedAfterVC
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -1541,6 +1541,8 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
+        if self._data.prev_view_prepare_cert == pp_seq_no:
+            self._bus.send(MasterReorderedAfterVC())
 
     def _get_primaries_for_ordered(self, pp):
         txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
@@ -1806,6 +1808,8 @@ class OrderingService:
         if not self._data.is_primary:
             return False
         if not self._data.is_participating:
+            return False
+        if not self.is_master and not self._data._master_reordered_after_vc:
             return False
         if self._data.waiting_for_new_view:
             return False
@@ -2310,6 +2314,7 @@ class OrderingService:
 
         # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
+
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
@@ -2332,6 +2337,8 @@ class OrderingService:
 
         self._clear_prev_view_pre_prepares()
         self._stasher.process_all_stashed(STASH_CATCH_UP)
+        if not self.is_master:
+            self._data._master_reordered_after_vc = True
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
