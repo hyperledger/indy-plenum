@@ -2339,8 +2339,7 @@ class OrderingService:
 
         self._clear_prev_view_pre_prepares()
         self._stasher.process_all_stashed(STASH_CATCH_UP)
-        if not self.is_master:
-            self._data._master_reordered_after_vc = True
+        self._finish_master_reordering()
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
@@ -2364,6 +2363,9 @@ class OrderingService:
                     missing_batches.append(batch_id)
                 else:
                     self._process_pre_prepare_from_old_view(pp)
+
+        if len(msg.batches) == 0:
+            self._finish_master_reordering()
 
         if missing_batches:
             self._request_old_view_pre_prepares(missing_batches)
@@ -2452,3 +2454,7 @@ class OrderingService:
             self._data.preprepared.remove(batch_id)
         if batch_id in self._data.prepared:
             self._data.prepared.remove(batch_id)
+
+    def _finish_master_reordering(self):
+        if not self.is_master:
+            self._data._master_reordered_after_vc = True
