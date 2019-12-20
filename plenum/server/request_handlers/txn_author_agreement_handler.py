@@ -1,6 +1,6 @@
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_RETIRED
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_seq_no, get_txn_time
@@ -38,7 +38,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         payload = get_payload_data(txn)
         text = payload.get(TXN_AUTHOR_AGREEMENT_TEXT)
         version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
-        retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIRED)
+        retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS)
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
         digest = StaticTAAHelper.taa_digest(text, version)
@@ -57,11 +57,13 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
     def _validate_add_taa(self, request):
         if request.operation.get(TXN_AUTHOR_AGREEMENT_TEXT) is None:
             raise InvalidClientRequest(request.identifier, request.reqId,
-                                       "Cannot create a transaction author agreement without a 'text' field.")
+                                       "Cannot create a transaction author agreement without a '{}' field."
+                                       .format(TXN_AUTHOR_AGREEMENT_TEXT))
 
-        if request.operation.get(TXN_AUTHOR_AGREEMENT_RETIRED) is not None:
+        if request.operation.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS) is not None:
             raise InvalidClientRequest(request.identifier, request.reqId,
-                                       "Cannot create a transaction author agreement with a 'retired' field.")
+                                       "Cannot create a transaction author agreement with a '{}' field."
+                                       .format(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS))
 
     def _validate_update_taa(self, request, digest):
         # check TAA text
@@ -71,7 +73,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Changing a text of existing transaction author agreement is forbidden")
         # check the latest TAA
-        if TXN_AUTHOR_AGREEMENT_RETIRED in request.operation:
+        if TXN_AUTHOR_AGREEMENT_RETIREMENT_TS in request.operation:
             last_taa_digest = StaticTAAHelper.get_latest_taa(self.state)
             if last_taa_digest == digest:
                 raise InvalidClientRequest(request.identifier, request.reqId,

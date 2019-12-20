@@ -4,8 +4,8 @@ import pytest
 from common.serializers.json_serializer import JsonSerializer
 
 from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TXN_METADATA, \
-    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED, \
-    TXN_AUTHOR_AGREEMENT_RATIFIED
+    TXN_METADATA_TIME, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
+    TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
 from plenum.common.util import randomString
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
@@ -59,10 +59,10 @@ def taa_value(result, text, version, digest, retired=None, ratified=None):
             TXN_AUTHOR_AGREEMENT_TEXT: text,
             TXN_AUTHOR_AGREEMENT_VERSION: version,
             TXN_AUTHOR_AGREEMENT_DIGEST: digest,
-            TXN_AUTHOR_AGREEMENT_RATIFIED: ratified
+            TXN_AUTHOR_AGREEMENT_RATIFICATION_TS: ratified
         }
     if retired:
-        value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
+        value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired
     return JsonSerializer().serialize({
         "val": value,
         "lsn": result[TXN_METADATA_SEQ_NO],
@@ -129,7 +129,7 @@ def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetW
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V1
     assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V1
-    assert result['data'][TXN_AUTHOR_AGREEMENT_RETIRED]
+    assert result['data'][TXN_AUTHOR_AGREEMENT_RETIREMENT_TS]
     check_state_proof(result, '2:d:{}'.format(DIGEST_V1), taa_value(result, TEXT_V1, V1, DIGEST_V1,
                                                                     retired=TIMESTAMP_V1,
                                                                     ratified=TIMESTAMP_V1))

@@ -2,8 +2,8 @@ from abc import ABCMeta
 
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIRED, \
-    TXN_AUTHOR_AGREEMENT_RATIFIED
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
+    TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_seq_no, get_txn_time
@@ -21,7 +21,7 @@ class BaseTAAHandler(WriteRequestHandler, metaclass=ABCMeta):
         ledger_data = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))
         if ledger_data and ledger_data[0]:
             ledger_taa, last_seq_no, last_update_time = ledger_data
-            taa_time = ledger_taa.get(TXN_AUTHOR_AGREEMENT_RATIFIED, last_update_time)
+            taa_time = ledger_taa.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, last_update_time)
             text = ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT)
             version = ledger_taa.get(TXN_AUTHOR_AGREEMENT_VERSION)
 
@@ -31,8 +31,8 @@ class BaseTAAHandler(WriteRequestHandler, metaclass=ABCMeta):
             TXN_AUTHOR_AGREEMENT_DIGEST: digest
         }
         if retired:
-            state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired
-        state_value[TXN_AUTHOR_AGREEMENT_RATIFIED] = txn_time if taa_time is None else taa_time
+            state_value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired
+        state_value[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] = txn_time if taa_time is None else taa_time
 
         data = encode_state_value(state_value, seq_no, txn_time,
                                   serializer=config_state_serializer)
