@@ -1,4 +1,4 @@
-from random import randrange, choice
+import random
 import pytest
 
 from plenum.test.helper import view_change_timeout
@@ -9,8 +9,8 @@ from plenum.test.view_change.helper import start_stopped_node
 nodeCount = 8
 
 SHORT_DISCONNECT = 2
-LONG_DISCONNECT = 22
-RAND_INDEXES = [randrange(nodeCount - 1) for _ in range(nodeCount * 2)]
+LONG_DISCONNECT = 17
+RAND_INDEXES = [random.randrange(nodeCount) for _ in range(nodeCount * 2)]
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +37,7 @@ def restart_node(node, looper, txnPoolNodeSet, tdir, tconf, allPluginsPath, time
 
 
 def test_reconnect(looper, txnPoolNodeSet, tdir, tconf, allPluginsPath, timeout):
-    index = choice(RAND_INDEXES)
+    index = random.choice(RAND_INDEXES)
     node_to_restart = txnPoolNodeSet[index]
 
     restart_node(node_to_restart, looper, txnPoolNodeSet, tdir, tconf, allPluginsPath, timeout=timeout)
@@ -59,7 +59,7 @@ def test_reconnect_after_successive_disconnects(looper, txnPoolNodeSet, tdir, tc
 
 def test_reconnect_after_multiple_random_node_disconnects(looper, txnPoolNodeSet, tdir, tconf, allPluginsPath, timeout):
     for i in range(2):
-        index = choice(RAND_INDEXES)
+        index = random.choice(RAND_INDEXES)
         node_to_restart = txnPoolNodeSet[index]
 
         restart_node(node_to_restart, looper, txnPoolNodeSet, tdir, tconf, allPluginsPath, timeout=timeout)

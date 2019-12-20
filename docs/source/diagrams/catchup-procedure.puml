@@ -27,7 +27,8 @@ Node4 -> Node4: mode = starting
 note right Node4
     <b>- While mode != participating
         - Replicas do not generate, send or process any 3PC messages
-        - All 3PC messages are stashed (in received order)
+        - All 3PC messages as well as checkpoints and view-change-related messages
+          are stashed (in received order)
         - No ORDERED msgs are processed
 
 end note
@@ -222,7 +223,9 @@ Node4 -> Node4: Adjust parameters from the last audit transaction
 note right Node4
     - last_caught_up_3PC = (viewNo, ppSeqNo) from last audit txn
     - viewNo = viewNo from last audit txn
-    - primaries = primaries from last audit txn
+    - node_reg is recovered from the audit ledger
+    - primaries are calculated based on the recovered node registry
+      (using a node registry as it was at the beginning of previous view)
 end note
 
 opt last_caught_up_3PC > Master's last_ordered_3pc

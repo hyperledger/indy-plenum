@@ -6,14 +6,15 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     TXN_AUTHOR_AGREEMENT_AML, AML, AML_CONTEXT, AML_VERSION, \
     TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
-    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML
+    GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIRED, \
+    TXN_AUTHOR_AGREEMENT_DISABLE
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField
+    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField, BooleanField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -75,8 +76,15 @@ class ClientTxnAuthorAgreementOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT)),
         (TXN_AUTHOR_AGREEMENT_TEXT, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_TEXT_SIZE_LIMIT,
-                                                             can_be_empty=True)),
-        (TXN_AUTHOR_AGREEMENT_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT))
+                                                             can_be_empty=True, optional=True)),
+        (TXN_AUTHOR_AGREEMENT_VERSION, LimitedLengthStringField(max_length=TXN_AUTHOR_AGREEMENT_VERSION_SIZE_LIMIT)),
+        (TXN_AUTHOR_AGREEMENT_RETIRED, NonNegativeNumberField(optional=True))
+    )
+
+
+class ClientTxnAuthorAgreementDisableOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(TXN_AUTHOR_AGREEMENT_DISABLE)),
     )
 
 
@@ -116,6 +124,7 @@ class ClientOperationField(MessageValidator):
             NYM: ClientNYMOperation(schema_is_strict=strict),
             GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT: ClientTxnAuthorAgreementOperation(schema_is_strict=strict),
+            TXN_AUTHOR_AGREEMENT_DISABLE: ClientTxnAuthorAgreementDisableOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict),
             GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict),
             GET_TXN_AUTHOR_AGREEMENT_AML: ClientGetTxnAuthorAgreementAMLOperation(schema_is_strict=strict)

@@ -38,7 +38,7 @@ def txn():
             "txnId": "aaaaa",
             "txnTime": 1513945121,
         },
-        "ver": "1"
+        "ver": "2"
     }
 
 
@@ -116,7 +116,7 @@ def test_get_txn_id_none(txn):
 
 
 def test_get_txn_version(txn):
-    assert get_version(txn) == "1"
+    assert get_version(txn) == "2"
 
 
 def test_get_protocol_version(txn):

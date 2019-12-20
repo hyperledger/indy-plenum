@@ -10,8 +10,8 @@ from plenum.test.helper import sdk_get_and_check_replies
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
     sdk_send_txn_author_agreement,
-    gen_random_txn_author_agreement
-)
+    gen_random_txn_author_agreement,
+    sdk_send_txn_author_agreement_disable)
 
 
 def test_send_valid_txn_author_agreement_before_aml_fails(set_txn_author_agreement):
