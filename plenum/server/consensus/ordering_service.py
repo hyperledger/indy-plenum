@@ -1602,6 +1602,8 @@ class OrderingService:
 
         key = (commit.viewNo, commit.ppSeqNo)
         if self._validator.has_already_ordered(*key):
+            if self._data.prev_view_prepare_cert == commit.ppSeqNo:
+                self._bus.send(MasterReorderedAfterVC())
             return False, "already ordered"
 
         if commit.ppSeqNo > 1 and not self._all_prev_ordered(commit):
@@ -2419,7 +2421,6 @@ class OrderingService:
 
     def _reapplied_in_new_view(self):
         self._stasher.process_all_stashed(STASH_VIEW_3PC)
-        # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
         self._bus.send(ReAppliedInNewView())
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):

@@ -3222,7 +3222,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_start_master_catchup_msg(self, msg: NeedMasterCatchup):
         self.start_catchup()
 
-    def _process_re_ordered_in_new_view(self, msg: ReAppliedInNewView):
+    def _process_re_applied_in_new_view(self, msg: ReAppliedInNewView):
         self.monitor.reset()
 
     def _process_primary_disconnected(self, msg: PrimaryDisconnected):
@@ -3232,6 +3232,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _process_master_reordered(self, msg: MasterReorderedAfterVC):
         for replica in self.replicas.values():
             if not replica.isMaster:
+                # ToDo: This line should be changed to sending internal message
+                #  instead of setting attr directly
                 replica._consensus_data._master_reordered_after_vc = True
 
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
