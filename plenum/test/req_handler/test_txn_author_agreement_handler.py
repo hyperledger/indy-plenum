@@ -2,9 +2,9 @@ import pytest as pytest
 
 from plenum.common.util import get_utc_epoch
 from common.serializers.serialization import config_state_serializer
-from plenum.common.constants import STEWARD, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_RETIRED, TXN_METADATA, TXN_METADATA_TIME
+from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE, TXN_AUTHOR_AGREEMENT, \
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TRUSTEE, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_DIGEST, \
+    TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, TXN_METADATA, TXN_METADATA_TIME
 from plenum.common.exceptions import UnauthorizedClientRequest, InvalidClientRequest
 from plenum.common.txn_util import reqToTxn, get_payload_data
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
@@ -41,14 +41,14 @@ def test_dynamic_validation_without_aml(txn_author_agreement_handler, taa_reques
 def test_dynamic_validation_add_with_retired(txn_author_agreement_handler, domain_state,
                                          taa_request, set_aml, retired_time):
 
-    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
     if retired_time == "without":
-        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
         retired_time = None
 
     if retired_time:
         with pytest.raises(InvalidClientRequest,
-                           match="Cannot create a transaction author agreement with a 'retired' field."):
+                           match="Cannot create a transaction author agreement with a 'retirement_ts' field."):
             txn_author_agreement_handler.dynamic_validation(taa_request)
     else:
         txn_author_agreement_handler.dynamic_validation(taa_request)
@@ -59,9 +59,9 @@ def test_dynamic_validation_update_last_taa_with_retired(txn_author_agreement_ha
 
     txn, digest, state_data = create_taa_txn(taa_request)
     txn_author_agreement_handler.update_state(txn, None, taa_request)
-    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
     if retired_time == "without":
-        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
         txn_author_agreement_handler.dynamic_validation(taa_request)
     else:
         with pytest.raises(InvalidClientRequest,
@@ -75,9 +75,9 @@ def test_dynamic_validation_update_with_retired_taa_off(txn_author_agreement_han
     txn, digest, state_data = create_taa_txn(taa_request)
     txn_author_agreement_handler.update_state(txn, None, taa_request)
     txn_author_agreement_handler.state.remove(StaticTAAHelper.state_path_taa_latest())
-    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+    taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
     if retired_time == "without":
-        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIRED, None)
+        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
         txn_author_agreement_handler.dynamic_validation(taa_request)
     else:
         with pytest.raises(InvalidClientRequest,
@@ -165,8 +165,8 @@ def test_update_state_one_by_one(txn_author_agreement_handler, taa_request, reti
     # update state
     txn_author_agreement_handler.update_state(txn, None, None)
     if retired_time and retired_time != "without":
-        payload[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
-        state_value[TXN_AUTHOR_AGREEMENT_RETIRED] = retired_time
+        payload[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
+        state_value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
     txn[TXN_METADATA][TXN_METADATA_TIME] = txn_time_second
     txn_author_agreement_handler.update_state(txn, None, None)
 

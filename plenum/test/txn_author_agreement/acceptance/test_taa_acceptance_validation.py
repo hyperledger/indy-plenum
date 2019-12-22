@@ -271,11 +271,10 @@ def test_taa_acceptance_valid_on_uncommitted(
 
 
 def test_taa_acceptance_allowed_when_disabled(
-        validate_taa_acceptance,
-        validation_error,
-        set_txn_author_agreement,
-        add_taa_acceptance, looper,
-        sdk_pool_handle, sdk_wallet_trustee
+    validate_taa_acceptance,
+    validation_error,
+    set_txn_author_agreement,
+    add_taa_acceptance, looper, sdk_pool_handle, sdk_wallet_trustee
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -303,12 +302,18 @@ def test_taa_acceptance_allowed_when_disabled(
     # some invalid TAA acceptance
     request_json = add_taa_acceptance(
         taa_text='any-text',
-        taa_version=taa_data.version,
+        taa_version='any-version',
         taa_a_time=taa_data.txn_time
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 2
-    validate_taa_acceptance(request_dict)
+    with pytest.raises(
+        validation_error,
+        match=(
+            r"Incorrect Txn Author Agreement"
+        )
+    ):
+        validate_taa_acceptance(request_dict)
 
 
 @pytest.mark.skip(reason="Need to fix these fixtures!")

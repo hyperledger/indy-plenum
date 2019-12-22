@@ -52,7 +52,8 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
 
 
 def create_random_taa():
-    return gen_random_txn_author_agreement()
+    text, version = gen_random_txn_author_agreement()
+    return version, text
 
 
 def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
@@ -63,18 +64,14 @@ def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
                                                 tdir,
                                                 allPluginsPath,
                                                 set_txn_author_agreement_aml):
-    sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa()
-    )
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa())
     node_to_disconnect = txnPoolNodeSet[-1]
 
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa()
-    )
+    sdk_reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa())
 
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)

@@ -8,7 +8,7 @@ from plenum.common.util import randomString
 from plenum.server.request_handlers.utils import encode_state_value
 
 from plenum.common.constants import TRUSTEE, TXN_TYPE, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
-    TXN_AUTHOR_AGREEMENT_VERSION, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIRED
+    TXN_AUTHOR_AGREEMENT_VERSION, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS
 from plenum.common.request import Request
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
