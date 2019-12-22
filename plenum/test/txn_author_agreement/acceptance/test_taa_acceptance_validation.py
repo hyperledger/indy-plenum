@@ -307,13 +307,7 @@ def test_taa_acceptance_allowed_when_disabled(
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 2
-    with pytest.raises(
-        validation_error,
-        match=(
-            r"Incorrect Txn Author Agreement"
-        )
-    ):
-        validate_taa_acceptance(request_dict)
+    validate_taa_acceptance(request_dict)
 
 
 @pytest.mark.skip(reason="Need to fix these fixtures!")
