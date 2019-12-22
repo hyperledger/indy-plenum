@@ -4,7 +4,7 @@ from common.exceptions import LogicError
 from ledger.ledger import Ledger
 from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST, \
-    AUDIT_TXN_NODE_REG, CURRENT_TXN_VERSIONS, AUDIT
+    AUDIT_TXN_NODE_REG, CURRENT_TXN_PAYLOAD_VERSIONS, AUDIT, CURRENT_TXN_VERSION
 from plenum.common.ledger_uncommitted_tracker import LedgerUncommittedTracker
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
@@ -83,7 +83,7 @@ class AuditBatchHandler(BatchRequestHandler):
         # 1. general format and (view_no, pp_seq_no)
         view_no = three_pc_batch.original_view_no if three_pc_batch.original_view_no is not None else three_pc_batch.view_no
         txn = {
-            TXN_VERSION: CURRENT_TXN_VERSIONS[AUDIT],
+            TXN_VERSION: CURRENT_TXN_VERSION,
             AUDIT_TXN_VIEW_NO: view_no,
             AUDIT_TXN_PP_SEQ_NO: three_pc_batch.pp_seq_no,
             AUDIT_TXN_LEDGERS_SIZE: {},

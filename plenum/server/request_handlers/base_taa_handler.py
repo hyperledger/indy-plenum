@@ -46,5 +46,43 @@ class BaseTAAHandler(WriteRequestHandler, metaclass=ABCMeta):
         # self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
         # self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)
 
+    def _set_taa_to_state(self, digest, seq_no, txn_time, text, version,
+                          retirement_ts=None, ratification_ts=None):
+        state_value = {
+            TXN_AUTHOR_AGREEMENT_TEXT: text,
+            TXN_AUTHOR_AGREEMENT_VERSION: version,
+            TXN_AUTHOR_AGREEMENT_DIGEST: digest,
+            TXN_AUTHOR_AGREEMENT_RATIFICATION_TS: txn_time if ratification_ts is None else ratification_ts
+        }
+        if retirement_ts:
+            state_value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retirement_ts
+
+        data = encode_state_value(state_value, seq_no, txn_time,
+                                  serializer=config_state_serializer)
+
+        self.state.set(StaticTAAHelper.state_path_taa_digest(digest), data)
+
+    def _add_taa_to_state(self, digest, seq_no, txn_time, text, version,
+                          retirement_ts=None, ratification_ts=None):
+        self._set_taa_to_state(digest, seq_no, txn_time, text, version,
+                               retirement_ts, ratification_ts)
+        self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)
+        self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
+
+
+    def _update_taa_to_state(self, digest, seq_no, txn_time, text, version,
+                          retirement_ts=None, ratification_ts=None):
+        ledger_data = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))
+        if ledger_data and ledger_data[0]:
+            ledger_taa, last_seq_no, last_update_time = ledger_data
+            taa_time = ledger_taa.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, last_update_time)
+            text = ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT)
+            version = ledger_taa.get(TXN_AUTHOR_AGREEMENT_VERSION)
+
+        self._set_taa_to_state(digest, seq_no, txn_time, text, version,
+                               retirement_ts, ratification_ts)
+        self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)
+        self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
+
     def authorize(self, request):
         StaticTAAHelper.authorize(self.database_manager, request)
