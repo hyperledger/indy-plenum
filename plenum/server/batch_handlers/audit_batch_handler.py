@@ -83,7 +83,7 @@ class AuditBatchHandler(BatchRequestHandler):
         # 1. general format and (view_no, pp_seq_no)
         view_no = three_pc_batch.original_view_no if three_pc_batch.original_view_no is not None else three_pc_batch.view_no
         txn = {
-            TXN_VERSION: CURRENT_TXN_VERSION,
+            TXN_VERSION: CURRENT_TXN_PAYLOAD_VERSIONS[AUDIT],
             AUDIT_TXN_VIEW_NO: view_no,
             AUDIT_TXN_PP_SEQ_NO: three_pc_batch.pp_seq_no,
             AUDIT_TXN_LEDGERS_SIZE: {},
