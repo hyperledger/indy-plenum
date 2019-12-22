@@ -1,23 +1,15 @@
 import pytest as pytest
 
 from plenum.common.util import get_utc_epoch
-from storage.kv_in_memory import KeyValueStorageInMemory
-
 from common.serializers.serialization import config_state_serializer
-from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE, TXN_AUTHOR_AGREEMENT, \
-    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, TRUSTEE, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_DIGEST, \
-    TXN_AUTHOR_AGREEMENT_RETIRED, TXN_AUTHOR_AGREEMENT_RATIFIED, TXN_METADATA, TXN_METADATA_TIME
+from plenum.common.constants import STEWARD, \
+    TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
+    TXN_AUTHOR_AGREEMENT_RETIRED, TXN_METADATA, TXN_METADATA_TIME
 from plenum.common.exceptions import UnauthorizedClientRequest, InvalidClientRequest
-from plenum.common.request import Request
-from plenum.common.txn_util import reqToTxn, get_payload_data, append_txn_metadata
-from plenum.server.database_manager import DatabaseManager
+from plenum.common.txn_util import reqToTxn, get_payload_data
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
-from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
-from plenum.server.request_handlers.utils import nym_to_state_key, encode_state_value
+from plenum.server.request_handlers.utils import encode_state_value
 from plenum.test.req_handler.helper import update_nym, create_taa_txn, check_taa_in_state
-from plenum.test.testing_utils import FakeSomething
-from state.pruning_state import PruningState
-from state.state import State
 
 
 @pytest.fixture(scope="function", params=[1, None, "without"])

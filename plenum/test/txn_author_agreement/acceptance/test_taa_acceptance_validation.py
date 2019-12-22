@@ -4,10 +4,19 @@ import pytest
 import json
 from random import randint
 
+from indy.ledger import build_txn_author_agreement_request
+
+from plenum.common.util import get_utc_epoch
+from plenum.test.delayers import cDelay
+
 from plenum.common.types import f
 from plenum.common.constants import AML, DOMAIN_LEDGER_ID
+from plenum.test.helper import sdk_sign_and_submit_req
+from plenum.test.stasher import delay_rules
 
-from plenum.test.txn_author_agreement.helper import calc_taa_digest, sdk_send_txn_author_agreement_disable
+from plenum.test.txn_author_agreement.helper import calc_taa_digest, sdk_send_txn_author_agreement_disable, \
+    gen_random_txn_author_agreement
+from stp_core.loop.eventually import eventually
 
 SEC_PER_DAY = 24 * 60 * 60
 
@@ -235,11 +244,38 @@ def test_taa_acceptance_valid(
     validate_taa_acceptance(request_dict)
 
 
+def test_taa_acceptance_valid_on_uncommitted(
+        validate_taa_acceptance_func_api,
+        txnPoolNodeSet, looper, sdk_wallet_trustee, sdk_pool_handle,
+        add_taa_acceptance
+):
+    text, version = gen_random_txn_author_agreement()
+    old_pp_seq_no = txnPoolNodeSet[0].master_replica.last_ordered_3pc[1]
+
+    with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet], cDelay()):
+        req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
+                                                                                text, version))
+        req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_trustee, req)
+
+        def check():
+            assert old_pp_seq_no + 1 == txnPoolNodeSet[0].master_replica._consensus_data.preprepared[-1].pp_seq_no
+        looper.run(eventually(check))
+        request_json = add_taa_acceptance(
+            taa_text=text,
+            taa_version=version,
+            taa_a_time=get_utc_epoch() // SEC_PER_DAY * SEC_PER_DAY
+        )
+        request_dict = dict(**json.loads(request_json))
+
+        validate_taa_acceptance_func_api(request_dict)
+
+
 def test_taa_acceptance_allowed_when_disabled(
-    validate_taa_acceptance,
-    validation_error,
-    set_txn_author_agreement,
-    add_taa_acceptance, looper, sdk_pool_handle, sdk_wallet
+        validate_taa_acceptance,
+        validation_error,
+        set_txn_author_agreement,
+        add_taa_acceptance, looper,
+        sdk_pool_handle, sdk_wallet_trustee
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -252,7 +288,7 @@ def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance(request_dict)
 
     # disable TAA acceptance
-    sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet)
+    sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet_trustee)
 
     # formally valid TAA acceptance
     request_json = add_taa_acceptance(
@@ -267,18 +303,12 @@ def test_taa_acceptance_allowed_when_disabled(
     # some invalid TAA acceptance
     request_json = add_taa_acceptance(
         taa_text='any-text',
-        taa_version='any-version',
+        taa_version=taa_data.version,
         taa_a_time=taa_data.txn_time
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 2
-    with pytest.raises(
-        validation_error,
-        match=(
-            r"Incorrect Txn Author Agreement"
-        )
-    ):
-        validate_taa_acceptance(request_dict)
+    validate_taa_acceptance(request_dict)
 
 
 @pytest.mark.skip(reason="Need to fix these fixtures!")
