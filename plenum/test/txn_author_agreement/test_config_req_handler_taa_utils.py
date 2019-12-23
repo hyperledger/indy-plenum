@@ -1,10 +1,7 @@
-import pytest
-
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import AML_VERSION, AML, AML_CONTEXT, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID
-from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 
-from plenum.server.request_handlers.utils import VALUE, encode_state_value, LAST_SEQ_NO, LAST_UPDATE_TIME, is_trustee
+from plenum.server.request_handlers.utils import VALUE, encode_state_value, is_trustee
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.test.txn_author_agreement.helper import get_aml_req_handler
 
@@ -73,7 +70,8 @@ def test_update_txn_author_agreement(taa_handler, write_manager, taa_input_data,
 
     for data in taa_input_data:
         taa_handler._update_txn_author_agreement(
-            data.digest, data.seq_no, data.txn_time, data.text, data.version)
+            # TODO: Use separate ratification time from txn_time
+            data.digest, data.seq_no, data.txn_time, data.text, data.version, ratified=data.txn_time)
         written.append(data.version)
 
         digest = taa_expected_digests[data.version]
@@ -115,8 +113,10 @@ def test_get_taa_data(taa_handler, write_manager,
     """ `get_taa_data` returns expected value """
     written = []
     for data in taa_input_data:
+        # TODO: Use separate ratification time from txn_time
         taa_handler._update_txn_author_agreement(data.digest, data.seq_no,
-                                                 data.txn_time, data.text, data.version)
+                                                 data.txn_time, data.text, data.version,
+                                                 ratified=data.txn_time)
         written.append(data.version)
 
         assert (

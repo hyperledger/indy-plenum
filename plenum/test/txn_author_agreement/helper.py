@@ -69,9 +69,10 @@ def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
 
 
 def set_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet, text: str, version: str, retired: int
+        looper, sdk_pool_handle, sdk_wallet, text: str, version: str, ratified: int, retired: Optional[int]
 ) -> TaaData:
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version, text, retired=retired)[1]
+    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version, text,
+                                          ratified=ratified, retired=retired)[1]
 
     assert reply[OP_FIELD_NAME] == REPLY
     result = reply[f.RESULT.nm]
@@ -80,6 +81,7 @@ def set_txn_author_agreement(
         text, version,
         seq_no=result[TXN_METADATA][TXN_METADATA_SEQ_NO],
         txn_time=result[TXN_METADATA][TXN_METADATA_TIME],
+        # TODO: Add ratified?
         digest=StaticTAAHelper.taa_digest(text, version)
     )
 
