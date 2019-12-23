@@ -11,12 +11,6 @@ class AbstractRequestManager(metaclass=ABCMeta):
     def static_validation(self, request: Request):
         pass
 
-    # TODO: Do we really need this defined here?
-    #  Actions and Write request handlers should have different signatures of this method.
-    @abstractmethod
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        pass
-
 
 class RequestManager(AbstractRequestManager):
 

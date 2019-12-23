@@ -1,5 +1,3 @@
-from typing import Optional
-
 from common.exceptions import LogicError
 from plenum.common.constants import TXN_TYPE
 from plenum.common.request import Request
@@ -12,7 +10,7 @@ class ActionRequestManager(RequestManager):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+    def dynamic_validation(self, request: Request):
         handler = self.request_handlers.get(request.operation[TXN_TYPE], None)
         if handler is None:
             raise LogicError

@@ -6,7 +6,7 @@ from indy.ledger import build_txn_author_agreement_request
 from plenum.common.constants import REPLY, OP_FIELD_NAME, DATA, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
     TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT
 from plenum.common.exceptions import RequestNackedException, RequestRejectedException
-from plenum.common.types import OPERATION, f
+from plenum.common.types import OPERATION
 from plenum.common.util import randomString, get_utc_epoch
 
 from plenum.test.helper import sdk_get_and_check_replies

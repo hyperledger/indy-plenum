@@ -1,5 +1,3 @@
-from typing import Optional
-
 from plenum.common.request import Request
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler

@@ -2136,7 +2136,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Process an execute action request
         self.send_ack_to_client((request.identifier, request.reqId), frm)
         try:
-            self.action_manager.dynamic_validation(request, None)
+            self.action_manager.dynamic_validation(request)
             result = self.action_manager.process_action(request)
             self.transmitToClient(Reply(result), frm)
         except Exception as ex:
