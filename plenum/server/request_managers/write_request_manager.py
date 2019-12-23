@@ -98,12 +98,12 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.static_validation(request)
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
         if handlers is None:
             raise LogicError
         for handler in handlers:
-            handler.dynamic_validation(request)
+            handler.dynamic_validation(request, req_pp_time)
 
     def _get_handlers_by_version(self, txn):
         txn_type = get_type(txn)

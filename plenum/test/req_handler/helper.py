@@ -29,22 +29,23 @@ def check_taa_in_state(handler, digest, version, state_data):
         StaticTAAHelper.state_path_taa_version(version), isCommitted=False) == digest.encode()
 
 
-def create_taa_txn(taa_request):
+def create_taa_txn(taa_request, taa_pp_time):
     taa_seq_no = 1
-    taa_txn_time = get_utc_epoch()
+    taa_txn_time = taa_pp_time
     txn_id = "id"
     taa_txn = reqToTxn(taa_request)
     payload = get_payload_data(taa_txn)
     text = payload[TXN_AUTHOR_AGREEMENT_TEXT]
     version = payload[TXN_AUTHOR_AGREEMENT_VERSION]
+    ratified = payload[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS]
     retired = payload.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS)
     digest = StaticTAAHelper.taa_digest(text, version)
     append_txn_metadata(taa_txn, taa_seq_no, taa_txn_time, txn_id)
 
     state_value = {TXN_AUTHOR_AGREEMENT_TEXT: text,
                    TXN_AUTHOR_AGREEMENT_VERSION: version,
+                   TXN_AUTHOR_AGREEMENT_RATIFICATION_TS: ratified,
                    TXN_AUTHOR_AGREEMENT_DIGEST: digest}
     if retired:
         state_value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired
-    state_value[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] = None if retired else taa_txn_time
     return taa_txn, digest, (state_value, taa_seq_no, taa_txn_time)

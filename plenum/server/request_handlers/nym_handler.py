@@ -1,5 +1,6 @@
 from _sha256 import sha256
 from binascii import hexlify
+from typing import Optional
 
 from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
@@ -29,7 +30,7 @@ class NymHandler(WriteRequestHandler):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         identifier, req_id, operation = get_request_data(request)
         error = None

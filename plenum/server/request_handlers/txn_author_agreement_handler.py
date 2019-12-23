@@ -1,3 +1,6 @@
+from typing import Optional
+
+from common.exceptions import LogicError
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
@@ -18,7 +21,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         self.authorize(request)
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
@@ -29,7 +32,9 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         version = operation[TXN_AUTHOR_AGREEMENT_VERSION]
         digest = StaticTAAHelper.get_taa_digest(self.state, version, isCommitted=False)
         if digest is None:
-            self._validate_add_taa(request)
+            if req_pp_time is None:
+                raise LogicError("Cannot validate TAA transaction outside of normal ordering")
+            self._validate_add_taa(request, req_pp_time)
         else:
             self._validate_update_taa(request, digest)
 
@@ -55,7 +60,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
             return value, last_seq_no, last_update_time
         return None, None, None
 
-    def _validate_add_taa(self, request: Request):
+    def _validate_add_taa(self, request: Request, req_pp_time: int):
         if request.operation.get(TXN_AUTHOR_AGREEMENT_TEXT) is None:
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "Cannot create transaction author agreement without a '{}' field."
@@ -72,10 +77,10 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
                                        "Cannot create transaction author agreement without a '{}' field."
                                        .format(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS))
 
-        # if ratification_ts > txn_time:
-        #     raise InvalidClientRequest(request.identifier, request.reqId,
-        #                                "Cannot create transaction author agreement with '{}' set in future."
-        #                                .format(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS))
+        if ratification_ts > req_pp_time:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Cannot create transaction author agreement with '{}' set in future."
+                                       .format(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS))
 
     def _validate_update_taa(self, request, digest):
         ledger_taa = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))[0]

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_DIGEST, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
@@ -25,7 +27,7 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         self.authorize(request)
         if not self.state.get(StaticTAAHelper.state_path_taa_latest(), isCommitted=False):

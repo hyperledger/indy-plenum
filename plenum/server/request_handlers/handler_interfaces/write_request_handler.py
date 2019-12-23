@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Optional
 
 from common.exceptions import LogicError
 from plenum.server.database_manager import DatabaseManager
@@ -27,7 +28,7 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         pass
 
     def apply_request(self, request: Request, batch_ts, prev_result):

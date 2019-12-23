@@ -88,7 +88,6 @@ def test_create_txn_author_agreement_without_ratified_fails(looper, set_txn_auth
                                       text=randomString(1024))
 
 
-@pytest.mark.skip(reason="INDY-2313: Not implemented yet")
 def test_create_txn_author_agreement_with_ratified_from_future_fails(looper, set_txn_author_agreement_aml,
                                                                      sdk_pool_handle, sdk_wallet_trustee):
     with pytest.raises(RequestRejectedException):

@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABCMeta
+from typing import Optional
 
 from plenum.common.request import Request
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
@@ -10,8 +11,10 @@ class AbstractRequestManager(metaclass=ABCMeta):
     def static_validation(self, request: Request):
         pass
 
+    # TODO: Do we really need this defined here?
+    #  Actions and Write request handlers should have different signatures of this method.
     @abstractmethod
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         pass
 
 
