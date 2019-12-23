@@ -1460,12 +1460,17 @@ class OrderingService:
         """
         Try to order if the Commit message is ready to be ordered.
         """
+        if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
+                self._data.prev_view_prepare_cert == commit.ppSeqNo:
+            self._bus.send(MasterReorderedAfterVC())
+
         canOrder, reason = self._can_order(commit)
         if canOrder:
             logger.trace("{} returning request to node".format(self))
             self._do_order(commit)
         else:
-            logger.debug("{} cannot return request to node: {}".format(self, reason))
+            logger.trace("{} cannot return request to node: {}".format(self, reason))
+
         return canOrder
 
     def _do_order(self, commit: Commit):
@@ -1602,8 +1607,6 @@ class OrderingService:
 
         key = (commit.viewNo, commit.ppSeqNo)
         if self._validator.has_already_ordered(*key):
-            if self._data.prev_view_prepare_cert == commit.ppSeqNo:
-                self._bus.send(MasterReorderedAfterVC())
             return False, "already ordered"
 
         if commit.ppSeqNo > 1 and not self._all_prev_ordered(commit):
