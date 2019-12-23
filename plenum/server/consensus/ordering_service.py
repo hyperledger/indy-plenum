@@ -293,10 +293,14 @@ class OrderingService:
                     sender, Suspicions.DUPLICATE_PR_SENT, prepare))
                 return False
             # If PRE-PREPARE was not sent for this PREPARE, certainly
-            # malicious behavior
+            # malicious behavior unless this is re-ordering after view change where a new Primary may not have a
+            # PrePrepare from old view
             elif not ppReq:
-                self.report_suspicious_node(SuspiciousNode(
-                    sender, Suspicions.UNKNOWN_PR_SENT, prepare))
+                if prepare.ppSeqNo <= self._data.prev_view_prepare_cert:
+                    self._enqueue_prepare(prepare, sender)
+                else:
+                    self.report_suspicious_node(SuspiciousNode(
+                        sender, Suspicions.UNKNOWN_PR_SENT, prepare))
                 return False
 
         if primaryStatus is None and not ppReq:
@@ -806,6 +810,8 @@ class OrderingService:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
     def report_suspicious_node(self, ex: SuspiciousNode):
+        logger.debug("{} raised suspicion on node {} for {}; suspicion code "
+                     "is {}".format(self, ex.node, ex.reason, ex.code))
         self._bus.send(RaisedSuspicion(inst_id=self._data.inst_id,
                                        ex=ex))
 
@@ -890,6 +896,10 @@ class OrderingService:
             self._add_to_sent_pre_prepares(pre_prepare)
         else:
             self._add_to_pre_prepares(pre_prepare)
+
+        # we may have stashed Prepares and Commits if this is PrePrepare from old view (re-ordering phase)
+        self._dequeue_prepares(pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        self._dequeue_commits(pre_prepare.viewNo, pre_prepare.ppSeqNo)
 
         return None
 
@@ -1286,8 +1296,6 @@ class OrderingService:
         self._preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
-        self._dequeue_prepares(*key)
-        self._dequeue_commits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.try_prepare(pp)
 
