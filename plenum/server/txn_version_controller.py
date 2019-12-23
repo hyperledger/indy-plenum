@@ -1,4 +1,4 @@
-from plenum.common.txn_util import get_version
+from plenum.common.txn_util import get_payload_txn_version
 
 
 class TxnVersionController:
@@ -11,7 +11,7 @@ class TxnVersionController:
         pass
 
     def get_txn_version(self, txn):
-        return get_version(txn)
+        return get_payload_txn_version(txn)
 
     def get_pool_version(self, timestamp):
         return None

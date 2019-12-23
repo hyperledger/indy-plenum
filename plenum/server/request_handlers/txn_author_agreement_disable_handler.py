@@ -20,7 +20,6 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
 
     def __init__(self, database_manager: DatabaseManager):
         super().__init__(database_manager, TXN_AUTHOR_AGREEMENT_DISABLE, CONFIG_LEDGER_ID)
-        self.retired_time = int(time.time() // (2600 * 24))
 
     def static_validation(self, request: Request):
         pass
@@ -43,5 +42,5 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
             # taa = rlp_decode(encode_data)
             # taa = self._decode_state_value(taa[0])[0]
             digest = StaticTAAHelper.get_digest_from_state_key(encode_key)
-            self._update_txn_author_agreement(digest, seq_no, txn_time, retired=self.retired_time)
+            self._update_txn_author_agreement(digest, seq_no, txn_time, retired=txn_time)
         self.state.remove(StaticTAAHelper.state_path_taa_latest())

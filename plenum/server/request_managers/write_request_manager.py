@@ -308,7 +308,7 @@ class WriteRequestManager(RequestManager):
                 )
                 return
 
-        if not self.get_taa_data():
+        if not self.get_taa_data(isCommitted=False):
             logger.trace(
                 "{} TAA acceptance passed for request {}: "
                 "taa is disabled".format(self, request.reqId)
@@ -324,7 +324,7 @@ class WriteRequestManager(RequestManager):
 
         taa = None
         r_taa_a_digest = request.taaAcceptance.get(f.TAA_ACCEPTANCE_DIGEST.nm)
-        taa_data = self.get_taa_data(digest=r_taa_a_digest)
+        taa_data = self.get_taa_data(digest=r_taa_a_digest, isCommitted=False)
         if taa_data is not None:
             (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
         else:

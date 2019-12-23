@@ -9,7 +9,7 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
     TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID, CURRENT_PROTOCOL_VERSION, \
     TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE, TXN_PAYLOAD_METADATA_ENDORSER, \
-    CURRENT_TXN_VERSIONS
+    CURRENT_TXN_PAYLOAD_VERSIONS, TXN_PAYLOAD_VERSION, CURRENT_TXN_VERSION
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -165,6 +165,10 @@ def get_protocol_version(txn):
     return txn[TXN_PAYLOAD].get(TXN_PAYLOAD_PROTOCOL_VERSION, None)
 
 
+def get_payload_txn_version(txn):
+    return txn[TXN_PAYLOAD].get(TXN_PAYLOAD_VERSION, None)
+
+
 def is_forced(txn):
     force = get_payload_data(txn).get(FORCE, None)
     if force is None:
@@ -177,7 +181,7 @@ def init_empty_txn(txn_type, protocol_version=CURRENT_PROTOCOL_VERSION):
     result[TXN_PAYLOAD] = {}
     result[TXN_METADATA] = {}
     result[TXN_SIGNATURE] = {}
-    result[TXN_VERSION] = CURRENT_TXN_VERSIONS[txn_type]
+    result[TXN_VERSION] = CURRENT_TXN_VERSION
 
     set_type(result, txn_type)
     result[TXN_PAYLOAD][TXN_PAYLOAD_DATA] = {}
@@ -185,6 +189,8 @@ def init_empty_txn(txn_type, protocol_version=CURRENT_PROTOCOL_VERSION):
         result[TXN_PAYLOAD][TXN_PAYLOAD_PROTOCOL_VERSION] = protocol_version
 
     result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA] = {}
+    if CURRENT_TXN_PAYLOAD_VERSIONS[txn_type] and int(CURRENT_TXN_PAYLOAD_VERSIONS[txn_type]) > 1:
+        result[TXN_PAYLOAD][TXN_PAYLOAD_VERSION] = CURRENT_TXN_PAYLOAD_VERSIONS[txn_type]
     # result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = None
     # result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = None
 

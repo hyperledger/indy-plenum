@@ -42,9 +42,5 @@ class BaseTAAHandler(WriteRequestHandler, metaclass=ABCMeta):
         if not retired:
             self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
 
-        # self.state.set(StaticTAAHelper.state_path_taa_digest(digest), data)
-        # self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
-        # self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)
-
     def authorize(self, request):
         StaticTAAHelper.authorize(self.database_manager, request)
