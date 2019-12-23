@@ -4,7 +4,7 @@ from _sha256 import sha256
 
 import base58
 from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request, \
-    build_get_acceptance_mechanisms_request
+    build_get_acceptance_mechanisms_request, build_disable_all_txn_author_agreements_request
 
 from typing import NamedTuple, Dict, Optional
 from plenum.common.constants import CONFIG_LEDGER_ID, STATE_PROOF, ROOT_HASH, PROOF_NODES, MULTI_SIGNATURE, \
@@ -45,27 +45,16 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: 
                                   text: Optional[str] = None,
                                   ratified: Optional[int] = None,
                                   retired: Optional[int] = None):
-    # TODO: Replace manual building request with SDK call when it is supported
-    # req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version))
-    operation = {
-        TXN_TYPE: TXN_AUTHOR_AGREEMENT,
-        TXN_AUTHOR_AGREEMENT_VERSION: version
-    }
-    if text is not None:
-        operation[TXN_AUTHOR_AGREEMENT_TEXT] = text
-    if ratified is not None:
-        operation[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] = ratified
-    if retired is not None:
-        operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired
-
-    req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
-    return sdk_get_and_check_replies(looper, [req])[0]
+    req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version,
+                                                                            ratified, retired))
+    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [rep])[0]
 
 
 def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
-    operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_DISABLE}
-    req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
-    return sdk_get_and_check_replies(looper, [req])[0]
+    req = looper.loop.run_until_complete(build_disable_all_txn_author_agreements_request(sdk_wallet[1]))
+    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [rep])[0]
 
 
 def set_txn_author_agreement(

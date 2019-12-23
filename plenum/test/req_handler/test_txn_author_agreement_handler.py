@@ -1,7 +1,6 @@
 import pytest as pytest
 
 from plenum.common.util import get_utc_epoch
-
 from common.serializers.serialization import config_state_serializer
 from plenum.common.constants import STEWARD, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR_AGREEMENT_VERSION, \
     TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, TXN_METADATA, TXN_METADATA_TIME

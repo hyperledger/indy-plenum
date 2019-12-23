@@ -8,7 +8,7 @@ from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 from plenum.common.constants import NYM, VERKEY, ROLE, TARGET_NYM, ALIAS, NODE, \
     DATA, CLIENT_IP, CLIENT_PORT, NODE_IP, \
-    NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD, BLS_KEY_PROOF, CURRENT_TXN_VERSIONS
+    NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD, BLS_KEY_PROOF, CURRENT_TXN_PAYLOAD_VERSIONS
 from plenum.common.test_network_setup import TestNetworkSetup
 from plenum.common.txn_util import getTxnOrderedFields, get_seq_no, get_txn_id, get_payload_data, get_type, get_version, \
     get_protocol_version
@@ -107,7 +107,7 @@ def test_domain_genesis_txns(bootstrap, domain_genesis_file):
             assert get_seq_no(txn)
             assert get_payload_data(txn)
             assert get_type(txn) == NYM
-            assert get_version(txn) == CURRENT_TXN_VERSIONS[NYM]
+            assert get_version(txn) == "1"
             assert get_protocol_version(txn) is None
             assert get_payload_data(txn)[VERKEY]
             assert get_payload_data(txn)[TARGET_NYM]
@@ -133,7 +133,7 @@ def test_pool_genesis_txns(bootstrap, pool_genesis_file):
             assert get_txn_id(txn)
             assert get_payload_data(txn)
             assert get_type(txn) == NODE
-            assert get_version(txn) == CURRENT_TXN_VERSIONS[NODE]
+            assert get_version(txn) == "1"
             assert get_protocol_version(txn) is None
             assert get_payload_data(txn)[TARGET_NYM]
             data = get_payload_data(txn).get(DATA)

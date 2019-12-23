@@ -28,7 +28,7 @@
    
    -    State: A projection of the ledger. Exposes a key-value store like API, can provide merkle proof of presence of keys with values. Currently uses a Merkle Patricia Trie under the hood. 
    
-   -    Catchup: The process of a node syncing a ledger with other nodes. Used when a node starts or during a view change or it finds itself lagging behind others.
+   -    Catchup: The process of a node syncing a ledger with other nodes. Used when a node starts or it finds itself lagging behind others.
    
    -    Ledger Manager: Contains logic for catchup. Allows registering ledgers to be synced and callbacks to be called at different events.
    

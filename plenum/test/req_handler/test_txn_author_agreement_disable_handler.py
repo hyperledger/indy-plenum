@@ -100,7 +100,7 @@ def test_update_state(txn_author_agreement_disable_handler,
     # set a TAAs
     for index, state_data in enumerate(taa_state_datas):
         state_value = state_data[0]
-        state_value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = txn_author_agreement_disable_handler.retired_time
+        state_value[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = disable_txn_time
         check_taa_in_state(handler=txn_author_agreement_handler,
                            digest=taa_digests[index],
                            version=state_value[TXN_AUTHOR_AGREEMENT_VERSION],
