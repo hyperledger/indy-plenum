@@ -5,10 +5,9 @@ import json
 from random import randint
 
 from plenum.common.types import f
-from plenum.common.request import Request
 from plenum.common.constants import AML, DOMAIN_LEDGER_ID
 
-from plenum.test.txn_author_agreement.helper import calc_taa_digest
+from plenum.test.txn_author_agreement.helper import calc_taa_digest, sdk_send_txn_author_agreement_disable
 
 SEC_PER_DAY = 24 * 60 * 60
 
@@ -73,12 +72,7 @@ def test_taa_acceptance_digest_non_latest(
     with pytest.raises(
         validation_error,
         match=(
-            "Txn Author Agreement acceptance digest is invalid or non-latest:"
-            " provided {}, expected {}"
-            .format(
-                taa_digest,
-                calc_taa_digest(latest_taa.text, latest_taa.version)
-            )
+            "Incorrect Txn Author Agreement"
         )
     ):
         validate_taa_acceptance(request_dict)
@@ -241,11 +235,11 @@ def test_taa_acceptance_valid(
     validate_taa_acceptance(request_dict)
 
 
-def test_taa_acceptance_not_allowed_when_disabled(
+def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance,
     validation_error,
     set_txn_author_agreement,
-    add_taa_acceptance
+    add_taa_acceptance, looper, sdk_pool_handle, sdk_wallet_trustee
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -258,7 +252,7 @@ def test_taa_acceptance_not_allowed_when_disabled(
     validate_taa_acceptance(request_dict)
 
     # disable TAA acceptance
-    taa_data = set_txn_author_agreement("")
+    sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet_trustee)
 
     # formally valid TAA acceptance
     request_json = add_taa_acceptance(
@@ -268,14 +262,7 @@ def test_taa_acceptance_not_allowed_when_disabled(
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 1
-    with pytest.raises(
-        validation_error,
-        match=(
-            r"Txn Author Agreement acceptance is disabled"
-            " and not allowed in requests"
-        )
-    ):
-        validate_taa_acceptance(request_dict)
+    validate_taa_acceptance(request_dict)
 
     # some invalid TAA acceptance
     request_json = add_taa_acceptance(
@@ -285,11 +272,25 @@ def test_taa_acceptance_not_allowed_when_disabled(
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 2
+    validate_taa_acceptance(request_dict)
+
+
+@pytest.mark.skip(reason="Need to fix these fixtures!")
+def test_taa_acceptance_retired(
+        validate_taa_acceptance, validation_error,
+        turn_off_freshness_state_update,
+        request_dict, latest_taa,
+        looper, sdk_pool_handle, sdk_wallet_trustee, set_txn_author_agreement
+):
+    # Create new txn author agreement
+    set_txn_author_agreement()
+    # Retire previous txn author agreement
+    taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version, retired=1)
+    # Check that request with original author agreement is discarded
     with pytest.raises(
-        validation_error,
-        match=(
-            r"Txn Author Agreement acceptance is disabled"
-            " and not allowed in requests"
-        )
+            validation_error,
+            match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
     ):
         validate_taa_acceptance(request_dict)
+    # TODO: Check that transaction is accepted when sent with a new TAA accepted
+    # validate_taa_acceptance(request_dict)
