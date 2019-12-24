@@ -271,9 +271,6 @@ def addNodeBack(node_set,
                              config=tconf,
                              ha=node.nodestack.ha,
                              cliha=node.clientstack.ha)
-    for node in node_set:
-        if node.name != restartedNode.name:
-            node.nodestack.reconnectRemoteWithName(restartedNode.name)
     node_set.append(restartedNode)
     looper.add(restartedNode)
     return restartedNode

@@ -483,10 +483,6 @@ def reconnectPoolNode(looper: Looper,
                              'is not found in the passed pool node list {}'
                              .format(connect, poolNodes))
 
-    for node in poolNodes:
-        if node.name != connect:
-            node.nodestack.reconnectRemoteWithName(connect)
-
 
 def disconnect_node_and_ensure_disconnected(looper: Looper,
                                             poolNodes: Iterable[TestNode],
