@@ -30,7 +30,6 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self.node_reg_at_beginning_of_view = SortedDict()
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
-        self._uncommitted_view_no = 0
         self._committed_view_no = 0
 
     def on_catchup_finished(self):
@@ -49,10 +48,6 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
         self._uncommitted.append(UncommittedNodeReg(list(self.uncommitted_node_reg), view_no))
 
-        if view_no > self._uncommitted_view_no:
-            self.node_reg_at_beginning_of_view[view_no] = list(self.uncommitted_node_reg)
-            self._uncommitted_view_no = view_no
-
         three_pc_batch.node_reg = list(self.uncommitted_node_reg)
 
         logger.debug("Applied uncommitted node registry: {}".format(self.uncommitted_node_reg))
@@ -63,13 +58,9 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         reverted = self._uncommitted.pop()
         if len(self._uncommitted) == 0:
             self.uncommitted_node_reg = self.committed_node_reg
-            self._uncommitted_view_no = self._committed_view_no
         else:
             last_uncommitted = self._uncommitted[-1]
             self.uncommitted_node_reg = last_uncommitted.uncommitted_node_reg
-            self._uncommitted_view_no = last_uncommitted.view_no
-        if self._uncommitted_view_no < reverted.view_no:
-            self.node_reg_at_beginning_of_view.pop(reverted.view_no)
 
         logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
                                                                                self.uncommitted_node_reg))
@@ -79,7 +70,10 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         prev_committed = self.committed_node_reg
         self.committed_node_reg = self._uncommitted.popleft().uncommitted_node_reg
-        self._committed_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
+        three_pc_batch_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
+        if three_pc_batch_view_no > self._committed_view_no:
+            self.node_reg_at_beginning_of_view[three_pc_batch_view_no] = list(self.committed_node_reg)
+        self._committed_view_no = three_pc_batch_view_no
 
         # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
         # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
@@ -147,20 +141,18 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         if not audit_ledger:
             # don't have audit ledger yet, so get aleady loaded values from the pool ledger
             self.node_reg_at_beginning_of_view[0] = list(self.uncommitted_node_reg)
-            self._uncommitted_view_no = 0
             self._committed_view_no = 0
             return
 
         # 2. get the first txn in the current view
         first_txn_in_this_view, last_txn_in_prev_view = self.__get_first_txn_in_view_from_audit(audit_ledger,
                                                                                                 audit_ledger.get_last_committed_txn())
-        self._uncommitted_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
-        self._committed_view_no = self._uncommitted_view_no
+        self._committed_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
         self.node_reg_at_beginning_of_view[self._committed_view_no] = list(
             self.__load_node_reg_for_view(audit_ledger, first_txn_in_this_view))
 
         # 4. Check if audit ledger has information about 0 view only
-        if self._uncommitted_view_no == 0:
+        if self._committed_view_no == 0:
             return
 
         # 5. If audit has just 1 txn for the current view (and this view >0), then

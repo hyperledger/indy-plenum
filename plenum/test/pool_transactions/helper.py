@@ -184,7 +184,8 @@ def sdk_add_new_steward_and_node(looper,
         autoStart=autoStart,
         nodeClass=nodeClass,
         do_post_node_creation=do_post_node_creation,
-        services=services)
+        services=services,
+        wait_till_added=wait_till_added)
     return new_steward_wallet_handle, new_node
 
 
