@@ -90,6 +90,9 @@ class ConsensusSharedData:
         # Cleared in `gc`
         self.requested_pre_prepares = {}
 
+        # Flag to mark that master reordered after VC
+        self._master_reordered_after_vc = True
+
     @property
     def name(self) -> str:
         return self._name
