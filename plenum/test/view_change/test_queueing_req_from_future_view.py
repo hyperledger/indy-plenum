@@ -2,7 +2,7 @@ from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.test.delayers import icDelay, vcd_delay, vc_delay
+from plenum.test.delayers import icDelay, vc_delay
 from plenum.test.helper import sdk_send_random_requests, \
     sdk_get_replies, sdk_send_random_and_check
 from plenum.test.test_node import get_last_master_non_primary_node
@@ -29,7 +29,6 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
     # 3PC messages
     delay_ic = 60
     lagging_node.nodeIbStasher.delay(icDelay(delay_ic))
-    lagging_node.nodeIbStasher.delay(vcd_delay(delay_ic))
     lagging_node.nodeIbStasher.delay(vc_delay(delay_ic))
     logger.debug('{} will delay its view change'.format(lagging_node))
 

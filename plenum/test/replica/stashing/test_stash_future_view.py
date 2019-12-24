@@ -1,9 +1,6 @@
-import pytest as pytest
-
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
-from plenum.common.startable import Mode
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC
-from plenum.test.delayers import vcd_delay, msg_rep_delay, nv_delay
+from plenum.test.delayers import msg_rep_delay, nv_delay
 from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
