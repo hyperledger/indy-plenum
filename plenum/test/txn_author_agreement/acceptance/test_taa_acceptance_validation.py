@@ -260,7 +260,8 @@ def test_taa_acceptance_valid_on_uncommitted(
 
     with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet], cDelay()):
         req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
-                                                                                text, version))
+                                                                                text, version,
+                                                                                ratification_ts=get_utc_epoch() - 600))
         req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_trustee, req)
 
         def check():
