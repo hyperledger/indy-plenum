@@ -47,7 +47,9 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         ratified = payload.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS)
         seq_no = get_seq_no(txn)
         txn_time = get_txn_time(txn)
-        digest = StaticTAAHelper.taa_digest(text, version)
+        digest = StaticTAAHelper.get_taa_digest(self.state, version, isCommitted=False)
+        if digest is None:
+            digest = StaticTAAHelper.taa_digest(text, version)
         self._update_txn_author_agreement(digest, seq_no, txn_time, text, version, retired, ratified)
 
     def authorize(self, request):

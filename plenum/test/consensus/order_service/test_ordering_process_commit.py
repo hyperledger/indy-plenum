@@ -23,7 +23,7 @@ def commit(_pre_prepare):
 @pytest.fixture(scope='function', params=['Primary', 'Non-Primary'])
 def o(orderer_with_requests, request):
     assert orderer_with_requests.primary_name == PRIMARY_NAME
-    if request == 'Primary':
+    if request.param == 'Primary':
         orderer_with_requests.name = PRIMARY_NAME
     else:
         orderer_with_requests.name = NON_PRIMARY_NAME
@@ -45,8 +45,7 @@ def test_process_commit(o, pre_prepare, prepare, commit):
     # to be able to process Commit
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     for i in range(o._data.quorums.prepare.value):
-        if o._data.validators[i] + ":0" != o.name:
-            o.process_prepare(prepare, o._data.validators[i])
+        o.process_prepare(prepare, o._data.validators[-i])
 
     # make sure that Commit from this Node is processed and sent
     assert o.commits[(commit.viewNo, commit.ppSeqNo)] == ThreePhaseVotes(voters={o.name},
@@ -78,8 +77,7 @@ def test_process_ordered_commit(o, pre_prepare, prepare, commit):
     # to be able to process Commit
     o.process_preprepare(pre_prepare, PRIMARY_NAME)
     for i in range(o._data.quorums.prepare.value):
-        if o._data.validators[i] + ":0" != o.name:
-            o.process_prepare(prepare, o._data.validators[i])
+        o.process_prepare(prepare, o._data.validators[-i])
 
     # make sure that Commit from this Node is processed and sent
     assert o.commits[(commit.viewNo, commit.ppSeqNo)] == ThreePhaseVotes(voters={o.name},

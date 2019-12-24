@@ -80,6 +80,8 @@ class ViewChangeService:
         # 3. Update shared data
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
+        if not self._data.is_master:
+            self._data._master_reordered_after_vc = False
         self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no)
         for i, primary_name in enumerate(self._data.primaries):
             logger.display("{} selected primary {} for instance {} (view {})"
