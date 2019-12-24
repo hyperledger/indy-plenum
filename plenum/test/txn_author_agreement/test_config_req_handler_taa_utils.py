@@ -39,7 +39,7 @@ def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_
     assert not is_trustee(state, sdk_wallet_client[1])
 
 
-def test_update_txn_author_agreement(taa_handler, write_manager, taa_input_data,
+def test_add_txn_author_agreement(taa_handler, write_manager, taa_input_data,
         taa_expected_state_data, taa_expected_digests
 ):
     """ `update_txn_author_agreement` updates state properly """
@@ -69,9 +69,9 @@ def test_update_txn_author_agreement(taa_handler, write_manager, taa_input_data,
             assert _data is None
 
     for data in taa_input_data:
-        taa_handler._update_txn_author_agreement(
-            # TODO: Use separate ratification time from txn_time
-            data.digest, data.seq_no, data.txn_time, data.text, data.version, ratified=data.txn_time)
+        # TODO: Use separate ratification time from txn_time
+        taa_handler._add_taa_to_state(data.digest, data.seq_no,
+                                      data.txn_time, data.text, data.version, data.txn_time)
         written.append(data.version)
 
         digest = taa_expected_digests[data.version]
@@ -90,7 +90,8 @@ def test_get_taa_digest(taa_handler, write_manager, taa_input_data,
     """ `get_taa_digest` returns expected value """
     written = []
     for data in taa_input_data:
-        taa_handler._update_txn_author_agreement(data.digest, data.seq_no, data.txn_time, data.text, data.version)
+        taa_handler._add_taa_to_state(data.digest, data.seq_no,
+                                      data.txn_time, data.text, data.version, data.txn_time)
         written.append(data.version)
 
         assert (
@@ -114,9 +115,8 @@ def test_get_taa_data(taa_handler, write_manager,
     written = []
     for data in taa_input_data:
         # TODO: Use separate ratification time from txn_time
-        taa_handler._update_txn_author_agreement(data.digest, data.seq_no,
-                                                 data.txn_time, data.text, data.version,
-                                                 ratified=data.txn_time)
+        taa_handler._add_taa_to_state(data.digest, data.seq_no,
+                                      data.txn_time, data.text, data.version, data.txn_time)
         written.append(data.version)
 
         assert (

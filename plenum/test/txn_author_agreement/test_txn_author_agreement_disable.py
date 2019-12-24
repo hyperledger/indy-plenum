@@ -27,11 +27,11 @@ def test_send_valid_txn_author_agreement_succeeds_and_disable(
         looper, sdk_pool_handle, sdk_wallet_trustee, version=taa2.version)[1]
     result = reply[f.RESULT.nm]
     assert result[DATA][TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] == result[TXN_TIME]
-    #
-    # reply = sdk_get_txn_author_agreement(
-    #     looper, sdk_pool_handle, sdk_wallet_trustee, version=taa1.version)[1]
-    # result = reply[f.RESULT.nm]
-    # assert result[DATA][TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] == retirement_ts
+
+    reply = sdk_get_txn_author_agreement(
+        looper, sdk_pool_handle, sdk_wallet_trustee, version=taa1.version)[1]
+    result = reply[f.RESULT.nm]
+    assert result[DATA][TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] == retirement_ts
 
 
 def test_send_txn_author_agreement_disable_twice(
