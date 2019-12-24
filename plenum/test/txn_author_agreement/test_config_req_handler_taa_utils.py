@@ -76,8 +76,8 @@ def test_add_txn_author_agreement(taa_handler, write_manager, taa_input_data,
 
         digest = taa_expected_digests[data.version]
         assert state.get(
-        WriteRequestManager._state_path_taa_latest(),
-        isCommitted=False
+            WriteRequestManager._state_path_taa_latest(),
+            isCommitted=False
         ) == digest.encode()
 
         for version in taa_expected_state_data:
