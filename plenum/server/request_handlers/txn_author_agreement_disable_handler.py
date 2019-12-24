@@ -40,9 +40,11 @@ class TxnAuthorAgreementDisableHandler(BaseTAAHandler):
         _, taa_list = self.state.generate_state_proof_for_keys_with_prefix(StaticTAAHelper.state_path_taa_digest(""),
                                                                            serialize=False, get_value=True)
         for encode_key, encode_data in taa_list.items():
-            # TODO: Possible optimization
-            # taa = rlp_decode(encode_data)
-            # taa = self._decode_state_value(taa[0])[0]
+            taa = rlp_decode(encode_data)
+            taa = self._decode_state_value(taa[0])[0]
             digest = StaticTAAHelper.get_digest_from_state_key(encode_key)
-            self._update_txn_author_agreement(digest, seq_no, txn_time, retired=txn_time)
+            if TXN_AUTHOR_AGREEMENT_RETIREMENT_TS not in taa or taa.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, 0) > txn_time:
+                self._set_taa_to_state(digest, seq_no, txn_time, taa[TXN_AUTHOR_AGREEMENT_TEXT],
+                                       taa[TXN_AUTHOR_AGREEMENT_VERSION], taa[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS],
+                                       retirement_ts=txn_time)
         self.state.remove(StaticTAAHelper.state_path_taa_latest())

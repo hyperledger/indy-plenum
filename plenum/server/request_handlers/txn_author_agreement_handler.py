@@ -50,10 +50,30 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         digest = StaticTAAHelper.get_taa_digest(self.state, version, isCommitted=False)
         if digest is None:
             digest = StaticTAAHelper.taa_digest(text, version)
-        self._update_txn_author_agreement(digest, seq_no, txn_time, text, version, retired, ratified)
+            self._add_taa_to_state(digest, seq_no, txn_time, text, version, ratified)
+        else:
+            self._update_taa_to_state(digest, seq_no, txn_time, retired)
 
     def authorize(self, request):
         StaticTAAHelper.authorize(self.database_manager, request)
+
+    def _add_taa_to_state(self, digest, seq_no, txn_time, text, version, ratification_ts):
+        self._set_taa_to_state(digest, seq_no, txn_time, text, version,
+                               ratification_ts)
+
+        self.state.set(StaticTAAHelper.state_path_taa_version(version), digest)
+        self.state.set(StaticTAAHelper.state_path_taa_latest(), digest)
+
+    def _update_taa_to_state(self, digest, seq_no, txn_time, retirement_ts=None):
+        ledger_data = self.get_from_state(StaticTAAHelper.state_path_taa_digest(digest))
+        if ledger_data is None:
+            return
+        ledger_taa, last_seq_no, last_update_time = ledger_data
+        ratification_ts = ledger_taa.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, last_update_time)
+        text = ledger_taa.get(TXN_AUTHOR_AGREEMENT_TEXT)
+        version = ledger_taa.get(TXN_AUTHOR_AGREEMENT_VERSION)
+
+        self._set_taa_to_state(digest, seq_no, txn_time, text, version, ratification_ts, retirement_ts)
 
     def _decode_state_value(self, encoded):
         if encoded:
