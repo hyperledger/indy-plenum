@@ -12,11 +12,11 @@
 
 - Transaction Author Agreement is stored in Config Ledger.
 
-- Every Transaction Author Agreement consists of a text, unique version and ratification date. See [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md) for details.
+- Every Transaction Author Agreement consists of a text, unique version and ratification timestamp. See [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md) for details.
 
 - There could be multiple active Transaction Author Agreements in ledger.
 
-- It's possible to set a retirement date on non-latest Transaction Author Agreement.
+- It's possible to set a retirement timestamp on non-latest Transaction Author Agreement.
 
 - It's also possible to retire all Transaction Author Agreements at once (thus stopping enforcing Transaction Author Agreement on ledger).
 
@@ -46,7 +46,10 @@
  
 - Transaction Author Agreement can be enabled for DOMAIN and plugins ledgers by setting `TRANSACTION_AUTHOR_AGREEMENT` transaction with non-empty text (see [transactions.md](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md)). Please note that a `TRANSACTION_AUTHOR_AGREEMENT_AML` transaction needs to be sent before sending the first `TRANSACTION_AUTHOR_AGREEMENT`.
 
-- Newly created Transaction Author Agreement cannot have retirement date.
+- A new Transaction Author Agreement must have a ratification timestamp specified which can not be changed later. 
+Ratification timestamp value may have any precision up to seconds.
+
+- Newly created Transaction Author Agreement cannot have retirement timestamp.
 
 #### Updating Transaction Author Agreement
 
@@ -54,27 +57,27 @@
 
 - Old Transaction Author Agreements should be explicitely retired (see next section)
 
-- Ratification date can not be changed for existing Agreements after creation.  
+- Ratification timestamp can not be changed for existing Agreements after creation.  
 
 #### Disabling Transaction Author Agreement
 
-- Individual transaction author agreements can be disabled by setting retirement date using `TRANSACTION_AUTHOR_AGREEMENT` transaction. 
-Retirement date can be in future, in this case deactivation of agreement won't happen immediately, it will be automatically deactivated at required date instead.
+- Individual transaction author agreements can be disabled by setting retirement timestamp using `TRANSACTION_AUTHOR_AGREEMENT` transaction. 
+Retirement timestamp can be in future, in this case deactivation of agreement won't happen immediately, it will be automatically deactivated at required time instead.
 
-- Retirement date value may have any precision (seconds, milliseconds, etc.)
+- Retirement timestamp value may have any precision up to seconds.
 
-- It is possible to change existing retirement date of agreement by sending a `TRANSACTION_AUTHOR_AGREEMENT` transaction with a new retirement date.
+- It is possible to change existing retirement timestamp of agreement by sending a `TRANSACTION_AUTHOR_AGREEMENT` transaction with a new retirement timestamp.
 This may potentially re-enable already retired Agreement.
-Re-enabling retired Agreement needs to be considered as an exceptional case used mostly for fixing disabling by mistake or with incorrect retirement date specified. 
+Re-enabling retired Agreement needs to be considered as an exceptional case used mostly for fixing disabling by mistake or with incorrect retirement timestamp specified. 
 
-- It is possible to delete retirement date of agreement by sending a `TRANSACTION_AUTHOR_AGREEMENT` transaction without a retirement date or retirement date set to `None`.
+- It is possible to delete retirement timestamp of agreement by sending a `TRANSACTION_AUTHOR_AGREEMENT` transaction without a retirement timestamp or retirement timestamp set to `None`.
 This will either cancel retirement (if it hasn't occurred yet), or disable retirement of already retired transaction (re-enable the Agreement).
-Re-enabling retired Agreement needs to be considered as an exceptional case used mostly for fixing disabling by mistake or with incorrect retirement date specified.
+Re-enabling retired Agreement needs to be considered as an exceptional case used mostly for fixing disabling by mistake or with incorrect retirement timestamp specified.
 
 - Latest transaction author agreement cannot be disabled individually.
 
 - It is possible to disable all Transaction Author Agreements at once by sending `TRANSACTION_AUTHOR_AGREEMENT_DISABLE` transaction. 
-This will immediately set current timestamp as retirement date of all not yet retired Transaction Author Agreements.
+This will immediately set current timestamp as retirement one for all not yet retired Transaction Author Agreements.
 
 - It's not possible to re-enable an Agreement right after disabling all agreements because there is no active latest Agreement at this point.
 A new Agreement needs to be sent instead.
@@ -109,7 +112,7 @@ A new Agreement needs to be sent instead.
 
 - If Acceptance metadata's Transaction Author Agreement digest doesn't equal to the  digest of any active Transaction Author Agreement on the ledger - REJECT
 
-  - Active TAA is an TAA either without retirement date or with retirement date set in future compared to batch time containing transaction. Comparison is precise (without any rounding).
+  - Active TAA is an TAA either without retirement timestamp or with retirement timestamp set in future compared to batch time containing transaction. Comparison is precise (without any rounding).
 
 - If Acceptance metadata's acceptance mechanism is not in the latest Transaction Author Agreement Acceptance Mechanisms List, then REJECT
 
