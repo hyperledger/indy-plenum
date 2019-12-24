@@ -1,5 +1,6 @@
 import json
 from copy import deepcopy
+
 import pytest
 from indy.ledger import build_acceptance_mechanisms_request
 
@@ -16,17 +17,14 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from plenum.common.constants import (
     CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, AML, AML_CONTEXT,
     CONFIG_LEDGER_ID)
-from plenum.common.request import Request
 from plenum.common.ledger import Ledger
-from plenum.common.util import randomString
+from plenum.common.util import randomString, get_utc_epoch
 
 from plenum.test.txn_author_agreement.helper import (
     TaaData, expected_state_data, expected_data,
     TaaAmlData, expected_aml_data)
 
-from plenum.test.helper import sdk_get_and_check_replies, sdk_sign_and_submit_req_obj, get_handler_by_type_wm
-from plenum.test.delayers import req_delay
-from plenum.test.testing_utils import FakeSomething
+from plenum.test.helper import sdk_get_and_check_replies, get_handler_by_type_wm
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
@@ -139,11 +137,12 @@ def set_txn_author_agreement_aml(
 def set_txn_author_agreement(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
 ):
-    def wrapped(text=None, version=None, retired=None):
+    def wrapped(text=None, version=None, retired=None, ratified=None):
         random_taa = gen_random_txn_author_agreement()
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
-        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version, retired)
+        ratified = get_utc_epoch() - 600 if ratified is None else ratified
+        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version, ratified, retired)
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return res
 

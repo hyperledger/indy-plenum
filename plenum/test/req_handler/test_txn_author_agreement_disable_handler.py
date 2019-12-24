@@ -52,23 +52,23 @@ def test_static_validation(txn_author_agreement_disable_handler, taa_disable_req
 
 def test_dynamic_validation(txn_author_agreement_disable_handler, taa_disable_request):
     txn_author_agreement_disable_handler.state.set(StaticTAAHelper.state_path_taa_latest(), "{}")
-    txn_author_agreement_disable_handler.dynamic_validation(taa_disable_request)
+    txn_author_agreement_disable_handler.dynamic_validation(taa_disable_request, 0)
 
 
 def test_dynamic_validation_for_already_disable_taa(txn_author_agreement_disable_handler, taa_disable_request):
     with pytest.raises(InvalidClientRequest,
                        match="Transaction author agreement is already disabled."):
-        txn_author_agreement_disable_handler.dynamic_validation(taa_disable_request)
+        txn_author_agreement_disable_handler.dynamic_validation(taa_disable_request, 0)
 
 
 def test_update_state(txn_author_agreement_disable_handler,
-                      taa_disable_request, txn_author_agreement_handler, tconf, domain_state):
+                      taa_disable_request, txn_author_agreement_handler, tconf, domain_state, taa_pp_time):
     # create TAAs
     taa_txns = []
     taa_digests = []
     taa_state_datas = []
     for _ in list(range(5)):
-        txn, digest, state_data = create_taa_txn(taa_request(tconf, domain_state))
+        txn, digest, state_data = create_taa_txn(taa_request(tconf, domain_state, taa_pp_time), taa_pp_time)
         taa_txns.append(txn)
         taa_digests.append(digest)
         taa_state_datas.append(state_data)

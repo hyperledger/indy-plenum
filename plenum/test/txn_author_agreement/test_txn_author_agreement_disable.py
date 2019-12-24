@@ -4,6 +4,7 @@ from plenum.common.constants import DATA, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, TX
     TXN_TIME
 from plenum.common.exceptions import RequestRejectedException
 from plenum.common.types import f
+from plenum.common.util import get_utc_epoch
 from .helper import sdk_send_txn_author_agreement_disable, sdk_get_txn_author_agreement
 
 
@@ -11,10 +12,11 @@ def test_send_valid_txn_author_agreement_succeeds_and_disable(
         set_txn_author_agreement_aml, set_txn_author_agreement, get_txn_author_agreement,
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
 ):
-    taa1 = set_txn_author_agreement()
+    ratified = get_utc_epoch() - 600
+    taa1 = set_txn_author_agreement(ratified=ratified)
     taa2 = set_txn_author_agreement()
     retirement_ts = 5
-    taa1 = set_txn_author_agreement(taa1.text, taa1.version, retirement_ts)
+    taa1 = set_txn_author_agreement(taa1.text, taa1.version, retirement_ts, ratified=ratified)
     sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet_trustee)
 
     reply = sdk_get_txn_author_agreement(

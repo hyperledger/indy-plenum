@@ -3,15 +3,12 @@ import pytest
 from state.pruning_state import PruningState
 from storage.kv_in_memory import KeyValueStorageInMemory
 
-from common.serializers.serialization import config_state_serializer
 from plenum.common.util import randomString
-from plenum.server.request_handlers.utils import encode_state_value
 
 from plenum.common.constants import TRUSTEE, TXN_TYPE, TXN_AUTHOR_AGREEMENT, TXN_AUTHOR_AGREEMENT_TEXT, \
-    TXN_AUTHOR_AGREEMENT_VERSION, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS
+    TXN_AUTHOR_AGREEMENT_VERSION, DOMAIN_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
 from plenum.common.request import Request
 from plenum.server.database_manager import DatabaseManager
-from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
 
 from plenum.test.req_handler.helper import update_nym
@@ -28,13 +25,19 @@ def domain_state(tconf):
     return state
 
 
+@pytest.fixture
+def taa_pp_time():
+    return 42
+
+
 @pytest.fixture(scope="function")
-def taa_request(tconf, domain_state):
+def taa_request(tconf, domain_state, taa_pp_time):
     identifier = "identifier"
     update_nym(domain_state, identifier, TRUSTEE)
     operation = {TXN_TYPE: TXN_AUTHOR_AGREEMENT,
                  TXN_AUTHOR_AGREEMENT_TEXT: "text",
-                 TXN_AUTHOR_AGREEMENT_VERSION: "version{}".format(randomString(5))}
+                 TXN_AUTHOR_AGREEMENT_VERSION: "version{}".format(randomString(5)),
+                 TXN_AUTHOR_AGREEMENT_RATIFICATION_TS: taa_pp_time - 5}
     return Request(identifier=identifier,
                    signature="sign",
                    operation=operation)

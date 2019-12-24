@@ -1800,7 +1800,7 @@ class OrderingService:
         # For now, we need to call taa_validation not from dynamic_validation because
         # req_pp_time is required
         self._write_manager.do_taa_validation(request, req_pp_time, self._config)
-        self._write_manager.dynamic_validation(request)
+        self._write_manager.dynamic_validation(request, req_pp_time)
 
     @measure_consensus_time(MetricsName.REQUEST_PROCESSING_TIME,
                             MetricsName.BACKUP_REQUEST_PROCESSING_TIME)

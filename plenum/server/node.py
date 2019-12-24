@@ -2038,7 +2038,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if request.isForced():
             req_manager = self._get_manager_for_txn_type(txn_type=request.operation[TXN_TYPE])
             try:
-                req_manager.dynamic_validation(request)
+                req_manager.dynamic_validation(request, None)
             except Exception as e:
                 self.transmitToClient(RequestNack(request.identifier, request.reqId, str(e)), frm)
                 self.doneProcessingReq(request.key)
