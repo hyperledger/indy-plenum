@@ -11,7 +11,8 @@ class TxnVersionController:
         pass
 
     def get_txn_version(self, txn):
-        return get_payload_txn_version(txn)
+        version = get_payload_txn_version(txn)
+        return "1" if version is None else version
 
     def get_pool_version(self, timestamp):
         return None
