@@ -38,6 +38,7 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml,
 
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V1, None,
                                   retired=TIMESTAMP_V1)
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V2, TEXT_V2)
 
     return txnPoolNodeSet
 
@@ -145,7 +146,8 @@ def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, node
     assert result['data'][TXN_AUTHOR_AGREEMENT_TEXT] == TEXT_V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_VERSION] == V2
     assert result['data'][TXN_AUTHOR_AGREEMENT_DIGEST] == DIGEST_V2
-    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2))
+    check_state_proof(result, '2:d:{}'.format(DIGEST_V2), taa_value(result, TEXT_V2, V2, DIGEST_V2,
+                                                                    ratified=TIMESTAMP_V2))
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(looper, nodeSetWithTaa,
