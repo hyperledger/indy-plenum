@@ -14,21 +14,26 @@ end note
 
 == View Change Trigger ==
 
-loop repeat for Node1, Node2, Node4
-    Node1 -> Node2: INSTANCE_CHANGE(viewNo=3)
-    Node1 -> Node3: INSTANCE_CHANGE(viewNo=3)
-    Node1 -> Node4: INSTANCE_CHANGE(viewNo=3)
+Node1 -> Node2: INSTANCE_CHANGE(viewNo=3)
+Node1 -> Node3: INSTANCE_CHANGE(viewNo=3)
+Node1 -> Node4: INSTANCE_CHANGE(viewNo=3)
 
-    Node2 -> Node1: INSTANCE_CHANGE(viewNo=3)
-    Node4 -> Node1: INSTANCE_CHANGE(viewNo=3)
+Node2 -> Node1: INSTANCE_CHANGE(viewNo=3)
+Node2 -> Node3: INSTANCE_CHANGE(viewNo=3)
+Node2 -> Node4: INSTANCE_CHANGE(viewNo=3)
 
-    note right Node1
-        When a node has a quorum of (N-F) INSTANCE_CHANGE messages for the same viewNo,
-        <b>Start a View Change</b>
-    end note
+Node4 -> Node1: INSTANCE_CHANGE(viewNo=3)
+Node4 -> Node2: INSTANCE_CHANGE(viewNo=3)
+Node4 -> Node3: INSTANCE_CHANGE(viewNo=3)
 
-    Node1 -> Node1: Start View Change to viewNo=3
-end loop
+note right Node1
+    When a node has a quorum of (N-F) INSTANCE_CHANGE messages for the same viewNo,
+    <b>Start a View Change</b>
+end note
+
+Node1 -> Node1: Start View Change to viewNo=3
+Node2 -> Node2: Start View Change to viewNo=3
+Node4 -> Node4: Start View Change to viewNo=3
 
 
 
