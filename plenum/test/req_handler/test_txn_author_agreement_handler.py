@@ -60,8 +60,10 @@ def test_dynamic_validation_update_last_taa_with_retired(txn_author_agreement_ha
     txn_author_agreement_handler.update_state(txn, None, taa_request)
     taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
     if retired_time == "without":
-        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
-        txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
+        # TODO: INDY-2316 Can we get rid of this?
+        # taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
+        # txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
+        pass
     else:
         with pytest.raises(InvalidClientRequest,
                            match="The latest transaction author agreement cannot be retired"):
@@ -76,8 +78,10 @@ def test_dynamic_validation_update_with_retired_taa_off(txn_author_agreement_han
     txn_author_agreement_handler.state.remove(StaticTAAHelper.state_path_taa_latest())
     taa_request.operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired_time
     if retired_time == "without":
-        taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
-        txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
+        # TODO: INDY-2316 Can we get rid of this?
+        # taa_request.operation.pop(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, None)
+        # txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
+        pass
     else:
         with pytest.raises(InvalidClientRequest,
                            match="Retirement date cannot be changed when TAA enforcement is disabled."):
@@ -119,7 +123,9 @@ def test_dynamic_validation_update_with_text(txn_author_agreement_handler, domai
                            match="Changing a text of existing transaction author agreement is forbidden"):
             txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
     else:
-        txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
+        # TODO: INDY-2316
+        with pytest.raises(InvalidClientRequest):
+            txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
 
 
 def test_dynamic_validation_from_steward(txn_author_agreement_handler, domain_state,
@@ -135,7 +141,8 @@ def test_dynamic_validation_from_steward(txn_author_agreement_handler, domain_st
 def test_dynamic_validation_with_not_unique_version(txn_author_agreement_handler, taa_request, taa_pp_time, set_aml):
     txn = reqToTxn(taa_request)
     txn_author_agreement_handler.update_state(txn, None, taa_request)
-    txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
+    # TODO: INDY-2316 Can we get rid of this?
+    # txn_author_agreement_handler.dynamic_validation(taa_request, taa_pp_time)
     taa_request.operation[TXN_AUTHOR_AGREEMENT_TEXT] = ""
     with pytest.raises(InvalidClientRequest,
                        match="Changing a text of existing transaction author agreement is forbidden"):
